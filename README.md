@@ -1,0 +1,165 @@
+# MechET
+
+**MechET** = **Mech**anism **E**lectron-**T**ransfer CoT for retrosynthesis.
+
+Given only a mapped **product SMILES**, MechET trains an LLM to:
+1. perceive electronic endpoints / reaction centers,
+2. name an inverse electron-transfer signature,
+3. reconstruct the full reverse FlowER mechanism graph (chain / tree / DAG) with explicit **bond-electron deltas** (`BE_DELTA`),
+4. answer with the **initial reactant system**.
+
+This is **mechanism-guided retrosynthesis**: the graph is the verifiable chain-of-thought; the reactants are the final answer.
+
+```text
+product SMILES
+    → PERCEIVE + ET_SIGNATURE
+    → MECH_ET graph (STATE / RETRO_EDGE / BE_DELTA)
+    → <answer> initial reactants
+```
+
+## Why this format?
+
+| Design | Role |
+|---|---|
+| FlowER elementary steps | Official DiGraph semantics (unique root, self-loop terminals) |
+| `BE_DELTA` | Explicit arrow-pushing in FlowER BE-matrix units (single bond = 1) |
+| `SHARED` + strip-H `STATE` | Compress long system SMILES for LLM context |
+| Graph topologies | Keep trees/DAGs; do not collapse to a single path |
+| Process rewards | format · reachability · BE exact · electron conservation · answer |
+
+## Install
+
+```bash
+git clone git@github.com:wangyu-sd/MechET.git
+cd MechET
+pip install -e ".[dev]"
+# Needs RDKit; for training also: transformers, peft, datasets, bitsandbytes, accelerate
+```
+
+## Quickstart
+
+### 1) Inspect sample CoT
+
+```bash
+python - <<'PY'
+import json
+print(open("data/samples/valid_mini.jsonl").readline()[:500])
+PY
+```
+
+### 2) Build SFT from FlowER
+
+FlowER text files look like `mapped_reactants>>mapped_products|sequence_idx`.
+
+```bash
+python scripts/build_mechet_sft.py \
+  --flower-root /path/to/flower_new_dataset \
+  --out-dir data/mechet_sft \
+  --splits train valid test
+```
+
+Resume after interruption:
+
+```bash
+python scripts/build_mechet_sft.py --out-dir data/mechet_sft --splits train --resume
+```
+
+### 3) Evaluate gold CoT
+
+```bash
+python scripts/eval_mechet.py --data data/mechet_sft/valid.jsonl --limit 200
+```
+
+### 4) Train (Qwen + QLoRA)
+
+```bash
+export QWEN_MODEL_PATH=/path/to/local/qwen
+python scripts/train_mechet_sft.py --config configs/overfit32.yaml
+python scripts/train_mechet_sft.py --config configs/sft_pilot.yaml
+```
+
+Loss is **assistant-only** causal LM CE: user/system tokens are masked (`labels=-100`).
+
+## CoT schema (`MECH_ET v3`)
+
+```text
+<mechanism>
+MECH_ET v3
+DIRECTION RETRO
+TARGET_SMILES "<product>"
+PERCEIVE
+  ENDPOINT <label> maps=<ids>
+  CENTER <a-b>
+ET_SIGNATURE <name>
+ET_DEMAND <name>
+N_STATES n
+N_EDGES m
+SHARED "<spectators>"
+STATE s0 "<active>"
+...
+TARGET_STATE s0
+PRECURSOR_STATE sk
+RETRO_EDGE s0 s1
+  BE_DELTA
+    BOND i j ±d
+    LP i ±d
+    CHARGE i q0 q1
+</mechanism>
+<answer>
+<initial reactants>
+</answer>
+```
+
+`BE_DELTA` on `RETRO_EDGE a→b` is \(\Delta BE = BE(b)-BE(a)\) (reverse electron redistribution).
+
+## Repository layout
+
+```text
+src/mechet/          # core library
+  mech_graph.py      # FlowER graph build / MECH_GRAPH v2 serialize
+  mech_et.py         # BE matrix, MECH_ET v3, verify
+  sft.py             # chat SFT formatting
+  verifier.py        # process rewards
+  collator.py        # assistant-only labels
+scripts/             # build / eval / train
+configs/             # overfit32 + pilot YAML
+data/samples/        # tiny gold examples
+tests/               # unit tests (needs FlowER val.txt for full suite)
+```
+
+## Tests
+
+```bash
+# Graph/BE unit tests that hit real FlowER val (edit path in tests if needed)
+export PYTHONPATH=src
+pytest -q tests/test_mech_et.py
+```
+
+Default FlowER val path in tests:
+
+`/aaa/fionafyang/buddy1/whaleywang/datasets/retro/data/flower_new_dataset/val.txt`
+
+Override by editing `FLOWER_VAL` in `tests/test_mech_et.py`.
+
+## Relation to FlowER / ORBIT
+
+- **FlowER** supplies elementary-step trajectories and BE-matrix semantics.
+- **MechET** turns those trajectories into LLM-trainable reverse CoT for reactant prediction.
+- Extracted from the broader ORBIT / Reflow research codebase as a focused, publishable track.
+
+## Citation
+
+If you use this code, please cite FlowER and this repository:
+
+```bibtex
+@misc{mechet2026,
+  title        = {MechET: Mechanism Electron-Transfer CoT for Retrosynthesis},
+  author       = {wangyu-sd},
+  year         = {2026},
+  howpublished = {\url{https://github.com/wangyu-sd/MechET}}
+}
+```
+
+## License
+
+MIT (see `LICENSE`).

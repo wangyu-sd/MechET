@@ -1,0 +1,24 @@
+# MECH_ET v3 pilot (Qwen QLoRA) — after overfit32 passes
+model_path_env: QWEN_MODEL_PATH
+train_file: data/mechet_sft/train.jsonl
+validation_file: data/mechet_sft/valid.jsonl
+output_dir: outputs/mechet_sft_pilot
+max_steps: 500
+save_steps: 100
+max_seq_length: 8192
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 2.0e-4
+use_qlora: true
+fp16: true
+bf16: false
+gradient_checkpointing: true
+attention_implementation: sdpa
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules: [q_proj, v_proj, k_proj, o_proj]
+local_files_only: true
+assistant_only_loss: true
+seed: 11
+enable_thinking: false

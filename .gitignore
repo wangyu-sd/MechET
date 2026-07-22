@@ -1,0 +1,32 @@
+# Byte-compiled / caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Envs / IDE
+.venv/
+venv/
+.env
+.idea/
+.vscode/
+
+# Data & outputs (large)
+data/mechet_sft/
+data/orbit_mech_et_sft/
+*.jsonl
+!data/samples/*.jsonl
+outputs/
+checkpoints/
+adapter/
+wandb/
+
+# OS
+.DS_Store
+*.log
+/tmp/
