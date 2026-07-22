@@ -17,6 +17,20 @@ product SMILES
     → <answer> initial reactants
 ```
 
+## Contributions
+
+MechET’s novelty is **not** “we ran GRPO”. It is a **verifiable mechanism CoT** plus **self-induced process rewards** that need no external teacher at post-training time.
+
+1. **Representation / task** — `MECH_ET v3`: from a mapped product SMILES, predict a full reverse FlowER mechanism graph (chain / tree / DAG) with explicit bond-electron transfers (`BE_DELTA`), then answer with the initial reactants. Trees and DAGs are kept; we do not collapse mechanisms to a single path.
+
+2. **Self-induced process verification** — Given student-written `STATE` pairs, the correct \(\Delta BE\) is analytically determined (RDKit BE matrix). Matching `BE_DELTA`, electron conservation, and graph reachability yield **dense, executable process rewards** without a larger LLM teacher, a slow FlowER forward neural pass, or a learned process-RM.
+
+3. **Self-MechVR post-training recipe** — SFT on gold MECH_ET, then **teacher-free on-policy RLVR** gated by a chemical feasible set
+   \(\mathcal{F}=\{\text{format}\wedge\text{reachability}\wedge\text{e-conserved}\}\),
+   with rewards for BE alignment and reactant answer. Optional edge-level credit (score each `RETRO_EDGE` when written) densifies long-horizon learning. Deployable as a **single student model**.
+
+4. **Analysis axis** — Topology-split evaluation (linear / tree / DAG) and ablations (`−BE` / `−conserv` / outcome-only / SFT-only) isolate the value of process rewards vs sparse reactant matching.
+
 ## Why this format?
 
 | Design | Role |
@@ -25,7 +39,26 @@ product SMILES
 | `BE_DELTA` | Explicit arrow-pushing in FlowER BE-matrix units (single bond = 1) |
 | `SHARED` + strip-H `STATE` | Compress long system SMILES for LLM context |
 | Graph topologies | Keep trees/DAGs; do not collapse to a single path |
-| Process rewards | format · reachability · BE exact · electron conservation · answer |
+| Process rewards | format · reachability · BE exact · electron conservation · answer — all local |
+
+## Post-training (Self-MechVR)
+
+```text
+SFT (gold MECH_ET)
+  → on-policy rollouts
+  → local verifier rewards (no external teacher)
+  → GRPO / RLOO-style RLVR
+```
+
+| Signal | Source | External model? |
+|---|---|---|
+| format / parse | `MECH_ET v3` grammar | No |
+| reachability | reverse graph walk | No |
+| BE exact | \(\Delta BE(S_b)-\Delta BE(S_a)\) vs written `BE_DELTA` | No (RDKit) |
+| electron conserved | \(\sum \Delta BE \approx 0\) | No |
+| answer | precursors ↔ `PRECURSOR_STATE` | No |
+
+We intentionally **avoid** slow FlowER neural forward teachers and hard-to-deploy large LLM teachers as dependencies of the main method.
 
 ## Install
 
@@ -153,7 +186,7 @@ If you use this code, please cite FlowER and this repository:
 
 ```bibtex
 @misc{mechet2026,
-  title        = {MechET: Mechanism Electron-Transfer CoT for Retrosynthesis},
+  title        = {MechET: Mechanism Electron-Transfer CoT and Self-MechVR for Retrosynthesis},
   author       = {wangyu-sd},
   year         = {2026},
   howpublished = {\url{https://github.com/wangyu-sd/MechET}}
