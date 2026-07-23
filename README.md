@@ -69,6 +69,57 @@ pip install -e ".[dev]"
 # Needs RDKit; for training also: transformers, peft, datasets, bitsandbytes, accelerate
 ```
 
+## Datasets
+
+MechET SFT is built from **FlowER** elementary-step trajectories. USPTO-50K / USPTO-MIT are standard retrosynthesis benchmarks (not required to build MECH_ET JSONL, but useful for transfer / comparison). See also `data/README.md`.
+
+### FlowER mechanistic dataset (`flower_new_dataset`)
+
+Official release (Figshare): https://doi.org/10.6084/m9.figshare.32513667  
+Code / prep notes: https://github.com/FongMunHong/FlowER
+
+```bash
+# Download data.zip from Figshare, then:
+mkdir -p data/raw
+unzip data.zip -d data/raw
+# Expect: data/raw/data/flower_new_dataset/{train,val,test}.txt
+# (layout may be data/flower_new_dataset/... depending on the archive)
+
+# Point the builder at the folder that contains train.txt / val.txt / test.txt
+export FLOWER_ROOT=data/raw/data/flower_new_dataset
+```
+
+Line format: `mapped_reactants>>mapped_products|sequence_idx`  
+Steps sharing the same `sequence_idx` belong to one overall reaction / mechanism graph.
+
+### USPTO-50K
+
+Canonical sources:
+
+- GLN (Dai et al.): https://github.com/Hanjun-Dai/GLN  
+- DeepChem CSV: https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_50K.csv
+
+```bash
+mkdir -p data/raw/uspto50k
+curl -L -o data/raw/uspto50k/USPTO_50K.csv \
+  https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_50K.csv
+# Or clone GLN and copy their raw_train / raw_val / raw_test CSVs.
+```
+
+### USPTO-MIT (~479K; Jin et al.)
+
+Canonical sources:
+
+- RexGen: https://github.com/wengong-jin/nips17-rexgen (`USPTO/data.zip`)  
+- DeepChem CSV: https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_MIT.csv
+
+```bash
+mkdir -p data/raw/uspto_mit
+curl -L -o data/raw/uspto_mit/USPTO_MIT.csv \
+  https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_MIT.csv
+# Or: download USPTO/data.zip from the RexGen repo and unpack into data/raw/uspto_mit/
+```
+
 ## Quickstart
 
 ### 1) Inspect sample CoT
@@ -82,11 +133,11 @@ PY
 
 ### 2) Build SFT from FlowER
 
-FlowER text files look like `mapped_reactants>>mapped_products|sequence_idx`.
+Requires `flower_new_dataset` (see **Datasets** above). Files look like `mapped_reactants>>mapped_products|sequence_idx`.
 
 ```bash
 python scripts/build_mechet_sft.py \
-  --flower-root /path/to/flower_new_dataset \
+  --flower-root "${FLOWER_ROOT:-/path/to/flower_new_dataset}" \
   --out-dir data/mechet_sft \
   --splits train valid test
 ```
