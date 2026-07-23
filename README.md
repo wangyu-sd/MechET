@@ -1,64 +1,35 @@
 # MechET
 
-**MechET** = **Mech**anism **E**lectron-**T**ransfer CoT for retrosynthesis.
+**Verifiable mechanism chain-of-thought for retrosynthesis.**
 
-Given only a mapped **product SMILES**, MechET trains an LLM to:
-1. perceive electronic endpoints / reaction centers,
-2. name an inverse electron-transfer signature,
-3. reconstruct the full reverse FlowER mechanism graph (chain / tree / DAG) with explicit **bond-electron deltas** (`BE_DELTA`),
-4. answer with the **initial reactant system**.
+[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
+[![RDKit](https://img.shields.io/badge/RDKit-required-2E7D32?style=flat-square)](https://www.rdkit.org/)
 
-This is **mechanism-guided retrosynthesis**: the graph is the verifiable chain-of-thought; the reactants are the final answer.
+From a mapped **product SMILES**, MechET trains an LLM to emit a reverse FlowER mechanism graph with explicit bond–electron deltas (`BE_DELTA`), then answer with the **initial reactants**. The graph is the verifiable CoT; the reactants are the task output.
 
 ```text
-product SMILES
-    → PERCEIVE + ET_SIGNATURE
-    → MECH_ET graph (STATE / RETRO_EDGE / BE_DELTA)
-    → <answer> initial reactants
+product  →  PERCEIVE / ET_SIGNATURE  →  STATE · RETRO_EDGE · BE_DELTA  →  reactants
 ```
 
-## Contributions
+<p align="center">
+  <img src="docs/mechet_cot_example.png" width="920" alt="MechET structured CoT example"/>
+</p>
+<p align="center"><em>Figure 1. Structured CoT: product → ET signature → locally checkable BE_DELTA → reactants.</em></p>
 
-MechET’s novelty is **not** “we ran GRPO”. It is a **verifiable mechanism CoT** plus **self-induced process rewards** that need no external teacher at post-training time.
+## What this is
 
-1. **Representation / task** — `MECH_ET v3`: from a mapped product SMILES, predict a full reverse FlowER mechanism graph (chain / tree / DAG) with explicit bond-electron transfers (`BE_DELTA`), then answer with the initial reactants. Trees and DAGs are kept; we do not collapse mechanisms to a single path.
-
-2. **Self-induced process verification** — Given student-written `STATE` pairs, the correct \(\Delta BE\) is analytically determined (RDKit BE matrix). Matching `BE_DELTA`, electron conservation, and graph reachability yield **dense, executable process rewards** without a larger LLM teacher, a slow FlowER forward neural pass, or a learned process-RM.
-
-3. **Self-MechVR post-training recipe** — SFT on gold MECH_ET, then **teacher-free on-policy RLVR** gated by a chemical feasible set
-   \(\mathcal{F}=\{\text{format}\wedge\text{reachability}\wedge\text{e-conserved}\}\),
-   with rewards for BE alignment and reactant answer. Optional edge-level credit (score each `RETRO_EDGE` when written) densifies long-horizon learning. Deployable as a **single student model**.
-
-4. **Analysis axis** — Topology-split evaluation (linear / tree / DAG) and ablations (`−BE` / `−conserv` / outcome-only / SFT-only) isolate the value of process rewards vs sparse reactant matching.
-
-## Why this format?
+1. **Representation** — `MECH_ET v3`: full reverse mechanism graphs (chain / tree / DAG) with per-edge `BE_DELTA` (FlowER units: single bond = 1), then precursor SMILES.
+2. **Self-induced process verification** — Correct \(\Delta BE\) is determined analytically from student `STATE` pairs (RDKit). Dense rewards need no LLM teacher or FlowER neural forward pass.
+3. **Self-MechVR** — SFT on gold CoT, then teacher-free on-policy RLVR gated by \(\mathcal{F}=\{\text{format}\wedge\text{reachability}\wedge\text{e-conserved}\}\).
+4. **Analysis** — Topology-split eval (linear / tree / DAG) and ablations (`−BE` / `−conserv` / outcome-only / SFT-only).
 
 | Design | Role |
 |---|---|
-| FlowER elementary steps | Official DiGraph semantics (unique root, self-loop terminals) |
-| `BE_DELTA` | Explicit arrow-pushing in FlowER BE-matrix units (single bond = 1) |
-| `SHARED` + strip-H `STATE` | Compress long system SMILES for LLM context |
-| Graph topologies | Keep trees/DAGs; do not collapse to a single path |
-| Process rewards | format · reachability · BE exact · electron conservation · answer — all local |
-
-## Post-training (Self-MechVR)
-
-```text
-SFT (gold MECH_ET)
-  → on-policy rollouts
-  → local verifier rewards (no external teacher)
-  → GRPO / RLOO-style RLVR
-```
-
-| Signal | Source | External model? |
-|---|---|---|
-| format / parse | `MECH_ET v3` grammar | No |
-| reachability | reverse graph walk | No |
-| BE exact | \(\Delta BE(S_b)-\Delta BE(S_a)\) vs written `BE_DELTA` | No (RDKit) |
-| electron conserved | \(\sum \Delta BE \approx 0\) | No |
-| answer | precursors ↔ `PRECURSOR_STATE` | No |
-
-We intentionally **avoid** slow FlowER neural forward teachers and hard-to-deploy large LLM teachers as dependencies of the main method.
+| FlowER elementary steps | Official DiGraph semantics |
+| `BE_DELTA` | Explicit arrow-pushing (bond / LP / charge) |
+| `SHARED` + strip-H `STATE` | Compress long system SMILES |
+| Local process rewards | format · reachability · BE · conservation · answer |
 
 ## Install
 
@@ -66,174 +37,99 @@ We intentionally **avoid** slow FlowER neural forward teachers and hard-to-deplo
 git clone git@github.com:wangyu-sd/MechET.git
 cd MechET
 pip install -e ".[dev]"
-# Needs RDKit; for training also: transformers, peft, datasets, bitsandbytes, accelerate
-```
-
-## Datasets
-
-MechET SFT is built from **FlowER** elementary-step trajectories. USPTO-50K / USPTO-MIT are standard retrosynthesis benchmarks (not required to build MECH_ET JSONL, but useful for transfer / comparison). See also `data/README.md`.
-
-### FlowER mechanistic dataset (`flower_new_dataset`)
-
-Official release (Figshare): https://doi.org/10.6084/m9.figshare.32513667  
-Code / prep notes: https://github.com/FongMunHong/FlowER
-
-```bash
-# Download data.zip from Figshare, then:
-mkdir -p data/raw
-unzip data.zip -d data/raw
-# Expect: data/raw/data/flower_new_dataset/{train,val,test}.txt
-# (layout may be data/flower_new_dataset/... depending on the archive)
-
-# Point the builder at the folder that contains train.txt / val.txt / test.txt
-export FLOWER_ROOT=data/raw/data/flower_new_dataset
-```
-
-Line format: `mapped_reactants>>mapped_products|sequence_idx`  
-Steps sharing the same `sequence_idx` belong to one overall reaction / mechanism graph.
-
-### USPTO-50K
-
-Canonical sources:
-
-- GLN (Dai et al.): https://github.com/Hanjun-Dai/GLN  
-- DeepChem CSV: https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_50K.csv
-
-```bash
-mkdir -p data/raw/uspto50k
-curl -L -o data/raw/uspto50k/USPTO_50K.csv \
-  https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_50K.csv
-# Or clone GLN and copy their raw_train / raw_val / raw_test CSVs.
-```
-
-### USPTO-MIT (~479K; Jin et al.)
-
-Canonical sources:
-
-- RexGen: https://github.com/wengong-jin/nips17-rexgen (`USPTO/data.zip`)  
-- DeepChem CSV: https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_MIT.csv
-
-```bash
-mkdir -p data/raw/uspto_mit
-curl -L -o data/raw/uspto_mit/USPTO_MIT.csv \
-  https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_MIT.csv
-# Or: download USPTO/data.zip from the RexGen repo and unpack into data/raw/uspto_mit/
+# Training extras: transformers, peft, datasets, bitsandbytes, accelerate
 ```
 
 ## Quickstart
 
-### 1) Inspect sample CoT
-
 ```bash
+# 1) Peek a gold sample
 python - <<'PY'
 import json
 print(open("data/samples/valid_mini.jsonl").readline()[:500])
 PY
-```
 
-### 2) Build SFT from FlowER
-
-Requires `flower_new_dataset` (see **Datasets** above). Files look like `mapped_reactants>>mapped_products|sequence_idx`.
-
-```bash
+# 2) Build SFT from FlowER  (download notes → data/README.md)
 python scripts/build_mechet_sft.py \
   --flower-root "${FLOWER_ROOT:-/path/to/flower_new_dataset}" \
   --out-dir data/mechet_sft \
   --splits train valid test
-```
 
-Resume after interruption:
-
-```bash
-python scripts/build_mechet_sft.py --out-dir data/mechet_sft --splits train --resume
-```
-
-### 3) Evaluate gold CoT
-
-```bash
+# Resume: add --resume
+# 3) Evaluate gold CoT
 python scripts/eval_mechet.py --data data/mechet_sft/valid.jsonl --limit 200
-```
 
-### 4) Train (Qwen + QLoRA)
-
-```bash
+# 4) Train (Qwen + QLoRA); assistant-only CE (user/system labels = -100)
 export QWEN_MODEL_PATH=/path/to/local/qwen
 python scripts/train_mechet_sft.py --config configs/overfit32.yaml
-python scripts/train_mechet_sft.py --config configs/sft_pilot.yaml
 ```
 
-Loss is **assistant-only** causal LM CE: user/system tokens are masked (`labels=-100`).
+## Datasets
+
+| Corpus | Role | Download |
+|---|---|---|
+| **FlowER** `flower_new_dataset` | Required for MechET SFT | [Figshare](https://doi.org/10.6084/m9.figshare.32513667) · [FlowER repo](https://github.com/FongMunHong/FlowER) |
+| USPTO-50K | Optional retro benchmark | [GLN](https://github.com/Hanjun-Dai/GLN) · [DeepChem CSV](https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_50K.csv) |
+| USPTO-MIT | Optional (~479k) | [RexGen](https://github.com/wengong-jin/nips17-rexgen) · [DeepChem CSV](https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_MIT.csv) |
+
+Commands, paths, and `build_mechet_sft.py` details: **[data/README.md](data/README.md)**.
+
+## Method: Self-MechVR
+
+```text
+SFT (gold MECH_ET)  →  on-policy rollouts  →  local verifier rewards  →  GRPO / RLOO-style RLVR
+```
+
+Teacher-free: every training signal is local (grammar + RDKit), not an external model.
+
+| Signal | Source | External model? |
+|---|---|---|
+| format / parse | `MECH_ET v3` grammar | No |
+| reachability | reverse graph walk | No |
+| BE exact | \(\Delta BE\) from `STATE` pair vs written `BE_DELTA` | No (RDKit) |
+| electron conserved | \(\sum\Delta BE \approx 0\) | No |
+| answer | precursors ↔ `PRECURSOR_STATE` | No |
 
 ## CoT schema (`MECH_ET v3`)
 
 ```text
 <mechanism>
 MECH_ET v3
-DIRECTION RETRO
 TARGET_SMILES "<product>"
-PERCEIVE
-  ENDPOINT <label> maps=<ids>
-  CENTER <a-b>
-ET_SIGNATURE <name>
-ET_DEMAND <name>
-N_STATES n
-N_EDGES m
-SHARED "<spectators>"
-STATE s0 "<active>"
-...
-TARGET_STATE s0
-PRECURSOR_STATE sk
+PERCEIVE / ET_SIGNATURE / ET_DEMAND
+STATE s0 "..." ; STATE s1 "..." ; SHARED "..."
 RETRO_EDGE s0 s1
   BE_DELTA
-    BOND i j ±d
-    LP i ±d
-    CHARGE i q0 q1
+    BOND i j ±d | LP i ±d | CHARGE i q0 q1
 </mechanism>
-<answer>
-<initial reactants>
-</answer>
+<answer> <initial reactants> </answer>
 ```
 
-`BE_DELTA` on `RETRO_EDGE a→b` is \(\Delta BE = BE(b)-BE(a)\) (reverse electron redistribution).
+On edge \(a\to b\): \(\Delta BE = BE(b)-BE(a)\). Full examples: `data/samples/`. Visualize: `scripts/visualize_mechet_cot.py`.
 
-## Repository layout
+## Layout
 
 ```text
-src/mechet/          # core library
-  mech_graph.py      # FlowER graph build / MECH_GRAPH v2 serialize
-  mech_et.py         # BE matrix, MECH_ET v3, verify
-  sft.py             # chat SFT formatting
-  verifier.py        # process rewards
-  collator.py        # assistant-only labels
-scripts/             # build / eval / train
-configs/             # overfit32 + pilot YAML
-data/samples/        # tiny gold examples
-tests/               # unit tests (needs FlowER val.txt for full suite)
+src/mechet/     # graph · BE · SFT format · verifier
+scripts/        # build · eval · train · visualize
+configs/        # overfit32 · sft_pilot
+data/samples/   # tiny gold JSONL
+docs/           # CoT figure
 ```
 
 ## Tests
 
 ```bash
-# Graph/BE unit tests that hit real FlowER val (edit path in tests if needed)
 export PYTHONPATH=src
+export FLOWER_VAL=/path/to/flower_new_dataset/val.txt   # required for full suite
 pytest -q tests/test_mech_et.py
 ```
 
-Default FlowER val path in tests:
+## Relation to FlowER
 
-`/aaa/fionafyang/buddy1/whaleywang/datasets/retro/data/flower_new_dataset/val.txt`
-
-Override by editing `FLOWER_VAL` in `tests/test_mech_et.py`.
-
-## Relation to FlowER / ORBIT
-
-- **FlowER** supplies elementary-step trajectories and BE-matrix semantics.
-- **MechET** turns those trajectories into LLM-trainable reverse CoT for reactant prediction.
-- Extracted from the broader ORBIT / Reflow research codebase as a focused, publishable track.
+FlowER supplies elementary-step trajectories and BE-matrix semantics. MechET turns them into LLM-trainable reverse CoT for reactant prediction (extracted from the broader ORBIT / Reflow track).
 
 ## Citation
-
-If you use this code, please cite FlowER and this repository:
 
 ```bibtex
 @misc{mechet2026,
@@ -244,6 +140,8 @@ If you use this code, please cite FlowER and this repository:
 }
 ```
 
+Please also cite [FlowER](https://github.com/FongMunHong/FlowER).
+
 ## License
 
-MIT (see `LICENSE`).
+MIT — see [`LICENSE`](LICENSE).
