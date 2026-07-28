@@ -1,4 +1,6 @@
-# Overfit smoke for MECH_ET v3 Qwen SFT
+# Overfit smoke for MECH_ET v3 Qwen SFT (tiny topology-balanced slice).
+# Build the JSONL first:
+#   python scripts/make_mechet_overfit32.py --src data/mechet_sft/valid.jsonl
 model_path_env: QWEN_MODEL_PATH
 train_file: data/mechet_sft/overfit32/train.jsonl
 validation_file: data/mechet_sft/overfit32/valid.jsonl

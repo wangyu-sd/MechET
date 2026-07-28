@@ -76,3 +76,24 @@ If you already built data in the parent `reflow` repo:
 ```bash
 ln -s /path/to/reflow/data/orbit_mech_et_sft data/mechet_sft
 ```
+
+## Overfit32 smoke slice
+
+`configs/overfit32.yaml` expects a **tiny debug subset**, not the full SFT files:
+
+- `data/mechet_sft/overfit32/train.jsonl` — 32 examples
+- `data/mechet_sft/overfit32/valid.jsonl` — 8 examples (disjoint)
+
+It is topology-balanced (`linear` / `tree` / `dag_branch_join`) for pipeline smoke / memorization checks before `sft_pilot.yaml`. **Not** a formal train/val split.
+
+```bash
+# After build (or symlink) has data/mechet_sft/valid.jsonl:
+python scripts/make_mechet_overfit32.py \
+  --src data/mechet_sft/valid.jsonl \
+  --out-dir data/mechet_sft/overfit32 \
+  --seed 11
+
+python scripts/train_mechet_sft.py --config configs/overfit32.yaml
+```
+
+`manifest.json` in the out dir records ids, seed, and topology counts.

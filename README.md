@@ -55,13 +55,16 @@ python scripts/build_mechet_sft.py \
   --out-dir data/mechet_sft \
   --splits train valid test
 
-# Resume: add --resume
-# 3) Evaluate gold CoT
+# 3) Carve overfit32 smoke slice (32 train / 8 valid, topology-balanced; not a formal split)
+python scripts/make_mechet_overfit32.py --src data/mechet_sft/valid.jsonl
+
+# 4) Evaluate gold CoT
 python scripts/eval_mechet.py --data data/mechet_sft/valid.jsonl --limit 200
 
-# 4) Train (Qwen + QLoRA); assistant-only CE (user/system labels = -100)
+# 5) Train smoke, then pilot (assistant-only CE; user/system labels = -100)
 export QWEN_MODEL_PATH=/path/to/local/qwen
 python scripts/train_mechet_sft.py --config configs/overfit32.yaml
+python scripts/train_mechet_sft.py --config configs/sft_pilot.yaml
 ```
 
 ## Datasets
@@ -111,7 +114,7 @@ On edge \(a\to b\): \(\Delta BE = BE(b)-BE(a)\). Full examples: `data/samples/`.
 
 ```text
 src/mechet/     # graph · BE · SFT format · verifier
-scripts/        # build · eval · train · visualize
+scripts/        # build · overfit32 · eval · train · visualize
 configs/        # overfit32 · sft_pilot
 data/samples/   # tiny gold JSONL
 docs/           # CoT figure
