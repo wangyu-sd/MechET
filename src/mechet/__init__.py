@@ -22,4 +22,4 @@ __all__ = [
     "verify_mech_graph",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

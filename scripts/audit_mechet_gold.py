@@ -14,7 +14,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from mechet.metrics import aggregate_by_topology, aggregate_rates, score_mech_et_prediction
+from mechet.metrics import build_eval_report, score_mech_et_prediction
 
 
 def main() -> int:
@@ -35,13 +35,13 @@ def main() -> int:
             if args.limit and len(cases) >= args.limit:
                 break
 
-    report = {
-        "mode": "gold_audit",
-        "data": str(args.data),
-        "limit": args.limit or len(cases),
-        **aggregate_rates(cases),
-        "by_topology": aggregate_by_topology(cases),
-    }
+    report = build_eval_report(
+        cases,
+        mode="gold_audit",
+        data_path=str(args.data),
+        predictions_path="assistant_target",
+        extra={"limit": args.limit or len(cases)},
+    )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     case_path = args.out.parent / "gold_audit_cases.jsonl"

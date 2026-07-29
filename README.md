@@ -61,10 +61,13 @@ python scripts/make_mechet_overfit32.py --src data/mechet_sft/valid.jsonl
 # 4) Gold audit (data QC, ~100% on valid — not model scores)
 python scripts/audit_mechet_gold.py --data data/mechet_sft/valid.jsonl --limit 200
 
-# 5) Model eval (after training): infer → score → TSV
-python scripts/infer_mechet.py --data data/mechet_sft/valid.jsonl --adapter outputs/.../adapter
-python scripts/eval_mechet_generations.py --predictions outputs/mechet_eval/generations.jsonl
-python scripts/collect_mechet_results.py --summary outputs/mechet_eval/model_eval_summary.json
+# 5) Model eval (after training)
+export QWEN_MODEL_PATH=/path/to/local/qwen
+python scripts/run_mechet_eval.py \
+  --data data/mechet_sft/valid.jsonl \
+  --adapter outputs/mechet_sft/adapter \
+  --out-dir outputs/mechet_eval/valid_run
+# Or step-by-step: infer_mechet.py → eval_mechet_generations.py → collect_mechet_results.py
 
 # 6) Train smoke, then pilot (assistant-only CE; user/system labels = -100)
 export QWEN_MODEL_PATH=/path/to/local/qwen
