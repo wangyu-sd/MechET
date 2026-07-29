@@ -22,6 +22,8 @@ def main() -> int:
     parser.add_argument("--num-return-sequences", type=int, default=1)
     parser.add_argument("--method", default="MechET v3 (MECH_ET CoT)")
     parser.add_argument("--skip-infer", action="store_true")
+    parser.add_argument("--use-vllm", type=bool, default=False)
+    parser.add_argument("--tensor-parallel-size", type=int, default=1)
     args = parser.parse_args()
 
     py = sys.executable
@@ -31,25 +33,42 @@ def main() -> int:
     summary = out_dir / "model_eval_summary.json"
     table = out_dir / "main_table.tsv"
 
+    
     if not args.skip_infer:
-        cmd = [
-            py,
-            str(REPO / "scripts/infer_mechet.py"),
-            "--data",
-            str(args.data),
-            "--out",
-            str(generations),
-            "--num-beams",
-            str(args.num_beams),
-            "--num-return-sequences",
-            str(args.num_return_sequences),
-        ]
+        if args.use_vllm:
+            cmd = [
+                py,
+                str(REPO / "scripts/infer_mechet_vllm.py"),
+                "--data",
+                str(args.data),
+                "--out",
+                str(generations),
+                "--num-beams",
+                str(args.num_beams),
+                "--num-return-sequences",
+                str(args.num_return_sequences),   
+            ]
+        else:
+            cmd = [
+                py,
+                str(REPO / "scripts/infer_mechet.py"),
+                "--data",
+                str(args.data),
+                "--out",
+                str(generations),
+                "--num-beams",
+                str(args.num_beams),
+                "--num-return-sequences",
+                str(args.num_return_sequences),
+            ]
         if args.limit:
             cmd.extend(["--limit", str(args.limit)])
         if args.adapter:
             cmd.extend(["--adapter", str(args.adapter)])
         if args.model_path:
             cmd.extend(["--model-path", args.model_path])
+        if args.tensor_parallel_size:
+            cmd.extend(["--tensor-parallel-size", str(args.tensor_parallel_size)])
         subprocess.check_call(cmd)
 
     subprocess.check_call(
