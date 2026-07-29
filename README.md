@@ -66,7 +66,9 @@ export QWEN_MODEL_PATH=/path/to/local/qwen
 python scripts/run_mechet_eval.py \
   --data data/mechet_sft/valid.jsonl \
   --adapter outputs/mechet_sft/adapter \
-  --out-dir outputs/mechet_eval/valid_run
+  --out-dir outputs/mechet_eval/valid_run \
+  --use-vllm \
+  --tensor-parallel-size 2 \
 # Or step-by-step: infer_mechet.py → eval_mechet_generations.py → collect_mechet_results.py
 
 # 6) Train smoke, then pilot (assistant-only CE; user/system labels = -100)
