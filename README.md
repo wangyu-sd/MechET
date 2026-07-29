@@ -58,10 +58,15 @@ python scripts/build_mechet_sft.py \
 # 3) Carve overfit32 smoke slice (32 train / 8 valid, topology-balanced; not a formal split)
 python scripts/make_mechet_overfit32.py --src data/mechet_sft/valid.jsonl
 
-# 4) Evaluate gold CoT
-python scripts/eval_mechet.py --data data/mechet_sft/valid.jsonl --limit 200
+# 4) Gold audit (data QC, ~100% on valid — not model scores)
+python scripts/audit_mechet_gold.py --data data/mechet_sft/valid.jsonl --limit 200
 
-# 5) Train smoke, then pilot (assistant-only CE; user/system labels = -100)
+# 5) Model eval (after training): infer → score → TSV
+python scripts/infer_mechet.py --data data/mechet_sft/valid.jsonl --adapter outputs/.../adapter
+python scripts/eval_mechet_generations.py --predictions outputs/mechet_eval/generations.jsonl
+python scripts/collect_mechet_results.py --summary outputs/mechet_eval/model_eval_summary.json
+
+# 6) Train smoke, then pilot (assistant-only CE; user/system labels = -100)
 export QWEN_MODEL_PATH=/path/to/local/qwen
 python scripts/train_mechet_sft.py --config configs/overfit32.yaml
 python scripts/train_mechet_sft.py --config configs/sft_pilot.yaml
@@ -76,6 +81,21 @@ python scripts/train_mechet_sft.py --config configs/sft_pilot.yaml
 | USPTO-MIT | Optional (~479k) | [RexGen](https://github.com/wengong-jin/nips17-rexgen) · [DeepChem CSV](https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_MIT.csv) |
 
 Commands, paths, and `build_mechet_sft.py` details: **[data/README.md](data/README.md)**.
+
+## Benchmarks (retrosynthesis & planning)
+
+Compared on **`flower_completion`** test (28,971): main product → full precursor multiset, **top-k strict EM**.
+
+| Model | top1 strict | top10 strict | Status |
+|-------|-------------|--------------|--------|
+| Graph2SMILES | 2.90% | 3.75% | ✅ usable (reflow baseline) |
+| RxnGraphormer (main_product) | 5.30% | 10.54% | ✅ usable |
+| Molecular Transformer | ~0.02% | ~0.03% | ✅ usable (strict baseline) |
+| **MechET v3** | — | — | pending model eval |
+| FlowER-Retro | 28.9% @218k | — | 🔁 wrong split — rerun on completion |
+| PaRoutes n1/n5 planning | — | — | 🔁 not run formally |
+
+Full inventory (usable + rerunnable wrong runs, artifact paths): **[docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md)** · eval scripts: **[docs/EVAL.md](docs/EVAL.md)**
 
 ## Method: Self-MechVR
 
