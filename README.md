@@ -188,7 +188,6 @@ This makes the proof the computation rather than an explanation attached to an i
 src/mechet/     # graph · BE · verifier · proof compiler/executor · SFT formats
 configs/        # v3 SFT/RLVR + proof SFT pilot
 scripts/        # build · train · infer · eval · visualize
-_tests/         # not used; repository tests live in tests/
 tests/          # unit and adversarial tests
 data/samples/   # tiny gold JSONL
 ```
