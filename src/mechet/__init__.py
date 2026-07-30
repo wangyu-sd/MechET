@@ -1,8 +1,16 @@
 """MechET: verifiable and proof-carrying retrosynthesis."""
 
-from .collator import AssistantOnlyCollator, encode_assistant_only, find_assistant_start
+from .collator import (
+    AssistantOnlyCollator,
+    encode_assistant_only,
+    find_assistant_start,
+)
 from .mech_et import format_mech_et_cot, verify_mech_et
-from .mech_graph import format_mech_graph_cot, load_flower_graphs, verify_mech_graph
+from .mech_graph import (
+    format_mech_graph_cot,
+    load_flower_graphs,
+    verify_mech_graph,
+)
 from .proof_program import (
     ProofEdge,
     ProofExecutionResult,
@@ -14,8 +22,18 @@ from .proof_program import (
     verify_proof,
 )
 from .proof_sft import convert_mech_et_row_to_proof_sft
-from .rlvr import compute_advantages, compute_mechvr_reward, mechvr_gate
-from .sft import convert_record_to_qwen_sft, format_mech_et_assistant, parse_mech_et_output
+from .rlvr import (
+    compute_advantages,
+    compute_mechvr_reward,
+    compute_proofvr_reward,
+    compute_rollout_reward,
+    mechvr_gate,
+)
+from .sft import (
+    convert_record_to_qwen_sft,
+    format_mech_et_assistant,
+    parse_mech_et_output,
+)
 from .verifier import compute_mech_et_reward, compute_reward
 
 __all__ = [
@@ -27,7 +45,9 @@ __all__ = [
     "compute_advantages",
     "compute_mech_et_reward",
     "compute_mechvr_reward",
+    "compute_proofvr_reward",
     "compute_reward",
+    "compute_rollout_reward",
     "convert_mech_et_row_to_proof_sft",
     "convert_record_to_qwen_sft",
     "encode_assistant_only",
