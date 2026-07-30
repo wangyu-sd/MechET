@@ -8,7 +8,7 @@ from typing import Any, Sequence
 import torch
 import torch.nn.functional as F
 
-from mechet.chat_template import apply_mechet_chat_template, find_assistant_start
+from mechet.chat_template import apply_mechet_chat_template
 from mechet.metrics import extract_gold_answer, extract_product_from_user
 from mechet.sft import MECH_ET_SYSTEM_PROMPT, parse_mech_cot_output
 from mechet.verifier import compute_mech_et_reward
@@ -34,11 +34,15 @@ def extract_prompt_messages(row: dict[str, Any]) -> tuple[str, list[dict[str, st
 
 
 def mechvr_gate(verified: dict[str, Any]) -> bool:
-    """Hard gate F = format ∧ reachability ∧ electron_conserved."""
+    """Hard process gate for a self-consistent, locally executable rollout."""
     return bool(
         verified.get("format_ok")
+        and verified.get("target_state_matches_product")
         and verified.get("reachability_ok")
+        and verified.get("state_maps_consistent")
+        and verified.get("local_transition_exact")
         and verified.get("electron_conserved")
+        and verified.get("answer_state_agree")
     )
 
 
@@ -50,7 +54,12 @@ def compute_mechvr_reward(
     gate_penalty: float = -1.0,
     use_gold_answer: bool = True,
 ) -> dict[str, Any]:
-    """Score one rollout; outcome channel uses dataset gold, not an LLM teacher."""
+    """Score one rollout; outcome supervision uses dataset gold, not an LLM teacher.
+
+    Failed rollouts retain stage-specific verifier rewards. ``gate_penalty`` is
+    only a fallback for malformed payloads, avoiding the all-equal reward groups
+    caused by assigning one constant penalty to every type of process failure.
+    """
     product, _ = extract_prompt_messages(row)
     gold = extract_gold_answer(row) if use_gold_answer else None
     parsed = parse_mech_cot_output(prediction)
@@ -66,10 +75,13 @@ def compute_mechvr_reward(
     verified = payload.get("verified") or {}
     gate_ok = mechvr_gate(verified)
     if not gate_ok:
+        failure_reward = payload.get("rlvr_failure_reward")
+        if failure_reward is None:
+            failure_reward = payload.get("total", gate_penalty)
         return {
             **payload,
             "gate_ok": False,
-            "rlvr_total": float(gate_penalty),
+            "rlvr_total": float(failure_reward),
             "product": product,
             "gold_answer": gold,
             "answer": answer,
@@ -140,13 +152,19 @@ def completion_log_probs(
     *,
     max_length: int = 8192,
 ) -> tuple[torch.Tensor, int]:
-    """Sum log-prob of completion tokens (assistant span only). Returns (logprob_sum, n_tokens)."""
+    """Sum log-prob of completion tokens (assistant span only)."""
     assistant_messages = prompt_messages + [{"role": "assistant", "content": completion_text}]
     prompt_text = apply_mechet_chat_template(tokenizer, prompt_messages, add_generation_prompt=True)
     full_text = apply_mechet_chat_template(tokenizer, assistant_messages, add_generation_prompt=False)
 
     prompt_enc = tokenizer(prompt_text, add_special_tokens=False, return_tensors="pt")
-    full_enc = tokenizer(full_text, add_special_tokens=False, return_tensors="pt", truncation=True, max_length=max_length)
+    full_enc = tokenizer(
+        full_text,
+        add_special_tokens=False,
+        return_tensors="pt",
+        truncation=True,
+        max_length=max_length,
+    )
 
     prompt_len = prompt_enc["input_ids"].shape[1]
     input_ids = full_enc["input_ids"]
@@ -171,6 +189,18 @@ def completion_log_probs(
     return completion_logp.sum(), n_tokens
 
 
+def normalize_sequence_log_prob(
+    log_prob_sum: torch.Tensor,
+    n_tokens: int,
+    *,
+    length_normalize: bool = True,
+) -> torch.Tensor:
+    """Remove the otherwise dominant preference for shorter/longer mechanisms."""
+    if not length_normalize:
+        return log_prob_sum
+    return log_prob_sum / max(int(n_tokens), 1)
+
+
 def _model_device(model: torch.nn.Module) -> torch.device:
     return next(model.parameters()).device
 
@@ -183,8 +213,9 @@ def policy_loss_from_advantages(
     advantages: Sequence[float],
     *,
     max_length: int = 8192,
+    length_normalize: bool = True,
 ) -> tuple[torch.Tensor, dict[str, Any]]:
-    """Weighted sum of -A * log pi(completion|prompt)."""
+    """Group-relative REINFORCE loss over assistant completion tokens."""
     if not completions:
         z = torch.tensor(0.0, device=_model_device(model))
         return z, {"n_completions": 0, "loss_terms": 0}
@@ -206,9 +237,14 @@ def policy_loss_from_advantages(
         )
         if n_tok == 0:
             continue
-        total_loss = total_loss - float(adv) * logp
+        sequence_logp = normalize_sequence_log_prob(
+            logp,
+            n_tok,
+            length_normalize=length_normalize,
+        )
+        total_loss = total_loss - float(adv) * sequence_logp
         n_terms += 1
-        logprob_sum += float(logp.detach().cpu())
+        logprob_sum += float(sequence_logp.detach().cpu())
         token_count += n_tok
 
     if n_terms == 0:
@@ -218,5 +254,6 @@ def policy_loss_from_advantages(
         "loss_terms": n_terms,
         "avg_logprob": logprob_sum / max(n_terms, 1),
         "avg_completion_tokens": token_count / max(n_terms, 1),
+        "length_normalized": bool(length_normalize),
     }
     return total_loss / max(n_terms, 1), stats
