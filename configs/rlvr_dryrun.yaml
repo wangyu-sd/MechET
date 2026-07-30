@@ -1,0 +1,5 @@
+# Reward-only smoke (no GPU); uses bundled gold mini sample.
+train_file: data/samples/valid_mini.jsonl
+group_size: 4
+advantage_method: grpo
+gate_penalty: -1.0

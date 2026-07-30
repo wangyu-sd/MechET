@@ -10,6 +10,8 @@ MechET = **MECH_ET v3** (mechanism-graph CoT + `BE_DELTA` + precursor answer).
 
 | Script | Purpose |
 |--------|---------|
+| `scripts/train_mechet_sft.py` | Step 1: assistant-only SFT (QLoRA) |
+| `scripts/train_mechet_rlvr.py` | Step 4: Self-MechVR on-policy RLVR (GRPO/RLOO) |
 | `scripts/run_mechet_eval.py` | **One-shot** infer → eval → TSV |
 | `scripts/audit_mechet_gold.py` | Gold data QC (~100% on valid; not model eval) |
 | `scripts/infer_mechet.py` | Qwen (+ LoRA) → `generations.jsonl` + manifest |
@@ -62,3 +64,31 @@ python scripts/run_mechet_eval.py \
 Predictions JSONL fields: `prediction`, `candidates` (parsed answers), `raw_generations` (full texts), `gold_answer`.
 
 Use **valid/test** for paper tables; `overfit32` is smoke only.
+
+## Self-MechVR (Step 4)
+
+After SFT, refine the LoRA adapter with on-policy rollouts and **local verifier rewards** (no LLM teacher).
+
+Gate **F** = `format_ok ∧ reachability_ok ∧ electron_conserved`. Failed rollouts get `gate_penalty` (default `-1.0`); passed rollouts use dense `compute_mech_et_reward` total.
+
+| Config | Purpose |
+|--------|---------|
+| `configs/rlvr_overfit32.yaml` | Smoke RL on overfit32 (20 steps, group_size=4) |
+| `configs/rlvr_pilot.yaml` | Pilot RL on 512 train prompts (100 steps) |
+
+```bash
+# Reward smoke (no GPU training)
+python scripts/train_mechet_rlvr.py --config configs/rlvr_overfit32.yaml --dry-run
+
+# Train (requires SFT adapter + QWEN_MODEL_PATH)
+export QWEN_MODEL_PATH=/path/to/Qwen3-8B
+python scripts/train_mechet_rlvr.py --config configs/rlvr_overfit32.yaml
+
+# Eval RL adapter (same as SFT eval)
+python scripts/run_mechet_eval.py \
+  --data data/mechet_sft/valid.jsonl \
+  --adapter outputs/mechet_rlvr_overfit32/adapter \
+  --out-dir outputs/mechet_eval/rlvr_overfit32_valid
+```
+
+Implementation: `src/mechet/rlvr.py` (`compute_mechvr_reward`, `grpo_advantages`, `rloo_advantages`, `policy_loss_from_advantages`).

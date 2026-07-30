@@ -1,0 +1,19 @@
+# Self-MechVR smoke on overfit32 (requires prior SFT adapter).
+model_path_env: QWEN_MODEL_PATH
+train_file: data/mechet_sft/overfit32/train.jsonl
+sft_adapter: outputs/mechet_overfit32/adapter
+output_dir: outputs/mechet_rlvr_overfit32
+max_steps: 20
+save_steps: 10
+group_size: 4
+prompts_per_step: 1
+learning_rate: 1.0e-5
+max_new_tokens: 2048
+max_input_tokens: 4096
+max_seq_length: 8192
+temperature: 0.9
+top_p: 0.95
+advantage_method: grpo
+gate_penalty: -1.0
+use_qlora: true
+seed: 11

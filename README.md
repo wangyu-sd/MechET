@@ -75,6 +75,11 @@ python scripts/run_mechet_eval.py \
 export QWEN_MODEL_PATH=/path/to/local/qwen
 python scripts/train_mechet_sft.py --config configs/overfit32.yaml
 python scripts/train_mechet_sft.py --config configs/sft_pilot.yaml
+
+# 7) Self-MechVR (Step 4: on-policy RLVR after SFT adapter)
+python scripts/train_mechet_rlvr.py --config configs/rlvr_overfit32.yaml --dry-run
+python scripts/train_mechet_rlvr.py --config configs/rlvr_overfit32.yaml
+python scripts/train_mechet_rlvr.py --config configs/rlvr_pilot.yaml
 ```
 
 ## Datasets
@@ -139,8 +144,8 @@ On edge \(a\to b\): \(\Delta BE = BE(b)-BE(a)\). Full examples: `data/samples/`.
 
 ```text
 src/mechet/     # graph · BE · SFT format · verifier
-scripts/        # build · overfit32 · eval · train · visualize
-configs/        # overfit32 · sft_pilot
+configs/        # overfit32 · sft_pilot · rlvr_*
+scripts/        # build · overfit32 · eval · train · rlvr · visualize
 data/samples/   # tiny gold JSONL
 docs/           # CoT figure
 ```
@@ -150,7 +155,7 @@ docs/           # CoT figure
 ```bash
 export PYTHONPATH=src
 export FLOWER_VAL=/path/to/flower_new_dataset/val.txt   # required for full suite
-pytest -q tests/test_mech_et.py
+pytest -q tests/test_mech_et.py tests/test_rlvr.py
 ```
 
 ## Relation to FlowER

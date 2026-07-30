@@ -1,0 +1,20 @@
+# Self-MechVR pilot after sft_pilot (sample from train for RL rollouts).
+model_path_env: QWEN_MODEL_PATH
+train_file: data/mechet_sft/train.jsonl
+sft_adapter: outputs/mechet_sft_pilot/adapter
+output_dir: outputs/mechet_rlvr_pilot
+max_steps: 100
+save_steps: 25
+group_size: 4
+prompts_per_step: 2
+learning_rate: 5.0e-6
+max_new_tokens: 3072
+max_input_tokens: 4096
+max_seq_length: 8192
+temperature: 0.85
+top_p: 0.95
+advantage_method: grpo
+gate_penalty: -1.0
+use_qlora: true
+limit_examples: 512
+seed: 11
