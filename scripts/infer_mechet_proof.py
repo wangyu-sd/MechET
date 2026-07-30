@@ -112,15 +112,20 @@ def main() -> int:
                     key: value.to(model.device)
                     for key, value in inputs.items()
                 }
+            generation_kwargs = {
+                "max_new_tokens": args.max_new_tokens,
+                "do_sample": args.sample,
+                "pad_token_id": tokenizer.pad_token_id,
+                "eos_token_id": tokenizer.eos_token_id,
+            }
+            if args.sample:
+                generation_kwargs["temperature"] = max(
+                    args.temperature,
+                    1e-5,
+                )
             output = model.generate(
                 **inputs,
-                max_new_tokens=args.max_new_tokens,
-                do_sample=args.sample,
-                temperature=(
-                    max(args.temperature, 1e-5) if args.sample else None
-                ),
-                pad_token_id=tokenizer.pad_token_id,
-                eos_token_id=tokenizer.eos_token_id,
+                **generation_kwargs,
             )[0]
             prediction = tokenizer.decode(
                 output[inputs["input_ids"].shape[1] :],
