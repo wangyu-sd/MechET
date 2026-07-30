@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run infer → eval → TSV export in one command."""
+"""Run infer -> eval -> TSV export in one command."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, default=REPO / "data/mechet_sft/valid.jsonl")
     parser.add_argument("--limit", type=int, default=0)
@@ -22,9 +22,13 @@ def main() -> int:
     parser.add_argument("--num-return-sequences", type=int, default=1)
     parser.add_argument("--method", default="MechET v3 (MECH_ET CoT)")
     parser.add_argument("--skip-infer", action="store_true")
-    parser.add_argument("--use-vllm", type=bool, default=False)
+    parser.add_argument("--use-vllm", action="store_true")
     parser.add_argument("--tensor-parallel-size", type=int, default=1)
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
 
     py = sys.executable
     out_dir = args.out_dir
@@ -33,41 +37,27 @@ def main() -> int:
     summary = out_dir / "model_eval_summary.json"
     table = out_dir / "main_table.tsv"
 
-    
     if not args.skip_infer:
-        if args.use_vllm:
-            cmd = [
-                py,
-                str(REPO / "scripts/infer_mechet_vllm.py"),
-                "--data",
-                str(args.data),
-                "--out",
-                str(generations),
-                "--num-beams",
-                str(args.num_beams),
-                "--num-return-sequences",
-                str(args.num_return_sequences),   
-            ]
-        else:
-            cmd = [
-                py,
-                str(REPO / "scripts/infer_mechet.py"),
-                "--data",
-                str(args.data),
-                "--out",
-                str(generations),
-                "--num-beams",
-                str(args.num_beams),
-                "--num-return-sequences",
-                str(args.num_return_sequences),
-            ]
+        infer_script = "infer_mechet_vllm.py" if args.use_vllm else "infer_mechet.py"
+        cmd = [
+            py,
+            str(REPO / "scripts" / infer_script),
+            "--data",
+            str(args.data),
+            "--out",
+            str(generations),
+            "--num-beams",
+            str(args.num_beams),
+            "--num-return-sequences",
+            str(args.num_return_sequences),
+        ]
         if args.limit:
             cmd.extend(["--limit", str(args.limit)])
         if args.adapter:
             cmd.extend(["--adapter", str(args.adapter)])
         if args.model_path:
             cmd.extend(["--model-path", args.model_path])
-        if args.tensor_parallel_size:
+        if args.use_vllm:
             cmd.extend(["--tensor-parallel-size", str(args.tensor_parallel_size)])
         subprocess.check_call(cmd)
 
