@@ -1,55 +1,193 @@
-# Data leakage audit and ICLR training plan
+# Data lineage, leakage audit, and benchmark-freezing protocol
 
-## Required source data
+> **Status: current companion protocol.** This document is authoritative for dataset lineage and decontamination only. Model training, losses, inference, required results, and paper claims are defined in [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md).
 
-1. FlowER-derived MechET JSONL with stable row ids, mapped products, proof/state targets, and source split metadata.
-2. USPTO-50K standard train/valid/test with mapped reaction SMILES and stable ids.
-3. USPTO-MIT / USPTO-FULL reaction tables for secondary overlap audits.
-4. Patent id, publication date, and patent-family metadata when recoverable. If absent, patent-family and temporal disjointness must be reported as unverifiable.
-5. Optional external data: ORD or post-cutoff literature reactions for NMI-stage validation.
+## 1. Required source data
 
-## Frozen audit levels
+1. FlowER-derived MechET rows with stable IDs, mapped products, proof/state targets, and source split metadata.
+2. USPTO-50K standard train/valid/test reaction tables with stable IDs and mapped reaction SMILES.
+3. USPTO-MIT and USPTO-FULL for secondary source-corpus audits.
+4. Patent ID, publication date, and patent-family metadata when recoverable.
+5. External non-USPTO or post-cutoff mechanisms for later NMI-stage validation.
 
-- `exact_full`: all reactant/reagent/product fragments after canonicalization.
-- `exact_structural`: atom-contributing precursor fragments only.
-- `product`: exact product identity.
-- `scaffold`: product Bemis--Murcko scaffold.
-- `reaction_center`: changed-bond/local-atom-role signature.
-- `proof_composition`: map-label- and serialization-invariant proof composition.
-- `patent`: source patent identifier when retained in both corpora.
+If patent metadata is absent, patent-family and temporal disjointness must be reported as unverifiable. Chemical canonicalization cannot replace patent-family auditing.
 
-The benchmark is frozen first. Conflicting training rows are removed and written to a quarantine JSONL; the test set is never filtered post hoc.
+## 2. Benchmark-first policy
 
-## Models and objectives
+The required order is:
 
-| Model | Output | Supervised objective | Post-training |
-|---|---|---|---|
-| Outcome-only | core precursor | assistant-token CE | none |
-| State-CoT | state trajectory + core precursor | assistant-token CE | optional verifier RL |
-| Net-edit | net graph edit + core precursor | assistant-token CE | none |
-| MECH_PROOF-SFT | executable proof only | assistant-token CE | none |
-| MECH_PROOF-RLVR | executable proof only | initialized from proof SFT | group-relative REINFORCE / RLOO-style RLVR |
+```text
+freeze benchmark bytes and hashes
+ -> freeze normalization configuration
+ -> compute train–benchmark overlap
+ -> quarantine conflicting training rows
+ -> rebuild training manifests
+ -> train models
+```
 
-The causal language-model loss for SFT is
+The test set is never filtered after model selection. Every removed training row is written to a quarantine JSONL containing its stable ID, conflict reasons, and chemical keys.
 
-`L_SFT = - sum_t 1[t is assistant] log p_theta(y_t | x, y_<t)`.
+## 3. Frozen overlap levels
 
-Proof RLVR samples a group of proofs from the current policy, executes each proof, computes deterministic rewards, normalizes rewards within the prompt group, and minimizes
+### `exact_full`
 
-`L_RLVR = - mean_i A_i * mean_t log p_theta(y_i,t | x, y_i,<t)`.
+Canonicalized full reactant, reagent, and product multiset.
 
-The current implementation is group-relative REINFORCE/RLOO-style, not clipped PPO. It should only be called GRPO-style unless old-policy ratios and clipping are added.
+### `exact_structural`
 
-## Core endpoint
+Canonicalized atom-contributing precursor fragments plus product. Free solvents, catalysts, salts, and spectators are excluded.
 
-The primary endpoint is the atom-contributing structural precursor multiset. A reactant fragment is structural when it shares at least one atom map with the product; free solvents, catalysts, salts, and spectators are reported separately. Unmapped rows cannot support this split and must be flagged.
+### `product`
 
-## Recommended order
+Exact canonical product identity.
 
-1. Run exhaustive exact/product/scaffold/reaction-center/proof-composition audit.
-2. Freeze benchmark hashes and normalization digest.
-3. Quarantine conflicting FlowER training rows.
-4. Match proof-only and state-annotated corpora by stable row id, then build all task variants from the intersection.
-5. Train three SFT seeds per task.
-6. Initialize proof RLVR from each corresponding proof-SFT seed.
-7. Evaluate standard and clean benchmarks, MechComp-OOD, atom-map permutations, causal proof perturbations, data efficiency, and compute cost.
+### `scaffold`
+
+Product Bemis–Murcko scaffold.
+
+### `reaction_center`
+
+Changed-bond and local changed-atom-role signature.
+
+### `proof_composition`
+
+Map-label- and serialization-invariant elementary proof composition.
+
+### `patent`
+
+Patent or patent-family identifier when retained by both corpora.
+
+The audit may additionally report maximum product fingerprint similarity, but similarity thresholds must not replace exact overlap counts.
+
+## 4. Required commands
+
+```bash
+python scripts/audit_reaction_overlap.py \
+  --train data/mechet_proof_sft/train.jsonl \
+  --benchmark data/benchmarks/uspto50k/test.csv \
+  --benchmark-format reaction_table \
+  --reaction-field reaction_smiles \
+  --out-dir outputs/data_audit/flower_vs_uspto50k_test
+```
+
+Repeat for:
+
+```text
+USPTO-50K train
+USPTO-50K valid
+USPTO-50K test
+USPTO-MIT test
+USPTO-FULL test
+```
+
+Build clean conditions by removing conflicts from training:
+
+```bash
+python scripts/build_decontaminated_dataset.py \
+  --train data/mechet_proof_sft/train.jsonl \
+  --benchmark data/benchmarks/uspto50k/test.csv \
+  --output data/mechet_proof_clean/train.jsonl \
+  --manifest data/mechet_proof_clean/manifest.json \
+  --policy exact_structural product
+```
+
+Minimum training conditions:
+
+```text
+exact-clean: exact_structural + product
+scaffold-clean: exact_structural + product + scaffold
+center-clean: exact_structural + product + scaffold + reaction_center
+```
+
+## 5. Structural precursor endpoint
+
+A reactant fragment is structural when it shares at least one atom map with the product. The complete fragment is retained, including leaving-group atoms that do not appear in the product.
+
+Free fragments with no product-contributing atom maps are treated as environment species and are not part of the primary endpoint score.
+
+Unmapped rows cannot support this distinction and must be flagged rather than silently classified.
+
+## 6. Atom-map leakage control
+
+Atom maps are nuisance labels. A valid control must consistently permute every map appearing in:
+
+```text
+product SMILES
+root and edge imports
+BOND actions
+LP actions
+CHARGE actions
+full precursor
+structural precursor
+```
+
+```bash
+python scripts/build_map_permutations.py ...
+```
+
+Report the performance drop between canonical and multiple random map permutations. Randomly changing only product maps is not a valid control.
+
+## 7. Required audit outputs
+
+Every official audit directory must contain:
+
+```text
+input file paths and SHA-256 hashes
+row counts
+field names
+source/version information
+normalization configuration and digest
+overlap counts and rates at every level
+per-row conflict records
+quarantine file
+retained and removed train sizes
+patent/date coverage
+product-similarity distribution where computed
+```
+
+## 8. Required paper table
+
+Rows:
+
+```text
+FlowER train -> USPTO-50K train
+FlowER train -> USPTO-50K valid
+FlowER train -> USPTO-50K test
+FlowER train -> USPTO-MIT test
+FlowER train -> USPTO-FULL test
+```
+
+Columns:
+
+```text
+exact_full
+exact_structural
+product
+scaffold
+reaction_center
+proof_composition
+patent
+```
+
+A second table must report original training size, removed rows, retained rows, and removal-reason distribution for exact-, scaffold-, and center-clean conditions.
+
+## 9. Interpretation rules
+
+- Standard USPTO results support literature comparability, not independent external validation.
+- Exact-clean results reduce direct identity leakage but do not establish scaffold or template independence.
+- Scaffold-clean results do not establish reaction-center independence.
+- Reaction-center-clean results still may share broader mechanism primitives.
+- MechComp-OOD tests composition generalization and must be reported separately from source-corpus leakage.
+- A foundation model may have unknown pretraining exposure to public USPTO files; matched-backbone comparisons and from-scratch controls should be used where feasible.
+
+## 10. Training gate
+
+Do not start headline training until:
+
+1. benchmark hashes and normalization digests are frozen;
+2. overlap matrices are generated;
+3. quarantine manifests are generated;
+4. proof and state corpora are matched by stable ID;
+5. structural endpoints agree across all baseline task variants.
+
+Continue with the authoritative experiment plan after this gate passes.
