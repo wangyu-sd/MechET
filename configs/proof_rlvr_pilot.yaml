@@ -1,0 +1,20 @@
+# Proof-only RLVR after proof_sft_pilot.
+model_path_env: QWEN_MODEL_PATH
+train_file: data/mechet_proof_sft/train.jsonl
+sft_adapter: outputs/mechet_proof_sft_pilot/adapter
+output_dir: outputs/mechet_proof_rlvr_pilot
+max_steps: 100
+save_steps: 25
+group_size: 4
+prompts_per_step: 2
+learning_rate: 5.0e-6
+max_new_tokens: 2048
+max_input_tokens: 4096
+max_seq_length: 4096
+temperature: 0.85
+top_p: 0.95
+advantage_method: grpo
+gate_penalty: -1.0
+use_qlora: true
+limit_examples: 512
+seed: 11

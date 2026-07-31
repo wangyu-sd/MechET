@@ -1,0 +1,17 @@
+# Proof-only SFT: the model emits MECH_PROOF v1; the executor derives precursors.
+model_path_env: QWEN_MODEL_PATH
+train_file: data/mechet_proof_sft/train.jsonl
+validation_file: data/mechet_proof_sft/valid.jsonl
+output_dir: outputs/mechet_proof_sft_pilot
+max_steps: 500
+save_steps: 100
+max_seq_length: 4096
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 2.0e-4
+use_qlora: true
+lora_r: 16
+lora_alpha: 32
+lora_dropout: 0.05
+target_modules: [q_proj, v_proj, k_proj, o_proj]
+seed: 11
