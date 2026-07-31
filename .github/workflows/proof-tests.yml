@@ -3,6 +3,8 @@ name: Proof program tests
 on:
   pull_request:
     paths:
+      - "README.md"
+      - "src/mechet/__init__.py"
       - "src/mechet/proof_*.py"
       - "src/mechet/rlvr.py"
       - "scripts/*proof*.py"
@@ -12,6 +14,8 @@ on:
   push:
     branches: [main]
     paths:
+      - "README.md"
+      - "src/mechet/__init__.py"
       - "src/mechet/proof_*.py"
       - "src/mechet/rlvr.py"
       - "scripts/*proof*.py"
@@ -34,6 +38,7 @@ jobs:
       - name: Compile proof modules and scripts
         run: |
           python -m py_compile \
+            src/mechet/__init__.py \
             src/mechet/proof_program.py \
             src/mechet/proof_sft.py \
             src/mechet/proof_equivalence.py \
@@ -46,11 +51,4 @@ jobs:
             scripts/infer_mechet_proof.py \
             scripts/repair_mechet_proof_generations.py
       - name: Run proof tests
-        run: |
-          pytest -q \
-            tests/test_proof_program.py \
-            tests/test_proof_sft.py \
-            tests/test_proof_rlvr.py \
-            tests/test_proof_equivalence.py \
-            tests/test_proof_diagnostics.py \
-            tests/test_proof_splits.py
+        run: pytest -q tests/test_proof_*.py
