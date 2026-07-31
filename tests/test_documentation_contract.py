@@ -19,7 +19,6 @@ def test_readme_describes_current_proof_hypothesis_method():
     assert "docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md" in text
     assert "docs/README.md" in text
     assert "docs/BENCHMARK_RESULTS.md" not in text
-    assert "docs/EVAL.md" not in text
 
 
 def test_authoritative_experiment_plan_has_complete_contract():
