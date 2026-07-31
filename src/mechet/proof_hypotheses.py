@@ -11,7 +11,8 @@ from mechet.proof_equivalence import (
     composition_signature,
     proofs_equivalent,
 )
-from mechet.proof_program import execute_proof, sides_equal, verify_proof
+from mechet.proof_program import parse_proof_program, sides_equal, verify_proof
+from mechet.proof_routes import structural_precursors
 
 
 @dataclass
@@ -25,6 +26,7 @@ class ProofHypothesis:
     execute_ok: bool = False
     endpoint_exact: bool = False
     derived_precursor: str = ""
+    derived_core_precursor: str = ""
     equivalence_digest: str = ""
     composition_digest: str = ""
     failure_code: str = ""
@@ -62,7 +64,20 @@ def score_hypothesis(
     repaired: bool = False,
     metadata: dict[str, Any] | None = None,
 ) -> ProofHypothesis:
-    verified = verify_proof(proof, expected_precursor=expected_precursor)
+    # Verify execution independently of the endpoint first. The headline endpoint
+    # is the atom-contributing structural precursor, not the full spectator set.
+    verified = verify_proof(proof, expected_precursor=None)
+    derived = str(verified.get("derived_precursor") or "")
+    core = ""
+    endpoint_exact = False
+    if verified.get("execute_ok"):
+        program = parse_proof_program(proof)
+        core = ".".join(structural_precursors(program.target_smiles, derived))
+        endpoint_exact = bool(
+            expected_precursor
+            and core
+            and sides_equal(core, expected_precursor, ignore_maps=True)
+        )
     item = ProofHypothesis(
         proof=proof,
         source_index=source_index,
@@ -71,8 +86,9 @@ def score_hypothesis(
         novelty_score=float(novelty_score),
         format_ok=bool(verified.get("format_ok")),
         execute_ok=bool(verified.get("execute_ok")),
-        endpoint_exact=bool(verified.get("endpoint_exact")),
-        derived_precursor=str(verified.get("derived_precursor") or ""),
+        endpoint_exact=endpoint_exact,
+        derived_precursor=derived,
+        derived_core_precursor=core,
         repaired=bool(repaired),
         metadata=dict(metadata or {}),
     )
@@ -144,9 +160,9 @@ def summarize_hypotheses(
     values = list(hypotheses)
     executable = [item for item in values if item.execute_ok]
     endpoints = {
-        item.derived_precursor
+        item.derived_core_precursor or item.derived_precursor
         for item in executable
-        if item.derived_precursor
+        if item.derived_core_precursor or item.derived_precursor
     }
     return HypothesisSetSummary(
         n_generated=len(values),
@@ -183,11 +199,12 @@ def endpoint_groups(
 ) -> list[dict[str, Any]]:
     groups: dict[str, list[ProofHypothesis]] = {}
     for item in hypotheses:
-        if not item.execute_ok or not item.derived_precursor:
+        endpoint_value = item.derived_core_precursor or item.derived_precursor
+        if not item.execute_ok or not endpoint_value:
             continue
-        key = item.derived_precursor
+        key = endpoint_value
         for existing in groups:
-            if sides_equal(existing, item.derived_precursor):
+            if sides_equal(existing, endpoint_value, ignore_maps=True):
                 key = existing
                 break
         groups.setdefault(key, []).append(item)
