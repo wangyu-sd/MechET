@@ -27,6 +27,7 @@ from .proof_equivalence import (
     proofs_equivalent,
 )
 from .proof_program import (
+    ChargeAction,
     ProofEdge,
     ProofExecutionResult,
     ProofProgram,
@@ -58,6 +59,7 @@ from .verifier import compute_mech_et_reward, compute_reward
 
 __all__ = [
     "AssistantOnlyCollator",
+    "ChargeAction",
     "FailureCertificate",
     "ProofEdge",
     "ProofEquivalenceSignature",
