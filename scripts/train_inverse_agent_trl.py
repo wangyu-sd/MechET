@@ -120,6 +120,7 @@ def dry_run_report(cfg: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str,
     first = rows[0]
     observation = env.reset(**first)
     inventory = json.loads(env.inspect_state())
+    training = dict(cfg.get("training") or {})
     return {
         "model_name_or_path": cfg.get("model_name_or_path"),
         "train_file": cfg.get("train_file"),
@@ -130,6 +131,10 @@ def dry_run_report(cfg: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str,
         "n_sources": len(inventory.get("sources") or []),
         "n_sinks": len(inventory.get("sinks") or []),
         "forward_checkpoint": cfg.get("forward_checkpoint") or None,
+        "max_tool_calling_iterations": int(
+            training.get("max_tool_calling_iterations", 8)
+        ),
+        "num_generations": int(training.get("num_generations", 8)),
     }
 
 
@@ -144,7 +149,10 @@ def main() -> int:
     train_file = Path(str(cfg.get("train_file") or ""))
     if not train_file.exists():
         raise FileNotFoundError(f"train_file does not exist: {train_file}")
-    rows = build_rows(train_file, limit=args.limit or int(cfg.get("limit_examples", 0) or 0))
+    rows = build_rows(
+        train_file,
+        limit=args.limit or int(cfg.get("limit_examples", 0) or 0),
+    )
 
     if args.dry_run:
         print(json.dumps(dry_run_report(cfg, rows), indent=2, ensure_ascii=False))
@@ -157,7 +165,8 @@ def main() -> int:
         from trl import GRPOConfig, GRPOTrainer
     except ImportError as exc:
         raise RuntimeError(
-            "agent training requires mechet[agent] and a TRL release with environment_factory"
+            "agent training requires mechet[agent] and a TRL release with "
+            "environment_factory"
         ) from exc
 
     model_name = str(cfg.get("model_name_or_path") or "")
@@ -173,24 +182,47 @@ def main() -> int:
         output_dir=str(cfg.get("output_dir") or "outputs/agent/inverse_trl_grpo"),
         learning_rate=float(training.get("learning_rate", 5e-6)),
         num_train_epochs=float(training.get("num_train_epochs", 1.0)),
-        per_device_train_batch_size=int(training.get("per_device_train_batch_size", 1)),
-        gradient_accumulation_steps=int(training.get("gradient_accumulation_steps", 8)),
+        per_device_train_batch_size=int(
+            training.get("per_device_train_batch_size", 1)
+        ),
+        gradient_accumulation_steps=int(
+            training.get("gradient_accumulation_steps", 8)
+        ),
         num_generations=int(training.get("num_generations", 8)),
         max_completion_length=int(training.get("max_completion_length", 2048)),
+        max_tool_calling_iterations=int(
+            training.get("max_tool_calling_iterations", 8)
+        ),
+        temperature=float(training.get("temperature", 0.9)),
+        top_p=float(training.get("top_p", 0.95)),
+        beta=float(training.get("beta", 0.02)),
+        use_vllm=bool(training.get("use_vllm", False)),
         logging_steps=int(training.get("logging_steps", 1)),
         save_steps=int(training.get("save_steps", 100)),
-        bf16=bool(training.get("bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported())),
-        fp16=bool(training.get("fp16", torch.cuda.is_available() and not torch.cuda.is_bf16_supported())),
+        bf16=bool(
+            training.get(
+                "bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+            )
+        ),
+        fp16=bool(
+            training.get(
+                "fp16", torch.cuda.is_available() and not torch.cuda.is_bf16_supported()
+            )
+        ),
         report_to=list(training.get("report_to") or []),
         chat_template_kwargs={
             "enable_thinking": bool(training.get("enable_thinking", True))
         },
+        trust_remote_code=bool(training.get("trust_remote_code", True)),
     )
     peft_config = LoraConfig(
         r=int(lora.get("r", 16)),
         lora_alpha=int(lora.get("alpha", 32)),
         lora_dropout=float(lora.get("dropout", 0.05)),
-        target_modules=list(lora.get("target_modules") or ["q_proj", "k_proj", "v_proj", "o_proj"]),
+        target_modules=list(
+            lora.get("target_modules")
+            or ["q_proj", "k_proj", "v_proj", "o_proj"]
+        ),
         task_type="CAUSAL_LM",
     )
     environment_factory = partial(
