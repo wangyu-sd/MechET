@@ -1,0 +1,14 @@
+# Documentation-only example; scripts use explicit CLI arguments so paths remain auditable.
+normalization:
+  keep_stereo: true
+  remove_atom_maps: true
+policies:
+  exact_clean: [exact_structural, product]
+  scaffold_clean: [exact_structural, product, scaffold]
+  template_clean: [exact_structural, product, scaffold, reaction_center]
+inputs:
+  flower_train: data/mechet_proof_sft/train.jsonl
+  uspto50k_test: data/benchmarks/uspto50k/test.csv
+outputs:
+  audit_dir: outputs/data_audit/flower_vs_uspto50k
+  decontaminated_train: data/mechet_proof_clean/train.jsonl
