@@ -1,0 +1,96 @@
+name: Proof-centric learning and search tests
+
+on:
+  pull_request:
+    paths:
+      - "src/mechet/proof_curriculum.py"
+      - "src/mechet/proof_variants.py"
+      - "src/mechet/proof_hypotheses.py"
+      - "src/mechet/proof_routes.py"
+      - "src/mechet/proof_rlvr.py"
+      - "src/mechet/reaction_network.py"
+      - "src/mechet/catalytic_cycle.py"
+      - "src/mechet/plausibility.py"
+      - "src/mechet/__init__.py"
+      - "scripts/build_proof_*.py"
+      - "scripts/train_proof_*.py"
+      - "scripts/infer_proof_*.py"
+      - "scripts/eval_proof_*.py"
+      - "scripts/explore_reaction_network.py"
+      - "scripts/score_network_frontier.py"
+      - "scripts/score_proof_plausibility.py"
+      - "scripts/eval_catalytic_cycles.py"
+      - "scripts/build_external_mechanism_benchmark.py"
+      - "tests/test_proof_curriculum.py"
+      - "tests/test_proof_hypotheses.py"
+      - "tests/test_proof_routes.py"
+      - "tests/test_proof_set_rlvr.py"
+      - "tests/test_reaction_network.py"
+      - "tests/test_catalytic_cycle.py"
+      - ".github/workflows/proof-centric-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/mechet/proof_*.py"
+      - "src/mechet/reaction_network.py"
+      - "src/mechet/catalytic_cycle.py"
+      - "src/mechet/plausibility.py"
+      - "scripts/*proof*.py"
+      - "scripts/*reaction_network*.py"
+      - "scripts/*catalytic_cycle*.py"
+      - "tests/test_proof_*.py"
+      - "tests/test_reaction_network.py"
+      - "tests/test_catalytic_cycle.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest torch pyyaml
+      - name: Compile proof-centric modules and CLIs
+        run: |
+          python -m py_compile \
+            src/mechet/proof_curriculum.py \
+            src/mechet/proof_variants.py \
+            src/mechet/proof_hypotheses.py \
+            src/mechet/proof_routes.py \
+            src/mechet/proof_rlvr.py \
+            src/mechet/reaction_network.py \
+            src/mechet/catalytic_cycle.py \
+            src/mechet/plausibility.py \
+            scripts/build_proof_equivalence_data.py \
+            scripts/build_proof_corruption_data.py \
+            scripts/build_proof_preferences.py \
+            scripts/build_proof_repair_data.py \
+            scripts/train_proof_dpo.py \
+            scripts/train_proof_repair.py \
+            scripts/train_proof_rlvr_distributed.py \
+            scripts/infer_proof_hypotheses.py \
+            scripts/infer_proof_gfr.py \
+            scripts/eval_proof_falsification.py \
+            scripts/eval_proof_hypotheses.py \
+            scripts/eval_proof_repair.py \
+            scripts/search_proof_routes.py \
+            scripts/eval_proof_routes.py \
+            scripts/explore_reaction_network.py \
+            scripts/score_network_frontier.py \
+            scripts/score_proof_plausibility.py \
+            scripts/eval_catalytic_cycles.py \
+            scripts/build_external_mechanism_benchmark.py
+      - name: Run proof-centric tests
+        run: |
+          pytest -q \
+            tests/test_proof_curriculum.py \
+            tests/test_proof_hypotheses.py \
+            tests/test_proof_routes.py \
+            tests/test_proof_set_rlvr.py \
+            tests/test_reaction_network.py \
+            tests/test_catalytic_cycle.py
