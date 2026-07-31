@@ -1,0 +1,15 @@
+train_file: data/proof_curriculum/preferences.jsonl
+sft_adapter: outputs/proof/actor_sft/adapter
+output_dir: outputs/proof/actor_dpo
+max_steps: 600
+save_steps: 100
+max_seq_length: 4096
+gradient_accumulation_steps: 4
+learning_rate: 5.0e-6
+use_qlora: true
+beta: 0.1
+length_normalize: true
+seed: 11
+objective: verifier_dpo
+reference: cached_initial_sft_adapter
+preference_policy: executable_over_formally_invalid_only
