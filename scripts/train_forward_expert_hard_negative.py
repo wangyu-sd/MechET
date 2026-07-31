@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fine-tune the compact forward expert on actor-mined explicit negatives."""
+"""Fine-tune the forward expert on independently verified hard negatives."""
 from __future__ import annotations
 
 import argparse
@@ -18,12 +18,31 @@ from torch.optim import AdamW
 from mechet.forward_expert import ForwardElectronExpert
 
 
+ACCEPTED_LABEL_SOURCES = {
+    "expert_review",
+    "experiment",
+    "known_competing_product",
+    "independent_calibrated_ensemble",
+}
+
+
 def load_jsonl(path: Path):
     return [
         json.loads(line)
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
+
+
+def is_verified_negative(row: dict) -> bool:
+    metadata = row.get("metadata") or {}
+    source = str(row.get("label_source") or metadata.get("label_source") or "")
+    return (
+        float(row.get("label", 1.0)) <= 0.0
+        and bool(row.get("training_eligible"))
+        and str(row.get("audit_status") or "") == "verified_negative"
+        and source in ACCEPTED_LABEL_SOURCES
+    )
 
 
 def main() -> int:
@@ -41,30 +60,34 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=23)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
+
     positives = load_jsonl(args.positive_data)
-    negatives = [
-        row
-        for row in load_jsonl(args.negative_data)
-        if float(row.get("label", 0.0)) <= 0.0
-    ]
-    if not positives or not negatives:
-        raise ValueError("positive and explicit negative datasets are both required")
+    raw_negatives = load_jsonl(args.negative_data)
+    negatives = [row for row in raw_negatives if is_verified_negative(row)]
+    if not positives:
+        raise ValueError("positive dataset is empty")
+    if not negatives:
+        raise ValueError(
+            "no independently verified negatives: unreviewed actor/verifier "
+            "disagreements are not training labels"
+        )
     if args.dry_run:
         print(
             json.dumps(
                 {
                     "positives": len(positives),
-                    "negatives": len(negatives),
+                    "raw_negative_candidates": len(raw_negatives),
+                    "verified_negatives": len(negatives),
                     "negative_ratio": args.negative_ratio,
+                    "accepted_label_sources": sorted(ACCEPTED_LABEL_SOURCES),
                 },
                 indent=2,
             )
         )
         return 0
+
     model = ForwardElectronExpert.load(args.checkpoint, device=args.device)
-    optimizer = AdamW(
-        model.parameters(), lr=args.learning_rate, weight_decay=1e-4
-    )
+    optimizer = AdamW(model.parameters(), lr=args.learning_rate, weight_decay=1e-4)
     rng = random.Random(args.seed)
     args.output.mkdir(parents=True, exist_ok=True)
     for epoch in range(args.epochs):
@@ -78,12 +101,8 @@ def main() -> int:
         model.train()
         losses = []
         for row, label in epoch_rows:
-            reactants = str(
-                row.get("reactants") or row.get("state_smiles") or ""
-            )
-            product = str(
-                row.get("products") or row.get("target_product") or ""
-            )
+            reactants = str(row.get("reactants") or row.get("state_smiles") or "")
+            product = str(row.get("products") or row.get("target_product") or "")
             if not reactants or not product:
                 continue
             logit = model.reaction_score(
@@ -109,7 +128,13 @@ def main() -> int:
                 )
                 + "\n"
             )
-    model.save(args.output)
+    model.save(
+        args.output,
+        metadata={
+            "hard_negative_label_sources": sorted(ACCEPTED_LABEL_SOURCES),
+            "unreviewed_disagreements_used": False,
+        },
+    )
     return 0
 
 
