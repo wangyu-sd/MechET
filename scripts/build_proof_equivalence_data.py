@@ -10,11 +10,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from mechet.proof_curriculum import (
-    build_equivalent_variants,
-    equivalence_metadata,
-    proof_text_from_row,
-)
+from mechet.proof_curriculum import equivalence_metadata, proof_text_from_row
+from mechet.proof_variants import build_equivalent_variants
 
 
 def load_jsonl(path: Path) -> list[dict]:
@@ -83,6 +80,7 @@ def main() -> int:
         "variants_written": variants_written,
         "variants_per_row_requested": args.variants_per_row,
         "seed": args.seed,
+        "acceptance": "execute_ok_and_partial_order_equivalent",
     }
     args.output.with_suffix(args.output.suffix + ".manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n",
