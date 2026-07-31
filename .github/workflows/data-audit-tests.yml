@@ -1,0 +1,64 @@
+name: Data audit and ICLR scaffold tests
+
+on:
+  pull_request:
+    paths:
+      - "src/mechet/data_audit.py"
+      - "src/mechet/map_invariance.py"
+      - "src/mechet/iclr_*.py"
+      - "src/mechet/__init__.py"
+      - "scripts/audit_reaction_overlap.py"
+      - "scripts/build_decontaminated_dataset.py"
+      - "scripts/build_iclr_task_variants.py"
+      - "scripts/build_map_permutations.py"
+      - "scripts/train_iclr_proof_rlvr.py"
+      - "scripts/validate_iclr_data_contract.py"
+      - "tests/test_data_audit.py"
+      - "tests/test_map_invariance.py"
+      - "tests/test_iclr_*.py"
+      - ".github/workflows/data-audit-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/mechet/data_audit.py"
+      - "src/mechet/map_invariance.py"
+      - "src/mechet/iclr_*.py"
+      - "scripts/*audit*.py"
+      - "scripts/build_*decontaminated*.py"
+      - "tests/test_data_audit.py"
+      - "tests/test_map_invariance.py"
+      - "tests/test_iclr_*.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest torch pyyaml
+      - name: Compile audit and experiment modules
+        run: |
+          python -m py_compile \
+            src/mechet/data_audit.py \
+            src/mechet/map_invariance.py \
+            src/mechet/iclr_tasks.py \
+            src/mechet/iclr_rewards.py \
+            scripts/audit_reaction_overlap.py \
+            scripts/build_decontaminated_dataset.py \
+            scripts/build_iclr_task_variants.py \
+            scripts/build_map_permutations.py \
+            scripts/train_iclr_proof_rlvr.py \
+            scripts/validate_iclr_data_contract.py
+      - name: Run audit and task tests
+        run: |
+          pytest -q \
+            tests/test_data_audit.py \
+            tests/test_map_invariance.py \
+            tests/test_iclr_tasks.py \
+            tests/test_iclr_rewards.py
