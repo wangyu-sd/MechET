@@ -1,0 +1,49 @@
+# All tasks must be built from the same frozen decontaminated row IDs.
+backbone: Qwen3-8B
+seeds: [11, 22, 33]
+data:
+  proof_source: data/mechet_proof_clean/train.jsonl
+  state_source: data/mechet_state_clean/train.jsonl
+  proof_valid: data/mechet_proof_clean/valid.jsonl
+  state_valid: data/mechet_state_clean/valid.jsonl
+  test_sets:
+    flower_internal: data/mechet_proof_clean/test.jsonl
+    uspto50k_standard: data/benchmarks/uspto50k/test.csv
+    uspto50k_exact_clean: data/benchmarks/uspto50k_exact_clean/test.csv
+    uspto50k_scaffold_clean: data/benchmarks/uspto50k_scaffold_clean/test.csv
+    mechcomp_ood: data/mechet_proof_mechcomp/test.jsonl
+models:
+  outcome_only:
+    task_file: data/iclr_tasks/outcome_only.jsonl
+    objective: assistant_token_cross_entropy
+    algorithm: qlora_sft
+  state_cot:
+    task_file: data/iclr_tasks/state_cot.jsonl
+    objective: assistant_token_cross_entropy
+    algorithm: qlora_sft
+  net_edit:
+    task_file: data/iclr_tasks/net_edit.jsonl
+    objective: assistant_token_cross_entropy
+    algorithm: qlora_sft
+  proof_sft:
+    task_file: data/iclr_tasks/proof.jsonl
+    objective: assistant_token_cross_entropy
+    algorithm: qlora_sft
+  proof_rlvr:
+    init_adapter: outputs/iclr/proof_sft_seed11/adapter
+    task_file: data/iclr_tasks/proof.jsonl
+    objective: group_relative_reinforce
+    algorithm: rloo_or_grpo_style_rlvr
+    rewards:
+      parse: 0.5
+      execute: 2.5
+      endpoint_core_exact: 4.0
+      composition_match: 1.0
+      invalid: -2.0
+controls:
+  map_permutations: 5
+  random_smiles: 5
+  low_resource_fractions: [0.01, 0.05, 0.10, 0.25, 1.0]
+  matched_train_rows: true
+  matched_backbone: true
+  matched_token_budget: true

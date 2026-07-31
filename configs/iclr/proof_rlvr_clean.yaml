@@ -1,0 +1,24 @@
+model_path_env: QWEN_MODEL_PATH
+train_file: data/iclr_tasks/proof.jsonl
+sft_adapter: outputs/iclr/proof_sft_seed11/adapter
+output_dir: outputs/iclr/proof_rlvr_seed11
+max_steps: 300
+save_steps: 50
+group_size: 8
+prompts_per_step: 2
+learning_rate: 5.0e-6
+max_new_tokens: 2048
+max_input_tokens: 4096
+max_seq_length: 4096
+temperature: 0.9
+top_p: 0.95
+advantage_method: rloo
+use_qlora: true
+limit_examples: 4096
+seed: 11
+rewards:
+  missing_proof: -4.0
+  invalid_proof: -2.0
+  execute: 2.5
+  endpoint_core_exact: 4.0
+  composition_match: 1.0

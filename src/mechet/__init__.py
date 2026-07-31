@@ -5,6 +5,31 @@ from .collator import (
     encode_assistant_only,
     find_assistant_start,
 )
+from .data_audit import (
+    KEY_LEVELS,
+    NormalizationConfig,
+    ReactionKeys,
+    ReactionRecord,
+    RoleSplit,
+    build_key_index,
+    canonical_multiset,
+    quarantine_reason,
+    reaction_keys,
+    split_structural_and_environment,
+)
+from .iclr_rewards import CoreProofRewardConfig, compute_core_proof_reward, core_gold
+from .iclr_tasks import (
+    build_net_edit_row,
+    build_outcome_only_row,
+    build_proof_row,
+    build_state_cot_row,
+    core_precursor,
+)
+from .map_invariance import (
+    record_map_permutation,
+    remap_proof_text,
+    remap_smiles,
+)
 from .mech_et import format_mech_et_cot, verify_mech_et
 from .mech_graph import (
     format_mech_graph_cot,
@@ -60,18 +85,31 @@ from .verifier import compute_mech_et_reward, compute_reward
 __all__ = [
     "AssistantOnlyCollator",
     "ChargeAction",
+    "CoreProofRewardConfig",
     "FailureCertificate",
+    "KEY_LEVELS",
+    "NormalizationConfig",
     "ProofEdge",
     "ProofEquivalenceSignature",
     "ProofExecutionResult",
     "ProofProgram",
     "ProofRepairResult",
     "ProofSplitFeatures",
+    "ReactionKeys",
+    "ReactionRecord",
+    "RoleSplit",
     "build_compositional_ood_split",
+    "build_key_index",
+    "build_net_edit_row",
+    "build_outcome_only_row",
+    "build_proof_row",
+    "build_state_cot_row",
+    "canonical_multiset",
     "canonical_partial_order_signature",
     "compile_mech_et_body",
     "composition_signature",
     "compute_advantages",
+    "compute_core_proof_reward",
     "compute_mech_et_reward",
     "compute_mechvr_reward",
     "compute_proofvr_reward",
@@ -79,6 +117,8 @@ __all__ = [
     "compute_rollout_reward",
     "convert_mech_et_row_to_proof_sft",
     "convert_record_to_qwen_sft",
+    "core_gold",
+    "core_precursor",
     "diagnose_proof",
     "edge_primitive_signature",
     "encode_assistant_only",
@@ -96,10 +136,16 @@ __all__ = [
     "parse_proof_program",
     "primitive_signatures",
     "proofs_equivalent",
+    "quarantine_reason",
+    "reaction_keys",
+    "record_map_permutation",
+    "remap_proof_text",
+    "remap_smiles",
     "repair_proof_once",
+    "split_structural_and_environment",
     "verify_mech_et",
     "verify_mech_graph",
     "verify_proof",
 ]
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
