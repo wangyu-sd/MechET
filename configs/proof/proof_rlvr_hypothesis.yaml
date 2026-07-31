@@ -1,0 +1,26 @@
+train_file: data/mechet_proof_clean/train.jsonl
+sft_adapter: outputs/proof/actor_dpo/adapter
+output_dir: outputs/proof/rlvr_hypothesis
+max_steps: 400
+group_size: 16
+prompts_per_step: 1
+learning_rate: 5.0e-6
+max_new_tokens: 2048
+max_input_tokens: 4096
+max_seq_length: 4096
+temperature: 1.0
+top_p: 0.97
+advantage_method: rloo
+use_qlora: true
+seed: 11
+rewards:
+  mode: hypothesis
+  parse: 0.5
+  execute: 3.0
+  endpoint_core_exact: 1.0
+  composition_match: 0.0
+  invalid: -2.0
+  missing_proof: -4.0
+  new_class_bonus: 1.0
+  duplicate_class_penalty: 0.5
+hard_rule: diversity_adjustment_applies_only_when_execute_ok

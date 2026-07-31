@@ -1,0 +1,74 @@
+pipeline: MechET-GFR
+version: 1
+backbone: Qwen3-8B
+seeds: [11, 22, 33]
+
+frozen_inputs:
+  clean_proof_train: data/mechet_proof_clean/train.jsonl
+  clean_proof_valid: data/mechet_proof_clean/valid.jsonl
+  clean_proof_test: data/mechet_proof_clean/test.jsonl
+  standard_uspto50k_test: data/benchmarks/uspto50k/test.csv
+  mechcomp_ood_test: data/mechet_proof_mechcomp/test.jsonl
+
+curriculum:
+  equivalence:
+    script: scripts/build_proof_equivalence_data.py
+    output: data/proof_curriculum/equivalence_train.jsonl
+    variants_per_row: 4
+    acceptance: execute_ok_and_partial_order_equivalent
+  corruptions:
+    script: scripts/build_proof_corruption_data.py
+    output: data/proof_curriculum/corruptions.jsonl
+    acceptance: executor_observation_matches_label
+  preferences:
+    script: scripts/build_proof_preferences.py
+    output: data/proof_curriculum/preferences.jsonl
+    policy: executable_over_formally_invalid_only
+  repairs:
+    script: scripts/build_proof_repair_data.py
+    output: data/proof_curriculum/repairs.jsonl
+
+training:
+  actor_sft:
+    config: configs/proof/proof_actor_sft.yaml
+    output: outputs/proof/actor_sft
+    objective: equivalence_resampled_assistant_token_ce
+  verifier_dpo:
+    config: configs/proof/proof_dpo.yaml
+    init: outputs/proof/actor_sft/adapter
+    output: outputs/proof/actor_dpo
+    objective: verifier_dpo
+  repair:
+    config: configs/proof/proof_repair.yaml
+    init: outputs/proof/actor_sft/adapter
+    output: outputs/proof/repair
+    objective: changed_span_weighted_ce
+  rlvr_accuracy:
+    config: configs/proof/proof_rlvr_accuracy.yaml
+    init: outputs/proof/actor_dpo/adapter
+    output: outputs/proof/rlvr_accuracy
+  rlvr_hypothesis:
+    config: configs/proof/proof_rlvr_hypothesis.yaml
+    init: outputs/proof/actor_dpo/adapter
+    output: outputs/proof/rlvr_hypothesis
+
+inference:
+  single: scripts/infer_mechet_proof.py
+  hypotheses: scripts/infer_proof_hypotheses.py
+  generate_falsify_repair: scripts/infer_proof_gfr.py
+  routes: scripts/search_proof_routes.py
+  network: scripts/explore_reaction_network.py
+
+validation:
+  falsification: scripts/eval_proof_falsification.py
+  hypotheses: scripts/eval_proof_hypotheses.py
+  repair: scripts/eval_proof_repair.py
+  routes: scripts/eval_proof_routes.py
+  catalytic_cycles: scripts/eval_catalytic_cycles.py
+
+hard_rules:
+  - formal_executor_is_never_trained
+  - invalid_proofs_cannot_receive_diversity_bonus
+  - executable_alternative_endpoints_are_not_automatic_negatives
+  - benchmark_files_are_frozen_before_training
+  - every_headline_result_uses_three_seeds

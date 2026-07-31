@@ -1,0 +1,13 @@
+train_file: data/proof_curriculum/repairs.jsonl
+init_adapter: outputs/proof/actor_sft/adapter
+output_dir: outputs/proof/repair
+max_steps: 800
+save_steps: 100
+max_seq_length: 4096
+gradient_accumulation_steps: 4
+learning_rate: 5.0e-6
+use_qlora: true
+changed_span_weight: 4.0
+seed: 11
+objective: changed_span_weighted_ce
+max_inference_repairs: 2

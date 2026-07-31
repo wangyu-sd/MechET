@@ -1,0 +1,23 @@
+train_file: data/mechet_proof_clean/train.jsonl
+sft_adapter: outputs/proof/actor_dpo/adapter
+output_dir: outputs/proof/rlvr_accuracy
+max_steps: 400
+group_size: 8
+prompts_per_step: 2
+learning_rate: 5.0e-6
+max_new_tokens: 2048
+max_input_tokens: 4096
+max_seq_length: 4096
+temperature: 0.85
+top_p: 0.95
+advantage_method: rloo
+use_qlora: true
+seed: 11
+rewards:
+  mode: accuracy
+  parse: 0.5
+  execute: 2.5
+  endpoint_core_exact: 4.0
+  composition_match: 1.0
+  invalid: -2.0
+  missing_proof: -4.0

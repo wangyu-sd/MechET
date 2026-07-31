@@ -1,0 +1,17 @@
+train_file: data/proof_curriculum/equivalence_train.jsonl
+validation_file: data/mechet_proof_clean/valid.jsonl
+output_dir: outputs/proof/actor_sft
+max_steps: 1200
+save_steps: 100
+max_seq_length: 4096
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 16
+learning_rate: 1.0e-4
+use_qlora: true
+lora_r: 32
+lora_alpha: 64
+lora_dropout: 0.05
+target_modules: [q_proj, k_proj, v_proj, o_proj]
+seed: 11
+objective: assistant_token_cross_entropy
+data_policy: random_verified_equivalence_variant_per_source
