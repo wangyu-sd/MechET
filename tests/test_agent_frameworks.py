@@ -1,5 +1,6 @@
 import json
 
+from mechet.adversarial import MiningConfig, mine_forward_hard_negatives
 from mechet.agent_env import AgentEnvConfig, MechETAgentEnv
 from mechet.proof_program import (
     ChargeAction,
@@ -99,3 +100,41 @@ def test_candidate_pool_parses_hypotheses_and_ignores_maps(tmp_path):
     values = pool.query("CO", num_results=5)
     assert len(values) == 1
     assert "Br" in values[0].precursor
+
+
+def test_actor_fooling_candidate_becomes_explicit_negative(monkeypatch):
+    class Evidence:
+        target_score = 0.91
+        selectivity_margin = 0.02
+
+        def to_dict(self):
+            return {
+                "target_score": self.target_score,
+                "selectivity_margin": self.selectivity_margin,
+            }
+
+    monkeypatch.setattr(
+        "mechet.adversarial.score_reaction",
+        lambda *args, **kwargs: Evidence(),
+    )
+    rows = [
+        {
+            "id": "sample-1",
+            "hypotheses": [
+                {
+                    "proof": substitution_proof(),
+                    "execute_ok": True,
+                    "endpoint_exact": False,
+                    "model_logprob": -0.1,
+                }
+            ],
+        }
+    ]
+    negatives = mine_forward_hard_negatives(
+        object(),
+        rows,
+        config=MiningConfig(minimum_target_score=0.8),
+    )
+    assert len(negatives) == 1
+    assert negatives[0]["label"] == 0
+    assert negatives[0]["source"] == "inverse_actor_hard_negative"
