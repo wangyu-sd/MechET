@@ -12,6 +12,12 @@ training:
   gradient_accumulation_steps: 8
   num_generations: 8
   max_completion_length: 2048
+  max_tool_calling_iterations: 8
+  temperature: 0.9
+  top_p: 0.95
+  beta: 0.02
+  use_vllm: false
+  trust_remote_code: true
   logging_steps: 1
   save_steps: 100
   enable_thinking: true
