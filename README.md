@@ -2,182 +2,135 @@
 
 # MechET
 
-**Falsifiable retrosynthesis over executable electron-flow programs**
-
-MechET does not generate a precursor through an independent answer channel. It generates one or more `MECH_PROOF v1` programs; a deterministic executor applies their bond–electron operations and derives the precursor.
+**Reason backward through executable electron flow; verify forward with an independent compact expert**
 
 [![Proof tests](https://github.com/wangyu-sd/MechET/actions/workflows/proof-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/proof-tests.yml)
-[![Proof-centric tests](https://github.com/wangyu-sd/MechET/actions/workflows/proof-centric-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/proof-centric-tests.yml)
+[![Forward expert tests](https://github.com/wangyu-sd/MechET/actions/workflows/forward-expert-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/forward-expert-tests.yml)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![RDKit](https://img.shields.io/badge/RDKit-required-2E7D32?style=flat-square)](https://www.rdkit.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Status](https://img.shields.io/badge/status-research_preview-orange?style=flat-square)](#status)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-[Quickstart](#quickstart) · [Proof language](#electron-flow-proof-language) · [GFR](#generatefalsifyrepair) · [Experiments](#reproduction-pipeline) · [Documentation](#documentation)
+[Architecture](#architecture) · [Quickstart](#quickstart) · [Forward expert](#compact-forward-electron-flow-expert) · [Data and training](#end-to-end-forward-expert-pipeline) · [Evaluation](#evaluation) · [Documentation](#documentation)
 
 </div>
 
 ---
 
-## Retrosynthesis as falsifiable program search
+## Central idea
 
-The basic causal path is:
-
-```text
-mapped product -> MECH_PROOF v1 -> deterministic executor -> structural precursors
-```
-
-The proof-hypothesis path is:
+MechET treats a retrosynthetic proposal as a falsifiable electron-flow program.
+The inverse actor cannot bypass its reasoning by emitting an unrelated answer:
+the precursor is derived by deterministic execution of the generated proof.
+A separate compact forward expert then asks whether those precursors preferentially
+recover the target rather than competing products.
 
 ```text
-product
-  -> sample K proof programs from one autoregressive actor
-  -> execute and falsify every program
-  -> return failure certificates for invalid programs
-  -> repair locally or resample
-  -> deduplicate executable programs by partial-order equivalence
-  -> rank surviving mechanism classes and precursor endpoints
+mapped product
+  -> inverse LLM actor: electron-flow CoT / MECH_PROOF v1
+  -> deterministic executor: formal hard gate
+  -> executor-derived precursor candidates
+  -> compact forward electron-flow expert
+       - next source/sink compatibility
+       - target-product recovery
+       - target-versus-competitor selectivity
+  -> verified ranking, RL reward and route-search edge score
 ```
 
-```mermaid
-flowchart LR
-    P[Mapped product] --> A[Proof actor]
-    A --> H[K proof hypotheses]
-    H --> E[Deterministic executor]
-    E -->|invalid| C[Failure certificate]
-    C --> R[Repair or resample]
-    R --> E
-    E -->|executable| D[Partial-order deduplication]
-    D --> S[Surviving proof classes and endpoints]
-```
+The project therefore separates three meanings that must not be conflated:
 
-| Formulation | Model output | Precursor source | Can the answer bypass the reasoning? |
-|---|---|---|---|
-| Outcome-only | precursor | generated directly | yes |
-| State-CoT | states + precursor | generated directly | yes |
-| **MechET** | executable proof program | **deterministic execution** | **no** |
+| Evidence | Question | Status |
+|---|---|---|
+| Formal execution | Are atom maps, bonds, charges and electron accounting internally valid? | deterministic hard gate |
+| Forward mechanistic evidence | Does an independently trained forward model support the electron moves and target? | learned, calibrated soft evidence |
+| Experimental feasibility | Will the reaction work with useful rate, selectivity and yield under real conditions? | requires conditions, precedent, computation and/or experiment |
 
-## What K proof hypotheses mean
+## Architecture
 
-For one product \(P\), the same Proof Actor is sampled repeatedly:
+### Inverse actor
+
+The Qwen-family actor receives a mapped product and generates one or more
+`MECH_PROOF v1` programs. `IMPORT`, `BOND`, `LP`, `CHARGE` and `EDGE` are
+local executable primitives rather than a library of fixed whole-reaction templates.
+The current representation records bond-electron redistribution; explicit
+source-to-sink tool calls can be compiled to the same executor representation.
+
+### Deterministic executor
+
+For each proof edge, the executor:
+
+1. constructs the mapped molecular state;
+2. applies bond and charge operations;
+3. recomputes bond-electron and lone-pair changes;
+4. verifies written operations and electron conservation;
+5. sanitizes the resulting RDKit state;
+6. enforces reachability and consistent chain/tree/DAG joins;
+7. derives the precursor without a separate answer channel.
+
+### Compact forward electron-flow expert
+
+The forward expert is intentionally smaller and architecturally different from
+the inverse LLM. The default implementation is a pure-PyTorch graph model with:
+
+- atom/bond message passing;
+- electron-container embeddings;
+- a source pointer head;
+- a source-conditioned sink pointer head;
+- a precursor-product compatibility head;
+- a deterministic hashed condition channel for sparse solvent/reagent metadata;
+- contrastive target-versus-competitor training.
+
+It supports mapped, closed-shell, two-electron polar chemistry in v1. Coupled
+arrows in one elementary event are applied atomically. Radicals, metal orbitals,
+spin states, coordination and photochemical one-electron chemistry are out of
+scope rather than guessed.
+
+### Generate–Falsify–Repair
+
+Generate–Falsify–Repair remains available for complete proof programs:
 
 ```text
-pi_1, ..., pi_K ~ p_theta(proof | P)
+generate candidate proof
+  -> execute and falsify
+  -> return structured failure certificate
+  -> repair or resample
 ```
 
-`K` is a sampling budget, not a number of stored reaction templates. The raw samples may include:
+The forward expert adds an independent second direction. A proof can be formally
+executable yet receive weak target recovery, low selectivity margin or high
+uncertainty.
 
-- the same mechanism written with different state names or atom-map labels;
-- the same endpoint reached through different executable mechanism classes;
-- different structural precursor endpoints;
-- malformed or chemically non-executable programs.
+### K proof hypotheses
 
-Every candidate is executed. Executable candidates are deduplicated using a partial-order signature that is invariant to state names, atom-map labels, serialized edge order, and commuting independent events. A typical report therefore looks like:
+For a target product, the same autoregressive actor may be sampled repeatedly:
 
 ```text
-128 generated
- -> 91 parseable
- -> 43 executable
- -> 14 unique executable proof classes
- -> 6 unique structural precursor endpoints
+pi_1, ..., pi_K ~ p_theta(proof | product)
 ```
 
-The principal set-valued metrics are `ExecutePass@K`, `EndpointPass@K`, unique executable proof classes, unique mechanism compositions, and unique structural endpoints. Top-1 is retained for literature comparability, not used as the sole objective.
-
-## Electron-flow proof language
-
-`MECH_PROOF v1` is a sparse program over atom-mapped molecular graphs:
-
-```text
-<proof>
-MECH_PROOF v1
-TARGET_SMILES "<mapped product>"
-ROOT s0
-  IMPORT "<mapped species present in the root system>"
-PRECURSOR_STATE sk
-EDGE s0 s1
-  IMPORT "<optional introduced mapped species>"
-  BOND i j ±d
-  LP i ±d
-  CHARGE i q0 q1
-...
-</proof>
-```
-
-The operations are **local executable primitives**, not fixed whole-reaction templates:
-
-- `IMPORT`: introduce a mapped species required by an elementary transition;
-- `BOND i j delta`: change bond order between mapped atoms;
-- `LP i delta`: declare the corresponding change in non-bonding electrons;
-- `CHARGE i q0 q1`: apply a checked formal-charge transition;
-- `EDGE src dst`: define an elementary transition in a chain, tree, or DAG proof.
-
-For each edge, the executor applies graph-changing operations, reconstructs the destination state, recomputes the bond–electron delta, verifies the written `BOND`, `LP`, and `CHARGE` records, checks electron conservation, sanitizes the molecular state, and enforces consistent DAG joins.
-
-This is a bond–electron redistribution representation. It does not yet uniquely pair every electron source orbital with every electron sink orbital. Explicit source-to-sink `E_MOVE` operations, one-electron radical moves, metal orbitals, spin states, and coordination changes are future extensions for catalytic-cycle discovery.
-
-The current cold-start corpus is compiled from FlowER trajectories, so it inherits mechanistic priors from that data-construction process even though inference does not retrieve or instantiate a fixed reaction template.
-
-See [the proof-language specification](docs/PROOF_CARRYING.md).
-
-## Generate–Falsify–Repair
-
-MechET-GFR separates four learned or deterministic roles:
-
-1. **Proof Actor** — samples complete `MECH_PROOF v1` programs.
-2. **Formal executor/falsifier** — deterministic and never trained.
-3. **Repair Actor** — receives an invalid proof and a structured failure certificate, then proposes a local correction.
-4. **External plausibility layer** — optional precedent, condition, energy, kinetic, expert, or experimental evidence applied only after formal execution.
-
-The executor may reject a proof for stable reasons such as:
-
-```text
-PROOF_PARSE_FAILED
-ATOM_MAP_ERROR
-BOND_EXECUTION_MISMATCH
-LP_EXECUTION_MISMATCH
-CHARGE_PRECONDITION_FAILED
-ELECTRON_NOT_CONSERVED
-CHEMICAL_STATE_INVALID
-UNREACHABLE_EDGE
-DAG_JOIN_MISMATCH
-```
-
-GFR inference allows at most a small fixed number of repair rounds. A proof that still fails is discarded or resampled rather than edited indefinitely.
-
-## What is implemented
-
-- executable `MECH_PROOF v1` compiler, parser, executor, and verifier;
-- chain/tree/DAG proof execution and DAG-join checks;
-- structural-precursor scoring separated from solvents, salts, catalysts, and spectators;
-- FlowER–USPTO overlap audit and training-set decontamination;
-- partial-order proof equivalence and MechComp-OOD splits;
-- verified equivalence augmentation;
-- controlled proof corruptions and formal falsification benchmarks;
-- verifier-grounded preference data and Verifier-DPO training;
-- accuracy-mode and hypothesis-mode proof-set RLVR;
-- certificate-conditioned repair data, training, and GFR inference;
-- hypothesis-set execution, deduplication, endpoint grouping, and Pass@K evaluation;
-- proof-carrying best-first multistep search over an offline candidate pool;
-- executable reaction-hypergraph and formal catalytic-cycle validation scaffolds;
-- typed interfaces for external plausibility evidence.
+K proof hypotheses are a sampling/search budget, not K stored reaction templates.
+Candidates are executed, deduplicated by partial-order equivalence and grouped by
+structural endpoint. Core set-valued metrics include `ExecutePass@K`,
+`EndpointPass@K`, unique executable proof classes and unique precursor endpoints.
+The compact forward expert can rerank the surviving endpoints without weakening
+the formal gate.
 
 ## Status
 
-MechET is a research preview. The software and experimental scaffold are available; public trained checkpoints and paper-scale scientific results are not yet released.
+MechET is a research preview. The code now includes an end-to-end forward-expert
+pipeline, but no paper-scale trained checkpoint or frozen scientific result table
+is claimed in this repository.
 
-| Artifact | Status |
+| Component | Status |
 |---|---|
-| Proof language, compiler, executor, verifier | available |
-| Partial-order equivalence and MechComp-OOD | available |
-| Leakage audit and decontamination | available |
-| Proof curriculum, Verifier-DPO, proof-set RLVR | available |
-| Hypothesis-set and GFR inference | available |
-| Proof-carrying route-search scaffold | available |
-| Reaction-network and catalytic-cycle formal scaffolds | available |
-| Public trained checkpoints | not released |
-| Frozen paper-scale result tables | not released |
-| DFT, microkinetic, or experimental validation | external work required |
+| `MECH_PROOF v1` compiler, executor and verifier | available |
+| proof equivalence, diagnostics, GFR and proof-set inference | available |
+| proof-carrying multistep search scaffold | available |
+| forward source-sink formal step executor | available |
+| compact graph-pointer forward expert | available |
+| data download/standardization/build scripts | available |
+| model pre-download, training, inference, generation and evaluation | available |
+| public paper checkpoint and paper-scale metrics | not released |
+| kinetic, transition-state or experimental validation | external evidence required |
 
 ## Quickstart
 
@@ -186,10 +139,24 @@ MechET is a research preview. The software and experimental scaffold are availab
 ```bash
 git clone https://github.com/wangyu-sd/MechET.git
 cd MechET
+
+# Proof executor and tests
 pip install -e ".[dev]"
+
+# Forward expert training
+pip install -e ".[forward]"
+
+# Dataset download/Arrow/Parquet support
+pip install -e ".[data]"
+
+# Optional atom mapping and ORD protobuf decoding
+pip install -e ".[mapping,ord]"
+
+# Optional ChemBERTa/MoLFormer/Qwen baselines
+pip install -e ".[baselines]"
 ```
 
-### Execute one proof
+### Execute a proof
 
 ```python
 from mechet import ChargeAction, ProofEdge, ProofProgram
@@ -211,204 +178,273 @@ program = ProofProgram(
 )
 
 proof = format_proof_output(program)
-score = verify_proof(
+result = verify_proof(
     proof,
     expected_precursor="[CH3:1][Br:3].[OH-:2]",
 )
-print(score["execute_ok"], score["endpoint_exact"])
+print(result["execute_ok"], result["endpoint_exact"])
 ```
 
-Expected output:
+### Verify coupled forward arrows
+
+```python
+from mechet.forward_expert import verify_electron_step
+
+result = verify_electron_step(
+    "[CH3:1][Br:3].[OH-:2]",
+    [
+        {
+            "source": {"kind": "LP", "atoms": [2]},
+            "sink": {"kind": "BOND", "atoms": [1, 2]},
+        },
+        {
+            "source": {"kind": "BOND", "atoms": [1, 3]},
+            "sink": {"kind": "ATOM", "atoms": [3]},
+        },
+    ],
+)
+print(result)
+```
+
+The two arrows are applied as one elementary event; the verifier does not require
+an invalid pentavalent-carbon intermediate.
+
+## Compact Forward Electron-Flow Expert
+
+The expert has two complementary outputs.
+
+### Process score
+
+For current state `s`, it assigns:
 
 ```text
-True True
+p(source | s)
+p(sink | source, s)
 ```
 
-The precursor is produced by the executor. There is no `<answer>` block.
+This permits step-level process rewards and state-level branching during
+agent/tool-use training.
 
-## Reproduction pipeline
+### Outcome and selectivity score
 
-The authoritative experimental contract is [docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md). The machine-readable checkpoint and data lineage is in `configs/proof/proof_pipeline.yaml`.
+For precursors `R`, target `P` and competitor set `C`:
 
-### 1. Compile and audit proof data
-
-```bash
-python scripts/build_mechet_sft.py \
-  --flower-root /path/to/flower_new_dataset \
-  --out-dir data/mechet_sft \
-  --splits train valid test
-
-python scripts/build_mechet_proof_sft.py \
-  --input-dir data/mechet_sft \
-  --output-dir data/mechet_proof_sft \
-  --splits train valid test
-
-python scripts/audit_reaction_overlap.py \
-  --train data/mechet_proof_sft/train.jsonl \
-  --benchmark data/benchmarks/uspto50k/test.csv \
-  --benchmark-format reaction_table \
-  --reaction-field reaction_smiles \
-  --out-dir outputs/data_audit/flower_vs_uspto50k_test
+```text
+S(R, P)
+margin = S(R, P) - max_{P' in C} S(R, P')
 ```
 
-### 2. Build the proof curriculum
+The target score alone is not a selectivity guarantee. The competitor policy
+must enumerate alternative sites, regio/stereoisomers and relevant side products,
+and thresholds must be calibrated by reaction family.
+
+## End-to-end forward expert pipeline
+
+### 1. Inspect and download data
+
+Registered sources and licenses are documented in
+`configs/forward/data_sources.yaml`.
 
 ```bash
-python scripts/build_proof_equivalence_data.py \
-  --input data/mechet_proof_clean/train.jsonl \
-  --output data/proof_curriculum/equivalence_train.jsonl \
-  --variants-per-row 4
+# No network call: show what would be downloaded.
+python scripts/forward_expert_data.py download \
+  --dataset mech_uspto_31k --dry-run
 
-python scripts/build_proof_corruption_data.py \
-  --input data/mechet_proof_clean/train.jsonl \
-  --output data/proof_curriculum/corruptions.jsonl \
-  --include-valid-controls
+# Public source with frozen revision and SHA-256 manifest.
+python scripts/forward_expert_data.py download \
+  --dataset mech_uspto_31k \
+  --revision <commit-or-tag> \
+  --output data/raw
 
-python scripts/build_proof_preferences.py \
-  --corruptions data/proof_curriculum/corruptions.jsonl \
-  --output data/proof_curriculum/preferences.jsonl
-
-python scripts/build_proof_repair_data.py \
-  --corruptions data/proof_curriculum/corruptions.jsonl \
-  --output data/proof_curriculum/repairs.jsonl
+python scripts/forward_expert_data.py inspect \
+  --input data/raw/mech_uspto_31k
 ```
 
-### 3. Train the actor and repair models
+Restricted sources are not fetched unless the caller explicitly acknowledges the
+upstream terms with `--accept-restricted-license`. The script records provenance;
+it does not grant redistribution rights.
+
+### 2. Standardize reactions and electron-flow labels
 
 ```bash
-export QWEN_MODEL_PATH=/path/to/Qwen3-8B
+python scripts/forward_expert_data.py standardize \
+  --input data/raw/mech_uspto_31k \
+  --output data/forward_expert/reactions.jsonl \
+  --source mech_uspto_31k
 
-python scripts/train_mechet_sft.py \
-  --config configs/proof/proof_actor_sft.yaml
+# Outcome-only sources such as ORD can first be standardized without maps,
+# then mapped with RXNMapper before building training examples.
+python scripts/forward_expert_data.py standardize \
+  --input data/raw/ord_data \
+  --output data/forward_expert/ord_unmapped.jsonl \
+  --source ord_data \
+  --allow-unmapped
 
-python scripts/train_proof_dpo.py \
-  --config configs/proof/proof_dpo.yaml
+python scripts/forward_expert_data.py map \
+  --input data/forward_expert/ord_unmapped.jsonl \
+  --output data/forward_expert/ord_mapped.jsonl
 
-python scripts/train_proof_repair.py \
-  --config configs/proof/proof_repair.yaml
+python scripts/forward_expert_data.py build \
+  --input data/forward_expert/reactions.jsonl \
+  --output-dir data/forward_expert/steps
 ```
 
-Proof-set RLVR has separate accuracy and hypothesis-diversity modes:
+The standardizer directly decodes the MechSMILES columns used by the public
+FlowER/mech-USPTO mirrors and the arrow-code convention used by PMechDB. ORD
+protobuf rows are decoded through the official `ord-schema`; RXNMapper is an
+optional, explicit mapping stage for outcome-only unmapped records.
+
+The conservative normalizer never invents a source-sink arrow. Unmapped or
+invalid rows are quarantined. Rows with reaction outcomes but no unambiguous
+arrows may train the reaction compatibility head but not the move pointer heads.
+
+### 3. Pre-download alternative models
 
 ```bash
-python scripts/train_iclr_proof_rlvr.py \
-  --config configs/proof/proof_rlvr_accuracy.yaml --dry-run
-
-python scripts/train_proof_rlvr_distributed.py \
-  --config configs/proof/proof_rlvr_hypothesis.yaml \
-  --mode rollout \
-  --input data/mechet_proof_clean/train.jsonl \
-  --output outputs/proof/rlvr_iter0/rollouts.jsonl \
-  --adapter outputs/proof/actor_dpo/adapter
+python scripts/forward_expert_data.py predownload \
+  --model chemberta \
+  --model molformer \
+  --revision <commit-or-tag> \
+  --output models/baselines
 ```
 
-### 4. Generate and evaluate proof sets
+`qwen_small` is available as a sequence-model ablation. The graph expert remains
+the default because it is independent from the inverse Qwen actor and efficient
+enough for repeated RL and route-search scoring.
+
+### 4. Train
 
 ```bash
-python scripts/infer_proof_hypotheses.py \
-  --data data/mechet_proof_clean/test.jsonl \
-  --adapter outputs/proof/actor_dpo/adapter \
-  --samples-per-target 64 \
-  --out outputs/proof/hypotheses.jsonl
+python scripts/train_forward_expert.py \
+  --config configs/forward/forward_expert_small.yaml
+```
 
-python scripts/infer_proof_gfr.py \
-  --data data/mechet_proof_clean/test.jsonl \
-  --actor-adapter outputs/proof/actor_dpo/adapter \
-  --repair-adapter outputs/proof/repair/adapter \
-  --samples-per-target 16 \
-  --max-repairs 2 \
-  --out outputs/proof/gfr.jsonl
+A tiny CPU smoke configuration is included:
 
-python scripts/eval_proof_hypotheses.py \
+```bash
+python scripts/train_forward_expert.py \
+  --config configs/forward/forward_expert_tiny.yaml \
+  --device cpu
+```
+
+Training combines source CE, source-conditioned sink CE, positive/negative
+reaction compatibility and target-versus-competitor margin loss. `best/` and
+`last/` checkpoints, metadata and JSONL logs are saved under the configured
+output directory.
+
+### 5. Inference
+
+```bash
+python scripts/run_forward_expert.py infer \
+  --checkpoint outputs/forward_expert/small/best \
+  --input data/forward_expert/steps/test.jsonl \
+  --output outputs/forward_expert/test_predictions.jsonl \
+  --auto-competitors 8
+```
+
+`--auto-competitors` adds formally reachable alternative states when an explicit
+competitor list is unavailable. This is a bounded negative-generation policy,
+not a claim that every experimental side product has been enumerated.
+
+### 6. Forward electron-flow generation
+
+```bash
+python scripts/run_forward_expert.py generate \
+  --checkpoint outputs/forward_expert/small/best \
+  --input data/forward_expert/steps/test.jsonl \
+  --output outputs/forward_expert/generated_paths.jsonl \
+  --beam-size 16 \
+  --branch-limit 24 \
+  --proposal-pool 48 \
+  --max-steps 6 \
+  --stop-when-solved
+```
+
+Generation considers formally executable single-arrow and locally coupled
+two-arrow events. Formal execution is a hard filter; learned product scores are
+optional soft reranking signals.
+
+## Evaluation
+
+```bash
+python scripts/run_forward_expert.py eval \
+  --predictions outputs/forward_expert/test_predictions.jsonl \
+  --output outputs/forward_expert/test_metrics.json
+
+python scripts/run_forward_expert.py eval-generation \
+  --predictions outputs/forward_expert/generated_paths.jsonl \
+  --output outputs/forward_expert/generation_metrics.json
+```
+
+Implemented metrics include:
+
+- formal pass, false acceptance and false rejection when labels exist;
+- next electron-move Top-1 and reciprocal rank;
+- target-product Top-1;
+- target-versus-competitor selectivity support;
+- Brier score and expected calibration error.
+
+A paper evaluation must additionally include patent/time/family holdouts,
+mechanism-family stratification, reaction complexity, multiple reaction centres,
+risk-coverage curves, abstention and fully verified route rate under matched
+search budgets. The authoritative proof experiment contract remains
+[`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md).
+
+## Existing proof and route pipelines
+
+The original proof actor, DPO/RLVR/GFR inference and route-search scripts remain
+available. The forward expert is an additive verifier rather than a replacement
+for the deterministic executor.
+
+Use `MECHET_FORWARD_EXPERT_PATH` to expose a trained checkpoint through the
+existing plausibility oracle interface:
+
+```bash
+export MECHET_FORWARD_EXPERT_PATH=outputs/forward_expert/small/best
+export MECHET_FORWARD_EXPERT_DEVICE=cpu
+```
+
+```python
+from mechet.plausibility import load_oracle
+oracle = load_oracle("mechet.forward_oracle:score_payload")
+```
+
+Existing proof-hypothesis files can be reranked directly:
+
+```bash
+python scripts/rerank_proof_hypotheses_forward.py \
   --predictions outputs/proof/hypotheses.jsonl \
-  --k 1 4 16 64 \
-  --out outputs/eval/hypotheses.json
-
-python scripts/eval_proof_falsification.py \
-  --data data/proof_curriculum/corruptions.jsonl \
-  --out outputs/eval/falsification.json
-
-python scripts/eval_proof_repair.py \
-  --predictions outputs/proof/gfr.jsonl \
-  --out outputs/eval/repair.json
+  --checkpoint outputs/forward_expert/small/best \
+  --output outputs/proof/hypotheses_forward_ranked.jsonl
 ```
 
-## Required result families
+`mechet.forward_rewards.score_inverse_proof_forward` exposes a complete-proof
+reward for RL code. It executes the inverse proof first and then scores the
+derived precursor in the independent forward direction.
 
-A complete ICLR-stage evaluation must include all of the following; a high Top-1 alone is insufficient.
-
-| Result family | Required evidence |
-|---|---|
-| Data integrity | FlowER–USPTO overlap matrix, removal counts, frozen hashes, and retained split sizes |
-| Endpoint comparability | Top-1/Top-k structural precursor results for matched Outcome-only, State-CoT, Net-edit, Proof-SFT, Proof-DPO, and MechET-GFR models |
-| Formal falsification | FAR, FRR, failure-code accuracy, and first-failing-edge localization over controlled corruptions |
-| Hypothesis search | ExecutePass@K, EndpointPass@K, executable proof classes@K, mechanism compositions@K, and endpoints@K |
-| Faithfulness | rate of answer–reasoning disagreement for answer-bearing baselines versus structural impossibility of bypass in MechET |
-| Invariance | atom-map, state-name, serialization, commuting-order, and synchronized random-SMILES controls |
-| Compositional OOD | primitive-seen/composition-unseen MechComp-OOD results by proof length and topology |
-| Repair | repair@1/@2, over-edit rate, new-error introduction, and endpoint retention |
-| Efficiency | assistant tokens, GPU hours, inference latency, executor overhead, and valid hypotheses per sampling budget |
-| Multistep pilot | fully verified route rate under matched search budget, solved rate, invalid expansions, search nodes, and route diversity |
-
-The full expected tables, figures, stopping gates, and result interpretation rules are defined in the authoritative experiment plan.
+For multistep planning, formally invalid edges are rejected. Forward target
+recovery, selectivity margin and uncertainty are initially used as soft route
+costs, not irreversible learned pruning decisions.
 
 ## Documentation
 
-Start with [the documentation map](docs/README.md).
+Start with [`docs/README.md`](docs/README.md).
 
-- [Proof language, electron-flow semantics, and executor](docs/PROOF_CARRYING.md)
-- [Authoritative proof-centric experiment plan](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md)
-- [Partial-order equivalence, MechComp-OOD, and failure certificates](docs/PROOF_EQUIVALENCE.md)
-- [Data leakage and benchmark-lineage protocol](docs/DATA_LEAKAGE_AND_ICLR_PLAN.md)
-- [Dataset construction](data/README.md)
+- [`docs/PROOF_CARRYING.md`](docs/PROOF_CARRYING.md) — proof semantics and deterministic executor
+- [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md) — authoritative proof experiment contract
+- [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) — partial-order equivalence and compositional OOD
+- [`docs/DATA_LEAKAGE_AND_ICLR_PLAN.md`](docs/DATA_LEAKAGE_AND_ICLR_PLAN.md) — data lineage and leakage controls
+- [`docs/FORWARD_ELECTRON_EXPERT.md`](docs/FORWARD_ELECTRON_EXPERT.md) — forward expert data, model, training, inference, generation and evaluation
+- [`data/FORWARD_EXPERT.md`](data/FORWARD_EXPERT.md) — local data/checkpoint layout
 
-Deprecated and historical documents are listed, with replacements, in `docs/README.md`.
+## Boundaries
 
-## Current boundaries
-
-- Formal executability is not evidence of a low activation barrier, favorable kinetics, condition compatibility, precedent support, or experimental success.
-- `MECH_PROOF v1` currently represents bond–electron deltas, not uniquely paired electron source-to-sink arrows.
-- The executor requires atom-mapped molecular inputs.
-- Current cold-start proofs inherit priors and coverage limitations from FlowER trajectory construction.
-- Structural precursors are evaluated separately from reagents, solvents, catalysts, salts, and spectators.
-- Reaction-network and catalytic-cycle modules currently verify formal graph and ledger properties only.
-- APIs and proof grammar may evolve before a stable release.
-
-## Relation to FlowER
-
-FlowER supplies elementary-step trajectories and bond–electron semantics for cold-start compilation. MechET converts those trajectories into action-only programs, executes predictions independently, derives endpoints from the executor, and evaluates proof hypotheses without requiring exact reproduction of the teacher's state serialization.
-
-## Legacy compatibility path
-
-<details>
-<summary><code>MECH_ET v3</code> state-annotated path</summary>
-
-`MECH_ET v3` is retained for trajectory auditing, cold-start compilation, and controlled comparison experiments. It emits model-authored states and an independent precursor answer, so it is not the primary proof-carrying method.
-
-Historical commands and metrics are intentionally not presented as the current evaluation protocol. See the deprecation notice in `docs/EVAL.md`.
-
-</details>
-
-## Tests
-
-```bash
-export PYTHONPATH=src
-pytest -q tests/test_proof_*.py tests/test_reaction_network.py tests/test_catalytic_cycle.py
-```
-
-## Citation
-
-The paper is in preparation. For software use:
-
-```bibtex
-@software{mechet2026,
-  title  = {MechET: Falsifiable Retrosynthesis over Executable Electron-Flow Programs},
-  author = {Wang, Yu},
-  year   = {2026},
-  url    = {https://github.com/wangyu-sd/MechET}
-}
-```
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+- Formal executability is not energetic, kinetic or experimental validation.
+- The forward expert is a calibrated learned verifier, not an infallible oracle.
+- Selectivity requires an explicit competitor set; no competitor set means no
+  meaningful selectivity claim.
+- Atom-mapped inputs are required by the current executor and forward expert.
+- `MECH_PROOF v1` remains the stable low-level proof format; source-sink actions
+  are compiled/verified against the same molecular-state semantics.
+- Downloaded datasets and third-party checkpoints must follow their upstream
+  licenses and must not be committed to this repository.
