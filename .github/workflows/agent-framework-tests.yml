@@ -8,8 +8,11 @@ on:
       - "docs/README.md"
       - "pyproject.toml"
       - "src/mechet/agent_env.py"
+      - "src/mechet/adversarial.py"
       - "src/mechet/syntheseus_adapter.py"
       - "scripts/train_inverse_agent_trl.py"
+      - "scripts/mine_bidirectional_hard_negatives.py"
+      - "scripts/train_forward_expert_hard_negative.py"
       - "scripts/run_syntheseus_search.py"
       - "configs/agent/**"
       - "tests/test_agent_frameworks.py"
@@ -22,8 +25,11 @@ on:
       - "docs/README.md"
       - "pyproject.toml"
       - "src/mechet/agent_env.py"
+      - "src/mechet/adversarial.py"
       - "src/mechet/syntheseus_adapter.py"
       - "scripts/train_inverse_agent_trl.py"
+      - "scripts/mine_bidirectional_hard_negatives.py"
+      - "scripts/train_forward_expert_hard_negative.py"
       - "scripts/run_syntheseus_search.py"
       - "configs/agent/**"
       - "tests/test_agent_frameworks.py"
@@ -45,10 +51,13 @@ jobs:
         run: |
           python -m py_compile \
             src/mechet/agent_env.py \
+            src/mechet/adversarial.py \
             src/mechet/syntheseus_adapter.py \
             scripts/train_inverse_agent_trl.py \
+            scripts/mine_bidirectional_hard_negatives.py \
+            scripts/train_forward_expert_hard_negative.py \
             scripts/run_syntheseus_search.py
-      - name: Run environment and candidate-pool tests
+      - name: Run environment, mining, and candidate-pool tests
         run: pytest -q tests/test_agent_frameworks.py tests/test_documentation_contract.py
       - name: Exercise TRL adapter dry-run without TRL
         run: |
@@ -66,5 +75,8 @@ jobs:
           EOF
           python scripts/train_inverse_agent_trl.py \
             --config /tmp/mechet-agent/config.yaml --dry-run
-      - name: Check planning CLI schema
-        run: python scripts/run_syntheseus_search.py --help
+      - name: Check optional CLI schemas
+        run: |
+          python scripts/run_syntheseus_search.py --help
+          python scripts/mine_bidirectional_hard_negatives.py --help
+          python scripts/train_forward_expert_hard_negative.py --help
