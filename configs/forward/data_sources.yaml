@@ -1,0 +1,27 @@
+# Public/restricted data registry mirrored by scripts/forward_expert_data.py.
+# Pin revisions in frozen experiments and retain every generated manifest.json.
+datasets:
+  mech_uspto_31k:
+    repo_id: SchwallerGroup/mech_uspto_31k
+    role: primary source-sink supervision
+    license: CC-BY-4.0
+    restricted: false
+  flower_dataset:
+    repo_id: SchwallerGroup/flower_dataset
+    role: conserved bond-electron trajectories and reaction pretraining
+    license: verify upstream dataset card before redistribution
+    restricted: false
+  pmechdb_elem:
+    repo_id: SchwallerGroup/pmechdb_elem
+    role: curated elementary polar mechanism steps and hard negatives
+    license: CC-BY-NC-ND
+    restricted: true
+  ord_data:
+    repo_id: open-reaction-database/ord-data
+    role: conditions, outcomes, yields, selectivity and provenance
+    license: CC-BY-SA-4.0
+    restricted: false
+models:
+  chemberta: seyonec/ChemBERTa-zinc-base-v1
+  molformer: ibm-research/MoLFormer-XL-both-10pct
+  qwen_small: Qwen/Qwen3-0.6B
