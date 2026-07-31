@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mine inverse-actor proposals that fool the compact forward expert."""
+"""Mine inverse-actor proposals that require independent verifier audit."""
 from __future__ import annotations
 
 import argparse
@@ -10,7 +10,11 @@ import sys
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from mechet.adversarial import MiningConfig, load_jsonl, mine_forward_hard_negatives
+from mechet.adversarial import (
+    MiningConfig,
+    load_jsonl,
+    mine_forward_audit_candidates,
+)
 from mechet.forward_expert import ForwardElectronExpert
 
 
@@ -25,20 +29,28 @@ def main() -> int:
     parser.add_argument("--include-endpoint-exact", action="store_true")
     args = parser.parse_args()
     model = ForwardElectronExpert.load(args.checkpoint, device=args.device)
-    negatives = mine_forward_hard_negatives(
+    candidates = mine_forward_audit_candidates(
         model,
         load_jsonl(args.predictions),
         config=MiningConfig(
             minimum_target_score=args.minimum_target_score,
             maximum_selectivity_margin=args.maximum_selectivity_margin,
-            require_endpoint_error=not args.include_endpoint_exact,
+            require_endpoint_disagreement=not args.include_endpoint_exact,
         ),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", encoding="utf-8") as handle:
-        for row in negatives:
+        for row in candidates:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-    print(json.dumps({"written": len(negatives), "output": str(args.output)}))
+    print(
+        json.dumps(
+            {
+                "written_audit_candidates": len(candidates),
+                "training_eligible": 0,
+                "output": str(args.output),
+            }
+        )
+    )
     return 0
 
 
