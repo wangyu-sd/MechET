@@ -1,0 +1,21 @@
+train_file: data/forward_expert/steps/train.jsonl
+validation_file: data/forward_expert/steps/valid.jsonl
+output_dir: outputs/forward_expert/small
+seed: 17
+model:
+  hidden_dim: 128
+  num_layers: 4
+  condition_dim: 64
+  dropout: 0.10
+epochs: 20
+learning_rate: 0.0002
+weight_decay: 0.0001
+gradient_accumulation_steps: 8
+max_grad_norm: 1.0
+max_validation_examples: 10000
+loss_weights:
+  source: 1.0
+  sink: 1.0
+  reaction: 1.0
+  rank: 0.5
+  margin_value: 0.2

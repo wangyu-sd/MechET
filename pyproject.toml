@@ -25,9 +25,31 @@ train = [
   "bitsandbytes",
   "pyyaml",
 ]
+forward = [
+  "torch>=2.1",
+  "pyyaml>=6.0",
+]
+data = [
+  "huggingface_hub>=0.24",
+  "datasets>=2.19",
+  "pandas>=2.0",
+  "pyarrow>=14",
+]
+mapping = [
+  "rxnmapper>=0.4",
+]
+ord = [
+  "ord-schema>=0.6.3",
+  "protobuf>=4.25",
+]
+baselines = [
+  "transformers>=4.45",
+  "accelerate>=0.34",
+  "safetensors>=0.4",
+]
 dev = [
   "pytest",
-  "mechet[train]",
+  "mechet[train,forward]",
 ]
 
 [tool.setuptools.packages.find]

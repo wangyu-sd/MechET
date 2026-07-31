@@ -1,0 +1,57 @@
+name: Forward electron-flow expert tests
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "pyproject.toml"
+      - "src/mechet/forward_*.py"
+      - "scripts/forward_expert_data.py"
+      - "scripts/train_forward_expert.py"
+      - "scripts/run_forward_expert.py"
+      - "scripts/rerank_proof_hypotheses_forward.py"
+      - "configs/forward/**"
+      - "docs/FORWARD_ELECTRON_EXPERT.md"
+      - "data/FORWARD_EXPERT.md"
+      - "tests/test_forward_expert.py"
+      - ".github/workflows/forward-expert-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/mechet/forward_*.py"
+      - "scripts/forward_expert_data.py"
+      - "scripts/train_forward_expert.py"
+      - "scripts/run_forward_expert.py"
+      - "scripts/rerank_proof_hypotheses_forward.py"
+      - "tests/test_forward_expert.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[forward]" pytest
+      - name: Compile modules and entrypoints
+        run: |
+          python -m py_compile \
+            src/mechet/forward_expert.py \
+            src/mechet/forward_data.py \
+            src/mechet/forward_oracle.py \
+            src/mechet/forward_rewards.py \
+            scripts/forward_expert_data.py \
+            scripts/train_forward_expert.py \
+            scripts/run_forward_expert.py \
+            scripts/rerank_proof_hypotheses_forward.py
+      - name: Run formal, model and data tests
+        run: pytest -q tests/test_forward_expert.py
+      - name: Check download license gates and CLI schemas
+        run: |
+          python scripts/forward_expert_data.py download --dataset mech_uspto_31k --dry-run
+          python scripts/forward_expert_data.py predownload --model chemberta --dry-run
