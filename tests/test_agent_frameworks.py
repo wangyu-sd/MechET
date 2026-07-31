@@ -1,6 +1,6 @@
 import json
 
-from mechet.adversarial import MiningConfig, mine_forward_hard_negatives
+from mechet.adversarial import MiningConfig, mine_forward_audit_candidates
 from mechet.agent_env import AgentEnvConfig, MechETAgentEnv
 from mechet.proof_program import (
     ChargeAction,
@@ -102,7 +102,7 @@ def test_candidate_pool_parses_hypotheses_and_ignores_maps(tmp_path):
     assert "Br" in values[0].precursor
 
 
-def test_actor_fooling_candidate_becomes_explicit_negative(monkeypatch):
+def test_actor_verifier_disagreement_requires_independent_audit(monkeypatch):
     class Evidence:
         target_score = 0.91
         selectivity_margin = 0.02
@@ -130,11 +130,13 @@ def test_actor_fooling_candidate_becomes_explicit_negative(monkeypatch):
             ],
         }
     ]
-    negatives = mine_forward_hard_negatives(
+    candidates = mine_forward_audit_candidates(
         object(),
         rows,
         config=MiningConfig(minimum_target_score=0.8),
     )
-    assert len(negatives) == 1
-    assert negatives[0]["label"] == 0
-    assert negatives[0]["source"] == "inverse_actor_hard_negative"
+    assert len(candidates) == 1
+    assert candidates[0]["label"] is None
+    assert candidates[0]["training_eligible"] is False
+    assert candidates[0]["audit_status"] == "unreviewed"
+    assert candidates[0]["source"] == "inverse_actor_forward_disagreement"
