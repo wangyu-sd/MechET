@@ -212,19 +212,34 @@ def command_build(args) -> None:
         for split in ("train", "valid", "test")
     }
     counts = {split: 0 for split in handles}
+    seen: set[str] = set()
+    duplicate_count = 0
     try:
-        for example in flatten_step_examples(iter_standardized(args.input)):
-            split = example.get("split", "train")
-            handles[split].write(json.dumps(example, ensure_ascii=False) + "\n")
-            counts[split] += 1
+        for input_path in args.input:
+            for example in flatten_step_examples(iter_standardized(input_path)):
+                key = str(example.get("id") or "")
+                if key in seen:
+                    duplicate_count += 1
+                    continue
+                seen.add(key)
+                split = example.get("split", "train")
+                handles[split].write(json.dumps(example, ensure_ascii=False) + "\n")
+                counts[split] += 1
     finally:
         for handle in handles.values():
             handle.close()
     (args.output_dir / "manifest.json").write_text(
-        json.dumps({"source": str(args.input), "step_counts": counts}, indent=2),
+        json.dumps(
+            {
+                "sources": [str(value) for value in args.input],
+                "step_counts": counts,
+                "duplicates_removed": duplicate_count,
+            },
+            indent=2,
+        ),
         encoding="utf-8",
     )
-    print(json.dumps(counts, indent=2))
+    print(json.dumps({**counts, "duplicates_removed": duplicate_count}, indent=2))
 
 
 def command_map(args) -> None:
@@ -325,9 +340,15 @@ def main() -> int:
 
     build = sub.add_parser(
         "build",
-        help="flatten standardized trajectories and outcome-only rows into train/valid/test data",
+        help="flatten and merge standardized reactions into train/valid/test data",
     )
-    build.add_argument("--input", type=Path, required=True)
+    build.add_argument(
+        "--input",
+        type=Path,
+        action="append",
+        required=True,
+        help="standardized JSON/JSONL; repeat to merge sources",
+    )
     build.add_argument("--output-dir", type=Path, required=True)
     build.set_defaults(func=command_build)
 
