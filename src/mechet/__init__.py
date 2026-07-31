@@ -1,10 +1,13 @@
 """MechET: verifiable and proof-carrying retrosynthesis."""
 
-from .collator import (
-    AssistantOnlyCollator,
-    encode_assistant_only,
-    find_assistant_start,
+from .catalytic_cycle import (
+    CatalyticCycle,
+    CatalyticCycleStep,
+    CatalyticCycleVerification,
+    derive_cycle_net_reaction,
+    verify_catalytic_cycle,
 )
+from .collator import AssistantOnlyCollator, encode_assistant_only, find_assistant_start
 from .data_audit import (
     KEY_LEVELS,
     NormalizationConfig,
@@ -25,16 +28,19 @@ from .iclr_tasks import (
     build_state_cot_row,
     core_precursor,
 )
-from .map_invariance import (
-    record_map_permutation,
-    remap_proof_text,
-    remap_smiles,
-)
+from .map_invariance import record_map_permutation, remap_proof_text, remap_smiles
 from .mech_et import format_mech_et_cot, verify_mech_et
-from .mech_graph import (
-    format_mech_graph_cot,
-    load_flower_graphs,
-    verify_mech_graph,
+from .mech_graph import format_mech_graph_cot, load_flower_graphs, verify_mech_graph
+from .plausibility import PlausibilityEvidence, combine_evidence, load_oracle
+from .proof_curriculum import (
+    DEFAULT_CORRUPTIONS,
+    ProofCorruption,
+    build_corruption_set,
+    corrupt_proof,
+    equivalence_metadata,
+    preference_pair_from_corruption,
+    proof_text_from_row,
+    repair_row_from_corruption,
 )
 from .proof_diagnostics import (
     FailureCertificate,
@@ -51,6 +57,16 @@ from .proof_equivalence import (
     primitive_signatures,
     proofs_equivalent,
 )
+from .proof_hypotheses import (
+    HypothesisSetSummary,
+    ProofHypothesis,
+    deduplicate_hypotheses,
+    endpoint_groups,
+    rank_hypotheses,
+    score_hypothesis,
+    summarize_hypotheses,
+    survival_curve,
+)
 from .proof_program import (
     ChargeAction,
     ProofEdge,
@@ -62,11 +78,26 @@ from .proof_program import (
     parse_proof_program,
     verify_proof,
 )
+from .proof_rlvr import group_diagnostics, score_proof_group
+from .proof_routes import (
+    RouteCandidate,
+    RouteStep,
+    RouteVerification,
+    best_first_route_search,
+    step_from_proof,
+    structural_precursors,
+    verify_route,
+)
 from .proof_sft import convert_mech_et_row_to_proof_sft
-from .proof_splits import (
-    ProofSplitFeatures,
-    build_compositional_ood_split,
-    extract_split_features,
+from .proof_splits import ProofSplitFeatures, build_compositional_ood_split, extract_split_features
+from .proof_variants import build_equivalent_variants, rename_states, reorder_edges
+from .reaction_network import (
+    ReactionHyperedge,
+    ReactionNetwork,
+    find_species_cycles,
+    frontier_score,
+    network_digest,
+    rank_frontier,
 )
 from .rlvr import (
     compute_advantages,
@@ -75,30 +106,42 @@ from .rlvr import (
     compute_rollout_reward,
     mechvr_gate,
 )
-from .sft import (
-    convert_record_to_qwen_sft,
-    format_mech_et_assistant,
-    parse_mech_et_output,
-)
+from .sft import convert_record_to_qwen_sft, format_mech_et_assistant, parse_mech_et_output
 from .verifier import compute_mech_et_reward, compute_reward
 
 __all__ = [
     "AssistantOnlyCollator",
+    "CatalyticCycle",
+    "CatalyticCycleStep",
+    "CatalyticCycleVerification",
     "ChargeAction",
     "CoreProofRewardConfig",
+    "DEFAULT_CORRUPTIONS",
     "FailureCertificate",
+    "HypothesisSetSummary",
     "KEY_LEVELS",
     "NormalizationConfig",
+    "PlausibilityEvidence",
+    "ProofCorruption",
     "ProofEdge",
     "ProofEquivalenceSignature",
     "ProofExecutionResult",
+    "ProofHypothesis",
     "ProofProgram",
     "ProofRepairResult",
     "ProofSplitFeatures",
+    "ReactionHyperedge",
     "ReactionKeys",
+    "ReactionNetwork",
     "ReactionRecord",
     "RoleSplit",
+    "RouteCandidate",
+    "RouteStep",
+    "RouteVerification",
+    "best_first_route_search",
     "build_compositional_ood_split",
+    "build_corruption_set",
+    "build_equivalent_variants",
     "build_key_index",
     "build_net_edit_row",
     "build_outcome_only_row",
@@ -106,6 +149,7 @@ __all__ = [
     "build_state_cot_row",
     "canonical_multiset",
     "canonical_partial_order_signature",
+    "combine_evidence",
     "compile_mech_et_body",
     "composition_signature",
     "compute_advantages",
@@ -119,33 +163,58 @@ __all__ = [
     "convert_record_to_qwen_sft",
     "core_gold",
     "core_precursor",
+    "corrupt_proof",
+    "deduplicate_hypotheses",
+    "derive_cycle_net_reaction",
     "diagnose_proof",
     "edge_primitive_signature",
     "encode_assistant_only",
+    "endpoint_groups",
+    "equivalence_metadata",
     "execute_proof",
     "extract_split_features",
     "find_assistant_start",
+    "find_species_cycles",
     "format_mech_et_assistant",
     "format_mech_et_cot",
     "format_mech_graph_cot",
     "format_proof_output",
     "format_repair_feedback",
+    "frontier_score",
+    "group_diagnostics",
     "load_flower_graphs",
+    "load_oracle",
     "mechvr_gate",
+    "network_digest",
     "parse_mech_et_output",
     "parse_proof_program",
+    "preference_pair_from_corruption",
     "primitive_signatures",
+    "proof_text_from_row",
     "proofs_equivalent",
     "quarantine_reason",
+    "rank_frontier",
+    "rank_hypotheses",
     "reaction_keys",
     "record_map_permutation",
     "remap_proof_text",
     "remap_smiles",
+    "rename_states",
     "repair_proof_once",
+    "repair_row_from_corruption",
+    "reorder_edges",
+    "score_hypothesis",
+    "score_proof_group",
     "split_structural_and_environment",
+    "step_from_proof",
+    "structural_precursors",
+    "summarize_hypotheses",
+    "survival_curve",
+    "verify_catalytic_cycle",
     "verify_mech_et",
     "verify_mech_graph",
     "verify_proof",
+    "verify_route",
 ]
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
