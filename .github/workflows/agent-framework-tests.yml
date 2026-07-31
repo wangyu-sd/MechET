@@ -1,0 +1,70 @@
+name: Agent framework integration tests
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "docs/FRAMEWORK_MIGRATION.md"
+      - "docs/README.md"
+      - "pyproject.toml"
+      - "src/mechet/agent_env.py"
+      - "src/mechet/syntheseus_adapter.py"
+      - "scripts/train_inverse_agent_trl.py"
+      - "scripts/run_syntheseus_search.py"
+      - "configs/agent/**"
+      - "tests/test_agent_frameworks.py"
+      - ".github/workflows/agent-framework-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "README.md"
+      - "docs/FRAMEWORK_MIGRATION.md"
+      - "docs/README.md"
+      - "pyproject.toml"
+      - "src/mechet/agent_env.py"
+      - "src/mechet/syntheseus_adapter.py"
+      - "scripts/train_inverse_agent_trl.py"
+      - "scripts/run_syntheseus_search.py"
+      - "configs/agent/**"
+      - "tests/test_agent_frameworks.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install core test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Compile framework adapters
+        run: |
+          python -m py_compile \
+            src/mechet/agent_env.py \
+            src/mechet/syntheseus_adapter.py \
+            scripts/train_inverse_agent_trl.py \
+            scripts/run_syntheseus_search.py
+      - name: Run environment and candidate-pool tests
+        run: pytest -q tests/test_agent_frameworks.py tests/test_documentation_contract.py
+      - name: Exercise TRL adapter dry-run without TRL
+        run: |
+          mkdir -p /tmp/mechet-agent
+          cat > /tmp/mechet-agent/train.jsonl <<'EOF'
+          {"id":"smoke-1","target_smiles":"[CH3:1][OH:2]","expected_precursor":"[CH3:1][Br:3].[OH-:2]"}
+          EOF
+          cat > /tmp/mechet-agent/config.yaml <<'EOF'
+          model_name_or_path: Qwen/Qwen3-0.6B
+          train_file: /tmp/mechet-agent/train.jsonl
+          output_dir: /tmp/mechet-agent/output
+          environment:
+            max_tool_calls: 6
+            require_tool_use: true
+          EOF
+          python scripts/train_inverse_agent_trl.py \
+            --config /tmp/mechet-agent/config.yaml --dry-run
+      - name: Check planning CLI schema
+        run: python scripts/run_syntheseus_search.py --help
