@@ -56,6 +56,11 @@ agent = [
   "accelerate>=1.0",
   "pyyaml>=6.0",
 ]
+knowledge = [
+  "pyyaml>=6.0",
+  "beautifulsoup4>=4.12",
+  "rdflib>=7.0",
+]
 planning = [
   "syntheseus>=0.7.2,<0.8",
 ]
