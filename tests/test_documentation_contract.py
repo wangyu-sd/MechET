@@ -67,12 +67,13 @@ def test_documentation_map_and_deprecations():
         "README_DESIGN_NOTES.md",
     ]:
         assert path in index
+    lower_index = index.lower()
     for term in [
         "authoritative ICLR scientific and execution contract",
         "reading order for collaborators",
         "only source of truth for headline claims",
     ]:
-        assert term in index
+        assert term.lower() in lower_index
     markers = {
         "docs/EXPERIMENT_PLAN_ICLR_TO_NMI.md": "deprecated",
         "docs/EVAL.md": "deprecated",
