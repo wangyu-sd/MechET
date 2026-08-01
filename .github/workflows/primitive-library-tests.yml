@@ -1,0 +1,116 @@
+name: Mechanistic primitive library tests
+
+on:
+  pull_request:
+    paths:
+      - "README.md"
+      - "pyproject.toml"
+      - "knowledge/**"
+      - "docs/MECHANISTIC_PRIMITIVE_LIBRARY.md"
+      - "docs/README.md"
+      - "src/mechet/primitive_*.py"
+      - "scripts/download_mechanistic_sources.py"
+      - "scripts/build_primitive_extraction_queue.py"
+      - "scripts/annotate_primitive_context.py"
+      - "scripts/train_inverse_agent_primitives.py"
+      - "configs/knowledge/**"
+      - "tests/test_primitive_*.py"
+      - "tests/test_documentation_contract.py"
+      - ".github/workflows/primitive-library-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "README.md"
+      - "pyproject.toml"
+      - "knowledge/**"
+      - "docs/MECHANISTIC_PRIMITIVE_LIBRARY.md"
+      - "docs/README.md"
+      - "src/mechet/primitive_*.py"
+      - "scripts/download_mechanistic_sources.py"
+      - "scripts/build_primitive_extraction_queue.py"
+      - "scripts/annotate_primitive_context.py"
+      - "scripts/train_inverse_agent_primitives.py"
+      - "configs/knowledge/**"
+      - "tests/test_primitive_*.py"
+      - "tests/test_documentation_contract.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,knowledge]"
+      - name: Compile primitive modules and entrypoints
+        run: |
+          python -m py_compile \
+            src/mechet/primitive_library.py \
+            src/mechet/primitive_agent_env.py \
+            scripts/download_mechanistic_sources.py \
+            scripts/build_primitive_extraction_queue.py \
+            scripts/annotate_primitive_context.py \
+            scripts/train_inverse_agent_primitives.py
+      - name: Run primitive and documentation tests
+        run: |
+          pytest -q \
+            tests/test_primitive_library.py \
+            tests/test_primitive_agent_env.py \
+            tests/test_documentation_contract.py
+      - name: Validate source registry and license gates
+        run: |
+          python scripts/download_mechanistic_sources.py \
+            --registry knowledge/source_registry.yaml list --json
+          python scripts/download_mechanistic_sources.py \
+            --registry knowledge/source_registry.yaml \
+            download \
+            --source iupac_goldbook_terms \
+            --source rxno \
+            --source wikibooks_organic_chemistry \
+            --source libretexts_organic_synthesis_shea \
+            --output /tmp/mechet-knowledge --dry-run
+          ! python scripts/download_mechanistic_sources.py \
+            --registry knowledge/source_registry.yaml \
+            download --source mit_ocw_organic_chemistry \
+            --output /tmp/mechet-knowledge --dry-run
+          ! python scripts/download_mechanistic_sources.py \
+            --registry knowledge/source_registry.yaml \
+            download --source pmechdb_pmechrp \
+            --output /tmp/mechet-knowledge --dry-run
+      - name: Exercise primitive annotation
+        run: |
+          mkdir -p /tmp/mechet-primitive
+          cat > /tmp/mechet-primitive/reactions.jsonl <<'JSONL'
+          {"id":"sn2","reactants":"[CH3:1][Br:2].[OH-:3]","products":"[CH3:1][OH:3].[Br-:2]","conditions":{}}
+          JSONL
+          python scripts/annotate_primitive_context.py \
+            --input /tmp/mechet-primitive/reactions.jsonl \
+            --output /tmp/mechet-primitive/annotated.jsonl \
+            --library knowledge/primitives/core_polar_primitives.yaml \
+            --source-registry knowledge/source_registry.yaml \
+            --render-context
+          grep -q nucleophilic_substitution_sp3 /tmp/mechet-primitive/annotated.jsonl
+      - name: Exercise primitive actor dry-run
+        run: |
+          mkdir -p /tmp/mechet-primitive
+          cat > /tmp/mechet-primitive/train.jsonl <<'JSONL'
+          {"id":"smoke-1","target_smiles":"[CH3:1][Br:2].[OH-:3]","expected_precursor":"[CH3:1][OH:3].[Br-:2]"}
+          JSONL
+          cat > /tmp/mechet-primitive/config.yaml <<'YAML'
+          model_name_or_path: Qwen/Qwen3-0.6B
+          train_file: /tmp/mechet-primitive/train.jsonl
+          output_dir: /tmp/mechet-primitive/output
+          primitive_library_path: knowledge/primitives/core_polar_primitives.yaml
+          primitive_source_registry_path: knowledge/source_registry.yaml
+          environment:
+            max_tool_calls: 8
+            primitive_context_top_k: 4
+            primitive_reward_scale: 0.0
+          YAML
+          python scripts/train_inverse_agent_primitives.py \
+            --config /tmp/mechet-primitive/config.yaml --dry-run

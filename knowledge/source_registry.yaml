@@ -1,0 +1,99 @@
+schema_version: 1
+metadata:
+  purpose: Provenance and license registry for mechanistic primitive references
+  policy: Downloaded text is evidence for candidate extraction, not automatic chemical truth.
+sources:
+  iupac_goldbook_terms:
+    title: IUPAC Compendium of Chemical Terminology (Gold Book)
+    source_type: terminology
+    downloader: iupac_goldbook_terms
+    license: CC-BY-SA-4.0-individual-terms
+    redistribution: individual_terms_only
+    commercial_use: contact_iupac_for_collection
+    base_url: https://goldbook.iupac.org/terms/view/{term_id}/json
+    terms:
+      - N04249
+      - N04251
+      - E02020
+      - E02021
+      - L03493
+      - E02035
+      - H02809
+      - R05171
+      - S06078
+      - "08191"
+    homepage: https://goldbook.iupac.org
+
+  rxno:
+    title: Name Reaction Ontology
+    source_type: ontology
+    downloader: url
+    license: CC-BY-4.0
+    redistribution: allowed_with_attribution
+    urls:
+      - https://purl.obolibrary.org/obo/rxno.owl
+    homepage: https://obofoundry.org/ontology/rxno.html
+
+  wikibooks_organic_chemistry:
+    title: Wikibooks Organic Chemistry
+    source_type: open_textbook
+    downloader: mediawiki_pages
+    license: CC-BY-SA-4.0-and-GFDL-unless-noted
+    redistribution: text_allowed_with_attribution_and_sharealike
+    api_url: https://en.wikibooks.org/w/api.php
+    pages:
+      - Organic Chemistry/Introduction to reactions/Overview of addition, elimination, substitution and rearrangement reactions
+      - Organic Chemistry/Introduction to reactions/Review of nucleophilic substitution
+      - Organic Chemistry/Alkenes
+      - Organic Chemistry/Aromatic reactions
+      - Organic Chemistry/Carbonyls
+      - Organic Chemistry/Carboxylic acids
+    exclude_media: true
+    homepage: https://en.wikibooks.org/wiki/Organic_Chemistry
+
+  libretexts_organic_synthesis_shea:
+    title: Organic Synthesis (Shea)
+    source_type: open_textbook
+    downloader: html_pages
+    license: CC-BY-4.0
+    redistribution: text_allowed_with_attribution
+    expected_license_markers:
+      - CC BY
+      - license:ccby
+    pages:
+      - https://chem.libretexts.org/Bookshelves/Organic_Chemistry/Organic_Synthesis_%28Shea%29
+      - https://chem.libretexts.org/Bookshelves/Organic_Chemistry/Organic_Synthesis_%28Shea%29/00%3A_Front_Matter/04%3A_Licensing
+    text_only: true
+    homepage: https://chem.libretexts.org/Bookshelves/Organic_Chemistry/Organic_Synthesis_%28Shea%29
+
+  mit_ocw_organic_chemistry:
+    title: MIT OpenCourseWare Organic Chemistry I and II
+    source_type: course_materials
+    downloader: html_pages
+    license: CC-BY-NC-SA-4.0-except-marked-third-party-content
+    redistribution: noncommercial_only
+    requires_noncommercial_acceptance: true
+    expected_license_markers:
+      - CC BY-NC-SA
+      - Creative Commons
+    pages:
+      - https://ocw.mit.edu/courses/5-12-organic-chemistry-i-spring-2005/
+      - https://ocw.mit.edu/courses/5-13-organic-chemistry-ii-fall-2006/
+      - https://ocw.mit.edu/pages/privacy-and-terms-of-use/
+    text_only: true
+    exclude_markers:
+      - All rights reserved
+    homepage: https://ocw.mit.edu
+
+  pmechdb_pmechrp:
+    title: PMechDB and PMechRP datasets
+    source_type: mechanism_dataset
+    downloader: manual_gate
+    license: CC-BY-NC-ND
+    redistribution: unmodified_only_noncommercial
+    requires_noncommercial_acceptance: true
+    requires_restricted_acceptance: true
+    request_url: https://deeprxn.ics.uci.edu/pmechdb/download
+    notes:
+      - Includes elementary polar steps and a 350-pathway textbook benchmark.
+      - Do not automatically publish converted or modified derivatives without permission.
