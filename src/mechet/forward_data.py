@@ -17,7 +17,11 @@ from typing import Any, Iterable, Iterator, Mapping, Sequence
 
 from rdkit import Chem
 
-from .forward_expert import ElectronContainer, ElectronMove
+from .forward_expert import (
+    ElectronContainer,
+    ElectronMove,
+    verify_electron_step,
+)
 
 REACTION_FIELDS = (
     "reaction_smiles", "rxn_smiles", "mapped_reaction_smiles",
@@ -45,6 +49,12 @@ MOVE_FIELDS = (
 )
 COMPETITOR_FIELDS = (
     "competitor_products", "negative_products", "side_products", "alternatives",
+)
+MECHANISTIC_VARIANTS = (
+    ("ori", "mech_smi_ori", "elem_reac_ori", "elem_prod_ori"),
+    ("spe", "mech_smi_spe", "elem_reac_spe", "elem_prod_spe"),
+    ("equ", "mech_smi_equ", "elem_reac_equ", "elem_prod_equ"),
+    ("min", "mech_smi_min", "elem_reac_min", "elem_prod_min"),
 )
 
 
@@ -95,20 +105,81 @@ def split_reaction_smiles(value: str) -> tuple[str, str, str]:
     raise ValueError("reaction SMILES must contain '>>' or two '>' separators")
 
 
+
+def _parse_mol(smiles: str) -> Chem.Mol:
+    text = str(smiles or "").strip()
+    if not text:
+        raise ValueError("empty SMILES")
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(text, params)
+    if mol is None:
+        raise ValueError(f"invalid SMILES: {text}")
+    return mol
+
+
 def _canonical(smiles: str, *, require_maps: bool = True) -> str:
     text = str(smiles or "").strip()
     if not text:
         return ""
-    mol = Chem.MolFromSmiles(text, sanitize=True)
-    if mol is None:
-        raise ValueError(f"invalid SMILES: {text}")
+    mol = _parse_mol(text)
     maps = [atom.GetAtomMapNum() for atom in mol.GetAtoms()]
-    if require_maps and (
-        any(value <= 0 for value in maps) or len(maps) != len(set(maps))
-    ):
+    positive_maps = [value for value in maps if value > 0]
+    if len(positive_maps) != len(set(positive_maps)):
+        raise ValueError("positive atom maps must be unique")
+    if require_maps and len(positive_maps) != len(maps):
         raise ValueError("unique positive atom maps are required")
     return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
 
+
+def _complete_atom_maps(smiles: str) -> tuple[str, dict[str, Any]]:
+    """Fill missing maps without changing arrow-referenced positive map labels."""
+    mol = _parse_mol(smiles)
+    existing = [
+        atom.GetAtomMapNum()
+        for atom in mol.GetAtoms()
+        if atom.GetAtomMapNum() > 0
+    ]
+    if len(existing) != len(set(existing)):
+        raise ValueError("duplicate positive atom maps in mechanistic state")
+    rank_mol = Chem.Mol(mol)
+    for atom in rank_mol.GetAtoms():
+        atom.SetAtomMapNum(0)
+    ranks = list(Chem.CanonicalRankAtoms(rank_mol, breakTies=True))
+    unmapped = [
+        atom.GetIdx()
+        for atom in mol.GetAtoms()
+        if atom.GetAtomMapNum() <= 0
+    ]
+    next_map = max(existing, default=0) + 1
+    assigned: dict[str, int] = {}
+    for atom_idx in sorted(unmapped, key=lambda idx: (ranks[idx], idx)):
+        while next_map in existing:
+            next_map += 1
+        mol.GetAtomWithIdx(atom_idx).SetAtomMapNum(next_map)
+        assigned[str(atom_idx)] = next_map
+        existing.append(next_map)
+        next_map += 1
+    output = Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+    _canonical(output, require_maps=True)
+    return output, {
+        "completed": bool(unmapped),
+        "assigned_maps": assigned,
+        "original_mapped_atoms": len(existing) - len(unmapped),
+        "completed_atoms": len(unmapped),
+    }
+
+
+def _unmapped_canonical(smiles: str) -> str:
+    mol = _parse_mol(smiles)
+    for atom in mol.GetAtoms():
+        atom.SetAtomMapNum(0)
+    mol = Chem.RemoveHs(mol)
+    return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=False)
+
+
+def _same_structure_unmapped(left: str, right: str) -> bool:
+    return _unmapped_canonical(left) == _unmapped_canonical(right)
 
 def _stable_split(identity: str) -> str:
     fraction = int(
@@ -268,30 +339,84 @@ def _moves(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     return output
 
 
+
+def _mechanistic_step(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Recover a fully mapped elementary state pair from partial-map mech_smi."""
+    failures: list[str] = []
+    for variant, mech_key, reactant_key, product_key in MECHANISTIC_VARIANTS:
+        raw = row.get(mech_key)
+        if not raw:
+            continue
+        state_partial, moves = parse_mechanistic_smiles(str(raw))
+        if not moves:
+            failures.append(f"{variant}: no arrow pairs")
+            continue
+        try:
+            state, map_info = _complete_atom_maps(state_partial)
+            referenced_maps = {
+                atom_map
+                for move in moves
+                for side in (move["source"], move["sink"])
+                for atom_map in side["atoms"]
+            }
+            state_maps = {
+                atom.GetAtomMapNum() for atom in _parse_mol(state).GetAtoms()
+            }
+            missing = referenced_maps - state_maps
+            if missing:
+                raise ValueError(
+                    f"arrow atom maps missing from state: {sorted(missing)}"
+                )
+            executed = verify_electron_step(state, moves)
+            if not executed.get("ok"):
+                raise ValueError(
+                    "formal step execution failed: "
+                    + str(executed.get("message") or executed.get("code"))
+                )
+            target = _canonical(str(executed["state_smiles"]), require_maps=True)
+            reactant_reference = str(row.get(reactant_key) or "")
+            product_reference = str(row.get(product_key) or "")
+            reactant_match = (
+                not reactant_reference
+                or _same_structure_unmapped(state, reactant_reference)
+            )
+            product_match = (
+                not product_reference
+                or _same_structure_unmapped(target, product_reference)
+            )
+            if not reactant_match or not product_match:
+                raise ValueError(
+                    "reference mismatch "
+                    f"reactant={reactant_match} product={product_match}"
+                )
+            return {
+                "variant": variant,
+                "step_index": int(
+                    row.get("step_idx_forward", row.get("step_index", 0)) or 0
+                ),
+                "state_smiles": state,
+                "target_product": target,
+                "moves": moves,
+                "map_completion": map_info,
+                "reference_reactant": reactant_reference,
+                "reference_product": product_reference,
+                "reference_reactant_match": reactant_match,
+                "reference_product_match": product_match,
+            }
+        except Exception as exc:
+            failures.append(f"{variant}: {exc}")
+    if failures:
+        raise ValueError(
+            "mechanistic row could not be reconstructed; " + " | ".join(failures)
+        )
+    return None
+
+
 def _steps(
     row: Mapping[str, Any],
     reactants: str,
     product: str,
 ) -> list[dict[str, Any]]:
-    for key in ("mech_smi_ori", "mech_smi_spe", "mech_smi_equ", "mech_smi_min"):
-        if row.get(key):
-            state, moves = parse_mechanistic_smiles(str(row[key]))
-            target = _first(
-                row,
-                ("elem_prod_spe", "elem_prod_ori", "elem_prod_equ", "elem_prod_min"),
-                product,
-            )
-            if moves:
-                return [
-                    {
-                        "step_index": int(
-                            row.get("step_idx_forward", row.get("step_index", 0)) or 0
-                        ),
-                        "state_smiles": _canonical(state, require_maps=True),
-                        "target_product": _canonical(str(target), require_maps=True),
-                        "moves": moves,
-                    }
-                ]
     raw = _jsonish(_first(row, STEP_FIELDS, []))
     if isinstance(raw, dict):
         raw = raw.get("steps") or raw.get("trajectory") or [raw]
@@ -332,7 +457,6 @@ def _steps(
             )
     return output
 
-
 def _adapt_ord_row(row: Mapping[str, Any]) -> Mapping[str, Any]:
     raw = row.get("reaction")
     if raw is None or isinstance(raw, str):
@@ -367,6 +491,7 @@ def _adapt_ord_row(row: Mapping[str, Any]) -> Mapping[str, Any]:
     return output
 
 
+
 def normalize_reaction_row(
     row: Mapping[str, Any],
     *,
@@ -380,25 +505,52 @@ def normalize_reaction_row(
         for key, value in row.items()
     }
     row = {**dict(row), **aliases}
-    reaction = str(_first(row, REACTION_FIELDS, "") or "")
-    if reaction:
-        reactants, reagents, products = split_reaction_smiles(reaction)
+    metadata: dict[str, Any] = {
+        "original_keys": sorted(str(key) for key in row)
+    }
+    mechanistic = _mechanistic_step(row)
+    if mechanistic is not None:
+        reactants = mechanistic["state_smiles"]
+        products = mechanistic["target_product"]
+        reagents = ""
+        steps = [
+            {
+                key: mechanistic[key]
+                for key in (
+                    "step_index", "state_smiles", "target_product", "moves"
+                )
+            }
+        ]
+        metadata.update(
+            {
+                "mechanistic_variant": mechanistic["variant"],
+                "atom_map_policy": "complete_partial_mechanistic_maps",
+                "map_completion": mechanistic["map_completion"],
+                "reference_reactant": mechanistic["reference_reactant"],
+                "reference_product": mechanistic["reference_product"],
+                "reference_reactant_match": mechanistic[
+                    "reference_reactant_match"
+                ],
+                "reference_product_match": mechanistic[
+                    "reference_product_match"
+                ],
+                "mapped_target_source": "formal_electron_step_execution",
+            }
+        )
     else:
-        reactants = str(_first(row, REACTANT_FIELDS, "") or "")
-        products = str(_first(row, PRODUCT_FIELDS, "") or "")
-        reagents = str(_first(row, REAGENT_FIELDS, "") or "")
-        if not reactants:
-            for key in (
-                "mech_smi_ori", "mech_smi_spe", "mech_smi_equ", "mech_smi_min",
-            ):
-                if row.get(key):
-                    reactants, _ = parse_mechanistic_smiles(str(row[key]))
-                    break
-    reactants = _canonical(reactants, require_maps=require_maps)
-    products = _canonical(products, require_maps=require_maps)
-    if not reactants or not products:
-        raise ValueError("reactants and products are required")
-    reagents = _canonical(reagents, require_maps=False) if reagents else ""
+        reaction = str(_first(row, REACTION_FIELDS, "") or "")
+        if reaction:
+            reactants, reagents, products = split_reaction_smiles(reaction)
+        else:
+            reactants = str(_first(row, REACTANT_FIELDS, "") or "")
+            products = str(_first(row, PRODUCT_FIELDS, "") or "")
+            reagents = str(_first(row, REAGENT_FIELDS, "") or "")
+        reactants = _canonical(reactants, require_maps=require_maps)
+        products = _canonical(products, require_maps=require_maps)
+        if not reactants or not products:
+            raise ValueError("reactants and products are required")
+        reagents = _canonical(reagents, require_maps=False) if reagents else ""
+        steps = _steps(row, reactants, products)
     reaction = f"{reactants}>{reagents}>{products}"
     identity = str(
         row.get("id")
@@ -433,11 +585,10 @@ def normalize_reaction_row(
         "mechanism_class": str(_first(row, CLASS_FIELDS, "") or ""),
         "conditions": _jsonish(_first(row, CONDITION_FIELDS, {})),
         "competitor_products": normalized_competitors,
-        "steps": _steps(row, reactants, products),
+        "steps": steps,
         "split": split,
-        "metadata": {"original_keys": sorted(str(key) for key in row)},
+        "metadata": metadata,
     }
-
 
 def _iter_json(path: Path) -> Iterator[dict[str, Any]]:
     if path.suffix.lower() == ".jsonl":
