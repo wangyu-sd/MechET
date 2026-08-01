@@ -47,6 +47,18 @@ baselines = [
   "accelerate>=0.34",
   "safetensors>=0.4",
 ]
+agent = [
+  "torch>=2.1",
+  "trl>=1.9.1",
+  "transformers>=5.2.0",
+  "peft>=0.17",
+  "datasets>=3.0",
+  "accelerate>=1.0",
+  "pyyaml>=6.0",
+]
+planning = [
+  "syntheseus>=0.7.2,<0.8",
+]
 dev = [
   "pytest",
   "mechet[train,forward]",

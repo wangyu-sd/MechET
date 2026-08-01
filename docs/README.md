@@ -10,6 +10,7 @@ This page distinguishes current method specifications from historical files.
 | [`PROOF_CARRYING.md`](PROOF_CARRYING.md) | `MECH_PROOF v1`, deterministic executor and proof semantics |
 | [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md) | Authoritative proof-centric data, training, inference and paper evaluation contract |
 | [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) | Compact forward expert: data acquisition, standardization, model, training, inference, generation, evaluation and integration |
+| [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) | Framework-neutral agent environment, TRL reference training, scale backends, Syntheseus planning and migration stages |
 
 ## Current companion protocols
 
@@ -35,7 +36,8 @@ These remain only for provenance and must not define the current method.
 
 1. The deterministic executor remains the hard source of formal validity.
 2. Learned forward/selectivity scores are soft, calibrated evidence and must not be described as experimental truth.
-3. Download revisions, manifests, quarantine records, split policy, configs and calibration thresholds must accompany reported checkpoints.
-4. Restricted datasets require explicit license acceptance; no downloader may bypass upstream access terms.
-5. The README must not report unreleased checkpoints or non-frozen numbers as validated performance.
-6. Historical documents must retain clear deprecated/archived markers and links to replacements.
+3. Agent-training and planning frameworks must wrap `MechETAgentEnv`; they must not duplicate chemistry state or reward definitions.
+4. Download revisions, manifests, quarantine records, split policy, configs and calibration thresholds must accompany reported checkpoints.
+5. Restricted datasets require explicit license acceptance; no downloader may bypass upstream access terms.
+6. The README must not report unreleased checkpoints or non-frozen numbers as validated performance.
+7. Historical documents must retain clear deprecated/archived markers and links to replacements.
