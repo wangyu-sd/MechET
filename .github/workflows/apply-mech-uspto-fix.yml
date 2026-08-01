@@ -37,7 +37,7 @@ jobs:
           pytest -q tests/test_forward_expert.py tests/test_mech_uspto_standardization.py
       - name: Commit clean bug fix
         run: |
-          rm -f .github/workflows/apply-mech-uspto-fix.yml scripts/_apply_mech_uspto_fix.py
+          rm -f scripts/_apply_mech_uspto_fix.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
