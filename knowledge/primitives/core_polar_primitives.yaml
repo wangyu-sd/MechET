@@ -1,0 +1,235 @@
+schema_version: 1
+metadata:
+  library_id: mechet-core-polar-v0.1
+  chemistry_scope: mapped closed-shell two-electron polar chemistry
+  extraction_policy: Independently worded records supported by open references; no copied textbook prose or figures.
+primitives:
+  - primitive_id: nucleophilic_substitution_sp3
+    version: "1.0"
+    name: Concerted nucleophilic substitution at saturated carbon
+    level: motif
+    description: A nucleophilic lone pair forms a bond to a saturated electrophilic carbon while the carbon-leaving-group bond transfers its electron pair to the leaving group.
+    aliases: [SN2-like substitution, backside substitution]
+    tags: [substitution, nucleophile, leaving_group, sp3_carbon]
+    patterns:
+      - smarts: "[C;X4:1]-[Cl,Br,I:2]"
+        roles: {electrophile: 1, leaving_group: 2}
+      - smarts: "[N,O,S;!$([N+]);!$([O+]):3]"
+        roles: {nucleophile: 3}
+    moves:
+      - source: {kind: LP, roles: [nucleophile]}
+        sink: {kind: BOND, roles: [electrophile, nucleophile]}
+      - source: {kind: BOND, roles: [electrophile, leaving_group]}
+        sink: {kind: ATOM, roles: [leaving_group]}
+    preconditions:
+      - available nucleophilic lone pair
+      - saturated electrophilic carbon bearing a leaving group
+    warnings:
+      - steric congestion can suppress the concerted pathway
+      - substitution may compete with beta elimination
+      - primitive matching does not establish inversion or reaction conditions
+    competing_primitives: [beta_elimination, leaving_group_departure]
+    followups: [proton_transfer]
+    prior: 1.2
+    status: executor_verified
+    sources:
+      - {source_id: iupac_goldbook_terms, locator: "08191", evidence_kind: terminology, license: CC-BY-SA-4.0}
+      - {source_id: wikibooks_organic_chemistry, locator: Organic Chemistry/Introduction to reactions/Review of nucleophilic substitution, evidence_kind: open_textbook, license: CC-BY-SA-4.0}
+
+  - primitive_id: leaving_group_departure
+    version: "1.0"
+    name: Heterolytic leaving-group departure
+    level: primitive
+    description: The electron pair in a substrate-leaving-group bond is transferred to the leaving group, producing bond cleavage and a more electrophilic residual center.
+    aliases: [heterolytic bond cleavage, ionization]
+    tags: [leaving_group, heterolysis, substitution, elimination]
+    patterns:
+      - smarts: "[C:1]-[Cl,Br,I:2]"
+        roles: {residual_center: 1, leaving_group: 2}
+    moves:
+      - source: {kind: BOND, roles: [residual_center, leaving_group]}
+        sink: {kind: ATOM, roles: [leaving_group]}
+    preconditions:
+      - a bond to a group capable of accepting the bonding electron pair
+    warnings:
+      - carbocation formation and rearrangement depend strongly on substrate and medium
+      - formal cleavage does not establish a kinetically accessible pathway
+    competing_primitives: [nucleophilic_substitution_sp3, beta_elimination]
+    followups: [nucleophilic_capture, beta_elimination, rearrangement]
+    prior: 1.0
+    status: executor_verified
+    sources:
+      - {source_id: iupac_goldbook_terms, locator: L03493, evidence_kind: terminology, license: CC-BY-SA-4.0}
+      - {source_id: wikibooks_organic_chemistry, locator: Organic Chemistry/Introduction to reactions/Review of nucleophilic substitution, evidence_kind: open_textbook, license: CC-BY-SA-4.0}
+
+  - primitive_id: nucleophilic_carbonyl_addition
+    version: "1.0"
+    name: Nucleophilic addition to a carbonyl group
+    level: motif
+    description: A nucleophilic lone pair forms a bond to the carbonyl carbon while the carbonyl pi electron pair is transferred toward oxygen.
+    aliases: [carbonyl attack, tetrahedral addition]
+    tags: [carbonyl, nucleophile, addition, tetrahedral_intermediate]
+    patterns:
+      - smarts: "[C:1]=[O:2]"
+        roles: {carbonyl_carbon: 1, carbonyl_oxygen: 2}
+      - smarts: "[N,O,S;!$([N+]);!$([O+]):3]"
+        roles: {nucleophile: 3}
+    moves:
+      - source: {kind: LP, roles: [nucleophile]}
+        sink: {kind: BOND, roles: [carbonyl_carbon, nucleophile]}
+      - source: {kind: BOND, roles: [carbonyl_carbon, carbonyl_oxygen]}
+        sink: {kind: ATOM, roles: [carbonyl_oxygen]}
+    preconditions:
+      - available nucleophilic lone pair
+      - accessible polarized carbonyl group
+    warnings:
+      - facial and chemoselectivity are not resolved by the primitive
+      - conjugated carbonyls may undergo conjugate addition
+      - protonation state and catalyst can change the preferred sequence
+    competing_primitives: [conjugate_nucleophilic_addition, attack_at_alternative_carbonyl]
+    followups: [proton_transfer, carbonyl_reformation]
+    prior: 1.3
+    status: executor_verified
+    sources:
+      - {source_id: iupac_goldbook_terms, locator: N04249, evidence_kind: terminology, license: CC-BY-SA-4.0}
+      - {source_id: wikibooks_organic_chemistry, locator: Organic Chemistry/Carbonyls, evidence_kind: open_textbook, license: CC-BY-SA-4.0}
+
+  - primitive_id: carbonyl_reformation
+    version: "1.0"
+    name: Carbonyl pi-bond re-formation
+    level: primitive
+    description: An oxygen lone pair forms a carbon-oxygen pi bond, commonly coupled to departure of another group from a tetrahedral intermediate.
+    aliases: [collapse of tetrahedral intermediate]
+    tags: [carbonyl, pi_bond, acyl_substitution]
+    patterns:
+      - smarts: "[C:1]-[O-:2]"
+        roles: {carbonyl_carbon: 1, oxygen: 2}
+    moves:
+      - source: {kind: LP, roles: [oxygen]}
+        sink: {kind: BOND, roles: [carbonyl_carbon, oxygen]}
+    preconditions:
+      - an oxygen lone pair adjacent to a carbon center capable of increasing bond order
+    warnings:
+      - a complete elementary event may require coupled leaving-group departure
+      - protonation state can alter the viable sequence
+    competing_primitives: [proton_transfer]
+    followups: [leaving_group_departure, proton_transfer]
+    prior: 1.0
+    status: executor_verified
+    sources:
+      - {source_id: iupac_goldbook_terms, locator: E02035, evidence_kind: terminology, license: CC-BY-SA-4.0}
+      - {source_id: pmechdb_pmechrp, locator: elementary polar steps, evidence_kind: local_research_dataset, license: CC-BY-NC-ND}
+
+  - primitive_id: beta_elimination
+    version: "1.0"
+    name: Beta elimination forming an alkene
+    level: motif
+    description: Removal of a beta substituent and departure of a leaving group are coupled with formation of a carbon-carbon pi bond.
+    aliases: [E2-like elimination, dehydrohalogenation]
+    tags: [elimination, alkene, leaving_group, beta_hydrogen]
+    patterns:
+      - smarts: "[C:1]-[C:2]-[Cl,Br,I:3]"
+        roles: {beta_carbon: 1, alpha_carbon: 2, leaving_group: 3}
+    moves:
+      - source: {kind: BOND, roles: [alpha_carbon, leaving_group]}
+        sink: {kind: ATOM, roles: [leaving_group]}
+      - source: {kind: BOND, roles: [beta_carbon, alpha_carbon]}
+        sink: {kind: BOND, roles: [beta_carbon, alpha_carbon]}
+    preconditions:
+      - a beta carbon adjacent to a leaving-group-bearing carbon
+      - a removable beta hydrogen must be established separately
+    warnings:
+      - implicit hydrogens and anti-periplanar geometry require additional checks
+      - substitution can compete with elimination
+      - the placeholder bond-order move requires hydrogen-aware compilation before execution
+    competing_primitives: [nucleophilic_substitution_sp3, leaving_group_departure]
+    followups: []
+    retrieval_only: true
+    prior: 0.8
+    status: text_supported
+    sources:
+      - {source_id: wikibooks_organic_chemistry, locator: Organic Chemistry/Alkenes, evidence_kind: open_textbook, license: CC-BY-SA-4.0}
+
+  - primitive_id: conjugate_nucleophilic_addition
+    version: "1.0"
+    name: Conjugate nucleophilic addition
+    level: motif
+    description: A nucleophile adds at the beta position of a conjugated carbonyl system while pi electrons redistribute toward the carbonyl oxygen.
+    aliases: [1,4-addition, Michael-type addition]
+    tags: [conjugate_addition, carbonyl, nucleophile, pi_system]
+    patterns:
+      - smarts: "[C:1]=[C:2]-[C:3]=[O:4]"
+        roles: {beta_carbon: 1, alpha_carbon: 2, carbonyl_carbon: 3, oxygen: 4}
+      - smarts: "[N,O,S;!$([N+]);!$([O+]):5]"
+        roles: {nucleophile: 5}
+    moves:
+      - source: {kind: LP, roles: [nucleophile]}
+        sink: {kind: BOND, roles: [beta_carbon, nucleophile]}
+      - source: {kind: BOND, roles: [beta_carbon, alpha_carbon]}
+        sink: {kind: BOND, roles: [alpha_carbon, carbonyl_carbon]}
+      - source: {kind: BOND, roles: [carbonyl_carbon, oxygen]}
+        sink: {kind: ATOM, roles: [oxygen]}
+    preconditions:
+      - conjugated electrophilic pi system
+      - nucleophile capable of conjugate attack
+    warnings:
+      - direct carbonyl addition may compete
+      - actual regioselectivity depends on nucleophile, substituents, catalyst and conditions
+    competing_primitives: [nucleophilic_carbonyl_addition]
+    followups: [proton_transfer, carbonyl_reformation]
+    prior: 1.0
+    status: executor_verified
+    sources:
+      - {source_id: wikibooks_organic_chemistry, locator: Organic Chemistry/Carbonyls, evidence_kind: open_textbook, license: CC-BY-SA-4.0}
+      - {source_id: pmechdb_pmechrp, locator: elementary polar steps, evidence_kind: local_research_dataset, license: CC-BY-NC-ND}
+
+  - primitive_id: nucleophilic_aromatic_substitution_addition
+    version: "1.0"
+    name: Nucleophilic addition to an aromatic carbon bearing a leaving group
+    level: motif
+    description: A nucleophile forms a bond to an aromatic carbon bearing a leaving group, initiating an addition-elimination aromatic substitution sequence.
+    aliases: [SNAr addition]
+    tags: [aromatic, nucleophile, substitution, leaving_group]
+    patterns:
+      - smarts: "[c:1]-[F,Cl,Br:2]"
+        roles: {aryl_carbon: 1, leaving_group: 2}
+      - smarts: "[N,O,S;!$([N+]);!$([O+]):3]"
+        roles: {nucleophile: 3}
+    moves:
+      - source: {kind: LP, roles: [nucleophile]}
+        sink: {kind: BOND, roles: [aryl_carbon, nucleophile]}
+    preconditions:
+      - aromatic carbon bearing a leaving group
+      - ring activation and nucleophile strength must be assessed separately
+    warnings:
+      - aromatic addition may be disfavored without electron-withdrawing activation
+      - benzyne pathways and direct displacement are separate mechanisms
+    competing_primitives: [benzyne_pathway, no_reaction]
+    followups: [rearomatization, leaving_group_departure]
+    prior: 0.9
+    status: executor_verified
+    sources:
+      - {source_id: wikibooks_organic_chemistry, locator: Organic Chemistry/Aromatic reactions, evidence_kind: open_textbook, license: CC-BY-SA-4.0}
+
+  - primitive_id: proton_transfer
+    version: "1.0"
+    name: Proton transfer
+    level: primitive
+    description: A base donates an electron pair to a proton while the proton-donor bond transfers its electron pair to the donor atom.
+    aliases: [acid-base step, deprotonation, protonation]
+    tags: [acid_base, proton_transfer, lone_pair]
+    patterns: []
+    moves: []
+    preconditions:
+      - explicit proton donor and acceptor states are required for executable atom mapping
+    warnings:
+      - implicit hydrogens prevent reliable automatic role binding
+      - thermodynamic direction depends on acid-base strengths and medium
+    competing_primitives: []
+    followups: []
+    retrieval_only: true
+    prior: 0.7
+    status: text_supported
+    sources:
+      - {source_id: iupac_goldbook_terms, locator: E02035, evidence_kind: terminology, license: CC-BY-SA-4.0}
+      - {source_id: pmechdb_pmechrp, locator: proton transfer dataset, evidence_kind: local_research_dataset, license: CC-BY-NC-ND}
