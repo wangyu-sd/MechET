@@ -1,40 +1,30 @@
-name: Agent framework integration tests
+name: Agent runtime and inference tests
 
 on:
   pull_request:
     paths:
       - "README.md"
-      - "docs/SCIENTIFIC_THESIS.md"
-      - "docs/EXECUTION_PLAN.md"
-      - "docs/FRAMEWORK_MIGRATION.md"
-      - "docs/TRACE_FAITHFULNESS.md"
-      - "docs/KNOWLEDGE_AUGMENTED_AGENT.md"
-      - "docs/TOOL_SFT.md"
-      - "docs/README.md"
+      - "docs/**"
       - "pyproject.toml"
-      - "src/mechet/agent_env.py"
+      - "src/mechet/agent_*.py"
+      - "src/mechet/*environment*.py"
       - "src/mechet/electron_flow_trace.py"
-      - "src/mechet/trace_agent_env.py"
-      - "src/mechet/knowledge_agent_env.py"
+      - "src/mechet/endpoints.py"
+      - "src/mechet/prediction_metrics.py"
       - "src/mechet/proof_to_trace.py"
-      - "src/mechet/textbook_*.py"
-      - "src/mechet/evidence_context.py"
-      - "src/mechet/adversarial.py"
-      - "src/mechet/syntheseus_adapter.py"
+      - "src/mechet/tool_schemas.py"
+      - "src/mechet/trace_agent_env.py"
       - "scripts/agent_model_init.py"
-      - "scripts/train_inverse_agent_trl.py"
-      - "scripts/train_inverse_agent_trace.py"
-      - "scripts/train_inverse_agent_knowledge.py"
+      - "scripts/infer_mechet.py"
+      - "scripts/evaluate_faithfulness.py"
+      - "scripts/train_inverse_agent_*.py"
+      - "scripts/train_tool_sft.py"
       - "scripts/build_textbook_tool_sft.py"
-      - "scripts/mine_bidirectional_hard_negatives.py"
-      - "scripts/train_forward_expert_hard_negative.py"
-      - "scripts/run_syntheseus_search.py"
       - "configs/agent/**"
       - "configs/knowledge/**"
-      - "tests/test_agent_frameworks.py"
-      - "tests/test_agent_model_init.py"
+      - "tests/test_agent_*.py"
+      - "tests/test_runtime_closure.py"
       - "tests/test_trace_proof_binding.py"
-      - "tests/test_knowledge_agent_env.py"
       - "tests/test_proof_to_trace.py"
       - ".github/workflows/agent-framework-tests.yml"
   push:
@@ -42,18 +32,12 @@ on:
     paths:
       - "README.md"
       - "docs/**"
-      - "src/mechet/agent_env.py"
-      - "src/mechet/electron_flow_trace.py"
-      - "src/mechet/trace_agent_env.py"
-      - "src/mechet/knowledge_agent_env.py"
-      - "src/mechet/proof_to_trace.py"
-      - "scripts/agent_model_init.py"
-      - "scripts/train_inverse_agent_trace.py"
-      - "scripts/train_inverse_agent_knowledge.py"
-      - "scripts/build_textbook_tool_sft.py"
+      - "pyproject.toml"
+      - "src/mechet/**"
+      - "scripts/**"
       - "configs/agent/**"
       - "configs/knowledge/**"
-      - "tests/test_agent_model_init.py"
+      - "tests/**"
 
 jobs:
   test:
@@ -64,32 +48,43 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-      - name: Install core test dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,knowledge]"
-      - name: Compile framework adapters
+          python -m pip install -e ".[dev,agent,knowledge]"
+          python - <<'PY'
+          import datasets, peft, transformers, trl
+          print({
+              'datasets': datasets.__version__,
+              'peft': peft.__version__,
+              'transformers': transformers.__version__,
+              'trl': trl.__version__,
+          })
+          PY
+      - name: Compile runtime entrypoints
         run: |
           python -m py_compile \
             src/mechet/agent_env.py \
+            src/mechet/agent_inference.py \
+            src/mechet/anchor_trl_environment.py \
             src/mechet/electron_flow_trace.py \
-            src/mechet/trace_agent_env.py \
+            src/mechet/endpoints.py \
+            src/mechet/frozen_evidence_environments.py \
             src/mechet/knowledge_agent_env.py \
+            src/mechet/prediction_metrics.py \
             src/mechet/proof_to_trace.py \
-            src/mechet/textbook_store.py \
-            src/mechet/textbook_retriever.py \
-            src/mechet/evidence_context.py \
-            src/mechet/adversarial.py \
-            src/mechet/syntheseus_adapter.py \
+            src/mechet/tool_schemas.py \
+            src/mechet/trace_agent_env.py \
+            src/mechet/trl_environments.py \
             scripts/agent_model_init.py \
+            scripts/build_textbook_tool_sft.py \
+            scripts/evaluate_faithfulness.py \
+            scripts/infer_mechet.py \
             scripts/train_inverse_agent_trl.py \
             scripts/train_inverse_agent_trace.py \
             scripts/train_inverse_agent_knowledge.py \
-            scripts/build_textbook_tool_sft.py \
-            scripts/mine_bidirectional_hard_negatives.py \
-            scripts/train_forward_expert_hard_negative.py \
-            scripts/run_syntheseus_search.py
-      - name: Run environment, lineage, trace, knowledge, and candidate-pool tests
+            scripts/train_tool_sft.py
+      - name: Run runtime and regression tests
         run: |
           pytest -q \
             tests/test_agent_frameworks.py \
@@ -97,81 +92,133 @@ jobs:
             tests/test_trace_proof_binding.py \
             tests/test_knowledge_agent_env.py \
             tests/test_proof_to_trace.py \
-            tests/test_documentation_contract.py
-      - name: Exercise legacy, trace-owned, and knowledge dry-runs
+            tests/test_runtime_closure.py
+      - name: Build root-import Tool-SFT supervision
         run: |
-          mkdir -p /tmp/mechet-agent
-          cat > /tmp/mechet-agent/train.jsonl <<'EOF'
-          {"id":"smoke-1","target_smiles":"[CH3:1][C:2](=[O:3])[CH3:4]","expected_precursor":"[CH3:1][C:2](=[O:3])[CH3:4]"}
-          EOF
-          cat > /tmp/mechet-agent/passages.jsonl <<'EOF'
-          {"passage_id":"carbonyl-1","title":"Carbonyl addition","text":"A nucleophile donates an electron pair to the electrophilic carbonyl carbon while the pi bond shifts toward oxygen.","source_id":"open_textbook","locator":"chapter/carbonyl","revision":"r1","license":"CC-BY-4.0","source_url":"https://example.org","evidence_sha256":"placeholder","topics":["carbonyl"]}
+          mkdir -p /tmp/mechet-runtime
+          cat > /tmp/mechet-runtime/passages.jsonl <<'EOF'
+          {"passage_id":"substitution-1","title":"Substitution","text":"A nucleophile can displace a leaving group through coupled bond formation and cleavage.","source_id":"open_textbook","locator":"chapter/substitution","revision":"r1","license":"CC-BY-4.0","source_url":"https://example.org","evidence_sha256":"placeholder","topics":["substitution","halide"]}
           EOF
           python - <<'PY'
           import hashlib, json, pathlib
-          path = pathlib.Path('/tmp/mechet-agent/passages.jsonl')
+          path = pathlib.Path('/tmp/mechet-runtime/passages.jsonl')
           row = json.loads(path.read_text())
           row['evidence_sha256'] = hashlib.sha256(row['text'].encode()).hexdigest()
           path.write_text(json.dumps(row)+'\n')
           PY
-          cat > /tmp/mechet-agent/base_config.yaml <<'EOF'
-          model_name_or_path: Qwen/Qwen3-0.6B
-          train_file: /tmp/mechet-agent/train.jsonl
-          output_dir: /tmp/mechet-agent/output
-          environment:
-            max_tool_calls: 10
-            require_tool_use: true
-          EOF
-          cat > /tmp/mechet-agent/knowledge_config.yaml <<'EOF'
-          model_name_or_path: Qwen/Qwen3-0.6B
-          train_file: /tmp/mechet-agent/train.jsonl
-          output_dir: /tmp/mechet-agent/output
-          textbook_corpus_path: /tmp/mechet-agent/passages.jsonl
-          environment:
-            max_tool_calls: 10
-            require_tool_use: true
-            require_textbook_corpus: true
-          EOF
-          python scripts/train_inverse_agent_trl.py \
-            --config /tmp/mechet-agent/base_config.yaml --dry-run
-          python scripts/train_inverse_agent_trace.py \
-            --config /tmp/mechet-agent/base_config.yaml --dry-run \
-            | tee /tmp/mechet-agent/trace_report.json
-          python scripts/train_inverse_agent_knowledge.py \
-            --config /tmp/mechet-agent/knowledge_config.yaml --dry-run \
-            | tee /tmp/mechet-agent/knowledge_report.json
-          grep -q checkpoint_lineage /tmp/mechet-agent/trace_report.json
-          grep -q checkpoint_lineage /tmp/mechet-agent/knowledge_report.json
-      - name: Exercise replay-verified Tool-SFT build and coverage report
-        run: |
-          mkdir -p /tmp/mechet-tool-sft
-          cp /tmp/mechet-agent/passages.jsonl /tmp/mechet-tool-sft/passages.jsonl
           python - <<'PY'
           import json
           from mechet.proof_program import ChargeAction, ProofEdge, ProofProgram, format_proof_output
           program = ProofProgram(
               target_smiles='[CH3:1][OH:2]',
-              roots={'s0': []},
+              roots={'s0': ['[Br-:3]']},
               precursor_state_id='s1',
-              edges=[ProofEdge('s0','s1',imports=['[Br-:3]'],bonds=[(1,2,-1),(1,3,1)],lone_pairs=[(2,2),(3,-2)],charges=[ChargeAction(2,0,-1),ChargeAction(3,-1,0)])],
+              edges=[ProofEdge('s0','s1',bonds=[(1,2,-1),(1,3,1)],lone_pairs=[(2,2),(3,-2)],charges=[ChargeAction(2,0,-1),ChargeAction(3,-1,0)])],
           )
-          with open('/tmp/mechet-tool-sft/proofs.jsonl','w') as handle:
-              handle.write(json.dumps({'id':'sn2','proof':format_proof_output(program),'mechanism_class':'nucleophilic substitution'})+'\n')
-              handle.write(json.dumps({'id':'missing-proof','mechanism_class':'unknown'})+'\n')
+          with open('/tmp/mechet-runtime/proofs.jsonl','w') as handle:
+              handle.write(json.dumps({'id':'sn2','proof':format_proof_output(program),'mechanism_class':'hidden-gold-label'})+'\n')
+              handle.write(json.dumps({'id':'missing-proof'})+'\n')
           PY
           python scripts/build_textbook_tool_sft.py \
-            --input /tmp/mechet-tool-sft/proofs.jsonl \
-            --corpus /tmp/mechet-tool-sft/passages.jsonl \
-            --output /tmp/mechet-tool-sft/train.jsonl
-          grep -q finish_trace /tmp/mechet-tool-sft/train.jsonl
-          grep -q environment_owned_trace /tmp/mechet-tool-sft/train.jsonl
-          grep -q conversion_rate /tmp/mechet-tool-sft/train.report.json
-          grep -q failure_codes /tmp/mechet-tool-sft/train.report.json
-          grep -q family_coverage /tmp/mechet-tool-sft/train.report.json
-          grep -q PROOF_MISSING /tmp/mechet-tool-sft/train.quarantine.jsonl
-      - name: Check optional CLI schemas
+            --input /tmp/mechet-runtime/proofs.jsonl \
+            --corpus /tmp/mechet-runtime/passages.jsonl \
+            --output /tmp/mechet-runtime/train.jsonl
+          grep -q '"initial_imports": \["\[Br-:3\]"\]' /tmp/mechet-runtime/train.jsonl
+          grep -q '"textbook_query_source": "target_state_terms"' /tmp/mechet-runtime/train.jsonl
+          grep -q '"gold_label_query_used": false' /tmp/mechet-runtime/train.jsonl
+          grep -q '"tools"' /tmp/mechet-runtime/train.jsonl
+          grep -q PROOF_MISSING /tmp/mechet-runtime/train.quarantine.jsonl
+      - name: Validate Tool-SFT schema without downloading a model
         run: |
+          cat > /tmp/mechet-runtime/tool_sft.yaml <<'EOF'
+          condition_name: trace_textbook_rag
+          scientific_hypothesis: H3
+          model_name_or_path: Qwen/Qwen3-0.6B
+          train_file: /tmp/mechet-runtime/train.jsonl
+          output_dir: /tmp/mechet-runtime/adapter
+          training:
+            assistant_only_loss: true
+            max_length: 4096
+          contract:
+            require_trace_owned: true
+            terminal_tool: finish_trace
+          EOF
+          python scripts/train_tool_sft.py \
+            --config /tmp/mechet-runtime/tool_sft.yaml --dry-run \
+            | tee /tmp/mechet-runtime/tool_sft_report.json
+          grep -q conversational_messages_with_tools /tmp/mechet-runtime/tool_sft_report.json
+          grep -q '"conversation_schema_valid": true' /tmp/mechet-runtime/tool_sft_report.json
+      - name: Exercise explicit TRL facades
+        run: |
+          cat > /tmp/mechet-runtime/base_config.yaml <<'EOF'
+          model_name_or_path: Qwen/Qwen3-0.6B
+          train_file: /tmp/mechet-runtime/train.jsonl
+          output_dir: /tmp/mechet-runtime/model
+          environment:
+            max_tool_calls: 10
+            require_tool_use: true
+          EOF
+          cat > /tmp/mechet-runtime/knowledge_config.yaml <<'EOF'
+          evidence_mode: textbook
+          model_name_or_path: Qwen/Qwen3-0.6B
+          train_file: /tmp/mechet-runtime/train.jsonl
+          output_dir: /tmp/mechet-runtime/model
+          textbook_corpus_path: /tmp/mechet-runtime/passages.jsonl
+          environment:
+            max_tool_calls: 10
+            require_tool_use: true
+            require_textbook_corpus: true
+          EOF
+          python scripts/train_inverse_agent_trl.py --config /tmp/mechet-runtime/base_config.yaml --dry-run
+          python scripts/train_inverse_agent_trace.py --config /tmp/mechet-runtime/base_config.yaml --dry-run \
+            | tee /tmp/mechet-runtime/trace_dry.json
+          python scripts/train_inverse_agent_knowledge.py --config /tmp/mechet-runtime/knowledge_config.yaml --dry-run \
+            | tee /tmp/mechet-runtime/knowledge_dry.json
+          grep -q TraceOwnedTRLEnvironment /tmp/mechet-runtime/trace_dry.json
+          ! grep -q '"state_dict"' /tmp/mechet-runtime/trace_dry.json
+          ! grep -q '"submit_proof"' /tmp/mechet-runtime/trace_dry.json
+      - name: Run scripted trace inference and H1 interventions
+        run: |
+          cat > /tmp/mechet-runtime/actions.json <<'EOF'
+          [
+            {"name":"import_fragment","arguments":{"fragment_smiles":"[Br-:3]"}},
+            {"name":"apply_coupled_electron_moves","arguments":{"moves":[
+              {"source":{"kind":"LP","atoms":[3]},"sink":{"kind":"BOND","atoms":[1,3]},"electrons":2},
+              {"source":{"kind":"BOND","atoms":[1,2]},"sink":{"kind":"ATOM","atoms":[2]},"electrons":2}
+            ]}},
+            {"name":"finish_trace","arguments":{}}
+          ]
+          EOF
+          for intervention in none remove_tool_observations stale_tool_observations; do
+            python scripts/infer_mechet.py \
+              --config /tmp/mechet-runtime/base_config.yaml \
+              --data /tmp/mechet-runtime/train.jsonl \
+              --output /tmp/mechet-runtime/${intervention}.jsonl \
+              --mode trace --condition-name trace_no_knowledge \
+              --intervention ${intervention} \
+              --scripted-actions /tmp/mechet-runtime/actions.json \
+              --temperature 0.7 --top-p 0.95 --max-iterations 12
+          done
+          python scripts/infer_mechet.py \
+            --config /tmp/mechet-runtime/base_config.yaml \
+            --data /tmp/mechet-runtime/train.jsonl \
+            --output /tmp/mechet-runtime/shuffle_tool_observations.jsonl \
+            --mode trace --condition-name trace_no_knowledge \
+            --intervention shuffle_tool_observations \
+            --intervention-source /tmp/mechet-runtime/none.jsonl \
+            --scripted-actions /tmp/mechet-runtime/actions.json \
+            --temperature 0.7 --top-p 0.95 --max-iterations 12
+          python scripts/evaluate_faithfulness.py \
+            --reference /tmp/mechet-runtime/train.jsonl \
+            --normal /tmp/mechet-runtime/none.jsonl \
+            --intervention remove_tool_observations=/tmp/mechet-runtime/remove_tool_observations.jsonl \
+            --intervention stale_tool_observations=/tmp/mechet-runtime/stale_tool_observations.jsonl \
+            --intervention shuffle_tool_observations=/tmp/mechet-runtime/shuffle_tool_observations.jsonl \
+            --output /tmp/mechet-runtime/h1.json
+          grep -q frozen_causal_intervention_evaluation /tmp/mechet-runtime/h1.json
+          grep -q '"same_runtime_contract": true' /tmp/mechet-runtime/h1.json
+      - name: Check runtime CLIs
+        run: |
+          python scripts/infer_mechet.py --help
+          python scripts/evaluate_faithfulness.py --help
           python scripts/build_textbook_tool_sft.py --help
-          python scripts/run_syntheseus_search.py --help
-          python scripts/mine_bidirectional_hard_negatives.py --help
-          python scripts/train_forward_expert_hard_negative.py --help
