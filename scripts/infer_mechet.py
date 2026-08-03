@@ -1,62 +1,200 @@
 #!/usr/bin/env python3
-"""Generate MechET MECH_ET v3 CoT predictions with Qwen (+ optional LoRA adapter)."""
-
+"""Run standard MechET prediction rollouts and H1 interventions."""
 from __future__ import annotations
 
 import argparse
 import json
-import os
-import sys
-from datetime import datetime, timezone
 from pathlib import Path
+import sys
+from typing import Any, Mapping
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
+sys.path.insert(0, str(REPO / "scripts"))
 
-from mechet.chat_template import build_generation_prompt
-from mechet.metrics import extract_answer_from_prediction, extract_gold_answer, extract_product_from_user, normalize_candidates
-from mechet.model import resolve_qwen_model_path
-from mechet.sft import MECH_ET_SYSTEM_PROMPT
+from agent_model_init import path_sha256
+from mechet.agent_env import AgentEnvConfig
+from mechet.agent_inference import (
+    append_tool_exchange,
+    parse_tool_calls,
+    scripted_rollout,
+    tool_result_pool,
+)
+from mechet.endpoints import reference_structural_precursor
+from mechet.knowledge_ablation import read_jsonl, row_id, write_jsonl
+from mechet.knowledge_agent_env import KnowledgeAgentConfig
+from mechet.tool_schemas import trace_tool_schemas
+from mechet.trl_environments import (
+    LegacyProofTRLEnvironment,
+    TextbookAnchorTraceOwnedTRLEnvironment,
+    TextbookTraceOwnedTRLEnvironment,
+    TraceOwnedTRLEnvironment,
+)
+
+try:
+    import yaml
+except ImportError as exc:
+    raise RuntimeError("install PyYAML or mechet[agent]") from exc
 
 
-def _load_rows(path: Path, limit: int) -> list[dict]:
-    rows = []
-    with path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            if not line.strip():
-                continue
-            rows.append(json.loads(line))
-            if limit and len(rows) >= limit:
-                break
-    return rows
+TRACE_SYSTEM = """You are MechET, a trace-owned inverse electron-flow agent.
+Use explicit mapped electron-flow tools for every state change. The only final
+proof and precursor must be produced by finish_trace. Abstain when unsupported."""
+TEXTBOOK_SUFFIX = """
+Retrieved textbook passages and structured anchors are soft external evidence.
+They are not answers, rewards, or validity oracles."""
+DIRECT_SYSTEM = """Predict the atom-contributing structural precursor SMILES.
+Return one line beginning with PRECURSOR:."""
 
 
-def _build_model(base_model: str, adapter: str | None, *, use_4bit: bool):
+def load_yaml(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {}
+    return dict(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+
+
+def _condition_metadata(row: Mapping[str, Any]) -> tuple[Any, Any]:
+    metadata = dict(row.get("metadata") or {})
+    competitors = row.get("competitor_products") or metadata.get("competitor_products")
+    conditions = row.get("conditions") or metadata.get("conditions")
+    return competitors, conditions
+
+
+def _environment_config(
+    cfg: dict[str, Any], mode: str
+) -> AgentEnvConfig | KnowledgeAgentConfig:
+    payload = dict(cfg.get("environment") or {})
+    if mode in {"textbook", "combined"}:
+        payload.setdefault(
+            "textbook_corpus_path",
+            str(
+                cfg.get("textbook_corpus_path")
+                or REPO / "knowledge/corpus/passages.jsonl"
+            ),
+        )
+        payload.setdefault(
+            "primitive_library_path",
+            str(
+                cfg.get("primitive_library_path")
+                or REPO / "knowledge/primitives/core_polar_primitives.yaml"
+            ),
+        )
+        payload.setdefault(
+            "primitive_source_registry_path",
+            str(
+                cfg.get("primitive_source_registry_path")
+                or REPO / "knowledge/source_registry.yaml"
+            ),
+        )
+        payload["enable_structured_primitives"] = mode == "combined"
+        return KnowledgeAgentConfig(**payload)
+    return AgentEnvConfig(**payload)
+
+
+def _environment(
+    cfg: dict[str, Any],
+    mode: str,
+    *,
+    intervention: str,
+    shuffled: dict[str, list[str]],
+):
+    env_cfg = _environment_config(cfg, mode)
+    common = {
+        "config": env_cfg,
+        "forward_checkpoint": cfg.get("forward_checkpoint") or None,
+        "forward_device": str(cfg.get("forward_device") or "cpu"),
+    }
+    if mode == "trace":
+        return TraceOwnedTRLEnvironment(
+            **common,
+            intervention=intervention,
+            shuffled_observations=shuffled,
+        )
+    if mode == "textbook":
+        return TextbookTraceOwnedTRLEnvironment(
+            **common,
+            intervention=intervention,
+            shuffled_observations=shuffled,
+        )
+    if mode == "combined":
+        return TextbookAnchorTraceOwnedTRLEnvironment(
+            **common,
+            intervention=intervention,
+            shuffled_observations=shuffled,
+        )
+    if mode == "legacy":
+        return LegacyProofTRLEnvironment(**common)
+    raise ValueError(f"mode has no environment: {mode}")
+
+
+def _tools(mode: str) -> list[dict[str, Any]]:
+    if mode == "trace":
+        return trace_tool_schemas()
+    if mode == "textbook":
+        return trace_tool_schemas(textbook=True)
+    if mode == "combined":
+        return trace_tool_schemas(textbook=True, anchors=True)
+    if mode == "legacy":
+        return trace_tool_schemas(legacy_submit_proof=True)
+    return []
+
+
+def _direct_messages(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+    messages = [
+        dict(item)
+        for item in row.get("messages") or []
+        if item.get("role") in {"system", "user"}
+    ]
+    system = next((item for item in messages if item.get("role") == "system"), None)
+    user = next((item for item in messages if item.get("role") == "user"), None)
+    if system and user:
+        return [system, user]
+    return [
+        {"role": "system", "content": DIRECT_SYSTEM},
+        {
+            "role": "user",
+            "content": f"TARGET: {str(row.get('target_smiles') or '')}",
+        },
+    ]
+
+
+def _trace_messages(
+    row: Mapping[str, Any], mode: str, observation: str
+) -> list[dict[str, Any]]:
+    suffix = TEXTBOOK_SUFFIX if mode in {"textbook", "combined"} else ""
+    return [
+        {"role": "system", "content": TRACE_SYSTEM + suffix},
+        {
+            "role": "user",
+            "content": (
+                f"TARGET: {str(row.get('target_smiles') or '')}\n\n"
+                "INITIAL ENVIRONMENT OBSERVATION:\n"
+                + observation
+            ),
+        },
+    ]
+
+
+def _load_model(
+    model_name: str,
+    adapter: str,
+    *,
+    revision: str | None,
+    device_map: str | None,
+):
     import torch
     from peft import PeftModel
-    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else (
-        torch.float16 if torch.cuda.is_available() else torch.float32
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_name, revision=revision, trust_remote_code=True
     )
-    tok_path = Path(adapter).parent / "tokenizer" if adapter and (Path(adapter).parent / "tokenizer").exists() else base_model
-    tokenizer = AutoTokenizer.from_pretrained(str(tok_path), trust_remote_code=True, local_files_only=True)
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-    quant = None
-    if use_4bit and torch.cuda.is_available():
-        quant = BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=dtype,
-        )
     model = AutoModelForCausalLM.from_pretrained(
-        base_model,
+        model_name,
+        revision=revision,
         trust_remote_code=True,
-        local_files_only=True,
-        quantization_config=quant,
-        torch_dtype=dtype,
-        device_map="auto" if torch.cuda.is_available() else None,
+        torch_dtype=(torch.bfloat16 if torch.cuda.is_available() else None),
+        device_map=device_map or ("auto" if torch.cuda.is_available() else None),
     )
     if adapter:
         model = PeftModel.from_pretrained(model, adapter, is_trainable=False)
@@ -64,132 +202,376 @@ def _build_model(base_model: str, adapter: str | None, *, use_4bit: bool):
     return model, tokenizer
 
 
-def _generate_one(
+def _generate_response(
     model,
     tokenizer,
-    user_content: str,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
     *,
     max_new_tokens: int,
-    max_input_tokens: int,
-    num_beams: int,
-    num_return_sequences: int,
     temperature: float,
-    do_sample: bool,
-):
+    top_p: float,
+) -> tuple[str, Any]:
     import torch
 
-    prompt_messages = [
-        {"role": "system", "content": MECH_ET_SYSTEM_PROMPT},
-        {"role": "user", "content": user_content},
-    ]
-    prompt = build_generation_prompt(tokenizer, prompt_messages)
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=max_input_tokens)
-    if torch.cuda.is_available():
-        inputs = {k: v.to(model.device) for k, v in inputs.items()}
-
-    gen_kwargs = {
-        "max_new_tokens": max_new_tokens,
-        "pad_token_id": tokenizer.pad_token_id,
-        "eos_token_id": tokenizer.eos_token_id,
+    template_kwargs: dict[str, Any] = {
+        "conversation": messages,
+        "tokenize": True,
+        "add_generation_prompt": True,
+        "return_tensors": "pt",
+        "return_dict": True,
     }
-    if num_beams > 1:
-        gen_kwargs.update(
-            num_beams=num_beams,
-            num_return_sequences=min(num_return_sequences, num_beams),
-            do_sample=do_sample,
-            temperature=temperature if do_sample else None,
-        )
-    else:
-        gen_kwargs["do_sample"] = do_sample
-        if do_sample:
-            gen_kwargs["temperature"] = temperature
-        gen_kwargs["num_return_sequences"] = 1
-
+    if tools:
+        template_kwargs["tools"] = tools
+    encoded = tokenizer.apply_chat_template(**template_kwargs)
+    if not isinstance(encoded, dict) or "input_ids" not in encoded:
+        raise ValueError("chat template did not return model inputs")
+    device = next(model.parameters()).device
+    model_inputs = {
+        key: value.to(device) if hasattr(value, "to") else value
+        for key, value in encoded.items()
+        if key in {"input_ids", "attention_mask"}
+    }
+    input_length = int(model_inputs["input_ids"].shape[-1])
     with torch.no_grad():
-        out = model.generate(**inputs, **gen_kwargs)
+        output = model.generate(
+            **model_inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=temperature > 0,
+            temperature=max(temperature, 1e-5),
+            top_p=top_p,
+            pad_token_id=tokenizer.eos_token_id,
+        )
+    generated = output[0, input_length:]
+    text = tokenizer.decode(generated, skip_special_tokens=False)
+    return text, model_inputs["input_ids"][0]
 
-    prompt_len = inputs["input_ids"].shape[1]
-    texts: list[str] = []
-    for seq in out:
-        texts.append(tokenizer.decode(seq[prompt_len:], skip_special_tokens=False))
-    return texts
+
+def _rank_candidate(candidate: Mapping[str, Any]) -> tuple[int, int, int]:
+    state = dict(candidate.get("rollout_state") or {})
+    final = dict(state.get("final_result") or {})
+    return (
+        int(bool(final.get("formal_execute") or final.get("ok"))),
+        -int(bool(state.get("abstained"))),
+        -int(candidate.get("sample_index", 0)),
+    )
+
+
+def _run_trace_candidate(
+    row: Mapping[str, Any],
+    cfg: dict[str, Any],
+    mode: str,
+    *,
+    intervention: str,
+    shuffled: dict[str, list[str]],
+    model: Any,
+    tokenizer: Any,
+    tools: list[dict[str, Any]],
+    max_iterations: int,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    scripted_actions: list[dict[str, Any]] | None,
+    sample_index: int,
+) -> dict[str, Any]:
+    env = _environment(
+        cfg, mode, intervention=intervention, shuffled=shuffled
+    )
+    competitors, conditions = _condition_metadata(row)
+    observation = env.reset(
+        target_smiles=str(row.get("target_smiles") or ""),
+        expected_precursor="",
+        competitor_products=competitors,
+        conditions=conditions,
+    )
+    messages = _trace_messages(row, mode, observation)
+    if scripted_actions is not None:
+        result = scripted_rollout(env, scripted_actions, messages=messages)
+        result.update(
+            {"sample_index": sample_index, "termination_reason": "scripted"}
+        )
+        return result
+
+    exchanges: list[dict[str, Any]] = []
+    termination_reason = "max_iterations"
+    for _ in range(max_iterations):
+        raw, prefix = _generate_response(
+            model,
+            tokenizer,
+            messages,
+            tools,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+        )
+        calls = parse_tool_calls(raw, tokenizer=tokenizer, prefix=prefix)
+        if not calls:
+            messages.append({"role": "assistant", "content": raw})
+            termination_reason = "no_tool_call"
+            break
+        exchanges.extend(append_tool_exchange(messages, raw, calls, env))
+        state = env._snapshot()
+        if state.get("finalized"):
+            termination_reason = (
+                "abstained" if state.get("abstained") else "terminal_tool"
+            )
+            break
+    return {
+        "sample_index": sample_index,
+        "messages": messages,
+        "exchanges": exchanges,
+        "rollout_state": env._snapshot(),
+        "termination_reason": termination_reason,
+    }
+
+
+def _run_direct_candidate(
+    row: Mapping[str, Any],
+    *,
+    model: Any,
+    tokenizer: Any,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    sample_index: int,
+    scripted_response: str | None,
+) -> dict[str, Any]:
+    messages = _direct_messages(row)
+    if scripted_response is not None:
+        raw = scripted_response
+    else:
+        raw, _ = _generate_response(
+            model,
+            tokenizer,
+            messages,
+            [],
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+        )
+    messages.append({"role": "assistant", "content": raw})
+    return {
+        "sample_index": sample_index,
+        "messages": messages,
+        "prediction": raw,
+        "termination_reason": "direct_generation",
+        "rollout_state": {},
+    }
+
+
+def _script_map(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {}
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(value, list):
+        return {"*": value}
+    if not isinstance(value, dict):
+        raise ValueError("scripted-actions must be a list or ID mapping")
+    return dict(value)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data", type=Path, default=REPO / "data/mechet_sft/valid.jsonl")
+    parser.add_argument("--config", type=Path)
+    parser.add_argument("--data", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--mode",
+        choices=["trace", "textbook", "combined", "legacy", "direct"],
+        required=True,
+    )
+    parser.add_argument("--condition-name", default="")
+    parser.add_argument("--model-name", default="")
+    parser.add_argument("--adapter", default="")
+    parser.add_argument("--model-revision", default="")
+    parser.add_argument("--device-map", default="")
+    parser.add_argument(
+        "--intervention",
+        choices=[
+            "none",
+            "remove_tool_observations",
+            "stale_tool_observations",
+            "shuffle_tool_observations",
+            "disable_inspect_state",
+            "disable_intermediate_execution",
+        ],
+        default="none",
+    )
+    parser.add_argument("--intervention-source", type=Path)
+    parser.add_argument("--samples-per-target", type=int, default=1)
+    parser.add_argument("--max-iterations", type=int, default=12)
+    parser.add_argument("--max-new-tokens", type=int, default=512)
+    parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--limit", type=int, default=0)
-    parser.add_argument("--out", type=Path, default=REPO / "outputs/mechet_eval/generations.jsonl")
-    parser.add_argument("--manifest", type=Path, default=None, help="defaults to <out>.manifest.json")
-    parser.add_argument("--model-path", type=str, default="")
-    parser.add_argument("--adapter", type=Path, default=None)
-    parser.add_argument("--max-new-tokens", type=int, default=4096)
-    parser.add_argument("--max-input-tokens", type=int, default=8192)
-    parser.add_argument("--num-beams", type=int, default=1)
-    parser.add_argument("--num-return-sequences", type=int, default=1)
-    parser.add_argument("--temperature", type=float, default=0.0)
-    parser.add_argument("--sample", action="store_true")
-    parser.add_argument("--no-4bit", action="store_true")
+    parser.add_argument("--scripted-actions", type=Path)
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    base = args.model_path or os.environ.get("QWEN_MODEL_PATH") or resolve_qwen_model_path() or ""
-    if not base or not Path(base).exists():
-        print(json.dumps({"error": "missing base model; set QWEN_MODEL_PATH"}))
-        return 1
+    if args.samples_per_target < 1:
+        raise ValueError("samples-per-target must be >= 1")
+    cfg = load_yaml(args.config)
+    rows = read_jsonl(args.data)
+    if args.limit:
+        rows = rows[: args.limit]
+    if not rows:
+        raise ValueError("inference data is empty")
+    condition_name = args.condition_name or args.mode
+    model_name = args.model_name or str(cfg.get("model_name_or_path") or "")
+    adapter = args.adapter or str(
+        cfg.get("output_dir") or cfg.get("initial_adapter_path") or ""
+    )
+    tools = _tools(args.mode)
+    scripts = _script_map(args.scripted_actions)
+    if args.dry_run:
+        report = {
+            "artifact_type": "inference_dry_run",
+            "mode": args.mode,
+            "condition_name": condition_name,
+            "n_rows": len(rows),
+            "tool_names": [
+                str((item.get("function") or {}).get("name") or "")
+                for item in tools
+            ],
+            "intervention": args.intervention,
+            "scripted": bool(scripts),
+            "model_name": model_name or None,
+            "adapter": adapter or None,
+        }
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+        return 0
 
-    rows = _load_rows(args.data, args.limit)
-    model, tokenizer = _build_model(base, str(args.adapter) if args.adapter else None, use_4bit=not args.no_4bit)
+    shuffled: dict[str, list[str]] = {}
+    if args.intervention == "shuffle_tool_observations":
+        if args.intervention_source is None:
+            raise ValueError("shuffle intervention requires --intervention-source")
+        shuffled = tool_result_pool(read_jsonl(args.intervention_source))
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path = args.manifest or args.out.with_suffix(args.out.suffix + ".manifest.json")
-    started = datetime.now(timezone.utc).isoformat()
+    model = tokenizer = None
+    if not scripts:
+        if not model_name:
+            raise ValueError("model name is required for non-scripted inference")
+        model, tokenizer = _load_model(
+            model_name,
+            adapter,
+            revision=args.model_revision or None,
+            device_map=args.device_map or None,
+        )
 
-    with args.out.open("w", encoding="utf-8") as handle:
-        for row in rows:
-            messages = row.get("messages") or []
-            user = next((m for m in messages if m.get("role") == "user"), {"content": ""})
-            user_content = str(user.get("content") or "")
-            raw_texts = _generate_one(
-                model,
-                tokenizer,
-                user_content,
-                max_new_tokens=args.max_new_tokens,
-                max_input_tokens=args.max_input_tokens,
-                num_beams=max(1, args.num_beams),
-                num_return_sequences=max(1, args.num_return_sequences),
-                temperature=args.temperature,
-                do_sample=args.sample,
-            )
-            prediction = raw_texts[0]
-            candidates = normalize_candidates(prediction, raw_texts[1:])
-            record = {
-                "id": row.get("id"),
-                "prediction": prediction,
-                "candidates": [extract_answer_from_prediction(t) for t in raw_texts if extract_answer_from_prediction(t)],
-                "raw_generations": raw_texts,
-                "product": extract_product_from_user(user_content),
-                "gold_answer": extract_gold_answer(row),
-                "topology": (row.get("metadata") or {}).get("topology"),
-            }
-            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    predictions: list[dict[str, Any]] = []
+    for row in rows:
+        identifier = row_id(row)
+        script = scripts.get(identifier, scripts.get("*"))
+        candidates: list[dict[str, Any]] = []
+        for sample_index in range(args.samples_per_target):
+            if args.mode == "direct":
+                scripted_response = None
+                if script is not None:
+                    if isinstance(script, list):
+                        scripted_response = str(
+                            script[min(sample_index, len(script) - 1)]
+                        )
+                    else:
+                        scripted_response = str(script)
+                candidate = _run_direct_candidate(
+                    row,
+                    model=model,
+                    tokenizer=tokenizer,
+                    max_new_tokens=args.max_new_tokens,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
+                    sample_index=sample_index,
+                    scripted_response=scripted_response,
+                )
+            else:
+                actions = None
+                if script is not None:
+                    if not isinstance(script, list):
+                        raise ValueError(
+                            f"scripted actions for {identifier} must be a list"
+                        )
+                    actions = [dict(item) for item in script]
+                candidate = _run_trace_candidate(
+                    row,
+                    cfg,
+                    args.mode,
+                    intervention=args.intervention,
+                    shuffled=shuffled,
+                    model=model,
+                    tokenizer=tokenizer,
+                    tools=tools,
+                    max_iterations=args.max_iterations,
+                    max_new_tokens=args.max_new_tokens,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
+                    scripted_actions=actions,
+                    sample_index=sample_index,
+                )
+            candidates.append(candidate)
+        selected = max(candidates, key=_rank_candidate)
+        rollout_state = dict(selected.get("rollout_state") or {})
+        final_result = dict(rollout_state.get("final_result") or {})
+        prediction = {
+            "id": identifier,
+            "artifact_type": "prediction",
+            "prediction_status": "completed",
+            "prediction_mode": args.mode,
+            "condition_name": condition_name,
+            "target_smiles": str(row.get("target_smiles") or ""),
+            "expected_precursor": str(row.get("expected_precursor") or ""),
+            "full_precursor_state": str(
+                row.get("full_precursor_state")
+                or row.get("expected_precursor")
+                or ""
+            ),
+            "structural_precursor": reference_structural_precursor(row),
+            "auxiliary_fragments": list(row.get("auxiliary_fragments") or []),
+            "messages": selected.get("messages") or [],
+            "tools": tools,
+            "rollout_state": rollout_state,
+            "terminal_result": final_result,
+            "prediction": selected.get("prediction") or "",
+            "selected_candidate_index": int(selected.get("sample_index", 0)),
+            "candidates": candidates,
+            "model": {
+                "base_model": model_name or None,
+                "adapter": adapter or None,
+                "adapter_sha256": path_sha256(adapter) if adapter else None,
+                "model_revision": args.model_revision or None,
+                "temperature": args.temperature,
+                "top_p": args.top_p,
+                "max_new_tokens": args.max_new_tokens,
+                "max_iterations": args.max_iterations,
+                "samples_per_target": args.samples_per_target,
+            },
+            "metadata": {
+                "condition_name": condition_name,
+                "intervention": args.intervention,
+                "reference_source_id": row.get("source_id"),
+            },
+        }
+        if not selected.get("messages"):
+            prediction["prediction_status"] = "missing"
+        predictions.append(prediction)
 
+    write_jsonl(args.output, predictions)
     manifest = {
-        "generated_at": started,
-        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "artifact_type": "prediction_manifest",
         "data": str(args.data),
-        "out": str(args.out),
-        "n": len(rows),
-        "model_path": base,
-        "adapter": str(args.adapter) if args.adapter else None,
-        "max_new_tokens": args.max_new_tokens,
-        "max_input_tokens": args.max_input_tokens,
-        "num_beams": args.num_beams,
-        "num_return_sequences": args.num_return_sequences,
-        "sample": args.sample,
-        "use_4bit": not args.no_4bit,
+        "data_sha256": path_sha256(args.data),
+        "output": str(args.output),
+        "n_predictions": len(predictions),
+        "mode": args.mode,
+        "condition_name": condition_name,
+        "intervention": args.intervention,
+        "base_model": model_name or None,
+        "adapter": adapter or None,
+        "adapter_sha256": path_sha256(adapter) if adapter else None,
     }
-    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"wrote": str(args.out), "manifest": str(manifest_path), "n": len(rows)}, indent=2))
+    args.output.with_suffix(args.output.suffix + ".manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    print(json.dumps(manifest, indent=2, ensure_ascii=False))
     return 0
 
 
