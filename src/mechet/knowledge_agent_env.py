@@ -13,7 +13,7 @@ from typing import Any
 from .agent_env import AgentEnvConfig
 from .evidence_context import compile_evidence_context
 from .primitive_library import PrimitiveLibrary
-from .textbook_retriever import TextbookRetriever
+from .textbook_retriever import RetrievalResult, TextbookRetriever
 from .textbook_store import TextbookStore
 from .trace_agent_env import TraceOwnedAgentEnv
 
@@ -31,6 +31,32 @@ class KnowledgeAgentConfig(AgentEnvConfig):
     primitive_library_path: str = "knowledge/primitives/core_polar_primitives.yaml"
     primitive_source_registry_path: str = "knowledge/source_registry.yaml"
     primitive_top_k: int = 4
+
+
+def _retrieval_summary(item: RetrievalResult) -> dict[str, Any]:
+    """Return provenance and scores without duplicating raw passage text.
+
+    The only model-visible passage text must come from the bounded, sanitized
+    evidence context. Returning ``RetrievalResult.to_dict()`` here would expose
+    the complete unsanitized passage a second time and defeat the context limit.
+    """
+
+    passage = item.passage
+    return {
+        "passage_id": passage.passage_id,
+        "title": passage.title,
+        "source_id": passage.source_id,
+        "locator": passage.locator,
+        "revision": passage.revision,
+        "license": passage.license,
+        "source_url": passage.source_url,
+        "evidence_sha256": passage.evidence_sha256,
+        "score": item.score,
+        "lexical_score": item.lexical_score,
+        "state_score": item.state_score,
+        "matched_terms": list(item.matched_terms),
+        "state_terms": list(item.state_terms),
+    }
 
 
 class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
@@ -118,7 +144,7 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
                     "event": "auto_retrieve_on_reset",
                     "query": "",
                     "context": context.to_dict(),
-                    "results": [item.to_dict() for item in results],
+                    "results": [_retrieval_summary(item) for item in results],
                 }
             )
         self.trace[-1]["observation"] = observation
@@ -161,7 +187,8 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
                 "query": query,
                 "state_smiles": self.current_state,
                 "context": context.to_dict(),
-                "matches": [item.to_dict() for item in results],
+                "matches": [_retrieval_summary(item) for item in results],
+                "raw_passage_text_in_matches": False,
                 "soft_evidence_only": True,
                 "direct_reward": False,
                 "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
