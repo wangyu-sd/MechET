@@ -1,4 +1,6 @@
+import importlib.util
 import json
+from pathlib import Path
 
 import pytest
 
@@ -9,7 +11,18 @@ from mechet.knowledge_ablation import (
     strip_knowledge_messages,
     validate_alignment,
 )
-from scripts.train_tool_sft import conversational_records
+
+
+def _load_conversational_records():
+    path = Path(__file__).resolve().parents[1] / "scripts" / "train_tool_sft.py"
+    spec = importlib.util.spec_from_file_location("mechet_train_tool_sft", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.conversational_records
+
+
+conversational_records = _load_conversational_records()
 
 
 def tool_call(name, arguments=None, call_id="call_1"):
