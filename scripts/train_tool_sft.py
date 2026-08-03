@@ -55,6 +55,23 @@ def validate_rows(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def conversational_records(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep messages structured so TRL can build assistant-token masks.
+
+    ``assistant_only_loss`` is defined for conversational datasets. Pre-rendering
+    the chats into a plain ``text`` column would turn this into a language-model
+    dataset and discard the assistant boundaries needed by the trainer.
+    """
+
+    return [
+        {
+            "id": str(row["id"]),
+            "messages": row["messages"],
+        }
+        for row in rows
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -76,6 +93,7 @@ def main() -> int:
         "model_name_or_path": cfg.get("model_name_or_path"),
         "condition_name": cfg.get("condition_name"),
         "output_dir": cfg.get("output_dir"),
+        "dataset_format": "conversational_messages",
         "assistant_only_loss": bool(
             (cfg.get("training") or {}).get("assistant_only_loss", True)
         ),
@@ -101,20 +119,6 @@ def main() -> int:
         model_name,
         trust_remote_code=bool(training.get("trust_remote_code", True)),
     )
-
-    rendered = []
-    for row in rows:
-        try:
-            text = tokenizer.apply_chat_template(
-                row["messages"],
-                tokenize=False,
-                add_generation_prompt=False,
-            )
-        except Exception as exc:
-            raise ValueError(
-                f"chat template failed for {row.get('id')}; use a tool-capable tokenizer"
-            ) from exc
-        rendered.append({"text": text, "id": row["id"]})
 
     sft_args = SFTConfig(
         output_dir=str(cfg.get("output_dir") or "outputs/agent/tool_sft"),
@@ -142,7 +146,7 @@ def main() -> int:
     trainer = SFTTrainer(
         model=model_name,
         args=sft_args,
-        train_dataset=Dataset.from_list(rendered),
+        train_dataset=Dataset.from_list(conversational_records(rows)),
         processing_class=tokenizer,
         peft_config=peft_config,
     )
