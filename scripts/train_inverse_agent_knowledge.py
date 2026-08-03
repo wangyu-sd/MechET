@@ -16,6 +16,7 @@ sys.path.insert(0, str(REPO / "scripts"))
 from agent_model_init import build_trainable_model, lineage_report
 from train_inverse_agent_trace import augment_prompts
 from train_inverse_agent_trl import build_rows, load_yaml
+from mechet.anchor_trl_environment import AnchorTraceOwnedTRLEnvironment
 from mechet.knowledge_agent_env import KnowledgeAgentConfig
 from mechet.trl_environments import (
     TextbookAnchorTraceOwnedTRLEnvironment,
@@ -24,11 +25,9 @@ from mechet.trl_environments import (
 
 
 KNOWLEDGE_SUFFIX = """
-A textbook-evidence retrieval tool may provide citable natural-language
-mechanistic guidance. Treat retrieved passages and structured anchors as soft
-external evidence, never as answers, rewards, or chemical truth. Ground useful
-principles into mapped electron-flow actions and rely on finish_trace for the
-only proof and precursor."""
+Mechanistic evidence tools provide soft external evidence, never answers,
+rewards, or chemical truth. Ground useful principles into mapped electron-flow
+actions and rely on finish_trace for the only proof and precursor."""
 
 
 def knowledge_prompts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -44,7 +43,15 @@ def knowledge_prompts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return output
 
 
+def evidence_mode(cfg: dict[str, Any]) -> str:
+    value = str(cfg.get("evidence_mode") or "textbook").strip().lower()
+    if value not in {"textbook", "anchors", "combined"}:
+        raise ValueError(f"unknown evidence_mode: {value}")
+    return value
+
+
 def environment_config(cfg: dict[str, Any]) -> KnowledgeAgentConfig:
+    mode = evidence_mode(cfg)
     payload = dict(cfg.get("environment") or {})
     payload.setdefault(
         "textbook_corpus_path",
@@ -67,31 +74,39 @@ def environment_config(cfg: dict[str, Any]) -> KnowledgeAgentConfig:
             or REPO / "knowledge/source_registry.yaml"
         ),
     )
+    payload["enable_structured_primitives"] = mode in {"anchors", "combined"}
+    payload["require_textbook_corpus"] = mode in {"textbook", "combined"}
     return KnowledgeAgentConfig(**payload)
 
 
-def environment_class(env_cfg: KnowledgeAgentConfig):
-    return (
-        TextbookAnchorTraceOwnedTRLEnvironment
-        if env_cfg.enable_structured_primitives
-        else TextbookTraceOwnedTRLEnvironment
-    )
+def environment_class(cfg: dict[str, Any]):
+    mode = evidence_mode(cfg)
+    if mode == "anchors":
+        return AnchorTraceOwnedTRLEnvironment
+    if mode == "combined":
+        return TextbookAnchorTraceOwnedTRLEnvironment
+    return TextbookTraceOwnedTRLEnvironment
 
 
 def dry_run_report(
     cfg: dict[str, Any], rows: list[dict[str, Any]]
 ) -> dict[str, Any]:
+    mode = evidence_mode(cfg)
     env_cfg = environment_config(cfg)
-    cls = environment_class(env_cfg)
+    cls = environment_class(cfg)
     env = cls(config=env_cfg)
     first = rows[0]
     observation = json.loads(env.reset(**first))
     inventory = json.loads(env.inspect_state())
-    textbook = json.loads(env.retrieve_textbook_guidance())
+    textbook = (
+        json.loads(env.retrieve_textbook_guidance())
+        if mode in {"textbook", "combined"}
+        else {"ok": False, "code": "TEXTBOOK_TOOL_NOT_EXPOSED"}
+    )
     anchors = (
         json.loads(env.retrieve_primitives())
-        if env_cfg.enable_structured_primitives
-        else {"ok": False, "code": "STRUCTURED_PRIMITIVES_DISABLED"}
+        if mode in {"anchors", "combined"}
+        else {"ok": False, "code": "ANCHOR_TOOL_NOT_EXPOSED"}
     )
     training = dict(cfg.get("training") or {})
     public_tools = sorted(
@@ -102,6 +117,7 @@ def dry_run_report(
     return {
         "model_name_or_path": cfg.get("model_name_or_path"),
         "train_file": cfg.get("train_file"),
+        "evidence_mode": mode,
         "n_rows": len(rows),
         "first_target": first["target_smiles"],
         "environment": env_cfg.__dict__,
@@ -156,7 +172,7 @@ def main() -> int:
 
     training = dict(cfg.get("training") or {})
     env_cfg = environment_config(cfg)
-    cls = environment_class(env_cfg)
+    cls = environment_class(cfg)
     grpo_args = GRPOConfig(
         output_dir=str(cfg.get("output_dir") or "outputs/agent/inverse_knowledge_grpo"),
         learning_rate=float(training.get("learning_rate", 5e-6)),
