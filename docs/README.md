@@ -6,10 +6,11 @@ This page distinguishes current method specifications from historical files and 
 
 1. [`../README.md`](../README.md) — scientific story, implemented system and runnable entrypoints.
 2. [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md) — authoritative ICLR scientific and execution contract.
-3. [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) — Web evidence, primitive extraction, executable schema and model enhancement.
-4. [`PROOF_CARRYING.md`](PROOF_CARRYING.md) — proof language and deterministic executor.
-5. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — compact forward expert.
-6. [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) — TRL, scale backends and Syntheseus planning.
+3. [`TRACE_FAITHFULNESS.md`](TRACE_FAITHFULNESS.md) — environment-owned trace, deterministic trace-to-proof compilation and causal endpoint contract.
+4. [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) — Web evidence, primitive extraction, executable schema and model enhancement.
+5. [`PROOF_CARRYING.md`](PROOF_CARRYING.md) — proof language and deterministic executor.
+6. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — compact forward expert.
+7. [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) — TRL, scale backends and Syntheseus planning.
 
 ## Authoritative documents
 
@@ -17,6 +18,7 @@ This page distinguishes current method specifications from historical files and 
 |---|---|
 | [`../README.md`](../README.md) | Public architecture, current status, quickstart and method boundaries |
 | [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md) | Only source of truth for headline claims, required baselines, result tables, stopping gates and collaborator work packages |
+| [`TRACE_FAITHFULNESS.md`](TRACE_FAITHFULNESS.md) | Main-method trace ownership, import semantics, `finish_trace`, compilation and faithfulness evaluation |
 | [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) | Source/license registry, evidence extraction, primitive schema, retrieval, model augmentation and matched ablations |
 | [`PROOF_CARRYING.md`](PROOF_CARRYING.md) | `MECH_PROOF v1`, deterministic executor and proof semantics |
 | [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) | Forward data, model, training, generation, calibration and integration |
@@ -46,10 +48,11 @@ These remain only for provenance and must not define the current method.
 ## Documentation policy
 
 1. The deterministic executor remains the hard source of formal validity.
-2. Learned forward/selectivity scores and primitive-reference matches are soft evidence and must not be described as experimental truth.
-3. A Web source or LLM extraction becomes a released primitive only after provenance capture, executable encoding and chemistry review.
-4. Agent-training and planning frameworks must wrap `MechETAgentEnv`; they must not duplicate chemistry state or reward definitions.
-5. Download revisions, hashes, licenses, quarantine records, configs and calibration thresholds must accompany reported checkpoints.
-6. Restricted sources require explicit license acceptance; no downloader may bypass upstream access terms.
-7. The README must not report unreleased checkpoints or non-frozen numbers as validated performance.
-8. Historical documents must retain clear deprecated/archived markers and links to replacements.
+2. The main agent method must derive its proof and endpoint from the environment-owned trace; free-form proof submission is a baseline only.
+3. Learned forward/selectivity scores and primitive-reference matches are soft evidence and must not be described as experimental truth.
+4. A Web source or LLM extraction becomes a released primitive only after provenance capture, executable encoding and chemistry review.
+5. Agent-training and planning frameworks must wrap the shared chemistry environments; they must not duplicate chemistry state or reward definitions.
+6. Download revisions, hashes, licenses, quarantine records, configs and calibration thresholds must accompany reported checkpoints.
+7. Restricted sources require explicit license acceptance; no downloader may bypass upstream access terms.
+8. The README must not report unreleased checkpoints or non-frozen numbers as validated performance.
+9. Historical documents must retain clear deprecated/archived markers and links to replacements.

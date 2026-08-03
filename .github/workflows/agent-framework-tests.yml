@@ -8,14 +8,18 @@ on:
       - "docs/README.md"
       - "pyproject.toml"
       - "src/mechet/agent_env.py"
+      - "src/mechet/electron_flow_trace.py"
+      - "src/mechet/trace_agent_env.py"
       - "src/mechet/adversarial.py"
       - "src/mechet/syntheseus_adapter.py"
       - "scripts/train_inverse_agent_trl.py"
+      - "scripts/train_inverse_agent_trace.py"
       - "scripts/mine_bidirectional_hard_negatives.py"
       - "scripts/train_forward_expert_hard_negative.py"
       - "scripts/run_syntheseus_search.py"
       - "configs/agent/**"
       - "tests/test_agent_frameworks.py"
+      - "tests/test_trace_proof_binding.py"
       - ".github/workflows/agent-framework-tests.yml"
   push:
     branches: [main]
@@ -25,14 +29,18 @@ on:
       - "docs/README.md"
       - "pyproject.toml"
       - "src/mechet/agent_env.py"
+      - "src/mechet/electron_flow_trace.py"
+      - "src/mechet/trace_agent_env.py"
       - "src/mechet/adversarial.py"
       - "src/mechet/syntheseus_adapter.py"
       - "scripts/train_inverse_agent_trl.py"
+      - "scripts/train_inverse_agent_trace.py"
       - "scripts/mine_bidirectional_hard_negatives.py"
       - "scripts/train_forward_expert_hard_negative.py"
       - "scripts/run_syntheseus_search.py"
       - "configs/agent/**"
       - "tests/test_agent_frameworks.py"
+      - "tests/test_trace_proof_binding.py"
 
 jobs:
   test:
@@ -51,15 +59,22 @@ jobs:
         run: |
           python -m py_compile \
             src/mechet/agent_env.py \
+            src/mechet/electron_flow_trace.py \
+            src/mechet/trace_agent_env.py \
             src/mechet/adversarial.py \
             src/mechet/syntheseus_adapter.py \
             scripts/train_inverse_agent_trl.py \
+            scripts/train_inverse_agent_trace.py \
             scripts/mine_bidirectional_hard_negatives.py \
             scripts/train_forward_expert_hard_negative.py \
             scripts/run_syntheseus_search.py
-      - name: Run environment, mining, and candidate-pool tests
-        run: pytest -q tests/test_agent_frameworks.py tests/test_documentation_contract.py
-      - name: Exercise TRL adapter dry-run without TRL
+      - name: Run environment, trace, mining, and candidate-pool tests
+        run: |
+          pytest -q \
+            tests/test_agent_frameworks.py \
+            tests/test_trace_proof_binding.py \
+            tests/test_documentation_contract.py
+      - name: Exercise legacy and trace-owned TRL dry-runs without TRL
         run: |
           mkdir -p /tmp/mechet-agent
           cat > /tmp/mechet-agent/train.jsonl <<'EOF'
@@ -70,10 +85,12 @@ jobs:
           train_file: /tmp/mechet-agent/train.jsonl
           output_dir: /tmp/mechet-agent/output
           environment:
-            max_tool_calls: 6
+            max_tool_calls: 8
             require_tool_use: true
           EOF
           python scripts/train_inverse_agent_trl.py \
+            --config /tmp/mechet-agent/config.yaml --dry-run
+          python scripts/train_inverse_agent_trace.py \
             --config /tmp/mechet-agent/config.yaml --dry-run
       - name: Check optional CLI schemas
         run: |
