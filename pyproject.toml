@@ -58,6 +58,7 @@ agent = [
 ]
 knowledge = [
   "pyyaml>=6.0",
+  "requests>=2.32",
   "beautifulsoup4>=4.12",
   "rdflib>=7.0",
 ]
