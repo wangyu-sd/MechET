@@ -5,13 +5,10 @@
 **Causal and compositional electron-flow reasoning for retrosynthesis**
 
 [![Proof tests](https://github.com/wangyu-sd/MechET/actions/workflows/proof-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/proof-tests.yml)
-[![Agent framework tests](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml)
-[![Knowledge ablation tests](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml)
-[![Forward expert tests](https://github.com/wangyu-sd/MechET/actions/workflows/forward-expert-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/forward-expert-tests.yml)
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Runtime tests](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml)
+[![Evidence tests](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml)
 
-[Scientific question](#scientific-question) · [Main method](#main-method) · [Experiments](#experiments) · [Quickstart](#quickstart) · [Current status](#current-status) · [Documentation](#documentation)
+[Scientific question](#scientific-question) · [Method](#main-method) · [Data](#data-flow) · [Training](#training) · [Inference](#inference) · [Evaluation](#evaluation) · [Status](#current-status)
 
 </div>
 
@@ -19,41 +16,38 @@
 
 ## One-sentence contribution
 
-MechET formulates retrosynthesis as **causal program induction over executable electron-flow actions**: an environment-owned action trace is the sole computational source of the proof and precursor, enabling controlled tests of causal faithfulness and primitive-seen/composition-unseen generalization.
+MechET formulates retrosynthesis as causal program induction over explicit source-to-sink electron-flow actions: an environment-owned trace is the only computational source of the executable proof and precursor, enabling controlled tests of causal faithfulness and primitive-seen/composition-unseen generalization.
 
 ## Scientific question
 
 > Can mechanistic reasoning in retrosynthesis be made causal and compositional, rather than merely plausible in language?
 
-A language model can generate a correct precursor and a plausible-looking explanation without using that explanation to obtain the answer. MechET replaces the independent rationale/answer pair with an executable chemical program:
+The study tests three falsifiable hypotheses:
 
-```text
-atom-mapped product
-  -> explicit source-to-sink electron-flow actions
-  -> environment-owned molecular-state transitions
-  -> committed trace
-  -> deterministic trace-to-proof compilation
-  -> executor-derived structural precursors
-```
+1. **H1 — causal faithfulness:** the trace, rather than an independent answer channel, determines the endpoint and responds to interventions on tool observations.
+2. **H2 — compositional basis:** source-to-sink execution primitives can be recombined into complete move compositions absent from training.
+3. **H3 — evidence separation:** formal executability and empirical mechanistic support are distinct evidence layers.
 
-The main study tests three hypotheses:
-
-1. **Causal faithfulness:** the generated trace, not an independent answer channel, determines the endpoint.
-2. **Compositional basis:** local electron-flow execution primitives can be recombined into mechanism compositions not seen during training.
-3. **Evidence separation:** formal executability and empirical chemical support are different evidence layers.
-
-The scientific definitions and permitted claims are frozen in [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md).
+The authoritative definitions and claim boundaries are in [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md).
 
 ## Main method
 
-### Trace-owned electron-flow program
+```text
+atom-mapped product
+  -> explicit source-to-sink tool calls
+  -> environment-owned molecular-state transitions
+  -> committed move trace
+  -> finish_trace
+  -> replay declared moves
+  -> deterministic MECH_PROOF v1 compilation
+  -> executor-derived full precursor state
+  -> atom-contributing structural precursor for evaluation
+```
 
-The main environment is `TraceOwnedAgentEnv` or its knowledge-augmented subclass. The actor may:
+The main TRL-facing environment exposes only the declared tools:
 
 ```text
 inspect_state
-retrieve_textbook_guidance      optional soft evidence
-retrieve_primitives             optional structured knowledge anchors
 import_fragment
 apply_electron_move
 apply_coupled_electron_moves
@@ -61,159 +55,85 @@ finish_trace
 abstain
 ```
 
-`submit_proof` is disabled in the main method. `finish_trace` deterministically compiles the committed environment trace into `MECH_PROOF v1`, replays the proof and derives the precursor.
+Evidence conditions additionally expose `retrieve_textbook_guidance` and/or `retrieve_primitives`. Internal helpers such as `state_dict` are private, and the main method does not expose `submit_proof`.
 
-```text
-model actions
-  -> authoritative trace
-  -> compiled proof
-  -> precursor
-```
+### Endpoint views
 
-A correct endpoint cannot be credited independently of an incompatible trace.
+Every executable prediction distinguishes:
 
-### Deterministic executor
+- `full_precursor_state`: complete executor-derived state, including imported or auxiliary fragments;
+- `structural_precursor`: fragments containing atoms originating from the target, used as the primary endpoint metric;
+- `auxiliary_fragments`: remaining salts, leaving groups, or other mapped auxiliary species.
 
-The executor is not trained. It checks atom maps, imports, bond and charge preconditions, electron accounting, sanitization, reachability and proof topology. A formal failure is a hard rejection.
+Primary structural accuracy ignores atom-map labels. Mapped exact match is reported separately.
 
-### Evidence layers
+### Evidence boundary
 
-Natural-language textbook passages and structured mechanistic knowledge anchors may guide the actor. An independent compact forward expert may provide process, target-recovery, competitor and uncertainty evidence. These are **soft evidence**:
+Textbook passages, structured mechanistic knowledge anchors, and learned forward scores are soft evidence. They cannot:
 
-- they do not define the endpoint;
-- they do not directly establish formal validity;
-- they cannot override execution failure;
-- they do not establish kinetics, yield or experimental success.
-
-### Main method and baselines
-
-| Condition | Role |
-|---|---|
-| Trace-owned Tool-CoT with `finish_trace` | main method |
-| Knowledge-augmented trace-owned Tool-CoT | main evidence condition |
-| Independent complete `MECH_PROOF v1` generation | required baseline |
-| Loose tool trace followed by submitted proof | faithfulness baseline |
-| Outcome-only, free-form CoT, state-CoT and net-edit | representation baselines |
-| Forward expert and multistep planning | evidence/downstream extensions |
+- define formal validity;
+- directly return or reward a precursor;
+- override executor failure;
+- establish kinetics, yield, condition compatibility, or experimental success.
 
 ## Terminology
 
-### Electron-flow execution primitive
+- **Electron-flow execution primitive:** a local source-to-sink action such as `LP -> BOND`, `BOND -> ATOM`, or `BOND -> BOND`. These define H2.
+- **Mechanistic knowledge anchor:** a provenance-aware retrieval record with role bindings, candidate moves, warnings, and competitors. Anchor IDs do not define H2.
+- **MECH_PROOF v1:** deterministic bond/lone-pair/charge program compiled from the move-bound trace in the main method; independently generated proof is a baseline.
 
-A local executable action such as `LP -> BOND`, `BOND -> ATOM` or `BOND -> BOND`. Execution primitives define the causal action space and compositional split.
-
-### Mechanistic knowledge anchor
-
-A structured provenance-aware record with molecular-role patterns, candidate moves, preconditions, warnings and competitors. Knowledge anchors guide retrieval; they are not the primitive basis used to define MechComp-OOD.
-
-## Experiments
-
-The main result sequence is intentionally narrow:
-
-### H1 — causal reasoning
-
-Compare direct, answer-bearing CoT, complete-proof, loose-trace and trace-owned models. Intervene on the tool process by removing, shuffling or replacing observations and by disabling state inspection or intermediate execution.
-
-Primary metrics:
-
-```text
-structural precursor Top-k
-ExecutePass
-trace–proof agreement
-trace–endpoint agreement
-answer–reasoning disagreement
-intervention effect size
-tool-failure recovery and abstention
-```
-
-### H2 — compositional reasoning
-
-Hold out complete execution-primitive compositions while ensuring each constituent primitive appears in training.
-
-Compare:
-
-```text
-direct answer
-free-form CoT
-state-CoT
-net edit
-complete proof
-trace-owned Tool-CoT
-```
-
-Report performance versus composition novelty, proof length, topology, reaction family and scaffold.
-
-### H3 — evidence separation
-
-Build matched conditions from the same stable-ID intersection:
-
-```text
-trace_no_knowledge
-trace_length_matched_irrelevant
-trace_textbook_rag
-trace_structured_anchors
-trace_text_plus_anchors
-direct_textbook_rag
-```
-
-A textbook claim requires `textbook > trace-only` and `textbook > length-matched irrelevant text`. A forward-evidence claim requires independent calibration and explicit competitors where selectivity is discussed.
-
-The complete experiment contract is [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md). The ordered commands and stopping gates are in [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md).
-
-## Quickstart
-
-### Install
+## Install
 
 ```bash
 git clone https://github.com/wangyu-sd/MechET.git
 cd MechET
 
 pip install -e ".[dev]"
-pip install -e ".[agent]"       # Tool-SFT and trace-owned actor training
+pip install -e ".[agent]"       # TRL, Transformers, PEFT, datasets JSON tool columns
 pip install -e ".[knowledge]"   # textbook corpus and knowledge anchors
 pip install -e ".[forward]"     # optional independent forward evidence
-pip install -e ".[planning]"    # optional planning extension
+pip install -e ".[planning]"    # optional downstream planning
 ```
 
-### Execute a complete-proof baseline
+The agent extra is pinned to released compatible ranges, including `trl>=1.8,<2`, `transformers>=5.2,<6`, and `datasets>=4.7,<6`.
 
-```python
-from mechet.proof_program import ChargeAction, ProofEdge, ProofProgram
-from mechet.proof_program import format_proof_output, verify_proof
+## Data flow
 
-program = ProofProgram(
-    target_smiles="[CH3:1][OH:2]",
-    roots={"s0": ["[Br-:3]"]},
-    precursor_state_id="s1",
-    edges=[ProofEdge(
-        "s0", "s1",
-        bonds=[(1, 2, -1), (1, 3, +1)],
-        lone_pairs=[(2, +2), (3, -2)],
-        charges=[ChargeAction(2, 0, -1), ChargeAction(3, -1, 0)],
-    )],
-)
-result = verify_proof(
-    format_proof_output(program),
-    expected_precursor="[CH3:1][Br:3].[OH-:2]",
-)
-print(result["execute_ok"], result["endpoint_exact"])
+### 1. Build executable proof rows
+
+```bash
+python scripts/build_mechet_sft.py \
+  --flower-root /path/to/flower_new_dataset \
+  --out-dir data/mechet_sft \
+  --splits train valid test
+
+python scripts/build_mechet_proof_sft.py \
+  --input-dir data/mechet_sft \
+  --output-dir data/mechet_proof_sft \
+  --splits train valid test
 ```
 
-### Inspect the trace-owned main environment
+Each accepted row stores the full, structural, and auxiliary endpoint views.
 
-```python
-import json
-from mechet.trace_agent_env import TraceOwnedAgentEnv
+### 2. Freeze benchmark overlap and clean training data
 
-env = TraceOwnedAgentEnv()
-print(env.reset(target_smiles="[CH3:1][OH:2]"))
-print(json.loads(env.submit_proof("invented"))["code"])
-# FREE_FORM_PROOF_DISABLED
+```bash
+python scripts/audit_reaction_overlap.py \
+  --train data/mechet_proof_sft/train.jsonl \
+  --benchmark data/benchmarks/uspto50k/test.csv \
+  --benchmark-format reaction_table \
+  --reaction-field reaction_smiles \
+  --out-dir outputs/data_audit/flower_vs_uspto50k_test
+
+python scripts/build_decontaminated_dataset.py \
+  --train data/mechet_proof_sft/train.jsonl \
+  --benchmark data/benchmarks/uspto50k/test.csv \
+  --output data/mechet_proof_clean/train.jsonl \
+  --manifest data/mechet_proof_clean/manifest.json \
+  --policy exact_structural product
 ```
 
-The successful terminal operation is `finish_trace` after one or more committed electron-flow transitions.
-
-### Build textbook evidence
+### 3. Build provenance-aware textbook evidence
 
 ```bash
 python scripts/download_mechanistic_sources.py \
@@ -233,124 +153,292 @@ python scripts/index_textbook_corpus.py \
   --output knowledge/corpus/bm25_index.json
 ```
 
-### Build replay-verified Tool-SFT rows
+### 4. Convert proofs into replay-verified tool trajectories
+
+Main inference-faithful textbook condition:
 
 ```bash
 python scripts/build_textbook_tool_sft.py \
   --input data/mechet_proof_clean/train.jsonl \
   --corpus knowledge/corpus/passages.jsonl \
   --output data/textbook_tool_sft/train.jsonl \
-  --quarantine data/textbook_tool_sft/quarantine.jsonl
+  --query-mode state
+```
 
+Combined textbook-plus-anchor condition:
+
+```bash
 python scripts/build_textbook_tool_sft.py \
   --input data/mechet_proof_clean/train.jsonl \
   --corpus knowledge/corpus/passages.jsonl \
   --output data/textbook_tool_sft/train_text_and_anchors.jsonl \
-  --enable-structured-primitives
+  --enable-structured-primitives \
+  --query-mode state
 ```
 
-### Build all matched evidence conditions
+`--query-mode state` uses only inference-available molecular-state terms. `--query-mode label_oracle` is an explicitly named upper bound and is not headline-eligible.
+
+The conversion report includes root imports, family coverage, source-to-sink move counts, stable quarantine reasons, and the fraction of proof rows that replay exactly.
+
+### 5. Derive all six matched evidence conditions
 
 ```bash
 python scripts/build_knowledge_ablation_suite.py \
   --config configs/experiments/textbook_ablation.yaml
 ```
 
-The anchors-only and direct open-book conditions are derived automatically; no separately prepared datasets are required.
+This generates:
 
-Validate alignment and deterministic budgets:
+```text
+trace_no_knowledge
+trace_length_matched_irrelevant
+trace_textbook_rag
+trace_structured_anchors
+trace_text_plus_anchors
+direct_textbook_rag
+```
+
+Validate IDs, endpoints, tool schemas, leakage, evidence characters, tokenizer rendering, assistant masks, truncation, and supervised-token budgets:
 
 ```bash
 python scripts/validate_experiment_contract.py \
-  --condition none=data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
-  --condition irrelevant=data/knowledge_ablation/v2/trace_length_matched_irrelevant.jsonl \
-  --condition textbook=data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
-  --condition anchors=data/knowledge_ablation/v2/trace_structured_anchors.jsonl \
-  --condition combined=data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
-  --condition direct=data/knowledge_ablation/v2/direct_textbook_rag.jsonl \
+  --model-name Qwen/Qwen3-0.6B \
+  --condition trace_no_knowledge=data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
+  --condition trace_length_matched_irrelevant=data/knowledge_ablation/v2/trace_length_matched_irrelevant.jsonl \
+  --condition trace_textbook_rag=data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
+  --condition trace_structured_anchors=data/knowledge_ablation/v2/trace_structured_anchors.jsonl \
+  --condition trace_text_plus_anchors=data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
+  --condition direct_textbook_rag=data/knowledge_ablation/v2/direct_textbook_rag.jsonl \
   --output outputs/contracts/evidence_conditions.json
 ```
 
-### Train Tool-SFT
+Direct and tool syntaxes are not falsely assumed to have equal raw length. Final comparisons report real tokenizer input and assistant-mask tokens and use disclosed supervised-token-normalized compute.
+
+## Training
+
+### Tool-SFT first
+
+Run a 32–128-example overfit test before any on-policy experiment:
 
 ```bash
 python scripts/train_tool_sft.py \
-  --config configs/knowledge/tool_sft_textbook.yaml \
-  --dry-run
-
-python scripts/train_tool_sft.py \
-  --config configs/knowledge/tool_sft_textbook.yaml
+  --config configs/knowledge/tool_sft_trace_no_knowledge.yaml \
+  --limit 32 --max-steps 100
 ```
 
-Run a 32–128-example overfit test before paper-scale training. On-policy training begins only after Tool-SFT demonstrates a credible executable-learning signal.
+Matched SFT configs:
 
-### Train the trace-owned main actor
+```text
+configs/knowledge/tool_sft_trace_no_knowledge.yaml
+configs/knowledge/tool_sft_irrelevant.yaml
+configs/knowledge/tool_sft_textbook.yaml
+configs/knowledge/tool_sft_anchors.yaml
+configs/knowledge/tool_sft_combined.yaml
+configs/knowledge/tool_sft_direct_textbook.yaml
+```
+
+Each real run validates the tokenizer assistant mask and writes:
+
+```text
+data_contract.json
+adapter_manifest.json
+adapter SHA-256
+base model and condition
+executor/environment revisions
+```
+
+### Optional on-policy training
+
+Trace-only main condition:
 
 ```bash
-python scripts/train_inverse_agent_trace.py \
-  --config configs/agent/inverse_trace_grpo.yaml \
-  --dry-run --limit 8
-
 python scripts/train_inverse_agent_trace.py \
   --config configs/agent/inverse_trace_grpo.yaml
 ```
 
-Knowledge-augmented condition:
+Evidence conditions:
 
 ```bash
 python scripts/train_inverse_agent_knowledge.py \
-  --config configs/knowledge/inverse_textbook_trace_grpo.yaml \
-  --dry-run --limit 8
+  --config configs/knowledge/inverse_textbook_trace_grpo.yaml
+
+python scripts/train_inverse_agent_knowledge.py \
+  --config configs/knowledge/inverse_anchor_trace_grpo.yaml
+
+python scripts/train_inverse_agent_knowledge.py \
+  --config configs/knowledge/inverse_combined_trace_grpo.yaml
 ```
 
-Legacy complete-proof/loose-trace baseline:
+Every required GRPO configuration loads a trainable Tool-SFT PEFT adapter and verifies its manifest, hash, base model, data contract, and executor/environment revisions. From-base RL must be a separately named ablation.
+
+Legacy loose-trace/complete-proof baseline:
 
 ```bash
 python scripts/train_inverse_agent_trl.py \
   --config configs/agent/inverse_trl_grpo.yaml
 ```
 
-## Current status
+## H2 composition split
 
-MechET is a research preview. The causal execution infrastructure is implemented; the scientific claims remain to be established by frozen experiments.
+Build primitive-seen/composition-unseen splits from replay-verified Tool-SFT rows, not complete-proof net deltas:
+
+```bash
+python scripts/build_mechcomp_ood.py \
+  --input data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
+  --output-dir data/ood/mechcomp_source_sink \
+  --test-fraction 0.10 \
+  --valid-fraction 0.10 \
+  --min-train-primitive-count 5 \
+  --seed 42
+```
+
+The manifest must report:
+
+```text
+primitive_basis = source_to_sink_execution_moves_v1
+zero train/test composition overlap
+all test primitives represented in train
+non-empty held-out split
+achieved split fractions
+```
+
+## Inference
+
+`scripts/infer_mechet.py` is the canonical inference entrypoint. It produces `artifact_type=prediction` JSONL files containing complete transcripts, candidate rollouts, environment state, model/adapter hashes, generation settings, and intervention metadata.
+
+### Trace-owned prediction
+
+```bash
+python scripts/infer_mechet.py \
+  --config configs/agent/inverse_trace_grpo.yaml \
+  --data data/ood/mechcomp_source_sink/test.jsonl \
+  --output outputs/predictions/trace.jsonl \
+  --mode trace \
+  --condition-name trace_no_knowledge \
+  --samples-per-target 4
+```
+
+Evidence modes use `textbook`, `irrelevant`, `anchors`, or `combined` and replay each row's frozen evidence result. Direct open-book prediction uses `--mode direct`. Legacy complete-proof inference uses `--mode legacy`.
+
+### H1 interventions
+
+Run the same model, adapter, generation settings, and frozen examples:
+
+```bash
+python scripts/infer_mechet.py ... \
+  --mode trace --intervention none \
+  --output outputs/h1/normal.jsonl
+
+python scripts/infer_mechet.py ... \
+  --mode trace --intervention remove_tool_observations \
+  --output outputs/h1/remove.jsonl
+
+python scripts/infer_mechet.py ... \
+  --mode trace --intervention stale_tool_observations \
+  --output outputs/h1/stale.jsonl
+
+python scripts/infer_mechet.py ... \
+  --mode trace --intervention shuffle_tool_observations \
+  --intervention-source outputs/h1/normal.jsonl \
+  --output outputs/h1/shuffle.jsonl
+```
+
+Additional controls are `disable_inspect_state` and `disable_intermediate_execution`.
+
+## Evaluation
+
+Prediction evaluation always uses a frozen reference universe. Missing predictions remain in the denominator; duplicate or extra IDs and supervision rows masquerading as predictions are hard errors. Trace metrics are recomputed by move replay and proof execution rather than trusted from stored booleans.
+
+### H1 causal faithfulness
+
+```bash
+python scripts/evaluate_faithfulness.py \
+  --reference data/ood/mechcomp_source_sink/test.jsonl \
+  --normal outputs/h1/normal.jsonl \
+  --intervention remove_tool_observations=outputs/h1/remove.jsonl \
+  --intervention stale_tool_observations=outputs/h1/stale.jsonl \
+  --intervention shuffle_tool_observations=outputs/h1/shuffle.jsonl \
+  --output outputs/h1/summary.json
+```
+
+The evaluator verifies the same base model, adapter, model revision, temperature, top-p, token budget, iteration budget, and K across normal and intervention artifacts.
+
+### H3 matched evidence
+
+Build optional evidence-content interventions:
+
+```bash
+python scripts/build_evidence_interventions.py \
+  --input data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
+  --output-dir data/evidence_interventions/v2 \
+  --intervention passage_shuffle \
+  --intervention same_topic_wrong \
+  --intervention remove_warnings \
+  --intervention remove_competing_pathways
+```
+
+After generating all six prediction files:
+
+```bash
+python scripts/evaluate_knowledge_ablation.py \
+  --reference data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
+  --condition trace_no_knowledge=outputs/h3/trace_no_knowledge.jsonl \
+  --condition trace_length_matched_irrelevant=outputs/h3/irrelevant.jsonl \
+  --condition trace_textbook_rag=outputs/h3/textbook.jsonl \
+  --condition trace_structured_anchors=outputs/h3/anchors.jsonl \
+  --condition trace_text_plus_anchors=outputs/h3/combined.jsonl \
+  --condition direct_textbook_rag=outputs/h3/direct.jsonl \
+  --output outputs/h3/summary.json
+```
+
+The evaluator checks matched generation contracts while reporting condition-specific adapter lineage.
+
+### Metrics
+
+Implemented prediction-level metrics include:
+
+```text
+structural precursor Top-1/5/10
+mapped structural precursor Top-1/5/10
+ExecutePass@1/5/10
+TraceBoundPass@1/5/10
+coverage and selective risk
+abstention rate
+tool-failure recovery
+retrieval Recall@K / Precision@K when frozen gold passage IDs exist
+retrieval latency
+missing-prediction and re-execution error rates
+```
+
+Reaction-center and synthon metrics remain explicitly unavailable until frozen reference labels are supplied; they are not fabricated from endpoints.
+
+## Current status
 
 | Component | Status |
 |---|---|
 | Deterministic proof executor | available |
-| Trace-owned environment and `finish_trace` | available |
-| Free-form proof rejection in the main method | available |
-| Proof-to-trace conservative conversion | available; full-data coverage not yet reported |
-| Textbook corpus and bounded retrieval | available |
-| Structured mechanistic knowledge anchors | available as soft evidence |
-| Replay-verified Tool-SFT builder | available |
-| Automatically derived six-condition evidence suite | available |
-| Matched experiment contract validator | available; tokenizer-specific token audit still required for final runs |
-| Paper-scale Tool-SFT and trace-owned checkpoints | not released |
-| Causal intervention benchmark results | not released |
-| Primitive-seen/composition-unseen results | not released |
-| Calibrated forward-evidence results | not released |
-| Multistep planning results | optional extension; not released |
-| Kinetic, transition-state or experimental validation | external evidence required |
+| Trace-owned move replay and proof compilation | available |
+| Explicit TRL tool facades | available |
+| Root-import-preserving proof-to-trace conversion | available |
+| Inference-faithful textbook query | available |
+| Six matched Tool-SFT conditions | available |
+| Strict tokenizer/mask and adapter-lineage contracts | available |
+| Canonical multi-turn inference runner | available |
+| H1 intervention runner and evaluator | available |
+| Source-to-sink MechComp-OOD | available |
+| H3 frozen evidence controls and evaluator | available |
+| Paper-scale checkpoints and frozen results | not released |
+| Experimental feasibility or kinetic validation | external evidence required |
 
-## Scientific boundaries
-
-- Formal executability is not evidence of a low barrier, favorable kinetics, high yield or experimental success.
-- A retrieved passage or knowledge-anchor match does not prove an inferred electron-flow action.
-- A learned forward score is soft evidence and cannot override formal execution.
-- Lack of a knowledge-anchor match does not imply chemical impossibility.
-- The current main scope is mapped, closed-shell, two-electron polar chemistry.
-- The main method does not infer a unique physical mechanism from the product alone.
+The infrastructure now supports the complete experimental data flow, but no H1, H2, or H3 conclusion is claimed before full-data conversion coverage, real small-set overfit, frozen pilots, and multi-seed paper-scale experiments are completed.
 
 ## Documentation
 
-Start with:
-
-1. [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md) — scientific question, hypotheses, terminology and permitted claims.
-2. [`docs/TRACE_FAITHFULNESS.md`](docs/TRACE_FAITHFULNESS.md) — main causal inference contract.
-3. [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md) — authoritative experiment definitions.
-4. [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) — ordered commands, gates and stop conditions.
-5. [`docs/TOOL_SFT.md`](docs/TOOL_SFT.md) — replay-verified supervised trajectories.
-6. [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) — matched evidence conditions and causal controls.
-7. [`docs/MECHANISTIC_PRIMITIVE_LIBRARY.md`](docs/MECHANISTIC_PRIMITIVE_LIBRARY.md) — structured mechanistic knowledge anchors and provenance.
-8. [`docs/FORWARD_ELECTRON_EXPERT.md`](docs/FORWARD_ELECTRON_EXPERT.md) — optional independent empirical evidence.
-9. [`docs/README.md`](docs/README.md) — complete documentation map and deprecations.
+- [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md) — authoritative scientific claims and boundaries
+- [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) — ordered operational gates
+- [`docs/TRACE_FAITHFULNESS.md`](docs/TRACE_FAITHFULNESS.md) — H1 and trace contract
+- [`docs/TOOL_SFT.md`](docs/TOOL_SFT.md) — replay-verified supervision and runtime schema
+- [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) — H3 conditions and controls
+- [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) — H2 move-composition split and equivalence
+- [`docs/FORWARD_ELECTRON_EXPERT.md`](docs/FORWARD_ELECTRON_EXPERT.md) — optional independent soft evidence
+- [`docs/README.md`](docs/README.md) — documentation map
