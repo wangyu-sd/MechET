@@ -23,11 +23,7 @@ lora:
   r: 16
   alpha: 32
   dropout: 0.05
-  target_modules:
-    - q_proj
-    - k_proj
-    - v_proj
-    - o_proj
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
 
 contract:
   stable_id_manifest: data/knowledge_ablation/v2/manifest.json
@@ -37,6 +33,8 @@ contract:
   terminal_tool: finish_trace
   free_form_proof_submission: false
   knowledge_direct_reward: false
+  environment_revision: knowledge_trace_owned_move_replay_v2
+  executor_revision: MECH_PROOF_v1_move_bound
   matched_against:
     - trace_no_knowledge
     - trace_length_matched_irrelevant
