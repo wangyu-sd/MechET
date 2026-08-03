@@ -17,7 +17,10 @@ from mechet.knowledge_ablation import (
     file_sha256,
     read_jsonl,
 )
-from mechet.prediction_metrics import prediction_set_metrics
+from mechet.prediction_metrics import (
+    prediction_runtime_contract,
+    prediction_set_metrics,
+)
 
 ALIASES = {
     "trace_no_knowledge": ("trace_no_knowledge", "none", "trace_none"),
@@ -68,6 +71,7 @@ def main() -> int:
         raise FileNotFoundError(args.reference)
     reference_rows = read_jsonl(args.reference)
     aligned: dict[str, list[dict[str, Any]]] = {}
+    raw_predictions: dict[str, list[dict[str, Any]]] = {}
     sources: dict[str, dict[str, Any]] = {}
     for name, path in args.condition:
         if name in aligned:
@@ -75,6 +79,7 @@ def main() -> int:
         if not path.exists():
             raise FileNotFoundError(path)
         prediction_rows = read_jsonl(path)
+        raw_predictions[name] = prediction_rows
         aligned[name] = align_prediction_artifact(reference_rows, prediction_rows, condition_name=name)
         sources[name] = {
             "path": str(path),
@@ -83,12 +88,30 @@ def main() -> int:
         }
 
     metrics = {
-        name: {
-            **condition_metrics(rows),
-            **prediction_set_metrics(rows),
-        }
+        name: {**condition_metrics(rows), **prediction_set_metrics(rows)}
         for name, rows in aligned.items()
     }
+    runtime_contracts = {
+        name: prediction_runtime_contract(rows, include_adapter=False)
+        for name, rows in raw_predictions.items()
+    }
+    runtime_consistent_within = all(
+        value["runtime_contract_consistent"] for value in runtime_contracts.values()
+    )
+    runtime_digests = {
+        name: value["runtime_contract_sha256"] for name, value in runtime_contracts.items()
+    }
+    generation_contract_matched = len(set(runtime_digests.values())) == 1
+    adapter_lineage = {
+        name: sorted(
+            {
+                str((row.get("model") or {}).get("adapter_sha256") or "")
+                for row in rows
+            }
+        )
+        for name, rows in raw_predictions.items()
+    }
+
     primary_field = "structural_exact_rate"
     textbook_vs_none = delta(metrics, "trace_textbook_rag", "trace_no_knowledge", primary_field)
     textbook_vs_irrelevant = delta(metrics, "trace_textbook_rag", "trace_length_matched_irrelevant", primary_field)
@@ -110,6 +133,8 @@ def main() -> int:
     claim_gates = {
         "all_frozen_ids_evaluated": all_predictions_present,
         "no_reexecution_errors": no_evaluation_errors,
+        "runtime_contract_consistent_within_artifacts": runtime_consistent_within,
+        "same_base_model_revision_and_generation_budget": generation_contract_matched,
         "textbook_exceeds_trace_only": None if textbook_vs_none is None else textbook_vs_none > 0,
         "textbook_exceeds_irrelevant_context": None if textbook_vs_irrelevant is None else textbook_vs_irrelevant > 0,
         "combined_exceeds_each_individual": (
@@ -131,6 +156,9 @@ def main() -> int:
             "n_ids": len(reference_rows),
         },
         "prediction_sources": sources,
+        "runtime_contracts": runtime_contracts,
+        "runtime_contract_digests": runtime_digests,
+        "adapter_lineage_by_condition": adapter_lineage,
         "n_reference_ids": len(reference_rows),
         "conditions": metrics,
         "contrasts": {
@@ -146,12 +174,15 @@ def main() -> int:
             and no_evaluation_errors
             and trace_binding_ok
             and reward_violations == 0
+            and runtime_consistent_within
+            and generation_contract_matched
         ),
         "metric_contract": {
             "primary_endpoint": "atom-contributing structural precursor exact match with atom maps ignored",
             "secondary_endpoint": "mapped structural precursor exact match",
             "top_k": "computed from retained candidate rollouts without gold-based reranking",
             "selective_risk": "error among non-abstained selected predictions",
+            "runtime_matching": "base model, revision, temperature, top_p, max tokens, iterations, and K must match; adapter lineage is condition-specific and reported separately",
             "trace_metrics": "recomputed from rollout flow_trace or re-executed compiled proof",
             "missing_predictions": "retained in the denominator as failures",
             "extra_or_duplicate_ids": "hard error",
