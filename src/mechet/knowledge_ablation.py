@@ -136,7 +136,13 @@ def _fit_length(text: str, length: int) -> str:
 def make_irrelevant_context_control(
     rows: list[Mapping[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Rotate contexts across different targets while matching character count."""
+    """Rotate only evidence text across targets while matching character count.
+
+    The original retrieval query, target state and tool-call trajectory are kept.
+    Donor retrieval metadata is not copied into the new target, because that
+    would make the control trivially detectable through a mismatched state or
+    query rather than testing the effect of irrelevant additional prose.
+    """
 
     if len(rows) < 2:
         raise ValueError("irrelevant-context control requires at least two rows")
@@ -156,33 +162,51 @@ def make_irrelevant_context_control(
                 break
         if donor is None:
             raise ValueError("could not find a different-target context donor")
+
         donor_id = row_id(donor[0])
-        donor_result = copy.deepcopy(donor[2])
+        donor_context = dict((donor[2].get("context") or {}))
         original_context = dict(original.get("context") or {})
-        donor_context = dict(donor_result.get("context") or {})
-        target_length = int(original_context.get("n_characters") or len(str(original_context.get("text") or "")))
-        donor_text = _fit_length(str(donor_context.get("text") or ""), target_length)
-        donor_context["text"] = donor_text
-        donor_context["n_characters"] = len(donor_text)
-        donor_context["context_sha256"] = hashlib.sha256(donor_text.encode()).hexdigest()
-        donor_context["control_type"] = "length_matched_irrelevant"
-        donor_context["donor_row_id"] = donor_id
-        donor_result["context"] = donor_context
-        donor_result["control_type"] = "length_matched_irrelevant"
-        donor_result["direct_reward"] = False
+        target_length = int(
+            original_context.get("n_characters")
+            or len(str(original_context.get("text") or ""))
+        )
+        donor_text = _fit_length(
+            str(donor_context.get("text") or ""),
+            target_length,
+        )
+
+        controlled_context = copy.deepcopy(original_context)
+        controlled_context.update(
+            {
+                "text": donor_text,
+                "passage_ids": list(donor_context.get("passage_ids") or []),
+                "context_sha256": hashlib.sha256(donor_text.encode()).hexdigest(),
+                "n_characters": len(donor_text),
+                "truncated": bool(donor_context.get("truncated", False)),
+                "control_type": "length_matched_irrelevant",
+                "donor_row_id": donor_id,
+            }
+        )
+
+        controlled_result = copy.deepcopy(original)
+        controlled_result["context"] = controlled_context
+        controlled_result["matches"] = []
+        controlled_result["control_type"] = "length_matched_irrelevant"
+        controlled_result["direct_reward"] = False
 
         value = copy.deepcopy(row)
         value["messages"][message_index]["content"] = json.dumps(
-            donor_result, ensure_ascii=False
+            controlled_result,
+            ensure_ascii=False,
         )
         metadata = dict(value.get("metadata") or {})
         metadata.update(
             {
                 "knowledge_condition": "length_matched_irrelevant",
                 "textbook_control_donor_id": donor_id,
-                "textbook_passage_ids": donor_context.get("passage_ids") or [],
-                "textbook_context_sha256": donor_context["context_sha256"],
-                "textbook_context_characters": donor_context["n_characters"],
+                "textbook_passage_ids": controlled_context["passage_ids"],
+                "textbook_context_sha256": controlled_context["context_sha256"],
+                "textbook_context_characters": controlled_context["n_characters"],
             }
         )
         value["metadata"] = metadata
