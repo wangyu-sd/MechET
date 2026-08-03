@@ -1,6 +1,19 @@
-# MechET mechanistic knowledge assets
+# MechET mechanistic evidence assets
 
-This directory contains provenance records and reviewed mechanism primitives used as optional **soft guidance**. It is not a mirror of commercial textbooks and it is not a whole-reaction template database.
+This directory contains provenance-tracked natural-language evidence and reviewed **mechanistic knowledge anchors** used as optional soft guidance. It is not a mirror of commercial textbooks, not a whole-reaction template database and not the electron-flow execution-primitive vocabulary used for causal traces or MechComp-OOD.
+
+## Scientific distinction
+
+```text
+electron-flow execution primitive
+  local source-to-sink action used by the environment and composition split
+
+mechanistic knowledge anchor
+  curated structured evidence with role patterns, candidate actions, warnings,
+  competitors and provenance
+```
+
+The compatibility directory and schema retain the historical name `primitives`, but papers, README text and experiment interpretation must call these records knowledge anchors.
 
 ## Layout
 
@@ -8,36 +21,37 @@ This directory contains provenance records and reviewed mechanism primitives use
 knowledge/
   source_registry.yaml                 # source URLs, licenses and download gates
   primitives/
-    core_polar_primitives.yaml         # reviewed primitive records
+    core_polar_primitives.yaml         # reviewed knowledge-anchor records
   raw/                                 # downloaded locally; not committed by default
+  corpus/                              # bounded textbook passages and frozen index
   candidates/                          # evidence-linked extraction tasks
   manifests/                           # SHA-256 and revision manifests
 ```
 
 ## Source policy
 
-Every source is registered before download. The registry records source type, URL, license, redistribution constraints and whether explicit non-commercial or restricted acceptance is required.
+Every source is registered before acquisition. The registry records source type, URL, license, redistribution constraints and explicit acceptance requirements.
 
-| Source | Role | Automated use |
+| Source | Evidence role | Automated use |
 |---|---|---|
-| IUPAC Gold Book individual terms | standard terminology | per-term JSON download with canonical-code validation |
-| RXNO | named-reaction taxonomy | official OWL download |
-| Wikibooks Organic Chemistry | open textbook explanations | revision-aware MediaWiki download with REST/API/export/raw fallback |
-| LibreTexts Organic Synthesis (Shea) | selected CC BY textbook pages | page-list, text-only download after license marker check |
-| MIT OpenCourseWare Organic Chemistry | non-commercial course evidence | explicit `--accept-noncommercial`; third-party markers excluded |
-| PMechDB/PMechRP | elementary steps and textbook-pathway benchmark | manual upstream request only; no automatic derivative redistribution |
+| IUPAC Gold Book individual terms | standard terminology | per-term JSON with canonical-code validation |
+| RXNO | reaction-family taxonomy | official ontology download |
+| Wikibooks Organic Chemistry | open textbook explanations | revision-aware MediaWiki fallbacks |
+| selected LibreTexts pages | open mechanism explanations | text-only download after license-marker checks |
+| MIT OpenCourseWare | non-commercial course evidence | explicit non-commercial acknowledgement |
+| PMechDB/PMechRP | mechanism data and benchmark assets | manual upstream request; no bypass or automatic derivative redistribution |
 
-Downloaded material is evidence for candidate extraction. A Web page, LLM extraction or database row does not automatically become a released primitive.
+A Web page, LLM extraction or database row does not automatically become accepted chemistry or a released anchor.
 
-## Download
+## Download and verification
 
-Install the optional knowledge dependencies first:
+Install:
 
 ```bash
 pip install -e ".[knowledge]"
 ```
 
-Inspect the registry and preview a download plan:
+Inspect and preview:
 
 ```bash
 python scripts/download_mechanistic_sources.py \
@@ -49,16 +63,23 @@ python scripts/download_mechanistic_sources.py \
   --source iupac_goldbook_terms \
   --source rxno \
   --source wikibooks_organic_chemistry \
-  --source libretexts_organic_synthesis_shea \
   --output knowledge/raw \
   --dry-run
 ```
 
-Remove `--dry-run` to download public sources and write the hash manifest.
+Remove `--dry-run` for permitted public sources. Verify hashes:
+
+```bash
+python scripts/download_mechanistic_sources.py \
+  --registry knowledge/source_registry.yaml \
+  verify --output knowledge/raw
+```
+
+## Network and identifier handling
 
 ### Gold Book canonical codes
 
-The Gold Book may retire or redirect historical term codes. The registry stores current canonical codes and may retain historical aliases under `term_aliases`. The downloader records all three identifiers when they differ:
+Historical term codes may redirect. The registry may preserve aliases, while manifests distinguish:
 
 ```text
 configured_term_id
@@ -66,29 +87,22 @@ requested_term_id
 canonical_term_id
 ```
 
-For example, historical `R05171` is resolved to the current `I03096` entry for **intermediate**. Artifacts are saved under the canonical code, so old redirects do not create duplicate or misleading filenames.
+Artifacts are stored under the canonical code.
 
-### Wikibooks network fallbacks
+### MediaWiki fallbacks
 
-The default Wikibooks order is:
+The default order is:
 
 ```text
-MediaWiki REST source
-→ Action API
-→ Special:Export XML
-→ action=raw
+REST source
+-> Action API
+-> Special:Export XML
+-> action=raw
 ```
 
-Each successful artifact records `retrieval_backend`, revision metadata when available, and all earlier backend errors. Wikimedia requires an identifiable User-Agent; the default includes the MechET repository URL.
+Each artifact records the successful backend, revision information when available, content hash and earlier backend errors.
 
-If a local proxy is required, either configure the standard environment variables:
-
-```bash
-export HTTPS_PROXY=http://127.0.0.1:7890
-export HTTP_PROXY=http://127.0.0.1:7890
-```
-
-or pass it explicitly:
+Proxy example:
 
 ```bash
 python scripts/download_mechanistic_sources.py \
@@ -98,31 +112,7 @@ python scripts/download_mechanistic_sources.py \
   --proxy http://127.0.0.1:7890
 ```
 
-You can force or reorder backends during diagnosis:
-
-```bash
-python scripts/download_mechanistic_sources.py \
-  --registry knowledge/source_registry.yaml \
-  download --source wikibooks_organic_chemistry \
-  --output knowledge/raw \
-  --mediawiki-backend export \
-  --mediawiki-backend raw \
-  --retries 5 --timeout 90
-```
-
-If all Wikimedia endpoints are unreachable from the current network, download a page through `Special:Export` on another machine and save it locally as:
-
-```text
-<slug(page title)>.xml
-```
-
-For example:
-
-```text
-Organic_Chemistry_Carbonyls.xml
-```
-
-Then import it without network access:
+Offline MediaWiki import accepts `.xml`, `.txt` or compatible `.json` files:
 
 ```bash
 python scripts/download_mechanistic_sources.py \
@@ -132,38 +122,23 @@ python scripts/download_mechanistic_sources.py \
   --mediawiki-import-dir knowledge/manual/wikibooks
 ```
 
-The offline directory may contain `.xml` Special:Export files, `.txt` wikitext files, or `.json` files previously produced by the REST/downloader schema.
-
 ### Restricted sources
 
-Non-commercial material requires explicit acknowledgement:
+Non-commercial and restricted sources require explicit acknowledgement. PMechDB/PMechRP remain manual-gated; the downloader writes instructions and never bypasses the upstream request flow.
+
+## Build the natural-language passage corpus
 
 ```bash
-python scripts/download_mechanistic_sources.py \
-  --registry knowledge/source_registry.yaml \
-  download --source mit_ocw_organic_chemistry \
-  --output knowledge/raw --accept-noncommercial
+python scripts/build_textbook_corpus.py \
+  --download-root knowledge/raw \
+  --output knowledge/corpus/passages.jsonl
+
+python scripts/index_textbook_corpus.py \
+  --corpus knowledge/corpus/passages.jsonl \
+  --output knowledge/corpus/bm25_index.json
 ```
 
-PMechDB/PMechRP remain manual-gated:
-
-```bash
-python scripts/download_mechanistic_sources.py \
-  --registry knowledge/source_registry.yaml \
-  download --source pmechdb_pmechrp \
-  --output knowledge/raw \
-  --accept-noncommercial --accept-restricted
-```
-
-The command writes instructions; it does not bypass the upstream request form.
-
-Verify local hashes:
-
-```bash
-python scripts/download_mechanistic_sources.py \
-  --registry knowledge/source_registry.yaml \
-  verify --output knowledge/raw
-```
+Every passage retains source, locator, revision, license, exact evidence hash and artifact provenance. The final corpus and index are frozen before test evaluation.
 
 ## Evidence extraction queue
 
@@ -173,24 +148,41 @@ python scripts/build_primitive_extraction_queue.py \
   --output knowledge/candidates/extraction_queue.jsonl
 ```
 
-Each task retains source ID, URL, revision, license, artifact hash, exact evidence span and a strict extraction schema. LLM output is an unreviewed candidate, never chemical truth.
+The script name is retained for compatibility. Each task preserves source ID, URL, revision, license, artifact hash, exact evidence span and a strict candidate schema. LLM output remains unreviewed and must use `UNKNOWN` for unsupported fields.
 
-## Primitive records
+## Knowledge-anchor records
 
-A primitive record contains a stable ID/version, independently written description, atom-role SMARTS, source-to-sink `E_MOVE` templates, preconditions, warnings, competitors, provenance and review status.
+A record contains:
 
-The first release contains a compact polar-chemistry seed library. `executor_verified` entries can support executable move matching; `text_supported` entries are retrieval-only context.
+```text
+stable anchor ID and version
+independently written description
+atom-role SMARTS patterns
+candidate source-to-sink actions
+preconditions and warnings
+competing pathways and follow-ups
+provenance and license metadata
+review status
+```
+
+`executor_verified` means the encoded candidate actions replay for reviewed examples. It does not make the record a formal validity oracle. `text_supported` records remain retrieval-only evidence.
 
 ## Release workflow
 
 ```text
 registered source
-  -> downloaded evidence with revision/hash
-  -> evidence-linked extraction candidate
-  -> independent SMARTS and E_MOVE encoding
-  -> deterministic executor replay
+  -> revision/hash-preserving evidence acquisition
+  -> bounded evidence-linked candidate
+  -> independent role and action encoding
+  -> deterministic replay on mapped examples
   -> chemistry review
-  -> released versioned primitive
+  -> released versioned knowledge anchor
 ```
 
-Never copy protected textbook prose or figures into released records. Commercial textbooks may be consulted by human reviewers, but released descriptions and schemas must be independently authored.
+Never copy protected textbook prose or figures into released records. Commercial sources may inform human review only when released descriptions and schemas are independently authored.
+
+## Experimental use
+
+Knowledge anchors are evaluated in the six-condition evidence suite. Anchors-only rows are derived from combined trace rows, ensuring the same stable IDs and chemistry trajectories.
+
+Anchor IDs must not define the headline execution-primitive composition split. Lack of an anchor match does not imply impossibility, and a match does not prove a full mechanism, selectivity, kinetics, yield or experimental success.
