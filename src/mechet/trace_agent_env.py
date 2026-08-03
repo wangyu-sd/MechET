@@ -1,9 +1,4 @@
-"""Faithful inverse-agent environment whose trace uniquely determines proof.
-
-``TraceOwnedAgentEnv`` is the main-method environment. The legacy
-``MechETAgentEnv`` remains available as a complete-proof baseline, but this
-class disables free-form proof submission and exposes ``finish_trace`` instead.
-"""
+"""Faithful inverse-agent environment whose trace uniquely determines proof."""
 from __future__ import annotations
 
 import json
@@ -49,12 +44,13 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             "free_form_proof_submission": False,
             "endpoint_source": "environment_owned_trace",
             "final_tool": "finish_trace",
+            "declared_moves_replayed_before_compilation": True,
         }
         observation["instructions"] = [
             "Use inspect_state before referencing atom maps.",
             "Use import_fragment when a required mapped precursor fragment is absent.",
-            "Use apply_electron_move or apply_coupled_electron_moves for every claimed arrow.",
-            "Call finish_trace; the environment compiles the committed trace into MECH_PROOF v1.",
+            "Use explicit electron-flow actions for every claimed transition.",
+            "Call finish_trace; the environment replays moves and compiles MECH_PROOF v1.",
             "Free-form submit_proof is disabled in this environment.",
             "Use abstain when chemical support is insufficient.",
         ]
@@ -74,12 +70,6 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
         return set(maps)
 
     def import_fragment(self, fragment_smiles: str) -> str:
-        """Add a mapped fragment required by the next inverse transition.
-
-        Imports are recorded in the environment trace and compiled into the next
-        proof edge. They cannot be silently introduced in the final answer.
-        """
-
         self._consume_call()
         try:
             fragment = _canonical_mapped(fragment_smiles)
@@ -88,7 +78,9 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             overlap = sorted(existing & incoming)
             if overlap:
                 raise ValueError(f"IMPORT_ATOM_MAP_COLLISION: {overlap}")
-            combined = _canonical_mapped(_combine_smiles(self.current_state, [fragment]))
+            combined = _canonical_mapped(
+                _combine_smiles(self.current_state, [fragment])
+            )
             self.current_state = combined
             self.pending_imports.append(fragment)
             result = {
@@ -124,6 +116,7 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             self.pending_imports = []
             result["trace_step"] = transition.to_dict()
             result["trace_digest"] = self.flow_trace.digest()
+            result["move_sequence_digest"] = self.flow_trace.move_sequence_digest()
             result["trace_bound"] = True
             if self.trace and self.trace[-1].get("event") == "apply_moves":
                 self.trace[-1]["authoritative_transition"] = transition.to_dict()
@@ -131,30 +124,27 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
         return json.dumps(result, ensure_ascii=False)
 
     def submit_proof(self, proof: str) -> str:
-        """Reject an independent proof in the trace-owned main-method path."""
-
         del proof
         self._consume_call()
         self.failed_steps += 1
         result = {
             "ok": False,
             "code": "FREE_FORM_PROOF_DISABLED",
-            "message": "Call finish_trace; the proof must be compiled from committed tool actions.",
+            "message": "Call finish_trace; the proof must be compiled from committed actions.",
             "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
         }
         self.trace.append({"event": "submit_proof_rejected", "result": result})
         return json.dumps(result, ensure_ascii=False)
 
     def finish_trace(self) -> str:
-        """Compile the committed trace, execute it, and derive the precursor."""
-
         if self.pending_imports:
             self._consume_call()
             self.failed_steps += 1
             result = {
                 "ok": False,
                 "code": "UNCOMMITTED_IMPORTS",
-                "message": "Imported fragments must participate in an executed transition before finishing.",
+                "message": "Imported fragments must participate in a transition before finishing.",
+                "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
             }
             self.trace.append({"event": "finish_trace_failed", "result": result})
             return json.dumps(result, ensure_ascii=False)
@@ -167,21 +157,22 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
                 "ok": False,
                 "code": "TRACE_COMPILATION_FAILED",
                 "message": str(exc),
+                "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
             }
             self.trace.append({"event": "finish_trace_failed", "result": result})
             return json.dumps(result, ensure_ascii=False)
 
-        # Reuse the legacy terminal scoring implementation only after the proof
-        # has been deterministically compiled from the authoritative trace.
         result = json.loads(MechETAgentEnv.submit_proof(self, compilation.proof))
         result.update(
             {
                 "ok": bool(result.get("formal_execute")),
                 "trace_bound": True,
                 "trace_digest": compilation.trace_digest,
+                "move_sequence_digest": compilation.move_sequence_digest,
                 "compiled_proof": compilation.proof,
                 "n_trace_transitions": compilation.n_transitions,
                 "endpoint_source": "environment_owned_trace",
+                "declared_moves_replayed": True,
             }
         )
         self.final_result = result
