@@ -5,42 +5,58 @@ on:
     paths:
       - "README.md"
       - "docs/FRAMEWORK_MIGRATION.md"
+      - "docs/TRACE_FAITHFULNESS.md"
+      - "docs/TEXTBOOK_RAG.md"
       - "docs/README.md"
       - "pyproject.toml"
       - "src/mechet/agent_env.py"
       - "src/mechet/electron_flow_trace.py"
       - "src/mechet/trace_agent_env.py"
+      - "src/mechet/knowledge_agent_env.py"
+      - "src/mechet/textbook_*.py"
+      - "src/mechet/evidence_context.py"
       - "src/mechet/adversarial.py"
       - "src/mechet/syntheseus_adapter.py"
       - "scripts/train_inverse_agent_trl.py"
       - "scripts/train_inverse_agent_trace.py"
+      - "scripts/train_inverse_agent_knowledge.py"
       - "scripts/mine_bidirectional_hard_negatives.py"
       - "scripts/train_forward_expert_hard_negative.py"
       - "scripts/run_syntheseus_search.py"
       - "configs/agent/**"
+      - "configs/knowledge/**"
       - "tests/test_agent_frameworks.py"
       - "tests/test_trace_proof_binding.py"
+      - "tests/test_knowledge_agent_env.py"
       - ".github/workflows/agent-framework-tests.yml"
   push:
     branches: [main]
     paths:
       - "README.md"
       - "docs/FRAMEWORK_MIGRATION.md"
+      - "docs/TRACE_FAITHFULNESS.md"
+      - "docs/TEXTBOOK_RAG.md"
       - "docs/README.md"
       - "pyproject.toml"
       - "src/mechet/agent_env.py"
       - "src/mechet/electron_flow_trace.py"
       - "src/mechet/trace_agent_env.py"
+      - "src/mechet/knowledge_agent_env.py"
+      - "src/mechet/textbook_*.py"
+      - "src/mechet/evidence_context.py"
       - "src/mechet/adversarial.py"
       - "src/mechet/syntheseus_adapter.py"
       - "scripts/train_inverse_agent_trl.py"
       - "scripts/train_inverse_agent_trace.py"
+      - "scripts/train_inverse_agent_knowledge.py"
       - "scripts/mine_bidirectional_hard_negatives.py"
       - "scripts/train_forward_expert_hard_negative.py"
       - "scripts/run_syntheseus_search.py"
       - "configs/agent/**"
+      - "configs/knowledge/**"
       - "tests/test_agent_frameworks.py"
       - "tests/test_trace_proof_binding.py"
+      - "tests/test_knowledge_agent_env.py"
 
 jobs:
   test:
@@ -54,44 +70,72 @@ jobs:
       - name: Install core test dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev]"
+          python -m pip install -e ".[dev,knowledge]"
       - name: Compile framework adapters
         run: |
           python -m py_compile \
             src/mechet/agent_env.py \
             src/mechet/electron_flow_trace.py \
             src/mechet/trace_agent_env.py \
+            src/mechet/knowledge_agent_env.py \
+            src/mechet/textbook_store.py \
+            src/mechet/textbook_retriever.py \
+            src/mechet/evidence_context.py \
             src/mechet/adversarial.py \
             src/mechet/syntheseus_adapter.py \
             scripts/train_inverse_agent_trl.py \
             scripts/train_inverse_agent_trace.py \
+            scripts/train_inverse_agent_knowledge.py \
             scripts/mine_bidirectional_hard_negatives.py \
             scripts/train_forward_expert_hard_negative.py \
             scripts/run_syntheseus_search.py
-      - name: Run environment, trace, mining, and candidate-pool tests
+      - name: Run environment, trace, knowledge, mining, and candidate-pool tests
         run: |
           pytest -q \
             tests/test_agent_frameworks.py \
             tests/test_trace_proof_binding.py \
+            tests/test_knowledge_agent_env.py \
             tests/test_documentation_contract.py
-      - name: Exercise legacy and trace-owned TRL dry-runs without TRL
+      - name: Exercise legacy, trace-owned, and knowledge TRL dry-runs without TRL
         run: |
           mkdir -p /tmp/mechet-agent
           cat > /tmp/mechet-agent/train.jsonl <<'EOF'
-          {"id":"smoke-1","target_smiles":"[CH3:1][OH:2]","expected_precursor":"[CH3:1][Br:3].[OH-:2]"}
+          {"id":"smoke-1","target_smiles":"[CH3:1][C:2](=[O:3])[CH3:4]","expected_precursor":"[CH3:1][C:2](=[O:3])[CH3:4]"}
           EOF
-          cat > /tmp/mechet-agent/config.yaml <<'EOF'
+          cat > /tmp/mechet-agent/passages.jsonl <<'EOF'
+          {"passage_id":"carbonyl-1","title":"Carbonyl addition","text":"A nucleophile donates an electron pair to the electrophilic carbonyl carbon while the pi bond shifts toward oxygen.","source_id":"open_textbook","locator":"chapter/carbonyl","revision":"r1","license":"CC-BY-4.0","source_url":"https://example.org","evidence_sha256":"placeholder","topics":["carbonyl"]}
+          EOF
+          python - <<'PY'
+          import hashlib, json, pathlib
+          path = pathlib.Path('/tmp/mechet-agent/passages.jsonl')
+          row = json.loads(path.read_text())
+          row['evidence_sha256'] = hashlib.sha256(row['text'].encode()).hexdigest()
+          path.write_text(json.dumps(row)+'\n')
+          PY
+          cat > /tmp/mechet-agent/base_config.yaml <<'EOF'
           model_name_or_path: Qwen/Qwen3-0.6B
           train_file: /tmp/mechet-agent/train.jsonl
           output_dir: /tmp/mechet-agent/output
           environment:
-            max_tool_calls: 8
+            max_tool_calls: 10
             require_tool_use: true
           EOF
+          cat > /tmp/mechet-agent/knowledge_config.yaml <<'EOF'
+          model_name_or_path: Qwen/Qwen3-0.6B
+          train_file: /tmp/mechet-agent/train.jsonl
+          output_dir: /tmp/mechet-agent/output
+          textbook_corpus_path: /tmp/mechet-agent/passages.jsonl
+          environment:
+            max_tool_calls: 10
+            require_tool_use: true
+            require_textbook_corpus: true
+          EOF
           python scripts/train_inverse_agent_trl.py \
-            --config /tmp/mechet-agent/config.yaml --dry-run
+            --config /tmp/mechet-agent/base_config.yaml --dry-run
           python scripts/train_inverse_agent_trace.py \
-            --config /tmp/mechet-agent/config.yaml --dry-run
+            --config /tmp/mechet-agent/base_config.yaml --dry-run
+          python scripts/train_inverse_agent_knowledge.py \
+            --config /tmp/mechet-agent/knowledge_config.yaml --dry-run
       - name: Check optional CLI schemas
         run: |
           python scripts/run_syntheseus_search.py --help
