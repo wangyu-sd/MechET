@@ -1,36 +1,40 @@
-name: Evidence-layer contract tests
+name: Evidence-layer runtime tests
 
 on:
   pull_request:
     paths:
       - "README.md"
+      - "docs/**"
+      - "pyproject.toml"
       - "src/mechet/knowledge_ablation.py"
+      - "src/mechet/prediction_metrics.py"
+      - "src/mechet/frozen_evidence_environments.py"
+      - "scripts/build_evidence_interventions.py"
       - "scripts/build_knowledge_ablation_suite.py"
+      - "scripts/evaluate_knowledge_ablation.py"
+      - "scripts/infer_mechet.py"
       - "scripts/validate_experiment_contract.py"
       - "scripts/train_tool_sft.py"
-      - "scripts/evaluate_knowledge_ablation.py"
       - "configs/experiments/**"
       - "configs/knowledge/tool_sft_*.yaml"
-      - "docs/SCIENTIFIC_THESIS.md"
-      - "docs/EXECUTION_PLAN.md"
-      - "docs/KNOWLEDGE_ABLATIONS.md"
-      - "docs/TOOL_SFT.md"
-      - "docs/README.md"
       - "tests/test_knowledge_ablation.py"
-      - "tests/test_documentation_contract.py"
+      - "tests/test_runtime_closure.py"
       - ".github/workflows/knowledge-ablation-tests.yml"
   push:
     branches: [main]
     paths:
       - "README.md"
-      - "src/mechet/knowledge_ablation.py"
-      - "scripts/build_knowledge_ablation_suite.py"
-      - "scripts/validate_experiment_contract.py"
-      - "scripts/train_tool_sft.py"
-      - "configs/experiments/**"
       - "docs/**"
-      - "tests/test_knowledge_ablation.py"
-      - "tests/test_documentation_contract.py"
+      - "src/mechet/knowledge_ablation.py"
+      - "src/mechet/prediction_metrics.py"
+      - "src/mechet/frozen_evidence_environments.py"
+      - "scripts/build_evidence_interventions.py"
+      - "scripts/build_knowledge_ablation_suite.py"
+      - "scripts/evaluate_knowledge_ablation.py"
+      - "scripts/infer_mechet.py"
+      - "scripts/validate_experiment_contract.py"
+      - "configs/experiments/**"
+      - "configs/knowledge/**"
 
 jobs:
   test:
@@ -44,69 +48,76 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
-          python -m pip install -e ".[knowledge]" pytest
-      - name: Compile scientific contract entrypoints
+          python -m pip install -e ".[dev,agent,knowledge]"
+      - name: Compile evidence entrypoints
         run: |
           python -m py_compile \
             src/mechet/knowledge_ablation.py \
+            src/mechet/prediction_metrics.py \
+            src/mechet/frozen_evidence_environments.py \
+            scripts/build_evidence_interventions.py \
             scripts/build_knowledge_ablation_suite.py \
+            scripts/evaluate_knowledge_ablation.py \
+            scripts/infer_mechet.py \
             scripts/validate_experiment_contract.py \
-            scripts/train_tool_sft.py \
-            scripts/evaluate_knowledge_ablation.py
-      - name: Run contract tests
-        run: pytest -q tests/test_knowledge_ablation.py tests/test_documentation_contract.py
-      - name: Build fully derived synthetic suite
+            scripts/train_tool_sft.py
+      - name: Run evidence and documentation tests
         run: |
-          mkdir -p /tmp/mechet-ablation
+          pytest -q \
+            tests/test_knowledge_ablation.py \
+            tests/test_runtime_closure.py \
+            tests/test_documentation_contract.py
+      - name: Build two replay-verified evidence sources
+        run: |
+          mkdir -p /tmp/mechet-evidence
+          cat > /tmp/mechet-evidence/passages.jsonl <<'EOF'
+          {"passage_id":"substitution-1","title":"Substitution pathway","text":"A nucleophile donates an electron pair while the leaving-group bond cleaves. Warning: elimination may compete.","source_id":"open_textbook","locator":"chapter/substitution-1","revision":"r1","license":"CC-BY-4.0","source_url":"https://example.org/1","evidence_sha256":"placeholder","topics":["substitution","halide"]}
+          {"passage_id":"substitution-2","title":"Competing substitution pathway","text":"Substitution joins bond formation and bond cleavage; an alternative pathway can compete under basic conditions.","source_id":"open_textbook","locator":"chapter/substitution-2","revision":"r1","license":"CC-BY-4.0","source_url":"https://example.org/2","evidence_sha256":"placeholder","topics":["substitution","halide"]}
+          EOF
           python - <<'PY'
-          import json, pathlib
-          root = pathlib.Path('/tmp/mechet-ablation')
-          def tool_call(name, call_id):
-              return {"role":"assistant","content":"","tool_calls":[{"id":call_id,"type":"function","function":{"name":name,"arguments":"{}"}}]}
-          def tool_result(name, result, call_id):
-              return {"role":"tool","tool_call_id":call_id,"name":name,"content":json.dumps(result)}
-          def row(identifier, target, text, passage, anchors=False):
-              context={"text":text,"passage_ids":[passage],"context_sha256":"hash-"+passage,"n_characters":len(text),"truncated":False}
-              messages=[
-                  {"role":"system","content":"Use trace-owned tools."},
-                  {"role":"user","content":"TARGET: "+target},
-                  tool_call("retrieve_textbook_guidance","k"),
-                  tool_result("retrieve_textbook_guidance",{"ok":True,"query":passage,"state_smiles":target,"context":context,"matches":[{"passage_id":passage}],"direct_reward":False},"k"),
-              ]
-              if anchors:
-                  messages += [tool_call("retrieve_primitives","a"),tool_result("retrieve_primitives",{"ok":True,"matches":[{"primitive_id":passage}],"direct_reward":False},"a")]
-              messages += [tool_call("finish_trace","f"),tool_result("finish_trace",{"ok":True,"formal_execute":True,"endpoint_exact":True,"trace_bound":True,"trace_digest":"trace-"+identifier,"compiled_proof":"MECH_PROOF v1"},"f")]
-              return {
-                  "id":identifier,
-                  "target_smiles":target,
-                  "expected_precursor":target,
-                  "messages":messages,
-                  "metadata":{
-                      "endpoint_source":"environment_owned_trace",
-                      "executor_replayed":True,
-                      "trace_digest":"trace-"+identifier,
-                      "compiled_proof":"MECH_PROOF v1",
-                      "knowledge_condition":"combined" if anchors else "textbook_rag",
-                      "textbook_context_characters":len(text),
-                      "structured_primitives_enabled":anchors,
-                  },
-              }
-          textbook=[row('r1','[CH4:1]','Carbonyl chemistry evidence.', 'p1'),row('r2','[NH3:2]','Substitution chemistry evidence with a longer passage.', 'p2')]
-          combined=[row('r1','[CH4:1]','Carbonyl chemistry evidence.', 'p1', True),row('r2','[NH3:2]','Substitution chemistry evidence with a longer passage.', 'p2', True)]
-          for name, rows in [('textbook', textbook), ('combined', combined)]:
-              with (root/f'{name}.jsonl').open('w') as handle:
-                  for value in rows: handle.write(json.dumps(value)+'\n')
+          import hashlib, json, pathlib
+          path = pathlib.Path('/tmp/mechet-evidence/passages.jsonl')
+          rows=[]
+          for line in path.read_text().splitlines():
+              row=json.loads(line)
+              row['evidence_sha256']=hashlib.sha256(row['text'].encode()).hexdigest()
+              rows.append(row)
+          path.write_text('\n'.join(json.dumps(row) for row in rows)+'\n')
           PY
-          cat > /tmp/mechet-ablation/suite.yaml <<'YAML'
-          suite_id: smoke
-          scientific_question: causal and compositional evidence study
-          output_dir: /tmp/mechet-ablation/suite
+          python - <<'PY'
+          import json
+          from mechet.proof_program import ChargeAction, ProofEdge, ProofProgram, format_proof_output
+          rows=[]
+          for identifier, c, o, x, halide in [('r1',1,2,3,'Br'),('r2',4,5,6,'Cl')]:
+              program=ProofProgram(
+                  target_smiles=f'[CH3:{c}][OH:{o}]',
+                  roots={'s0':[f'[{halide}-:{x}]']},
+                  precursor_state_id='s1',
+                  edges=[ProofEdge('s0','s1',bonds=[(c,o,-1),(c,x,1)],lone_pairs=[(o,2),(x,-2)],charges=[ChargeAction(o,0,-1),ChargeAction(x,-1,0)])],
+              )
+              rows.append({'id':identifier,'proof':format_proof_output(program),'mechanism_class':'hidden-label'})
+          with open('/tmp/mechet-evidence/proofs.jsonl','w') as handle:
+              for row in rows: handle.write(json.dumps(row)+'\n')
+          PY
+          python scripts/build_textbook_tool_sft.py \
+            --input /tmp/mechet-evidence/proofs.jsonl \
+            --corpus /tmp/mechet-evidence/passages.jsonl \
+            --output /tmp/mechet-evidence/textbook.jsonl
+          python scripts/build_textbook_tool_sft.py \
+            --input /tmp/mechet-evidence/proofs.jsonl \
+            --corpus /tmp/mechet-evidence/passages.jsonl \
+            --output /tmp/mechet-evidence/combined.jsonl \
+            --enable-structured-primitives
+      - name: Derive and validate all six matched conditions
+        run: |
+          cat > /tmp/mechet-evidence/suite.yaml <<'YAML'
+          suite_id: runtime-smoke
+          output_dir: /tmp/mechet-evidence/suite
           conditions:
             trace_textbook_rag:
-              input: /tmp/mechet-ablation/textbook.jsonl
+              input: /tmp/mechet-evidence/textbook.jsonl
             trace_text_plus_anchors:
-              input: /tmp/mechet-ablation/combined.jsonl
+              input: /tmp/mechet-evidence/combined.jsonl
             trace_no_knowledge:
               derive_from: trace_textbook_rag
               transform: strip_knowledge
@@ -121,37 +132,120 @@ jobs:
               transform: direct_answer_from_textbook
           YAML
           python scripts/build_knowledge_ablation_suite.py \
-            --config /tmp/mechet-ablation/suite.yaml
-          grep -q length_matched_irrelevant /tmp/mechet-ablation/suite/trace_length_matched_irrelevant.jsonl
-          grep -q retrieve_primitives /tmp/mechet-ablation/suite/trace_structured_anchors.jsonl
-          ! grep -q retrieve_textbook_guidance /tmp/mechet-ablation/suite/trace_structured_anchors.jsonl
-          grep -q '"endpoint_source": "direct_answer"' /tmp/mechet-ablation/suite/direct_textbook_rag.jsonl
-      - name: Validate matched suite and Tool-SFT dry-run
-        run: |
+            --config /tmp/mechet-evidence/suite.yaml
           python scripts/validate_experiment_contract.py \
-            --condition none=/tmp/mechet-ablation/suite/trace_no_knowledge.jsonl \
-            --condition irrelevant=/tmp/mechet-ablation/suite/trace_length_matched_irrelevant.jsonl \
-            --condition textbook=/tmp/mechet-ablation/suite/trace_textbook_rag.jsonl \
-            --condition anchors=/tmp/mechet-ablation/suite/trace_structured_anchors.jsonl \
-            --condition combined=/tmp/mechet-ablation/suite/trace_text_plus_anchors.jsonl \
-            --condition direct=/tmp/mechet-ablation/suite/direct_textbook_rag.jsonl \
-            --output /tmp/mechet-ablation/contract.json
-          cat > /tmp/mechet-ablation/tool_sft.yaml <<'YAML'
-          condition_name: textbook
+            --skip-tokenizer-audit \
+            --condition trace_no_knowledge=/tmp/mechet-evidence/suite/trace_no_knowledge.jsonl \
+            --condition trace_length_matched_irrelevant=/tmp/mechet-evidence/suite/trace_length_matched_irrelevant.jsonl \
+            --condition trace_textbook_rag=/tmp/mechet-evidence/suite/trace_textbook_rag.jsonl \
+            --condition trace_structured_anchors=/tmp/mechet-evidence/suite/trace_structured_anchors.jsonl \
+            --condition trace_text_plus_anchors=/tmp/mechet-evidence/suite/trace_text_plus_anchors.jsonl \
+            --condition direct_textbook_rag=/tmp/mechet-evidence/suite/direct_textbook_rag.jsonl \
+            --output /tmp/mechet-evidence/contract.json
+          grep -q '"passed": true' /tmp/mechet-evidence/contract.json
+      - name: Build frozen evidence-content interventions
+        run: |
+          python scripts/build_evidence_interventions.py \
+            --input /tmp/mechet-evidence/suite/trace_text_plus_anchors.jsonl \
+            --output-dir /tmp/mechet-evidence/interventions \
+            --intervention passage_shuffle \
+            --intervention remove_warnings \
+            --intervention remove_competing_pathways
+          grep -q '"characters_preserved": true' /tmp/mechet-evidence/interventions/manifest.json
+      - name: Create per-condition scripted action plans
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          root=pathlib.Path('/tmp/mechet-evidence/suite')
+          modes={
+              'trace_no_knowledge': [],
+              'trace_length_matched_irrelevant': ['retrieve_textbook_guidance'],
+              'trace_textbook_rag': ['retrieve_textbook_guidance'],
+              'trace_structured_anchors': ['retrieve_primitives'],
+              'trace_text_plus_anchors': ['retrieve_textbook_guidance','retrieve_primitives'],
+          }
+          for condition,prefix in modes.items():
+              actions={}
+              for line in (root/f'{condition}.jsonl').read_text().splitlines():
+                  row=json.loads(line); meta=row['metadata']; plan=meta['trace_plan']
+                  seq=[]
+                  for name in prefix: seq.append({'name':name,'arguments':{}})
+                  for fragment in plan.get('initial_imports',[]):
+                      seq.append({'name':'import_fragment','arguments':{'fragment_smiles':fragment}})
+                  for step in plan['steps']:
+                      for fragment in step.get('imports',[]):
+                          seq.append({'name':'import_fragment','arguments':{'fragment_smiles':fragment}})
+                      seq.append({'name':'apply_coupled_electron_moves','arguments':{'moves':step['moves']}})
+                  seq.append({'name':'finish_trace','arguments':{}})
+                  actions[row['id']]=seq
+              pathlib.Path(f'/tmp/mechet-evidence/{condition}.actions.json').write_text(json.dumps(actions))
+          direct={}
+          for line in (root/'direct_textbook_rag.jsonl').read_text().splitlines():
+              row=json.loads(line)
+              direct[row['id']]='PRECURSOR: '+row['structural_precursor']
+          pathlib.Path('/tmp/mechet-evidence/direct.actions.json').write_text(json.dumps(direct))
+          PY
+      - name: Run all six prediction conditions
+        run: |
+          cat > /tmp/mechet-evidence/trace.yaml <<'EOF'
           model_name_or_path: Qwen/Qwen3-0.6B
-          train_file: /tmp/mechet-ablation/suite/trace_textbook_rag.jsonl
-          output_dir: /tmp/mechet-ablation/output
-          training:
-            assistant_only_loss: true
-          contract:
-            require_trace_owned: true
-            terminal_tool: finish_trace
-          YAML
-          python scripts/train_tool_sft.py \
-            --config /tmp/mechet-ablation/tool_sft.yaml --dry-run
+          output_dir: /tmp/mechet-evidence/fake-adapter
+          environment:
+            max_tool_calls: 16
+            require_tool_use: true
+          EOF
+          cat > /tmp/mechet-evidence/evidence.yaml <<'EOF'
+          model_name_or_path: Qwen/Qwen3-0.6B
+          output_dir: /tmp/mechet-evidence/fake-adapter
+          textbook_corpus_path: /tmp/mechet-evidence/passages.jsonl
+          primitive_library_path: knowledge/primitives/core_polar_primitives.yaml
+          primitive_source_registry_path: knowledge/source_registry.yaml
+          environment:
+            max_tool_calls: 16
+            require_tool_use: true
+          EOF
+          python scripts/infer_mechet.py --config /tmp/mechet-evidence/trace.yaml \
+            --data /tmp/mechet-evidence/suite/trace_no_knowledge.jsonl \
+            --output /tmp/mechet-evidence/trace_no_knowledge.pred.jsonl \
+            --mode trace --condition-name trace_no_knowledge \
+            --scripted-actions /tmp/mechet-evidence/trace_no_knowledge.actions.json \
+            --temperature 0.7 --top-p 0.95 --max-iterations 12
+          for spec in \
+            'trace_length_matched_irrelevant irrelevant' \
+            'trace_textbook_rag textbook' \
+            'trace_structured_anchors anchors' \
+            'trace_text_plus_anchors combined'; do
+              set -- $spec
+              python scripts/infer_mechet.py --config /tmp/mechet-evidence/evidence.yaml \
+                --data /tmp/mechet-evidence/suite/$1.jsonl \
+                --output /tmp/mechet-evidence/$1.pred.jsonl \
+                --mode $2 --condition-name $1 \
+                --scripted-actions /tmp/mechet-evidence/$1.actions.json \
+                --temperature 0.7 --top-p 0.95 --max-iterations 12
+          done
+          python scripts/infer_mechet.py --config /tmp/mechet-evidence/trace.yaml \
+            --data /tmp/mechet-evidence/suite/direct_textbook_rag.jsonl \
+            --output /tmp/mechet-evidence/direct_textbook_rag.pred.jsonl \
+            --mode direct --condition-name direct_textbook_rag \
+            --scripted-actions /tmp/mechet-evidence/direct.actions.json \
+            --temperature 0.7 --top-p 0.95 --max-iterations 12
+      - name: Evaluate strict frozen H3 artifacts
+        run: |
           python scripts/evaluate_knowledge_ablation.py \
-            --condition none=/tmp/mechet-ablation/suite/trace_no_knowledge.jsonl \
-            --condition irrelevant=/tmp/mechet-ablation/suite/trace_length_matched_irrelevant.jsonl \
-            --condition textbook=/tmp/mechet-ablation/suite/trace_textbook_rag.jsonl \
-            --output /tmp/mechet-ablation/summary.json
-          grep -q knowledge_direct_reward_violations /tmp/mechet-ablation/summary.json
+            --reference /tmp/mechet-evidence/suite/trace_textbook_rag.jsonl \
+            --condition trace_no_knowledge=/tmp/mechet-evidence/trace_no_knowledge.pred.jsonl \
+            --condition trace_length_matched_irrelevant=/tmp/mechet-evidence/trace_length_matched_irrelevant.pred.jsonl \
+            --condition trace_textbook_rag=/tmp/mechet-evidence/trace_textbook_rag.pred.jsonl \
+            --condition trace_structured_anchors=/tmp/mechet-evidence/trace_structured_anchors.pred.jsonl \
+            --condition trace_text_plus_anchors=/tmp/mechet-evidence/trace_text_plus_anchors.pred.jsonl \
+            --condition direct_textbook_rag=/tmp/mechet-evidence/direct_textbook_rag.pred.jsonl \
+            --output /tmp/mechet-evidence/h3.json
+          grep -q frozen_prediction_evaluation /tmp/mechet-evidence/h3.json
+          grep -q '"all_frozen_ids_evaluated": true' /tmp/mechet-evidence/h3.json
+          grep -q '"same_base_model_revision_and_generation_budget": true' /tmp/mechet-evidence/h3.json
+          grep -q '"structural_precursor_top1": 1.0' /tmp/mechet-evidence/h3.json
+      - name: Check evidence CLIs
+        run: |
+          python scripts/build_evidence_interventions.py --help
+          python scripts/evaluate_knowledge_ablation.py --help
+          python scripts/validate_experiment_contract.py --help
