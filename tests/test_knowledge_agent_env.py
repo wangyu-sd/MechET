@@ -36,6 +36,7 @@ def test_textbook_retrieval_is_soft_logged_evidence(tmp_path):
         textbook_corpus_path=str(corpus),
         require_textbook_corpus=True,
         max_tool_calls=8,
+        textbook_max_characters=800,
     )
     env = KnowledgeAugmentedAgentEnv(config=config)
     observation = json.loads(
@@ -45,7 +46,12 @@ def test_textbook_retrieval_is_soft_logged_evidence(tmp_path):
     reward_before = env.reward
     result = json.loads(env.retrieve_textbook_guidance("carbonyl nucleophilic attack"))
     assert result["ok"]
-    assert result["matches"][0]["passage"]["passage_id"] == "carbonyl-1"
+    match = result["matches"][0]
+    assert match["passage_id"] == "carbonyl-1"
+    assert "passage" not in match
+    assert "text" not in match
+    assert result["raw_passage_text_in_matches"] is False
+    assert result["context"]["n_characters"] <= 800
     assert result["direct_reward"] is False
     assert env.reward == reward_before
     assert env.state_dict()["textbook_retrievals"]
