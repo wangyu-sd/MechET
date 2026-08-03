@@ -1,11 +1,14 @@
-"""Matched-data and control utilities for evidence-layer experiments."""
+"""Matched-data, control and evaluation utilities for evidence experiments."""
 from __future__ import annotations
 
 import copy
 import hashlib
 import json
 from pathlib import Path
+import re
 from typing import Any, Iterable, Mapping
+
+from .proof_program import sides_equal
 
 KNOWLEDGE_TOOLS = {"retrieve_textbook_guidance", "retrieve_primitives"}
 CHEMISTRY_TOOLS = {
@@ -15,6 +18,10 @@ CHEMISTRY_TOOLS = {
     "apply_coupled_electron_moves",
     "finish_trace",
 }
+_DIRECT_ENDPOINT_RE = re.compile(
+    r"(?:PRECURSOR|ANSWER)\s*:\s*([^\n]+)",
+    re.IGNORECASE,
+)
 
 
 def read_jsonl(path: str | Path) -> list[dict[str, Any]]:
@@ -241,12 +248,7 @@ def make_irrelevant_context_control(
 
 
 def make_direct_textbook_condition(row: Mapping[str, Any]) -> dict[str, Any]:
-    """Create a fair open-book direct-answer baseline from a textbook trace row.
-
-    The direct model receives the exact bounded evidence card but no chemistry
-    tools or environment observations. The stable ID, target and expected
-    structural precursor remain unchanged.
-    """
+    """Create a fair open-book direct-answer baseline from a textbook trace row."""
 
     _, result = _textbook_tool_result(row)
     context = dict(result.get("context") or {})
@@ -297,6 +299,59 @@ def extract_terminal_result(row: Mapping[str, Any]) -> dict[str, Any]:
     return dict((row.get("metadata") or {}).get("terminal_result") or {})
 
 
+def extract_direct_prediction(row: Mapping[str, Any]) -> str:
+    """Extract a direct precursor prediction from common evaluation schemas."""
+
+    metadata = dict(row.get("metadata") or {})
+    for value in (
+        row.get("predicted_precursor"),
+        row.get("prediction"),
+        row.get("completion"),
+        metadata.get("predicted_precursor"),
+        metadata.get("prediction"),
+    ):
+        text = str(value or "").strip()
+        if text:
+            match = _DIRECT_ENDPOINT_RE.search(text)
+            return (match.group(1) if match else text).strip()
+    for message in reversed(row.get("messages") or []):
+        if message.get("role") != "assistant":
+            continue
+        text = str(message.get("content") or "").strip()
+        match = _DIRECT_ENDPOINT_RE.search(text)
+        if match:
+            return match.group(1).strip()
+    return ""
+
+
+def endpoint_evaluation(row: Mapping[str, Any]) -> dict[str, Any]:
+    terminal = extract_terminal_result(row)
+    if terminal:
+        return {
+            "prediction_source": "finish_trace",
+            "prediction_present": True,
+            "trace_bound": bool(terminal.get("trace_bound")),
+            "formal_execute": bool(terminal.get("formal_execute") or terminal.get("ok")),
+            "endpoint_exact": bool(terminal.get("endpoint_exact")),
+        }
+
+    prediction = extract_direct_prediction(row)
+    expected = str(row.get("expected_precursor") or "").strip()
+    exact = False
+    if prediction and expected:
+        try:
+            exact = bool(sides_equal(prediction, expected, ignore_maps=False))
+        except Exception:
+            exact = False
+    return {
+        "prediction_source": "direct_answer" if prediction else "missing",
+        "prediction_present": bool(prediction),
+        "trace_bound": False,
+        "formal_execute": False,
+        "endpoint_exact": exact,
+    }
+
+
 def condition_contract_summary(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     rows = list(rows)
     assistant_characters = 0
@@ -335,13 +390,19 @@ def condition_contract_summary(rows: Iterable[Mapping[str, Any]]) -> dict[str, A
 
 def condition_metrics(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     rows = list(rows)
-    terminal = [extract_terminal_result(row) for row in rows]
+    evaluations = [endpoint_evaluation(row) for row in rows]
     textbook_calls = sum(
-        any(_tool_name(message) == "retrieve_textbook_guidance" for message in row.get("messages") or [])
+        any(
+            _tool_name(message) == "retrieve_textbook_guidance"
+            for message in row.get("messages") or []
+        )
         for row in rows
     )
     anchor_calls = sum(
-        any(_tool_name(message) == "retrieve_primitives" for message in row.get("messages") or [])
+        any(
+            _tool_name(message) == "retrieve_primitives"
+            for message in row.get("messages") or []
+        )
         for row in rows
     )
     direct_reward_violations = 0
@@ -355,12 +416,17 @@ def condition_metrics(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
                 if result.get("direct_reward") not in (False, None):
                     direct_reward_violations += 1
     denominator = max(len(rows), 1)
+    direct_count = sum(item["prediction_source"] == "direct_answer" for item in evaluations)
+    trace_count = sum(item["prediction_source"] == "finish_trace" for item in evaluations)
     return {
         **condition_contract_summary(rows),
         "textbook_call_rate": textbook_calls / denominator,
         "structured_anchor_call_rate": anchor_calls / denominator,
-        "trace_bound_rate": sum(bool(item.get("trace_bound")) for item in terminal) / denominator,
-        "execute_rate": sum(bool(item.get("formal_execute") or item.get("ok")) for item in terminal) / denominator,
-        "endpoint_exact_rate": sum(bool(item.get("endpoint_exact")) for item in terminal) / denominator,
+        "prediction_present_rate": sum(item["prediction_present"] for item in evaluations) / denominator,
+        "trace_prediction_rate": trace_count / denominator,
+        "direct_prediction_rate": direct_count / denominator,
+        "trace_bound_rate": sum(item["trace_bound"] for item in evaluations) / denominator,
+        "execute_rate": sum(item["formal_execute"] for item in evaluations) / denominator,
+        "endpoint_exact_rate": sum(item["endpoint_exact"] for item in evaluations) / denominator,
         "knowledge_direct_reward_violations": direct_reward_violations,
     }
