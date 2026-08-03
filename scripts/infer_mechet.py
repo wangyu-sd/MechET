@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run standard MechET prediction rollouts and H1 interventions."""
+"""Run MechET prediction rollouts, matched evidence conditions, and H1 controls."""
 from __future__ import annotations
 
 import argparse
@@ -21,13 +21,16 @@ from mechet.agent_inference import (
     tool_result_pool,
 )
 from mechet.endpoints import reference_structural_precursor
+from mechet.frozen_evidence_environments import (
+    FrozenAnchorTraceOwnedTRLEnvironment,
+    FrozenTextbookAnchorTraceOwnedTRLEnvironment,
+    FrozenTextbookTraceOwnedTRLEnvironment,
+)
 from mechet.knowledge_ablation import read_jsonl, row_id, write_jsonl
 from mechet.knowledge_agent_env import KnowledgeAgentConfig
 from mechet.tool_schemas import trace_tool_schemas
 from mechet.trl_environments import (
     LegacyProofTRLEnvironment,
-    TextbookAnchorTraceOwnedTRLEnvironment,
-    TextbookTraceOwnedTRLEnvironment,
     TraceOwnedTRLEnvironment,
 )
 
@@ -40,9 +43,9 @@ except ImportError as exc:
 TRACE_SYSTEM = """You are MechET, a trace-owned inverse electron-flow agent.
 Use explicit mapped electron-flow tools for every state change. The only final
 proof and precursor must be produced by finish_trace. Abstain when unsupported."""
-TEXTBOOK_SUFFIX = """
-Retrieved textbook passages and structured anchors are soft external evidence.
-They are not answers, rewards, or validity oracles."""
+EVIDENCE_SUFFIX = """
+Retrieved passages and mechanistic anchors are soft external evidence. They are
+not answers, rewards, or validity oracles."""
 DIRECT_SYSTEM = """Predict the atom-contributing structural precursor SMILES.
 Return one line beginning with PRECURSOR:."""
 
@@ -55,16 +58,28 @@ def load_yaml(path: Path | None) -> dict[str, Any]:
 
 def _condition_metadata(row: Mapping[str, Any]) -> tuple[Any, Any]:
     metadata = dict(row.get("metadata") or {})
-    competitors = row.get("competitor_products") or metadata.get("competitor_products")
-    conditions = row.get("conditions") or metadata.get("conditions")
-    return competitors, conditions
+    return (
+        row.get("competitor_products") or metadata.get("competitor_products"),
+        row.get("conditions") or metadata.get("conditions"),
+    )
+
+
+def _tool_result(row: Mapping[str, Any], name: str) -> dict[str, Any] | None:
+    for message in row.get("messages") or []:
+        if message.get("role") == "tool" and message.get("name") == name:
+            try:
+                value = json.loads(str(message.get("content") or "{}"))
+            except json.JSONDecodeError:
+                return None
+            return dict(value) if isinstance(value, dict) else None
+    return None
 
 
 def _environment_config(
     cfg: dict[str, Any], mode: str
 ) -> AgentEnvConfig | KnowledgeAgentConfig:
     payload = dict(cfg.get("environment") or {})
-    if mode in {"textbook", "combined"}:
+    if mode in {"textbook", "irrelevant", "anchors", "combined"}:
         payload.setdefault(
             "textbook_corpus_path",
             str(
@@ -86,7 +101,8 @@ def _environment_config(
                 or REPO / "knowledge/source_registry.yaml"
             ),
         )
-        payload["enable_structured_primitives"] = mode == "combined"
+        payload["enable_structured_primitives"] = mode in {"anchors", "combined"}
+        payload["require_textbook_corpus"] = mode in {"textbook", "irrelevant", "combined"}
         return KnowledgeAgentConfig(**payload)
     return AgentEnvConfig(**payload)
 
@@ -104,23 +120,23 @@ def _environment(
         "forward_checkpoint": cfg.get("forward_checkpoint") or None,
         "forward_device": str(cfg.get("forward_device") or "cpu"),
     }
+    intervention_kwargs = {
+        "intervention": intervention,
+        "shuffled_observations": shuffled,
+    }
     if mode == "trace":
-        return TraceOwnedTRLEnvironment(
-            **common,
-            intervention=intervention,
-            shuffled_observations=shuffled,
+        return TraceOwnedTRLEnvironment(**common, **intervention_kwargs)
+    if mode in {"textbook", "irrelevant"}:
+        return FrozenTextbookTraceOwnedTRLEnvironment(
+            **common, **intervention_kwargs
         )
-    if mode == "textbook":
-        return TextbookTraceOwnedTRLEnvironment(
-            **common,
-            intervention=intervention,
-            shuffled_observations=shuffled,
+    if mode == "anchors":
+        return FrozenAnchorTraceOwnedTRLEnvironment(
+            **common, **intervention_kwargs
         )
     if mode == "combined":
-        return TextbookAnchorTraceOwnedTRLEnvironment(
-            **common,
-            intervention=intervention,
-            shuffled_observations=shuffled,
+        return FrozenTextbookAnchorTraceOwnedTRLEnvironment(
+            **common, **intervention_kwargs
         )
     if mode == "legacy":
         return LegacyProofTRLEnvironment(**common)
@@ -130,12 +146,25 @@ def _environment(
 def _tools(mode: str) -> list[dict[str, Any]]:
     if mode == "trace":
         return trace_tool_schemas()
-    if mode == "textbook":
+    if mode in {"textbook", "irrelevant"}:
         return trace_tool_schemas(textbook=True)
+    if mode == "anchors":
+        return trace_tool_schemas(anchors=True)
     if mode == "combined":
         return trace_tool_schemas(textbook=True, anchors=True)
     if mode == "legacy":
-        return trace_tool_schemas(legacy_submit_proof=True)
+        allowed = {
+            "inspect_state",
+            "apply_electron_move",
+            "apply_coupled_electron_moves",
+            "submit_proof",
+            "abstain",
+        }
+        return [
+            item
+            for item in trace_tool_schemas(legacy_submit_proof=True)
+            if str((item.get("function") or {}).get("name") or "") in allowed
+        ]
     return []
 
 
@@ -151,25 +180,21 @@ def _direct_messages(row: Mapping[str, Any]) -> list[dict[str, Any]]:
         return [system, user]
     return [
         {"role": "system", "content": DIRECT_SYSTEM},
-        {
-            "role": "user",
-            "content": f"TARGET: {str(row.get('target_smiles') or '')}",
-        },
+        {"role": "user", "content": f"TARGET: {str(row.get('target_smiles') or '')}"},
     ]
 
 
 def _trace_messages(
     row: Mapping[str, Any], mode: str, observation: str
 ) -> list[dict[str, Any]]:
-    suffix = TEXTBOOK_SUFFIX if mode in {"textbook", "combined"} else ""
+    suffix = EVIDENCE_SUFFIX if mode in {"textbook", "irrelevant", "anchors", "combined"} else ""
     return [
         {"role": "system", "content": TRACE_SYSTEM + suffix},
         {
             "role": "user",
             "content": (
                 f"TARGET: {str(row.get('target_smiles') or '')}\n\n"
-                "INITIAL ENVIRONMENT OBSERVATION:\n"
-                + observation
+                "INITIAL ENVIRONMENT OBSERVATION:\n" + observation
             ),
         },
     ]
@@ -214,7 +239,7 @@ def _generate_response(
 ) -> tuple[str, Any]:
     import torch
 
-    template_kwargs: dict[str, Any] = {
+    kwargs: dict[str, Any] = {
         "conversation": messages,
         "tokenize": True,
         "add_generation_prompt": True,
@@ -222,29 +247,32 @@ def _generate_response(
         "return_dict": True,
     }
     if tools:
-        template_kwargs["tools"] = tools
-    encoded = tokenizer.apply_chat_template(**template_kwargs)
+        kwargs["tools"] = tools
+    encoded = tokenizer.apply_chat_template(**kwargs)
     if not isinstance(encoded, dict) or "input_ids" not in encoded:
         raise ValueError("chat template did not return model inputs")
     device = next(model.parameters()).device
-    model_inputs = {
+    inputs = {
         key: value.to(device) if hasattr(value, "to") else value
         for key, value in encoded.items()
         if key in {"input_ids", "attention_mask"}
     }
-    input_length = int(model_inputs["input_ids"].shape[-1])
+    input_length = int(inputs["input_ids"].shape[-1])
+    generate_kwargs: dict[str, Any] = {
+        "max_new_tokens": max_new_tokens,
+        "do_sample": temperature > 0,
+        "top_p": top_p,
+        "pad_token_id": tokenizer.eos_token_id,
+    }
+    if temperature > 0:
+        generate_kwargs["temperature"] = temperature
     with torch.no_grad():
-        output = model.generate(
-            **model_inputs,
-            max_new_tokens=max_new_tokens,
-            do_sample=temperature > 0,
-            temperature=max(temperature, 1e-5),
-            top_p=top_p,
-            pad_token_id=tokenizer.eos_token_id,
-        )
+        output = model.generate(**inputs, **generate_kwargs)
     generated = output[0, input_length:]
-    text = tokenizer.decode(generated, skip_special_tokens=False)
-    return text, model_inputs["input_ids"][0]
+    return (
+        tokenizer.decode(generated, skip_special_tokens=False),
+        inputs["input_ids"][0],
+    )
 
 
 def _rank_candidate(candidate: Mapping[str, Any]) -> tuple[int, int, int]:
@@ -274,22 +302,27 @@ def _run_trace_candidate(
     scripted_actions: list[dict[str, Any]] | None,
     sample_index: int,
 ) -> dict[str, Any]:
-    env = _environment(
-        cfg, mode, intervention=intervention, shuffled=shuffled
-    )
+    env = _environment(cfg, mode, intervention=intervention, shuffled=shuffled)
     competitors, conditions = _condition_metadata(row)
-    observation = env.reset(
-        target_smiles=str(row.get("target_smiles") or ""),
-        expected_precursor="",
-        competitor_products=competitors,
-        conditions=conditions,
-    )
+    reset_kwargs: dict[str, Any] = {
+        "target_smiles": str(row.get("target_smiles") or ""),
+        "expected_precursor": "",
+        "competitor_products": competitors,
+        "conditions": conditions,
+    }
+    if mode in {"textbook", "irrelevant", "combined"}:
+        reset_kwargs["frozen_textbook_result"] = _tool_result(
+            row, "retrieve_textbook_guidance"
+        )
+    if mode in {"anchors", "combined"}:
+        reset_kwargs["frozen_anchor_result"] = _tool_result(
+            row, "retrieve_primitives"
+        )
+    observation = env.reset(**reset_kwargs)
     messages = _trace_messages(row, mode, observation)
     if scripted_actions is not None:
         result = scripted_rollout(env, scripted_actions, messages=messages)
-        result.update(
-            {"sample_index": sample_index, "termination_reason": "scripted"}
-        )
+        result.update({"sample_index": sample_index, "termination_reason": "scripted"})
         return result
 
     exchanges: list[dict[str, Any]] = []
@@ -312,9 +345,7 @@ def _run_trace_candidate(
         exchanges.extend(append_tool_exchange(messages, raw, calls, env))
         state = env._snapshot()
         if state.get("finalized"):
-            termination_reason = (
-                "abstained" if state.get("abstained") else "terminal_tool"
-            )
+            termination_reason = "abstained" if state.get("abstained") else "terminal_tool"
             break
     return {
         "sample_index": sample_index,
@@ -337,9 +368,8 @@ def _run_direct_candidate(
     scripted_response: str | None,
 ) -> dict[str, Any]:
     messages = _direct_messages(row)
-    if scripted_response is not None:
-        raw = scripted_response
-    else:
+    raw = scripted_response
+    if raw is None:
         raw, _ = _generate_response(
             model,
             tokenizer,
@@ -377,7 +407,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--mode",
-        choices=["trace", "textbook", "combined", "legacy", "direct"],
+        choices=["trace", "textbook", "irrelevant", "anchors", "combined", "legacy", "direct"],
         required=True,
     )
     parser.add_argument("--condition-name", default="")
@@ -418,27 +448,30 @@ def main() -> int:
         raise ValueError("inference data is empty")
     condition_name = args.condition_name or args.mode
     model_name = args.model_name or str(cfg.get("model_name_or_path") or "")
-    adapter = args.adapter or str(
-        cfg.get("output_dir") or cfg.get("initial_adapter_path") or ""
-    )
+    adapter = args.adapter or str(cfg.get("output_dir") or cfg.get("initial_adapter_path") or "")
     tools = _tools(args.mode)
     scripts = _script_map(args.scripted_actions)
     if args.dry_run:
-        report = {
-            "artifact_type": "inference_dry_run",
-            "mode": args.mode,
-            "condition_name": condition_name,
-            "n_rows": len(rows),
-            "tool_names": [
-                str((item.get("function") or {}).get("name") or "")
-                for item in tools
-            ],
-            "intervention": args.intervention,
-            "scripted": bool(scripts),
-            "model_name": model_name or None,
-            "adapter": adapter or None,
-        }
-        print(json.dumps(report, indent=2, ensure_ascii=False))
+        print(
+            json.dumps(
+                {
+                    "artifact_type": "inference_dry_run",
+                    "mode": args.mode,
+                    "condition_name": condition_name,
+                    "n_rows": len(rows),
+                    "tool_names": [
+                        str((item.get("function") or {}).get("name") or "")
+                        for item in tools
+                    ],
+                    "intervention": args.intervention,
+                    "scripted": bool(scripts),
+                    "model_name": model_name or None,
+                    "adapter": adapter or None,
+                },
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
         return 0
 
     shuffled: dict[str, list[str]] = {}
@@ -467,12 +500,11 @@ def main() -> int:
             if args.mode == "direct":
                 scripted_response = None
                 if script is not None:
-                    if isinstance(script, list):
-                        scripted_response = str(
-                            script[min(sample_index, len(script) - 1)]
-                        )
-                    else:
-                        scripted_response = str(script)
+                    scripted_response = (
+                        str(script[min(sample_index, len(script) - 1)])
+                        if isinstance(script, list)
+                        else str(script)
+                    )
                 candidate = _run_direct_candidate(
                     row,
                     model=model,
@@ -487,9 +519,7 @@ def main() -> int:
                 actions = None
                 if script is not None:
                     if not isinstance(script, list):
-                        raise ValueError(
-                            f"scripted actions for {identifier} must be a list"
-                        )
+                        raise ValueError(f"scripted actions for {identifier} must be a list")
                     actions = [dict(item) for item in script]
                 candidate = _run_trace_candidate(
                     row,
@@ -511,48 +541,40 @@ def main() -> int:
         selected = max(candidates, key=_rank_candidate)
         rollout_state = dict(selected.get("rollout_state") or {})
         final_result = dict(rollout_state.get("final_result") or {})
-        prediction = {
-            "id": identifier,
-            "artifact_type": "prediction",
-            "prediction_status": "completed",
-            "prediction_mode": args.mode,
-            "condition_name": condition_name,
-            "target_smiles": str(row.get("target_smiles") or ""),
-            "expected_precursor": str(row.get("expected_precursor") or ""),
-            "full_precursor_state": str(
-                row.get("full_precursor_state")
-                or row.get("expected_precursor")
-                or ""
-            ),
-            "structural_precursor": reference_structural_precursor(row),
-            "auxiliary_fragments": list(row.get("auxiliary_fragments") or []),
-            "messages": selected.get("messages") or [],
-            "tools": tools,
-            "rollout_state": rollout_state,
-            "terminal_result": final_result,
-            "prediction": selected.get("prediction") or "",
-            "selected_candidate_index": int(selected.get("sample_index", 0)),
-            "candidates": candidates,
-            "model": {
-                "base_model": model_name or None,
-                "adapter": adapter or None,
-                "adapter_sha256": path_sha256(adapter) if adapter else None,
-                "model_revision": args.model_revision or None,
-                "temperature": args.temperature,
-                "top_p": args.top_p,
-                "max_new_tokens": args.max_new_tokens,
-                "max_iterations": args.max_iterations,
-                "samples_per_target": args.samples_per_target,
-            },
-            "metadata": {
+        predictions.append(
+            {
+                "id": identifier,
+                "artifact_type": "prediction",
+                "prediction_status": "completed",
+                "prediction_mode": args.mode,
                 "condition_name": condition_name,
-                "intervention": args.intervention,
-                "reference_source_id": row.get("source_id"),
-            },
-        }
-        if not selected.get("messages"):
-            prediction["prediction_status"] = "missing"
-        predictions.append(prediction)
+                "target_smiles": str(row.get("target_smiles") or ""),
+                "messages": selected.get("messages") or [],
+                "tools": tools,
+                "rollout_state": rollout_state,
+                "terminal_result": final_result,
+                "prediction": selected.get("prediction") or "",
+                "selected_candidate_index": int(selected.get("sample_index", 0)),
+                "candidates": candidates,
+                "model": {
+                    "base_model": model_name or None,
+                    "adapter": adapter or None,
+                    "adapter_sha256": path_sha256(adapter) if adapter else None,
+                    "model_revision": args.model_revision or None,
+                    "temperature": args.temperature,
+                    "top_p": args.top_p,
+                    "max_new_tokens": args.max_new_tokens,
+                    "max_iterations": args.max_iterations,
+                    "samples_per_target": args.samples_per_target,
+                },
+                "metadata": {
+                    "condition_name": condition_name,
+                    "intervention": args.intervention,
+                    "reference_source_id": row.get("source_id"),
+                    "frozen_evidence_replay": args.mode in {"textbook", "irrelevant", "anchors", "combined"},
+                },
+            }
+        )
 
     write_jsonl(args.output, predictions)
     manifest = {
