@@ -1,0 +1,87 @@
+suite_id: mechet-textbook-ablation-v1
+output_dir: data/knowledge_ablation/v1
+
+conditions:
+  trace_textbook_rag:
+    input: data/textbook_tool_sft/train.jsonl
+    knowledge: natural_language_textbook
+    environment: trace_owned
+
+  trace_no_knowledge:
+    derive_from: trace_textbook_rag
+    transform: strip_knowledge
+    knowledge: none
+    environment: trace_owned
+
+  trace_length_matched_irrelevant:
+    derive_from: trace_textbook_rag
+    transform: length_matched_irrelevant
+    knowledge: irrelevant_text_same_character_budget
+    environment: trace_owned
+
+  trace_structured_anchors:
+    input: data/structured_tool_sft/train.jsonl
+    knowledge: structured_executable_anchors
+    environment: trace_owned
+
+  trace_text_plus_anchors:
+    input: data/textbook_tool_sft/train_text_and_anchors.jsonl
+    knowledge: natural_language_textbook_and_structured_anchors
+    environment: trace_owned
+
+  direct_textbook_rag:
+    input: data/direct_textbook_rag/train.jsonl
+    knowledge: same_natural_language_textbook
+    environment: direct_answer
+
+training_contract:
+  model_family: Qwen3
+  scales:
+    - 0.6B
+    - 1.7B
+    - 8B
+  same_tokenizer_revision: true
+  same_stable_id_intersection: true
+  same_optimizer_schedule: true
+  same_lora_rank: true
+  same_training_updates: true
+  matched_assistant_token_budget: true
+  matched_context_character_budget: true
+  matched_tool_call_budget_for_tool_conditions: true
+  textbook_retrieval_direct_reward: false
+  primary_stage: supervised_tool_sft_before_rl
+  seeds:
+    - 17
+    - 29
+    - 43
+
+evaluation_contract:
+  primary_metrics:
+    - structural_precursor_top1
+    - structural_precursor_top5
+    - reaction_center_accuracy
+    - synthon_exact_match
+    - execute_rate
+    - trace_endpoint_consistency
+    - tool_failure_recovery
+    - abstention_risk_coverage
+  knowledge_metrics:
+    - retrieval_recall_at_k
+    - retrieval_precision_at_k
+    - passage_rank
+    - context_characters
+    - retrieval_latency
+    - citation_correctness
+  causal_controls:
+    - shuffle_passages
+    - length_matched_irrelevant_context
+    - same_topic_wrong_passage
+    - remove_competing_pathway_text
+    - remove_warnings
+    - remove_tool_observations
+  ood_conditions:
+    - primitive_composition_holdout
+    - reaction_family_holdout
+    - product_scaffold_holdout
+    - temporal_holdout
+  claim_gate: textbook gains must exceed both trace-only and length-matched irrelevant-context controls
