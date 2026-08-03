@@ -1,6 +1,7 @@
 condition_name: trace_textbook_rag
+scientific_hypothesis: H3_empirical_evidence_separation
 model_name_or_path: Qwen/Qwen3-0.6B
-train_file: data/knowledge_ablation/v1/trace_textbook_rag.jsonl
+train_file: data/knowledge_ablation/v2/trace_textbook_rag.jsonl
 output_dir: outputs/agent/tool_sft_textbook_qwen3_0_6b
 limit_examples: 0
 
@@ -28,12 +29,17 @@ lora:
     - o_proj
 
 contract:
-  stable_id_manifest: data/knowledge_ablation/v1/manifest.json
+  stable_id_manifest: data/knowledge_ablation/v2/manifest.json
+  validation_report: outputs/contracts/evidence_conditions.json
   endpoint_source: environment_owned_trace
+  terminal_tool: finish_trace
+  free_form_proof_submission: false
   knowledge_direct_reward: false
   matched_against:
     - trace_no_knowledge
     - trace_length_matched_irrelevant
     - trace_structured_anchors
     - trace_text_plus_anchors
+    - direct_textbook_rag
+  real_overfit_smoke_test_required: true
   rl_after_supervised_signal_only: true
