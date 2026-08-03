@@ -1,96 +1,101 @@
-# MechET causal and compositional experiment plan
+# MechET authoritative scientific experiment contract
 
-This is the authoritative scientific experiment contract. The operational command order is in [`EXECUTION_PLAN.md`](EXECUTION_PLAN.md); the scientific definitions and permitted claims are in [`SCIENTIFIC_THESIS.md`](SCIENTIFIC_THESIS.md).
+This document defines the frozen paper claims and evidence required for the causal and compositional MechET study. Operational commands are in `EXECUTION_PLAN.md`; detailed contracts are in `TRACE_FAITHFULNESS.md`, `TOOL_SFT.md`, `PROOF_EQUIVALENCE.md`, and `KNOWLEDGE_ABLATIONS.md`.
 
-## 1. Scientific question
+## Central question
 
 > Can mechanistic reasoning in retrosynthesis be made causal and compositional, rather than merely plausible in language?
 
-The main object of study is an environment-owned electron-flow program. The actor proposes explicit source-to-sink actions; successful actions create authoritative molecular-state transitions; `finish_trace` deterministically compiles the committed trace into the only admissible `MECH_PROOF v1`; the executor derives the structural precursor.
+## Main method
 
 ```text
-product
-  -> electron-flow actions
-  -> environment-owned trace
-  -> deterministic proof compilation
-  -> executor-derived precursor
+mapped product
+  -> explicit source-to-sink actions
+  -> environment-owned state transitions
+  -> immutable move trace
+  -> replay declared moves
+  -> deterministic MECH_PROOF v1 compilation
+  -> executor-derived full precursor state
+  -> atom-contributing structural precursor
 ```
 
-The model has no independent answer or proof channel in the main method.
+The model-facing main environment is an explicit TRL facade. It exposes only the declared tools and never exposes internal state helpers or independent proof submission.
 
-## 2. Hypotheses
+## H1 — causal faithfulness
 
-### H1 — causal faithfulness
+### Claim
 
-A trace-owned electron-flow program should prevent a correct endpoint from being generated independently of the stated reasoning.
+The model's executable trace is a causal computational path to the precursor, not a post-hoc explanation.
 
-Required evidence:
-
-- trace–proof and trace–endpoint consistency;
-- answer–reasoning disagreement in answer-bearing baselines;
-- causal interventions on tool observations and molecular states;
-- controlled corruptions and false-acceptance/false-rejection analysis;
-- recovery or abstention after failed actions.
-
-### H2 — compositional basis
-
-Local electron-flow execution primitives should support primitive-seen/composition-unseen generalization.
-
-Required evidence:
-
-- execution-primitive coverage in training;
-- complete mechanism compositions disjoint across train and test;
-- matched direct, CoT, edit, proof and trace-owned baselines;
-- performance by composition novelty, proof length, topology, family and scaffold;
-- invariance to atom-map labels and valid serialization changes.
-
-### H3 — formal and empirical evidence separation
-
-Formal executability and empirical chemical support should be evaluated as distinct evidence layers.
-
-Required evidence:
-
-- the executor remains the hard validity gate;
-- textbook and structured-anchor gains exceed no-knowledge and length-matched irrelevant-text controls;
-- knowledge interventions change behavior in the expected direction;
-- forward evidence is independently calibrated before use in ranking or reward;
-- no evidence source overrides a formal failure.
-
-## 3. Method conditions
-
-### 3.1 Main method
-
-`TraceOwnedAgentEnv` or `KnowledgeAugmentedAgentEnv`:
+### Required baselines
 
 ```text
-inspect_state
-retrieve_textbook_guidance      optional soft evidence
-retrieve_primitives             optional structured knowledge anchors
-import_fragment
-apply_electron_move
-apply_coupled_electron_moves
-finish_trace
-abstain
+outcome-only generation
+free-form CoT plus answer
+state-CoT plus answer
+net edit
+independent complete proof
+legacy loose trace plus submitted proof
+trace-owned finish_trace method
 ```
 
-`submit_proof` is disabled. The environment compiles the trace and derives the endpoint.
-
-### 3.2 Required baselines
+### Required interventions
 
 ```text
-Outcome-only precursor generation
-Free-form CoT plus answer
-State-CoT plus answer
-Reaction-center/synthon prediction
-Net-edit generation
-Independent complete MECH_PROOF generation
-Legacy loose tool trace plus submitted proof
-Trace-owned Tool-CoT
+remove tool observations
+stale tool observations
+shuffle tool observations
+disable inspect_state
+disable intermediate execution
 ```
 
-The complete-proof and loose-trace paths are baselines, not alternate definitions of the main method.
+### Integrity gates
 
-### 3.3 Evidence conditions
+```text
+same frozen ID universe
+same model, adapter, revision, K, and generation budget
+missing predictions count as failures
+normal path replays declared moves and proof
+paired effects reported
+```
+
+Insensitivity to observations blocks H1 regardless of endpoint accuracy.
+
+## H2 — compositional basis
+
+### Claim
+
+Known source-to-sink execution primitives generalize to unseen complete move compositions.
+
+### Split contract
+
+```text
+primitive_basis = source_to_sink_execution_moves_v1
+all test primitives seen in train
+zero train/test composition overlap
+non-empty held-out test
+fixed minimum train primitive frequency
+```
+
+The split is built from replay-verified trace plans. Knowledge-anchor IDs and MECH_PROOF net deltas are excluded from the headline definition.
+
+### Required reporting
+
+```text
+IID and composition-OOD
+composition frequency and novelty
+steps and move counts
+family/scaffold/ring/topology strata
+primitive coverage and split quarantine
+```
+
+## H3 — evidence separation
+
+### Claim
+
+External mechanistic evidence improves selection or induction beyond trace ownership and additional context alone, while remaining subordinate to execution.
+
+### Frozen conditions
 
 ```text
 trace_no_knowledge
@@ -99,506 +104,142 @@ trace_textbook_rag
 trace_structured_anchors
 trace_text_plus_anchors
 direct_textbook_rag
-gold_passage_upper_bound         when labels exist
 ```
 
-Natural-language passages, structured mechanistic knowledge anchors and learned forward scores are soft evidence.
-
-## 4. Terminology contract
-
-### Electron-flow execution primitives
-
-Local executable actions such as `LP -> BOND`, `BOND -> ATOM` and `BOND -> BOND`. They define the causal action space and the compositional split.
-
-### Mechanistic knowledge anchors
-
-Curated structured records containing patterns, role bindings, candidate moves, warnings, competitors and provenance. Anchor IDs must not be used as a substitute for execution-primitive composition in H2.
-
-### Structural endpoint
-
-The multiset of atom-contributing precursor fragments. Solvents, catalysts, salts and spectators are reported separately.
-
-## 5. Data contract
-
-### 5.1 Scope
-
-Primary results use mapped, closed-shell, two-electron polar organic chemistry. Radicals, photochemistry, electrochemistry, transition-metal orbital changes and spin-changing reactions remain out of scope unless separately represented and verified.
-
-### 5.2 Required sources
+### Evidence controls
 
 ```text
-FlowER-derived mechanistic trajectories and compiled proofs
-USPTO-50K for standard comparability
-USPTO-MIT/USPTO-FULL for overlap audit and secondary studies
-mech-USPTO-31K or equivalent source/sink supervision
-PMechDB-derived rows only under accepted upstream access terms
-ORD only as optional condition/outcome evidence after quality control
-PaRoutes or an equivalently frozen planning benchmark for extensions
-```
-
-### 5.3 Non-negotiable rules
-
-1. Freeze benchmark hashes before training.
-2. Pin source revisions and licenses.
-3. Remove overlap from training, never from the test set after evaluation.
-4. Build all headline baselines from the same stable-ID intersection.
-5. Preserve structural endpoints separately from environmental components.
-6. Never invent source/sink labels for ambiguous rows.
-7. Never treat an alternative executable endpoint as a negative without independent evidence.
-8. Keep actor, executor and forward-expert lineage explicit.
-9. Report every quarantine reason and conversion filter.
-10. Freeze the execution-primitive vocabulary before constructing MechComp-OOD.
-
-## 6. Phase A — data feasibility
-
-### A1. Proof execution coverage
-
-Compile proof rows and report:
-
-```text
-rows read
-parseable proofs
-executable proofs
-endpoint-reconstructing proofs
-coverage by family, proof length, changed bonds and topology
-```
-
-### A2. Proof-to-trace conversion coverage
-
-The current conservative converter accepts only uniquely recoverable two-electron actions. Report stable quarantine codes:
-
-```text
-NONLINEAR_PROOF_UNSUPPORTED
-AMBIGUOUS_ELECTRON_PAIRING
-UNPAIRED_LONE_PAIR_DELTA
-ODD_LONE_PAIR_DELTA
-EDGE_HAS_NO_INFERABLE_MOVES
-IMPORT_REPLAY_FAILED
-MOVE_REPLAY_FAILED
-MOVE_REPLAY_STATE_MISMATCH
-TRACE_TERMINAL_REPLAY_FAILED
-```
-
-Required output:
-
-```text
-overall conversion rate
-conversion rate by family
-conversion rate by proof length
-conversion rate by topology
-accepted and rejected complexity distributions
-imports, moves and trace length
-endpoint replay rate
-```
-
-Stopping rule: do not describe the retained subset as broad organic chemistry if the converter supports only a narrow family set.
-
-### A3. Leakage and split integrity
-
-Audit exact reaction, structural reaction, product, scaffold, reaction center, execution-primitive composition, patent family and temporal overlap where metadata permits.
-
-Build at least:
-
-```text
-exact-clean
-scaffold-clean
-center-clean
-```
-
-## 7. Phase B — supervised learning feasibility
-
-### B1. Matched task variants
-
-Use identical stable IDs and structural endpoints for:
-
-```text
-outcome-only
-free-form CoT
-state-CoT
-reaction-center/synthon
-net-edit
-complete proof
-trace-owned Tool-CoT
-```
-
-### B2. Tool-SFT construction
-
-Every accepted Tool-SFT row must:
-
-- contain explicit tool calls and results;
-- replay through the same trace-owned environment used at inference;
-- end with `finish_trace`;
-- store the trace digest and compiled proof;
-- have `endpoint_source=environment_owned_trace`;
-- reproduce the expected structural precursor.
-
-### B3. Real training smoke test
-
-Before paper-scale training, overfit 32–128 rows and verify:
-
-```text
-assistant supervision mask is non-empty
-loss decreases
-valid tool-call rate increases
-finish_trace call rate increases
-trace-bound execution increases
-endpoint exact approaches the small-set ceiling
-```
-
-Dry-run validation alone is not sufficient.
-
-### B4. SFT checkpoint lineage
-
-Every trace-owned RL run must record:
-
-```text
-base-model revision
-Tool-SFT adapter path and hash
-Tool-SFT data-manifest hash
-environment revision
-executor revision
-training config and seed
-```
-
-Pure RL from an untrained tool policy is not the primary method.
-
-## 8. Phase C — H1 causal faithfulness
-
-### C1. Endpoint and process comparison
-
-Compare all required baselines under matched model/data/optimization budgets.
-
-Metrics:
-
-```text
-structural precursor Top-1/5/10
-reaction-center accuracy
-synthon exact match
-FormatPass
-ExecutePass
-trace–proof agreement
-trace–endpoint agreement
-answer–reasoning disagreement
-unnecessary-action count
-tool-failure recovery
-abstention coverage and selective risk
-```
-
-### C2. Causal interventions
-
-Run:
-
-```text
-remove tool observations
-shuffle tool observations
-replace observations with stale states
-disable inspect_state
-disable intermediate move execution
-remove failure certificates
-permit independent proof submission only in a baseline
-```
-
-Report absolute and relative changes in endpoint, execution and consistency metrics.
-
-Claim gate: tool-grounded reasoning is unsupported if the trace-owned model is insensitive to observation removal or corruption.
-
-### C3. Formal falsification benchmark
-
-Controlled corruptions:
-
-```text
-parse
-atom map
-bond precondition
-lone-pair accounting
-charge transition
-import
-reachability
-dependency
-source empty
-sink capacity
-missing coupled arrow
-```
-
-Metrics:
-
-```text
-false acceptance rate
-false rejection rate
-failure-code accuracy
-first-failing-action localization
-repair success
-new-error introduction
-over-edit rate
-```
-
-## 9. Phase D — H2 compositional generalization
-
-### D1. MechComp-OOD construction
-
-Hold out complete execution-primitive compositions while requiring every constituent primitive to appear in training above a declared minimum frequency.
-
-No knowledge-anchor IDs are used to define the split.
-
-### D2. Comparisons
-
-```text
-direct answer
-free-form CoT
-state-CoT
-net edit
-complete proof
-trace-owned Tool-CoT
-trace-owned Tool-CoT plus evidence
-```
-
-### D3. Metrics and strata
-
-```text
-endpoint and execution metrics
-partial-order proof equivalence
-execution-primitive precision/recall
-composition exact match
-performance versus composition frequency
-proof length and changed-atom complexity
-ring-forming/ring-changing strata
-stereochemical-change strata
-chain/tree/DAG topology
-family and scaffold
-```
-
-### D4. Representation invariance
-
-Test synchronized:
-
-```text
-atom-map permutation
-state-ID renaming
-edge serialization
-commuting independent events
-component ordering
-valid equivalent proof variants
-```
-
-Separate semantic invariance from exact-string equality.
-
-## 10. Phase E — H3 evidence separation
-
-### E1. Matched evidence suite
-
-Build all six evidence conditions from two source datasets: textbook-only trace rows and textbook-plus-anchor trace rows. No manually prepared anchors-only or direct-open-book files are permitted.
-
-Validate:
-
-```text
-same stable IDs
-same targets and structural endpoints
-same model and tokenizer revision
-same optimizer, LoRA and updates
-reported input and supervised token budgets
-reported context and tool budgets
-same seeds
-```
-
-### E2. Knowledge metrics
-
-```text
-retrieval Recall@K and Precision@K
-passage and gold-passage rank
-citation correctness
-context characters and tokenizer-specific tokens
-retrieval latency
-knowledge-call rate
-anchor-call rate
-knowledge direct-reward violations
-```
-
-### E3. Knowledge interventions
-
-```text
-length-matched irrelevant text
 passage shuffle
 same-topic wrong passage
 remove warnings
-remove competing-pathway text
+remove competing pathways
+same bounded evidence for direct and trace conditions
+zero direct evidence reward
 ```
 
-Claim gate:
+### Claim gates
+
+Textbook:
 
 ```text
-textbook RAG > trace no knowledge
+textbook > trace-only
 and
-textbook RAG > length-matched irrelevant text
+textbook > length-matched irrelevant
 ```
 
-### E4. Forward evidence
-
-Validate the forward expert independently before actor integration.
-
-Required comparisons:
+Combined:
 
 ```text
-ordinary product compatibility
-source/sink process model
-process plus compatibility
-process plus conditions
-random negatives versus explicit competitors
+combined > textbook
+and
+combined > anchors
 ```
 
-Metrics:
+All prediction artifacts use the same base/revision and generation budget; condition-specific adapter hashes and token-normalized compute are reported.
+
+## Data contract
+
+Every example has a stable ID and distinguishes:
 
 ```text
-source/sink Top-k and move MRR
-target rank and recovery at k
-competitor margin
-Brier score and ECE
-risk–coverage
-uncertainty–error correlation
-family-wise false acceptance/rejection
+full_precursor_state
+structural_precursor
+auxiliary_fragments
 ```
 
-Formal invalidity remains a hard prune. Forward evidence is a secondary result unless it materially improves calibration or explicit competitor ranking.
+The primary endpoint is atom-contributing structural precursor exact match with atom maps ignored. Mapped exact is secondary.
 
-## 11. Phase F — scale and optimization
+Proof-to-trace conversion preserves root and edge imports, rejects ambiguous electron pairing, uses only inference-available query information in headline conditions, and emits family/complexity coverage and stable quarantine reasons.
 
-Compare approximately:
+## Tool-SFT contract
+
+Each trace row contains `messages`, a canonical `tools` schema, JSON-object arguments, matched tool-call/result pairs, exactly one `finish_trace`, replay metadata, and trace/move digests.
+
+Real training must pass:
 
 ```text
-0.6B trace-owned actor
-1.7B trace-owned actor
-8B trace-owned actor
-8B direct-answer reference
-8B direct-answer plus identical bounded textbook evidence
+real tokenizer rendering
+non-empty assistant mask
+zero truncation
+valid tool schemas
+frozen data hash
+adapter manifest/hash
 ```
 
-Report:
+GRPO loads the corresponding Tool-SFT adapter as trainable PEFT state and validates its base model, hash, data contract, and executor/environment revisions.
+
+## Prediction artifact contract
+
+Every model output is `artifact_type=prediction` and records:
 
 ```text
-accuracy and reliability
-GPU hours and peak memory
-input and generated tokens
-tool calls and executor calls
-latency
-verified endpoints per compute budget
+condition and prediction mode
+complete messages and tools
+candidate rollouts
+rollout_state and terminal result
+base model and adapter hash
+model revision
+temperature, top-p, token, iteration, and K budgets
+intervention metadata
 ```
 
-Only after SFT and H1 pilots pass, compare:
+Evaluation uses one frozen reference universe. Duplicate/extra IDs and supervision rows are hard errors; missing predictions remain failures.
+
+## Metrics
+
+Implemented:
 
 ```text
-Tool-SFT
-Tool-SFT plus formal process RL
-Tool-SFT plus endpoint RL
-Tool-SFT plus calibrated forward evidence
+structural and mapped Top-1/5/10
+ExecutePass@1/5/10
+TraceBoundPass@1/5/10
+coverage and selective risk
+abstention
+tool-failure recovery
+retrieval recall/precision with gold passage labels
+retrieval latency
+missing and re-execution error rates
+paired intervention effects
 ```
 
-Reward logging must separate formal, endpoint, forward, selectivity, failure and length terms. Soft rewards cannot offset formal failure.
+Reaction-center and synthon metrics remain null until frozen labels exist.
 
-## 12. Phase G — hypotheses, repair and planning extensions
+## Formal and empirical evidence
 
-### G1. Test-time hypotheses
+The deterministic executor is the hard source of formal validity. Text, anchors, and the independent forward expert are soft evidence. No learned score can rescue an invalid trace or proof.
 
-For K in `{1, 4, 16, 64}` report:
+A forward-evidence result requires an independently frozen/calibrated model, explicit competitor sets for selectivity, cross-fitting or held-out lineage, and family-wise false-acceptance/false-rejection reporting.
+
+## Scale and planning
+
+Scale, on-policy reward decomposition, K-hypothesis search, and multistep planning are downstream results. They begin only after H1–H3 pilots pass and cannot rescue a failed causal or compositional claim.
+
+## Prohibited claims
+
+Current software alone cannot establish:
 
 ```text
-ExecutePass@K
-EndpointPass@K
-unique executable proof classes
-unique execution-primitive compositions
-unique structural endpoints
-latency and model/tool calls
+unique physical mechanism from product alone
+activation barriers or kinetics
+yield or laboratory success
+universal condition compatibility
+radical, photochemical, organometallic, spin, or coordination chemistry outside scope
+reaction discovery without external validation
 ```
 
-### G2. Repair
+## Reproducibility package
 
-Compare:
+Each reported checkpoint/result must include:
 
 ```text
-resample only
-deterministic semantics-preserving repair
-separate Repair Actor
-same-agent revision after tool feedback
+repository and data revisions
+source licenses and hashes
+split and quarantine manifests
+model/tokenizer revisions
+adapter manifests and hashes
+training configs and seeds
+optimizer updates and GPU hours
+tokenizer input/supervised token counts
+prediction manifests
+evaluation outputs and claim gates
 ```
-
-### G3. Planning
-
-Use frozen offline candidate pools first. Compare inverse score, formal hard gating and calibrated empirical evidence under matched search budgets.
-
-Metrics:
-
-```text
-solved rate
-fully verified route rate
-formal-invalid expansion rate
-route length and diversity
-nodes expanded
-reaction-model calls
-wall-clock time
-```
-
-Planning is an extension and cannot rescue failed H1 or H2 claims.
-
-## 13. Required paper result package
-
-### Result 1 — causal reasoning
-
-- matched endpoint/process table;
-- trace/proof/endpoint consistency;
-- intervention curves;
-- formal corruption benchmark;
-- examples of answer-bearing bypass and trace-owned prevention.
-
-### Result 2 — compositional reasoning
-
-- MechComp-OOD construction audit;
-- IID versus composition-OOD comparison;
-- performance versus composition novelty and complexity;
-- invariance controls;
-- coverage-limited failures.
-
-### Result 3 — evidence separation
-
-- six-condition matched evidence table;
-- knowledge intervention effects;
-- independently calibrated forward evidence;
-- examples of multiple executable paths with different empirical support.
-
-### Optional Result 4 — efficiency and planning
-
-- model-scale/compute-normalized comparison;
-- hypothesis-set curves;
-- fully verified planning results.
-
-## 14. Reproducibility contract
-
-Every reported checkpoint and result must include:
-
-```text
-repository commit
-base-model/tokenizer revision
-adapter hash and lineage
-data and benchmark hashes
-source licenses and revisions
-executor and environment revision
-condition manifest
-optimizer and update count
-seed
-GPU hours and hardware
-inference, tool and search budgets
-calibration thresholds
-raw predictions and evaluation config
-```
-
-## 15. Global stopping rules
-
-Do not make the corresponding claim when:
-
-- conversion coverage is narrow or unreported;
-- matched IDs or endpoints differ;
-- tool-observation interventions have negligible effect;
-- composition-OOD contains unseen execution primitives;
-- evidence gains are explained by irrelevant context;
-- knowledge receives direct reward;
-- a learned score overrides formal execution;
-- forward calibration degrades on the frozen audit set;
-- test assets are modified after observing final failures;
-- paper-scale RL begins before Tool-SFT demonstrates executable learning.
