@@ -9,11 +9,13 @@ conditions:
     input: data/textbook_tool_sft/train.jsonl
     knowledge: natural_language_textbook
     environment: trace_owned
+    query_contract: target_state_terms_only
 
   trace_text_plus_anchors:
     input: data/textbook_tool_sft/train_text_and_anchors.jsonl
     knowledge: natural_language_textbook_and_structured_anchors
     environment: trace_owned
+    query_contract: target_state_terms_only
 
   trace_no_knowledge:
     derive_from: trace_textbook_rag
@@ -41,60 +43,64 @@ conditions:
 
 training_contract:
   model_family: Qwen3
-  scales:
-    - 0.6B
-    - 1.7B
-    - 8B
+  scales: [0.6B, 1.7B, 8B]
   same_tokenizer_revision: true
   same_stable_id_intersection: true
   same_optimizer_schedule: true
   same_lora_rank: true
   same_training_updates: true
-  matched_assistant_token_budget: true
-  matched_context_character_budget: true
+  raw_assistant_token_equality_assumed: false
+  supervised_token_budget_policy: >-
+    Measure real tokenizer input and assistant-mask tokens for every condition;
+    report token-normalized compute and use explicit sampling/update multipliers
+    when cumulative supervised-token matching is required.
+  exact_textbook_character_budget_for_text_conditions: true
   matched_tool_call_budget_for_trace_conditions: true
-  textbook_retrieval_direct_reward: false
+  evidence_retrieval_direct_reward: false
   primary_stage: supervised_tool_sft_before_rl
-  seeds:
-    - 17
-    - 29
-    - 43
+  seeds: [17, 29, 43]
 
 evaluation_contract:
-  hypotheses:
-    - trace_ownership_is_causally_required
-    - execution_primitives_support_unseen_compositions
-    - empirical_evidence_is_distinct_from_formal_executability
+  frozen_reference_ids_required: true
+  missing_prediction_policy: count_as_failure
+  duplicate_or_extra_prediction_policy: hard_error
+  recompute_trace_and_proof_metrics: true
+  primary_endpoint: structural_precursor_exact_ignore_maps
+  secondary_endpoint: mapped_structural_precursor_exact
   primary_metrics:
     - structural_precursor_top1
     - structural_precursor_top5
-    - reaction_center_accuracy
-    - synthon_exact_match
+    - mapped_structural_precursor_top1
     - execute_rate
     - trace_endpoint_consistency
     - tool_failure_recovery
     - abstention_risk_coverage
-  evidence_metrics:
+  knowledge_metrics:
     - retrieval_recall_at_k
     - retrieval_precision_at_k
     - passage_rank
     - context_characters
+    - tokenizer_input_tokens
+    - tokenizer_supervised_tokens
     - retrieval_latency
     - citation_correctness
-  causal_controls:
-    - shuffle_passages
-    - length_matched_irrelevant_context
-    - same_topic_wrong_passage
-    - remove_competing_pathway_text
+  evidence_interventions:
+    - passage_shuffle
+    - same_topic_wrong
     - remove_warnings
+    - remove_competing_pathways
+  causal_trace_interventions:
     - remove_tool_observations
-    - replace_tool_observations_with_stale_states
+    - stale_tool_observations
+    - shuffle_tool_observations
+    - disable_inspect_state
+    - disable_intermediate_execution
   ood_conditions:
-    - execution_primitive_composition_holdout
+    - source_sink_primitive_composition_holdout
     - reaction_family_holdout
     - product_scaffold_holdout
     - temporal_holdout
   claim_gate: >-
-    Textbook evidence must exceed both trace-only and length-matched irrelevant
-    context, and the trace-owned condition must be causally sensitive to tool
-    observations.
+    Textbook gains must exceed both trace-only and length-matched irrelevant
+    context under the frozen ID universe, and the trace-owned path must remain
+    fully re-executable and causally sensitive to tool-observation interventions.

@@ -1,8 +1,8 @@
-condition_name: trace_textbook_rag
+condition_name: direct_textbook_rag
 scientific_hypothesis: H3_empirical_evidence_separation
 model_name_or_path: Qwen/Qwen3-0.6B
-train_file: data/knowledge_ablation/v2/trace_textbook_rag.jsonl
-output_dir: outputs/agent/tool_sft_textbook_qwen3_0_6b
+train_file: data/knowledge_ablation/v2/direct_textbook_rag.jsonl
+output_dir: outputs/agent/tool_sft_direct_textbook_qwen3_0_6b
 limit_examples: 0
 
 training:
@@ -28,21 +28,17 @@ lora:
 contract:
   stable_id_manifest: data/knowledge_ablation/v2/manifest.json
   validation_report: outputs/contracts/evidence_conditions.json
-  require_trace_owned: true
-  endpoint_source: environment_owned_trace
-  terminal_tool: finish_trace
-  free_form_proof_submission: false
+  require_trace_owned: false
+  endpoint_source: direct_answer
+  terminal_tool: null
+  free_form_proof_submission: null
   knowledge_direct_reward: false
-  environment_revision: knowledge_trace_owned_move_replay_v2
-  executor_revision: MECH_PROOF_v1_move_bound
+  environment_revision: direct_open_book_v2
+  executor_revision: not_applicable
   matched_against:
-    - trace_no_knowledge
-    - trace_length_matched_irrelevant
-    - trace_structured_anchors
-    - trace_text_plus_anchors
-    - direct_textbook_rag
+    - trace_textbook_rag
   real_overfit_smoke_test_required: true
   smoke_command: >-
     python scripts/train_tool_sft.py --config
-    configs/knowledge/tool_sft_textbook.yaml --limit 32 --max-steps 100
-  rl_after_supervised_signal_only: true
+    configs/knowledge/tool_sft_direct_textbook.yaml --limit 32 --max-steps 100
+  rl_after_supervised_signal_only: false

@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Train the inverse actor with TRL's stateful agentic GRPO interface.
-
-The chemistry environment remains framework-neutral in ``mechet.agent_env``.
-This entrypoint is the recommended small-scale reference adapter. Use ``--dry-run``
-to validate data, reward settings, and tool schemas without importing TRL.
-"""
+"""Train the legacy loose-trace/complete-proof baseline through a TRL facade."""
 from __future__ import annotations
 
 import argparse
@@ -17,14 +12,13 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from mechet.agent_env import AgentEnvConfig, MechETAgentEnv
+from mechet.agent_env import AgentEnvConfig
+from mechet.trl_environments import LegacyProofTRLEnvironment
 
 
-SYSTEM_PROMPT = """You are MechET, an inverse electron-flow reasoning agent.
-Use the chemistry tools to inspect atom-mapped states and test explicit electron
-moves. The final precursor must be derived by submitting one executable
-MECH_PROOF v1 program. Never invent atom maps that are absent from the state or
-imports, and abstain when chemical support is insufficient."""
+SYSTEM_PROMPT = """You are the legacy MechET complete-proof baseline.
+You may inspect and test electron moves, but the final output is an independently
+submitted executable MECH_PROOF v1 program. Abstain when unsupported."""
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -37,7 +31,7 @@ def load_yaml(path: Path) -> dict[str, Any]:
 
 def read_jsonl(path: Path, limit: int = 0) -> list[dict[str, Any]]:
     rows = [
-        json.loads(line)
+        dict(json.loads(line))
         for line in path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
@@ -45,28 +39,31 @@ def read_jsonl(path: Path, limit: int = 0) -> list[dict[str, Any]]:
 
 
 def target_from_row(row: dict[str, Any]) -> str:
-    for key in ("target_smiles", "target", "product", "products"):
-        value = str(row.get(key) or "").strip()
-        if value:
-            return value
-    metadata = row.get("metadata") or {}
-    for key in ("target_smiles", "product", "products"):
-        value = str(metadata.get(key) or "").strip()
-        if value:
-            return value
+    metadata = dict(row.get("metadata") or {})
+    for value in (
+        row.get("target_smiles"),
+        row.get("target"),
+        row.get("product"),
+        row.get("products"),
+        metadata.get("target_smiles"),
+        metadata.get("product"),
+    ):
+        text = str(value or "").strip()
+        if text:
+            return text
     for message in row.get("messages") or []:
-        content = str(message.get("content") or "")
-        for line in content.splitlines():
+        for line in str(message.get("content") or "").splitlines():
             if line.strip().upper().startswith("TARGET:"):
                 return line.split(":", 1)[1].strip()
     return ""
 
 
 def expected_from_row(row: dict[str, Any]) -> str:
-    metadata = row.get("metadata") or {}
+    metadata = dict(row.get("metadata") or {})
     return str(
         row.get("expected_precursor")
-        or metadata.get("core_precursor")
+        or row.get("full_precursor_state")
+        or metadata.get("full_precursor_state")
         or metadata.get("derived_precursor")
         or metadata.get("initial_reactants")
         or ""
@@ -77,10 +74,7 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
     target = target_from_row(row)
     if not target:
         raise ValueError("training row has no target product")
-    competitors = row.get("competitor_products") or (row.get("metadata") or {}).get(
-        "competitor_products"
-    ) or []
-    conditions = row.get("conditions") or (row.get("metadata") or {}).get("conditions")
+    metadata = dict(row.get("metadata") or {})
     return {
         "prompt": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -88,21 +82,22 @@ def normalize_row(row: dict[str, Any]) -> dict[str, Any]:
                 "role": "user",
                 "content": (
                     f"TARGET: {target}\n"
-                    "Reason backward with explicit electron-flow tools and submit "
-                    "an executable inverse proof."
+                    "Reason backward and submit one executable inverse proof."
                 ),
             },
         ],
         "target_smiles": target,
         "expected_precursor": expected_from_row(row),
-        "competitor_products": competitors,
-        "conditions": conditions,
+        "competitor_products": row.get("competitor_products")
+        or metadata.get("competitor_products")
+        or [],
+        "conditions": row.get("conditions") or metadata.get("conditions"),
         "source_id": str(row.get("id") or ""),
     }
 
 
 def build_rows(path: Path, limit: int = 0) -> list[dict[str, Any]]:
-    output = []
+    output: list[dict[str, Any]] = []
     rejected = 0
     for row in read_jsonl(path, limit=limit):
         try:
@@ -116,24 +111,28 @@ def build_rows(path: Path, limit: int = 0) -> list[dict[str, Any]]:
 
 def dry_run_report(cfg: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
     env_cfg = AgentEnvConfig(**dict(cfg.get("environment") or {}))
-    env = MechETAgentEnv(config=env_cfg)
+    env = LegacyProofTRLEnvironment(config=env_cfg)
     first = rows[0]
     observation = env.reset(**first)
     inventory = json.loads(env.inspect_state())
     training = dict(cfg.get("training") or {})
+    public_tools = sorted(
+        name
+        for name in dir(env)
+        if not name.startswith("_") and name not in {"reset", "get_reward"}
+    )
     return {
         "model_name_or_path": cfg.get("model_name_or_path"),
         "train_file": cfg.get("train_file"),
         "n_rows": len(rows),
         "first_target": first["target_smiles"],
         "environment": env_cfg.__dict__,
+        "environment_class": type(env).__name__,
+        "public_model_tools": public_tools,
         "observation_ok": bool(observation),
         "n_sources": len(inventory.get("sources") or []),
         "n_sinks": len(inventory.get("sinks") or []),
-        "forward_checkpoint": cfg.get("forward_checkpoint") or None,
-        "max_tool_calling_iterations": int(
-            training.get("max_tool_calling_iterations", 8)
-        ),
+        "max_tool_calling_iterations": int(training.get("max_tool_calling_iterations", 8)),
         "num_generations": int(training.get("num_generations", 8)),
     }
 
@@ -153,7 +152,6 @@ def main() -> int:
         train_file,
         limit=args.limit or int(cfg.get("limit_examples", 0) or 0),
     )
-
     if args.dry_run:
         print(json.dumps(dry_run_report(cfg, rows), indent=2, ensure_ascii=False))
         return 0
@@ -164,10 +162,7 @@ def main() -> int:
         from peft import LoraConfig
         from trl import GRPOConfig, GRPOTrainer
     except ImportError as exc:
-        raise RuntimeError(
-            "agent training requires mechet[agent] and a TRL release with "
-            "environment_factory"
-        ) from exc
+        raise RuntimeError("agent training requires mechet[agent]") from exc
 
     model_name = str(cfg.get("model_name_or_path") or "")
     if not model_name:
@@ -175,67 +170,45 @@ def main() -> int:
     training = dict(cfg.get("training") or {})
     lora = dict(cfg.get("lora") or {})
     env_cfg = AgentEnvConfig(**dict(cfg.get("environment") or {}))
-    forward_checkpoint = cfg.get("forward_checkpoint") or None
-    forward_device = str(cfg.get("forward_device") or "cpu")
-
     grpo_args = GRPOConfig(
         output_dir=str(cfg.get("output_dir") or "outputs/agent/inverse_trl_grpo"),
         learning_rate=float(training.get("learning_rate", 5e-6)),
         num_train_epochs=float(training.get("num_train_epochs", 1.0)),
-        per_device_train_batch_size=int(
-            training.get("per_device_train_batch_size", 1)
-        ),
-        gradient_accumulation_steps=int(
-            training.get("gradient_accumulation_steps", 8)
-        ),
+        per_device_train_batch_size=int(training.get("per_device_train_batch_size", 1)),
+        gradient_accumulation_steps=int(training.get("gradient_accumulation_steps", 8)),
         num_generations=int(training.get("num_generations", 8)),
         max_completion_length=int(training.get("max_completion_length", 2048)),
-        max_tool_calling_iterations=int(
-            training.get("max_tool_calling_iterations", 8)
-        ),
+        max_tool_calling_iterations=int(training.get("max_tool_calling_iterations", 8)),
         temperature=float(training.get("temperature", 0.9)),
         top_p=float(training.get("top_p", 0.95)),
         beta=float(training.get("beta", 0.02)),
         use_vllm=bool(training.get("use_vllm", False)),
         logging_steps=int(training.get("logging_steps", 1)),
         save_steps=int(training.get("save_steps", 100)),
-        bf16=bool(
-            training.get(
-                "bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported()
-            )
-        ),
-        fp16=bool(
-            training.get(
-                "fp16", torch.cuda.is_available() and not torch.cuda.is_bf16_supported()
-            )
-        ),
+        bf16=bool(training.get("bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported())),
+        fp16=bool(training.get("fp16", torch.cuda.is_available() and not torch.cuda.is_bf16_supported())),
         report_to=list(training.get("report_to") or []),
-        chat_template_kwargs={
-            "enable_thinking": bool(training.get("enable_thinking", True))
-        },
+        chat_template_kwargs={"enable_thinking": bool(training.get("enable_thinking", True))},
         trust_remote_code=bool(training.get("trust_remote_code", True)),
     )
     peft_config = LoraConfig(
         r=int(lora.get("r", 16)),
         lora_alpha=int(lora.get("alpha", 32)),
         lora_dropout=float(lora.get("dropout", 0.05)),
-        target_modules=list(
-            lora.get("target_modules")
-            or ["q_proj", "k_proj", "v_proj", "o_proj"]
-        ),
+        target_modules=list(lora.get("target_modules") or ["q_proj", "k_proj", "v_proj", "o_proj"]),
         task_type="CAUSAL_LM",
     )
-    environment_factory = partial(
-        MechETAgentEnv,
+    factory = partial(
+        LegacyProofTRLEnvironment,
         config=env_cfg,
-        forward_checkpoint=forward_checkpoint,
-        forward_device=forward_device,
+        forward_checkpoint=cfg.get("forward_checkpoint") or None,
+        forward_device=str(cfg.get("forward_device") or "cpu"),
     )
     trainer = GRPOTrainer(
         model=model_name,
         args=grpo_args,
         train_dataset=Dataset.from_list(rows),
-        environment_factory=environment_factory,
+        environment_factory=factory,
         peft_config=peft_config,
     )
     trainer.train()

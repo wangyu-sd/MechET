@@ -1,8 +1,8 @@
-condition_name: trace_textbook_rag
+condition_name: trace_text_plus_anchors
 scientific_hypothesis: H3_empirical_evidence_separation
 model_name_or_path: Qwen/Qwen3-0.6B
-train_file: data/knowledge_ablation/v2/trace_textbook_rag.jsonl
-output_dir: outputs/agent/tool_sft_textbook_qwen3_0_6b
+train_file: data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl
+output_dir: outputs/agent/tool_sft_text_plus_anchors_qwen3_0_6b
 limit_examples: 0
 
 training:
@@ -33,16 +33,14 @@ contract:
   terminal_tool: finish_trace
   free_form_proof_submission: false
   knowledge_direct_reward: false
-  environment_revision: knowledge_trace_owned_move_replay_v2
+  environment_revision: textbook_anchor_trace_owned_move_replay_v2
   executor_revision: MECH_PROOF_v1_move_bound
   matched_against:
     - trace_no_knowledge
-    - trace_length_matched_irrelevant
+    - trace_textbook_rag
     - trace_structured_anchors
-    - trace_text_plus_anchors
-    - direct_textbook_rag
   real_overfit_smoke_test_required: true
   smoke_command: >-
     python scripts/train_tool_sft.py --config
-    configs/knowledge/tool_sft_textbook.yaml --limit 32 --max-steps 100
+    configs/knowledge/tool_sft_combined.yaml --limit 32 --max-steps 100
   rl_after_supervised_signal_only: true

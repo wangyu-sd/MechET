@@ -1,5 +1,4 @@
 """SFT formatting for proof-carrying retrosynthesis."""
-
 from __future__ import annotations
 
 import copy
@@ -7,7 +6,8 @@ import hashlib
 import json
 from typing import Any
 
-from mechet.proof_program import (
+from .endpoints import split_precursor_endpoints
+from .proof_program import (
     compile_mech_et_body,
     execute_proof,
     format_proof_output,
@@ -15,24 +15,10 @@ from mechet.proof_program import (
 )
 
 MECH_PROOF_SYSTEM_PROMPT = (
-    "You are MechET-Proof for proof-carrying retrosynthesis. "
-    "Given only a mapped target-product SMILES, emit one executable MECH_PROOF v1 program. "
-    "Do not emit intermediate STATE SMILES and do not emit an answer. The executor derives the precursor. "
-    "ROOT imports declare mapped species present before electron-flow actions. Each EDGE contains sparse "
-    "BOND, LP, and CHARGE operations. All atom maps must be unique and every edge must conserve electrons. "
-    "Output exactly:\n"
-    "<proof>\n"
-    "MECH_PROOF v1\n"
-    'TARGET_SMILES "<mapped product>"\n'
-    "ROOT <state-id>\n"
-    '  IMPORT "<mapped species>"\n'
-    "PRECURSOR_STATE <state-id>\n"
-    "EDGE <source-id> <destination-id>\n"
-    '  IMPORT "<optional newly introduced mapped species>"\n'
-    "  BOND <map-i> <map-j> <signed-delta>\n"
-    "  LP <map-i> <signed-delta>\n"
-    "  CHARGE <map-i> <old-charge> <new-charge>\n"
-    "</proof>"
+    "You are the complete-proof MechET baseline. Given a mapped target, emit one "
+    "executable MECH_PROOF v1 program. Do not emit an independent precursor answer; "
+    "the executor derives the full precursor state. ROOT imports declare mapped "
+    "species present before electron-flow actions. Output exactly one <proof> block."
 )
 
 
@@ -76,9 +62,7 @@ def _extract_existing(row: dict[str, Any]) -> tuple[str, str, str]:
     mechanism = _extract_tagged(assistant, "<mechanism>", "</mechanism>")
     answer = _extract_tagged(assistant, "<answer>", "</answer>")
     if not product or not mechanism or not answer:
-        raise ValueError(
-            "row does not contain TARGET, <mechanism>, and <answer>"
-        )
+        raise ValueError("row does not contain TARGET, <mechanism>, and <answer>")
     return product, mechanism, answer
 
 
@@ -91,43 +75,41 @@ def convert_mech_et_row_to_proof_sft(
     if not executed.ok:
         raise ValueError(f"compiled proof failed: {executed.diagnostics}")
     if not sides_equal(executed.precursor_smiles, original_answer):
-        raise ValueError(
-            "executor-derived precursor does not match original answer"
-        )
+        raise ValueError("executor-derived precursor does not match original answer")
 
+    endpoints = split_precursor_endpoints(executed.precursor_smiles, product)
     metadata = copy.deepcopy(row.get("metadata") or {})
     metadata.update(
         {
-            "source_task_type": row.get("task_type")
-            or metadata.get("task_type"),
+            "source_task_type": row.get("task_type") or metadata.get("task_type"),
             "task_type": "mech_proof_retro",
             "proof_version": "MECH_PROOF v1",
             "answer_channel": "executor_derived",
-            "derived_precursor": executed.precursor_smiles,
+            "derived_precursor": endpoints.full,
+            "full_precursor_state": endpoints.full,
+            "structural_precursor": endpoints.structural,
+            "auxiliary_fragments": list(endpoints.auxiliary),
             "assistant_only_loss": True,
             "qwen_sft_format": "chat_messages_v1",
         }
     )
     user = (
         f"TARGET: {product}\n"
-        "Synthesize an executable inverse electron-flow proof. "
-        "The precursor will be obtained only by executing the proof."
+        "Synthesize one executable inverse electron-flow proof. The precursor "
+        "will be obtained only by executing the proof."
     )
     return {
         "id": str(row.get("id") or _stable_id(row)).replace(
-            "flower_mech_et",
-            "flower_mech_proof",
+            "flower_mech_et", "flower_mech_proof"
         ),
+        "artifact_type": "supervision",
+        "target_smiles": product,
+        "expected_precursor": endpoints.full,
+        **endpoints.to_dict(),
         "messages": [
-            {
-                "role": "system",
-                "content": MECH_PROOF_SYSTEM_PROMPT,
-            },
+            {"role": "system", "content": MECH_PROOF_SYSTEM_PROMPT},
             {"role": "user", "content": user},
-            {
-                "role": "assistant",
-                "content": format_proof_output(program),
-            },
+            {"role": "assistant", "content": format_proof_output(program)},
         ],
         "task_type": "mech_proof_retro",
         "metadata": metadata,

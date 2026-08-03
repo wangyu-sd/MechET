@@ -1,121 +1,99 @@
 # MechET documentation map
 
-This page defines the authority order for MechET. The repository must have one scientific story: causal program induction over electron-flow execution primitives, followed by tests of compositional generalization and evidence separation.
+This page defines the authority order for MechET. The repository has one scientific story: causal program induction over source-to-sink execution primitives, followed by tests of compositional generalization and evidence separation.
 
-## Reading order
+## Authority and reading order
 
-1. [`SCIENTIFIC_THESIS.md`](SCIENTIFIC_THESIS.md) — single source of truth for the scientific question, hypotheses, terminology and permitted claims.
-2. [`TRACE_FAITHFULNESS.md`](TRACE_FAITHFULNESS.md) — main-method causal contract: environment-owned trace, `finish_trace`, proof compilation and endpoint derivation.
-3. [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md) — authoritative definitions of H1 causal faithfulness, H2 compositionality and H3 evidence separation.
-4. [`EXECUTION_PLAN.md`](EXECUTION_PLAN.md) — ordered data, training, intervention and evaluation commands with stop conditions.
-5. [`TOOL_SFT.md`](TOOL_SFT.md) — conservative proof-to-trace conversion, replay-verified supervision and coverage reporting.
-6. [`KNOWLEDGE_ABLATIONS.md`](KNOWLEDGE_ABLATIONS.md) — matched evidence conditions, fair direct open-book baseline and causal interventions.
-7. [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) — provenance-aware mechanistic knowledge anchors; not the execution-primitive basis used for composition-OOD.
-8. [`PROOF_CARRYING.md`](PROOF_CARRYING.md) — `MECH_PROOF v1`, deterministic executor and complete-proof baseline.
-9. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — optional independent process, competitor and uncertainty evidence.
-10. [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) — implementation backends and planning adapters; not a scientific definition.
+1. [`SCIENTIFIC_THESIS.md`](SCIENTIFIC_THESIS.md) — scientific question, hypotheses, terminology and permitted claims.
+2. [`TRACE_FAITHFULNESS.md`](TRACE_FAITHFULNESS.md) — main causal runtime contract.
+3. [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md) — frozen H1/H2/H3 experiment definitions and claim gates.
+4. [`EXECUTION_PLAN.md`](EXECUTION_PLAN.md) — ordered commands, artifacts and stopping rules.
+5. [`TOOL_SFT.md`](TOOL_SFT.md) — replay-verified supervision and adapter lineage.
+6. [`PROOF_EQUIVALENCE.md`](PROOF_EQUIVALENCE.md) — source-to-sink primitive and composition signatures.
+7. [`KNOWLEDGE_ABLATIONS.md`](KNOWLEDGE_ABLATIONS.md) — matched evidence conditions and interventions.
+8. [`TEXTBOOK_RAG.md`](TEXTBOOK_RAG.md) — corpus, provenance, retrieval and bounded evidence cards.
+9. [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) — structured mechanistic knowledge anchors.
+10. [`PROOF_CARRYING.md`](PROOF_CARRYING.md) — `MECH_PROOF v1` and complete-proof baselines.
+11. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — optional independent forward evidence.
+12. [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) — implementation backends and downstream planning adapters.
 
-## Authority
+When documents disagree, update the lower-authority document. Do not create a parallel source of truth.
 
-| Document | Authority |
-|---|---|
-| `SCIENTIFIC_THESIS.md` | scientific question, hypothesis, terminology and claim boundaries |
-| `TRACE_FAITHFULNESS.md` | main inference contract and the meaning of causal trace ownership |
-| `PROOF_CENTRIC_EXPERIMENT_PLAN.md` | frozen experiment definitions and claim gates |
-| `EXECUTION_PLAN.md` | run order, commands, pilot gates and stop conditions |
-| `README.md` | public summary and entrypoints; must follow the four documents above |
+## Runtime contract
 
-When documents disagree, update the lower-authority document. Do not create a new parallel source of truth.
+The main model-facing implementation is an explicit TRL facade (`TraceOwnedTRLEnvironment` or an evidence variant). It exposes only declared tools. Internal state inspection such as `state_dict` remains private, and `submit_proof` is available only in a named legacy baseline.
+
+```text
+model tool calls
+  -> environment-owned state transitions
+  -> source-to-sink move trace
+  -> replay declared moves
+  -> finish_trace
+  -> deterministic proof compilation
+  -> executor-derived endpoint views
+```
+
+Root imports and edge imports must survive proof-to-trace conversion and replay. Every invalid or disabled tool call consumes the same environment budget used by valid calls.
+
+## Data and artifact contract
+
+Tool-SFT rows use paired `messages` and `tools`, JSON-object arguments, a frozen tokenizer assistant mask and explicit endpoint views. Reaction-family labels are excluded from headline retrieval queries; a `label_oracle` query is only an upper bound.
+
+Prediction artifacts are distinct from supervision rows. Headline evaluation requires `artifact_type=prediction`, a frozen reference ID universe and recorded model, adapter, revision and generation settings. Missing predictions stay in the denominator; duplicate or extra IDs are errors. Trace and proof metrics are recomputed instead of trusting stored booleans.
+
+## Scientific terminology
+
+### Source-to-sink execution primitives
+
+Local executable actions such as `LP -> BOND`, `BOND -> ATOM` and `BOND -> BOND`. These define the H2 composition split.
+
+### Mechanistic knowledge anchors
+
+Provenance-aware records with role bindings, candidate moves, warnings and competitors. They are soft evidence and do not define the H2 primitive basis.
+
+### Formal and empirical evidence
+
+The deterministic executor defines formal validity. Textbook passages, anchor matches and learned forward scores are soft evidence and cannot override formal failure or establish experimental truth.
 
 ## Main method and baselines
 
-### Main method
+Main method:
 
 ```text
-TraceOwnedAgentEnv / KnowledgeAugmentedAgentEnv
-explicit electron-flow actions
+trace-owned tool reasoning
 finish_trace
-deterministic trace-to-proof compilation
-executor-derived precursor
+environment-compiled proof
+executor-derived endpoint
 ```
 
-`submit_proof` is disabled.
+Required baselines include direct outcome generation, answer-bearing CoT, independent complete-proof generation and legacy loose-trace plus submitted proof.
 
-### Required baselines
+## Experimental order
 
-```text
-outcome-only
-free-form CoT plus answer
-state-CoT plus answer
-net edit
-independent complete MECH_PROOF generation
-legacy loose tool trace plus submitted proof
-```
+1. Measure proof-to-trace conversion and quarantine coverage.
+2. Build the six matched Tool-SFT conditions.
+3. Run real tokenizer/mask audits and small-set overfit tests.
+4. Evaluate H1 with normal, removed, stale and shuffled tool observations under the same runtime contract.
+5. Evaluate H2 with non-empty, composition-disjoint test splits whose primitives all occur in train.
+6. Evaluate H3 with frozen textbook/anchor evidence, irrelevant text, direct open-book and evidence-content interventions.
+7. Scale models or add RL only after the pilot gates pass.
 
-Complete-proof generation remains supported but must not be described as the trace-owned main method.
+Planning is a downstream extension and cannot rescue failed causal, compositional or evidence claims.
 
-## Terminology policy
+## Companion and historical documents
 
-### Electron-flow execution primitive
+- [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) describes evidence tools.
+- [`DATA_LEAKAGE_AND_ICLR_PLAN.md`](DATA_LEAKAGE_AND_ICLR_PLAN.md) describes overlap audits and benchmark freezing.
+- [`../knowledge/README.md`](../knowledge/README.md) describes source licensing and asset policy.
+- [`../data/README.md`](../data/README.md) describes local data construction.
 
-A local executable source-to-sink action. Execution primitives define the action vocabulary and MechComp-OOD composition signatures.
+Archived or deprecated documents remain visibly marked:
 
-### Mechanistic knowledge anchor
-
-A curated record with structural patterns, role bindings, candidate moves, warnings, competitors and provenance. Knowledge anchors are soft evidence and must not be called the compositional primitive basis without qualification.
-
-### Soft evidence
-
-Textbook passages, structured knowledge-anchor matches and learned forward scores. Soft evidence cannot override the deterministic executor or establish experimental truth.
-
-## Current companion documents
-
-| Document | Purpose |
-|---|---|
-| [`TEXTBOOK_RAG.md`](TEXTBOOK_RAG.md) | passage corpus, provenance, retrieval and bounded evidence cards |
-| [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) | online evidence tools and trace integration |
-| [`PROOF_EQUIVALENCE.md`](PROOF_EQUIVALENCE.md) | partial-order equivalence, invariance and composition signatures |
-| [`DATA_LEAKAGE_AND_ICLR_PLAN.md`](DATA_LEAKAGE_AND_ICLR_PLAN.md) | benchmark freezing, overlap audit and decontamination |
-| [`../knowledge/README.md`](../knowledge/README.md) | source registry, download gates and knowledge-asset policy |
-| [`../data/README.md`](../data/README.md) | proof-data construction details |
-| [`../data/FORWARD_EXPERT.md`](../data/FORWARD_EXPERT.md) | forward-expert local data layout |
-
-## Archived or deprecated documents
-
-| Document | Status | Replacement |
-|---|---|---|
-| [`EXPERIMENT_PLAN_ICLR_TO_NMI.md`](EXPERIMENT_PLAN_ICLR_TO_NMI.md) | deprecated | `PROOF_CENTRIC_EXPERIMENT_PLAN.md` and `EXECUTION_PLAN.md` |
-| [`EVAL.md`](EVAL.md) | deprecated legacy `MECH_ET v3` guide | current method and experiment documents |
-| [`BENCHMARK_RESULTS.md`](BENCHMARK_RESULTS.md) | historical inventory; not a result table | frozen manifests and result artifacts |
-| [`README_DESIGN_NOTES.md`](README_DESIGN_NOTES.md) | archived internal notes | current README and scientific thesis |
-
-## Documentation policy
-
-1. The main method ends with `finish_trace`; free-form proof submission is a baseline only.
-2. The environment-owned trace is the sole source of the main-method proof and endpoint.
-3. Electron-flow execution primitives and mechanistic knowledge anchors are distinct concepts.
-4. The deterministic executor is the hard source of formal validity.
-5. Textbook retrieval, knowledge-anchor matches and forward scores are soft evidence.
-6. Knowledge retrieval must not receive direct reward or return an endpoint.
-7. Tool-SFT rows must replay through the same trace-owned environment used at inference.
-8. Ambiguous source/sink labels are quarantined rather than invented.
-9. Headline comparisons use matched IDs, targets, structural endpoints and declared budgets.
-10. Anchors-only and direct open-book conditions are derived from the same matched source rows, not manually assembled datasets.
-11. Tool-observation interventions are required for the causal reasoning claim.
-12. Composition-OOD is defined over execution primitives, not knowledge-anchor IDs.
-13. Paper-scale RL begins only after Tool-SFT demonstrates executable learning.
-14. Forward evidence is independently calibrated before use in ranking or reward.
-15. Planning is a downstream extension and cannot rescue failed causal or compositional claims.
-16. Source revisions, hashes, licenses, configs, seeds, checkpoint lineage and raw predictions accompany reported results.
-17. The README must not report unreleased checkpoints or non-frozen numbers as established results.
+- [`EXPERIMENT_PLAN_ICLR_TO_NMI.md`](EXPERIMENT_PLAN_ICLR_TO_NMI.md) — deprecated.
+- [`EVAL.md`](EVAL.md) — deprecated legacy evaluation guide.
+- [`BENCHMARK_RESULTS.md`](BENCHMARK_RESULTS.md) — historical inventory, not a result table.
+- [`README_DESIGN_NOTES.md`](README_DESIGN_NOTES.md) — archived internal notes.
 
 ## CI documentation contract
 
-`tests/test_documentation_contract.py` prevents the following regressions:
-
-- restoring the old bidirectional-system story as the primary thesis;
-- describing `submit_proof` as the main terminal action;
-- omitting `finish_trace` or trace ownership;
-- conflating execution primitives with knowledge anchors;
-- presenting evidence or planning extensions as the causal endpoint path;
-- pointing default commands to the legacy loose-trace baseline.
+`tests/test_documentation_contract.py` prevents restoration of the old system story, exposure of internal methods as model tools, omission of root imports or prediction artifacts, conflation of execution primitives with knowledge anchors, and presentation of planning as the causal endpoint path.

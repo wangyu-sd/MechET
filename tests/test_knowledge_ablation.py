@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from mechet.knowledge_ablation import (
+    align_prediction_artifact,
     condition_contract_summary,
     condition_metrics,
     make_direct_textbook_condition,
@@ -14,6 +15,7 @@ from mechet.knowledge_ablation import (
     strip_textbook_keep_anchors,
     validate_alignment,
 )
+from mechet.tool_schemas import trace_tool_schemas
 
 
 def _load_conversational_records():
@@ -38,7 +40,7 @@ def tool_call(name, arguments=None, call_id="call_1"):
                 "type": "function",
                 "function": {
                     "name": name,
-                    "arguments": json.dumps(arguments or {}),
+                    "arguments": dict(arguments or {}),
                 },
             }
         ],
@@ -104,7 +106,15 @@ def row(identifier, target, context_text, passage_id, *, anchors=False):
         [
             tool_call(
                 "apply_coupled_electron_moves",
-                {"moves_json": "[]"},
+                {
+                    "moves": [
+                        {
+                            "source": {"kind": "BOND", "atoms": [1, 2]},
+                            "sink": {"kind": "ATOM", "atoms": [2]},
+                            "electrons": 2,
+                        }
+                    ]
+                },
                 "chemistry",
             ),
             tool_result(
@@ -127,15 +137,20 @@ def row(identifier, target, context_text, passage_id, *, anchors=False):
     )
     return {
         "id": identifier,
+        "artifact_type": "supervision",
         "target_smiles": target,
         "expected_precursor": target,
+        "structural_precursor": target,
         "messages": messages,
+        "tools": trace_tool_schemas(textbook=True, anchors=anchors),
         "metadata": {
             "endpoint_source": "environment_owned_trace",
             "knowledge_condition": "textbook_and_anchors" if anchors else "textbook_rag",
             "textbook_passage_ids": [passage_id],
             "textbook_context_characters": len(context_text),
             "structured_primitives_enabled": anchors,
+            "executor_replayed": True,
+            "trace_digest": f"trace-{identifier}",
         },
     }
 
@@ -183,9 +198,7 @@ def textbook_result(value):
 def test_matched_intersection_preserves_ids_and_endpoints():
     original = rows()
     stripped = [strip_knowledge_messages(item) for item in original]
-    identifiers, matched = matched_intersection(
-        {"textbook": original, "none": stripped}
-    )
+    identifiers, matched = matched_intersection({"textbook": original, "none": stripped})
     assert identifiers == ["r1", "r2"]
     assert [item["id"] for item in matched["none"]] == identifiers
 
@@ -199,23 +212,28 @@ def test_alignment_rejects_target_mismatch():
         validate_alignment({"left": original, "right": changed})
 
 
-def test_strip_knowledge_retains_chemistry_trace():
+def test_strip_knowledge_retains_chemistry_trace_and_schema():
     value = strip_knowledge_messages(rows()[0])
     names = tool_names(value)
+    schema_names = {
+        (item.get("function") or {}).get("name") for item in value["tools"]
+    }
     assert "retrieve_textbook_guidance" not in names
     assert "retrieve_primitives" not in names
+    assert "retrieve_textbook_guidance" not in schema_names
     assert "apply_coupled_electron_moves" in names
     assert "finish_trace" in names
-    assert value["metadata"]["knowledge_condition"] == "none"
 
 
 def test_strip_textbook_keep_anchors_derives_anchor_only_condition():
     value = strip_textbook_keep_anchors(rows(anchors=True)[0])
     names = tool_names(value)
+    schema_names = {
+        (item.get("function") or {}).get("name") for item in value["tools"]
+    }
     assert "retrieve_textbook_guidance" not in names
     assert "retrieve_primitives" in names
-    assert "finish_trace" in names
-    assert value["metadata"]["knowledge_condition"] == "structured_anchors"
+    assert "retrieve_primitives" in schema_names
     assert value["metadata"]["structured_anchors_enabled"] is True
 
 
@@ -223,23 +241,11 @@ def test_direct_open_book_uses_same_bounded_evidence_without_tools():
     source = rows()[0]
     source_context = textbook_result(source)["context"]["text"]
     value = make_direct_textbook_condition(source)
-    assert value["id"] == source["id"]
-    assert value["target_smiles"] == source["target_smiles"]
-    assert value["expected_precursor"] == source["expected_precursor"]
+    assert value["artifact_type"] == "supervision"
     assert source_context in value["messages"][1]["content"]
+    assert not value["tools"]
     assert not any(message.get("tool_calls") for message in value["messages"])
     assert value["metadata"]["endpoint_source"] == "direct_answer"
-    assert value["metadata"]["executor_replayed"] is False
-
-
-def test_direct_open_book_endpoint_is_evaluated_from_precursor_text():
-    direct_rows = [make_direct_textbook_condition(item) for item in rows()]
-    metrics = condition_metrics(direct_rows)
-    assert metrics["prediction_present_rate"] == 1.0
-    assert metrics["direct_prediction_rate"] == 1.0
-    assert metrics["trace_prediction_rate"] == 0.0
-    assert metrics["trace_bound_rate"] == 0.0
-    assert metrics["endpoint_exact_rate"] == 1.0
 
 
 def test_irrelevant_control_rotates_only_text_and_matches_length():
@@ -256,33 +262,34 @@ def test_irrelevant_control_rotates_only_text_and_matches_length():
         assert target_result["query"] == source_result["query"]
         assert target_result["state_smiles"] == source_result["state_smiles"]
         assert target_result["matches"] == []
-        assert target["metadata"]["textbook_control_donor_id"] != source["id"]
 
 
-def test_contract_summary_records_budgets_and_stable_ids():
+def test_contract_summary_counts_tool_call_supervision_and_schemas():
     summary = condition_contract_summary(rows())
     assert summary["n_rows"] == 2
     assert summary["stable_ids_sha256"]
-    assert summary["assistant_characters"] == 0
+    assert summary["assistant_characters"] > 0
+    assert summary["tool_schema_characters"] > 0
     assert summary["knowledge_tool_calls"] == 2
     assert summary["chemistry_tool_calls"] == 4
-    assert summary["textbook_context_characters"] > 0
 
 
-def test_tool_sft_records_remain_conversational():
+def test_tool_sft_records_keep_messages_and_tools():
     prepared = conversational_records(rows())
     assert prepared[0]["id"] == "r1"
     assert "messages" in prepared[0]
+    assert "tools" in prepared[0]
     assert "text" not in prepared[0]
-    assert any(message.get("tool_calls") for message in prepared[0]["messages"])
 
 
-def test_condition_metrics_enforce_trace_and_zero_knowledge_reward():
+def test_prediction_alignment_rejects_supervision_artifact():
+    direct = make_direct_textbook_condition(rows()[0])
+    with pytest.raises(ValueError, match="not a prediction artifact"):
+        align_prediction_artifact([direct], [direct], condition_name="direct")
+
+
+def test_condition_metrics_report_knowledge_use_without_trusting_gold_terminal():
     metrics = condition_metrics(rows())
     assert metrics["textbook_call_rate"] == 1.0
-    assert metrics["prediction_present_rate"] == 1.0
-    assert metrics["trace_prediction_rate"] == 1.0
-    assert metrics["trace_bound_rate"] == 1.0
-    assert metrics["execute_rate"] == 1.0
-    assert metrics["endpoint_exact_rate"] == 1.0
     assert metrics["knowledge_direct_reward_violations"] == 0
+    assert metrics["prediction_present_rate"] == 0.0

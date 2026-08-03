@@ -1,16 +1,18 @@
 """Framework-neutral stateful environment for inverse electron-flow agents.
 
-The environment is deliberately independent from TRL, verl, Agent Lightning,
-Prime Verifiers, or any orchestration library. Training-framework adapters should
-wrap this contract rather than duplicate chemistry state or reward logic.
+Training and inference frameworks must wrap this contract rather than expose all
+public implementation helpers as model tools. Invalid calls consume tool budget,
+and frozen forward experts are cached per process instead of reloaded per rollout.
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 import json
 from pathlib import Path
 from typing import Any
 
+from .endpoints import split_precursor_endpoints
 from .forward_expert import (
     ForwardElectronExpert,
     enumerate_containers,
@@ -18,6 +20,13 @@ from .forward_expert import (
 )
 from .forward_rewards import score_inverse_proof_forward
 from .proof_program import execute_proof, parse_proof_program, sides_equal
+
+
+@lru_cache(maxsize=8)
+def _cached_forward_expert(checkpoint: str, device: str):
+    """Load one frozen forward expert per checkpoint/device/process."""
+
+    return ForwardElectronExpert.load(checkpoint, device=device)
 
 
 @dataclass(frozen=True)
@@ -40,13 +49,7 @@ class AgentEnvConfig:
 
 
 class MechETAgentEnv:
-    """Stateful chemistry environment exposed through tool calls.
-
-    The inverse actor may inspect electron containers, test one or more explicit
-    source-sink moves, and finally submit a complete ``MECH_PROOF v1`` program.
-    The submitted precursor is always derived by the deterministic executor.
-    A frozen compact forward expert can optionally provide soft terminal evidence.
-    """
+    """Stateful chemistry implementation used behind explicit tool facades."""
 
     def __init__(
         self,
@@ -60,9 +63,10 @@ class MechETAgentEnv:
             if isinstance(config, AgentEnvConfig)
             else AgentEnvConfig(**dict(config or {}))
         )
+        checkpoint = str(forward_checkpoint or "").strip()
         self.forward_model = (
-            ForwardElectronExpert.load(forward_checkpoint, device=forward_device)
-            if forward_checkpoint
+            _cached_forward_expert(checkpoint, str(forward_device))
+            if checkpoint
             else None
         )
         self._clear()
@@ -123,24 +127,12 @@ class MechETAgentEnv:
         prompt: Any = None,
         **kwargs: Any,
     ) -> str:
-        """Reset one rollout and return the initial chemistry observation.
+        """Reset one rollout and return the initial chemistry observation."""
 
-        Args:
-            target_smiles: Atom-mapped target-product SMILES.
-            expected_precursor: Optional reference precursor used only in training.
-            competitor_products: Optional mapped competing products for selectivity.
-            conditions: Optional reagent, solvent, catalyst, and temperature metadata.
-            prompt: Optional chat prompt containing a ``TARGET:`` line.
-            **kwargs: Extra dataset columns ignored by the chemistry environment.
-
-        Returns:
-            Initial observation describing the target and available tools.
-        """
         del kwargs
         self._clear()
-        self.target_smiles = (
-            str(target_smiles or "").strip()
-            or self._target_from_prompt(prompt)
+        self.target_smiles = str(target_smiles or "").strip() or self._target_from_prompt(
+            prompt
         )
         if not self.target_smiles:
             raise ValueError("reset requires an atom-mapped target_smiles")
@@ -155,8 +147,8 @@ class MechETAgentEnv:
             "max_tool_calls": self.config.max_tool_calls,
             "instructions": [
                 "Use inspect_state before inventing atom maps.",
-                "Use apply_electron_move or apply_coupled_electron_moves to test explicit arrows.",
-                "Submit one complete MECH_PROOF v1 program with submit_proof.",
+                "Use explicit electron-flow tools for each claimed state change.",
+                "Use the terminal operation defined by the selected experiment.",
                 "Use abstain when chemical support is insufficient.",
             ],
         }
@@ -172,12 +164,31 @@ class MechETAgentEnv:
             self.reward = self.config.formal_failure
             raise RuntimeError("TOOL_BUDGET_EXCEEDED")
 
-    def inspect_state(self) -> str:
-        """Enumerate electron sources and sinks in the current mapped state.
+    def _invalid_call(self, event: str, code: str, message: str = "") -> str:
+        """Consume budget and record malformed calls consistently."""
 
-        Returns:
-            JSON containing the current state and legal electron-container IDs.
-        """
+        try:
+            self._consume_call()
+        except Exception as exc:
+            result = {
+                "ok": False,
+                "code": "TOOL_BUDGET_EXCEEDED",
+                "message": str(exc),
+                "remaining_tool_calls": 0,
+            }
+            self.trace.append({"event": event, "result": result})
+            return json.dumps(result, ensure_ascii=False)
+        self.failed_steps += 1
+        result = {
+            "ok": False,
+            "code": code,
+            "message": message or code,
+            "remaining_tool_calls": max(self.config.max_tool_calls - self.tool_calls, 0),
+        }
+        self.trace.append({"event": event, "result": result})
+        return json.dumps(result, ensure_ascii=False)
+
+    def inspect_state(self) -> str:
         self._consume_call()
         try:
             sources, sinks = enumerate_containers(self.current_state)
@@ -190,7 +201,12 @@ class MechETAgentEnv:
             }
         except Exception as exc:
             self.failed_steps += 1
-            result = {"ok": False, "code": "STATE_INSPECTION_FAILED", "message": str(exc)}
+            result = {
+                "ok": False,
+                "code": "STATE_INSPECTION_FAILED",
+                "message": str(exc),
+                "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
+            }
         self.trace.append({"event": "inspect_state", "result": result})
         return json.dumps(result, ensure_ascii=False)
 
@@ -223,17 +239,6 @@ class MechETAgentEnv:
         sink_kind: str,
         sink_atoms: list[int],
     ) -> str:
-        """Execute one explicit two-electron source-to-sink move.
-
-        Args:
-            source_kind: ``LP`` or ``BOND``.
-            source_atoms: One atom map for LP or two atom maps for BOND.
-            sink_kind: ``ATOM``, ``LP``, or ``BOND``.
-            sink_atoms: One atom map for ATOM/LP or two atom maps for BOND.
-
-        Returns:
-            JSON execution result and the sanitized next molecular state.
-        """
         return self._apply_moves(
             [
                 {
@@ -245,46 +250,27 @@ class MechETAgentEnv:
         )
 
     def apply_coupled_electron_moves(self, moves_json: str) -> str:
-        """Execute coupled arrows atomically as one elementary event.
+        """Execute coupled arrows; malformed calls still consume tool budget."""
 
-        Args:
-            moves_json: JSON list of objects with ``source`` and ``sink`` fields.
-
-        Returns:
-            JSON execution result and the sanitized next molecular state.
-        """
         try:
             moves = json.loads(moves_json)
-        except json.JSONDecodeError as exc:
-            return json.dumps(
-                {"ok": False, "code": "MOVE_JSON_INVALID", "message": str(exc)},
-                ensure_ascii=False,
+        except (json.JSONDecodeError, TypeError) as exc:
+            return self._invalid_call(
+                "apply_moves", "MOVE_JSON_INVALID", str(exc)
             )
         if not isinstance(moves, list) or not moves:
-            return json.dumps(
-                {"ok": False, "code": "MOVE_LIST_EMPTY"},
-                ensure_ascii=False,
-            )
+            return self._invalid_call("apply_moves", "MOVE_LIST_EMPTY")
+        if any(not isinstance(item, dict) for item in moves):
+            return self._invalid_call("apply_moves", "MOVE_LIST_INVALID")
         return self._apply_moves([dict(item) for item in moves])
 
     def submit_proof(self, proof: str) -> str:
-        """Execute and score one complete inverse proof.
-
-        Args:
-            proof: Complete ``MECH_PROOF v1`` text.
-
-        Returns:
-            JSON with formal execution, endpoint agreement, forward evidence,
-            and the terminal environment reward.
-        """
         self._consume_call()
         output: dict[str, Any]
         try:
             program = parse_proof_program(proof)
             if not sides_equal(
-                program.target_smiles,
-                self.target_smiles,
-                ignore_maps=True,
+                program.target_smiles, self.target_smiles, ignore_maps=True
             ):
                 raise ValueError("PROOF_TARGET_MISMATCH")
             execution = execute_proof(program)
@@ -303,9 +289,13 @@ class MechETAgentEnv:
                         ignore_maps=True,
                     )
                 )
+                endpoints = split_precursor_endpoints(
+                    execution.precursor_smiles, self.target_smiles
+                )
                 output = {
                     "formal_execute": True,
                     "derived_precursor": execution.precursor_smiles,
+                    **endpoints.to_dict(),
                     "endpoint_exact": endpoint_exact,
                 }
                 terminal_reward = self.config.formal_success
@@ -325,7 +315,9 @@ class MechETAgentEnv:
         except Exception as exc:
             output = {
                 "formal_execute": False,
-                "diagnostics": [{"code": "PROOF_SUBMISSION_FAILED", "message": str(exc)}],
+                "diagnostics": [
+                    {"code": "PROOF_SUBMISSION_FAILED", "message": str(exc)}
+                ],
             }
             terminal_reward = self.config.formal_failure
 
@@ -349,14 +341,6 @@ class MechETAgentEnv:
         return json.dumps(output, ensure_ascii=False)
 
     def abstain(self, reason: str) -> str:
-        """Terminate without proposing an unsupported reaction.
-
-        Args:
-            reason: Concise reason that evidence is insufficient.
-
-        Returns:
-            JSON abstention record and terminal reward.
-        """
         self._consume_call()
         self.finalized = True
         self.abstained = True
@@ -370,14 +354,13 @@ class MechETAgentEnv:
         return json.dumps(self.final_result, ensure_ascii=False)
 
     def get_reward(self) -> float:
-        """Return the environment-owned terminal reward for agentic RL."""
         return float(self.reward if self.finalized else self.config.unfinished_reward)
 
     def state_dict(self) -> dict[str, Any]:
-        """Return a serializable rollout trace for evaluation and observability."""
         return {
             "config": asdict(self.config),
             "target_smiles": self.target_smiles,
+            "expected_precursor": self.expected_precursor,
             "current_state": self.current_state,
             "tool_calls": self.tool_calls,
             "successful_steps": self.successful_steps,

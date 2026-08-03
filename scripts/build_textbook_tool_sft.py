@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build replay-verified trace-owned Tool-SFT trajectories.
 
-The converter never invents ambiguous electron pairing. It emits a coverage
-report so the scientific scope follows the chemistry that can actually be
-converted and replayed.
+The default retrieval query uses only inference-available molecular-state terms.
+Gold reaction-family labels are retained for coverage analysis and may be used
+only in an explicitly named oracle-query upper bound.
 """
 from __future__ import annotations
 
@@ -19,10 +19,16 @@ from typing import Any, Mapping
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
+from mechet.endpoints import split_precursor_endpoints
 from mechet.knowledge_agent_env import KnowledgeAgentConfig, KnowledgeAugmentedAgentEnv
 from mechet.proof_program import extract_proof_body, parse_proof_program
-from mechet.proof_to_trace import proof_to_trace_plan
+from mechet.proof_to_trace import (
+    execution_composition_signature,
+    execution_primitive_signatures,
+    proof_to_trace_plan,
+)
 from mechet.textbook_retriever import molecular_state_terms
+from mechet.tool_schemas import trace_tool_schemas
 
 
 SYSTEM_PROMPT = """You are MechET, a trace-owned inverse electron-flow agent.
@@ -70,11 +76,17 @@ def mechanism_family(row: Mapping[str, Any]) -> str:
     return "unknown"
 
 
-def query_from_row(row: Mapping[str, Any], target: str) -> str:
-    family = mechanism_family(row)
-    if family != "unknown":
-        return family
-    return " ".join(molecular_state_terms(target)) or "organic reaction mechanism"
+def query_from_row(
+    row: Mapping[str, Any], target: str, *, query_mode: str
+) -> tuple[str, str]:
+    """Return query and provenance without leaking hidden labels by default."""
+
+    if query_mode == "label_oracle":
+        family = mechanism_family(row)
+        if family != "unknown":
+            return family, "gold_reaction_label_oracle"
+    state_query = " ".join(molecular_state_terms(target)).strip()
+    return state_query or "organic reaction mechanism", "target_state_terms"
 
 
 def error_code(exc: Exception) -> str:
@@ -86,6 +98,7 @@ def error_code(exc: Exception) -> str:
     rules = [
         ("PROOF_MISSING", "no mechet_proof"),
         ("TEXTBOOK_RETRIEVAL_FAILED", "textbook retrieval failed"),
+        ("ROOT_IMPORT_REPLAY_FAILED", "root import"),
         ("IMPORT_REPLAY_FAILED", "import replay failed"),
         ("MOVE_REPLAY_FAILED", "move replay failed"),
         ("TRACE_TERMINAL_REPLAY_FAILED", "terminal replay failed"),
@@ -97,7 +110,11 @@ def error_code(exc: Exception) -> str:
     return "UNCLASSIFIED_CONVERSION_FAILURE"
 
 
-def tool_call(call_id: str, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+def tool_call(
+    call_id: str, name: str, arguments: dict[str, Any]
+) -> dict[str, Any]:
+    """Return the canonical conversational tool-call message."""
+
     return {
         "role": "assistant",
         "content": "",
@@ -107,14 +124,16 @@ def tool_call(call_id: str, name: str, arguments: dict[str, Any]) -> dict[str, A
                 "type": "function",
                 "function": {
                     "name": name,
-                    "arguments": json.dumps(arguments, ensure_ascii=False),
+                    "arguments": dict(arguments),
                 },
             }
         ],
     }
 
 
-def tool_result(call_id: str, name: str, result: dict[str, Any]) -> dict[str, Any]:
+def tool_result(
+    call_id: str, name: str, result: dict[str, Any]
+) -> dict[str, Any]:
     return {
         "role": "tool",
         "tool_call_id": call_id,
@@ -130,14 +149,25 @@ def build_row(
     top_k: int,
     max_context_characters: int,
     enable_structured_primitives: bool,
+    query_mode: str,
 ) -> dict[str, Any]:
     proof = extract_proof(row)
     parse_proof_program(proof)
     plan = proof_to_trace_plan(proof)
+    n_imports = len(plan.initial_imports) + sum(
+        len(step.imports) for step in plan.steps
+    )
+    required_calls = (
+        1
+        + int(enable_structured_primitives)
+        + n_imports
+        + len(plan.steps)
+        + 1
+    )
     config = KnowledgeAgentConfig(
         textbook_corpus_path=str(corpus),
         require_textbook_corpus=True,
-        max_tool_calls=max(16, 4 + 3 * len(plan.steps)),
+        max_tool_calls=max(16, required_calls + 2),
         textbook_top_k=top_k,
         textbook_max_characters=max_context_characters,
         enable_structured_primitives=enable_structured_primitives,
@@ -149,7 +179,9 @@ def build_row(
             expected_precursor=plan.expected_precursor,
         )
     )
-    query = query_from_row(row, plan.target_smiles)
+    query, query_source = query_from_row(
+        row, plan.target_smiles, query_mode=query_mode
+    )
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
@@ -157,58 +189,77 @@ def build_row(
             "content": (
                 f"TARGET: {plan.target_smiles}\n"
                 "Retrieve relevant textbook guidance, reproduce the executable "
-                "inverse trace, and finish the environment-owned program."
+                "inverse trace, and finish the environment-owned program.\n\n"
+                "INITIAL ENVIRONMENT OBSERVATION:\n"
+                + json.dumps(observation, ensure_ascii=False)
             ),
-        },
-        {
-            "role": "tool",
-            "name": "environment_reset",
-            "content": json.dumps(observation, ensure_ascii=False),
         },
     ]
     call_index = 0
 
     call_id = f"call_{call_index:03d}"
     call_index += 1
-    args = {
+    retrieval_args = {
         "query": query,
         "top_k": top_k,
         "max_characters": max_context_characters,
     }
-    messages.append(tool_call(call_id, "retrieve_textbook_guidance", args))
-    textbook = json.loads(env.retrieve_textbook_guidance(**args))
+    messages.append(
+        tool_call(call_id, "retrieve_textbook_guidance", retrieval_args)
+    )
+    textbook = json.loads(env.retrieve_textbook_guidance(**retrieval_args))
     if not textbook.get("ok"):
         raise ValueError(f"TEXTBOOK_RETRIEVAL_FAILED: {textbook}")
-    messages.append(tool_result(call_id, "retrieve_textbook_guidance", textbook))
+    messages.append(
+        tool_result(call_id, "retrieve_textbook_guidance", textbook)
+    )
 
     if enable_structured_primitives:
         call_id = f"call_{call_index:03d}"
         call_index += 1
-        args = {"query": query, "top_k": top_k}
-        messages.append(tool_call(call_id, "retrieve_primitives", args))
-        result = json.loads(env.retrieve_primitives(**args))
+        anchor_args = {"query": query, "top_k": top_k}
+        messages.append(tool_call(call_id, "retrieve_primitives", anchor_args))
+        result = json.loads(env.retrieve_primitives(**anchor_args))
         if not result.get("ok"):
             raise ValueError(f"ANCHOR_RETRIEVAL_FAILED: {result}")
         messages.append(tool_result(call_id, "retrieve_primitives", result))
+
+    for fragment in plan.initial_imports:
+        call_id = f"call_{call_index:03d}"
+        call_index += 1
+        import_args = {"fragment_smiles": fragment}
+        messages.append(tool_call(call_id, "import_fragment", import_args))
+        result = json.loads(env.import_fragment(**import_args))
+        if not result.get("ok"):
+            raise ValueError(f"ROOT_IMPORT_REPLAY_FAILED: {result}")
+        messages.append(tool_result(call_id, "import_fragment", result))
 
     for step in plan.steps:
         for fragment in step.imports:
             call_id = f"call_{call_index:03d}"
             call_index += 1
-            args = {"fragment_smiles": fragment}
-            messages.append(tool_call(call_id, "import_fragment", args))
-            result = json.loads(env.import_fragment(**args))
+            import_args = {"fragment_smiles": fragment}
+            messages.append(tool_call(call_id, "import_fragment", import_args))
+            result = json.loads(env.import_fragment(**import_args))
             if not result.get("ok"):
                 raise ValueError(f"IMPORT_REPLAY_FAILED: {result}")
             messages.append(tool_result(call_id, "import_fragment", result))
         call_id = f"call_{call_index:03d}"
         call_index += 1
-        args = {"moves_json": json.dumps(list(step.moves), ensure_ascii=False)}
-        messages.append(tool_call(call_id, "apply_coupled_electron_moves", args))
-        result = json.loads(env.apply_coupled_electron_moves(**args))
+        model_args = {"moves": [dict(item) for item in step.moves]}
+        messages.append(
+            tool_call(call_id, "apply_coupled_electron_moves", model_args)
+        )
+        result = json.loads(
+            env.apply_coupled_electron_moves(
+                json.dumps(model_args["moves"], ensure_ascii=False)
+            )
+        )
         if not result.get("ok"):
             raise ValueError(f"MOVE_REPLAY_FAILED: {result}")
-        messages.append(tool_result(call_id, "apply_coupled_electron_moves", result))
+        messages.append(
+            tool_result(call_id, "apply_coupled_electron_moves", result)
+        )
 
     call_id = f"call_{call_index:03d}"
     messages.append(tool_call(call_id, "finish_trace", {}))
@@ -227,16 +278,23 @@ def build_row(
     )
 
     context = textbook.get("context") or {}
+    endpoints = split_precursor_endpoints(
+        plan.expected_precursor, plan.target_smiles
+    )
     source_id = str(row.get("id") or row.get("reaction_id") or "")
     stable = source_id or hashlib.sha256(proof.encode()).hexdigest()[:16]
     n_moves = sum(len(step.moves) for step in plan.steps)
-    n_imports = sum(len(step.imports) for step in plan.steps)
     return {
         "id": f"textbook-tool-sft:{stable}",
         "source_id": source_id,
+        "artifact_type": "supervision",
         "messages": messages,
+        "tools": trace_tool_schemas(
+            textbook=True, anchors=enable_structured_primitives
+        ),
         "target_smiles": plan.target_smiles,
-        "expected_precursor": plan.expected_precursor,
+        "expected_precursor": endpoints.full,
+        **endpoints.to_dict(),
         "metadata": {
             "original_proof_sha256": hashlib.sha256(proof.encode()).hexdigest(),
             "source_mechanism_family": mechanism_family(row),
@@ -245,9 +303,18 @@ def build_row(
             "n_trace_steps": len(plan.steps),
             "n_trace_moves": n_moves,
             "n_trace_imports": n_imports,
+            "execution_primitive_signatures": list(
+                execution_primitive_signatures(plan)
+            ),
+            "execution_composition_signature": execution_composition_signature(
+                plan
+            ),
             "compiled_proof": terminal.get("compiled_proof"),
             "trace_digest": terminal.get("trace_digest"),
+            "move_sequence_digest": terminal.get("move_sequence_digest"),
             "textbook_query": query,
+            "textbook_query_source": query_source,
+            "gold_label_query_used": query_source == "gold_reaction_label_oracle",
             "textbook_passage_ids": context.get("passage_ids") or [],
             "textbook_context_sha256": context.get("context_sha256"),
             "textbook_context_characters": context.get("n_characters"),
@@ -260,7 +327,10 @@ def build_row(
 
 
 def distribution(values: Counter) -> dict[str, int]:
-    return {str(key): int(value) for key, value in sorted(values.items(), key=lambda x: str(x[0]))}
+    return {
+        str(key): int(value)
+        for key, value in sorted(values.items(), key=lambda item: str(item[0]))
+    }
 
 
 def main() -> int:
@@ -272,6 +342,15 @@ def main() -> int:
     parser.add_argument("--top-k", type=int, default=4)
     parser.add_argument("--max-context-characters", type=int, default=5000)
     parser.add_argument("--enable-structured-primitives", action="store_true")
+    parser.add_argument(
+        "--query-mode",
+        choices=["state", "label_oracle"],
+        default="state",
+        help=(
+            "state is the main inference-faithful condition; label_oracle is "
+            "an explicitly named upper bound and must not enter headline results"
+        ),
+    )
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args()
 
@@ -305,6 +384,7 @@ def main() -> int:
                     top_k=args.top_k,
                     max_context_characters=args.max_context_characters,
                     enable_structured_primitives=args.enable_structured_primitives,
+                    query_mode=args.query_mode,
                 )
                 good.write(json.dumps(value, ensure_ascii=False) + "\n")
                 written += 1
@@ -340,7 +420,9 @@ def main() -> int:
         }
 
     report = {
-        "scientific_contract": "causal_trace_conversion_v1",
+        "scientific_contract": "causal_trace_conversion_v2",
+        "query_mode": args.query_mode,
+        "headline_eligible": args.query_mode == "state",
         "read": read,
         "written": written,
         "quarantined": read - written,
@@ -351,20 +433,20 @@ def main() -> int:
         "quarantine": str(quarantine),
         "structured_anchors_enabled": bool(args.enable_structured_primitives),
         "no_ambiguous_pairing_invented": True,
+        "root_imports_preserved": True,
         "failure_codes": distribution(failure_codes),
         "family_coverage": family_coverage,
         "accepted_trace_steps": distribution(accepted_steps),
         "accepted_trace_moves": distribution(accepted_moves),
         "accepted_trace_imports": distribution(accepted_imports),
         "scope_warning": (
-            "The scientific reaction scope must follow the measured conversion "
-            "coverage; rejected families and topologies remain outside the trained "
-            "Tool-SFT distribution unless the converter is extended."
+            "The scientific reaction scope must follow measured conversion "
+            "coverage; rejected families and topologies remain outside the "
+            "trained Tool-SFT distribution unless the converter is extended."
         ),
     }
     args.output.with_suffix(".report.json").write_text(
-        json.dumps(report, indent=2, ensure_ascii=False),
-        encoding="utf-8",
+        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     print(json.dumps(report, indent=2, ensure_ascii=False))
     return 0

@@ -9,17 +9,19 @@ A mechanistic rationale is faithful only when it is causally upstream of the pre
 ```text
 explicit tool actions
   -> committed environment transitions
-  -> authoritative trace
+  -> authoritative source-to-sink move trace
+  -> replay declared moves
   -> deterministic trace compiler
   -> MECH_PROOF v1
-  -> executor-derived structural precursor
+  -> executor-derived full precursor state
+  -> atom-contributing structural precursor
 ```
 
 The model cannot receive endpoint credit from a proof or answer generated independently of its committed actions.
 
-## Main environment
+## Public runtime surface
 
-`TraceOwnedAgentEnv` exposes:
+The model-facing main environment is `TraceOwnedTRLEnvironment`, an explicit TRL facade around `TraceOwnedAgentEnv`. The facade exposes only:
 
 ```text
 inspect_state
@@ -28,19 +30,22 @@ apply_electron_move
 apply_coupled_electron_moves
 finish_trace
 abstain
-get_reward
 ```
 
-`submit_proof` is deliberately disabled and returns `FREE_FORM_PROOF_DISABLED`.
+`reset` and `get_reward` are framework methods rather than model tools. Internal helpers such as `state_dict` and `_snapshot` remain private. `submit_proof` is not present on the main tool surface; the underlying trace environment also rejects it with `FREE_FORM_PROOF_DISABLED`.
 
-`KnowledgeAugmentedAgentEnv` inherits the same causal contract and adds only soft-evidence tools:
+Evidence variants add only the declared soft-evidence tools:
 
 ```text
 retrieve_textbook_guidance
 retrieve_primitives
 ```
 
-Evidence tools do not return the precursor, do not receive direct reward and do not override execution.
+The legacy complete-proof facade is a named baseline and is the only path that exposes `submit_proof`.
+
+## Tool-budget integrity
+
+Every attempted model action must be observable and budgeted. Empty move lists, malformed arguments, unavailable tools, disabled tools and runtime failures consume a tool call and increase failure accounting. A model cannot extend an episode through repeated invalid calls.
 
 ## Imports
 
@@ -48,9 +53,12 @@ Atoms absent from the product must enter through `import_fragment`.
 
 - imported atoms require unique positive maps;
 - imported maps cannot collide with the current state;
-- an import is attached to the next successful transition;
-- the compiled proof records the import;
+- root-level proof imports are preserved as `initial_imports` during proof-to-trace conversion;
+- edge-level imports are attached to the next successful transition;
+- the compiled proof records the same imports;
 - `finish_trace` rejects uncommitted imports.
+
+This guarantees that proof execution and trace replay begin from the same molecular state.
 
 ## Committed transitions
 
@@ -59,8 +67,8 @@ A transition becomes authoritative only after the deterministic environment succ
 For each transition the trace records:
 
 ```text
-state before
-state after
+state_before
+state_after
 imports
 source-to-sink moves
 trace step index
@@ -68,34 +76,34 @@ trace step index
 
 Failed actions remain in the rollout log but do not become proof edges.
 
-## Deterministic compilation
+## Deterministic compilation and move replay
 
-The trace compiler derives:
+Before deriving BOND, LP and CHARGE deltas, the compiler replays the declared source-to-sink moves against `state_before + imports` and requires exact mapped agreement with `state_after`. This prevents a chemically correct state transition from being paired with an unrelated stated arrow sequence.
 
-```text
-BOND changes
-lone-pair changes
-formal-charge transitions
-imports and dependencies
-```
-
-It then:
+The compiler then:
 
 1. emits `MECH_PROOF v1`;
 2. executes the compiled proof;
-3. checks each compiled intermediate against the recorded mapped state;
-4. derives the structural precursor;
-5. returns a stable trace digest.
+3. checks every compiled intermediate against the recorded mapped state;
+4. derives full, structural and auxiliary endpoint views;
+5. returns stable trace and move-sequence digests.
 
 The terminal result contains:
 
 ```text
 trace_bound = true
 trace_digest
+move_sequence_digest
+declared_moves_replayed = true
 compiled_proof
 n_trace_transitions
 endpoint_source = environment_owned_trace
+full_precursor_state
+structural_precursor
+auxiliary_fragments
 ```
+
+Evaluation reconstructs the trace and re-executes the proof rather than trusting stored booleans.
 
 ## Main path versus baselines
 
@@ -111,97 +119,54 @@ executor-derived endpoint
 ### Required baselines
 
 ```text
+outcome-only direct generation
+answer-bearing free-form or state CoT
 independent complete-proof generation
 legacy loose tool trace plus submitted proof
-answer-bearing free-form/state CoT
 ```
 
-The baselines are retained to quantify the reasoning–endpoint bypass. They must not be described as equivalent implementations of the main method.
+The baselines quantify the reasoning–endpoint bypass and must not be described as equivalent implementations of the main method.
 
-## Training
+## Training lineage
 
-Replay-verified Tool-SFT is the preferred initialization. Paper-scale on-policy training should not begin from an untrained tool policy.
-
-Tool-SFT:
+Replay-verified Tool-SFT is the preferred initialization. Paper-scale on-policy training must not begin from an untrained tool policy.
 
 ```bash
 python scripts/train_tool_sft.py \
-  --config configs/knowledge/tool_sft_textbook.yaml
-```
+  --config configs/knowledge/tool_sft_trace_no_knowledge.yaml
 
-Trace-owned dry-run:
-
-```bash
-python scripts/train_inverse_agent_trace.py \
-  --config configs/agent/inverse_trace_grpo.yaml \
-  --dry-run --limit 8
-```
-
-Trace-owned training:
-
-```bash
 python scripts/train_inverse_agent_trace.py \
   --config configs/agent/inverse_trace_grpo.yaml
 ```
 
-Knowledge condition:
+Every required RL checkpoint records and validates the Tool-SFT adapter SHA-256, base model, condition, data contract, environment revision and executor revision.
 
-```bash
-python scripts/train_inverse_agent_knowledge.py \
-  --config configs/knowledge/inverse_textbook_trace_grpo.yaml
-```
+## H1 causal interventions
 
-Legacy loose-trace/complete-proof baseline:
-
-```bash
-python scripts/train_inverse_agent_trl.py \
-  --config configs/agent/inverse_trl_grpo.yaml
-```
-
-Every RL checkpoint must record the Tool-SFT adapter hash, data-manifest hash, environment revision and executor revision.
-
-## Evaluation
-
-### Consistency metrics
+The canonical inference runner supports:
 
 ```text
-trace–proof agreement
-trace–endpoint agreement
-compiled-state replay agreement
-execution rate
-endpoint accuracy
-unnecessary-action count
-failed-action distribution
-tool-failure recovery
-abstention and risk–coverage
+remove_tool_observations
+stale_tool_observations
+shuffle_tool_observations
+disable_inspect_state
+disable_intermediate_execution
 ```
 
-### Causal interventions
+Normal and intervention artifacts must use the same model, adapter, model revision, temperature, top-p, maximum new tokens, maximum iterations, candidate count and frozen reference IDs.
 
-Required interventions:
-
-```text
-remove tool observations
-shuffle tool observations
-replace observations with stale states
-disable inspect_state
-disable intermediate execution
-remove failure certificates
-allow independent proof submission only in a baseline
+```bash
+python scripts/evaluate_faithfulness.py \
+  --reference data/benchmark/test.jsonl \
+  --normal outputs/h1/normal.jsonl \
+  --intervention remove_tool_observations=outputs/h1/remove.jsonl \
+  --intervention stale_tool_observations=outputs/h1/stale.jsonl \
+  --intervention shuffle_tool_observations=outputs/h1/shuffle.jsonl \
+  --output outputs/h1/summary.json
 ```
 
-Report the effect on endpoint accuracy, execution, trace consistency, action choice and abstention.
-
-### Claim gate
-
-The tool-grounded causal reasoning claim is unsupported when:
-
-- the model is insensitive to removing or corrupting tool observations;
-- the reported endpoint can be produced through an independent answer/proof channel;
-- trace and compiled proof disagree;
-- a knowledge or learned score overrides formal failure;
-- successful results depend on silently repairing semantically meaningful bond or charge actions.
+The claim is unsupported if the normal path is not completely trace-bound, artifacts are incomplete, trace/proof recomputation fails, or corrupting observations has no measurable paired effect.
 
 ## Scope
 
-Trace ownership establishes a causal computational contract. It does not establish that the inferred mechanism is unique, kinetically favored, high yielding or experimentally realized.
+Trace ownership establishes a causal computational contract. It does not establish that an inferred mechanism is unique, kinetically favored, high yielding or experimentally realized.

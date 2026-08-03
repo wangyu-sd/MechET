@@ -1,186 +1,114 @@
-# Partial-order equivalence and execution-primitive composition OOD
+# H2 source-to-sink composition generalization
 
-This document defines the semantic comparison and split construction used to test H2:
+## Scientific hypothesis
 
-> Can familiar electron-flow execution primitives be composed into mechanisms not observed during training?
+H2 tests whether familiar local electron-flow execution primitives can be recombined into complete move compositions absent from training.
 
-Mechanistic knowledge-anchor IDs are not used to define the headline composition split.
-
-## Why exact string matching is insufficient
-
-Two executable programs may be semantically equivalent while differing in:
+The primitive basis is the explicit model-facing move vocabulary:
 
 ```text
-state identifiers
-textual edge order
-atom-map labels
-component order
-ordering of independent events that touch disjoint atoms
+LP -> BOND
+BOND -> ATOM
+BOND -> BOND
 ```
 
-Evaluation therefore uses canonical partial-order signatures rather than proof-text equality.
+with mapped source/sink role features. Mechanistic knowledge-anchor IDs and net MECH_PROOF bond/charge deltas do not define the headline split.
 
-## Canonical event signature
+## Required input
 
-For each executable event, MechET derives a map-label-invariant signature from:
+`build_mechcomp_ood.py` accepts replay-verified Tool-SFT rows containing:
 
 ```text
-elements and initial formal charges
-imported-atom roles
-bond-order changes
-lone-pair changes
-charge transitions
-non-commuting dependencies
+metadata.executor_replayed = true
+metadata.trace_plan.initial_imports
+metadata.trace_plan.steps[].moves
 ```
 
-Events touching disjoint atom sets commute. Dependencies are retained when events share mapped atoms or state requirements.
+Rows without a valid explicit trace plan are quarantined.
 
-```python
-from mechet import canonical_partial_order_signature, proofs_equivalent
+## Primitive and composition signatures
 
-signature = canonical_partial_order_signature(proof_text)
-equivalent = proofs_equivalent(predicted_proof, reference_proof)
-```
-
-Report separately:
+Each source-to-sink move is canonicalized using:
 
 ```text
-proof_equivalent_to_gold
-execution_primitive_composition_match
-structural_endpoint_match
+source kind
+sink kind
+source and sink atom-element/charge/aromatic features
+bond context when present
+electron count
 ```
 
-A different executable proof may reach the same endpoint without being mechanism-equivalent; a different endpoint is not automatically chemically wrong.
+Original atom-map labels are excluded. A complete composition signature includes the ordered elementary steps while treating coupled moves within one step as a deterministic multiset.
 
-## Execution primitive versus knowledge anchor
-
-### Execution primitive
-
-A local formal action/delta pattern used to construct and compare executable programs. It defines H2 composition coverage.
-
-### Mechanistic knowledge anchor
-
-A curated retrieval record with structural roles, candidate actions, warnings and provenance. Anchor IDs may leak higher-level reaction-family information and therefore cannot define MechComp-OOD.
-
-## MechComp-OOD construction
-
-`build_mechcomp_ood.py` holds out complete execution-primitive compositions while requiring every constituent primitive in validation/test to remain represented in training.
+## Build the split
 
 ```bash
 python scripts/build_mechcomp_ood.py \
-  --input data/mechet_proof_clean/train.jsonl \
-  --output-dir data/mechet_proof_mechcomp \
+  --input data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
+  --output-dir data/ood/mechcomp_source_sink \
   --test-fraction 0.10 \
   --valid-fraction 0.10 \
   --min-train-primitive-count 5 \
   --seed 42
 ```
 
-The frozen manifest must report:
+The manifest reports:
 
 ```text
-train/valid/test IDs and hashes
-zero complete-composition overlap
-one hundred percent held-out constituent-primitive coverage
-minimum train count per held-out primitive
-composition frequency distribution
-proof length and topology distribution
-family and scaffold distribution
+primitive_basis = source_to_sink_execution_moves_v1
+eligible and quarantined rows
+train/valid/test sizes
+requested and achieved fractions
+composition overlap
+held-out primitive coverage
+minimum train primitive count
 ```
 
-## Split validity checks
+## Claim gates
 
-A headline H2 split is invalid when:
+A headline H2 split requires:
 
-- a test execution primitive is absent from training;
-- composition signatures use knowledge-anchor IDs or reaction names;
-- train/test overlap remains at exact reaction, product, center or patent-family levels without disclosure;
-- test compositions are selected after model evaluation;
-- complexity distributions are so different that composition novelty cannot be separated from size alone.
+```text
+non-empty held-out test set
+zero train/test complete-composition overlap
+every test primitive appears in train at the declared minimum frequency
+split generated before final model evaluation
+same stable IDs across representation baselines
+```
 
-## Required matched comparisons
+Holding out a reaction family without controlling primitive coverage is a different OOD test. Holding out unseen primitives does not test composition of known units.
+
+## Representation comparisons
+
+Evaluate matched:
 
 ```text
 outcome-only direct generation
-free-form CoT plus answer
-state-CoT plus answer
-net-edit generation
+free-form CoT
+state-CoT
+reaction center / synthon when labels exist
+net edit
 independent complete proof
-trace-owned Tool-CoT
-trace-owned Tool-CoT plus external evidence
+trace-owned source-to-sink Tool-CoT
 ```
 
-Use identical stable IDs, structural endpoints, base-model families, updates and seeds where applicable.
-
-## Required analyses
-
-Report H2 performance by:
+Report performance versus:
 
 ```text
-composition frequency in the source corpus
-minimum constituent-primitive frequency
-proof length
-number of changed atoms and bonds
-imports
-ring formation or ring change
-stereochemical change
-chain/tree/DAG topology
+composition frequency
+number of elementary steps
+number of source-to-sink moves
+proof topology
+changed atoms and bonds
+ring formation/change
 reaction family
 product scaffold
 ```
 
-The key result is not merely an aggregate OOD number. The analysis should reveal when the execution vocabulary supports recombination and where coverage or topology causes failure.
+## Proof equivalence remains a separate metric
 
-## Representation invariance
+`MECH_PROOF v1` partial-order equivalence still canonicalizes executable bond/lone-pair/charge programs modulo state IDs, map labels, and commuting independent events. It is useful for proof-class deduplication and complete-proof baselines, but it is not the H2 execution-primitive split definition.
 
-Test synchronized transformations:
+## Failure and repair
 
-```text
-atom-map permutation
-state-ID renaming
-edge serialization
-component ordering
-reordering of commuting independent events
-verified equivalent proof variants
-```
-
-Semantic robustness is measured by execution, endpoint and partial-order equivalence, not exact text equality.
-
-## Failure certificates and repair
-
-`diagnose_proof` maps the first deterministic failure to a stable code and action/edge location, including parse, atom-map, bond, lone-pair, charge, conservation, sanitization, reachability and DAG-join failures.
-
-```python
-from mechet import diagnose_proof, format_repair_feedback
-
-certificate = diagnose_proof(prediction)
-feedback = format_repair_feedback(certificate) if certificate else "OK"
-```
-
-Only semantics-preserving declaration corrections may be deterministic. Bond, charge, import and dependency changes require a new model proposal followed by complete execution.
-
-## Extended evaluation
-
-```bash
-python scripts/eval_mechet_proof_generations.py \
-  --data data/mechet_proof_mechcomp/test.jsonl \
-  --predictions outputs/mechet_proof_eval/generations.jsonl \
-  --attempt-local-repair \
-  --out outputs/mechet_proof_eval/summary.json
-```
-
-Report:
-
-```text
-FormatPass and ExecutePass
-structural endpoint accuracy
-partial-order equivalence
-execution-primitive composition match
-failure-code distribution
-repair success and new-error introduction
-metrics by composition novelty and topology
-```
-
-## Claim boundary
-
-H2 supports a compositional-reasoning claim only when test compositions are unseen, all constituent execution primitives are seen, and trace/proof models outperform matched alternatives in a way not explained solely by reaction family, scaffold or complexity shift.
+Structured executor failures remain available for analysis and bounded repair. Any repaired result must be re-executed and retain its original frozen example ID; repaired test examples cannot be used to alter the split or primitive vocabulary.

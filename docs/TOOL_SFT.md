@@ -2,213 +2,85 @@
 
 ## Purpose
 
-Tool-SFT teaches the interaction contract required by the causal main method. It is not merely a formatting stage and it must precede paper-scale on-policy training.
+Tool-SFT teaches the trace-owned interaction contract before any paper-scale on-policy training.
 
 ```text
 executable MECH_PROOF v1
-  + frozen evidence assets
-  -> conservative proof-to-action conversion
-  -> explicit imports and source-to-sink actions
-  -> replay through TraceOwnedAgentEnv
+  -> conservative source-to-sink conversion
+  -> root and edge imports
+  -> environment replay
   -> finish_trace
-  -> environment-compiled proof
-  -> executor-derived endpoint
-  -> accepted Tool-SFT row
+  -> compiled proof and executor-derived endpoint
 ```
 
-Only trajectories that replay through the same environment used at inference are retained.
+Only rows that replay through the inference environment are accepted. Ambiguous electron pairing, unsupported proof topology, failed imports, move mismatch and terminal replay failure are quarantined with stable reason codes.
 
-## Conversion scope
+## Retrieval query contract
 
-`proof_to_trace_plan` currently accepts linear proof paths when two-electron source/sink pairings are uniquely recoverable:
-
-```text
-LP loss + bond increase                 -> LP to BOND
-bond decrease + LP gain                 -> BOND to ATOM
-one unique local bond decrease/increase -> BOND to BOND
-```
-
-The builder does not invent ambiguous arrows.
-
-Stable quarantine families include:
-
-```text
-NONLINEAR_PROOF_UNSUPPORTED
-CYCLIC_PROOF_UNSUPPORTED
-AMBIGUOUS_ELECTRON_PAIRING
-UNPAIRED_LONE_PAIR_DELTA
-ODD_LONE_PAIR_DELTA
-EDGE_HAS_NO_INFERABLE_MOVES
-IMPORT_REPLAY_FAILED
-MOVE_REPLAY_FAILED
-MOVE_REPLAY_STATE_MISMATCH
-TRACE_TERMINAL_REPLAY_FAILED
-```
-
-The paper scope must follow measured conversion coverage. A narrow retained subset must not be described as broad organic chemistry.
-
-## Build source conditions
-
-### Textbook-only trace rows
+Headline textbook rows use only inference-available molecular information:
 
 ```bash
 python scripts/build_textbook_tool_sft.py \
   --input data/mechet_proof_clean/train.jsonl \
   --corpus knowledge/corpus/passages.jsonl \
   --output data/textbook_tool_sft/train.jsonl \
-  --quarantine data/textbook_tool_sft/quarantine.jsonl
+  --query-mode state
 ```
 
-### Textbook plus structured mechanistic knowledge anchors
+`--query-mode state` derives terms from the target or current state. `--query-mode label_oracle` is an explicitly named oracle upper bound and cannot support the headline evidence claim.
 
-```bash
-python scripts/build_textbook_tool_sft.py \
-  --input data/mechet_proof_clean/train.jsonl \
-  --corpus knowledge/corpus/passages.jsonl \
-  --output data/textbook_tool_sft/train_text_and_anchors.jsonl \
-  --enable-structured-primitives
-```
+## Conversational schema
 
-These are the only source files required by the matched evidence suite. No-knowledge, irrelevant text, anchors-only and direct open-book rows are derived automatically.
+Every row contains top-level `messages` and `tools` fields. Assistant tool calls use JSON-object arguments, not serialized JSON strings. Every call has exactly one matched tool result, and tool results cannot appear without an assistant call. The initial environment observation is part of the user turn rather than an orphan tool message.
 
-## Build all matched conditions
-
-```bash
-python scripts/build_knowledge_ablation_suite.py \
-  --config configs/experiments/textbook_ablation.yaml
-```
-
-The suite derives:
+Trace-owned rows include exactly one successful `finish_trace` and record:
 
 ```text
-trace_no_knowledge                  from textbook trace rows
-trace_length_matched_irrelevant     from textbook trace rows
-trace_textbook_rag                  source condition
-trace_structured_anchors            from combined rows by removing textbook retrieval
-trace_text_plus_anchors             source condition
-direct_textbook_rag                 from textbook rows using the same bounded evidence card
-```
-
-All conditions preserve stable IDs, targets and structural endpoints.
-
-## Accepted row contract
-
-Each trace-owned row stores:
-
-```text
-chat messages with tool calls and results
-target and expected structural precursor
-original proof hash
-conservative trace plan
-compiled trace proof
-trace digest
-retrieval query and bounded evidence hash
-knowledge condition
+target_smiles
+full_precursor_state
+structural_precursor
+auxiliary_fragments
+initial_imports and transition moves
+source-to-sink primitive signatures
+compiled proof
+trace_digest and move_sequence_digest
 executor_replayed = true
 endpoint_source = environment_owned_trace
 ```
 
-The direct open-book baseline stores the same target, endpoint and bounded textbook evidence but no chemistry tools or trace-derived endpoint.
-
-## Required conversion report
-
-Before model training report:
+## Six matched SFT conditions
 
 ```text
-rows read
-rows with parseable proofs
-rows with executable proofs
-rows converted and replayed
-quarantined rows
-quarantine counts by stable reason code
-conversion rate by reaction family
-conversion rate by proof length
-conversion rate by chain/tree/DAG topology
-changed-atom and changed-bond complexity
-imports and moves per trace
-retrieval passage coverage
-context length
-endpoint replay rate
+configs/knowledge/tool_sft_trace_no_knowledge.yaml
+configs/knowledge/tool_sft_irrelevant.yaml
+configs/knowledge/tool_sft_textbook.yaml
+configs/knowledge/tool_sft_anchors.yaml
+configs/knowledge/tool_sft_combined.yaml
+configs/knowledge/tool_sft_direct_textbook.yaml
 ```
 
-The accepted and rejected distributions must both be released.
+The no-knowledge, irrelevant-text, anchors-only and direct open-book rows are derived from the same frozen stable-ID intersection as the two source conditions.
 
-## Matched training contract
+## Tokenizer and supervision audit
 
-Hold constant where applicable:
+A real run renders each conversation through the frozen tool-aware chat template and verifies:
 
 ```text
-base model and tokenizer revision
-stable training IDs
-LoRA rank and target modules
-optimizer and schedule
-number of updates
-effective batch size
-random seeds
-maximum input and completion length
-tool budget for trace-owned conditions
-executor and environment revision
+valid messages and tools
+JSON-object arguments
+paired calls and results
+non-empty assistant masks
+non-zero supervised tokens
+zero truncation for headline rows
+input-token and supervised-token distributions
 ```
 
-Report both character budgets and tokenizer-specific input/supervised token counts.
+A dry-run validates schemas but does not establish learnability. Before scale, overfit 32–128 examples and verify falling loss and improving valid tool use.
 
-```bash
-python scripts/validate_experiment_contract.py \
-  --condition none=data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
-  --condition irrelevant=data/knowledge_ablation/v2/trace_length_matched_irrelevant.jsonl \
-  --condition textbook=data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
-  --condition anchors=data/knowledge_ablation/v2/trace_structured_anchors.jsonl \
-  --condition combined=data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
-  --condition direct=data/knowledge_ablation/v2/direct_textbook_rag.jsonl \
-  --output outputs/contracts/evidence_conditions.json
-```
+## Adapter lineage
 
-## Real training smoke test
+Every run writes `data_contract.json` and `adapter_manifest.json`. The latter records a non-self-referential adapter SHA-256, base model, condition, data contract, environment revision and executor revision. Required GRPO configurations validate these fields before loading the Tool-SFT adapter as trainable. From-base RL is a separately named ablation.
 
-A dry-run verifies schemas but not learnability. Before paper-scale training, overfit 32–128 examples and confirm:
+## Interpretation
 
-```text
-assistant-only supervision mask is non-empty
-loss decreases
-valid tool-call syntax increases
-finish_trace call rate increases
-trace-bound execution increases
-endpoint exact approaches the small-set ceiling
-```
-
-A tokenizer/chat template that cannot preserve assistant/tool boundaries is not acceptable.
-
-## Training
-
-```bash
-python scripts/train_tool_sft.py \
-  --config configs/knowledge/tool_sft_textbook.yaml \
-  --dry-run
-
-python scripts/train_tool_sft.py \
-  --config configs/knowledge/tool_sft_textbook.yaml
-```
-
-Equivalent configs are required for the matched trace conditions.
-
-## Tool-SFT to RL lineage
-
-On-policy training starts only after a frozen Tool-SFT checkpoint shows credible executable learning.
-
-Every RL config and checkpoint must record:
-
-```text
-initial_adapter_path
-initial_adapter_sha256
-Tool-SFT data-manifest hash
-base-model/tokenizer revision
-environment revision
-executor revision
-reward config and seed
-```
-
-The primary condition must not silently restart from the base model.
-
-## Scientific interpretation
-
-Tool-SFT success alone does not prove causal reasoning or compositional generalization. It establishes that the model can learn the trace-owned interaction contract. H1 requires causal interventions; H2 requires execution-primitive composition holdouts; H3 requires matched evidence controls.
+Tool-SFT success establishes that the interaction contract can be learned. H1 still requires causal interventions, H2 requires source-to-sink composition holdouts, and H3 requires matched frozen evidence predictions.
