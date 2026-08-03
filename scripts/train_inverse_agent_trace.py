@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Train a small inverse actor in the trace-owned faithfulness environment.
-
-This is the reference main-method adapter. Unlike the complete-proof baseline,
-the actor cannot submit an independent proof: successful tool actions are
-compiled deterministically by ``finish_trace``.
-"""
+"""Train the trace-owned inverse actor through an explicit TRL tool facade."""
 from __future__ import annotations
 
 import argparse
@@ -21,15 +16,15 @@ sys.path.insert(0, str(REPO / "scripts"))
 from agent_model_init import build_trainable_model, lineage_report
 from train_inverse_agent_trl import build_rows, load_yaml
 from mechet.agent_env import AgentEnvConfig
-from mechet.trace_agent_env import TraceOwnedAgentEnv
+from mechet.trl_environments import TraceOwnedTRLEnvironment
 
 
 TRACE_SYSTEM_SUFFIX = """
 Use the stateful electron-flow tools for every chemical claim. Import mapped
 fragments only with import_fragment. Free-form proof submission is disabled.
 Call finish_trace after the committed actions reach the intended precursor; the
-environment will compile MECH_PROOF v1 and derive the endpoint. Abstain when the
-available evidence is insufficient."""
+environment replays declared moves, compiles MECH_PROOF v1, and derives the
+endpoint. Abstain when the available evidence is insufficient."""
 
 
 def augment_prompts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -57,19 +52,28 @@ def environment_config(cfg: dict[str, Any]) -> AgentEnvConfig:
     return AgentEnvConfig(**dict(cfg.get("environment") or {}))
 
 
-def dry_run_report(cfg: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str, Any]:
+def dry_run_report(
+    cfg: dict[str, Any], rows: list[dict[str, Any]]
+) -> dict[str, Any]:
     env_cfg = environment_config(cfg)
-    env = TraceOwnedAgentEnv(config=env_cfg)
+    env = TraceOwnedTRLEnvironment(config=env_cfg)
     first = rows[0]
     observation = json.loads(env.reset(**first))
     inventory = json.loads(env.inspect_state())
     training = dict(cfg.get("training") or {})
+    public_tools = sorted(
+        name
+        for name in dir(env)
+        if not name.startswith("_") and name not in {"reset", "get_reward"}
+    )
     return {
         "model_name_or_path": cfg.get("model_name_or_path"),
         "train_file": cfg.get("train_file"),
         "n_rows": len(rows),
         "first_target": first["target_smiles"],
         "environment": env_cfg.__dict__,
+        "environment_class": type(env).__name__,
+        "public_model_tools": public_tools,
         "observation_ok": bool(observation),
         "trace_owned": observation.get("faithfulness_contract"),
         "n_sources": len(inventory.get("sources") or []),
@@ -114,7 +118,6 @@ def main() -> int:
 
     training = dict(cfg.get("training") or {})
     env_cfg = environment_config(cfg)
-
     grpo_args = GRPOConfig(
         output_dir=str(cfg.get("output_dir") or "outputs/agent/inverse_trace_grpo"),
         learning_rate=float(training.get("learning_rate", 5e-6)),
@@ -148,7 +151,7 @@ def main() -> int:
     )
     model, peft_config = build_trainable_model(cfg, torch)
     factory = partial(
-        TraceOwnedAgentEnv,
+        TraceOwnedTRLEnvironment,
         config=env_cfg,
         forward_checkpoint=cfg.get("forward_checkpoint") or None,
         forward_device=str(cfg.get("forward_device") or "cpu"),
