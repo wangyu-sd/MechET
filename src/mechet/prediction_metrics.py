@@ -1,10 +1,53 @@
-"""Prediction-set, abstention, and recovery metrics for frozen MechET artifacts."""
+"""Prediction-set, abstention, recovery, and runtime-contract metrics."""
 from __future__ import annotations
 
 from copy import deepcopy
+import hashlib
+import json
 from typing import Any, Iterable, Mapping
 
 from .knowledge_ablation import endpoint_evaluation
+
+
+def prediction_runtime_contract(
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    include_adapter: bool,
+) -> dict[str, Any]:
+    """Summarize and validate model/generation metadata in one artifact."""
+
+    rows = list(rows)
+    contracts: set[str] = set()
+    adapters: set[str] = set()
+    for row in rows:
+        model = dict(row.get("model") or {})
+        contract = {
+            "base_model": model.get("base_model"),
+            "model_revision": model.get("model_revision"),
+            "temperature": model.get("temperature"),
+            "top_p": model.get("top_p"),
+            "max_new_tokens": model.get("max_new_tokens"),
+            "max_iterations": model.get("max_iterations"),
+            "samples_per_target": model.get("samples_per_target"),
+        }
+        if include_adapter:
+            contract["adapter_sha256"] = model.get("adapter_sha256")
+            contract["adapter"] = model.get("adapter")
+        contracts.add(json.dumps(contract, sort_keys=True, separators=(",", ":")))
+        adapters.add(str(model.get("adapter_sha256") or model.get("adapter") or ""))
+    decoded = [json.loads(item) for item in sorted(contracts)]
+    digest = hashlib.sha256(
+        "\n".join(sorted(contracts)).encode()
+    ).hexdigest()
+    return {
+        "n_rows": len(rows),
+        "n_unique_runtime_contracts": len(contracts),
+        "runtime_contract_consistent": len(contracts) == 1,
+        "runtime_contracts": decoded,
+        "runtime_contract_sha256": digest,
+        "n_unique_adapters": len(adapters),
+        "adapter_ids": sorted(adapters),
+    }
 
 
 def _candidate_rows(row: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -29,15 +72,11 @@ def _candidate_rows(row: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def _failure_recovery(row: Mapping[str, Any]) -> tuple[bool, bool]:
-    """Return ``(had_failed_tool, recovered_to_formal_terminal)``."""
-
     state = dict(row.get("rollout_state") or {})
     trace = list(state.get("trace") or [])
-    had_failure = False
-    for event in trace:
-        result = dict(event.get("result") or {})
-        if result.get("ok") is False:
-            had_failure = True
+    had_failure = any(
+        dict(event.get("result") or {}).get("ok") is False for event in trace
+    )
     final = dict(state.get("final_result") or {})
     recovered = had_failure and bool(final.get("formal_execute") or final.get("ok"))
     return had_failure, recovered
@@ -83,9 +122,7 @@ def prediction_set_metrics(
     result: dict[str, Any] = {
         "n_rows": len(rows),
         "coverage": covered / n,
-        "selective_risk": (
-            1.0 - correct_covered / covered if covered else None
-        ),
+        "selective_risk": 1.0 - correct_covered / covered if covered else None,
         "abstention_rate": abstained / n,
         "tool_failure_rows": failed_tool_rows,
         "tool_failure_recovery_rate": (
