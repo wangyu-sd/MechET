@@ -56,11 +56,12 @@ jobs:
             scripts/build_primitive_extraction_queue.py \
             scripts/annotate_primitive_context.py \
             scripts/train_inverse_agent_primitives.py
-      - name: Run primitive and documentation tests
+      - name: Run primitive, source-download, and documentation tests
         run: |
           pytest -q \
             tests/test_primitive_library.py \
             tests/test_primitive_agent_env.py \
+            tests/test_primitive_source_download.py \
             tests/test_documentation_contract.py
       - name: Validate source registry and license gates
         run: |

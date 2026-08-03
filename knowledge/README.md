@@ -20,9 +20,9 @@ Every source is registered before download. The registry records source type, UR
 
 | Source | Role | Automated use |
 |---|---|---|
-| IUPAC Gold Book individual terms | standard terminology | per-term JSON download |
+| IUPAC Gold Book individual terms | standard terminology | per-term JSON download with canonical-code validation |
 | RXNO | named-reaction taxonomy | official OWL download |
-| Wikibooks Organic Chemistry | open textbook explanations | revision-pinned MediaWiki text |
+| Wikibooks Organic Chemistry | open textbook explanations | revision-aware MediaWiki download with REST/API/export/raw fallback |
 | LibreTexts Organic Synthesis (Shea) | selected CC BY textbook pages | page-list, text-only download after license marker check |
 | MIT OpenCourseWare Organic Chemistry | non-commercial course evidence | explicit `--accept-noncommercial`; third-party markers excluded |
 | PMechDB/PMechRP | elementary steps and textbook-pathway benchmark | manual upstream request only; no automatic derivative redistribution |
@@ -30,6 +30,14 @@ Every source is registered before download. The registry records source type, UR
 Downloaded material is evidence for candidate extraction. A Web page, LLM extraction or database row does not automatically become a released primitive.
 
 ## Download
+
+Install the optional knowledge dependencies first:
+
+```bash
+pip install -e ".[knowledge]"
+```
+
+Inspect the registry and preview a download plan:
 
 ```bash
 python scripts/download_mechanistic_sources.py \
@@ -47,6 +55,86 @@ python scripts/download_mechanistic_sources.py \
 ```
 
 Remove `--dry-run` to download public sources and write the hash manifest.
+
+### Gold Book canonical codes
+
+The Gold Book may retire or redirect historical term codes. The registry stores current canonical codes and may retain historical aliases under `term_aliases`. The downloader records all three identifiers when they differ:
+
+```text
+configured_term_id
+requested_term_id
+canonical_term_id
+```
+
+For example, historical `R05171` is resolved to the current `I03096` entry for **intermediate**. Artifacts are saved under the canonical code, so old redirects do not create duplicate or misleading filenames.
+
+### Wikibooks network fallbacks
+
+The default Wikibooks order is:
+
+```text
+MediaWiki REST source
+→ Action API
+→ Special:Export XML
+→ action=raw
+```
+
+Each successful artifact records `retrieval_backend`, revision metadata when available, and all earlier backend errors. Wikimedia requires an identifiable User-Agent; the default includes the MechET repository URL.
+
+If a local proxy is required, either configure the standard environment variables:
+
+```bash
+export HTTPS_PROXY=http://127.0.0.1:7890
+export HTTP_PROXY=http://127.0.0.1:7890
+```
+
+or pass it explicitly:
+
+```bash
+python scripts/download_mechanistic_sources.py \
+  --registry knowledge/source_registry.yaml \
+  download --source wikibooks_organic_chemistry \
+  --output knowledge/raw \
+  --proxy http://127.0.0.1:7890
+```
+
+You can force or reorder backends during diagnosis:
+
+```bash
+python scripts/download_mechanistic_sources.py \
+  --registry knowledge/source_registry.yaml \
+  download --source wikibooks_organic_chemistry \
+  --output knowledge/raw \
+  --mediawiki-backend export \
+  --mediawiki-backend raw \
+  --retries 5 --timeout 90
+```
+
+If all Wikimedia endpoints are unreachable from the current network, download a page through `Special:Export` on another machine and save it locally as:
+
+```text
+<slug(page title)>.xml
+```
+
+For example:
+
+```text
+Organic_Chemistry_Carbonyls.xml
+```
+
+Then import it without network access:
+
+```bash
+python scripts/download_mechanistic_sources.py \
+  --registry knowledge/source_registry.yaml \
+  download --source wikibooks_organic_chemistry \
+  --output knowledge/raw \
+  --mediawiki-import-dir knowledge/manual/wikibooks
+```
+
+The offline directory may contain `.xml` Special:Export files, `.txt` wikitext files, or `.json` files previously produced by the REST/downloader schema.
+
+### Restricted sources
 
 Non-commercial material requires explicit acknowledgement:
 
