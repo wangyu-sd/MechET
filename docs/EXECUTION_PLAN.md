@@ -1,35 +1,48 @@
 # MechET execution plan
 
-This is the operational run order for the causal and compositional MechET study. It intentionally postpones RL, forward reranking and planning until the main scientific hypotheses pass smaller falsification gates.
+This document is the operational source of truth for running the causal and compositional MechET study. Each phase has executable entrypoints, required artifacts, and a stopping gate. RL, forward evidence, and planning are postponed until the preceding scientific gate passes.
 
-## Phase 0 — freeze the scientific contract
+## Phase 0 — freeze contracts
 
-Before data processing or training:
+Freeze and record:
 
-1. record the repository commit, executor revision and environment revision;
-2. freeze dataset revisions, licenses and SHA-256 manifests;
-3. freeze benchmark files before model training;
-4. define the primary scope as mapped, closed-shell, two-electron polar chemistry;
-5. define execution primitives separately from mechanistic knowledge anchors;
-6. declare the main method as `TraceOwnedAgentEnv` plus `finish_trace`;
-7. retain independent complete-proof generation only as a baseline.
+```text
+repository commit
+source revisions and licenses
+benchmark SHA-256 files
+executor revision = MECH_PROOF_v1_move_bound
+environment revision
+base model and tokenizer revision
+random seeds
+```
 
-Gate: documentation-contract tests and all core CI workflows pass.
+Primary scope: mapped, closed-shell, two-electron polar organic chemistry.
 
-## Phase 1 — data feasibility and conversion coverage
+Gate: all CI workflows pass and `docs/SCIENTIFIC_THESIS.md` matches the public README.
 
-### 1.1 Build executable proof rows
+## Phase 1 — executable proof data
 
 ```bash
+python scripts/build_mechet_sft.py \
+  --flower-root /path/to/flower_new_dataset \
+  --out-dir data/mechet_sft \
+  --splits train valid test
+
 python scripts/build_mechet_proof_sft.py \
   --input-dir data/mechet_sft \
   --output-dir data/mechet_proof_sft \
   --splits train valid test
 ```
 
-Every accepted proof must execute and reconstruct the stored structural endpoint.
+Every accepted row must execute and store:
 
-### 1.2 Audit train–benchmark overlap
+```text
+full_precursor_state
+structural_precursor
+auxiliary_fragments
+```
+
+Then audit overlap and build a frozen clean set:
 
 ```bash
 python scripts/audit_reaction_overlap.py \
@@ -38,11 +51,7 @@ python scripts/audit_reaction_overlap.py \
   --benchmark-format reaction_table \
   --reaction-field reaction_smiles \
   --out-dir outputs/data_audit/flower_vs_uspto50k_test
-```
 
-### 1.3 Build the clean proof dataset
-
-```bash
 python scripts/build_decontaminated_dataset.py \
   --train data/mechet_proof_sft/train.jsonl \
   --benchmark data/benchmarks/uspto50k/test.csv \
@@ -51,14 +60,16 @@ python scripts/build_decontaminated_dataset.py \
   --policy exact_structural product
 ```
 
-### 1.4 Build the provenance-aware textbook corpus
+Gate: source/benchmark manifests, quarantine counts, and overlap matrices are frozen before training.
+
+## Phase 2 — evidence assets and proof-to-trace coverage
+
+Build the provenance-aware corpus:
 
 ```bash
 python scripts/download_mechanistic_sources.py \
   --registry knowledge/source_registry.yaml \
-  download \
-  --source iupac_goldbook_terms \
-  --source rxno \
+  download --source iupac_goldbook_terms --source rxno \
   --source wikibooks_organic_chemistry \
   --output knowledge/raw
 
@@ -71,322 +82,284 @@ python scripts/index_textbook_corpus.py \
   --output knowledge/corpus/bm25_index.json
 ```
 
-### 1.5 Build replay-verified Tool-SFT rows
-
-Textbook-only:
+Build two replay-verified source conditions:
 
 ```bash
 python scripts/build_textbook_tool_sft.py \
   --input data/mechet_proof_clean/train.jsonl \
   --corpus knowledge/corpus/passages.jsonl \
   --output data/textbook_tool_sft/train.jsonl \
-  --quarantine data/textbook_tool_sft/quarantine.jsonl
-```
+  --query-mode state
 
-Textbook plus structured knowledge anchors:
-
-```bash
 python scripts/build_textbook_tool_sft.py \
   --input data/mechet_proof_clean/train.jsonl \
   --corpus knowledge/corpus/passages.jsonl \
   --output data/textbook_tool_sft/train_text_and_anchors.jsonl \
-  --enable-structured-primitives
+  --enable-structured-primitives \
+  --query-mode state
 ```
 
-Required first report:
+The main condition must use `query-mode=state`. `label_oracle` is an upper bound and cannot enter headline results.
+
+Required conversion report:
 
 ```text
-proof rows read
-executable proof rows
-trace-convertible rows
-conversion rate
-quarantine reason codes
-coverage by reaction family
-coverage by proof length and topology
-imports and moves per trace
+root imports preserved
+proof rows read/written/quarantined
+stable quarantine reasons
+conversion rate by source family
+trace steps, source-to-sink moves, and imports
 endpoint replay rate
 ```
 
-Gate: the retained dataset has sufficient family and complexity coverage for the intended paper scope. If not, narrow the scope or extend the converter before training.
+Gate: the retained family and complexity distribution supports the declared scope. Otherwise narrow the scope or extend the converter.
 
-## Phase 2 — construct matched scientific conditions
-
-All evidence conditions are derived from the same stable-ID intersection.
+## Phase 3 — matched six-condition data
 
 ```bash
 python scripts/build_knowledge_ablation_suite.py \
   --config configs/experiments/textbook_ablation.yaml
 ```
 
-The suite generates:
-
-```text
-trace_no_knowledge
-trace_length_matched_irrelevant
-trace_textbook_rag
-trace_structured_anchors
-trace_text_plus_anchors
-direct_textbook_rag
-```
-
-Validate deterministic budgets and alignment:
+Validate the actual tool schema and tokenizer contract:
 
 ```bash
 python scripts/validate_experiment_contract.py \
-  --condition trace_none=data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
-  --condition irrelevant=data/knowledge_ablation/v2/trace_length_matched_irrelevant.jsonl \
-  --condition textbook=data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
-  --condition anchors=data/knowledge_ablation/v2/trace_structured_anchors.jsonl \
-  --condition combined=data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
-  --condition direct=data/knowledge_ablation/v2/direct_textbook_rag.jsonl \
+  --model-name Qwen/Qwen3-0.6B \
+  --condition trace_no_knowledge=data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
+  --condition trace_length_matched_irrelevant=data/knowledge_ablation/v2/trace_length_matched_irrelevant.jsonl \
+  --condition trace_textbook_rag=data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
+  --condition trace_structured_anchors=data/knowledge_ablation/v2/trace_structured_anchors.jsonl \
+  --condition trace_text_plus_anchors=data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
+  --condition direct_textbook_rag=data/knowledge_ablation/v2/direct_textbook_rag.jsonl \
   --output outputs/contracts/evidence_conditions.json
 ```
 
-Gate: identical IDs, targets and structural endpoints. Tokenizer-specific input and supervised token counts must be frozen before headline training.
-
-## Phase 3 — real Tool-SFT smoke tests
-
-Do not start paper-scale RL from an untrained tool policy.
-
-### 3.1 Overfit a tiny set
-
-Use 32–128 examples with Qwen3-0.6B:
-
-```bash
-python scripts/train_tool_sft.py \
-  --config configs/knowledge/tool_sft_textbook.yaml \
-  --limit 32 \
-  --max-steps 100
-```
-
-Confirm:
+Gate:
 
 ```text
-non-empty assistant supervision mask
-loss decreases
-valid tool-call syntax increases
-finish_trace call rate increases
-trace_bound rate approaches one
-endpoint exact approaches the small-set overfit ceiling
+same stable ID universe
+same target and reference endpoints
+no gold reaction-label retrieval query
+valid tool-call/result pairing
+non-empty assistant masks
+zero truncation
+frozen evidence character budgets
+reported tokenizer input/supervised tokens
 ```
 
-### 3.2 Train the matched Tool-SFT pilot
+Raw direct and tool syntax lengths need not be equal. Match examples and optimizer updates, report supervised-token-normalized compute, and use the validator's multiplier only when exact cumulative supervision matching is required.
+
+## Phase 4 — real Tool-SFT
+
+Start with a 32-example overfit:
 
 ```bash
 python scripts/train_tool_sft.py \
-  --config configs/knowledge/tool_sft_textbook.yaml
+  --config configs/knowledge/tool_sft_trace_no_knowledge.yaml \
+  --limit 32 --max-steps 100
 ```
 
-Repeat with matched configs for no-knowledge, irrelevant text, anchors and combined evidence.
+Run the six matched SFT configs only after the overfit test succeeds:
 
-Gate: credible executable-learning signal on a frozen validation set. If Tool-SFT cannot learn the interaction contract, do not proceed to GRPO.
-
-## Phase 4 — test H1: causal faithfulness
-
-Validate the trace-owned configuration and its Tool-SFT lineage:
-
-```bash
-python scripts/train_inverse_agent_trace.py \
-  --config configs/agent/inverse_trace_grpo.yaml \
-  --dry-run --limit 8
+```text
+tool_sft_trace_no_knowledge.yaml
+tool_sft_irrelevant.yaml
+tool_sft_textbook.yaml
+tool_sft_anchors.yaml
+tool_sft_combined.yaml
+tool_sft_direct_textbook.yaml
 ```
 
-After the Tool-SFT adapter, manifest and hash are frozen, train the H1 main condition:
+Required artifacts:
+
+```text
+data_contract.json
+adapter_manifest.json
+adapter SHA-256
+base model revision
+assistant-mask/token audit
+loss and tool syntax curves
+```
+
+Gate: validation execution and `finish_trace` rates improve. Do not start GRPO from an untrained tool policy.
+
+## Phase 5 — H1 causal faithfulness
+
+Optional on-policy trace training:
 
 ```bash
 python scripts/train_inverse_agent_trace.py \
   --config configs/agent/inverse_trace_grpo.yaml
 ```
 
-Train or evaluate the following matched conditions:
+Generate the normal artifact:
 
-```text
-outcome-only direct generation
-free-form CoT plus answer
-state-CoT plus answer
-net-edit generation
-independent complete MECH_PROOF generation
-legacy loose tool trace plus submitted proof
-trace-owned Tool-CoT with finish_trace
+```bash
+python scripts/infer_mechet.py \
+  --config configs/agent/inverse_trace_grpo.yaml \
+  --data data/benchmarks/h1/test.jsonl \
+  --output outputs/h1/normal.jsonl \
+  --mode trace --condition-name trace_no_knowledge \
+  --intervention none --samples-per-target 4
 ```
 
-Required interventions:
+Repeat with the same model, adapter, model revision, K, temperature, top-p, token limit, and iteration limit:
 
 ```text
-remove tool observations
-shuffle tool observations
-replace observations with stale states
-disable inspect_state
-disable intermediate move execution
-allow independent proof submission only in the baseline
+remove_tool_observations
+stale_tool_observations
+shuffle_tool_observations
+disable_inspect_state
+disable_intermediate_execution
 ```
 
-Primary metrics:
+For shuffle, pass the normal artifact through `--intervention-source`.
+
+Evaluate:
+
+```bash
+python scripts/evaluate_faithfulness.py \
+  --reference data/benchmarks/h1/test.jsonl \
+  --normal outputs/h1/normal.jsonl \
+  --intervention remove_tool_observations=outputs/h1/remove.jsonl \
+  --intervention stale_tool_observations=outputs/h1/stale.jsonl \
+  --intervention shuffle_tool_observations=outputs/h1/shuffle.jsonl \
+  --output outputs/h1/summary.json
+```
+
+Gate:
 
 ```text
-structural precursor Top-k
-ExecutePass
-trace–proof agreement
-trace–endpoint agreement
-answer–reasoning disagreement
+all frozen IDs evaluated
+normal path 100% trace-bound among completed traces
+trace/proof metrics recompute without error
+identical runtime contract across interventions
+paired causal sensitivity is reported
+```
+
+If observation interventions have no material paired effect, do not claim tool-grounded causal reasoning.
+
+## Phase 6 — H2 compositional generalization
+
+```bash
+python scripts/build_mechcomp_ood.py \
+  --input data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
+  --output-dir data/ood/mechcomp_source_sink \
+  --test-fraction 0.10 \
+  --valid-fraction 0.10 \
+  --min-train-primitive-count 5 \
+  --seed 42
+```
+
+The split basis must be `source_to_sink_execution_moves_v1`, not net proof deltas or knowledge-anchor IDs.
+
+Gate:
+
+```text
+non-empty held-out test
+zero train/test complete-composition overlap
+all held-out source-to-sink primitives seen in train
+achieved split fractions disclosed
+```
+
+Train/evaluate direct, CoT, net-edit, complete-proof, and trace-owned representations on the same frozen split.
+
+## Phase 7 — H3 evidence separation
+
+Build evidence-content interventions when needed:
+
+```bash
+python scripts/build_evidence_interventions.py \
+  --input data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
+  --output-dir data/evidence_interventions/v2 \
+  --intervention passage_shuffle \
+  --intervention same_topic_wrong \
+  --intervention remove_warnings \
+  --intervention remove_competing_pathways
+```
+
+Generate six prediction artifacts with `scripts/infer_mechet.py` using modes:
+
+```text
+trace
+irrelevant
+textbook
+anchors
+combined
+direct
+```
+
+Evidence modes replay row-specific frozen evidence, so direct and trace conditions receive the same bounded evidence content.
+
+Evaluate:
+
+```bash
+python scripts/evaluate_knowledge_ablation.py \
+  --reference data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
+  --condition trace_no_knowledge=outputs/h3/trace.jsonl \
+  --condition trace_length_matched_irrelevant=outputs/h3/irrelevant.jsonl \
+  --condition trace_textbook_rag=outputs/h3/textbook.jsonl \
+  --condition trace_structured_anchors=outputs/h3/anchors.jsonl \
+  --condition trace_text_plus_anchors=outputs/h3/combined.jsonl \
+  --condition direct_textbook_rag=outputs/h3/direct.jsonl \
+  --output outputs/h3/summary.json
+```
+
+Gate:
+
+```text
+all frozen IDs evaluated; missing predictions count as failures
+no supervision rows accepted as predictions
+trace outputs recompile/re-execute
+same base/revision/generation budget across conditions
+condition-specific adapter hashes reported
+textbook > trace-only and textbook > irrelevant for a text-evidence claim
+combined > each individual condition for a combined-evidence claim
+```
+
+## Phase 8 — scale, forward evidence, and planning
+
+Only after H1–H3 pilots pass:
+
+```text
+0.6B / 1.7B / 8B scale study
+formal-process RL
+calibrated forward closure and explicit competitors
+K={1,4,16,64}
+multistep planning under frozen candidate pools
+```
+
+The forward expert remains a cached, frozen soft-evidence model. Planning is a downstream extension and cannot rescue failed H1 or H2 results.
+
+## Implemented prediction metrics
+
+```text
+structural precursor Top-1/5/10, ignoring atom maps
+mapped structural Top-1/5/10
+ExecutePass@1/5/10
+TraceBoundPass@1/5/10
+coverage, selective risk, abstention
 tool-failure recovery
-intervention effect size
+retrieval recall/precision when gold passage IDs exist
+retrieval latency
+missing-prediction and re-execution error rates
 ```
 
-Gate: the trace-owned model must be causally sensitive to environment feedback and unable to preserve endpoint credit through an incompatible trace.
+Reaction-center and synthon metrics remain unavailable until frozen labels exist.
 
-## Phase 5 — test H2: compositional generalization
-
-Build primitive-seen/composition-unseen splits using electron-flow execution primitives, not knowledge-anchor IDs.
-
-Compare:
-
-```text
-direct answer
-free-form CoT
-net edit
-complete proof
-trace-owned Tool-CoT
-trace-owned Tool-CoT plus evidence
-```
-
-Report separately by:
-
-```text
-composition frequency
-proof length
-number of changed atoms and bonds
-ring topology
-chain/tree/DAG topology
-reaction family
-product scaffold
-```
-
-Gate: every held-out composition uses execution primitives represented in training above the declared minimum count.
-
-## Phase 6 — test H3: empirical evidence separation
-
-### 6.1 Textbook and anchor evidence
-
-Validate the evidence-conditioned configuration and frozen Tool-SFT lineage:
-
-```bash
-python scripts/train_inverse_agent_knowledge.py \
-  --config configs/knowledge/inverse_textbook_trace_grpo.yaml \
-  --dry-run --limit 8
-```
-
-After the H3 Tool-SFT pilot passes, train the textbook evidence condition:
-
-```bash
-python scripts/train_inverse_agent_knowledge.py \
-  --config configs/knowledge/inverse_textbook_trace_grpo.yaml
-```
-
-Evaluate the six matched evidence conditions and a frozen gold-passage upper bound when labels exist.
-
-Claim gate:
-
-```text
-textbook > trace-only
-and
-textbook > length-matched irrelevant text
-```
-
-Causal evidence interventions:
-
-```text
-passage shuffle
-same-topic wrong passage
-remove warnings
-remove competing-pathway text
-```
-
-### 6.2 Independent forward evidence
-
-First validate the forward expert independently:
-
-```text
-source/sink accuracy
-move MRR
-target rank
-competitor margin
-Brier score
-ECE
-risk–coverage
-```
-
-Then compare ranking and reward conditions only after calibration:
-
-```text
-inverse score only
-ordinary forward compatibility
-forward process evidence
-process plus explicit competitors
-process plus competitors plus uncertainty
-```
-
-Formal execution remains a hard gate.
-
-## Phase 7 — scale and optimization
-
-After H1–H3 pilots pass:
-
-```text
-0.6B trace-owned actor
-1.7B trace-owned actor
-8B trace-owned actor
-8B direct-answer reference
-8B direct-answer plus identical bounded textbook evidence
-```
-
-Report accuracy, reliability, GPU hours, peak memory, generated tokens, tool calls, latency and verified endpoints per compute budget.
-
-Only then run:
-
-```text
-Tool-SFT plus formal process RL
-Tool-SFT plus endpoint RL
-Tool-SFT plus calibrated forward evidence
-```
-
-Every RL checkpoint must record the Tool-SFT adapter hash, data manifest, environment revision and executor revision.
-
-## Phase 8 — test-time hypotheses and planning extensions
-
-Run K in `{1, 4, 16, 64}` for complete-proof and trace-owned inference when supported.
-
-Report:
-
-```text
-ExecutePass@K
-EndpointPass@K
-unique executable proof classes
-unique mechanism compositions
-unique endpoints
-latency and model/tool calls
-```
-
-Planning is an extension, not a prerequisite for the core scientific claim. Use frozen offline candidate pools before online actor planning.
-
-## Required result order
-
-The main paper result sequence is:
-
-1. **Causal reasoning** — the trace determines the endpoint and responds to interventions;
-2. **Compositional reasoning** — execution primitives generalize to unseen compositions;
-3. **Evidence separation** — soft evidence improves supported choices without replacing execution;
-4. **Scale and downstream reliability** — small-model efficiency and planning, if supported.
-
-## Stop conditions
+## Global stopping rules
 
 Stop or narrow a claim when:
 
-- trace conversion covers only a narrow unreported subset;
-- matched conditions differ in IDs or endpoints;
-- tool observations can be removed without material effect;
-- composition-OOD includes unseen primitives;
-- textbook gains are explained by irrelevant text;
-- a learned score overrides formal execution;
-- RL starts from an untrained tool policy;
-- forward evidence improves mined examples but degrades the frozen audit set.
+- conversion coverage is too narrow;
+- gold reaction labels enter a main retrieval query;
+- root imports or declared moves cannot replay;
+- tokenizer masks are empty or examples truncate;
+- required adapters/manifests/hashes do not match;
+- missing predictions are silently removed;
+- runtime budgets differ across a claimed intervention or ablation;
+- H1 is insensitive to tool observations;
+- H2 contains unseen primitives rather than unseen compositions;
+- irrelevant text explains the evidence gain;
+- any learned score overrides deterministic execution.
