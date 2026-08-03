@@ -114,15 +114,17 @@ class ForwardEvidence:
         return asdict(self)
 
 
+
 def _mol(smiles: str) -> Chem.Mol:
-    mol = Chem.MolFromSmiles(smiles, sanitize=True)
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(smiles, params)
     if mol is None:
         raise ValueError(f"invalid SMILES: {smiles}")
     maps = [atom.GetAtomMapNum() for atom in mol.GetAtoms()]
     if any(value <= 0 for value in maps) or len(maps) != len(set(maps)):
         raise ValueError("all atoms require unique positive atom maps")
     return mol
-
 
 def _lp_electrons(atom: Chem.Atom) -> int:
     table = Chem.GetPeriodicTable()

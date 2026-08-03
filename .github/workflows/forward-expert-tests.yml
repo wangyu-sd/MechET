@@ -12,8 +12,10 @@ on:
       - "scripts/rerank_proof_hypotheses_forward.py"
       - "configs/forward/**"
       - "docs/FORWARD_ELECTRON_EXPERT.md"
+      - "docs/MECH_USPTO_31K_STANDARDIZATION.md"
       - "data/FORWARD_EXPERT.md"
       - "tests/test_forward_expert.py"
+      - "tests/test_mech_uspto_standardization.py"
       - ".github/workflows/forward-expert-tests.yml"
   push:
     branches: [main]
@@ -23,7 +25,9 @@ on:
       - "scripts/train_forward_expert.py"
       - "scripts/run_forward_expert.py"
       - "scripts/rerank_proof_hypotheses_forward.py"
+      - "docs/MECH_USPTO_31K_STANDARDIZATION.md"
       - "tests/test_forward_expert.py"
+      - "tests/test_mech_uspto_standardization.py"
 
 jobs:
   test:
@@ -50,7 +54,10 @@ jobs:
             scripts/run_forward_expert.py \
             scripts/rerank_proof_hypotheses_forward.py
       - name: Run formal, model and data tests
-        run: pytest -q tests/test_forward_expert.py
+        run: |
+          pytest -q \
+            tests/test_forward_expert.py \
+            tests/test_mech_uspto_standardization.py
       - name: Check download license gates and CLI schemas
         run: |
           python scripts/forward_expert_data.py download --dataset mech_uspto_31k --dry-run
