@@ -1,5 +1,4 @@
-"""Composition-disjoint splits for executable retrosynthesis proofs."""
-
+"""Composition-disjoint splits over explicit source-to-sink execution moves."""
 from __future__ import annotations
 
 from collections import Counter, defaultdict
@@ -8,11 +7,11 @@ from dataclasses import dataclass
 import random
 from typing import Any, Iterable
 
-from mechet.proof_equivalence import (
-    composition_signature,
-    primitive_signatures,
+from .proof_to_trace import (
+    ProofTracePlan,
+    execution_composition_signature,
+    execution_primitive_signatures,
 )
-from mechet.proof_program import ProofProgramError, extract_proof_body
 
 
 @dataclass(frozen=True)
@@ -21,37 +20,40 @@ class ProofSplitFeatures:
     primitives: tuple[str, ...]
 
 
-def _assistant_text(row: dict[str, Any]) -> str:
-    for message in reversed(row.get("messages") or []):
-        if message.get("role") == "assistant":
-            return str(message.get("content") or "")
-    return ""
-
-
 def extract_split_features(row: dict[str, Any]) -> ProofSplitFeatures:
-    text = _assistant_text(row)
-    if not extract_proof_body(text):
-        raise ProofProgramError(
-            f"row {row.get('id')} has no MECH_PROOF assistant output"
+    """Extract H2 features only from replay-verified explicit move traces."""
+
+    metadata = dict(row.get("metadata") or {})
+    if metadata.get("executor_replayed") is not True:
+        raise ValueError(
+            f"row {row.get('id')} is not executor-replayed Tool-SFT data"
         )
+    trace_value = metadata.get("trace_plan") or row.get("trace_plan")
+    if not isinstance(trace_value, dict):
+        raise ValueError(f"row {row.get('id')} lacks a trace_plan")
+    plan = ProofTracePlan.from_dict(trace_value)
+    if not plan.steps:
+        raise ValueError(f"row {row.get('id')} has an empty trace plan")
+    primitives = execution_primitive_signatures(plan)
+    if not primitives:
+        raise ValueError(f"row {row.get('id')} has no execution primitives")
     return ProofSplitFeatures(
-        composition=composition_signature(text),
-        primitives=primitive_signatures(text),
+        composition=execution_composition_signature(plan),
+        primitives=primitives,
     )
 
 
 def _annotate_row(
-    row: dict[str, Any],
-    features: ProofSplitFeatures,
-    split: str,
+    row: dict[str, Any], features: ProofSplitFeatures, split: str
 ) -> dict[str, Any]:
     out = deepcopy(row)
     metadata = dict(out.get("metadata") or {})
     metadata.update(
         {
             "mechcomp_split": split,
-            "proof_composition_signature": features.composition,
-            "proof_primitive_signatures": list(features.primitives),
+            "mechcomp_primitive_basis": "source_to_sink_execution_moves_v1",
+            "execution_composition_signature": features.composition,
+            "execution_primitive_signatures": list(features.primitives),
         }
     )
     out["metadata"] = metadata
@@ -70,12 +72,8 @@ def _select_groups(
 ) -> set[int]:
     candidates = list(groups.items())
     rng.shuffle(candidates)
-    # Prefer compact composition groups so the requested fraction can be met
-    # without sacrificing primitive coverage.
     candidates.sort(
-        key=lambda item: len(
-            [index for index in item[1] if index in available]
-        )
+        key=lambda item: len([index for index in item[1] if index in available])
     )
     selected: set[int] = set()
     for _composition, indices in candidates:
@@ -88,8 +86,7 @@ def _select_groups(
         for index in active:
             removal_counts.update(features[index].primitives)
         if any(
-            primitive_counts[primitive] - count
-            < min_remaining_primitive_count
+            primitive_counts[primitive] - count < min_remaining_primitive_count
             for primitive, count in removal_counts.items()
         ):
             continue
@@ -106,12 +103,8 @@ def build_compositional_ood_split(
     min_train_primitive_count: int = 2,
     seed: int = 42,
 ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
-    """Create composition-disjoint train/valid/test proof splits.
+    """Hold out complete move compositions while retaining each move in train."""
 
-    Complete composition groups are held out. Every primitive appearing in a
-    held-out split remains represented in train at least
-    ``min_train_primitive_count`` times.
-    """
     if not 0 <= test_fraction < 1 or not 0 <= valid_fraction < 1:
         raise ValueError("split fractions must be in [0, 1)")
     if test_fraction + valid_fraction >= 1:
@@ -120,6 +113,8 @@ def build_compositional_ood_split(
         raise ValueError("min_train_primitive_count must be >= 1")
 
     rows_list = list(rows)
+    if not rows_list:
+        raise ValueError("cannot split an empty dataset")
     features = [extract_split_features(row) for row in rows_list]
     groups: dict[str, list[int]] = defaultdict(list)
     primitive_counts: Counter[str] = Counter()
@@ -139,7 +134,6 @@ def build_compositional_ood_split(
         rng=rng,
     )
     available.difference_update(test_indices)
-
     valid_indices = _select_groups(
         groups,
         features,
@@ -164,7 +158,6 @@ def build_compositional_ood_split(
         ]
         for split, indices in index_sets.items()
     }
-
     composition_sets = {
         split: {features[index].composition for index in indices}
         for split, indices in index_sets.items()
@@ -181,7 +174,11 @@ def build_compositional_ood_split(
     for index in train_indices:
         train_primitive_counts.update(features[index].primitives)
 
+    requested_test = round(len(rows_list) * test_fraction)
+    requested_valid = round(len(rows_list) * valid_fraction)
     manifest = {
+        "scientific_hypothesis": "H2_compositional_generalization",
+        "primitive_basis": "source_to_sink_execution_moves_v1",
         "seed": seed,
         "n_total": len(rows_list),
         "n_train": len(splits["train"]),
@@ -206,14 +203,28 @@ def build_compositional_ood_split(
             )
             for split in ("valid", "test")
         },
-        "min_train_primitive_count": min(
-            train_primitive_counts.values(),
-            default=0,
+        "min_train_primitive_count_observed": min(
+            train_primitive_counts.values(), default=0
         ),
         "requested": {
             "test_fraction": test_fraction,
             "valid_fraction": valid_fraction,
+            "requested_n_test": requested_test,
+            "requested_n_valid": requested_valid,
             "min_train_primitive_count": min_train_primitive_count,
+        },
+        "achieved_fraction": {
+            "test": len(test_indices) / len(rows_list),
+            "valid": len(valid_indices) / len(rows_list),
+        },
+        "claim_gate": {
+            "zero_train_test_composition_overlap": not bool(
+                composition_sets["train"] & composition_sets["test"]
+            ),
+            "test_primitives_seen_in_train": primitive_sets["test"].issubset(
+                primitive_sets["train"]
+            ),
+            "nonempty_test": bool(test_indices),
         },
     }
     return splits, manifest
