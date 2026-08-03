@@ -103,7 +103,7 @@ jobs:
           {"id":"smoke-1","target_smiles":"[CH3:1][C:2](=[O:3])[CH3:4]","expected_precursor":"[CH3:1][C:2](=[O:3])[CH3:4]"}
           EOF
           cat > /tmp/mechet-agent/passages.jsonl <<'EOF'
-          {"passage_id":"carbonyl-1","title":"Carbonyl addition","text":"A nucleophile donates an electron pair to the electrophilic carbonyl carbon while the pi bond shifts toward oxygen.","source_id":"open_textbook","locator":"chapter/carbonyl","revision":"r1","license":"CC-BY-4.0","source_url":"https://example.org","evidence_sha256":"3dd7918d8a81f7ed63a9e449314fb5cd29b7f28f87582306fab3a75ca54915e8","topics":["carbonyl"]}
+          {"passage_id":"carbonyl-1","title":"Carbonyl addition","text":"A nucleophile donates an electron pair to the electrophilic carbonyl carbon while the pi bond shifts toward oxygen.","source_id":"open_textbook","locator":"chapter/carbonyl","revision":"r1","license":"CC-BY-4.0","source_url":"https://example.org","evidence_sha256":"placeholder","topics":["carbonyl"]}
           EOF
           python - <<'PY'
           import hashlib, json, pathlib
@@ -112,7 +112,15 @@ jobs:
           row['evidence_sha256'] = hashlib.sha256(row['text'].encode()).hexdigest()
           path.write_text(json.dumps(row)+'\n')
           PY
-          cat > /tmp/mechet-agent/config.yaml <<'EOF'
+          cat > /tmp/mechet-agent/base_config.yaml <<'EOF'
+          model_name_or_path: Qwen/Qwen3-0.6B
+          train_file: /tmp/mechet-agent/train.jsonl
+          output_dir: /tmp/mechet-agent/output
+          environment:
+            max_tool_calls: 10
+            require_tool_use: true
+          EOF
+          cat > /tmp/mechet-agent/knowledge_config.yaml <<'EOF'
           model_name_or_path: Qwen/Qwen3-0.6B
           train_file: /tmp/mechet-agent/train.jsonl
           output_dir: /tmp/mechet-agent/output
@@ -123,11 +131,11 @@ jobs:
             require_textbook_corpus: true
           EOF
           python scripts/train_inverse_agent_trl.py \
-            --config /tmp/mechet-agent/config.yaml --dry-run
+            --config /tmp/mechet-agent/base_config.yaml --dry-run
           python scripts/train_inverse_agent_trace.py \
-            --config /tmp/mechet-agent/config.yaml --dry-run
+            --config /tmp/mechet-agent/base_config.yaml --dry-run
           python scripts/train_inverse_agent_knowledge.py \
-            --config /tmp/mechet-agent/config.yaml --dry-run
+            --config /tmp/mechet-agent/knowledge_config.yaml --dry-run
       - name: Check optional CLI schemas
         run: |
           python scripts/run_syntheseus_search.py --help
