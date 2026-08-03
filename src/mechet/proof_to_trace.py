@@ -62,24 +62,42 @@ def infer_moves_from_edge(edge: ProofEdge) -> tuple[dict[str, Any], ...]:
 
     decreased, increased, lp_gain, lp_loss = _units(edge)
     moves: list[dict[str, Any]] = []
+
+    # Lone-pair donation into a newly formed/increased bond.
     remaining_increased: list[tuple[int, int]] = []
     for pair in increased:
         donors = [atom for atom in lp_loss if atom in pair]
         if len(donors) == 1:
             donor = donors[0]
             lp_loss.remove(donor)
-            moves.append({"source": {"kind": "LP", "atoms": [donor]}, "sink": {"kind": "BOND", "atoms": list(pair)}, "electrons": 2})
+            moves.append(
+                {
+                    "source": {"kind": "LP", "atoms": [donor]},
+                    "sink": {"kind": "BOND", "atoms": list(pair)},
+                    "electrons": 2,
+                }
+            )
         else:
             remaining_increased.append(pair)
+
+    # Heterolytic cleavage into a lone pair on one endpoint.
     remaining_decreased: list[tuple[int, int]] = []
     for pair in decreased:
         acceptors = [atom for atom in lp_gain if atom in pair]
         if len(acceptors) == 1:
             acceptor = acceptors[0]
             lp_gain.remove(acceptor)
-            moves.append({"source": {"kind": "BOND", "atoms": list(pair)}, "sink": {"kind": "ATOM", "atoms": [acceptor]}, "electrons": 2})
+            moves.append(
+                {
+                    "source": {"kind": "BOND", "atoms": list(pair)},
+                    "sink": {"kind": "ATOM", "atoms": [acceptor]},
+                    "electrons": 2,
+                }
+            )
         else:
             remaining_decreased.append(pair)
+
+    # Local bond shifts, including proton transfer represented as old X-H to new Y-H.
     while remaining_decreased or remaining_increased:
         candidates: list[tuple[int, int]] = []
         for old_index, old_pair in enumerate(remaining_decreased):
@@ -87,13 +105,25 @@ def infer_moves_from_edge(edge: ProofEdge) -> tuple[dict[str, Any], ...]:
                 if len(set(old_pair) & set(new_pair)) == 1:
                     candidates.append((old_index, new_index))
         if len(candidates) != 1:
-            raise ValueError("AMBIGUOUS_ELECTRON_PAIRING: " f"decreased={remaining_decreased} increased={remaining_increased}")
+            raise ValueError(
+                "AMBIGUOUS_ELECTRON_PAIRING: "
+                f"decreased={remaining_decreased} increased={remaining_increased}"
+            )
         old_index, new_index = candidates[0]
         old_pair = remaining_decreased.pop(old_index)
         new_pair = remaining_increased.pop(new_index)
-        moves.append({"source": {"kind": "BOND", "atoms": list(old_pair)}, "sink": {"kind": "BOND", "atoms": list(new_pair)}, "electrons": 2})
+        moves.append(
+            {
+                "source": {"kind": "BOND", "atoms": list(old_pair)},
+                "sink": {"kind": "BOND", "atoms": list(new_pair)},
+                "electrons": 2,
+            }
+        )
+
     if lp_gain or lp_loss:
-        raise ValueError(f"UNPAIRED_LONE_PAIR_DELTA: gain={lp_gain} loss={lp_loss}")
+        raise ValueError(
+            f"UNPAIRED_LONE_PAIR_DELTA: gain={lp_gain} loss={lp_loss}"
+        )
     if not moves:
         raise ValueError("EDGE_HAS_NO_INFERABLE_MOVES")
     return tuple(moves)
@@ -109,7 +139,9 @@ def _linear_edges(program) -> list[ProofEdge]:
     while current != program.precursor_state_id:
         candidates = [edge for edge in remaining if edge.src == current]
         if len(candidates) != 1:
-            raise ValueError(f"NONLINEAR_PROOF_UNSUPPORTED at {current}: {len(candidates)} outgoing edges")
+            raise ValueError(
+                f"NONLINEAR_PROOF_UNSUPPORTED at {current}: {len(candidates)} outgoing edges"
+            )
         edge = candidates[0]
         if edge.dst in visited:
             raise ValueError("CYCLIC_PROOF_UNSUPPORTED")
@@ -133,14 +165,31 @@ def proof_to_trace_plan(proof: str) -> ProofTracePlan:
         state_after = execution.states.get(edge.dst, "")
         if not state_before or not state_after:
             raise ValueError(f"PROOF_STATE_MISSING at edge {edge.src}->{edge.dst}")
-        steps.append(TracePlanStep(step_index=index, state_before=state_before, state_after=state_after, imports=tuple(edge.imports), moves=infer_moves_from_edge(edge)))
-    return ProofTracePlan(target_smiles=program.target_smiles, expected_precursor=execution.precursor_smiles, steps=tuple(steps))
+        steps.append(
+            TracePlanStep(
+                step_index=index,
+                state_before=state_before,
+                state_after=state_after,
+                imports=tuple(edge.imports),
+                moves=infer_moves_from_edge(edge),
+            )
+        )
+    return ProofTracePlan(
+        target_smiles=program.target_smiles,
+        expected_precursor=execution.precursor_smiles,
+        steps=tuple(steps),
+    )
 
 
 def replay_trace_plan(env, plan: ProofTracePlan) -> dict[str, Any]:
     """Replay a plan through a trace-owned environment and return terminal output."""
+
     import json
-    env.reset(target_smiles=plan.target_smiles, expected_precursor=plan.expected_precursor)
+
+    env.reset(
+        target_smiles=plan.target_smiles,
+        expected_precursor=plan.expected_precursor,
+    )
     events: list[dict[str, Any]] = []
     for step in plan.steps:
         for fragment in step.imports:
@@ -148,8 +197,16 @@ def replay_trace_plan(env, plan: ProofTracePlan) -> dict[str, Any]:
             events.append({"tool": "import_fragment", "arguments": {"fragment_smiles": fragment}, "result": result})
             if not result.get("ok"):
                 raise ValueError(f"IMPORT_REPLAY_FAILED: {result}")
-        result = json.loads(env.apply_coupled_electron_moves(json.dumps(list(step.moves))))
-        events.append({"tool": "apply_coupled_electron_moves", "arguments": {"moves_json": json.dumps(list(step.moves))}, "result": result})
+        result = json.loads(
+            env.apply_coupled_electron_moves(json.dumps(list(step.moves)))
+        )
+        events.append(
+            {
+                "tool": "apply_coupled_electron_moves",
+                "arguments": {"moves_json": json.dumps(list(step.moves))},
+                "result": result,
+            }
+        )
         if not result.get("ok"):
             raise ValueError(f"MOVE_REPLAY_FAILED: {result}")
         if not sides_equal(result.get("state_smiles", ""), step.state_after, ignore_maps=False):
