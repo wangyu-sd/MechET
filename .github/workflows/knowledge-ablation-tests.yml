@@ -26,6 +26,7 @@ on:
       - "src/mechet/knowledge_ablation.py"
       - "scripts/build_knowledge_ablation_suite.py"
       - "scripts/validate_experiment_contract.py"
+      - "scripts/train_tool_sft.py"
       - "configs/experiments/**"
       - "docs/**"
       - "tests/test_knowledge_ablation.py"
@@ -75,8 +76,22 @@ jobs:
               ]
               if anchors:
                   messages += [tool_call("retrieve_primitives","a"),tool_result("retrieve_primitives",{"ok":True,"matches":[{"primitive_id":passage}],"direct_reward":False},"a")]
-              messages += [tool_call("finish_trace","f"),tool_result("finish_trace",{"ok":True,"formal_execute":True,"endpoint_exact":True,"trace_bound":True},"f")]
-              return {"id":identifier,"target_smiles":target,"expected_precursor":target,"messages":messages,"metadata":{"endpoint_source":"environment_owned_trace","knowledge_condition":"combined" if anchors else "textbook_rag","textbook_context_characters":len(text),"structured_primitives_enabled":anchors}}
+              messages += [tool_call("finish_trace","f"),tool_result("finish_trace",{"ok":True,"formal_execute":True,"endpoint_exact":True,"trace_bound":True,"trace_digest":"trace-"+identifier,"compiled_proof":"MECH_PROOF v1"},"f")]
+              return {
+                  "id":identifier,
+                  "target_smiles":target,
+                  "expected_precursor":target,
+                  "messages":messages,
+                  "metadata":{
+                      "endpoint_source":"environment_owned_trace",
+                      "executor_replayed":True,
+                      "trace_digest":"trace-"+identifier,
+                      "compiled_proof":"MECH_PROOF v1",
+                      "knowledge_condition":"combined" if anchors else "textbook_rag",
+                      "textbook_context_characters":len(text),
+                      "structured_primitives_enabled":anchors,
+                  },
+              }
           textbook=[row('r1','[CH4:1]','Carbonyl chemistry evidence.', 'p1'),row('r2','[NH3:2]','Substitution chemistry evidence with a longer passage.', 'p2')]
           combined=[row('r1','[CH4:1]','Carbonyl chemistry evidence.', 'p1', True),row('r2','[NH3:2]','Substitution chemistry evidence with a longer passage.', 'p2', True)]
           for name, rows in [('textbook', textbook), ('combined', combined)]:
@@ -109,7 +124,7 @@ jobs:
             --config /tmp/mechet-ablation/suite.yaml
           grep -q length_matched_irrelevant /tmp/mechet-ablation/suite/trace_length_matched_irrelevant.jsonl
           grep -q retrieve_primitives /tmp/mechet-ablation/suite/trace_structured_anchors.jsonl
-          test "$(grep -c retrieve_textbook_guidance /tmp/mechet-ablation/suite/trace_structured_anchors.jsonl)" -eq 0
+          ! grep -q retrieve_textbook_guidance /tmp/mechet-ablation/suite/trace_structured_anchors.jsonl
           grep -q '"endpoint_source": "direct_answer"' /tmp/mechet-ablation/suite/direct_textbook_rag.jsonl
       - name: Validate matched suite and Tool-SFT dry-run
         run: |
@@ -128,6 +143,9 @@ jobs:
           output_dir: /tmp/mechet-ablation/output
           training:
             assistant_only_loss: true
+          contract:
+            require_trace_owned: true
+            terminal_tool: finish_trace
           YAML
           python scripts/train_tool_sft.py \
             --config /tmp/mechet-ablation/tool_sft.yaml --dry-run
