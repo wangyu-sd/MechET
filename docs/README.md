@@ -10,10 +10,11 @@ This page distinguishes current method specifications from historical files and 
 4. [`TEXTBOOK_RAG.md`](TEXTBOOK_RAG.md) — natural-language textbook corpus, state-conditioned retrieval and bounded evidence cards.
 5. [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) — online textbook tool, optional structured anchors and matched training conditions.
 6. [`TOOL_SFT.md`](TOOL_SFT.md) — conservative proof-to-tool conversion and executor-replayed Tool-SFT construction.
-7. [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) — Web evidence, executable anchor schema and structured model enhancement.
-8. [`PROOF_CARRYING.md`](PROOF_CARRYING.md) — proof language and deterministic executor.
-9. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — compact forward expert.
-10. [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) — TRL, scale backends and Syntheseus planning.
+7. [`KNOWLEDGE_ABLATIONS.md`](KNOWLEDGE_ABLATIONS.md) — closed/open-book fairness, matched data, irrelevant-context controls and evaluation gates.
+8. [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) — Web evidence, executable anchor schema and structured model enhancement.
+9. [`PROOF_CARRYING.md`](PROOF_CARRYING.md) — proof language and deterministic executor.
+10. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — compact forward expert.
+11. [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) — TRL, scale backends and Syntheseus planning.
 
 ## Authoritative documents
 
@@ -25,6 +26,7 @@ This page distinguishes current method specifications from historical files and 
 | [`TEXTBOOK_RAG.md`](TEXTBOOK_RAG.md) | Passage corpus, provenance schema, deterministic retrieval, evidence-card compilation and retrieval ablations |
 | [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) | Knowledge tools, soft-evidence boundary, trace integration, training and online ablation switches |
 | [`TOOL_SFT.md`](TOOL_SFT.md) | Replay-verified trajectory construction, conservative arrow pairing, row schema and quarantine contract |
+| [`KNOWLEDGE_ABLATIONS.md`](KNOWLEDGE_ABLATIONS.md) | Matched-ID suite, open/closed-book controls, Tool-SFT contract, causal controls and claim stopping rules |
 | [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) | Source/license registry, executable anchor schema, structured retrieval, model augmentation and matched ablations |
 | [`PROOF_CARRYING.md`](PROOF_CARRYING.md) | `MECH_PROOF v1`, deterministic executor and proof semantics |
 | [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) | Forward data, model, training, generation, calibration and integration |
@@ -58,9 +60,10 @@ These remain only for provenance and must not define the current method.
 3. Natural-language textbook passages, learned forward/selectivity scores and primitive-reference matches are soft evidence and must not be described as experimental truth.
 4. Textbook retrieval and structured-anchor retrieval must not receive direct reward; reward follows executed chemistry and frozen learned evidence only.
 5. Tool-SFT rows must replay through the same trace-owned environment; ambiguous arrow pairing is quarantined rather than guessed.
-6. Downloaded text remains a provenance-tracked passage; an LLM extraction becomes a released executable anchor only after explicit encoding and review.
-7. Agent-training and planning frameworks must wrap the shared chemistry environments; they must not duplicate chemistry state or reward definitions.
-8. Download revisions, hashes, licenses, corpus/index manifests, quarantine records, configs and calibration thresholds must accompany reported checkpoints.
-9. Restricted sources require explicit license acceptance; no downloader may bypass upstream access terms.
-10. The README must not report unreleased checkpoints or non-frozen numbers as validated performance.
-11. Historical documents must retain clear deprecated/archived markers and links to replacements.
+6. Knowledge experiments must use matched stable IDs, matched endpoints and disclosed token/context/tool budgets; open-book methods require open-book baselines.
+7. Downloaded text remains a provenance-tracked passage; an LLM extraction becomes a released executable anchor only after explicit encoding and review.
+8. Agent-training and planning frameworks must wrap the shared chemistry environments; they must not duplicate chemistry state or reward definitions.
+9. Download revisions, hashes, licenses, corpus/index manifests, quarantine records, configs and calibration thresholds must accompany reported checkpoints.
+10. Restricted sources require explicit license acceptance; no downloader may bypass upstream access terms.
+11. The README must not report unreleased checkpoints or non-frozen numbers as validated performance.
+12. Historical documents must retain clear deprecated/archived markers and links to replacements.
