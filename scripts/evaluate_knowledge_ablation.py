@@ -17,13 +17,11 @@ from mechet.knowledge_ablation import (
     file_sha256,
     read_jsonl,
 )
+from mechet.prediction_metrics import prediction_set_metrics
 
 ALIASES = {
     "trace_no_knowledge": ("trace_no_knowledge", "none", "trace_none"),
-    "trace_length_matched_irrelevant": (
-        "trace_length_matched_irrelevant",
-        "irrelevant",
-    ),
+    "trace_length_matched_irrelevant": ("trace_length_matched_irrelevant", "irrelevant"),
     "trace_textbook_rag": ("trace_textbook_rag", "textbook"),
     "trace_structured_anchors": ("trace_structured_anchors", "anchors"),
     "trace_text_plus_anchors": ("trace_text_plus_anchors", "combined"),
@@ -47,19 +45,12 @@ def find_condition(metrics: dict[str, dict[str, Any]], canonical: str) -> str | 
     return None
 
 
-def delta(
-    metrics: dict[str, dict[str, Any]],
-    left: str,
-    right: str,
-    field: str,
-) -> float | None:
+def delta(metrics, left, right, field):
     left_name = find_condition(metrics, left)
     right_name = find_condition(metrics, right)
     if left_name is None or right_name is None:
         return None
-    return float(metrics[left_name].get(field, 0.0)) - float(
-        metrics[right_name].get(field, 0.0)
-    )
+    return float(metrics[left_name].get(field, 0.0)) - float(metrics[right_name].get(field, 0.0))
 
 
 def is_direct_condition(name: str) -> bool:
@@ -68,12 +59,7 @@ def is_direct_condition(name: str) -> bool:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--reference",
-        type=Path,
-        required=True,
-        help="frozen benchmark/supervision rows defining the complete ID universe",
-    )
+    parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--condition", action="append", type=parse_condition, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
@@ -89,43 +75,28 @@ def main() -> int:
         if not path.exists():
             raise FileNotFoundError(path)
         prediction_rows = read_jsonl(path)
-        aligned[name] = align_prediction_artifact(
-            reference_rows, prediction_rows, condition_name=name
-        )
+        aligned[name] = align_prediction_artifact(reference_rows, prediction_rows, condition_name=name)
         sources[name] = {
             "path": str(path),
             "sha256": file_sha256(path),
             "n_prediction_rows": len(prediction_rows),
         }
 
-    metrics = {name: condition_metrics(rows) for name, rows in aligned.items()}
+    metrics = {
+        name: {
+            **condition_metrics(rows),
+            **prediction_set_metrics(rows),
+        }
+        for name, rows in aligned.items()
+    }
     primary_field = "structural_exact_rate"
-    textbook_vs_none = delta(
-        metrics, "trace_textbook_rag", "trace_no_knowledge", primary_field
-    )
-    textbook_vs_irrelevant = delta(
-        metrics,
-        "trace_textbook_rag",
-        "trace_length_matched_irrelevant",
-        primary_field,
-    )
-    combined_vs_textbook = delta(
-        metrics, "trace_text_plus_anchors", "trace_textbook_rag", primary_field
-    )
-    combined_vs_anchors = delta(
-        metrics,
-        "trace_text_plus_anchors",
-        "trace_structured_anchors",
-        primary_field,
-    )
-    trace_textbook_vs_direct = delta(
-        metrics, "trace_textbook_rag", "direct_textbook_rag", primary_field
-    )
+    textbook_vs_none = delta(metrics, "trace_textbook_rag", "trace_no_knowledge", primary_field)
+    textbook_vs_irrelevant = delta(metrics, "trace_textbook_rag", "trace_length_matched_irrelevant", primary_field)
+    combined_vs_textbook = delta(metrics, "trace_text_plus_anchors", "trace_textbook_rag", primary_field)
+    combined_vs_anchors = delta(metrics, "trace_text_plus_anchors", "trace_structured_anchors", primary_field)
+    trace_textbook_vs_direct = delta(metrics, "trace_textbook_rag", "direct_textbook_rag", primary_field)
 
-    reward_violations = sum(
-        int(value.get("knowledge_direct_reward_violations", 0))
-        for value in metrics.values()
-    )
+    reward_violations = sum(int(value.get("knowledge_direct_reward_violations", 0)) for value in metrics.values())
     trace_names = [name for name in metrics if not is_direct_condition(name)]
     trace_binding_ok = bool(trace_names) and all(
         float(metrics[name].get("trace_prediction_rate", 0.0)) == 1.0
@@ -133,26 +104,14 @@ def main() -> int:
         and float(metrics[name].get("missing_prediction_rate", 1.0)) == 0.0
         for name in trace_names
     )
-    all_predictions_present = all(
-        float(value.get("missing_prediction_rate", 1.0)) == 0.0
-        for value in metrics.values()
-    )
-    no_evaluation_errors = all(
-        float(value.get("evaluation_error_rate", 1.0)) == 0.0
-        for value in metrics.values()
-    )
+    all_predictions_present = all(float(value.get("missing_prediction_rate", 1.0)) == 0.0 for value in metrics.values())
+    no_evaluation_errors = all(float(value.get("evaluation_error_rate", 1.0)) == 0.0 for value in metrics.values())
 
     claim_gates = {
         "all_frozen_ids_evaluated": all_predictions_present,
         "no_reexecution_errors": no_evaluation_errors,
-        "textbook_exceeds_trace_only": (
-            None if textbook_vs_none is None else textbook_vs_none > 0
-        ),
-        "textbook_exceeds_irrelevant_context": (
-            None
-            if textbook_vs_irrelevant is None
-            else textbook_vs_irrelevant > 0
-        ),
+        "textbook_exceeds_trace_only": None if textbook_vs_none is None else textbook_vs_none > 0,
+        "textbook_exceeds_irrelevant_context": None if textbook_vs_irrelevant is None else textbook_vs_irrelevant > 0,
         "combined_exceeds_each_individual": (
             None
             if combined_vs_textbook is None or combined_vs_anchors is None
@@ -191,16 +150,17 @@ def main() -> int:
         "metric_contract": {
             "primary_endpoint": "atom-contributing structural precursor exact match with atom maps ignored",
             "secondary_endpoint": "mapped structural precursor exact match",
+            "top_k": "computed from retained candidate rollouts without gold-based reranking",
+            "selective_risk": "error among non-abstained selected predictions",
             "trace_metrics": "recomputed from rollout flow_trace or re-executed compiled proof",
             "missing_predictions": "retained in the denominator as failures",
             "extra_or_duplicate_ids": "hard error",
             "training_rows_as_predictions": "hard error",
+            "unavailable_metrics": "reaction-center and synthon metrics remain null until frozen labels exist",
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 
