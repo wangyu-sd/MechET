@@ -18,6 +18,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO / "scripts"))
 
+from agent_model_init import build_trainable_model, lineage_report
 from train_inverse_agent_trl import build_rows, load_yaml
 from mechet.agent_env import AgentEnvConfig
 from mechet.trace_agent_env import TraceOwnedAgentEnv
@@ -78,6 +79,7 @@ def dry_run_report(cfg: dict[str, Any], rows: list[dict[str, Any]]) -> dict[str,
             training.get("max_tool_calling_iterations", 8)
         ),
         "num_generations": int(training.get("num_generations", 8)),
+        "checkpoint_lineage": lineage_report(cfg),
     }
 
 
@@ -106,16 +108,11 @@ def main() -> int:
     try:
         import torch
         from datasets import Dataset
-        from peft import LoraConfig
         from trl import GRPOConfig, GRPOTrainer
     except ImportError as exc:
         raise RuntimeError("install mechet[agent]") from exc
 
-    model_name = str(cfg.get("model_name_or_path") or "")
-    if not model_name:
-        raise ValueError("model_name_or_path is required")
     training = dict(cfg.get("training") or {})
-    lora = dict(cfg.get("lora") or {})
     env_cfg = environment_config(cfg)
 
     grpo_args = GRPOConfig(
@@ -149,16 +146,7 @@ def main() -> int:
         },
         trust_remote_code=bool(training.get("trust_remote_code", True)),
     )
-    peft_config = LoraConfig(
-        r=int(lora.get("r", 16)),
-        lora_alpha=int(lora.get("alpha", 32)),
-        lora_dropout=float(lora.get("dropout", 0.05)),
-        target_modules=list(
-            lora.get("target_modules")
-            or ["q_proj", "k_proj", "v_proj", "o_proj"]
-        ),
-        task_type="CAUSAL_LM",
-    )
+    model, peft_config = build_trainable_model(cfg, torch)
     factory = partial(
         TraceOwnedAgentEnv,
         config=env_cfg,
@@ -166,7 +154,7 @@ def main() -> int:
         forward_device=str(cfg.get("forward_device") or "cpu"),
     )
     trainer = GRPOTrainer(
-        model=model_name,
+        model=model,
         args=grpo_args,
         train_dataset=Dataset.from_list(rows),
         environment_factory=factory,
@@ -174,6 +162,12 @@ def main() -> int:
     )
     trainer.train()
     trainer.save_model()
+    output = Path(grpo_args.output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "checkpoint_lineage.json").write_text(
+        json.dumps(lineage_report(cfg), indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     return 0
 
 
