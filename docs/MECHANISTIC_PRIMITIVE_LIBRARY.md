@@ -1,45 +1,75 @@
-# Mechanistic primitive reference library
+# Mechanistic knowledge anchors
 
-## Purpose
+The filename is retained for compatibility, but the scientific term used in the paper and public documentation is **mechanistic knowledge anchor**.
 
-MechET uses a compact, provenance-aware mechanism library to connect classical organic-chemistry knowledge with executable electron-flow reasoning. The library is optional **soft guidance**, not a whole-reaction template engine and not a replacement for the deterministic executor.
+## Critical distinction
+
+MechET contains two different objects that must not be conflated.
+
+### Electron-flow execution primitive
+
+A local executable source-to-sink action such as:
 
 ```text
-open reference evidence
-  -> reviewed mechanism primitive
-  -> role binding on the current mapped molecular state
-  -> concrete candidate E_MOVE set and warnings
-  -> actor choice and deterministic execution
+LP -> BOND
+BOND -> ATOM
+BOND -> BOND
 ```
 
-A primitive match does not establish kinetics, selectivity, yield or experimental feasibility. Lack of a primitive match does not imply impossibility.
+Execution primitives define:
 
-## Web source inventory
+- the causal action vocabulary;
+- deterministic state transitions;
+- proof composition signatures;
+- primitive-seen/composition-unseen splits.
 
-The source registry is `knowledge/source_registry.yaml`.
+### Mechanistic knowledge anchor
 
-| Source | Information extracted | License and use boundary |
+A provenance-aware structured record containing:
+
+```text
+molecular-role patterns
+candidate execution primitives
+preconditions
+warnings
+competing pathways
+follow-up suggestions
+source and license metadata
+```
+
+Knowledge anchors are retrieved soft evidence. They do not define the causal trace, formal validity or composition-OOD vocabulary.
+
+## Scientific role
+
+The anchor library tests whether external structured mechanistic evidence improves induction of a causal electron-flow program.
+
+```text
+reviewed external evidence
+  -> mechanistic knowledge anchor
+  -> role binding on the current mapped state
+  -> candidate actions, warnings and competitors
+  -> actor choice
+  -> deterministic execution
+```
+
+A match does not establish kinetics, selectivity, yield, experimental feasibility or a unique physical mechanism. Lack of a match does not imply impossibility.
+
+## Source inventory
+
+The registry is `knowledge/source_registry.yaml`.
+
+| Source | Role | Boundary |
 |---|---|---|
-| IUPAC Gold Book | stable terminology IDs and definitions | download individual term JSON; record version and attribution; do not assume unrestricted bulk redistribution |
-| RXNO | reaction-family taxonomy and stable ontology IDs | CC BY 4.0 official OWL |
-| Wikibooks Organic Chemistry | open textbook explanations and mechanism sections | CC BY-SA/GFDL unless stated otherwise; text only and revision pinned |
-| Organic Synthesis (Shea), LibreTexts | selected open textbook pages | registered CC BY pages only; page-level license markers checked |
-| MIT OCW Organic Chemistry | non-commercial course explanations and exercises | CC BY-NC-SA except third-party material; explicit non-commercial acceptance and excluded markers |
-| PMechDB/PMechRP | elementary polar source/sink data and textbook-pathway benchmark | CC BY-NC-ND and request-gated; local research use unless further permission is obtained |
+| IUPAC Gold Book | stable terminology and definitions | per-term provenance; no assumption of unrestricted bulk redistribution |
+| RXNO | reaction-family taxonomy | official ontology and attribution |
+| Wikibooks Organic Chemistry | open explanatory text | revision-pinned text; media excluded |
+| selected LibreTexts pages | open mechanism explanations | page-level license checks |
+| MIT OpenCourseWare | non-commercial course evidence | explicit non-commercial acceptance; third-party exclusions |
+| PMechDB/PMechRP | mechanism data and benchmark assets | manual/request-gated; upstream terms preserved |
 
-Commercial textbook editions are not downloaded or redistributed. Human reviewers may consult them to identify consensus chemistry, but released records must use independent descriptions and legally shareable evidence.
+Commercial textbook editions are not mirrored. Released descriptions and structured records must be independently authored.
 
-## Downloader
-
-`scripts/download_mechanistic_sources.py` supports:
-
-- per-term IUPAC JSON;
-- official ontology files;
-- revision-pinned MediaWiki pages;
-- text-only HTML with license-marker and excluded-marker checks;
-- explicit non-commercial/restricted gates;
-- manual instructions for form-gated datasets;
-- SHA-256 manifests and verification.
+## Acquisition and provenance
 
 ```bash
 python scripts/download_mechanistic_sources.py \
@@ -51,7 +81,6 @@ python scripts/download_mechanistic_sources.py \
   --source iupac_goldbook_terms \
   --source rxno \
   --source wikibooks_organic_chemistry \
-  --source libretexts_organic_synthesis_shea \
   --output knowledge/raw
 
 python scripts/download_mechanistic_sources.py \
@@ -59,11 +88,11 @@ python scripts/download_mechanistic_sources.py \
   verify --output knowledge/raw
 ```
 
-Raw downloads and restricted datasets normally remain outside Git. Release artifacts should contain the source registry, manifests, extraction code, independently written primitive records and only permitted evidence excerpts.
+Every asset retains source ID, URL, revision information, license, acquisition method and SHA-256 hash.
 
-## Primitive schema
+## Anchor schema
 
-The seed library is `knowledge/primitives/core_polar_primitives.yaml`.
+The current compatibility path stores anchors in `knowledge/primitives/core_polar_primitives.yaml`.
 
 ```yaml
 primitive_id: nucleophilic_substitution_sp3
@@ -85,21 +114,20 @@ competing_primitives: [...]
 sources: [...]
 ```
 
-The library validates stable IDs, registered provenance sources, SMARTS role maps, supported electron-container kinds, two-electron v1 scope and explicit evidence status.
+The field name `primitive_id` remains for API compatibility. In scientific writing it is an **anchor ID**, not an execution-primitive ID.
 
 ## Extraction and review workflow
 
-Web retrieval does not directly create executable knowledge.
+Downloaded text does not become executable knowledge automatically.
 
-1. Register URL, revision method, license and redistribution policy.
-2. Download evidence and preserve revision identifiers and hashes.
-3. Build evidence-linked extraction candidates. LLM outputs use a strict schema and `UNKNOWN` for missing fields.
-4. Independently write SMARTS roles, `E_MOVE` templates, warnings and competitors without copying protected prose or figures.
-5. Compile concrete mapped examples and replay them through MechET.
-6. Review omitted proton transfers, resonance/reaction confusion, scope, stereochemistry, conditions and competitors.
-7. Release with status `draft`, `text_supported`, `executor_verified`, `chemist_reviewed`, `released` or `deprecated`.
-
-Build the extraction queue:
+1. Register source, revision method, license and redistribution policy.
+2. Download evidence and freeze hashes.
+3. Build bounded evidence-linked extraction candidates.
+4. Use `UNKNOWN` for unsupported extracted fields.
+5. Independently encode role SMARTS, candidate actions, warnings and competitors.
+6. Instantiate mapped examples and replay candidate actions.
+7. Review scope, proton transfers, resonance, stereochemistry, conditions and competitors.
+8. Assign a status such as `draft`, `text_supported`, `executor_verified`, `chemist_reviewed`, `released` or `deprecated`.
 
 ```bash
 python scripts/build_primitive_extraction_queue.py \
@@ -107,89 +135,70 @@ python scripts/build_primitive_extraction_queue.py \
   --output knowledge/candidates/extraction_queue.jsonl
 ```
 
-Each task retains its source span, license, revision and artifact hash. Candidate extraction is never automatically promoted to a released primitive.
+LLM extraction is never automatically promoted to a released anchor.
 
-## Model integration
+## Online retrieval
 
-### Online retrieval for the inverse actor
-
-`PrimitiveAugmentedAgentEnv` extends `MechETAgentEnv` with:
+`KnowledgeAugmentedAgentEnv` may expose:
 
 ```text
 retrieve_primitives(query, top_k)
 ```
 
-Results contain primitive IDs, atom-map role bindings, instantiated candidate `E_MOVE` sets, preconditions, warnings, competitors, follow-ups and provenance.
+The compatibility class `PrimitiveAugmentedAgentEnv` remains available, but the main scientific condition uses trace ownership and `finish_trace`.
 
-The actor still chooses actions and the deterministic environment executes them. Retrieval never directly returns a precursor or a complete named-reaction template.
+Retrieval returns anchor IDs, role bindings, candidate actions, warnings, competitors, follow-ups and provenance. It does not return a precursor or complete answer.
 
-```bash
-python scripts/train_inverse_agent_primitives.py \
-  --config configs/knowledge/inverse_trl_grpo_primitives.yaml \
-  --dry-run --limit 8
+## Reward boundary
 
-python scripts/train_inverse_agent_primitives.py \
-  --config configs/knowledge/inverse_trl_grpo_primitives.yaml
+Knowledge-anchor retrieval receives no direct reward in the primary evidence experiment.
+
+A separate bounded anchor-support reward may be studied only as an ablation:
+
+- unmatched formally valid actions remain allowed;
+- retrieval-only records cannot provide formal reward;
+- anchor support is logged separately from execution and endpoint rewards;
+- no anchor score can offset formal failure.
+
+## Matched experiment
+
+The required conditions are generated by `build_knowledge_ablation_suite.py`:
+
+```text
+trace_no_knowledge
+trace_length_matched_irrelevant
+trace_textbook_rag
+trace_structured_anchors
+trace_text_plus_anchors
+direct_textbook_rag
 ```
 
-The matched baseline is `scripts/train_inverse_agent_trl.py` with the same backbone, data, LoRA capacity, rollout budget and reward components.
+Anchors-only rows are derived from combined trace rows by removing textbook retrieval. They must not be prepared from a different dataset.
 
-### Optional soft process reward
+Report:
 
-For a successful explicit move, the environment compares the exact source/sink set with reviewed executable primitive instances. The optional support reward is bounded and small by default.
-
-- unmatched actions are not hard failures;
-- retrieval-only/text-supported entries cannot provide formal action reward;
-- primitive reward is reported separately from executor and endpoint rewards;
-- ablations include retrieval without reward and reward without natural-language context.
-
-### Offline context for forward and supervised models
-
-`scripts/annotate_primitive_context.py` attaches candidate IDs and role bindings, mapped reaction bond-delta support, per-step exact move support, optional rendered context and provenance hashes.
-
-It also writes compact primitive fields into `conditions`, which the current forward expert already encodes through its condition channel. This enables a matched comparison without changing the graph architecture.
-
-```bash
-python scripts/annotate_primitive_context.py \
-  --input data/forward_expert/steps/train.jsonl \
-  --output data/forward_expert/steps_primitive/train.jsonl \
-  --library knowledge/primitives/core_polar_primitives.yaml \
-  --source-registry knowledge/source_registry.yaml \
-  --render-context
+```text
+endpoint and execution metrics
+anchor retrieval coverage
+role-binding accuracy
+exact candidate-action support
+intervention effects
+context and tool budgets
+family/scaffold/composition OOD
+latency
 ```
 
-Later extensions may add explicit primitive embeddings, a primitive-prediction auxiliary head or hierarchy-aware contrastive losses. They are not required for the first experiment.
+A gain cannot be attributed to structured anchors if it is explained by extra context, different IDs, different optimization or direct reward.
 
-## Performance hypotheses and ablations
+## Relationship to compositional generalization
 
-The reference library can help through:
+H2 is tested over **execution-primitive compositions**. Anchor IDs may be used for secondary analyses but cannot define the headline composition holdout, because anchors contain higher-level curated knowledge and may encode reaction-family information.
 
-1. reduced action search space through state-specific role bindings;
-2. compositional inductive bias shared across reaction families;
-3. sparse action-level evidence for process learning;
-4. explicit competing pathways and warnings for selectivity analysis.
+## Boundaries
 
-Required first experiment:
-
-| Variant | Retrieval context | Structured primitive IDs | Primitive soft reward |
-|---|---:|---:|---:|
-| baseline tool actor | no | no | no |
-| retrieval only | yes | no | no |
-| structured IDs only | no | yes | no |
-| retrieval + IDs | yes | yes | no |
-| retrieval + IDs + soft reward | yes | yes | yes |
-
-Match model scale, examples, assistant-token budget, tool-call budget, sampling budget, executor version and forward checkpoint. Include a length-matched generic-context control.
-
-Report endpoint Top-k, synthon/reaction-centre accuracy, execution and invalid-action rate, tool recovery, abstention, primitive and complete-move accuracy, family/scaffold/temporal/MechComp-OOD, calibration, context tokens and latency.
-
-A gain cannot be attributed to the library if it is explained only by extra tokens or compute.
-
-## Scientific boundaries
-
-- The library records textbook consensus and structured evidence, not experimental truth.
-- A source citation does not make an inferred arrow correct.
-- A complete primitive match does not prove the full mechanism or selectivity.
-- Lack of a primitive match does not imply impossibility.
+- Knowledge anchors summarize structured evidence, not experimental truth.
+- A citation does not prove a candidate electron-flow action.
+- A complete anchor match does not prove the full mechanism or selectivity.
+- Lack of an anchor match does not imply impossibility.
 - License constraints follow every source and derivative artifact.
-- Report the library version, source-registry hash, primitive-file hash and retrieval/reward configuration with every checkpoint.
+- Report the source-registry hash, anchor-library hash and retrieval configuration with every evidence-conditioned checkpoint.
