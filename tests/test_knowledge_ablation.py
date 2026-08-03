@@ -232,6 +232,16 @@ def test_direct_open_book_uses_same_bounded_evidence_without_tools():
     assert value["metadata"]["executor_replayed"] is False
 
 
+def test_direct_open_book_endpoint_is_evaluated_from_precursor_text():
+    direct_rows = [make_direct_textbook_condition(item) for item in rows()]
+    metrics = condition_metrics(direct_rows)
+    assert metrics["prediction_present_rate"] == 1.0
+    assert metrics["direct_prediction_rate"] == 1.0
+    assert metrics["trace_prediction_rate"] == 0.0
+    assert metrics["trace_bound_rate"] == 0.0
+    assert metrics["endpoint_exact_rate"] == 1.0
+
+
 def test_irrelevant_control_rotates_only_text_and_matches_length():
     original = rows()
     controlled = make_irrelevant_context_control(original)
@@ -270,6 +280,8 @@ def test_tool_sft_records_remain_conversational():
 def test_condition_metrics_enforce_trace_and_zero_knowledge_reward():
     metrics = condition_metrics(rows())
     assert metrics["textbook_call_rate"] == 1.0
+    assert metrics["prediction_present_rate"] == 1.0
+    assert metrics["trace_prediction_rate"] == 1.0
     assert metrics["trace_bound_rate"] == 1.0
     assert metrics["execute_rate"] == 1.0
     assert metrics["endpoint_exact_rate"] == 1.0
