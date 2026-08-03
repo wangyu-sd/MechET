@@ -16,16 +16,14 @@ sys.path.insert(0, str(REPO / "src"))
 
 from mechet.knowledge_ablation import read_jsonl, row_id, write_jsonl
 
-
 TEXTBOOK_TOOL = "retrieve_textbook_guidance"
 ANCHOR_TOOL = "retrieve_primitives"
 _WARNING_RE = re.compile(r"(?im)^.*\bwarning(?:s)?\b.*$")
 _COMPETITOR_RE = re.compile(
     r"(?im)^.*\b(competing|competitor|alternative pathway|side pathway)\b.*$"
 )
-_REMOVE_KEYS = {
-    "warnings",
-    "warning",
+_WARNING_KEYS = {"warnings", "warning"}
+_COMPETITOR_KEYS = {
     "competitors",
     "competing_primitives",
     "competing_pathways",
@@ -53,12 +51,18 @@ def _fit(text: str, length: int) -> str:
 
 
 def _set_context(
-    row: Mapping[str, Any], result: dict[str, Any], text: str, *, intervention: str
+    row: Mapping[str, Any],
+    result: dict[str, Any],
+    text: str,
+    *,
+    intervention: str,
 ) -> dict[str, Any]:
     value = deepcopy(dict(row))
     index, _ = _tool_result_location(value, TEXTBOOK_TOOL)
     context = dict(result.get("context") or {})
-    target_length = int(context.get("n_characters") or len(str(context.get("text") or "")))
+    target_length = int(
+        context.get("n_characters") or len(str(context.get("text") or ""))
+    )
     bounded = _fit(text, target_length)
     context.update(
         {
@@ -68,12 +72,18 @@ def _set_context(
             "evidence_intervention": intervention,
         }
     )
-    result = deepcopy(result)
-    result["context"] = context
-    result["matches"] = [] if intervention in {"passage_shuffle", "same_topic_wrong"} else result.get("matches", [])
-    result["evidence_intervention"] = intervention
-    result["direct_reward"] = False
-    value["messages"][index]["content"] = json.dumps(result, ensure_ascii=False)
+    changed_result = deepcopy(result)
+    changed_result["context"] = context
+    changed_result["matches"] = (
+        []
+        if intervention in {"passage_shuffle", "same_topic_wrong"}
+        else changed_result.get("matches", [])
+    )
+    changed_result["evidence_intervention"] = intervention
+    changed_result["direct_reward"] = False
+    value["messages"][index]["content"] = json.dumps(
+        changed_result, ensure_ascii=False
+    )
     metadata = dict(value.get("metadata") or {})
     metadata.update(
         {
@@ -101,6 +111,8 @@ def passage_shuffle(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     for index, (row, original) in enumerate(prepared):
         donor = prepared[(index + 1) % len(prepared)]
+        if row_id(donor[0]) == row_id(row):
+            raise ValueError(f"{row_id(row)}: passage shuffle selected itself")
         donor_text = str((donor[1].get("context") or {}).get("text") or "")
         value = _set_context(
             row, original, donor_text, intervention="passage_shuffle"
@@ -122,50 +134,64 @@ def same_topic_wrong(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for donor_row, donor_result in prepared:
             if row_id(donor_row) == row_id(row):
                 continue
-            donor_ids = set((donor_result.get("context") or {}).get("passage_ids") or [])
-            overlap = len(source_terms & _terms(donor_result))
-            if overlap and source_ids.isdisjoint(donor_ids):
-                candidates.append((overlap, row_id(donor_row), donor_row, donor_result))
+            donor_ids = set(
+                (donor_result.get("context") or {}).get("passage_ids") or []
+            )
+            shared = source_terms & _terms(donor_result)
+            if shared and source_ids.isdisjoint(donor_ids):
+                candidates.append(
+                    (len(shared), row_id(donor_row), donor_row, donor_result, shared)
+                )
         if not candidates:
             raise ValueError(
                 f"{row_id(row)}: no same-topic wrong-passage donor; add reviewed topic labels"
             )
-        _, _, donor_row, donor_result = max(candidates, key=lambda item: (item[0], item[1]))
+        _, _, donor_row, donor_result, shared = max(
+            candidates, key=lambda item: (item[0], item[1])
+        )
         donor_text = str((donor_result.get("context") or {}).get("text") or "")
         value = _set_context(
             row, original, donor_text, intervention="same_topic_wrong"
         )
         metadata = dict(value.get("metadata") or {})
         metadata["evidence_donor_id"] = row_id(donor_row)
-        metadata["shared_retrieval_terms"] = sorted(source_terms & _terms(donor_result))
+        metadata["shared_retrieval_terms"] = sorted(shared)
         value["metadata"] = metadata
         output.append(value)
     return output
 
 
-def _remove_keys(value: Any) -> Any:
+def _remove_selected_keys(value: Any, blocked: set[str]) -> Any:
     if isinstance(value, dict):
         return {
-            key: _remove_keys(item)
+            key: _remove_selected_keys(item, blocked)
             for key, item in value.items()
-            if str(key).lower() not in _REMOVE_KEYS
+            if str(key).lower() not in blocked
         }
     if isinstance(value, list):
-        return [_remove_keys(item) for item in value]
+        return [_remove_selected_keys(item, blocked) for item in value]
+    return value
+
+
+def _rewrite_anchor_result(
+    row: dict[str, Any], blocked: set[str], intervention: str
+) -> dict[str, Any]:
+    value = deepcopy(row)
+    try:
+        index, result = _tool_result_location(value, ANCHOR_TOOL)
+    except ValueError:
+        return value
+    changed = _remove_selected_keys(result, blocked)
+    changed["evidence_intervention"] = intervention
+    changed["direct_reward"] = False
+    value["messages"][index]["content"] = json.dumps(changed, ensure_ascii=False)
     return value
 
 
 def remove_warnings(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     for row in rows:
-        value = deepcopy(row)
-        try:
-            index, result = _tool_result_location(value, ANCHOR_TOOL)
-            value["messages"][index]["content"] = json.dumps(
-                _remove_keys(result), ensure_ascii=False
-            )
-        except ValueError:
-            pass
+        value = _rewrite_anchor_result(row, _WARNING_KEYS, "remove_warnings")
         try:
             _, result = _tool_result_location(value, TEXTBOOK_TOOL)
             text = str((result.get("context") or {}).get("text") or "")
@@ -181,21 +207,20 @@ def remove_warnings(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return output
 
 
-def remove_competing_pathways(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def remove_competing_pathways(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     for row in rows:
-        value = deepcopy(row)
-        try:
-            index, result = _tool_result_location(value, ANCHOR_TOOL)
-            value["messages"][index]["content"] = json.dumps(
-                _remove_keys(result), ensure_ascii=False
-            )
-        except ValueError:
-            pass
+        value = _rewrite_anchor_result(
+            row, _COMPETITOR_KEYS, "remove_competing_pathways"
+        )
         try:
             _, result = _tool_result_location(value, TEXTBOOK_TOOL)
             text = str((result.get("context") or {}).get("text") or "")
-            redacted = _COMPETITOR_RE.sub(lambda match: " " * len(match.group(0)), text)
+            redacted = _COMPETITOR_RE.sub(
+                lambda match: " " * len(match.group(0)), text
+            )
             value = _set_context(
                 value,
                 result,
@@ -247,8 +272,18 @@ def main() -> int:
                 "\n".join(row_id(item) for item in transformed).encode()
             ).hexdigest(),
             "characters_preserved": all(
-                int((left.get("metadata") or {}).get("textbook_context_characters") or 0)
-                == int((right.get("metadata") or {}).get("textbook_context_characters") or 0)
+                int(
+                    (left.get("metadata") or {}).get(
+                        "textbook_context_characters"
+                    )
+                    or 0
+                )
+                == int(
+                    (right.get("metadata") or {}).get(
+                        "textbook_context_characters"
+                    )
+                    or 0
+                )
                 for left, right in zip(rows, transformed)
             ),
         }
@@ -262,6 +297,7 @@ def main() -> int:
             "same_chemistry_trace": True,
             "same_context_character_budget": True,
             "direct_reward": False,
+            "intervention_fields_are_isolated": True,
         },
     }
     (args.output_dir / "manifest.json").write_text(
