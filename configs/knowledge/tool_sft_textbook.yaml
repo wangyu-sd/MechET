@@ -8,6 +8,7 @@ limit_examples: 0
 training:
   learning_rate: 2.0e-5
   num_train_epochs: 1.0
+  max_steps: -1
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 8
   max_length: 4096
@@ -31,6 +32,7 @@ lora:
 contract:
   stable_id_manifest: data/knowledge_ablation/v2/manifest.json
   validation_report: outputs/contracts/evidence_conditions.json
+  require_trace_owned: true
   endpoint_source: environment_owned_trace
   terminal_tool: finish_trace
   free_form_proof_submission: false
@@ -42,4 +44,7 @@ contract:
     - trace_text_plus_anchors
     - direct_textbook_rag
   real_overfit_smoke_test_required: true
+  smoke_command: >-
+    python scripts/train_tool_sft.py --config
+    configs/knowledge/tool_sft_textbook.yaml --limit 32 --max-steps 100
   rl_after_supervised_signal_only: true
