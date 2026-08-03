@@ -125,7 +125,7 @@ def test_evidence_documents_use_anchor_terminology():
         "Critical distinction",
         "Electron-flow execution primitive",
         "field name `primitive_id` remains for API compatibility",
-        "No knowledge-anchor IDs are used to define the split",
+        "Anchor IDs may be used for secondary analyses but cannot define the headline composition holdout",
     ]:
         assert term in anchor_doc
 
@@ -206,7 +206,7 @@ def test_proof_format_is_not_confused_with_main_action_interface():
     for term in [
         "executable bond–electron program format",
         "the trace-owned main environment compiles",
-        "The model does **not** independently submit a proof",
+        "the language model does **not** independently submit a proof",
         "Electron-flow execution primitive",
         "Mechanistic knowledge-anchor IDs are separate",
         "The executor is deterministic and is not trained",
