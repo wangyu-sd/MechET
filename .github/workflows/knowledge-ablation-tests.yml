@@ -1,30 +1,36 @@
-name: Knowledge ablation contract tests
+name: Evidence-layer contract tests
 
 on:
   pull_request:
     paths:
+      - "README.md"
       - "src/mechet/knowledge_ablation.py"
       - "scripts/build_knowledge_ablation_suite.py"
+      - "scripts/validate_experiment_contract.py"
       - "scripts/train_tool_sft.py"
       - "scripts/evaluate_knowledge_ablation.py"
       - "configs/experiments/**"
       - "configs/knowledge/tool_sft_*.yaml"
+      - "docs/SCIENTIFIC_THESIS.md"
+      - "docs/EXECUTION_PLAN.md"
       - "docs/KNOWLEDGE_ABLATIONS.md"
+      - "docs/TOOL_SFT.md"
       - "docs/README.md"
       - "tests/test_knowledge_ablation.py"
+      - "tests/test_documentation_contract.py"
       - ".github/workflows/knowledge-ablation-tests.yml"
   push:
     branches: [main]
     paths:
+      - "README.md"
       - "src/mechet/knowledge_ablation.py"
       - "scripts/build_knowledge_ablation_suite.py"
+      - "scripts/validate_experiment_contract.py"
       - "scripts/train_tool_sft.py"
-      - "scripts/evaluate_knowledge_ablation.py"
       - "configs/experiments/**"
-      - "configs/knowledge/tool_sft_*.yaml"
-      - "docs/KNOWLEDGE_ABLATIONS.md"
-      - "docs/README.md"
+      - "docs/**"
       - "tests/test_knowledge_ablation.py"
+      - "tests/test_documentation_contract.py"
 
 jobs:
   test:
@@ -40,16 +46,17 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python -m pip install -e ".[knowledge]" pytest
-      - name: Compile ablation entrypoints
+      - name: Compile scientific contract entrypoints
         run: |
           python -m py_compile \
             src/mechet/knowledge_ablation.py \
             scripts/build_knowledge_ablation_suite.py \
+            scripts/validate_experiment_contract.py \
             scripts/train_tool_sft.py \
             scripts/evaluate_knowledge_ablation.py
-      - name: Run matched-ablation tests
+      - name: Run contract tests
         run: pytest -q tests/test_knowledge_ablation.py tests/test_documentation_contract.py
-      - name: Build synthetic matched suite
+      - name: Build fully derived synthetic suite
         run: |
           mkdir -p /tmp/mechet-ablation
           python - <<'PY'
@@ -59,20 +66,47 @@ jobs:
               return {"role":"assistant","content":"","tool_calls":[{"id":call_id,"type":"function","function":{"name":name,"arguments":"{}"}}]}
           def tool_result(name, result, call_id):
               return {"role":"tool","tool_call_id":call_id,"name":name,"content":json.dumps(result)}
-          def row(identifier, target, text, passage):
+          def row(identifier, target, text, passage, anchors=False):
               context={"text":text,"passage_ids":[passage],"context_sha256":"hash-"+passage,"n_characters":len(text),"truncated":False}
-              return {"id":identifier,"target_smiles":target,"expected_precursor":target,"messages":[{"role":"system","content":"Use tools."},{"role":"user","content":"TARGET: "+target},tool_call("retrieve_textbook_guidance","k"),tool_result("retrieve_textbook_guidance",{"ok":True,"context":context,"direct_reward":False},"k"),tool_call("finish_trace","f"),tool_result("finish_trace",{"ok":True,"formal_execute":True,"endpoint_exact":True,"trace_bound":True},"f")],"metadata":{"endpoint_source":"environment_owned_trace","knowledge_condition":"textbook_rag"}}
-          rows=[row('r1','[CH4:1]','Carbonyl chemistry evidence.', 'p1'),row('r2','[NH3:2]','Substitution chemistry evidence with a longer passage.', 'p2')]
-          for name in ('textbook','anchors','combined','direct'):
+              messages=[
+                  {"role":"system","content":"Use trace-owned tools."},
+                  {"role":"user","content":"TARGET: "+target},
+                  tool_call("retrieve_textbook_guidance","k"),
+                  tool_result("retrieve_textbook_guidance",{"ok":True,"query":passage,"state_smiles":target,"context":context,"matches":[{"passage_id":passage}],"direct_reward":False},"k"),
+              ]
+              if anchors:
+                  messages += [tool_call("retrieve_primitives","a"),tool_result("retrieve_primitives",{"ok":True,"matches":[{"primitive_id":passage}],"direct_reward":False},"a")]
+              messages += [tool_call("finish_trace","f"),tool_result("finish_trace",{"ok":True,"formal_execute":True,"endpoint_exact":True,"trace_bound":True,"trace_digest":"trace-"+identifier,"compiled_proof":"MECH_PROOF v1"},"f")]
+              return {
+                  "id":identifier,
+                  "target_smiles":target,
+                  "expected_precursor":target,
+                  "messages":messages,
+                  "metadata":{
+                      "endpoint_source":"environment_owned_trace",
+                      "executor_replayed":True,
+                      "trace_digest":"trace-"+identifier,
+                      "compiled_proof":"MECH_PROOF v1",
+                      "knowledge_condition":"combined" if anchors else "textbook_rag",
+                      "textbook_context_characters":len(text),
+                      "structured_primitives_enabled":anchors,
+                  },
+              }
+          textbook=[row('r1','[CH4:1]','Carbonyl chemistry evidence.', 'p1'),row('r2','[NH3:2]','Substitution chemistry evidence with a longer passage.', 'p2')]
+          combined=[row('r1','[CH4:1]','Carbonyl chemistry evidence.', 'p1', True),row('r2','[NH3:2]','Substitution chemistry evidence with a longer passage.', 'p2', True)]
+          for name, rows in [('textbook', textbook), ('combined', combined)]:
               with (root/f'{name}.jsonl').open('w') as handle:
                   for value in rows: handle.write(json.dumps(value)+'\n')
           PY
           cat > /tmp/mechet-ablation/suite.yaml <<'YAML'
           suite_id: smoke
+          scientific_question: causal and compositional evidence study
           output_dir: /tmp/mechet-ablation/suite
           conditions:
             trace_textbook_rag:
               input: /tmp/mechet-ablation/textbook.jsonl
+            trace_text_plus_anchors:
+              input: /tmp/mechet-ablation/combined.jsonl
             trace_no_knowledge:
               derive_from: trace_textbook_rag
               transform: strip_knowledge
@@ -80,21 +114,28 @@ jobs:
               derive_from: trace_textbook_rag
               transform: length_matched_irrelevant
             trace_structured_anchors:
-              input: /tmp/mechet-ablation/anchors.jsonl
-            trace_text_plus_anchors:
-              input: /tmp/mechet-ablation/combined.jsonl
+              derive_from: trace_text_plus_anchors
+              transform: strip_textbook_keep_anchors
             direct_textbook_rag:
-              input: /tmp/mechet-ablation/direct.jsonl
-          training_contract:
-            same_stable_id_intersection: true
-          evaluation_contract:
-            claim_gate: textbook must exceed trace-only and irrelevant context
+              derive_from: trace_textbook_rag
+              transform: direct_answer_from_textbook
           YAML
           python scripts/build_knowledge_ablation_suite.py \
             --config /tmp/mechet-ablation/suite.yaml
           grep -q length_matched_irrelevant /tmp/mechet-ablation/suite/trace_length_matched_irrelevant.jsonl
-      - name: Validate Tool-SFT dry-run and evaluation
+          grep -q retrieve_primitives /tmp/mechet-ablation/suite/trace_structured_anchors.jsonl
+          ! grep -q retrieve_textbook_guidance /tmp/mechet-ablation/suite/trace_structured_anchors.jsonl
+          grep -q '"endpoint_source": "direct_answer"' /tmp/mechet-ablation/suite/direct_textbook_rag.jsonl
+      - name: Validate matched suite and Tool-SFT dry-run
         run: |
+          python scripts/validate_experiment_contract.py \
+            --condition none=/tmp/mechet-ablation/suite/trace_no_knowledge.jsonl \
+            --condition irrelevant=/tmp/mechet-ablation/suite/trace_length_matched_irrelevant.jsonl \
+            --condition textbook=/tmp/mechet-ablation/suite/trace_textbook_rag.jsonl \
+            --condition anchors=/tmp/mechet-ablation/suite/trace_structured_anchors.jsonl \
+            --condition combined=/tmp/mechet-ablation/suite/trace_text_plus_anchors.jsonl \
+            --condition direct=/tmp/mechet-ablation/suite/direct_textbook_rag.jsonl \
+            --output /tmp/mechet-ablation/contract.json
           cat > /tmp/mechet-ablation/tool_sft.yaml <<'YAML'
           condition_name: textbook
           model_name_or_path: Qwen/Qwen3-0.6B
@@ -102,6 +143,9 @@ jobs:
           output_dir: /tmp/mechet-ablation/output
           training:
             assistant_only_loss: true
+          contract:
+            require_trace_owned: true
+            terminal_tool: finish_trace
           YAML
           python scripts/train_tool_sft.py \
             --config /tmp/mechet-ablation/tool_sft.yaml --dry-run

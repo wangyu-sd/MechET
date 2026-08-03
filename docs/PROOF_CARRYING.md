@@ -1,13 +1,28 @@
-# `MECH_PROOF v1`: executable bond–electron programs
+# `MECH_PROOF v1`: executable bond–electron program format
 
-`MECH_PROOF v1` is the primary MechET representation. A model emits an action-only program; a deterministic executor reconstructs every state and derives the structural precursor. The assistant output contains no independent precursor answer.
+`MECH_PROOF v1` is the deterministic executable format used by MechET. It has two roles:
+
+1. the trace-owned main environment compiles its committed electron-flow actions into `MECH_PROOF v1`;
+2. independent complete-proof generation remains a required compatibility baseline.
+
+In the main method, the language model does **not** independently submit a proof. It completes an environment-owned trace with `finish_trace`; the environment compiles the trace and the executor derives the structural precursor.
 
 ```text
-mapped product
-  -> root imports + sparse proof edges
-  -> deterministic execution and falsification
-  -> executor-derived precursor
+main method:
+explicit source-to-sink actions
+  -> environment-owned trace
+  -> MECH_PROOF v1 compilation
+  -> deterministic execution
+  -> precursor
+
+complete-proof baseline:
+product
+  -> independently generated MECH_PROOF v1
+  -> deterministic execution
+  -> precursor
 ```
+
+Neither path contains an independent precursor answer channel.
 
 ## 1. Program form
 
@@ -16,7 +31,7 @@ mapped product
 MECH_PROOF v1
 TARGET_SMILES "<mapped product>"
 ROOT s0
-  IMPORT "<mapped species already present at the root>"
+  IMPORT "<mapped species>"
 PRECURSOR_STATE sk
 EDGE s0 s1
   IMPORT "<mapped species introduced for this transition>"
@@ -27,15 +42,15 @@ EDGE s0 s1
 </proof>
 ```
 
-The proof may be a chain, tree, or DAG. `EDGE` order in the text is not required to be topological; the executor resolves dependencies from state identifiers.
+A proof may be a chain, tree or DAG. The executor resolves dependencies from state identifiers rather than relying on textual edge order.
 
-## 2. Electron-flow primitives
+## 2. Proof operations
 
 The proof grammar uses local operations rather than a library of complete reaction templates.
 
 ### `IMPORT`
 
-Adds an atom-mapped molecular fragment to a root or elementary transition. Every imported atom must have a positive, globally unique atom map.
+Adds an atom-mapped fragment. Every imported atom requires a positive globally unique map.
 
 ### `BOND i j delta`
 
@@ -45,30 +60,23 @@ Changes the bond order between mapped atoms `i` and `j`:
 new bond order = current bond order + delta
 ```
 
-Examples:
-
-```text
-BOND 1 2 -1    # remove a single bond or reduce a double bond to single
-BOND 1 3 +1    # form a single bond or increase bond order by one
-```
-
 ### `LP i delta`
 
-Declares the change in the diagonal bond–electron entry associated with atom `i`. In the current executor, the molecular graph is changed by `BOND` and `CHARGE`; the lone-pair delta is independently recomputed from the executed source and destination states and checked against the written declaration.
+Declares the non-bonding-electron change for atom `i`. The executor recomputes the value from the executed source and destination states and rejects disagreement.
 
 ### `CHARGE i q0 q1`
 
-Applies a formal-charge transition with a precondition. The executor rejects the proof when the source atom does not have charge `q0`.
+Applies a formal-charge transition with a source-state precondition.
 
 ## 3. Example
 
-For the mapped product:
+For:
 
 ```text
 [CH3:1][OH:2]
 ```
 
-one executable reverse proof is:
+one executable reverse program is:
 
 ```text
 <proof>
@@ -87,95 +95,52 @@ EDGE s0 s1
 </proof>
 ```
 
-The edge encodes:
+The precursor is the reconstructed `PRECURSOR_STATE`, not model-authored answer text.
 
-- loss of the C–O bond;
-- formation of the C–Br bond;
-- the corresponding non-bonding-electron redistribution;
-- the checked formal-charge changes.
+## 4. Execution primitives versus proof deltas
 
-The executor applies the graph changes, sanitizes the resulting state, recomputes the bond–electron delta, and requires:
+The agent-facing causal vocabulary consists of explicit source-to-sink **electron-flow execution primitives**, such as:
 
 ```text
-written BOND changes  == executed BOND changes
-written LP changes    == derived LP changes
-written CHARGE changes == executed CHARGE changes
-sum(LP delta) + 2 * sum(BOND delta) == 0
+LP -> BOND
+BOND -> ATOM
+BOND -> BOND
 ```
 
-The precursor is the reconstructed `PRECURSOR_STATE`, not model-authored text.
+`MECH_PROOF v1` stores the compiled bond, lone-pair and charge deltas produced by those actions. A proof edge may not uniquely identify every source/sink pairing when several pairings yield the same net delta; the conservative proof-to-trace converter accepts only uniquely recoverable cases and quarantines ambiguity.
 
-## 4. Local primitives are not reaction templates
+Mechanistic knowledge-anchor IDs are separate retrieval metadata and are not part of the proof grammar.
 
-MechET does not emit a token such as `SN2_TEMPLATE_17` and then instantiate a stored whole-reaction rule. It autoregressively chooses:
+## 5. Local operations are not whole-reaction templates
 
-- which mapped atoms participate;
-- which bonds change and by how much;
-- which lone-pair and charge changes accompany the transition;
-- how multiple elementary transitions form a chain, tree, or DAG.
+MechET does not emit a stored transformation token and instantiate an entire reaction rule. It specifies:
 
-The representation is therefore template-free at inference in the usual sense of not retrieving a fixed transformation rule. However, the current cold-start corpus is compiled from FlowER trajectories and inherits the coverage and mechanistic priors of that data-construction procedure. Template-free generation does not imply template-free supervision.
+- mapped atoms and imported components;
+- local bond, lone-pair and charge changes;
+- dependencies among elementary transitions.
 
-The required tests for this distinction are:
+The current cold-start data is nevertheless compiled from mechanistic trajectories and inherits their coverage. Template-free execution does not imply template-free supervision.
 
-- reaction-center-clean evaluation;
-- MechComp-OOD with seen primitives and unseen full compositions;
-- primitive-unseen analysis where feasible;
-- post-cutoff or non-USPTO external mechanisms.
-
-## 5. How K proof hypotheses are generated
-
-For one product \(P\), the same autoregressive actor is sampled repeatedly:
-
-```text
-pi_k ~ p_theta(MECH_PROOF | P),  k = 1,...,K
-```
-
-The standard hypothesis-set inference uses stochastic decoding with a temperature and nucleus-sampling threshold. `K` is a compute budget, not a set of K stored templates.
-
-Each raw sample is then:
-
-1. parsed;
-2. executed;
-3. assigned an executor-derived structural precursor when valid;
-4. diagnosed with a failure certificate when invalid;
-5. optionally repaired for a bounded number of rounds;
-6. deduplicated by partial-order proof equivalence;
-7. grouped by structural precursor endpoint.
-
-A useful hypothesis report distinguishes raw sequences from chemical proof classes:
-
-```text
-n_generated
-n_parseable
-n_executable
-n_unique_executable_proof_classes
-n_unique_mechanism_compositions
-n_unique_structural_endpoints
-```
-
-The inference implementation is `scripts/infer_proof_hypotheses.py`; bounded Generate–Falsify–Repair inference is `scripts/infer_proof_gfr.py`.
-
-## 6. Executor contract
+## 6. Deterministic executor contract
 
 For every proof, the executor:
 
-1. constructs each root from `TARGET_SMILES` and declared imports;
-2. applies edges only when their source state has been derived;
-3. checks that all atoms carry unique positive maps;
-4. applies bond-order and formal-charge transitions;
-5. sanitizes every reconstructed molecular state;
-6. recomputes bond, lone-pair, and charge deltas;
+1. parses the schema;
+2. constructs roots and imports;
+3. checks unique positive atom maps;
+4. applies bond and formal-charge transitions;
+5. sanitizes every state;
+6. recomputes bond, lone-pair and charge deltas;
 7. enforces electron conservation;
-8. requires identical reconstructed states at DAG joins;
-9. rejects unreachable edges;
-10. returns the declared precursor state only when all checks pass.
+8. resolves dependencies and rejects unreachable edges;
+9. requires identical states at DAG joins;
+10. derives the structural precursor only after all checks pass.
 
-The executor is deterministic and is not trained. Learned models may generate, repair, or rank proofs but cannot override an execution failure.
+The executor is deterministic and is not trained. Learned models, retrieval and forward evidence cannot override an execution failure.
 
-## 7. Formal failure certificates
+## 7. Failure certificates
 
-`diagnose_proof` maps the first failure to a stable code, stage, and edge. Examples include:
+Stable failure families include:
 
 ```text
 PROOF_PARSE_FAILED
@@ -191,53 +156,71 @@ PRECURSOR_NOT_DERIVED
 DAG_JOIN_MISMATCH
 ```
 
-A certificate can be used as input to a repair actor:
+Certificates may condition a learned repair proposal followed by complete re-execution. Only semantics-preserving declaration fixes may be deterministic; bond, charge, import and dependency edits change the proposed chemistry.
+
+## 8. Partial-order equivalence
+
+Exact text equality is not the semantic criterion. Valid transformations include:
 
 ```text
-TARGET
-INVALID_PROOF
-FAILURE_CERTIFICATE
-  -> corrected MECH_PROOF
+state-ID renaming
+synchronized atom-map permutation
+serialization changes
+reordering of commuting independent events
 ```
 
-Only semantics-preserving lone-pair declaration corrections are repaired deterministically. Bond, charge, import, and dependency changes alter the proposed chemistry and therefore require a learned repair proposal followed by complete re-execution.
+Proof-class and composition signatures are used for equivalence, hypothesis deduplication and MechComp-OOD analysis.
 
-## 8. What the current representation does not claim
+## 9. K complete-proof hypotheses
 
-`MECH_PROOF v1` represents sparse bond–electron state deltas. It does **not** yet uniquely pair every electron source with a specific electron sink. For an edge containing several donors and acceptors, the net redistribution may be executable even when multiple curved-arrow pairings are possible.
+The same complete-proof baseline actor may be sampled repeatedly:
 
-The following are outside the current formal language:
+```text
+pi_k ~ p_theta(MECH_PROOF | product),  k = 1,...,K
+```
 
-- explicit `SOURCE -> TARGET` electron moves;
+`K` is a test-time compute budget, not a set of stored templates. Each sample is parsed, executed, diagnosed, optionally repaired, deduplicated by partial-order equivalence and grouped by structural endpoint.
+
+Report:
+
+```text
+n_generated
+n_parseable
+n_executable
+n_unique_executable_proof_classes
+n_unique_execution-primitive_compositions
+n_unique_structural_endpoints
+ExecutePass@K
+EndpointPass@K
+```
+
+K-hypothesis complete-proof generation is a baseline/extension; it does not replace the trace-owned causal study.
+
+## 10. Current boundaries
+
+`MECH_PROOF v1` and the current executor do not establish:
+
+- a unique physical mechanism;
+- activation barriers, kinetics, yield or experimental success;
 - one-electron radical moves;
 - orbital identity;
-- metal oxidation and spin-state dynamics inside the molecular executor;
-- coordination and ligand-exchange primitives;
-- activation barriers, rate constants, solvent effects, or condition compatibility.
+- transition-metal coordination, oxidation-state and spin dynamics;
+- universal solvent or condition compatibility.
 
-These limitations matter most for radical chemistry, organometallic mechanisms, reaction-network discovery, and catalytic cycles. The current catalytic-cycle module checks proof execution and global ledgers but does not provide quantum-chemical validation.
+The main paper scope remains mapped, closed-shell, two-electron polar chemistry unless the representation and verifier are explicitly extended.
 
-## 9. Cold-start compilation
+## 11. Required comparisons
 
-```bash
-python scripts/build_mechet_proof_sft.py \
-  --input-dir data/mechet_sft \
-  --output-dir data/mechet_proof_sft \
-  --splits train valid test
-```
-
-The compiler reads state-annotated trajectories, removes model-authored intermediate-state text and the independent answer channel, constructs sparse proof actions, and accepts a row only when execution reconstructs the original endpoint.
-
-## 10. Training and inference entry points
+The representation study includes:
 
 ```text
-Proof Actor SFT       scripts/train_mechet_sft.py
-Verifier-DPO          scripts/train_proof_dpo.py
-Proof-set RLVR        scripts/train_proof_rlvr_distributed.py
-Repair Actor          scripts/train_proof_repair.py
-Single proof          scripts/infer_mechet_proof.py
-Hypothesis set        scripts/infer_proof_hypotheses.py
-GFR                   scripts/infer_proof_gfr.py
+outcome-only
+free-form CoT plus answer
+state-CoT plus answer
+net edit
+independent complete proof
+legacy loose trace plus submitted proof
+trace-owned source-to-sink actions compiled into proof
 ```
 
-The complete data, loss, checkpoint-lineage, inference, and validation contract is specified in [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md).
+The main causal claim depends on the last comparison and tool-observation interventions, not simply on complete-proof execution accuracy.

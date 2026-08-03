@@ -1,4 +1,12 @@
+scientific_hypothesis: H3_empirical_evidence_separation
+condition_name: trace_textbook_rag
 model_name_or_path: Qwen/Qwen3-0.6B
+initial_adapter_path: outputs/agent/tool_sft_textbook_qwen3_0_6b
+initial_adapter_sha256: ""
+require_initial_adapter: true
+tool_sft_manifest: data/knowledge_ablation/v2/manifest.json
+environment_revision: knowledge_trace_owned_finish_trace_v1
+executor_revision: MECH_PROOF_v1
 train_file: data/mechet_proof_clean/train.jsonl
 output_dir: outputs/agent/inverse_textbook_trace_grpo
 textbook_corpus_path: knowledge/corpus/passages.jsonl
@@ -49,6 +57,7 @@ training:
   trust_remote_code: true
   report_to: []
 
+# Used only when initial_adapter_path is empty for an explicit from-base ablation.
 lora:
   r: 16
   alpha: 32

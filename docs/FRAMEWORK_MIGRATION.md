@@ -1,227 +1,228 @@
-# Framework migration strategy
+# Framework and systems strategy
 
-This document defines which community frameworks MechET adopts, which remain
-optional adapters, and which chemistry responsibilities must remain inside this
-repository. The objective is to reuse mature infrastructure without making the
-scientific method depend on one rapidly changing agent framework.
+This document covers implementation backends. It does not define the scientific method; see `SCIENTIFIC_THESIS.md` and `TRACE_FAITHFULNESS.md`.
 
 ## Decision summary
 
-| Layer | Default | Alternative | Decision |
+| Layer | Default | Alternative | Boundary |
 |---|---|---|---|
-| Chemistry state and rewards | `MechETAgentEnv` | none | owned by MechET; framework-neutral |
-| Small-scale tool-use RL | Hugging Face TRL | Prime Verifiers nano trainer | implemented reference path |
-| Distributed agentic RL | verl | OpenRLHF / PRIME-RL | migrate after the TRL experiment is stable |
-| Agent tracing and credit assignment | Agent Lightning | native MLflow/OpenTelemetry traces | optional observability adapter |
-| Multi-step planning and benchmarking | Syntheseus | AiZynthFinder | Syntheseus is the default benchmark adapter |
+| Main chemistry environment | `TraceOwnedAgentEnv` | `KnowledgeAugmentedAgentEnv` | owns causal state, trace and `finish_trace` |
+| Legacy baseline environment | `MechETAgentEnv` | none | independent submitted-proof baseline only |
+| Tool-SFT | TRL `SFTTrainer` | custom trainer | must preserve conversational tool structure and assistant mask |
+| Small-scale on-policy training | Hugging Face TRL | Prime Verifiers trainer | only after Tool-SFT signal |
+| Distributed rollout backend | verl | OpenRLHF | wrap the same environment contract |
 | Formal chemistry | RDKit + MechET executor | none | never delegated to an LLM framework |
-| Learned forward evidence | compact Forward Electron-Flow Expert | external forward ensembles | frozen soft evidence, never a hard gate |
+| Empirical forward evidence | compact forward expert | external ensembles | calibrated soft evidence only |
+| Planning extension | Syntheseus | AiZynthFinder | downstream matched-budget evaluation |
 
-## Why this split
+## Chemistry ownership
 
-The chemistry environment changes much more slowly than training frameworks.
-`MechETAgentEnv` therefore owns:
+The trace-owned environment owns:
 
-- atom-mapped target and current molecular state;
-- electron-container enumeration;
-- explicit source-to-sink move execution;
-- tool budget and state-cycle checks;
-- complete `MECH_PROOF v1` execution;
-- optional reference endpoint supervision;
-- optional frozen forward-expert reward;
-- abstention and structured rollout traces.
-
-Training backends only receive prompts, tool schemas, observations and scalar
-rewards. They must not duplicate or reinterpret chemistry rules.
-
-## 1. TRL: reference agentic-RL implementation
-
-TRL is the recommended first implementation because `GRPOTrainer` exposes plain
-Python tools and a per-rollout `environment_factory`. This matches MechET's
-stateful chemistry environment directly and keeps the prototype close to the
-Hugging Face model/data ecosystem.
-
-Install:
-
-```bash
-pip install -e ".[agent]"
+```text
+atom-mapped target and current state
+electron-container enumeration
+imports
+explicit source-to-sink action execution
+coupled-action semantics
+tool budget and state-cycle checks
+authoritative committed trace
+finish_trace
+trace-to-proof compilation
+formal execution and endpoint derivation
+abstention and rollout trace
 ```
 
-Validate the environment and dataset without loading TRL:
+Training frameworks receive prompts, tool schemas, observations and scalar rewards. They must not duplicate or reinterpret chemical state.
+
+## Tool-SFT first
+
+The preferred initialization is replay-verified Tool-SFT:
 
 ```bash
-python scripts/train_inverse_agent_trl.py \
-  --config configs/agent/inverse_trl_grpo.yaml \
+python scripts/train_tool_sft.py \
+  --config configs/knowledge/tool_sft_textbook.yaml
+```
+
+Before paper-scale training, run a small overfit test and verify:
+
+```text
+assistant supervision mask is non-empty
+loss decreases
+valid tool calls increase
+finish_trace is learned
+trace-bound execution increases
+```
+
+The Tool-SFT adapter hash and data-manifest hash become part of all later checkpoint lineage.
+
+## TRL reference path
+
+Trace-owned dry-run:
+
+```bash
+python scripts/train_inverse_agent_trace.py \
+  --config configs/agent/inverse_trace_grpo.yaml \
   --dry-run --limit 8
 ```
 
-Train:
+Knowledge condition:
+
+```bash
+python scripts/train_inverse_agent_knowledge.py \
+  --config configs/knowledge/inverse_textbook_trace_grpo.yaml \
+  --dry-run --limit 8
+```
+
+Legacy baseline:
 
 ```bash
 python scripts/train_inverse_agent_trl.py \
   --config configs/agent/inverse_trl_grpo.yaml
 ```
 
-The initial run should use Qwen3-0.6B or another small tool-calling model. The
-forward checkpoint remains frozen during actor RL.
+The legacy command must not appear as the default main-method entrypoint.
 
-### TRL limitations
+## On-policy training gate
 
-- the agent environment API is still evolving;
-- synchronous rollout is not the final high-throughput solution;
-- group-relative advantages are noisy if group members start from different
-  products;
-- model chat templates must preserve earlier tool-call prefixes.
+Begin GRPO or related optimization only when:
 
-For controlled experiments, all members of a GRPO group should share the same
-initial product and differ only in sampled actions.
+- Tool-SFT shows executable learning on frozen validation data;
+- trace and reward decomposition are reproducible;
+- group members share the same initial task when group-relative advantages are used;
+- reward-hacking checks pass;
+- executor and environment revisions are frozen;
+- the initial adapter lineage is recorded.
 
-## 2. verl: scale-out backend
+Formal failure cannot be offset by forward, evidence, novelty or length rewards.
 
-verl is the preferred distributed backend after the environment and rewards have
-been validated. It already supports asynchronous server-based rollouts,
-multi-turn tool calls and custom agent loops with SGLang or vLLM.
+## Distributed backend migration
 
-The migration boundary is:
+verl is the preferred scale backend only after the small TRL pilot is stable.
+
+The adapter boundary is:
 
 ```text
-MechETAgentEnv.reset
-MechETAgentEnv tool methods
-MechETAgentEnv.get_reward
-             |
-             v
-verl tool_agent_loop / custom agent loop
+TraceOwnedAgentEnv.reset
+tool methods
+finish_trace
+get_reward
+state_dict and rollout trace
+          |
+          v
+verl or OpenRLHF agent loop
 ```
 
-Do not rewrite the executor or forward expert inside a verl worker. Wrap the same
-environment methods and keep rollout traces in the same JSON schema.
+Do not reimplement the executor or maintain a second chemistry semantics inside rollout workers.
 
-Recommended trigger for migration:
+Migration trigger:
 
-- TRL learning curves and reward decomposition are stable;
-- reward hacking audits pass;
-- environment unit tests cover the supported reaction families;
-- synchronous tool latency becomes the dominant training bottleneck.
+```text
+credible Tool-SFT and small-model learning signal
+stable causal intervention results
+stable reward decomposition
+synchronous rollout latency dominates training
+```
 
-## 3. Agent Lightning: optional execution/training decoupling
+## Observability
 
-Agent Lightning is useful when the agent workflow becomes more complicated than
-a single trainer loop. It captures agent execution as transitions and separates
-runtime, tracing and optimization. This is attractive for alternating inverse
-actor and forward-expert experiments and for later multi-step agents.
+Agent Lightning or OpenTelemetry may be used to collect transitions and assign credit across larger workflows. They remain optional adapters around the same trace schema.
 
-It is not the default dependency because MechET currently has one principal
-learned actor and a deterministic environment. Introduce it only when one of the
-following becomes necessary:
+Every rollout artifact should retain:
 
-- training the same actor through multiple orchestration frameworks;
-- hierarchical credit assignment across route-level and reaction-level actions;
-- distributed trace collection independent of the trainer;
-- optimizing only selected LLM calls in a longer workflow.
+```text
+task ID
+target and expected endpoint when supervised
+all tool calls and results
+committed versus failed actions
+trace digest
+compiled proof
+terminal reward decomposition
+model, adapter, data, environment and executor revisions
+```
 
-The environment trace emitted by `MechETAgentEnv` is intentionally simple so it
-can be converted to Agent Lightning or OpenTelemetry spans without changing
-chemistry code.
+## Forward evidence integration
 
-## 4. Prime Verifiers: packaging and evaluation option
+The forward expert is trained and calibrated independently before actor integration.
 
-Prime Verifiers packages a dataset, harness and rubric as one environment used
-for both evaluation and RL. It is a good target for publishing a reproducible
-MechET benchmark environment containing:
+Allowed uses:
 
-- frozen product tasks;
-- tool definitions;
-- formal and forward reward components;
-- family/composition OOD splits;
-- risk-coverage and abstention metrics.
+```text
+post-execution reranking
+soft terminal evidence
+uncertainty-aware abstention
+soft route-edge cost
+```
 
-Because its API and environment hub are developing quickly, it should be an
-adapter around `MechETAgentEnv`, not the source of chemistry truth. PRIME-RL is a
-possible scale backend when its infrastructure is desired; verl remains the
-first self-hosted scale target.
+Disallowed use:
 
-## 5. OpenRLHF: distributed alternative
+```text
+rescuing a formal execution failure
+hard-pruning without calibrated false-rejection analysis
+automatically labelling alternative executable endpoints negative
+```
 
-OpenRLHF supports Ray/vLLM-based multi-turn agent training and common online RL
-algorithms. It is a viable alternative when the existing cluster already uses
-Ray/DeepSpeed or when REINFORCE++ experiments are desired. MechET should not
-maintain simultaneous first-class implementations for both verl and OpenRLHF;
-choose one per compute environment and compare algorithms only after matching
-rollout and reward contracts.
+Actor–forward disagreements enter an audit queue. Only independently supported labels may update the forward model.
 
-## 6. Syntheseus: default planning benchmark
+## Planning
 
-Syntheseus provides standardized reaction-model interfaces, Retro*, MCTS and
-route-analysis utilities. MechET now includes an offline candidate-pool adapter:
+Use frozen offline candidate pools first:
 
 ```bash
-pip install -e ".[planning]"
-
 python scripts/run_syntheseus_search.py \
   --candidate-pool outputs/proof/hypotheses_forward_ranked.jsonl \
-  --targets data/benchmarks/paroutes/targets.smi \
-  --inventory data/benchmarks/paroutes/inventory.smi \
+  --targets data/benchmarks/planning/targets.smi \
+  --inventory data/benchmarks/planning/inventory.smi \
   --output-dir outputs/planning/syntheseus_retrostar \
   --algorithm retro_star
 ```
 
-Use offline pools first so planner comparisons are deterministic and matched in
-single-step model-call budget. After this benchmark is frozen, replace the pool
-with an online provider implementing the same target-to-candidate contract.
+Compare planners under identical candidate pools, reaction-model calls, iterations, wall-clock limits and stock. Online actor expansion is a later extension.
 
-AiZynthFinder remains a useful external baseline, especially for template-based
-MCTS, but Syntheseus is preferred for method development because it is designed
-to plug custom models into multiple search algorithms and evaluate them under a
-shared interface.
+Planning cannot rescue failed causal-faithfulness or compositional-generalization claims.
 
-## Alternating two-small-model training
+## Recommended stages
 
-The recommended learning schedule is alternating, not simultaneous GAN-style
-updates:
+### Stage A — causal supervised pilot
 
-1. pretrain the small inverse tool-using actor;
-2. pretrain and calibrate the compact forward expert;
-3. freeze the forward expert and improve the actor with process and terminal
-   rewards;
-4. freeze the actor and mine verifier hard negatives;
-5. update and recalibrate the forward expert;
-6. repeat for a small fixed number of rounds.
+```text
+build replay-verified rows
+measure conversion coverage
+run tiny overfit
+train matched Tool-SFT conditions
+run H1 interventions
+```
 
-The fixed deterministic executor remains the hard gate in every round. Forward
-scores, selectivity margins and route costs are soft evidence. A learned verifier
-must not permanently prune a formally valid branch unless its false-rejection
-rate has been calibrated for that reaction family.
+### Stage B — compositional and evidence study
 
-## Migration stages
+```text
+freeze execution-primitive composition splits
+run H2 baselines
+run six-condition H3 evidence suite
+validate and calibrate forward evidence independently
+```
 
-### Stage A — implemented now
+### Stage C — scale and optimization
 
-- framework-neutral `MechETAgentEnv`;
-- TRL GRPO adapter and dry-run contract;
-- Syntheseus offline candidate-pool adapter;
-- shared tests for environment rewards and planning-pool normalization.
+```text
+0.6B / 1.7B / 8B study
+formal process RL
+optional calibrated forward reward
+K-hypothesis inference
+```
 
-### Stage B — next engineering milestone
+### Stage D — downstream extension
 
-- convert proof-SFT records to multi-turn tool traces;
-- train Qwen3-0.6B and 1.7B matched actors;
-- add state-level rollout grouping and reward decomposition;
-- export rollout traces with stable transition IDs.
+```text
+offline planning
+optional online planning
+reaction-network analyses only with sufficient evidence
+```
 
-### Stage C — scale and planning
+## Systems guardrails
 
-- implement the same environment in verl's tool agent loop;
-- run Retro* and MCTS in Syntheseus under matched budgets;
-- connect online actor expansion only after offline benchmark reproducibility;
-- add route-level value learning without modifying single-step chemistry rules.
-
-## Scientific guardrails
-
-- A tool-call framework cannot make a chemical rule correct.
-- JSON validity is not chemical validity.
-- Forward round-trip recovery is not proof of experimental feasibility.
-- Selectivity requires explicit competing pathways or products.
-- Actor and verifier checkpoints must have independent lineage and frozen audit
-  sets.
-- Framework comparisons must use identical products, tool budgets, executor
-  version, forward checkpoint and search budget.
+- Framework adoption is not a scientific contribution.
+- Tool-call syntax is not chemical validity.
+- The trace-owned environment is the source of causal state and endpoint semantics.
+- `MechETAgentEnv.submit_proof` remains a baseline compatibility path.
+- No framework may bypass source licenses, benchmark freezing or checkpoint lineage.

@@ -1,35 +1,59 @@
-# Knowledge-augmented trace-owned inverse agent
+# Evidence-augmented trace-owned agent
 
-## Contract
+`KnowledgeAugmentedAgentEnv` is an evidence-conditioned version of the causal trace-owned main method. It is not a separate endpoint-generation architecture.
 
-`KnowledgeAugmentedAgentEnv` combines:
+## Scientific role
+
+The environment tests H3:
+
+> Can external mechanistic evidence improve induction of an executable electron-flow program beyond trace ownership and extra context alone?
+
+The causal endpoint path remains:
 
 ```text
-natural-language textbook retrieval
-optional structured executable anchors
-trace-owned electron-flow actions
-finish_trace compilation
-formal executor
+explicit electron-flow actions
+  -> environment-owned trace
+  -> finish_trace
+  -> deterministic proof compilation
+  -> executor-derived precursor
 ```
 
-Knowledge is external soft evidence. It does not contribute direct reward, does not return a precursor and cannot override an executor failure.
+Evidence tools may affect action selection, but they are not part of the endpoint computation.
 
-## Tools
-
-The environment inherits the trace-owned tools and adds:
+## Evidence tools
 
 ```text
 retrieve_textbook_guidance(query, top_k, max_characters)
-retrieve_primitives(query, top_k)  # optional anchor condition
+retrieve_primitives(query, top_k)
 ```
 
-`retrieve_textbook_guidance` returns a bounded evidence context, passage metadata, retrieval scores, matched state/query terms and source citations. All retrieval events and context hashes are retained in the rollout trace.
+The second compatibility name retrieves structured **mechanistic knowledge anchors**, not the execution-primitive vocabulary used for MechComp-OOD.
 
-`retrieve_primitives` is disabled by default in the natural-language condition. It can be enabled for the structured-anchor and combined ablations.
+Both tools return bounded provenance-aware evidence and satisfy:
 
-## Training
+```text
+direct_reward = false
+soft_evidence_only = true
+no precursor return
+no executor override
+```
 
-Build the corpus and index first:
+All evidence calls, passage or anchor IDs and context hashes are retained in the rollout trace.
+
+## Inherited causal tools
+
+```text
+inspect_state
+import_fragment
+apply_electron_move
+apply_coupled_electron_moves
+finish_trace
+abstain
+```
+
+Free-form `submit_proof` remains disabled.
+
+## Corpus preparation
 
 ```bash
 python scripts/build_textbook_corpus.py \
@@ -40,6 +64,30 @@ python scripts/index_textbook_corpus.py \
   --corpus knowledge/corpus/passages.jsonl \
   --output knowledge/corpus/bm25_index.json
 ```
+
+The exact corpus and index manifests are frozen before final-test evaluation.
+
+## Supervised initialization
+
+Build replay-verified trace rows before on-policy training:
+
+```bash
+python scripts/build_textbook_tool_sft.py \
+  --input data/mechet_proof_clean/train.jsonl \
+  --corpus knowledge/corpus/passages.jsonl \
+  --output data/textbook_tool_sft/train.jsonl
+```
+
+Then train Tool-SFT and verify executable learning:
+
+```bash
+python scripts/train_tool_sft.py \
+  --config configs/knowledge/tool_sft_textbook.yaml
+```
+
+Paper-scale GRPO should initialize from this frozen adapter and record its hash.
+
+## On-policy condition
 
 Dry-run:
 
@@ -56,6 +104,37 @@ python scripts/train_inverse_agent_knowledge.py \
   --config configs/knowledge/inverse_textbook_trace_grpo.yaml
 ```
 
+Required checkpoint lineage:
+
+```text
+base-model and tokenizer revision
+Tool-SFT adapter path and hash
+Tool-SFT data-manifest hash
+executor and environment revision
+evidence corpus/index hash
+reward config and seed
+```
+
+## Matched conditions
+
+```text
+trace_no_knowledge
+trace_length_matched_irrelevant
+trace_textbook_rag
+trace_structured_anchors
+trace_text_plus_anchors
+direct_textbook_rag
+```
+
+Build them from the same source rows:
+
+```bash
+python scripts/build_knowledge_ablation_suite.py \
+  --config configs/experiments/textbook_ablation.yaml
+```
+
+Anchors-only and direct open-book rows are derived automatically.
+
 ## Ablation switches
 
 ```text
@@ -67,17 +146,30 @@ enable_structured_primitives
 primitive_top_k
 ```
 
-Textbook retrieval itself has no reward switch because natural-language matching must never be rewarded directly.
+The compatibility field `enable_structured_primitives` means structured knowledge-anchor retrieval. It does not alter the execution-primitive grammar.
 
-## Required comparisons
+## Causal controls
+
+Evidence-use controls:
 
 ```text
-trace-owned tool actor without knowledge
-length-matched irrelevant context
-textbook RAG
-structured anchors only
-textbook RAG + structured anchors
-gold passage upper bound
+length-matched irrelevant evidence
+passage shuffle
+same-topic wrong passage
+warnings removed
+competing-pathway text removed
 ```
 
-All variants must share the same model, training rows, assistant-token budget, tool budget, executor, forward checkpoint and optimization schedule.
+Trace-use controls:
+
+```text
+tool observations removed
+tool observations shuffled
+stale molecular states substituted
+```
+
+The two groups answer different questions and must be reported separately.
+
+## Claim boundary
+
+An evidence gain is supported only when it exceeds trace-only and irrelevant-context controls under matched IDs, endpoints, training budgets and compute. Evidence does not establish formal validity, a unique physical mechanism, selectivity, kinetics, yield or experimental success.

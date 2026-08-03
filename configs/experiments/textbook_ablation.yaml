@@ -1,10 +1,18 @@
-suite_id: mechet-textbook-ablation-v1
-output_dir: data/knowledge_ablation/v1
+suite_id: mechet-evidence-ablation-v2
+scientific_question: >-
+  Does external mechanistic evidence improve induction of a causally grounded
+  electron-flow program beyond trace ownership and extra context alone?
+output_dir: data/knowledge_ablation/v2
 
 conditions:
   trace_textbook_rag:
     input: data/textbook_tool_sft/train.jsonl
     knowledge: natural_language_textbook
+    environment: trace_owned
+
+  trace_text_plus_anchors:
+    input: data/textbook_tool_sft/train_text_and_anchors.jsonl
+    knowledge: natural_language_textbook_and_structured_anchors
     environment: trace_owned
 
   trace_no_knowledge:
@@ -20,18 +28,15 @@ conditions:
     environment: trace_owned
 
   trace_structured_anchors:
-    input: data/structured_tool_sft/train.jsonl
-    knowledge: structured_executable_anchors
-    environment: trace_owned
-
-  trace_text_plus_anchors:
-    input: data/textbook_tool_sft/train_text_and_anchors.jsonl
-    knowledge: natural_language_textbook_and_structured_anchors
+    derive_from: trace_text_plus_anchors
+    transform: strip_textbook_keep_anchors
+    knowledge: structured_mechanistic_anchors
     environment: trace_owned
 
   direct_textbook_rag:
-    input: data/direct_textbook_rag/train.jsonl
-    knowledge: same_natural_language_textbook
+    derive_from: trace_textbook_rag
+    transform: direct_answer_from_textbook
+    knowledge: same_bounded_natural_language_textbook
     environment: direct_answer
 
 training_contract:
@@ -47,7 +52,7 @@ training_contract:
   same_training_updates: true
   matched_assistant_token_budget: true
   matched_context_character_budget: true
-  matched_tool_call_budget_for_tool_conditions: true
+  matched_tool_call_budget_for_trace_conditions: true
   textbook_retrieval_direct_reward: false
   primary_stage: supervised_tool_sft_before_rl
   seeds:
@@ -56,6 +61,10 @@ training_contract:
     - 43
 
 evaluation_contract:
+  hypotheses:
+    - trace_ownership_is_causally_required
+    - execution_primitives_support_unseen_compositions
+    - empirical_evidence_is_distinct_from_formal_executability
   primary_metrics:
     - structural_precursor_top1
     - structural_precursor_top5
@@ -65,7 +74,7 @@ evaluation_contract:
     - trace_endpoint_consistency
     - tool_failure_recovery
     - abstention_risk_coverage
-  knowledge_metrics:
+  evidence_metrics:
     - retrieval_recall_at_k
     - retrieval_precision_at_k
     - passage_rank
@@ -79,9 +88,13 @@ evaluation_contract:
     - remove_competing_pathway_text
     - remove_warnings
     - remove_tool_observations
+    - replace_tool_observations_with_stale_states
   ood_conditions:
-    - primitive_composition_holdout
+    - execution_primitive_composition_holdout
     - reaction_family_holdout
     - product_scaffold_holdout
     - temporal_holdout
-  claim_gate: textbook gains must exceed both trace-only and length-matched irrelevant-context controls
+  claim_gate: >-
+    Textbook evidence must exceed both trace-only and length-matched irrelevant
+    context, and the trace-owned condition must be causally sensitive to tool
+    observations.

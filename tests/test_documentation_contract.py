@@ -7,51 +7,159 @@ def read(path: str) -> str:
     return (REPO / path).read_text(encoding="utf-8")
 
 
-def test_readme_contract():
+def test_readme_scientific_contract():
     text = read("README.md")
+    required = [
+        "Causal and compositional electron-flow reasoning",
+        "causal program induction over executable electron-flow actions",
+        "environment-owned action trace",
+        "finish_trace",
+        "Electron-flow execution primitive",
+        "Mechanistic knowledge anchor",
+        "trace_no_knowledge",
+        "trace_length_matched_irrelevant",
+        "direct_textbook_rag",
+        "scripts/train_inverse_agent_trace.py",
+        "scripts/train_inverse_agent_knowledge.py",
+        "scripts/validate_experiment_contract.py",
+        "docs/SCIENTIFIC_THESIS.md",
+        "docs/EXECUTION_PLAN.md",
+    ]
+    for term in required:
+        assert term in text
+    assert "Bidirectional electron-flow reasoning for reliable retrosynthesis" not in text
+    assert "scripts/train_inverse_agent_trl.py" in text
+    assert "Legacy complete-proof/loose-trace baseline" in text
+    assert text.index("scripts/train_inverse_agent_trace.py") < text.index(
+        "scripts/train_inverse_agent_trl.py"
+    )
+
+
+def test_scientific_thesis_contract():
+    text = read("docs/SCIENTIFIC_THESIS.md")
     for term in [
-        "Bidirectional electron-flow reasoning",
-        "small inverse actor",
-        "compact forward electron-flow expert",
-        "deterministic executor",
-        "K proof hypotheses",
-        "local executable primitives",
-        "Generate–Falsify–Repair",
-        "ExecutePass@K",
-        "Mechanistic primitive reference library",
-        "download_mechanistic_sources.py",
-        "PrimitiveAugmentedAgentEnv",
-        "docs/MECHANISTIC_PRIMITIVE_LIBRARY.md",
-        "docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md",
-        "docs/README.md",
+        "Can mechanistic reasoning in retrosynthesis be made causal and compositional",
+        "H1 — Causal faithfulness",
+        "H2 — Compositional basis",
+        "H3 — Separation of formal and empirical evidence",
+        "The model does not submit an independent proof or answer in the main method",
+        "Electron-flow execution primitive",
+        "Mechanistic knowledge anchor",
+        "TraceOwnedAgentEnv",
+        "finish_trace",
+        "Prohibited claims",
     ]:
         assert term in text
-    assert "docs/BENCHMARK_RESULTS.md" not in text
+
+
+def test_trace_contract_is_main_method():
+    text = read("docs/TRACE_FAITHFULNESS.md")
+    for term in [
+        "authoritative for the MechET main inference contract",
+        "sole computational source of the proof and precursor",
+        "FREE_FORM_PROOF_DISABLED",
+        "finish_trace",
+        "environment-compiled proof",
+        "Causal interventions",
+        "remove tool observations",
+        "replace observations with stale states",
+    ]:
+        assert term in text
+    assert "submit one complete executable proof" not in text
 
 
 def test_experiment_plan_contract():
     text = read("docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md")
     for term in [
-        "Central scientific gap",
+        "H1 — causal faithfulness",
+        "H2 — compositional basis",
+        "H3 — formal and empirical evidence separation",
+        "`submit_proof` is disabled",
+        "execution-primitive compositions",
+        "Mechanistic knowledge anchors",
+        "Real training smoke test",
+        "Causal interventions",
+        "Required paper result package",
+        "Global stopping rules",
+    ]:
+        assert term in text
+    for old_term in [
         "Pipeline A — source data, audit, and proof curriculum",
         "Pipeline B — matched baselines and proof models",
         "Pipeline C — inference modes",
         "Pipeline D — validation experiments",
-        "Required paper result package",
-        "Result interpretation and stopping rules",
-        "Reproducibility and artifact contract",
-        "Collaboration work packages",
-        "L_SFT",
-        "L_DPO",
-        "L_RLVR",
-        "L_repair",
-        "ExecutePass@K",
-        "EndpointPass@K",
-        "false acceptance rate",
-        "fully verified route rate",
-        "Alternating actor–verifier learning",
-        "Small inverse tool-using actor",
-        "Compact forward electron-flow expert",
+    ]:
+        assert old_term not in text
+
+
+def test_execution_plan_orders_scientific_gates():
+    text = read("docs/EXECUTION_PLAN.md")
+    ordered = [
+        "Phase 0 — freeze the scientific contract",
+        "Phase 1 — data feasibility and conversion coverage",
+        "Phase 2 — construct matched scientific conditions",
+        "Phase 3 — real Tool-SFT smoke tests",
+        "Phase 4 — test H1: causal faithfulness",
+        "Phase 5 — test H2: compositional generalization",
+        "Phase 6 — test H3: empirical evidence separation",
+        "Phase 7 — scale and optimization",
+        "Phase 8 — test-time hypotheses and planning extensions",
+    ]
+    positions = [text.index(term) for term in ordered]
+    assert positions == sorted(positions)
+    for term in [
+        "build_knowledge_ablation_suite.py",
+        "validate_experiment_contract.py",
+        "train_inverse_agent_trace.py",
+        "train_inverse_agent_knowledge.py",
+        "replace observations with stale states",
+        "Planning is an extension",
+    ]:
+        assert term in text
+
+
+def test_evidence_documents_use_anchor_terminology():
+    anchor_doc = read("docs/MECHANISTIC_PRIMITIVE_LIBRARY.md")
+    for term in [
+        "Mechanistic knowledge anchors",
+        "Critical distinction",
+        "Electron-flow execution primitive",
+        "field name `primitive_id` remains for API compatibility",
+        "Anchor IDs may be used for secondary analyses but cannot define the headline composition holdout",
+    ]:
+        assert term in anchor_doc
+
+    knowledge = read("docs/KNOWLEDGE_ABLATIONS.md")
+    for term in [
+        "Matched evidence-layer experiments",
+        "direct open-book",
+        "automatically derives",
+        "same bounded evidence card",
+        "trace_textbook_rag > trace_no_knowledge",
+        "trace_textbook_rag > trace_length_matched_irrelevant",
+    ]:
+        assert term in knowledge
+
+    agent = read("docs/KNOWLEDGE_AUGMENTED_AGENT.md")
+    for term in [
+        "Evidence-augmented trace-owned agent",
+        "not a separate endpoint-generation architecture",
+        "Free-form `submit_proof` remains disabled",
+        "Tool-SFT adapter path and hash",
+    ]:
+        assert term in agent
+
+
+def test_tool_sft_contract():
+    text = read("docs/TOOL_SFT.md")
+    for term in [
+        "Replay-verified Tool-SFT",
+        "Stable quarantine families",
+        "Build all matched conditions",
+        "anchors-only and direct open-book rows are derived automatically",
+        "Required conversion report",
+        "Real training smoke test",
+        "Tool-SFT to RL lineage",
     ]:
         assert term in text
 
@@ -59,28 +167,30 @@ def test_experiment_plan_contract():
 def test_documentation_map_and_deprecations():
     index = read("docs/README.md")
     for path in [
-        "PROOF_CARRYING.md",
+        "SCIENTIFIC_THESIS.md",
+        "TRACE_FAITHFULNESS.md",
         "PROOF_CENTRIC_EXPERIMENT_PLAN.md",
+        "EXECUTION_PLAN.md",
+        "TOOL_SFT.md",
+        "KNOWLEDGE_ABLATIONS.md",
         "MECHANISTIC_PRIMITIVE_LIBRARY.md",
+        "PROOF_CARRYING.md",
         "FORWARD_ELECTRON_EXPERT.md",
         "FRAMEWORK_MIGRATION.md",
         "PROOF_EQUIVALENCE.md",
         "DATA_LEAKAGE_AND_ICLR_PLAN.md",
         "../knowledge/README.md",
-        "EXPERIMENT_PLAN_ICLR_TO_NMI.md",
-        "EVAL.md",
-        "BENCHMARK_RESULTS.md",
-        "README_DESIGN_NOTES.md",
     ]:
         assert path in index
-    lower_index = index.lower()
     for term in [
-        "authoritative ICLR scientific and execution contract",
-        "reading order for collaborators",
-        "only source of truth for headline claims",
-        "primitive-reference matches are soft evidence",
+        "single source of truth",
+        "Execution primitive",
+        "Mechanistic knowledge anchor",
+        "`submit_proof` is disabled",
+        "Planning is a downstream extension",
     ]:
-        assert term.lower() in lower_index
+        assert term.lower() in index.lower()
+
     markers = {
         "docs/EXPERIMENT_PLAN_ICLR_TO_NMI.md": "deprecated",
         "docs/EVAL.md": "deprecated",
@@ -91,37 +201,15 @@ def test_documentation_map_and_deprecations():
         assert marker in read(path).lower()
 
 
-def test_primitive_documentation_contract():
-    text = read("docs/MECHANISTIC_PRIMITIVE_LIBRARY.md")
-    for term in [
-        "Web source inventory",
-        "Primitive schema",
-        "Extraction and review workflow",
-        "Online retrieval for the inverse actor",
-        "Optional soft process reward",
-        "Offline context for forward and supervised models",
-        "Performance hypotheses and ablations",
-        "soft guidance",
-        "does not imply impossibility",
-    ]:
-        assert term in text
-    knowledge = read("knowledge/README.md")
-    for term in [
-        "source_registry.yaml",
-        "download_mechanistic_sources.py",
-        "PMechDB/PMechRP remain manual-gated",
-        "deterministic executor replay",
-    ]:
-        assert term in knowledge
-
-
-def test_method_boundary_contract():
+def test_proof_format_is_not_confused_with_main_action_interface():
     text = read("docs/PROOF_CARRYING.md")
     for term in [
-        "local operations rather than a library of complete reaction templates",
-        "same autoregressive actor is sampled repeatedly",
-        "uniquely pair every electron source",
-        "electron sink",
-        "deterministic and is not trained",
+        "executable bond–electron program format",
+        "the trace-owned main environment compiles",
+        "the language model does **not** independently submit a proof",
+        "electron-flow execution primitives",
+        "Mechanistic knowledge-anchor IDs are separate",
+        "The executor is deterministic and is not trained",
+        "K-hypothesis complete-proof generation is a baseline/extension",
     ]:
         assert term in text
