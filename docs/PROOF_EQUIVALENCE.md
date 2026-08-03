@@ -1,29 +1,39 @@
-# Partial-order proof equivalence and MechComp-OOD
+# Partial-order equivalence and execution-primitive composition OOD
 
-This layer extends `MECH_PROOF v1` from executable proof generation to evaluation and data splitting over mechanism equivalence classes.
+This document defines the semantic comparison and split construction used to test H2:
 
-## Why exact trace matching is insufficient
+> Can familiar electron-flow execution primitives be composed into mechanisms not observed during training?
 
-Two executable proofs may describe the same mechanism while differing in:
+Mechanistic knowledge-anchor IDs are not used to define the headline composition split.
 
-- internal state identifiers;
-- textual `EDGE` order;
-- arbitrary atom-map labels;
-- the order of electron-flow events that touch disjoint atoms.
+## Why exact string matching is insufficient
 
-The evaluator therefore constructs a canonical partial-order signature rather than comparing proof text.
+Two executable programs may be semantically equivalent while differing in:
 
-## Canonical signature
+```text
+state identifiers
+textual edge order
+atom-map labels
+component order
+ordering of independent events that touch disjoint atoms
+```
 
-For every proof edge, MechET derives a map-label-invariant primitive signature from:
+Evaluation therefore uses canonical partial-order signatures rather than proof-text equality.
 
-- element and initial formal charge;
-- whether an atom is introduced by `IMPORT`;
-- bond-order changes;
-- lone-pair changes;
-- charge transitions.
+## Canonical event signature
 
-Proof-path precedence is retained only when two events touch a common atom map. Disjoint events are treated as commuting. The full signature also contains the canonical target, root imports and executor-derived endpoint.
+For each executable event, MechET derives a map-label-invariant signature from:
+
+```text
+elements and initial formal charges
+imported-atom roles
+bond-order changes
+lone-pair changes
+charge transitions
+non-commuting dependencies
+```
+
+Events touching disjoint atom sets commute. Dependencies are retained when events share mapped atoms or state requirements.
 
 ```python
 from mechet import canonical_partial_order_signature, proofs_equivalent
@@ -32,18 +42,33 @@ signature = canonical_partial_order_signature(proof_text)
 equivalent = proofs_equivalent(predicted_proof, reference_proof)
 ```
 
-This provides two complementary evaluation levels:
+Report separately:
 
-- `proof_equivalent_to_gold`: same target, imports, endpoint, event multiset and non-commuting dependencies;
-- `composition_match`: same mechanism primitive composition, excluding target and endpoint molecules.
+```text
+proof_equivalent_to_gold
+execution_primitive_composition_match
+structural_endpoint_match
+```
 
-## MechComp-OOD split
+A different executable proof may reach the same endpoint without being mechanism-equivalent; a different endpoint is not automatically chemically wrong.
 
-`build_mechcomp_ood.py` holds out complete mechanism compositions while requiring every primitive in valid/test to remain represented in train.
+## Execution primitive versus knowledge anchor
+
+### Execution primitive
+
+A local formal action/delta pattern used to construct and compare executable programs. It defines H2 composition coverage.
+
+### Mechanistic knowledge anchor
+
+A curated retrieval record with structural roles, candidate actions, warnings and provenance. Anchor IDs may leak higher-level reaction-family information and therefore cannot define MechComp-OOD.
+
+## MechComp-OOD construction
+
+`build_mechcomp_ood.py` holds out complete execution-primitive compositions while requiring every constituent primitive in validation/test to remain represented in training.
 
 ```bash
 python scripts/build_mechcomp_ood.py \
-  --input data/mechet_proof_sft/train.jsonl \
+  --input data/mechet_proof_clean/train.jsonl \
   --output-dir data/mechet_proof_mechcomp \
   --test-fraction 0.10 \
   --valid-fraction 0.10 \
@@ -51,27 +76,79 @@ python scripts/build_mechcomp_ood.py \
   --seed 42
 ```
 
-The manifest reports:
+The frozen manifest must report:
 
-- train/valid/test sizes;
-- composition overlap, which should be zero;
-- held-out primitive coverage, which should be one;
-- the minimum remaining train count for any primitive.
+```text
+train/valid/test IDs and hashes
+zero complete-composition overlap
+one hundred percent held-out constituent-primitive coverage
+minimum train count per held-out primitive
+composition frequency distribution
+proof length and topology distribution
+family and scaffold distribution
+```
 
-The scientific question is whether a model can assemble familiar electron-flow primitives into an unseen full mechanism composition.
+## Split validity checks
 
-## Structured failure certificates
+A headline H2 split is invalid when:
 
-`diagnose_proof` maps the first deterministic executor failure to a stable code and edge location, including:
+- a test execution primitive is absent from training;
+- composition signatures use knowledge-anchor IDs or reaction names;
+- train/test overlap remains at exact reaction, product, center or patent-family levels without disclosure;
+- test compositions are selected after model evaluation;
+- complexity distributions are so different that composition novelty cannot be separated from size alone.
 
-- parse failures;
-- missing atom maps;
-- bond or lone-pair mismatches;
-- charge precondition failures;
-- electron non-conservation;
-- invalid chemical states;
-- unreachable edges;
-- DAG join mismatches.
+## Required matched comparisons
+
+```text
+outcome-only direct generation
+free-form CoT plus answer
+state-CoT plus answer
+net-edit generation
+independent complete proof
+trace-owned Tool-CoT
+trace-owned Tool-CoT plus external evidence
+```
+
+Use identical stable IDs, structural endpoints, base-model families, updates and seeds where applicable.
+
+## Required analyses
+
+Report H2 performance by:
+
+```text
+composition frequency in the source corpus
+minimum constituent-primitive frequency
+proof length
+number of changed atoms and bonds
+imports
+ring formation or ring change
+stereochemical change
+chain/tree/DAG topology
+reaction family
+product scaffold
+```
+
+The key result is not merely an aggregate OOD number. The analysis should reveal when the execution vocabulary supports recombination and where coverage or topology causes failure.
+
+## Representation invariance
+
+Test synchronized transformations:
+
+```text
+atom-map permutation
+state-ID renaming
+edge serialization
+component ordering
+reordering of commuting independent events
+verified equivalent proof variants
+```
+
+Semantic robustness is measured by execution, endpoint and partial-order equivalence, not exact text equality.
+
+## Failure certificates and repair
+
+`diagnose_proof` maps the first deterministic failure to a stable code and action/edge location, including parse, atom-map, bond, lone-pair, charge, conservation, sanitization, reachability and DAG-join failures.
 
 ```python
 from mechet import diagnose_proof, format_repair_feedback
@@ -80,35 +157,30 @@ certificate = diagnose_proof(prediction)
 feedback = format_repair_feedback(certificate) if certificate else "OK"
 ```
 
-This certificate can be returned to a model for local proof repair instead of regenerating the entire sequence.
-
-## Deterministic local repair
-
-Lone-pair lines certify an executed transition but do not mutate the molecular graph. When only these declarations are wrong, MechET can safely replace them with executor-derived values and re-run the proof.
-
-```bash
-python scripts/repair_mechet_proof_generations.py \
-  --predictions outputs/mechet_proof_eval/generations.jsonl \
-  --out outputs/mechet_proof_eval/generations.repaired.jsonl
-```
-
-Bond and charge failures are not silently repaired because changing those operations changes the executed chemistry. They are emitted as structured feedback for model-guided correction.
+Only semantics-preserving declaration corrections may be deterministic. Bond, charge, import and dependency changes require a new model proposal followed by complete execution.
 
 ## Extended evaluation
 
 ```bash
 python scripts/eval_mechet_proof_generations.py \
-  --data data/mechet_proof_sft/valid.jsonl \
+  --data data/mechet_proof_mechcomp/test.jsonl \
   --predictions outputs/mechet_proof_eval/generations.jsonl \
   --attempt-local-repair \
   --out outputs/mechet_proof_eval/summary.json
 ```
 
-The report includes:
+Report:
 
-- execution before and after repair;
-- endpoint exact match;
-- partial-order proof equivalence;
-- mechanism composition match;
-- repair rate and failure codes;
-- topology-stratified metrics.
+```text
+FormatPass and ExecutePass
+structural endpoint accuracy
+partial-order equivalence
+execution-primitive composition match
+failure-code distribution
+repair success and new-error introduction
+metrics by composition novelty and topology
+```
+
+## Claim boundary
+
+H2 supports a compositional-reasoning claim only when test compositions are unseen, all constituent execution primitives are seen, and trace/proof models outperform matched alternatives in a way not explained solely by reaction family, scaffold or complexity shift.
