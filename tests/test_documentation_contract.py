@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -30,14 +31,34 @@ def test_readme_defines_the_causal_runtime():
     assert "train_inverse_agent_trace.py" in text
     assert "train_inverse_agent_trl.py" in text
     assert "label_oracle" in text
-    assert "not headline-eligible" not in text.lower() or "upper bound" in text.lower()
+    assert "upper bound" in text.lower()
 
 
 def test_readme_does_not_restore_the_old_main_path():
-    text = read("README.md").lower()
-    assert "state_dict" not in text.split("the main trl-facing environment exposes only:", 1)[1].split("### endpoint views", 1)[0]
-    main_section = text.split("## main method", 1)[1].split("## terminology", 1)[0]
-    assert "submit_proof" not in main_section or "does not expose" in main_section
+    text = read("README.md")
+    tool_block = re.search(
+        r"main\s+TRL-facing\s+environment\s+exposes\s+only.*?```text\s*(.*?)```",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    assert tool_block is not None
+    declared_tools = tool_block.group(1).lower()
+    for internal in ("state_dict", "_snapshot", "submit_proof"):
+        assert internal not in declared_tools
+    for required in (
+        "inspect_state",
+        "import_fragment",
+        "apply_electron_move",
+        "apply_coupled_electron_moves",
+        "finish_trace",
+        "abstain",
+    ):
+        assert required in declared_tools
+
+    lower = text.lower()
+    main_section = lower.split("## main method", 1)[1].split("## terminology", 1)[0]
+    assert "state_dict" in main_section and "private" in main_section
+    assert "does not expose `submit_proof`" in main_section
     assert "forward expert and multistep planning" not in main_section
 
 
@@ -83,7 +104,7 @@ def test_trace_document_contract():
 def test_tool_sft_document_contract():
     text = read("docs/TOOL_SFT.md")
     for term in [
-        "query-mode=state",
+        "--query-mode state",
         "label_oracle",
         "messages",
         "tools",
