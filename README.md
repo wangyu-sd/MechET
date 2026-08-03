@@ -2,17 +2,16 @@
 
 # MechET
 
-**Bidirectional electron-flow reasoning for reliable retrosynthesis**
+**Causal and compositional electron-flow reasoning for retrosynthesis**
 
 [![Proof tests](https://github.com/wangyu-sd/MechET/actions/workflows/proof-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/proof-tests.yml)
-[![Forward expert tests](https://github.com/wangyu-sd/MechET/actions/workflows/forward-expert-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/forward-expert-tests.yml)
 [![Agent framework tests](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml)
-[![Primitive library tests](https://github.com/wangyu-sd/MechET/actions/workflows/primitive-library-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/primitive-library-tests.yml)
+[![Knowledge ablation tests](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml)
+[![Forward expert tests](https://github.com/wangyu-sd/MechET/actions/workflows/forward-expert-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/forward-expert-tests.yml)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
-[![RDKit](https://img.shields.io/badge/RDKit-required-2E7D32?style=flat-square)](https://www.rdkit.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-[Scientific story](#scientific-story) · [Method](#method) · [Primitive library](#mechanistic-primitive-reference-library) · [Quickstart](#quickstart) · [Training](#training-and-inference) · [Planning](#multistep-planning) · [Evaluation](#evaluation) · [Documentation](#documentation)
+[Scientific question](#scientific-question) · [Main method](#main-method) · [Experiments](#experiments) · [Quickstart](#quickstart) · [Current status](#current-status) · [Documentation](#documentation)
 
 </div>
 
@@ -20,363 +19,146 @@
 
 ## One-sentence contribution
 
-MechET trains a **small inverse actor** to reason backward through **local executable primitives** of electron flow, derives precursors only through a **deterministic executor**, and uses an architecturally independent **compact forward electron-flow expert** to falsify unsupported targets and competing outcomes.
+MechET formulates retrosynthesis as **causal program induction over executable electron-flow actions**: an environment-owned action trace is the sole computational source of the proof and precursor, enabling controlled tests of causal faithfulness and primitive-seen/composition-unseen generalization.
+
+## Scientific question
+
+> Can mechanistic reasoning in retrosynthesis be made causal and compositional, rather than merely plausible in language?
+
+A language model can generate a correct precursor and a plausible-looking explanation without using that explanation to obtain the answer. MechET replaces the independent rationale/answer pair with an executable chemical program:
 
 ```text
-reference mechanism knowledge
-        ↓ soft retrieval and role binding
-reason backward with explicit electron moves
-        ↓
-execute every chemical claim
-        ↓
-derive the precursor
-        ↓
-falsify forward against target and competitors
-        ↓
-retain, repair, abstain, or search further
+atom-mapped product
+  -> explicit source-to-sink electron-flow actions
+  -> environment-owned molecular-state transitions
+  -> committed trace
+  -> deterministic trace-to-proof compilation
+  -> executor-derived structural precursors
 ```
 
-## Scientific story
+The main study tests three hypotheses:
 
-### The problem
+1. **Causal faithfulness:** the generated trace, not an independent answer channel, determines the endpoint.
+2. **Compositional basis:** local electron-flow execution primitives can be recombined into mechanism compositions not seen during training.
+3. **Evidence separation:** formal executability and empirical chemical support are different evidence layers.
 
-Retrosynthesis systems face a persistent trade-off:
+The scientific definitions and permitted claims are frozen in [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md).
 
-- templates and named-reaction rules are dependable within their coverage but fragment chemistry into isolated transformation classes;
-- unconstrained graph or language generation is flexible but can hallucinate atom maps, reaction centres, mechanisms, reagents and routes;
-- endpoint-only evaluation cannot distinguish a grounded prediction from an answer that bypasses its explanation;
-- ordinary forward round-trip scoring provides weak process supervision and often ignores competing products;
-- classical organic-chemistry knowledge exists in textbooks and ontologies, but it is rarely represented as provenance-aware executable model actions.
+## Main method
 
-### The hypothesis
+### Trace-owned electron-flow program
 
-Many apparently isolated reactions can be decomposed into a smaller vocabulary of reusable electron-flow operations: lone-pair donation, bond cleavage, pi-bond shift, leaving-group departure, addition, elimination, migration and re-formation of unsaturation.
-
-If these primitives are:
-
-1. represented as executable source-to-sink actions;
-2. linked to reviewed terminology, mechanism references and explicit provenance;
-3. retrieved and role-bound on the current molecular state rather than instantiated as whole-reaction templates;
-4. composed by a tool-using inverse actor;
-5. checked after every step by a deterministic environment;
-6. independently evaluated in the forward direction;
-
-then smaller models may achieve better compositional generalization and lower hallucination rates than larger direct-answer models.
-
-### The ICLR claim under test
-
-The paper does not claim that electron flow, chain-of-thought, retrieval, forward models or synthesis planning are individually new. The contribution is their integration around one auditable object:
-
-> electron-flow primitives are simultaneously the reasoning vocabulary, tool actions, formal verification units, process-reward units, reference-library records and route-search edges.
-
-The central experimental questions are:
-
-1. Does executable electron-flow CoT improve faithfulness and validity over outcome-only, free-form CoT, state-CoT and net-edit baselines?
-2. Does a provenance-aware primitive library improve data efficiency and primitive-seen/composition-unseen generalization?
-3. Can a compact forward expert provide useful process and selectivity evidence beyond endpoint round trip?
-4. Can a small tool-using actor match or outperform a larger direct generator under matched data and compute?
-5. Do formally verified and forward-supported edges improve multistep route reliability under matched search budgets?
-
-The full collaborator-facing experiment contract is [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md).
-
-## Method
-
-```text
-atom-mapped target
-       |
-       v
-small inverse actor
-  - inspect electron containers
-  - retrieve reviewed mechanism primitives
-  - bind generic roles to atom maps
-  - propose source-to-sink moves
-  - read deterministic feedback
-  - submit an executable proof or abstain
-       |
-       v
-deterministic executor
-  - atom-map, bond, charge and electron checks
-  - sanitizable state transitions
-  - chain/tree/DAG consistency
-  - executor-derived precursor
-       |
-       v
-compact forward expert
-  - next source/sink compatibility
-  - precursor-to-target compatibility
-  - target-versus-competitor margin
-  - uncertainty
-       |
-       v
-ranking, process reward, revision or route-search cost
-```
-
-### 1. Inverse actor
-
-The inverse actor receives an atom-mapped product. The compatibility path generates `MECH_PROOF v1`; the agent path can inspect molecular state, retrieve reviewed primitives, test explicit source-to-sink moves and read execution feedback.
-
-A proof contains `IMPORT`, `BOND`, `LP`, `CHARGE` and `EDGE` operations. These are local executable primitives rather than a library of complete reaction templates. The precursor is generated only by execution; there is no independent answer channel.
-
-The reference small-model path uses Qwen-family tool-calling models and TRL agentic GRPO. Initial scale experiments compare approximately 0.6B, 1–2B and 8B actors.
-
-### 2. Deterministic executor
-
-The executor is never trained. For each proof edge it constructs the mapped state, applies checked bond and charge operations, recomputes bond-electron and lone-pair changes, enforces exact electron conservation, sanitizes the state, resolves chain/tree/DAG dependencies and derives the precursor.
-
-A learned score or textbook reference can never override an execution failure.
-
-### 3. Stateful agent environment
-
-`MechETAgentEnv` exposes:
+The main environment is `TraceOwnedAgentEnv` or its knowledge-augmented subclass. The actor may:
 
 ```text
 inspect_state
+retrieve_textbook_guidance      optional soft evidence
+retrieve_primitives             optional structured knowledge anchors
+import_fragment
 apply_electron_move
 apply_coupled_electron_moves
-submit_proof
+finish_trace
 abstain
-get_reward
 ```
 
-`PrimitiveAugmentedAgentEnv` adds:
+`submit_proof` is disabled in the main method. `finish_trace` deterministically compiles the committed environment trace into `MECH_PROOF v1`, replays the proof and derives the precursor.
 
 ```text
-retrieve_primitives
+model actions
+  -> authoritative trace
+  -> compiled proof
+  -> precursor
 ```
 
-The environment owns molecular state, tool budget, visited states, failure history, proof execution, process reward, terminal reward and rollout trace. Agent frameworks wrap this contract rather than duplicate chemistry rules.
+A correct endpoint cannot be credited independently of an incompatible trace.
 
-### 4. Compact forward electron-flow expert
+### Deterministic executor
 
-The independent forward expert is a small graph model with atom/bond message passing, electron-container embeddings, source and source-conditioned sink heads, precursor-product compatibility, condition context, contrastive competitor training, uncertainty and route-cost outputs.
+The executor is not trained. It checks atom maps, imports, bond and charge preconditions, electron accounting, sanitization, reachability and proof topology. A formal failure is a hard rejection.
 
-It supports mapped, closed-shell, two-electron polar chemistry in v1. Radicals, transition-metal orbitals, spin changes, coordination chemistry and photochemical one-electron processes are out of scope rather than guessed.
+### Evidence layers
 
-The learned expert is soft evidence, not an experimental oracle. Selectivity is only meaningful when explicit competing sites, products, mechanisms or stereochemical outcomes are included.
+Natural-language textbook passages and structured mechanistic knowledge anchors may guide the actor. An independent compact forward expert may provide process, target-recovery, competitor and uncertainty evidence. These are **soft evidence**:
 
-### 5. Generate–Falsify–Repair
+- they do not define the endpoint;
+- they do not directly establish formal validity;
+- they cannot override execution failure;
+- they do not establish kinetics, yield or experimental success.
 
-Generate–Falsify–Repair remains the complete-proof compatibility path:
+### Main method and baselines
 
-```text
-generate
-  -> deterministic falsification
-  -> structured failure certificate
-  -> local repair, agent revision or resampling
-```
-
-The same actor can revise after a failed tool result; a separate Repair Actor is retained as a controlled baseline.
-
-### 6. K proof hypotheses
-
-For one product, the same actor may be sampled repeatedly:
-
-```text
-pi_1, ..., pi_K ~ p_theta(proof | product)
-```
-
-K proof hypotheses are a test-time-compute budget, not K stored templates. Candidates are executed, deduplicated by partial-order equivalence, grouped by structural endpoint and optionally reranked with forward evidence.
-
-Set-valued metrics include `ExecutePass@K`, `EndpointPass@K`, unique executable proof classes, mechanism compositions and precursor endpoints.
-
-### 7. Alternating two-small-model learning
-
-The inverse actor and forward expert are not trained simultaneously as a GAN:
-
-1. pretrain both models independently;
-2. freeze the forward expert and improve the actor with formal process and soft terminal rewards;
-3. freeze the actor and mine high-scoring disagreements;
-4. place disagreements in an audit queue rather than automatically labelling them negative;
-5. update and recalibrate the forward expert only on independently verified negatives;
-6. repeat for a small audited number of rounds.
-
-An alternative endpoint is not chemically wrong merely because it differs from one patent record.
-
-## Mechanistic primitive reference library
-
-### What it is
-
-`knowledge/primitives/core_polar_primitives.yaml` is a small, versioned seed ontology of executable and retrieval-only mechanism motifs. Each record contains:
-
-- stable primitive ID and version;
-- independently written description and aliases;
-- atom-role SMARTS patterns;
-- generic source-to-sink `E_MOVE` templates;
-- preconditions, warnings, competitors and possible follow-ups;
-- provenance references, license labels and evidence status.
-
-The library is **soft guidance**, not a hard reaction-template database:
-
-```text
-reviewed generic primitive
-  -> match structural motifs in current mapped state
-  -> bind roles to concrete atom maps
-  -> instantiate candidate E_MOVE set
-  -> actor selects or ignores it
-  -> executor decides formal validity
-```
-
-Lack of a match does not imply impossibility, and a match does not prove feasibility or selectivity.
-
-### Web sources and licenses
-
-The registry `knowledge/source_registry.yaml` currently covers:
-
-| Source | Role | Acquisition policy |
-|---|---|---|
-| IUPAC Gold Book individual terms | standard terminology | per-term JSON with version and attribution |
-| RXNO | named-reaction taxonomy | official CC BY OWL |
-| Wikibooks Organic Chemistry | open textbook mechanism text | revision-pinned MediaWiki text; media excluded |
-| Organic Synthesis (Shea), LibreTexts | selected open textbook pages | explicit page list and license-marker check |
-| MIT OpenCourseWare Organic Chemistry | non-commercial course evidence | explicit non-commercial acknowledgement; third-party markers excluded |
-| PMechDB/PMechRP | elementary mechanisms and textbook-pathway benchmark | upstream manual request; no automated derivative redistribution |
-
-Commercial textbooks are not downloaded or mirrored. Human reviewers may consult them, but released descriptions and structured rules must be independently authored.
-
-### Download and provenance
-
-Install knowledge dependencies:
-
-```bash
-pip install -e ".[knowledge]"
-```
-
-List sources:
-
-```bash
-python scripts/download_mechanistic_sources.py \
-  --registry knowledge/source_registry.yaml list
-```
-
-Preview the public download plan:
-
-```bash
-python scripts/download_mechanistic_sources.py \
-  --registry knowledge/source_registry.yaml \
-  download \
-  --source iupac_goldbook_terms \
-  --source rxno \
-  --source wikibooks_organic_chemistry \
-  --source libretexts_organic_synthesis_shea \
-  --output knowledge/raw \
-  --dry-run
-```
-
-Download and write revision/SHA-256 manifests:
-
-```bash
-python scripts/download_mechanistic_sources.py \
-  --registry knowledge/source_registry.yaml \
-  download \
-  --source iupac_goldbook_terms \
-  --source rxno \
-  --source wikibooks_organic_chemistry \
-  --source libretexts_organic_synthesis_shea \
-  --output knowledge/raw
-
-python scripts/download_mechanistic_sources.py \
-  --registry knowledge/source_registry.yaml \
-  verify --output knowledge/raw
-```
-
-Non-commercial or restricted sources require explicit acknowledgement. The PMechDB command only writes manual download instructions and never bypasses the upstream request flow.
-
-### Build an evidence-linked extraction queue
-
-Downloaded text is not automatically chemistry truth. Build bounded evidence spans and strict candidate-extraction tasks:
-
-```bash
-python scripts/build_primitive_extraction_queue.py \
-  --download-root knowledge/raw \
-  --output knowledge/candidates/extraction_queue.jsonl
-```
-
-Each task retains source ID, URL, license, revision, artifact hash, exact evidence span, extraction schema and prompt. A downstream LLM must use `UNKNOWN` for unsupported fields. Candidates require independent SMARTS/`E_MOVE` encoding, executor replay and chemistry review before release.
-
-### Annotate reaction data
-
-Attach primitive candidates, role bindings, reaction bond-delta support and compact primitive context:
-
-```bash
-python scripts/annotate_primitive_context.py \
-  --input data/forward_expert/steps/train.jsonl \
-  --output data/forward_expert/steps_primitive/train.jsonl \
-  --library knowledge/primitives/core_polar_primitives.yaml \
-  --source-registry knowledge/source_registry.yaml \
-  --render-context
-```
-
-The script writes primitive IDs into the existing condition/context channel, enabling matched forward-expert ablations without changing the graph architecture.
-
-### Train a primitive-augmented inverse actor
-
-Baseline:
-
-```bash
-python scripts/train_inverse_agent_trl.py \
-  --config configs/agent/inverse_trl_grpo.yaml
-```
-
-Primitive-augmented matched variant:
-
-```bash
-python scripts/train_inverse_agent_primitives.py \
-  --config configs/knowledge/inverse_trl_grpo_primitives.yaml \
-  --dry-run --limit 8
-
-python scripts/train_inverse_agent_primitives.py \
-  --config configs/knowledge/inverse_trl_grpo_primitives.yaml
-```
-
-The environment can supply a small bounded primitive-support reward, but unmatched formally valid actions remain allowed. Report primitive reward separately from executor and endpoint rewards.
-
-### Required knowledge ablation
-
-| Variant | Retrieval tool | Structured primitive IDs | Primitive reward |
-|---|---:|---:|---:|
-| baseline tool actor | no | no | no |
-| retrieval only | yes | no | no |
-| IDs only | no | yes | no |
-| retrieval + IDs | yes | yes | no |
-| retrieval + IDs + bounded reward | yes | yes | yes |
-
-Match model scale, examples, assistant-token budget, tool-call budget, sampling budget, executor version and forward checkpoint. Include a length-matched generic-context control so gains cannot be explained by extra tokens alone.
-
-## What is implemented
-
-- `MECH_PROOF v1` compiler, executor, equivalence, diagnostics and failure certificates;
-- proof-SFT, Verifier-DPO, proof-set RLVR, bounded repair, K-hypothesis inference and Generate–Falsify–Repair;
-- conservative data normalization and leakage audit;
-- source/sink electron containers and coupled-arrow execution;
-- compact forward expert training, inference, generation, calibration and selectivity scoring;
-- framework-neutral agent environment and TRL reference training;
-- native and Syntheseus route search;
-- provenance-aware source registry and Web downloader;
-- evidence-linked extraction queue builder;
-- reviewed mechanistic seed library with SMARTS role binding and executable `E_MOVE` templates;
-- online primitive retrieval, optional bounded process reward and offline dataset annotation;
-- dedicated proof, forward, agent, primitive-library and documentation CI.
-
-## Current status
-
-MechET is a research preview. Infrastructure is available; paper-scale checkpoints and frozen result tables are not yet released.
-
-| Component | Status |
+| Condition | Role |
 |---|---|
-| Deterministic executor and formal verifier | available |
-| Proof SFT/DPO/RLVR and K-hypothesis inference | available |
-| Source-to-sink tool environment | available |
-| Compact forward expert | available |
-| TRL small-actor adapter | available |
-| Web source registry/downloader/manifests | available |
-| Primitive extraction queue | available |
-| Seed polar primitive library and retrieval | available |
-| Primitive-augmented actor and data annotation | available |
-| Syntheseus offline planning adapter | available |
-| Paper-scale inverse/forward checkpoints | not released |
-| Primitive-library performance results | not released |
-| Matched multistep results | not released |
-| Kinetic, transition-state or experimental validation | external evidence required |
+| Trace-owned Tool-CoT with `finish_trace` | main method |
+| Knowledge-augmented trace-owned Tool-CoT | main evidence condition |
+| Independent complete `MECH_PROOF v1` generation | required baseline |
+| Loose tool trace followed by submitted proof | faithfulness baseline |
+| Outcome-only, free-form CoT, state-CoT and net-edit | representation baselines |
+| Forward expert and multistep planning | evidence/downstream extensions |
+
+## Terminology
+
+### Electron-flow execution primitive
+
+A local executable action such as `LP -> BOND`, `BOND -> ATOM` or `BOND -> BOND`. Execution primitives define the causal action space and compositional split.
+
+### Mechanistic knowledge anchor
+
+A structured provenance-aware record with molecular-role patterns, candidate moves, preconditions, warnings and competitors. Knowledge anchors guide retrieval; they are not the primitive basis used to define MechComp-OOD.
+
+## Experiments
+
+The main result sequence is intentionally narrow:
+
+### H1 — causal reasoning
+
+Compare direct, answer-bearing CoT, complete-proof, loose-trace and trace-owned models. Intervene on the tool process by removing, shuffling or replacing observations and by disabling state inspection or intermediate execution.
+
+Primary metrics:
+
+```text
+structural precursor Top-k
+ExecutePass
+trace–proof agreement
+trace–endpoint agreement
+answer–reasoning disagreement
+intervention effect size
+tool-failure recovery and abstention
+```
+
+### H2 — compositional reasoning
+
+Hold out complete execution-primitive compositions while ensuring each constituent primitive appears in training.
+
+Compare:
+
+```text
+direct answer
+free-form CoT
+state-CoT
+net edit
+complete proof
+trace-owned Tool-CoT
+```
+
+Report performance versus composition novelty, proof length, topology, reaction family and scaffold.
+
+### H3 — evidence separation
+
+Build matched conditions from the same stable-ID intersection:
+
+```text
+trace_no_knowledge
+trace_length_matched_irrelevant
+trace_textbook_rag
+trace_structured_anchors
+trace_text_plus_anchors
+direct_textbook_rag
+```
+
+A textbook claim requires `textbook > trace-only` and `textbook > length-matched irrelevant text`. A forward-evidence claim requires independent calibration and explicit competitors where selectivity is discussed.
+
+The complete experiment contract is [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md). The ordered commands and stopping gates are in [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md).
 
 ## Quickstart
 
@@ -386,16 +168,14 @@ MechET is a research preview. Infrastructure is available; paper-scale checkpoin
 git clone https://github.com/wangyu-sd/MechET.git
 cd MechET
 
-pip install -e ".[dev]"             # core, proof and tests
-pip install -e ".[forward]"         # compact forward expert
-pip install -e ".[data]"            # download/Arrow/Parquet data
-pip install -e ".[mapping,ord]"     # optional mapping and ORD
-pip install -e ".[agent]"           # small inverse actor with TRL
-pip install -e ".[knowledge]"       # mechanism Web sources and primitive library
-pip install -e ".[planning]"        # Syntheseus
+pip install -e ".[dev]"
+pip install -e ".[agent]"       # Tool-SFT and trace-owned actor training
+pip install -e ".[knowledge]"   # textbook corpus and knowledge anchors
+pip install -e ".[forward]"     # optional independent forward evidence
+pip install -e ".[planning]"    # optional planning extension
 ```
 
-### Execute a proof
+### Execute a complete-proof baseline
 
 ```python
 from mechet.proof_program import ChargeAction, ProofEdge, ProofProgram
@@ -419,127 +199,158 @@ result = verify_proof(
 print(result["execute_ok"], result["endpoint_exact"])
 ```
 
-### Retrieve and bind primitives
-
-```python
-from mechet.primitive_library import PrimitiveLibrary
-
-library = PrimitiveLibrary.load(
-    "knowledge/primitives/core_polar_primitives.yaml",
-    source_registry="knowledge/source_registry.yaml",
-)
-for match in library.retrieve("[CH3:1][Br:2].[OH-:3]", top_k=4):
-    print(match.primitive_id, match.role_bindings, match.moves)
-```
-
-### Inspect the primitive-augmented agent environment
+### Inspect the trace-owned main environment
 
 ```python
 import json
-from mechet.primitive_agent_env import PrimitiveAugmentedAgentEnv
+from mechet.trace_agent_env import TraceOwnedAgentEnv
 
-env = PrimitiveAugmentedAgentEnv()
-print(env.reset(target_smiles="[CH3:1][Br:2].[OH-:3]"))
-print(json.loads(env.retrieve_primitives())["matches"])
+env = TraceOwnedAgentEnv()
+print(env.reset(target_smiles="[CH3:1][OH:2]"))
+print(json.loads(env.submit_proof("invented"))["code"])
+# FREE_FORM_PROOF_DISABLED
 ```
 
-## Training and inference
+The successful terminal operation is `finish_trace` after one or more committed electron-flow transitions.
 
-### Forward expert
+### Build textbook evidence
 
 ```bash
-python scripts/train_forward_expert.py \
-  --config configs/forward/forward_expert_small.yaml
+python scripts/download_mechanistic_sources.py \
+  --registry knowledge/source_registry.yaml \
+  download \
+  --source iupac_goldbook_terms \
+  --source rxno \
+  --source wikibooks_organic_chemistry \
+  --output knowledge/raw
 
-python scripts/run_forward_expert.py infer \
-  --checkpoint outputs/forward_expert/small/best \
-  --input data/forward_expert/steps/test.jsonl \
-  --output outputs/forward_expert/test_predictions.jsonl \
-  --auto-competitors 8
+python scripts/build_textbook_corpus.py \
+  --download-root knowledge/raw \
+  --output knowledge/corpus/passages.jsonl
+
+python scripts/index_textbook_corpus.py \
+  --corpus knowledge/corpus/passages.jsonl \
+  --output knowledge/corpus/bm25_index.json
 ```
 
-### Inverse proof baselines
+### Build replay-verified Tool-SFT rows
 
 ```bash
-python scripts/train_mechet_sft.py \
-  --config configs/proof/proof_actor_sft.yaml
+python scripts/build_textbook_tool_sft.py \
+  --input data/mechet_proof_clean/train.jsonl \
+  --corpus knowledge/corpus/passages.jsonl \
+  --output data/textbook_tool_sft/train.jsonl \
+  --quarantine data/textbook_tool_sft/quarantine.jsonl
 
-python scripts/train_proof_dpo.py \
-  --config configs/proof/proof_dpo.yaml
+python scripts/build_textbook_tool_sft.py \
+  --input data/mechet_proof_clean/train.jsonl \
+  --corpus knowledge/corpus/passages.jsonl \
+  --output data/textbook_tool_sft/train_text_and_anchors.jsonl \
+  --enable-structured-primitives
 ```
 
-### Small inverse tool actor
+### Build all matched evidence conditions
 
 ```bash
-python scripts/train_inverse_agent_trl.py \
-  --config configs/agent/inverse_trl_grpo.yaml \
+python scripts/build_knowledge_ablation_suite.py \
+  --config configs/experiments/textbook_ablation.yaml
+```
+
+The anchors-only and direct open-book conditions are derived automatically; no separately prepared datasets are required.
+
+Validate alignment and deterministic budgets:
+
+```bash
+python scripts/validate_experiment_contract.py \
+  --condition none=data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
+  --condition irrelevant=data/knowledge_ablation/v2/trace_length_matched_irrelevant.jsonl \
+  --condition textbook=data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
+  --condition anchors=data/knowledge_ablation/v2/trace_structured_anchors.jsonl \
+  --condition combined=data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
+  --condition direct=data/knowledge_ablation/v2/direct_textbook_rag.jsonl \
+  --output outputs/contracts/evidence_conditions.json
+```
+
+### Train Tool-SFT
+
+```bash
+python scripts/train_tool_sft.py \
+  --config configs/knowledge/tool_sft_textbook.yaml \
+  --dry-run
+
+python scripts/train_tool_sft.py \
+  --config configs/knowledge/tool_sft_textbook.yaml
+```
+
+Run a 32–128-example overfit test before paper-scale training. On-policy training begins only after Tool-SFT demonstrates a credible executable-learning signal.
+
+### Train the trace-owned main actor
+
+```bash
+python scripts/train_inverse_agent_trace.py \
+  --config configs/agent/inverse_trace_grpo.yaml \
+  --dry-run --limit 8
+
+python scripts/train_inverse_agent_trace.py \
+  --config configs/agent/inverse_trace_grpo.yaml
+```
+
+Knowledge-augmented condition:
+
+```bash
+python scripts/train_inverse_agent_knowledge.py \
+  --config configs/knowledge/inverse_textbook_trace_grpo.yaml \
   --dry-run --limit 8
 ```
 
-### K-hypothesis inference and forward reranking
+Legacy complete-proof/loose-trace baseline:
 
 ```bash
-python scripts/infer_proof_hypotheses.py \
-  --data data/mechet_proof_clean/test.jsonl \
-  --adapter outputs/proof/actor/adapter \
-  --samples-per-target 64 \
-  --out outputs/proof/hypotheses.jsonl
-
-python scripts/rerank_proof_hypotheses_forward.py \
-  --predictions outputs/proof/hypotheses.jsonl \
-  --checkpoint outputs/forward_expert/small/best \
-  --output outputs/proof/hypotheses_forward_ranked.jsonl
+python scripts/train_inverse_agent_trl.py \
+  --config configs/agent/inverse_trl_grpo.yaml
 ```
 
-## Multistep planning
+## Current status
 
-```bash
-python scripts/run_syntheseus_search.py \
-  --candidate-pool outputs/proof/hypotheses_forward_ranked.jsonl \
-  --targets data/benchmarks/paroutes/targets.smi \
-  --inventory data/benchmarks/paroutes/inventory.smi \
-  --output-dir outputs/planning/syntheseus_retrostar \
-  --algorithm retro_star
-```
+MechET is a research preview. The causal execution infrastructure is implemented; the scientific claims remain to be established by frozen experiments.
 
-Formal invalidity is a hard prune. Primitive support, forward score, selectivity, precedent and uncertainty are soft ranking terms.
-
-## Evaluation
-
-The ICLR result package spans five evidence layers:
-
-| Layer | Primary metrics |
+| Component | Status |
 |---|---|
-| Endpoint | structural precursor Top-1/5/10, reaction-centre and synthon accuracy |
-| Process | source/sink and complete-move accuracy, proof equivalence, execution rate |
-| Reliability | false acceptance/rejection, calibration, risk–coverage, abstention |
-| Generalization | family, scaffold, temporal and primitive-composition OOD |
-| Planning | solved rate, fully verified route rate, invalid edges, route length/diversity and search cost |
+| Deterministic proof executor | available |
+| Trace-owned environment and `finish_trace` | available |
+| Free-form proof rejection in the main method | available |
+| Proof-to-trace conservative conversion | available; full-data coverage not yet reported |
+| Textbook corpus and bounded retrieval | available |
+| Structured mechanistic knowledge anchors | available as soft evidence |
+| Replay-verified Tool-SFT builder | available |
+| Automatically derived six-condition evidence suite | available |
+| Matched experiment contract validator | available; tokenizer-specific token audit still required for final runs |
+| Paper-scale Tool-SFT and trace-owned checkpoints | not released |
+| Causal intervention benchmark results | not released |
+| Primitive-seen/composition-unseen results | not released |
+| Calibrated forward-evidence results | not released |
+| Multistep planning results | optional extension; not released |
+| Kinetic, transition-state or experimental validation | external evidence required |
 
-Primitive-library experiments additionally report retrieval recall/precision against reviewed labels, role-binding accuracy, exact `E_MOVE` support, context tokens, tool latency and improvement per extra unit of compute.
+## Scientific boundaries
 
-No single Top-1 number is sufficient for the paper claim.
+- Formal executability is not evidence of a low barrier, favorable kinetics, high yield or experimental success.
+- A retrieved passage or knowledge-anchor match does not prove an inferred electron-flow action.
+- A learned forward score is soft evidence and cannot override formal execution.
+- Lack of a knowledge-anchor match does not imply chemical impossibility.
+- The current main scope is mapped, closed-shell, two-electron polar chemistry.
+- The main method does not infer a unique physical mechanism from the product alone.
 
 ## Documentation
 
-Start with [`docs/README.md`](docs/README.md).
+Start with:
 
-- [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md) — authoritative ICLR scientific and execution contract
-- [`docs/MECHANISTIC_PRIMITIVE_LIBRARY.md`](docs/MECHANISTIC_PRIMITIVE_LIBRARY.md) — Web sources, extraction, schema, model integration and ablations
-- [`knowledge/README.md`](knowledge/README.md) — source/download and local asset policy
-- [`docs/PROOF_CARRYING.md`](docs/PROOF_CARRYING.md) — proof language and executor
-- [`docs/FORWARD_ELECTRON_EXPERT.md`](docs/FORWARD_ELECTRON_EXPERT.md) — forward expert
-- [`docs/FRAMEWORK_MIGRATION.md`](docs/FRAMEWORK_MIGRATION.md) — TRL, verl and Syntheseus strategy
-- [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) — equivalence and compositional OOD
-- [`docs/DATA_LEAKAGE_AND_ICLR_PLAN.md`](docs/DATA_LEAKAGE_AND_ICLR_PLAN.md) — lineage and leakage controls
-
-## Boundaries
-
-- Formal executability is not evidence of a low barrier, favorable kinetics, high yield or experimental success.
-- Forward and primitive scores are learned or curated soft evidence, not infallible oracles.
-- Selectivity requires explicit competitors.
-- A source citation does not prove an inferred curved arrow.
-- Lack of a primitive match does not imply chemical impossibility.
-- The current explicit source/sink environment supports closed-shell two-electron chemistry, not all mechanisms.
-- Tool-call or JSON validity does not imply chemical validity.
-- Third-party datasets, models, Web pages and frameworks retain their upstream licenses.
+1. [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md) — scientific question, hypotheses, terminology and permitted claims.
+2. [`docs/TRACE_FAITHFULNESS.md`](docs/TRACE_FAITHFULNESS.md) — main causal inference contract.
+3. [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md) — authoritative experiment definitions.
+4. [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) — ordered commands, gates and stop conditions.
+5. [`docs/TOOL_SFT.md`](docs/TOOL_SFT.md) — replay-verified supervised trajectories.
+6. [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) — matched evidence conditions and causal controls.
+7. [`docs/MECHANISTIC_PRIMITIVE_LIBRARY.md`](docs/MECHANISTIC_PRIMITIVE_LIBRARY.md) — structured mechanistic knowledge anchors and provenance.
+8. [`docs/FORWARD_ELECTRON_EXPERT.md`](docs/FORWARD_ELECTRON_EXPERT.md) — optional independent empirical evidence.
+9. [`docs/README.md`](docs/README.md) — complete documentation map and deprecations.
