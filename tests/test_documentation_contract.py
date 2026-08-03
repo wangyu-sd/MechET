@@ -74,7 +74,7 @@ def test_experiment_plan_contract():
         "H1 — causal faithfulness",
         "H2 — compositional basis",
         "H3 — formal and empirical evidence separation",
-        "submit_proof is disabled",
+        "`submit_proof` is disabled",
         "execution-primitive compositions",
         "Mechanistic knowledge anchors",
         "Real training smoke test",
@@ -134,7 +134,7 @@ def test_evidence_documents_use_anchor_terminology():
         "Matched evidence-layer experiments",
         "direct open-book",
         "derived automatically",
-        "direct_answer_from_textbook",
+        "same bounded evidence card",
         "trace_textbook_rag > trace_no_knowledge",
         "trace_textbook_rag > trace_length_matched_irrelevant",
     ]:
@@ -186,7 +186,7 @@ def test_documentation_map_and_deprecations():
         "single source of truth",
         "Execution primitive",
         "Mechanistic knowledge anchor",
-        "submit_proof is disabled",
+        "`submit_proof` is disabled",
         "Planning is a downstream extension",
     ]:
         assert term.lower() in index.lower()
@@ -201,13 +201,15 @@ def test_documentation_map_and_deprecations():
         assert marker in read(path).lower()
 
 
-def test_method_boundary_contract():
+def test_proof_format_is_not_confused_with_main_action_interface():
     text = read("docs/PROOF_CARRYING.md")
     for term in [
-        "local operations rather than a library of complete reaction templates",
-        "same autoregressive actor is sampled repeatedly",
-        "uniquely pair every electron source",
-        "electron sink",
-        "deterministic and is not trained",
+        "executable bond–electron program format",
+        "the trace-owned main environment compiles",
+        "The model does **not** independently submit a proof",
+        "Electron-flow execution primitive",
+        "Mechanistic knowledge-anchor IDs are separate",
+        "The executor is deterministic and is not trained",
+        "K-hypothesis complete-proof generation is a baseline/extension",
     ]:
         assert term in text
