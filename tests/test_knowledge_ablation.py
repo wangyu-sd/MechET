@@ -9,6 +9,7 @@ from mechet.knowledge_ablation import (
     strip_knowledge_messages,
     validate_alignment,
 )
+from scripts.train_tool_sft import conversational_records
 
 
 def tool_call(name, arguments=None, call_id="call_1"):
@@ -61,8 +62,10 @@ def row(identifier, target, context_text, passage_id):
                 "retrieve_textbook_guidance",
                 {
                     "ok": True,
+                    "query": passage_id,
+                    "state_smiles": target,
                     "context": context,
-                    "matches": [],
+                    "matches": [{"passage_id": passage_id}],
                     "soft_evidence_only": True,
                     "direct_reward": False,
                 },
@@ -116,6 +119,16 @@ def rows():
     ]
 
 
+def textbook_result(value):
+    message = next(
+        message
+        for message in value["messages"]
+        if message.get("role") == "tool"
+        and message.get("name") == "retrieve_textbook_guidance"
+    )
+    return json.loads(message["content"])
+
+
 def test_matched_intersection_preserves_ids_and_endpoints():
     original = rows()
     stripped = [strip_knowledge_messages(item) for item in original]
@@ -149,27 +162,29 @@ def test_strip_knowledge_retains_chemistry_trace():
     assert value["metadata"]["knowledge_condition"] == "none"
 
 
-def test_irrelevant_control_rotates_different_target_and_matches_length():
+def test_irrelevant_control_rotates_only_text_and_matches_length():
     original = rows()
     controlled = make_irrelevant_context_control(original)
     for source, target in zip(original, controlled):
-        source_message = next(
-            message
-            for message in source["messages"]
-            if message.get("role") == "tool"
-            and message.get("name") == "retrieve_textbook_guidance"
-        )
-        target_message = next(
-            message
-            for message in target["messages"]
-            if message.get("role") == "tool"
-            and message.get("name") == "retrieve_textbook_guidance"
-        )
-        source_context = json.loads(source_message["content"])["context"]
-        target_context = json.loads(target_message["content"])["context"]
+        source_result = textbook_result(source)
+        target_result = textbook_result(target)
+        source_context = source_result["context"]
+        target_context = target_result["context"]
         assert target_context["n_characters"] == source_context["n_characters"]
         assert target_context["control_type"] == "length_matched_irrelevant"
+        assert target_context["text"] != source_context["text"]
+        assert target_result["query"] == source_result["query"]
+        assert target_result["state_smiles"] == source_result["state_smiles"]
+        assert target_result["matches"] == []
         assert target["metadata"]["textbook_control_donor_id"] != source["id"]
+
+
+def test_tool_sft_records_remain_conversational():
+    prepared = conversational_records(rows())
+    assert prepared[0]["id"] == "r1"
+    assert "messages" in prepared[0]
+    assert "text" not in prepared[0]
+    assert any(message.get("tool_calls") for message in prepared[0]["messages"])
 
 
 def test_condition_metrics_enforce_trace_and_zero_knowledge_reward():
