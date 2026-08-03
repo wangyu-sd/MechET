@@ -7,12 +7,15 @@ on:
       - "docs/FRAMEWORK_MIGRATION.md"
       - "docs/TRACE_FAITHFULNESS.md"
       - "docs/TEXTBOOK_RAG.md"
+      - "docs/KNOWLEDGE_AUGMENTED_AGENT.md"
+      - "docs/TOOL_SFT.md"
       - "docs/README.md"
       - "pyproject.toml"
       - "src/mechet/agent_env.py"
       - "src/mechet/electron_flow_trace.py"
       - "src/mechet/trace_agent_env.py"
       - "src/mechet/knowledge_agent_env.py"
+      - "src/mechet/proof_to_trace.py"
       - "src/mechet/textbook_*.py"
       - "src/mechet/evidence_context.py"
       - "src/mechet/adversarial.py"
@@ -20,6 +23,7 @@ on:
       - "scripts/train_inverse_agent_trl.py"
       - "scripts/train_inverse_agent_trace.py"
       - "scripts/train_inverse_agent_knowledge.py"
+      - "scripts/build_textbook_tool_sft.py"
       - "scripts/mine_bidirectional_hard_negatives.py"
       - "scripts/train_forward_expert_hard_negative.py"
       - "scripts/run_syntheseus_search.py"
@@ -28,6 +32,7 @@ on:
       - "tests/test_agent_frameworks.py"
       - "tests/test_trace_proof_binding.py"
       - "tests/test_knowledge_agent_env.py"
+      - "tests/test_proof_to_trace.py"
       - ".github/workflows/agent-framework-tests.yml"
   push:
     branches: [main]
@@ -36,12 +41,15 @@ on:
       - "docs/FRAMEWORK_MIGRATION.md"
       - "docs/TRACE_FAITHFULNESS.md"
       - "docs/TEXTBOOK_RAG.md"
+      - "docs/KNOWLEDGE_AUGMENTED_AGENT.md"
+      - "docs/TOOL_SFT.md"
       - "docs/README.md"
       - "pyproject.toml"
       - "src/mechet/agent_env.py"
       - "src/mechet/electron_flow_trace.py"
       - "src/mechet/trace_agent_env.py"
       - "src/mechet/knowledge_agent_env.py"
+      - "src/mechet/proof_to_trace.py"
       - "src/mechet/textbook_*.py"
       - "src/mechet/evidence_context.py"
       - "src/mechet/adversarial.py"
@@ -49,6 +57,7 @@ on:
       - "scripts/train_inverse_agent_trl.py"
       - "scripts/train_inverse_agent_trace.py"
       - "scripts/train_inverse_agent_knowledge.py"
+      - "scripts/build_textbook_tool_sft.py"
       - "scripts/mine_bidirectional_hard_negatives.py"
       - "scripts/train_forward_expert_hard_negative.py"
       - "scripts/run_syntheseus_search.py"
@@ -57,6 +66,7 @@ on:
       - "tests/test_agent_frameworks.py"
       - "tests/test_trace_proof_binding.py"
       - "tests/test_knowledge_agent_env.py"
+      - "tests/test_proof_to_trace.py"
 
 jobs:
   test:
@@ -78,6 +88,7 @@ jobs:
             src/mechet/electron_flow_trace.py \
             src/mechet/trace_agent_env.py \
             src/mechet/knowledge_agent_env.py \
+            src/mechet/proof_to_trace.py \
             src/mechet/textbook_store.py \
             src/mechet/textbook_retriever.py \
             src/mechet/evidence_context.py \
@@ -86,15 +97,17 @@ jobs:
             scripts/train_inverse_agent_trl.py \
             scripts/train_inverse_agent_trace.py \
             scripts/train_inverse_agent_knowledge.py \
+            scripts/build_textbook_tool_sft.py \
             scripts/mine_bidirectional_hard_negatives.py \
             scripts/train_forward_expert_hard_negative.py \
             scripts/run_syntheseus_search.py
-      - name: Run environment, trace, knowledge, mining, and candidate-pool tests
+      - name: Run environment, trace, knowledge, Tool-SFT, mining, and candidate-pool tests
         run: |
           pytest -q \
             tests/test_agent_frameworks.py \
             tests/test_trace_proof_binding.py \
             tests/test_knowledge_agent_env.py \
+            tests/test_proof_to_trace.py \
             tests/test_documentation_contract.py
       - name: Exercise legacy, trace-owned, and knowledge TRL dry-runs without TRL
         run: |
@@ -136,8 +149,31 @@ jobs:
             --config /tmp/mechet-agent/base_config.yaml --dry-run
           python scripts/train_inverse_agent_knowledge.py \
             --config /tmp/mechet-agent/knowledge_config.yaml --dry-run
+      - name: Exercise replay-verified textbook Tool-SFT build
+        run: |
+          mkdir -p /tmp/mechet-tool-sft
+          cp /tmp/mechet-agent/passages.jsonl /tmp/mechet-tool-sft/passages.jsonl
+          python - <<'PY'
+          import json
+          from mechet.proof_program import ChargeAction, ProofEdge, ProofProgram, format_proof_output
+          program = ProofProgram(
+              target_smiles='[CH3:1][OH:2]',
+              roots={'s0': []},
+              precursor_state_id='s1',
+              edges=[ProofEdge('s0','s1',imports=['[Br-:3]'],bonds=[(1,2,-1),(1,3,1)],lone_pairs=[(2,2),(3,-2)],charges=[ChargeAction(2,0,-1),ChargeAction(3,-1,0)])],
+          )
+          with open('/tmp/mechet-tool-sft/proofs.jsonl','w') as handle:
+              handle.write(json.dumps({'id':'sn2','proof':format_proof_output(program),'mechanism_class':'nucleophilic substitution'})+'\n')
+          PY
+          python scripts/build_textbook_tool_sft.py \
+            --input /tmp/mechet-tool-sft/proofs.jsonl \
+            --corpus /tmp/mechet-tool-sft/passages.jsonl \
+            --output /tmp/mechet-tool-sft/train.jsonl
+          grep -q finish_trace /tmp/mechet-tool-sft/train.jsonl
+          grep -q environment_owned_trace /tmp/mechet-tool-sft/train.jsonl
       - name: Check optional CLI schemas
         run: |
+          python scripts/build_textbook_tool_sft.py --help
           python scripts/run_syntheseus_search.py --help
           python scripts/mine_bidirectional_hard_negatives.py --help
           python scripts/train_forward_expert_hard_negative.py --help
