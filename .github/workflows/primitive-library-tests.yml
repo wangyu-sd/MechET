@@ -9,12 +9,17 @@ on:
       - "docs/MECHANISTIC_PRIMITIVE_LIBRARY.md"
       - "docs/README.md"
       - "src/mechet/primitive_*.py"
+      - "src/mechet/textbook_*.py"
+      - "src/mechet/evidence_context.py"
       - "scripts/download_mechanistic_sources.py"
       - "scripts/build_primitive_extraction_queue.py"
+      - "scripts/build_textbook_corpus.py"
+      - "scripts/index_textbook_corpus.py"
       - "scripts/annotate_primitive_context.py"
       - "scripts/train_inverse_agent_primitives.py"
       - "configs/knowledge/**"
       - "tests/test_primitive_*.py"
+      - "tests/test_textbook_retrieval.py"
       - "tests/test_documentation_contract.py"
       - ".github/workflows/primitive-library-tests.yml"
   push:
@@ -26,12 +31,17 @@ on:
       - "docs/MECHANISTIC_PRIMITIVE_LIBRARY.md"
       - "docs/README.md"
       - "src/mechet/primitive_*.py"
+      - "src/mechet/textbook_*.py"
+      - "src/mechet/evidence_context.py"
       - "scripts/download_mechanistic_sources.py"
       - "scripts/build_primitive_extraction_queue.py"
+      - "scripts/build_textbook_corpus.py"
+      - "scripts/index_textbook_corpus.py"
       - "scripts/annotate_primitive_context.py"
       - "scripts/train_inverse_agent_primitives.py"
       - "configs/knowledge/**"
       - "tests/test_primitive_*.py"
+      - "tests/test_textbook_retrieval.py"
       - "tests/test_documentation_contract.py"
 
 jobs:
@@ -47,21 +57,27 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,knowledge]"
-      - name: Compile primitive modules and entrypoints
+      - name: Compile primitive and textbook modules
         run: |
           python -m py_compile \
             src/mechet/primitive_library.py \
             src/mechet/primitive_agent_env.py \
+            src/mechet/textbook_store.py \
+            src/mechet/textbook_retriever.py \
+            src/mechet/evidence_context.py \
             scripts/download_mechanistic_sources.py \
             scripts/build_primitive_extraction_queue.py \
+            scripts/build_textbook_corpus.py \
+            scripts/index_textbook_corpus.py \
             scripts/annotate_primitive_context.py \
             scripts/train_inverse_agent_primitives.py
-      - name: Run primitive, source-download, and documentation tests
+      - name: Run primitive, textbook, source-download, and documentation tests
         run: |
           pytest -q \
             tests/test_primitive_library.py \
             tests/test_primitive_agent_env.py \
             tests/test_primitive_source_download.py \
+            tests/test_textbook_retrieval.py \
             tests/test_documentation_contract.py
       - name: Validate source registry and license gates
         run: |
@@ -83,6 +99,26 @@ jobs:
             --registry knowledge/source_registry.yaml \
             download --source pmechdb_pmechrp \
             --output /tmp/mechet-knowledge --dry-run
+      - name: Exercise textbook corpus and index build
+        run: |
+          mkdir -p /tmp/mechet-knowledge/open_textbook/pages
+          cat > /tmp/mechet-knowledge/open_textbook/pages/carbonyl.json <<'JSON'
+          {"title":"Carbonyl addition","text":"A nucleophile can donate an electron pair to an electrophilic carbonyl carbon while the carbon oxygen pi bond shifts toward oxygen. Steric and electronic effects influence the competing pathways and facial selectivity."}
+          JSON
+          python - <<'PY'
+          import hashlib, json, pathlib
+          root = pathlib.Path('/tmp/mechet-knowledge')
+          path = root / 'open_textbook/pages/carbonyl.json'
+          manifest = {"artifacts":[{"source_id":"open_textbook","path":"pages/carbonyl.json","url":"https://example.org/carbonyl","license":"CC-BY-4.0","sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"status":"downloaded","revision_id":"r1"}]}
+          (root/'manifest.json').write_text(json.dumps(manifest))
+          PY
+          python scripts/build_textbook_corpus.py \
+            --download-root /tmp/mechet-knowledge \
+            --output /tmp/mechet-knowledge/passages.jsonl
+          python scripts/index_textbook_corpus.py \
+            --corpus /tmp/mechet-knowledge/passages.jsonl \
+            --output /tmp/mechet-knowledge/bm25.json
+          grep -q carbonyl /tmp/mechet-knowledge/passages.jsonl
       - name: Exercise primitive annotation
         run: |
           mkdir -p /tmp/mechet-primitive

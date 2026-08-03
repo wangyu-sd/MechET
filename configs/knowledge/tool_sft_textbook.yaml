@@ -1,0 +1,39 @@
+condition_name: trace_textbook_rag
+model_name_or_path: Qwen/Qwen3-0.6B
+train_file: data/knowledge_ablation/v1/trace_textbook_rag.jsonl
+output_dir: outputs/agent/tool_sft_textbook_qwen3_0_6b
+limit_examples: 0
+
+training:
+  learning_rate: 2.0e-5
+  num_train_epochs: 1.0
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  max_length: 4096
+  packing: false
+  assistant_only_loss: true
+  logging_steps: 1
+  save_steps: 100
+  trust_remote_code: true
+  report_to: []
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+
+contract:
+  stable_id_manifest: data/knowledge_ablation/v1/manifest.json
+  endpoint_source: environment_owned_trace
+  knowledge_direct_reward: false
+  matched_against:
+    - trace_no_knowledge
+    - trace_length_matched_irrelevant
+    - trace_structured_anchors
+    - trace_text_plus_anchors
+  rl_after_supervised_signal_only: true
