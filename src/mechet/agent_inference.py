@@ -75,9 +75,13 @@ def _calls_from_parsed_response(value: Any) -> list[ParsedToolCall]:
         for item in value:
             if isinstance(item, dict) and item.get("tool_calls"):
                 candidates.extend(item.get("tool_calls") or [])
-            elif isinstance(item, dict) and (item.get("function") or item.get("name")):
+            elif isinstance(item, dict) and (
+                item.get("function") or item.get("name")
+            ):
                 candidates.append(item)
-    return [_normalise_call(item, index) for index, item in enumerate(candidates)]
+    return [
+        _normalise_call(item, index) for index, item in enumerate(candidates)
+    ]
 
 
 def parse_tool_calls(
@@ -127,8 +131,28 @@ def parse_tool_calls(
     return []
 
 
+def _rejected_call(
+    environment: Any, tool_name: str, code: str, message: str = ""
+) -> str:
+    reject = getattr(environment, "_reject", None)
+    if callable(reject):
+        try:
+            return str(reject(tool_name, code, message))
+        except TypeError:
+            return str(reject(tool_name, code))
+    return json.dumps(
+        {
+            "ok": False,
+            "code": code,
+            "tool": tool_name,
+            "message": message or code,
+        },
+        ensure_ascii=False,
+    )
+
+
 def execute_tool_call(environment: Any, call: ParsedToolCall) -> str:
-    """Execute one allow-listed facade method."""
+    """Execute one allow-listed facade method and account failures."""
 
     allowed = {
         "inspect_state",
@@ -141,33 +165,33 @@ def execute_tool_call(environment: Any, call: ParsedToolCall) -> str:
         "submit_proof",
         "abstain",
     }
-    if call.name not in allowed or not hasattr(environment, call.name):
+    snapshot = getattr(environment, "_snapshot", lambda: {})()
+    if snapshot.get("finalized"):
         return json.dumps(
-            {"ok": False, "code": "TOOL_NOT_AVAILABLE", "tool": call.name},
+            {
+                "ok": False,
+                "code": "EPISODE_ALREADY_FINALIZED",
+                "tool": call.name,
+            },
             ensure_ascii=False,
+        )
+    if call.name not in allowed or not hasattr(environment, call.name):
+        return _rejected_call(
+            environment,
+            call.name,
+            "TOOL_NOT_AVAILABLE",
+            f"tool {call.name!r} is not available in this condition",
         )
     method = getattr(environment, call.name)
     try:
         return str(method(**call.arguments))
     except TypeError as exc:
-        return json.dumps(
-            {
-                "ok": False,
-                "code": "TOOL_ARGUMENT_ERROR",
-                "tool": call.name,
-                "message": str(exc),
-            },
-            ensure_ascii=False,
+        return _rejected_call(
+            environment, call.name, "TOOL_ARGUMENT_ERROR", str(exc)
         )
     except Exception as exc:
-        return json.dumps(
-            {
-                "ok": False,
-                "code": "TOOL_RUNTIME_ERROR",
-                "tool": call.name,
-                "message": str(exc),
-            },
-            ensure_ascii=False,
+        return _rejected_call(
+            environment, call.name, "TOOL_RUNTIME_ERROR", str(exc)
         )
 
 
@@ -177,7 +201,7 @@ def append_tool_exchange(
     calls: Iterable[ParsedToolCall],
     environment: Any,
 ) -> list[dict[str, Any]]:
-    """Append one assistant response and matching tool-result messages."""
+    """Append one assistant response and matched results until termination."""
 
     calls = list(calls)
     messages.append(
@@ -189,6 +213,9 @@ def append_tool_exchange(
     )
     results: list[dict[str, Any]] = []
     for call in calls:
+        snapshot = getattr(environment, "_snapshot", lambda: {})()
+        if snapshot.get("finalized"):
+            break
         raw = execute_tool_call(environment, call)
         result_message = {
             "role": "tool",
@@ -200,8 +227,15 @@ def append_tool_exchange(
         try:
             decoded = json.loads(raw)
         except json.JSONDecodeError:
-            decoded = {"ok": False, "code": "NON_JSON_TOOL_RESULT", "raw": raw}
+            decoded = {
+                "ok": False,
+                "code": "NON_JSON_TOOL_RESULT",
+                "raw": raw,
+            }
         results.append({"call": call.to_message_call(), "result": decoded})
+        snapshot = getattr(environment, "_snapshot", lambda: {})()
+        if snapshot.get("finalized"):
+            break
     return results
 
 
@@ -238,7 +272,9 @@ def scripted_rollout(
     }
 
 
-def tool_result_pool(prediction_rows: Iterable[Mapping[str, Any]]) -> dict[str, list[str]]:
+def tool_result_pool(
+    prediction_rows: Iterable[Mapping[str, Any]],
+) -> dict[str, list[str]]:
     """Collect normal-run tool observations for shuffled-observation controls."""
 
     pool: dict[str, list[str]] = {}
