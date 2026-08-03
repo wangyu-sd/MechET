@@ -133,7 +133,7 @@ def test_evidence_documents_use_anchor_terminology():
     for term in [
         "Matched evidence-layer experiments",
         "direct open-book",
-        "derived automatically",
+        "automatically derives",
         "same bounded evidence card",
         "trace_textbook_rag > trace_no_knowledge",
         "trace_textbook_rag > trace_length_matched_irrelevant",
@@ -207,7 +207,7 @@ def test_proof_format_is_not_confused_with_main_action_interface():
         "executable bond–electron program format",
         "the trace-owned main environment compiles",
         "the language model does **not** independently submit a proof",
-        "Electron-flow execution primitive",
+        "electron-flow execution primitives",
         "Mechanistic knowledge-anchor IDs are separate",
         "The executor is deterministic and is not trained",
         "K-hypothesis complete-proof generation is a baseline/extension",
