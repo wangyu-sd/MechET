@@ -1,8 +1,9 @@
 """TRL-facing MechET environments with explicit public tool surfaces.
 
 TRL exposes every public environment method other than ``reset`` and
-``get_reward`` as a model tool. These facades therefore keep the chemistry
-implementation private and expose only the scientifically declared tools.
+``get_reward`` as a model tool. These facades keep the chemistry implementation
+private and expose only the scientifically declared methods. Invalid calls and
+causal interventions consume the same environment budget as ordinary tools.
 """
 from __future__ import annotations
 
@@ -52,13 +53,50 @@ class TraceOwnedTRLEnvironment:
 
         return self._env.get_reward()
 
+    def _reject(self, tool_name: str, code: str, message: str = "") -> str:
+        """Record an invalid or disabled tool call without bypassing budget."""
+
+        try:
+            self._env._consume_call()
+        except Exception as exc:
+            result = {
+                "ok": False,
+                "code": "TOOL_BUDGET_EXCEEDED",
+                "message": str(exc),
+                "remaining_tool_calls": 0,
+            }
+            self._env.trace.append(
+                {"event": f"{tool_name}_rejected", "result": result}
+            )
+            return json.dumps(result, ensure_ascii=False)
+        self._env.failed_steps += 1
+        result = {
+            "ok": False,
+            "code": code,
+            "message": message or code,
+            "remaining_tool_calls": max(
+                self._env.config.max_tool_calls - self._env.tool_calls, 0
+            ),
+        }
+        self._env.trace.append(
+            {"event": f"{tool_name}_rejected", "result": result}
+        )
+        return json.dumps(result, ensure_ascii=False)
+
     def _visible(self, tool_name: str, raw: str) -> str:
         if self._intervention == "remove_tool_observations":
             visible = json.dumps(
-                {"ok": True, "intervention": "observation_removed", "tool": tool_name},
+                {
+                    "ok": True,
+                    "intervention": "observation_removed",
+                    "tool": tool_name,
+                },
                 ensure_ascii=False,
             )
-        elif self._intervention == "stale_tool_observations" and self._last_visible_tool_result:
+        elif (
+            self._intervention == "stale_tool_observations"
+            and self._last_visible_tool_result
+        ):
             visible = self._last_visible_tool_result
         elif self._intervention == "shuffle_tool_observations":
             values = self._shuffled_observations.get(tool_name) or []
@@ -68,12 +106,19 @@ class TraceOwnedTRLEnvironment:
                 self._shuffle_offsets[tool_name] = offset + 1
             else:
                 visible = json.dumps(
-                    {"ok": False, "code": "SHUFFLED_OBSERVATION_UNAVAILABLE", "tool": tool_name},
+                    {
+                        "ok": False,
+                        "code": "SHUFFLED_OBSERVATION_UNAVAILABLE",
+                        "tool": tool_name,
+                    },
                     ensure_ascii=False,
                 )
         else:
             visible = raw
-        if self._intervention != "stale_tool_observations" or not self._last_visible_tool_result:
+        if (
+            self._intervention != "stale_tool_observations"
+            or not self._last_visible_tool_result
+        ):
             self._last_visible_tool_result = visible
         return visible
 
@@ -87,7 +132,7 @@ class TraceOwnedTRLEnvironment:
         if self._intervention == "disable_inspect_state":
             return self._visible(
                 "inspect_state",
-                self._env.reject_external_tool_call(
+                self._reject(
                     "inspect_state", "INSPECT_STATE_DISABLED_BY_INTERVENTION"
                 ),
             )
@@ -103,6 +148,11 @@ class TraceOwnedTRLEnvironment:
             JSON result containing the augmented state or a stable failure code.
         """
 
+        if not str(fragment_smiles or "").strip():
+            return self._visible(
+                "import_fragment",
+                self._reject("import_fragment", "IMPORT_FRAGMENT_EMPTY"),
+            )
         return self._visible(
             "import_fragment", self._env.import_fragment(fragment_smiles)
         )
@@ -129,9 +179,14 @@ class TraceOwnedTRLEnvironment:
         if self._intervention == "disable_intermediate_execution":
             return self._visible(
                 "apply_electron_move",
-                self._env.reject_external_tool_call(
+                self._reject(
                     "apply_electron_move", "INTERMEDIATE_EXECUTION_DISABLED"
                 ),
+            )
+        if not isinstance(source_atoms, list) or not isinstance(sink_atoms, list):
+            return self._visible(
+                "apply_electron_move",
+                self._reject("apply_electron_move", "MOVE_ATOMS_INVALID"),
             )
         raw = self._env.apply_electron_move(
             source_kind, source_atoms, sink_kind, sink_atoms
@@ -151,12 +206,27 @@ class TraceOwnedTRLEnvironment:
         if self._intervention == "disable_intermediate_execution":
             return self._visible(
                 "apply_coupled_electron_moves",
-                self._env.reject_external_tool_call(
-                    "apply_coupled_electron_moves", "INTERMEDIATE_EXECUTION_DISABLED"
+                self._reject(
+                    "apply_coupled_electron_moves",
+                    "INTERMEDIATE_EXECUTION_DISABLED",
+                ),
+            )
+        if not isinstance(moves, list) or not moves:
+            return self._visible(
+                "apply_coupled_electron_moves",
+                self._reject(
+                    "apply_coupled_electron_moves", "MOVE_LIST_EMPTY"
+                ),
+            )
+        if any(not isinstance(item, dict) for item in moves):
+            return self._visible(
+                "apply_coupled_electron_moves",
+                self._reject(
+                    "apply_coupled_electron_moves", "MOVE_LIST_INVALID"
                 ),
             )
         raw = self._env.apply_coupled_electron_moves(
-            json.dumps(list(moves), ensure_ascii=False)
+            json.dumps(moves, ensure_ascii=False)
         )
         return self._visible("apply_coupled_electron_moves", raw)
 
@@ -233,7 +303,9 @@ class TextbookTraceOwnedTRLEnvironment(TraceOwnedTRLEnvironment):
         return self._visible("retrieve_textbook_guidance", raw)
 
 
-class TextbookAnchorTraceOwnedTRLEnvironment(TextbookTraceOwnedTRLEnvironment):
+class TextbookAnchorTraceOwnedTRLEnvironment(
+    TextbookTraceOwnedTRLEnvironment
+):
     """TRL facade for the combined textbook-plus-anchor condition."""
 
     def retrieve_primitives(self, query: str = "", top_k: int = 0) -> str:
@@ -277,6 +349,33 @@ class LegacyProofTRLEnvironment:
 
         return self._env.get_reward()
 
+    def _reject(self, tool_name: str, code: str) -> str:
+        try:
+            self._env._consume_call()
+        except Exception as exc:
+            result = {
+                "ok": False,
+                "code": "TOOL_BUDGET_EXCEEDED",
+                "message": str(exc),
+                "remaining_tool_calls": 0,
+            }
+            self._env.trace.append(
+                {"event": f"{tool_name}_rejected", "result": result}
+            )
+            return json.dumps(result, ensure_ascii=False)
+        self._env.failed_steps += 1
+        result = {
+            "ok": False,
+            "code": code,
+            "remaining_tool_calls": max(
+                self._env.config.max_tool_calls - self._env.tool_calls, 0
+            ),
+        }
+        self._env.trace.append(
+            {"event": f"{tool_name}_rejected", "result": result}
+        )
+        return json.dumps(result, ensure_ascii=False)
+
     def inspect_state(self) -> str:
         """Inspect the current mapped state.
 
@@ -319,8 +418,12 @@ class LegacyProofTRLEnvironment:
             JSON execution result.
         """
 
+        if not isinstance(moves, list) or not moves:
+            return self._reject("apply_coupled_electron_moves", "MOVE_LIST_EMPTY")
+        if any(not isinstance(item, dict) for item in moves):
+            return self._reject("apply_coupled_electron_moves", "MOVE_LIST_INVALID")
         return self._env.apply_coupled_electron_moves(
-            json.dumps(list(moves), ensure_ascii=False)
+            json.dumps(moves, ensure_ascii=False)
         )
 
     def submit_proof(self, proof: str) -> str:
