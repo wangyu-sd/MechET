@@ -150,7 +150,16 @@ Do not start paper-scale RL from an untrained tool policy.
 
 ### 3.1 Overfit a tiny set
 
-Use 32–128 examples with Qwen3-0.6B. Confirm:
+Use 32–128 examples with Qwen3-0.6B:
+
+```bash
+python scripts/train_tool_sft.py \
+  --config configs/knowledge/tool_sft_textbook.yaml \
+  --limit 32 \
+  --max-steps 100
+```
+
+Confirm:
 
 ```text
 non-empty assistant supervision mask
@@ -173,6 +182,21 @@ Repeat with matched configs for no-knowledge, irrelevant text, anchors and combi
 Gate: credible executable-learning signal on a frozen validation set. If Tool-SFT cannot learn the interaction contract, do not proceed to GRPO.
 
 ## Phase 4 — test H1: causal faithfulness
+
+Validate the trace-owned configuration and its Tool-SFT lineage:
+
+```bash
+python scripts/train_inverse_agent_trace.py \
+  --config configs/agent/inverse_trace_grpo.yaml \
+  --dry-run --limit 8
+```
+
+After the Tool-SFT adapter, manifest and hash are frozen, train the H1 main condition:
+
+```bash
+python scripts/train_inverse_agent_trace.py \
+  --config configs/agent/inverse_trace_grpo.yaml
+```
 
 Train or evaluate the following matched conditions:
 
@@ -243,6 +267,21 @@ Gate: every held-out composition uses execution primitives represented in traini
 ## Phase 6 — test H3: empirical evidence separation
 
 ### 6.1 Textbook and anchor evidence
+
+Validate the evidence-conditioned configuration and frozen Tool-SFT lineage:
+
+```bash
+python scripts/train_inverse_agent_knowledge.py \
+  --config configs/knowledge/inverse_textbook_trace_grpo.yaml \
+  --dry-run --limit 8
+```
+
+After the H3 Tool-SFT pilot passes, train the textbook evidence condition:
+
+```bash
+python scripts/train_inverse_agent_knowledge.py \
+  --config configs/knowledge/inverse_textbook_trace_grpo.yaml
+```
 
 Evaluate the six matched evidence conditions and a frozen gold-passage upper bound when labels exist.
 
