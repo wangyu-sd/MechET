@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Run MechET prediction rollouts, matched evidence conditions, and H1 controls."""
+"""Run reproducible MechET rollouts, matched conditions, and H1 controls."""
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
 import json
 from pathlib import Path
+import random
 import sys
 from typing import Any, Mapping
 
@@ -20,13 +23,12 @@ from mechet.agent_inference import (
     scripted_rollout,
     tool_result_pool,
 )
-from mechet.endpoints import reference_structural_precursor
 from mechet.frozen_evidence_environments import (
     FrozenAnchorTraceOwnedTRLEnvironment,
     FrozenTextbookAnchorTraceOwnedTRLEnvironment,
     FrozenTextbookTraceOwnedTRLEnvironment,
 )
-from mechet.knowledge_ablation import read_jsonl, row_id, write_jsonl
+from mechet.knowledge_ablation import read_jsonl, row_id
 from mechet.knowledge_agent_env import KnowledgeAgentConfig
 from mechet.tool_schemas import trace_tool_schemas
 from mechet.trl_environments import (
@@ -48,12 +50,81 @@ Retrieved passages and mechanistic anchors are soft external evidence. They are
 not answers, rewards, or validity oracles."""
 DIRECT_SYSTEM = """Predict the atom-contributing structural precursor SMILES.
 Return one line beginning with PRECURSOR:."""
+CANDIDATE_SELECTOR = "sample0_direct__formal_trace_reward_failures_v1"
 
 
 def load_yaml(path: Path | None) -> dict[str, Any]:
     if path is None:
         return {}
     return dict(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
+
+
+def _load_json_object(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"expected a JSON object: {path}")
+    return dict(value)
+
+
+def _adapter_manifest(adapter: str) -> dict[str, Any]:
+    return _load_json_object(Path(adapter) / "adapter_manifest.json") if adapter else {}
+
+
+def _resolve_revision(
+    cfg: Mapping[str, Any], cli_revision: str, manifest: Mapping[str, Any], *, scripted: bool
+) -> str:
+    training = dict(cfg.get("training") or {})
+    revision = str(
+        cli_revision
+        or training.get("model_revision")
+        or cfg.get("model_revision")
+        or manifest.get("base_model_revision")
+        or manifest.get("model_revision")
+        or ""
+    ).strip()
+    if revision:
+        return revision
+    if scripted:
+        return "scripted"
+    raise ValueError(
+        "non-scripted inference requires a frozen model revision via "
+        "--model-revision, training.model_revision, or adapter_manifest.json"
+    )
+
+
+def _software_versions() -> dict[str, str]:
+    output: dict[str, str] = {}
+    for name in ("torch", "transformers", "peft", "trl", "datasets", "rdkit"):
+        try:
+            output[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            output[name] = "unavailable"
+    return output
+
+
+def _candidate_seed(base_seed: int, identifier: str, sample_index: int) -> int:
+    payload = f"{base_seed}\0{identifier}\0{sample_index}".encode()
+    return int.from_bytes(hashlib.sha256(payload).digest()[:8], "big") % (2**31 - 1)
+
+
+def _set_seed(seed: int) -> None:
+    random.seed(seed)
+    try:
+        import numpy as np
+
+        np.random.seed(seed % (2**32 - 1))
+    except ImportError:
+        pass
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except ImportError:
+        pass
 
 
 def _condition_metadata(row: Mapping[str, Any]) -> tuple[Any, Any]:
@@ -75,6 +146,14 @@ def _tool_result(row: Mapping[str, Any], name: str) -> dict[str, Any] | None:
     return None
 
 
+def _required_tool_calls(row: Mapping[str, Any]) -> int:
+    return sum(
+        len(message.get("tool_calls") or [])
+        for message in row.get("messages") or []
+        if message.get("role") == "assistant"
+    )
+
+
 def _environment_config(
     cfg: dict[str, Any], mode: str
 ) -> AgentEnvConfig | KnowledgeAgentConfig:
@@ -82,10 +161,7 @@ def _environment_config(
     if mode in {"textbook", "irrelevant", "anchors", "combined"}:
         payload.setdefault(
             "textbook_corpus_path",
-            str(
-                cfg.get("textbook_corpus_path")
-                or REPO / "knowledge/corpus/passages.jsonl"
-            ),
+            str(cfg.get("textbook_corpus_path") or REPO / "knowledge/corpus/passages.jsonl"),
         )
         payload.setdefault(
             "primitive_library_path",
@@ -102,7 +178,11 @@ def _environment_config(
             ),
         )
         payload["enable_structured_primitives"] = mode in {"anchors", "combined"}
-        payload["require_textbook_corpus"] = mode in {"textbook", "irrelevant", "combined"}
+        payload["require_textbook_corpus"] = mode in {
+            "textbook",
+            "irrelevant",
+            "combined",
+        }
         return KnowledgeAgentConfig(**payload)
     return AgentEnvConfig(**payload)
 
@@ -112,7 +192,7 @@ def _environment(
     mode: str,
     *,
     intervention: str,
-    shuffled: dict[str, list[str]],
+    shuffled: dict[str, Any],
 ):
     env_cfg = _environment_config(cfg, mode)
     common = {
@@ -127,13 +207,9 @@ def _environment(
     if mode == "trace":
         return TraceOwnedTRLEnvironment(**common, **intervention_kwargs)
     if mode in {"textbook", "irrelevant"}:
-        return FrozenTextbookTraceOwnedTRLEnvironment(
-            **common, **intervention_kwargs
-        )
+        return FrozenTextbookTraceOwnedTRLEnvironment(**common, **intervention_kwargs)
     if mode == "anchors":
-        return FrozenAnchorTraceOwnedTRLEnvironment(
-            **common, **intervention_kwargs
-        )
+        return FrozenAnchorTraceOwnedTRLEnvironment(**common, **intervention_kwargs)
     if mode == "combined":
         return FrozenTextbookAnchorTraceOwnedTRLEnvironment(
             **common, **intervention_kwargs
@@ -187,7 +263,11 @@ def _direct_messages(row: Mapping[str, Any]) -> list[dict[str, Any]]:
 def _trace_messages(
     row: Mapping[str, Any], mode: str, observation: str
 ) -> list[dict[str, Any]]:
-    suffix = EVIDENCE_SUFFIX if mode in {"textbook", "irrelevant", "anchors", "combined"} else ""
+    suffix = (
+        EVIDENCE_SUFFIX
+        if mode in {"textbook", "irrelevant", "anchors", "combined"}
+        else ""
+    )
     return [
         {"role": "system", "content": TRACE_SYSTEM + suffix},
         {
@@ -204,7 +284,7 @@ def _load_model(
     model_name: str,
     adapter: str,
     *,
-    revision: str | None,
+    revision: str,
     device_map: str | None,
 ):
     import torch
@@ -236,9 +316,11 @@ def _generate_response(
     max_new_tokens: int,
     temperature: float,
     top_p: float,
+    seed: int,
 ) -> tuple[str, Any]:
     import torch
 
+    _set_seed(seed)
     kwargs: dict[str, Any] = {
         "conversation": messages,
         "tokenize": True,
@@ -266,22 +348,22 @@ def _generate_response(
     }
     if temperature > 0:
         generate_kwargs["temperature"] = temperature
-    with torch.no_grad():
+    with torch.inference_mode():
         output = model.generate(**inputs, **generate_kwargs)
     generated = output[0, input_length:]
-    return (
-        tokenizer.decode(generated, skip_special_tokens=False),
-        inputs["input_ids"][0],
-    )
+    return tokenizer.decode(generated, skip_special_tokens=False), inputs["input_ids"][0]
 
 
-def _rank_candidate(candidate: Mapping[str, Any]) -> tuple[int, int, int]:
+def _rank_candidate(candidate: Mapping[str, Any]) -> tuple[float, ...]:
     state = dict(candidate.get("rollout_state") or {})
     final = dict(state.get("final_result") or {})
     return (
-        int(bool(final.get("formal_execute") or final.get("ok"))),
-        -int(bool(state.get("abstained"))),
-        -int(candidate.get("sample_index", 0)),
+        float(bool(final.get("formal_execute") or final.get("ok"))),
+        float(bool(final.get("trace_bound"))),
+        float(final.get("reward") or state.get("reward") or -1e9),
+        -float(state.get("failed_steps") or 0),
+        -float(state.get("tool_calls") or 0),
+        -float(candidate.get("sample_index", 0)),
     )
 
 
@@ -291,7 +373,7 @@ def _run_trace_candidate(
     mode: str,
     *,
     intervention: str,
-    shuffled: dict[str, list[str]],
+    shuffled: dict[str, Any],
     model: Any,
     tokenizer: Any,
     tools: list[dict[str, Any]],
@@ -301,6 +383,7 @@ def _run_trace_candidate(
     top_p: float,
     scripted_actions: list[dict[str, Any]] | None,
     sample_index: int,
+    seed: int,
 ) -> dict[str, Any]:
     env = _environment(cfg, mode, intervention=intervention, shuffled=shuffled)
     competitors, conditions = _condition_metadata(row)
@@ -315,29 +398,40 @@ def _run_trace_candidate(
             row, "retrieve_textbook_guidance"
         )
     if mode in {"anchors", "combined"}:
-        reset_kwargs["frozen_anchor_result"] = _tool_result(
-            row, "retrieve_primitives"
-        )
+        reset_kwargs["frozen_anchor_result"] = _tool_result(row, "retrieve_primitives")
     observation = env.reset(**reset_kwargs)
     messages = _trace_messages(row, mode, observation)
     if scripted_actions is not None:
         result = scripted_rollout(env, scripted_actions, messages=messages)
-        result.update({"sample_index": sample_index, "termination_reason": "scripted"})
+        result.update(
+            {
+                "sample_index": sample_index,
+                "seed": seed,
+                "termination_reason": "scripted",
+            }
+        )
         return result
 
     exchanges: list[dict[str, Any]] = []
     termination_reason = "max_iterations"
-    for _ in range(max_iterations):
-        raw, prefix = _generate_response(
-            model,
-            tokenizer,
-            messages,
-            tools,
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-        )
-        calls = parse_tool_calls(raw, tokenizer=tokenizer, prefix=prefix)
+    generation_error = ""
+    for iteration in range(max_iterations):
+        try:
+            raw, prefix = _generate_response(
+                model,
+                tokenizer,
+                messages,
+                tools,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed + iteration,
+            )
+            calls = parse_tool_calls(raw, tokenizer=tokenizer, prefix=prefix)
+        except Exception as exc:
+            generation_error = str(exc)
+            termination_reason = "generation_or_parse_error"
+            break
         if not calls:
             messages.append({"role": "assistant", "content": raw})
             termination_reason = "no_tool_call"
@@ -345,14 +439,18 @@ def _run_trace_candidate(
         exchanges.extend(append_tool_exchange(messages, raw, calls, env))
         state = env._snapshot()
         if state.get("finalized"):
-            termination_reason = "abstained" if state.get("abstained") else "terminal_tool"
+            termination_reason = (
+                "abstained" if state.get("abstained") else "terminal_tool"
+            )
             break
     return {
         "sample_index": sample_index,
+        "seed": seed,
         "messages": messages,
         "exchanges": exchanges,
         "rollout_state": env._snapshot(),
         "termination_reason": termination_reason,
+        "generation_error": generation_error,
     }
 
 
@@ -366,25 +464,36 @@ def _run_direct_candidate(
     top_p: float,
     sample_index: int,
     scripted_response: str | None,
+    seed: int,
 ) -> dict[str, Any]:
     messages = _direct_messages(row)
     raw = scripted_response
+    generation_error = ""
     if raw is None:
-        raw, _ = _generate_response(
-            model,
-            tokenizer,
-            messages,
-            [],
-            max_new_tokens=max_new_tokens,
-            temperature=temperature,
-            top_p=top_p,
-        )
+        try:
+            raw, _ = _generate_response(
+                model,
+                tokenizer,
+                messages,
+                [],
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                seed=seed,
+            )
+        except Exception as exc:
+            raw = ""
+            generation_error = str(exc)
     messages.append({"role": "assistant", "content": raw})
     return {
         "sample_index": sample_index,
+        "seed": seed,
         "messages": messages,
         "prediction": raw,
-        "termination_reason": "direct_generation",
+        "generation_error": generation_error,
+        "termination_reason": (
+            "direct_generation" if not generation_error else "generation_error"
+        ),
         "rollout_state": {},
     }
 
@@ -400,6 +509,12 @@ def _script_map(path: Path | None) -> dict[str, Any]:
     return dict(value)
 
 
+def _completed_ids(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    return {row_id(row) for row in read_jsonl(path)}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path)
@@ -407,7 +522,15 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--mode",
-        choices=["trace", "textbook", "irrelevant", "anchors", "combined", "legacy", "direct"],
+        choices=[
+            "trace",
+            "textbook",
+            "irrelevant",
+            "anchors",
+            "combined",
+            "legacy",
+            "direct",
+        ],
         required=True,
     )
     parser.add_argument("--condition-name", default="")
@@ -415,6 +538,7 @@ def main() -> int:
     parser.add_argument("--adapter", default="")
     parser.add_argument("--model-revision", default="")
     parser.add_argument("--device-map", default="")
+    parser.add_argument("--seed", type=int, default=17)
     parser.add_argument(
         "--intervention",
         choices=[
@@ -435,6 +559,7 @@ def main() -> int:
     parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--scripted-actions", type=Path)
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -448,33 +573,58 @@ def main() -> int:
         raise ValueError("inference data is empty")
     condition_name = args.condition_name or args.mode
     model_name = args.model_name or str(cfg.get("model_name_or_path") or "")
-    adapter = args.adapter or str(cfg.get("output_dir") or cfg.get("initial_adapter_path") or "")
+    adapter = args.adapter or str(
+        cfg.get("output_dir") or cfg.get("initial_adapter_path") or ""
+    )
     tools = _tools(args.mode)
     scripts = _script_map(args.scripted_actions)
-    if args.dry_run:
-        print(
-            json.dumps(
-                {
-                    "artifact_type": "inference_dry_run",
-                    "mode": args.mode,
-                    "condition_name": condition_name,
-                    "n_rows": len(rows),
-                    "tool_names": [
-                        str((item.get("function") or {}).get("name") or "")
-                        for item in tools
-                    ],
-                    "intervention": args.intervention,
-                    "scripted": bool(scripts),
-                    "model_name": model_name or None,
-                    "adapter": adapter or None,
-                },
-                indent=2,
-                ensure_ascii=False,
+    adapter_manifest = _adapter_manifest(adapter)
+    model_revision = _resolve_revision(
+        cfg, args.model_revision, adapter_manifest, scripted=bool(scripts)
+    )
+    tokenizer_revision = str(
+        adapter_manifest.get("tokenizer_revision") or model_revision
+    )
+    adapter_hash = path_sha256(adapter) if adapter else ""
+    data_hash = path_sha256(args.data)
+    versions = _software_versions()
+    env_config = _environment_config(cfg, args.mode) if args.mode != "direct" else None
+    if env_config is not None:
+        budget = int(env_config.max_tool_calls)
+        oversized = [
+            (row_id(row), _required_tool_calls(row))
+            for row in rows
+            if _required_tool_calls(row) > budget
+        ]
+        if oversized:
+            raise ValueError(
+                f"{len(oversized)} rows exceed environment.max_tool_calls={budget}; "
+                f"examples={oversized[:10]}"
             )
-        )
+
+    dry_payload = {
+        "artifact_type": "inference_dry_run",
+        "mode": args.mode,
+        "condition_name": condition_name,
+        "n_rows": len(rows),
+        "tool_names": [
+            str((item.get("function") or {}).get("name") or "") for item in tools
+        ],
+        "intervention": args.intervention,
+        "scripted": bool(scripts),
+        "model_name": model_name or None,
+        "model_revision": model_revision,
+        "tokenizer_revision": tokenizer_revision,
+        "adapter": adapter or None,
+        "adapter_sha256": adapter_hash or None,
+        "seed": args.seed,
+        "candidate_selector": CANDIDATE_SELECTOR,
+    }
+    if args.dry_run:
+        print(json.dumps(dry_payload, indent=2, ensure_ascii=False))
         return 0
 
-    shuffled: dict[str, list[str]] = {}
+    shuffled: dict[str, Any] = {}
     if args.intervention == "shuffle_tool_observations":
         if args.intervention_source is None:
             raise ValueError("shuffle intervention requires --intervention-source")
@@ -487,62 +637,81 @@ def main() -> int:
         model, tokenizer = _load_model(
             model_name,
             adapter,
-            revision=args.model_revision or None,
+            revision=model_revision,
             device_map=args.device_map or None,
         )
+        tokenizer_revision = str(getattr(tokenizer, "name_or_path", "") or model_revision)
 
-    predictions: list[dict[str, Any]] = []
-    for row in rows:
-        identifier = row_id(row)
-        script = scripts.get(identifier, scripts.get("*"))
-        candidates: list[dict[str, Any]] = []
-        for sample_index in range(args.samples_per_target):
-            if args.mode == "direct":
-                scripted_response = None
-                if script is not None:
-                    scripted_response = (
-                        str(script[min(sample_index, len(script) - 1)])
-                        if isinstance(script, list)
-                        else str(script)
+    completed = _completed_ids(args.output) if args.resume else set()
+    if args.output.exists() and not args.resume:
+        args.output.unlink()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    output_mode = "a" if args.resume else "w"
+    n_written = 0
+    n_skipped = 0
+    with args.output.open(output_mode, encoding="utf-8") as handle:
+        for row in rows:
+            identifier = row_id(row)
+            if identifier in completed:
+                n_skipped += 1
+                continue
+            script = scripts.get(identifier, scripts.get("*"))
+            candidates: list[dict[str, Any]] = []
+            for sample_index in range(args.samples_per_target):
+                seed = _candidate_seed(args.seed, identifier, sample_index)
+                if args.mode == "direct":
+                    scripted_response = None
+                    if script is not None:
+                        scripted_response = (
+                            str(script[min(sample_index, len(script) - 1)])
+                            if isinstance(script, list)
+                            else str(script)
+                        )
+                    candidate = _run_direct_candidate(
+                        row,
+                        model=model,
+                        tokenizer=tokenizer,
+                        max_new_tokens=args.max_new_tokens,
+                        temperature=args.temperature,
+                        top_p=args.top_p,
+                        sample_index=sample_index,
+                        scripted_response=scripted_response,
+                        seed=seed,
                     )
-                candidate = _run_direct_candidate(
-                    row,
-                    model=model,
-                    tokenizer=tokenizer,
-                    max_new_tokens=args.max_new_tokens,
-                    temperature=args.temperature,
-                    top_p=args.top_p,
-                    sample_index=sample_index,
-                    scripted_response=scripted_response,
-                )
-            else:
-                actions = None
-                if script is not None:
-                    if not isinstance(script, list):
-                        raise ValueError(f"scripted actions for {identifier} must be a list")
-                    actions = [dict(item) for item in script]
-                candidate = _run_trace_candidate(
-                    row,
-                    cfg,
-                    args.mode,
-                    intervention=args.intervention,
-                    shuffled=shuffled,
-                    model=model,
-                    tokenizer=tokenizer,
-                    tools=tools,
-                    max_iterations=args.max_iterations,
-                    max_new_tokens=args.max_new_tokens,
-                    temperature=args.temperature,
-                    top_p=args.top_p,
-                    scripted_actions=actions,
-                    sample_index=sample_index,
-                )
-            candidates.append(candidate)
-        selected = max(candidates, key=_rank_candidate)
-        rollout_state = dict(selected.get("rollout_state") or {})
-        final_result = dict(rollout_state.get("final_result") or {})
-        predictions.append(
-            {
+                else:
+                    actions = None
+                    if script is not None:
+                        if not isinstance(script, list):
+                            raise ValueError(
+                                f"scripted actions for {identifier} must be a list"
+                            )
+                        actions = [dict(item) for item in script]
+                    candidate = _run_trace_candidate(
+                        row,
+                        cfg,
+                        args.mode,
+                        intervention=args.intervention,
+                        shuffled=shuffled,
+                        model=model,
+                        tokenizer=tokenizer,
+                        tools=tools,
+                        max_iterations=args.max_iterations,
+                        max_new_tokens=args.max_new_tokens,
+                        temperature=args.temperature,
+                        top_p=args.top_p,
+                        scripted_actions=actions,
+                        sample_index=sample_index,
+                        seed=seed,
+                    )
+                candidates.append(candidate)
+            selected = (
+                candidates[0]
+                if args.mode == "direct"
+                else max(candidates, key=_rank_candidate)
+            )
+            rollout_state = dict(selected.get("rollout_state") or {})
+            final_result = dict(rollout_state.get("final_result") or {})
+            prediction = {
                 "id": identifier,
                 "artifact_type": "prediction",
                 "prediction_status": "completed",
@@ -555,40 +724,53 @@ def main() -> int:
                 "terminal_result": final_result,
                 "prediction": selected.get("prediction") or "",
                 "selected_candidate_index": int(selected.get("sample_index", 0)),
+                "selected_candidate_seed": int(selected.get("seed", 0)),
                 "candidates": candidates,
                 "model": {
-                    "base_model": model_name or None,
+                    "base_model": model_name or "scripted",
                     "adapter": adapter or None,
-                    "adapter_sha256": path_sha256(adapter) if adapter else None,
-                    "model_revision": args.model_revision or None,
+                    "adapter_sha256": adapter_hash or None,
+                    "model_revision": model_revision,
+                    "tokenizer_revision": tokenizer_revision,
                     "temperature": args.temperature,
                     "top_p": args.top_p,
                     "max_new_tokens": args.max_new_tokens,
                     "max_iterations": args.max_iterations,
                     "samples_per_target": args.samples_per_target,
+                    "seed": args.seed,
+                    "candidate_selector": CANDIDATE_SELECTOR,
+                    "software_versions": versions,
                 },
                 "metadata": {
                     "condition_name": condition_name,
                     "intervention": args.intervention,
                     "reference_source_id": row.get("source_id"),
-                    "frozen_evidence_replay": args.mode in {"textbook", "irrelevant", "anchors", "combined"},
+                    "frozen_evidence_replay": args.mode
+                    in {"textbook", "irrelevant", "anchors", "combined"},
                 },
             }
-        )
+            handle.write(json.dumps(prediction, ensure_ascii=False) + "\n")
+            handle.flush()
+            n_written += 1
 
-    write_jsonl(args.output, predictions)
     manifest = {
         "artifact_type": "prediction_manifest",
         "data": str(args.data),
-        "data_sha256": path_sha256(args.data),
+        "data_sha256": data_hash,
         "output": str(args.output),
-        "n_predictions": len(predictions),
+        "n_predictions_written": n_written,
+        "n_predictions_skipped_by_resume": n_skipped,
         "mode": args.mode,
         "condition_name": condition_name,
         "intervention": args.intervention,
-        "base_model": model_name or None,
+        "base_model": model_name or "scripted",
+        "model_revision": model_revision,
+        "tokenizer_revision": tokenizer_revision,
         "adapter": adapter or None,
-        "adapter_sha256": path_sha256(adapter) if adapter else None,
+        "adapter_sha256": adapter_hash or None,
+        "seed": args.seed,
+        "candidate_selector": CANDIDATE_SELECTOR,
+        "software_versions": versions,
     }
     args.output.with_suffix(args.output.suffix + ".manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
