@@ -24,7 +24,7 @@ jobs:
           ref: agent/use-original-mechet-icon
           fetch-depth: 0
 
-      - name: Decode the uploaded PNG and update README
+      - name: Decode the supplied PNG and update README
         shell: bash
         run: |
           python - <<'PY'
@@ -32,9 +32,9 @@ jobs:
           import base64
           import hashlib
 
-          parts = sorted(Path('.github/icon-chunks').glob('part-*.txt'))
-          if len(parts) != 8:
-              raise SystemExit(f'Expected 8 icon chunks, found {len(parts)}')
+          parts = sorted(Path('.github/icon-chunks').glob('final-part-*.txt'))
+          if len(parts) != 2:
+              raise SystemExit(f'Expected 2 final icon chunks, found {len(parts)}')
           encoded = ''.join(p.read_text(encoding='utf-8').strip() for p in parts)
           raw = base64.b64decode(encoded, validate=True)
           if not raw.startswith(b'\x89PNG\r\n\x1a\n'):
@@ -71,10 +71,11 @@ jobs:
           from pathlib import Path
           p = Path('docs/assets/mechet-icon.png')
           assert p.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
+          assert p.stat().st_size == 19392
           assert 'docs/assets/mechet-icon.png' in Path('README.md').read_text(encoding='utf-8')
           PY
 
-      - name: Commit the real PNG and remove temporary materialization files
+      - name: Commit the PNG and remove temporary materialization files
         shell: bash
         run: |
           rm -rf .github/icon-chunks
