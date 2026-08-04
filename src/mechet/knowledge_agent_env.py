@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import json
 from pathlib import Path
 from time import perf_counter
@@ -28,6 +29,53 @@ class KnowledgeAgentConfig(AgentEnvConfig):
     primitive_library_path: str = "knowledge/primitives/core_polar_primitives.yaml"
     primitive_source_registry_path: str = "knowledge/source_registry.yaml"
     primitive_top_k: int = 4
+
+
+def _asset_stamp(path: Path) -> tuple[str, int, int]:
+    """Return a cache key that invalidates when an asset tree changes."""
+
+    resolved = path.expanduser().resolve()
+    if not resolved.exists():
+        return str(resolved), 0, 0
+    if resolved.is_file():
+        stat = resolved.stat()
+        return str(resolved), int(stat.st_mtime_ns), int(stat.st_size)
+    mtimes = []
+    total_size = 0
+    for item in resolved.rglob("*"):
+        if not item.is_file():
+            continue
+        stat = item.stat()
+        mtimes.append(int(stat.st_mtime_ns))
+        total_size += int(stat.st_size)
+    return str(resolved), max(mtimes, default=0), total_size
+
+
+@lru_cache(maxsize=8)
+def _cached_textbook_assets(
+    path: str, mtime_ns: int, total_size: int
+) -> tuple[TextbookStore, TextbookRetriever]:
+    del mtime_ns, total_size
+    store = TextbookStore.load(path)
+    return store, TextbookRetriever(store)
+
+
+@lru_cache(maxsize=8)
+def _cached_primitive_library(
+    library_path: str,
+    library_mtime_ns: int,
+    library_size: int,
+    registry_path: str,
+    registry_mtime_ns: int,
+    registry_size: int,
+) -> PrimitiveLibrary:
+    del (
+        library_mtime_ns,
+        library_size,
+        registry_mtime_ns,
+        registry_size,
+    )
+    return PrimitiveLibrary.load(library_path, source_registry=registry_path)
 
 
 def _retrieval_summary(item: RetrievalResult) -> dict[str, Any]:
@@ -72,20 +120,29 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
         self.textbook_store: TextbookStore | None = None
         self.textbook_retriever: TextbookRetriever | None = None
         if corpus.exists():
-            self.textbook_store = TextbookStore.load(corpus)
-            self.textbook_retriever = TextbookRetriever(self.textbook_store)
+            corpus_key = _asset_stamp(corpus)
+            self.textbook_store, self.textbook_retriever = _cached_textbook_assets(
+                *corpus_key
+            )
         elif cfg.require_textbook_corpus:
             raise FileNotFoundError(f"textbook corpus does not exist: {corpus}")
         self.textbook_corpus_path = str(corpus)
 
         self.primitive_library: PrimitiveLibrary | None = None
         if cfg.enable_structured_primitives:
-            self.primitive_library = PrimitiveLibrary.load(
-                primitive_library_path or cfg.primitive_library_path,
-                source_registry=(
-                    primitive_source_registry_path
-                    or cfg.primitive_source_registry_path
-                ),
+            library = Path(primitive_library_path or cfg.primitive_library_path)
+            registry = Path(
+                primitive_source_registry_path
+                or cfg.primitive_source_registry_path
+            )
+            if not library.exists():
+                raise FileNotFoundError(f"primitive library does not exist: {library}")
+            if not registry.exists():
+                raise FileNotFoundError(
+                    f"primitive source registry does not exist: {registry}"
+                )
+            self.primitive_library = _cached_primitive_library(
+                *_asset_stamp(library), *_asset_stamp(registry)
             )
         super().__init__(
             config=cfg,
@@ -107,6 +164,7 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
             "structured_primitives_enabled": self.primitive_library is not None,
             "structured_primitive_tool": "retrieve_primitives",
             "knowledge_reward": False,
+            "assets_reused_within_process": True,
         }
         observation["instructions"].insert(
             1,
@@ -156,7 +214,9 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
             }
             self.failed_steps += 1
             self.textbook_retrievals.append(result)
-            self.trace.append({"event": "retrieve_textbook_guidance", "result": result})
+            self.trace.append(
+                {"event": "retrieve_textbook_guidance", "result": result}
+            )
             return json.dumps(result, ensure_ascii=False)
         try:
             results = self.textbook_retriever.retrieve(
@@ -167,7 +227,10 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
             )
             context = compile_evidence_context(
                 results,
-                max_characters=int(max_characters or self.knowledge_config.textbook_max_characters),
+                max_characters=int(
+                    max_characters
+                    or self.knowledge_config.textbook_max_characters
+                ),
                 max_passage_characters=self.knowledge_config.textbook_max_passage_characters,
             )
             result = {
@@ -192,7 +255,9 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
                 "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
             }
         self.textbook_retrievals.append(result)
-        self.trace.append({"event": "retrieve_textbook_guidance", "result": result})
+        self.trace.append(
+            {"event": "retrieve_textbook_guidance", "result": result}
+        )
         return json.dumps(result, ensure_ascii=False)
 
     def retrieve_primitives(self, query: str = "", top_k: int = 0) -> str:
@@ -221,7 +286,8 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
                     "soft_evidence_only": True,
                     "direct_reward": False,
                     "latency_ms": (perf_counter() - started) * 1000.0,
-                    "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
+                    "remaining_tool_calls": self.config.max_tool_calls
+                    - self.tool_calls,
                 }
             except Exception as exc:
                 self.failed_steps += 1
@@ -230,7 +296,8 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
                     "code": "ANCHOR_RETRIEVAL_FAILED",
                     "message": str(exc),
                     "latency_ms": (perf_counter() - started) * 1000.0,
-                    "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
+                    "remaining_tool_calls": self.config.max_tool_calls
+                    - self.tool_calls,
                 }
         self.primitive_retrievals.append(result)
         self.trace.append({"event": "retrieve_primitives", "result": result})
@@ -255,6 +322,10 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
                 ),
                 "knowledge_is_soft": True,
                 "knowledge_direct_reward": False,
+                "asset_cache": {
+                    "textbook": _cached_textbook_assets.cache_info()._asdict(),
+                    "primitive_library": _cached_primitive_library.cache_info()._asdict(),
+                },
             }
         )
         return value
