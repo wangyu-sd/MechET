@@ -20,7 +20,7 @@ def test_readme_presents_one_scientific_story():
         text,
         [
             "Causal and compositional electron-flow reasoning",
-            "reasoning–answer bypass",
+            "independent, unverifiable channel",
             "environment-owned trace",
             "H1 — causal faithfulness",
             "H2 — compositional basis",
@@ -189,7 +189,7 @@ def test_tool_sft_document_defines_acceptance_and_lineage():
             "assistant masks",
             "zero truncation",
             "adapter_manifest.json",
-            "adapter SHA-256",
+            "non-self-referential SHA-256",
             "base-model revision",
             "seed and data seed",
             "tool_sft_trace_no_knowledge.yaml",
