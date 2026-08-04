@@ -18,7 +18,7 @@ class AnchorTraceOwnedTRLEnvironment(TraceOwnedTRLEnvironment):
         forward_checkpoint: str | Path | None = None,
         forward_device: str = "cpu",
         intervention: str = "none",
-        shuffled_observations: dict[str, list[str]] | None = None,
+        shuffled_observations: dict[str, Any] | None = None,
     ) -> None:
         cfg = (
             config
@@ -34,13 +34,7 @@ class AnchorTraceOwnedTRLEnvironment(TraceOwnedTRLEnvironment):
             forward_checkpoint=forward_checkpoint,
             forward_device=forward_device,
         )
-        self._intervention = str(intervention or "none")
-        self._shuffled_observations = {
-            str(name): list(values)
-            for name, values in dict(shuffled_observations or {}).items()
-        }
-        self._shuffle_offsets = {}
-        self._last_visible_tool_result = ""
+        self._configure_intervention(intervention, shuffled_observations)
 
     def retrieve_primitives(self, query: str = "", top_k: int = 0) -> str:
         """Retrieve structured mechanistic knowledge anchors.
