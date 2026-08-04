@@ -27,8 +27,6 @@ def file_sha256(path: Path) -> str:
 
 
 def selected_directory_sha256(path: Path) -> str:
-    """Hash saved adapter/model files without self-referential manifests."""
-
     digest = hashlib.sha256()
     excluded = {"adapter_manifest.json", "data_contract.json"}
     files = sorted(
@@ -144,6 +142,7 @@ def validate_rows(
     ids: set[str] = set()
     tool_calls = tool_results = finish_rows = trace_bound = 0
     assistant_messages = 0
+    per_row_calls: list[int] = []
     for row in rows:
         identifier = str(row.get("id") or "")
         if not identifier or identifier in ids:
@@ -162,6 +161,7 @@ def validate_rows(
         )
         tool_calls += counts["tool_calls"]
         tool_results += counts["tool_results"]
+        per_row_calls.append(counts["tool_calls"])
         finish_rows += int(counts["finish_trace"] == 1)
         trace_bound += int(
             (row.get("metadata") or {}).get("endpoint_source")
@@ -173,6 +173,8 @@ def validate_rows(
         "n_unique_ids": len(ids),
         "tool_calls": tool_calls,
         "tool_results": tool_results,
+        "max_tool_calls_per_row": max(per_row_calls, default=0),
+        "mean_tool_calls_per_row": tool_calls / denominator,
         "assistant_messages": assistant_messages,
         "trace_bound_rows": trace_bound,
         "trace_bound_rate": trace_bound / denominator,
@@ -184,8 +186,6 @@ def validate_rows(
 
 
 def conversational_records(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Preserve tools and messages for TRL's tool-calling chat template."""
-
     return [
         {
             "id": str(row["id"]),
@@ -207,22 +207,19 @@ def _assistant_mask(payload: dict[str, Any]) -> list[int]:
 def tokenizer_audit(
     rows: list[dict[str, Any]], tokenizer, *, max_length: int
 ) -> dict[str, Any]:
-    """Render every row using the real tokenizer and verify assistant masks."""
-
     lengths: list[int] = []
     supervised: list[int] = []
     zero_mask_ids: list[str] = []
     truncated = 0
     for row in rows:
-        kwargs = {
-            "conversation": row["messages"],
-            "tools": row.get("tools") or None,
-            "tokenize": True,
-            "return_dict": True,
-            "return_assistant_tokens_mask": True,
-            "add_generation_prompt": False,
-        }
-        rendered = tokenizer.apply_chat_template(**kwargs)
+        rendered = tokenizer.apply_chat_template(
+            conversation=row["messages"],
+            tools=row.get("tools") or None,
+            tokenize=True,
+            return_dict=True,
+            return_assistant_tokens_mask=True,
+            add_generation_prompt=False,
+        )
         if not isinstance(rendered, dict):
             raise ValueError("chat template did not return a token dictionary")
         input_ids = list(rendered.get("input_ids") or [])
@@ -239,8 +236,14 @@ def tokenizer_audit(
         truncated += int(len(input_ids) > max_length)
     if zero_mask_ids:
         raise ValueError(f"rows with zero assistant mask: {zero_mask_ids[:10]}")
+    resolved_revision = str(
+        getattr(tokenizer, "init_kwargs", {}).get("_commit_hash")
+        or getattr(tokenizer, "init_kwargs", {}).get("revision")
+        or "unresolved"
+    )
     return {
-        "tokenizer_revision": getattr(tokenizer, "name_or_path", "unknown"),
+        "tokenizer_name_or_path": getattr(tokenizer, "name_or_path", "unknown"),
+        "tokenizer_revision": resolved_revision,
         "n_tokenizer_audited_rows": len(rows),
         "total_input_tokens": sum(lengths),
         "total_supervised_tokens": sum(supervised),
@@ -278,6 +281,8 @@ def main() -> int:
     training = dict(cfg.get("training") or {})
     configured_max_steps = int(training.get("max_steps", -1))
     max_steps = int(args.max_steps or configured_max_steps)
+    seed = int(training.get("seed", 17))
+    data_seed = int(training.get("data_seed", seed))
     report = {
         **validate_rows(rows, require_trace_owned=require_trace_owned),
         "artifact_type": "tool_sft_data_contract",
@@ -290,6 +295,8 @@ def main() -> int:
         "dataset_format": "conversational_messages_with_tools",
         "assistant_only_loss": bool(training.get("assistant_only_loss", True)),
         "max_steps": max_steps,
+        "seed": seed,
+        "data_seed": data_seed,
         "stable_id_manifest": contract.get("stable_id_manifest"),
         "validation_report": contract.get("validation_report"),
         "environment_revision": contract.get("environment_revision"),
@@ -305,9 +312,10 @@ def main() -> int:
         return 0
 
     try:
+        import torch
         from datasets import Dataset
         from peft import LoraConfig
-        from transformers import AutoTokenizer
+        from transformers import AutoModelForCausalLM, AutoTokenizer
         from trl import SFTConfig, SFTTrainer
     except ImportError as exc:
         raise RuntimeError("Tool-SFT training requires mechet[agent]") from exc
@@ -315,11 +323,12 @@ def main() -> int:
     model_name = str(cfg.get("model_name_or_path") or "")
     if not model_name:
         raise ValueError("model_name_or_path is required")
-    lora = dict(cfg.get("lora") or {})
+    requested_revision = str(training.get("model_revision") or "").strip() or None
+    trust_remote_code = bool(training.get("trust_remote_code", True))
     tokenizer = AutoTokenizer.from_pretrained(
         model_name,
-        revision=training.get("model_revision"),
-        trust_remote_code=bool(training.get("trust_remote_code", True)),
+        revision=requested_revision,
+        trust_remote_code=trust_remote_code,
     )
     if not hasattr(tokenizer, "apply_chat_template"):
         raise ValueError("tokenizer does not expose a conversational chat template")
@@ -334,6 +343,30 @@ def main() -> int:
         raise ValueError(
             "Tool-SFT rows exceed max_length; increase the frozen budget or rebuild data"
         )
+    resolved_revision = str(
+        requested_revision or report.get("tokenizer_revision") or "unresolved"
+    )
+    bf16 = bool(
+        training.get(
+            "bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+        )
+    )
+    fp16 = bool(
+        training.get(
+            "fp16", torch.cuda.is_available() and not torch.cuda.is_bf16_supported()
+        )
+    )
+    tf32 = bool(training.get("tf32", torch.cuda.is_available()))
+    gradient_checkpointing = bool(training.get("gradient_checkpointing", True))
+    dtype = torch.bfloat16 if bf16 else torch.float16 if fp16 else None
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name,
+        revision=None if resolved_revision == "unresolved" else resolved_revision,
+        trust_remote_code=trust_remote_code,
+        torch_dtype=dtype,
+    )
+    if gradient_checkpointing and hasattr(model, "config"):
+        model.config.use_cache = False
 
     sft_args = SFTConfig(
         output_dir=str(cfg.get("output_dir") or "outputs/agent/tool_sft"),
@@ -347,8 +380,19 @@ def main() -> int:
         assistant_only_loss=bool(training.get("assistant_only_loss", True)),
         logging_steps=int(training.get("logging_steps", 1)),
         save_steps=int(training.get("save_steps", 100)),
+        save_total_limit=int(training.get("save_total_limit", 2)),
+        seed=seed,
+        data_seed=data_seed,
+        bf16=bf16,
+        fp16=fp16,
+        tf32=tf32,
+        gradient_checkpointing=gradient_checkpointing,
+        dataloader_num_workers=int(training.get("dataloader_num_workers", 2)),
+        group_by_length=bool(training.get("group_by_length", True)),
+        optim=str(training.get("optim", "adamw_torch_fused")),
         report_to=list(training.get("report_to") or []),
     )
+    lora = dict(cfg.get("lora") or {})
     peft_config = LoraConfig(
         r=int(lora.get("r", 16)),
         lora_alpha=int(lora.get("alpha", 32)),
@@ -365,7 +409,7 @@ def main() -> int:
     except TypeError:
         dataset = Dataset.from_list(records)
     trainer = SFTTrainer(
-        model=model_name,
+        model=model,
         args=sft_args,
         train_dataset=dataset,
         processing_class=tokenizer,
@@ -375,6 +419,16 @@ def main() -> int:
     trainer.save_model()
     output = Path(sft_args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
+    report["base_model_revision"] = resolved_revision
+    report["training_runtime"] = {
+        "seed": seed,
+        "data_seed": data_seed,
+        "bf16": bf16,
+        "fp16": fp16,
+        "tf32": tf32,
+        "gradient_checkpointing": gradient_checkpointing,
+        "group_by_length": bool(training.get("group_by_length", True)),
+    }
     (output / "data_contract.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
     )
@@ -384,12 +438,16 @@ def main() -> int:
         "adapter_path": str(output),
         "adapter_sha256": adapter_hash,
         "base_model": model_name,
+        "base_model_revision": resolved_revision,
+        "tokenizer_revision": report.get("tokenizer_revision"),
         "condition_name": cfg.get("condition_name"),
         "scientific_hypothesis": cfg.get("scientific_hypothesis"),
         "data_contract": str(output / "data_contract.json"),
         "train_file_sha256": report["train_file_sha256"],
         "environment_revision": report.get("environment_revision"),
         "executor_revision": report.get("executor_revision"),
+        "seed": seed,
+        "data_seed": data_seed,
     }
     (output / "adapter_manifest.json").write_text(
         json.dumps(adapter_manifest, indent=2, ensure_ascii=False),
