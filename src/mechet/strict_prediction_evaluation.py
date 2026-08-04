@@ -1,7 +1,7 @@
 """Strict prediction evaluation for trace-owned and direct experiment artifacts.
 
 Trace-owned conditions receive endpoint credit only after an explicit, successful
-``finish_trace`` tool result.  The evaluator never completes an unfinished trace
+``finish_trace`` tool result. The evaluator never completes an unfinished trace
 on behalf of the model and never falls back to free-form direct answers.
 """
 from __future__ import annotations
@@ -104,10 +104,14 @@ def strict_trace_evaluation(row: Mapping[str, Any]) -> dict[str, Any]:
         return _missing("TRACE_ABSTAINED", source="abstention")
     if len(finish_results) != 1:
         return _missing("FINISH_TRACE_RESULT_REQUIRED", source="unfinished_trace")
+    if not terminal:
+        return _missing("RAW_TERMINAL_RESULT_REQUIRED", source="invalid_trace")
 
-    finish = finish_results[0]
-    if terminal and finish != terminal:
-        return _missing("TERMINAL_RESULT_MISMATCH", source="invalid_trace")
+    # The visible finish_trace observation may be intentionally redacted,
+    # stale, or shuffled in H1. The raw environment-owned terminal result in
+    # rollout_state is the authoritative object for recomputation; the visible
+    # tool message proves that the model actually called finish_trace.
+    finish = terminal
     if finish.get("endpoint_source") != "environment_owned_trace":
         return _missing("ENDPOINT_SOURCE_NOT_TRACE_OWNED", source="invalid_trace")
     if finish.get("trace_bound") is not True:
@@ -192,7 +196,6 @@ def endpoint_evaluation(row: Mapping[str, Any]) -> dict[str, Any]:
     if mode in DIRECT_MODES:
         return strict_direct_evaluation(row)
     if mode == "legacy":
-        # Legacy is an explicit complete-proof baseline, not a trace condition.
         proof = str(
             terminal_result(row).get("compiled_proof")
             or row.get("compiled_proof")
@@ -203,7 +206,9 @@ def endpoint_evaluation(row: Mapping[str, Any]) -> dict[str, Any]:
         try:
             execution = execute_proof(proof)
             if not execution.ok:
-                return _missing("LEGACY_PROOF_DID_NOT_EXECUTE", source="failed_proof")
+                return _missing(
+                    "LEGACY_PROOF_DID_NOT_EXECUTE", source="failed_proof"
+                )
             target = str(row.get("target_smiles") or "")
             structural = split_precursor_endpoints(
                 execution.precursor_smiles, target
@@ -223,10 +228,11 @@ def endpoint_evaluation(row: Mapping[str, Any]) -> dict[str, Any]:
                 "completion_failure": "",
             }
         except Exception as exc:
-            value = _missing("LEGACY_PROOF_REEXECUTION_FAILED", source="invalid_proof")
+            value = _missing(
+                "LEGACY_PROOF_REEXECUTION_FAILED", source="invalid_proof"
+            )
             value["evaluation_error"] = str(exc)
             return value
-    # Unknown modes never receive a direct-answer fallback.
     return _missing("PREDICTION_MODE_MISSING_OR_UNKNOWN")
 
 
@@ -251,7 +257,10 @@ def condition_metrics(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     direct_reward_violations = 0
     for row in rows:
         for message in row.get("messages") or []:
-            if message.get("role") != "tool" or _tool_name(message) not in KNOWLEDGE_TOOLS:
+            if (
+                message.get("role") != "tool"
+                or _tool_name(message) not in KNOWLEDGE_TOOLS
+            ):
                 continue
             try:
                 result = json.loads(str(message.get("content") or "{}"))
@@ -275,16 +284,35 @@ def condition_metrics(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
         "structured_anchor_call_rate": anchor_calls / denominator,
         "prediction_present_rate": sum(
             bool(item["prediction_present"]) for item in evaluations
-        ) / denominator,
+        )
+        / denominator,
         "missing_prediction_rate": missing_count / denominator,
         "unfinished_or_invalid_prediction_rate": unfinished_count / denominator,
         "trace_prediction_rate": trace_count / denominator,
         "direct_prediction_rate": direct_count / denominator,
-        "trace_bound_rate": sum(bool(item["trace_bound"]) for item in evaluations) / denominator,
-        "execute_rate": sum(bool(item["formal_execute"]) for item in evaluations) / denominator,
-        "structural_exact_rate": sum(bool(item["structural_exact"]) for item in evaluations) / denominator,
-        "mapped_exact_rate": sum(bool(item["mapped_exact"]) for item in evaluations) / denominator,
-        "endpoint_exact_rate": sum(bool(item["structural_exact"]) for item in evaluations) / denominator,
-        "evaluation_error_rate": sum(bool(item.get("evaluation_error")) for item in evaluations) / denominator,
+        "trace_bound_rate": sum(
+            bool(item["trace_bound"]) for item in evaluations
+        )
+        / denominator,
+        "execute_rate": sum(
+            bool(item["formal_execute"]) for item in evaluations
+        )
+        / denominator,
+        "structural_exact_rate": sum(
+            bool(item["structural_exact"]) for item in evaluations
+        )
+        / denominator,
+        "mapped_exact_rate": sum(
+            bool(item["mapped_exact"]) for item in evaluations
+        )
+        / denominator,
+        "endpoint_exact_rate": sum(
+            bool(item["structural_exact"]) for item in evaluations
+        )
+        / denominator,
+        "evaluation_error_rate": sum(
+            bool(item.get("evaluation_error")) for item in evaluations
+        )
+        / denominator,
         "knowledge_direct_reward_violations": direct_reward_violations,
     }
