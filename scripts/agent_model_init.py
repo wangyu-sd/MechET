@@ -58,6 +58,16 @@ def lineage_report(cfg: dict[str, Any]) -> dict[str, Any]:
     actual = path_sha256(path) if path else ""
     environment_revision = str(cfg.get("environment_revision") or "").strip()
     executor_revision = str(cfg.get("executor_revision") or "").strip()
+    training = dict(cfg.get("training") or {})
+    configured_model_revision = str(
+        training.get("model_revision") or cfg.get("model_revision") or ""
+    ).strip()
+    adapter_model_revision = str(
+        manifest.get("base_model_revision")
+        or manifest.get("model_revision")
+        or ""
+    ).strip()
+    resolved_model_revision = configured_model_revision or adapter_model_revision
     return {
         "initial_adapter_path": adapter or None,
         "initial_adapter_exists": bool(path and path.exists()),
@@ -73,13 +83,19 @@ def lineage_report(cfg: dict[str, Any]) -> dict[str, Any]:
         "require_initial_adapter": bool(cfg.get("require_initial_adapter", False)),
         "adapter_artifact_type": manifest.get("artifact_type"),
         "adapter_base_model": manifest.get("base_model"),
+        "adapter_base_model_revision": adapter_model_revision or None,
+        "adapter_tokenizer_revision": manifest.get("tokenizer_revision"),
         "adapter_condition_name": manifest.get("condition_name"),
         "adapter_environment_revision": manifest.get("environment_revision"),
         "adapter_executor_revision": manifest.get("executor_revision"),
+        "adapter_seed": manifest.get("seed"),
+        "adapter_data_seed": manifest.get("data_seed"),
         "tool_sft_data_contract": manifest.get("data_contract"),
         "evidence_suite_manifest": cfg.get("evidence_suite_manifest") or None,
         "environment_revision": environment_revision or None,
         "executor_revision": executor_revision or None,
+        "configured_model_revision": configured_model_revision or None,
+        "resolved_model_revision": resolved_model_revision or None,
     }
 
 
@@ -112,6 +128,18 @@ def validate_lineage(cfg: dict[str, Any]) -> dict[str, Any]:
             "Tool-SFT base model mismatch: "
             f"{report['adapter_base_model']} != {model_name}"
         )
+    configured_revision = report["configured_model_revision"]
+    adapter_revision = report["adapter_base_model_revision"]
+    if configured_revision and adapter_revision and configured_revision != adapter_revision:
+        raise ValueError(
+            "Tool-SFT base model revision mismatch: "
+            f"{adapter_revision} != {configured_revision}"
+        )
+    if required and not report["resolved_model_revision"]:
+        raise ValueError(
+            "required Tool-SFT adapter has no frozen base-model revision; "
+            "retrain it or set training.model_revision explicitly"
+        )
     for key, adapter_key in (
         ("environment_revision", "adapter_environment_revision"),
         ("executor_revision", "adapter_executor_revision"),
@@ -139,10 +167,13 @@ def build_trainable_model(cfg: dict[str, Any], torch_module):
     model_name = str(cfg.get("model_name_or_path") or "")
     if not model_name:
         raise ValueError("model_name_or_path is required")
-    validate_lineage(cfg)
+    lineage = validate_lineage(cfg)
 
     initial_adapter = str(cfg.get("initial_adapter_path") or "").strip()
     training = dict(cfg.get("training") or {})
+    revision = lineage.get("resolved_model_revision") or training.get(
+        "model_revision"
+    )
     if initial_adapter:
         dtype = None
         if bool(training.get("bf16", False)):
@@ -151,11 +182,15 @@ def build_trainable_model(cfg: dict[str, Any], torch_module):
             dtype = torch_module.float16
         base_model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            revision=training.get("model_revision"),
+            revision=revision,
             trust_remote_code=bool(training.get("trust_remote_code", True)),
             torch_dtype=dtype,
             device_map=training.get("device_map"),
         )
+        if bool(training.get("gradient_checkpointing", True)) and hasattr(
+            base_model, "config"
+        ):
+            base_model.config.use_cache = False
         model = PeftModel.from_pretrained(
             base_model, initial_adapter, is_trainable=True
         )
