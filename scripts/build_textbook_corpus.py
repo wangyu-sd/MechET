@@ -59,7 +59,11 @@ def _artifact_text(path: Path) -> tuple[str, str]:
     if path.suffix.lower() == ".json":
         payload = json.loads(raw)
         parts = [item.strip() for item in _collect_strings(payload) if item.strip()]
-        title = str(payload.get("title") or payload.get("term", {}).get("name") or path.stem) if isinstance(payload, dict) else path.stem
+        title = (
+            str(payload.get("title") or payload.get("term", {}).get("name") or path.stem)
+            if isinstance(payload, dict)
+            else path.stem
+        )
         return title, "\n\n".join(dict.fromkeys(parts))
     return path.stem, raw
 
@@ -108,6 +112,19 @@ def _topics(text: str) -> tuple[str, ...]:
     )
 
 
+def _quality_metadata(artifact: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "quality_status": artifact.get("quality_status"),
+        "retrieval_weight": artifact.get("retrieval_weight"),
+        "review_warning": artifact.get("review_warning"),
+        "last_human_reviewed_at": artifact.get("last_human_reviewed_at"),
+        "scientific_scope": list(artifact.get("scientific_scope") or []),
+        "allowed_uses": list(artifact.get("allowed_uses") or []),
+        "disallowed_uses": list(artifact.get("disallowed_uses") or []),
+        "quality_notes": artifact.get("quality_notes"),
+    }
+
+
 def build(
     download_root: Path,
     *,
@@ -133,21 +150,22 @@ def build(
         except Exception:
             continue
         text = _normalize(text)
-        artifact_fingerprint = str(artifact.get("sha256") or "")
-        if not artifact_fingerprint:
-            artifact_fingerprint = hashlib.sha256(relative.encode("utf-8")).hexdigest()
         for index, chunk in enumerate(
             _chunks(text, minimum=minimum, maximum=maximum, overlap=overlap)
         ):
             digest = hashlib.sha256(chunk.encode("utf-8")).hexdigest()
-            passage_id = f"{source_id}:{artifact_fingerprint[:12]}:{digest[:16]}:{index}"
+            passage_id = f"{source_id}:{digest[:16]}:{index}"
             passages.append(
                 TextbookPassage(
                     passage_id=passage_id,
                     title=title,
                     text=chunk,
                     source_id=source_id,
-                    locator=str(artifact.get("canonical_url") or artifact.get("url") or relative),
+                    locator=str(
+                        artifact.get("canonical_url")
+                        or artifact.get("url")
+                        or relative
+                    ),
                     revision=str(
                         artifact.get("revision_id")
                         or artifact.get("revision")
@@ -162,6 +180,7 @@ def build(
                         "artifact_path": relative,
                         "artifact_sha256": artifact.get("sha256"),
                         "retrieval_backend": artifact.get("retrieval_backend"),
+                        **_quality_metadata(artifact),
                     },
                 )
             )
