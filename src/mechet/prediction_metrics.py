@@ -6,7 +6,20 @@ import hashlib
 import json
 from typing import Any, Iterable, Mapping
 
-from .knowledge_ablation import endpoint_evaluation
+from .strict_prediction_evaluation import endpoint_evaluation
+
+_RUNTIME_REQUIRED_FIELDS = (
+    "base_model",
+    "model_revision",
+    "tokenizer_revision",
+    "temperature",
+    "top_p",
+    "max_new_tokens",
+    "max_iterations",
+    "samples_per_target",
+    "seed",
+    "candidate_selector",
+)
 
 
 def prediction_runtime_contract(
@@ -14,37 +27,53 @@ def prediction_runtime_contract(
     *,
     include_adapter: bool,
 ) -> dict[str, Any]:
-    """Summarize and validate model/generation metadata in one artifact."""
+    """Summarize consistency and completeness of generation metadata."""
 
     rows = list(rows)
     contracts: set[str] = set()
     adapters: set[str] = set()
-    for row in rows:
+    missing_by_row: dict[str, list[str]] = {}
+    for index, row in enumerate(rows):
         model = dict(row.get("model") or {})
         contract = {
             "base_model": model.get("base_model"),
             "model_revision": model.get("model_revision"),
+            "tokenizer_revision": model.get("tokenizer_revision"),
             "temperature": model.get("temperature"),
             "top_p": model.get("top_p"),
             "max_new_tokens": model.get("max_new_tokens"),
             "max_iterations": model.get("max_iterations"),
             "samples_per_target": model.get("samples_per_target"),
+            "seed": model.get("seed"),
+            "candidate_selector": model.get("candidate_selector"),
         }
         if include_adapter:
             contract["adapter_sha256"] = model.get("adapter_sha256")
             contract["adapter"] = model.get("adapter")
+        missing = [
+            field
+            for field in _RUNTIME_REQUIRED_FIELDS
+            if contract.get(field) in (None, "")
+        ]
+        if include_adapter and contract.get("adapter") and not contract.get(
+            "adapter_sha256"
+        ):
+            missing.append("adapter_sha256")
+        if missing:
+            identifier = str(row.get("id") or f"row_{index}")
+            missing_by_row[identifier] = sorted(set(missing))
         contracts.add(json.dumps(contract, sort_keys=True, separators=(",", ":")))
         adapters.add(str(model.get("adapter_sha256") or model.get("adapter") or ""))
     decoded = [json.loads(item) for item in sorted(contracts)]
-    digest = hashlib.sha256(
-        "\n".join(sorted(contracts)).encode()
-    ).hexdigest()
+    digest = hashlib.sha256("\n".join(sorted(contracts)).encode()).hexdigest()
     return {
         "n_rows": len(rows),
         "n_unique_runtime_contracts": len(contracts),
         "runtime_contract_consistent": len(contracts) == 1,
+        "runtime_contract_complete": not missing_by_row and bool(rows),
         "runtime_contracts": decoded,
         "runtime_contract_sha256": digest,
+        "runtime_contract_missing_fields_by_row": missing_by_row,
         "n_unique_adapters": len(adapters),
         "adapter_ids": sorted(adapters),
     }
