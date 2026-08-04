@@ -6,10 +6,12 @@ on:
       - "README.md"
       - "src/mechet/__init__.py"
       - "src/mechet/proof_*.py"
+      - "src/mechet/structural_overlap.py"
       - "src/mechet/rlvr.py"
       - "scripts/*proof*.py"
       - "scripts/build_mechcomp_ood.py"
       - "tests/test_proof_*.py"
+      - "tests/test_structural_overlap.py"
       - ".github/workflows/proof-tests.yml"
   push:
     branches: [main]
@@ -17,10 +19,12 @@ on:
       - "README.md"
       - "src/mechet/__init__.py"
       - "src/mechet/proof_*.py"
+      - "src/mechet/structural_overlap.py"
       - "src/mechet/rlvr.py"
       - "scripts/*proof*.py"
       - "scripts/build_mechcomp_ood.py"
       - "tests/test_proof_*.py"
+      - "tests/test_structural_overlap.py"
 
 jobs:
   test:
@@ -44,6 +48,7 @@ jobs:
             src/mechet/proof_equivalence.py \
             src/mechet/proof_diagnostics.py \
             src/mechet/proof_splits.py \
+            src/mechet/structural_overlap.py \
             src/mechet/rlvr.py \
             scripts/build_mechet_proof_sft.py \
             scripts/build_mechcomp_ood.py \
@@ -51,4 +56,4 @@ jobs:
             scripts/infer_mechet_proof.py \
             scripts/repair_mechet_proof_generations.py
       - name: Run proof tests
-        run: pytest -q tests/test_proof_*.py
+        run: pytest -q tests/test_proof_*.py tests/test_structural_overlap.py
