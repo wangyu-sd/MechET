@@ -5,14 +5,102 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
+from itertools import islice
 from pathlib import Path
+
+from tqdm import tqdm
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
 from mechet.proof_sft import convert_mech_et_row_to_proof_sft
+
+
+def _convert_line(task: tuple[int, str]) -> tuple[bool, int, str | None, str | None]:
+    line_number, line = task
+    try:
+        row = json.loads(line)
+        converted = convert_mech_et_row_to_proof_sft(row)
+        return True, line_number, json.dumps(converted, ensure_ascii=False), None
+    except Exception as exc:
+        return False, line_number, None, f"{type(exc).__name__}: {exc}"
+
+
+def _iter_chunks(reader, *, chunk_size: int):
+    while True:
+        chunk = list(islice(reader, chunk_size))
+        if not chunk:
+            return
+        yield chunk
+
+
+def _process_chunk(
+    chunk: list[tuple[int, str]],
+) -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
+    successes: list[tuple[int, str]] = []
+    failures: list[tuple[int, str]] = []
+    for result in map(_convert_line, chunk):
+        ok, line_number, converted, error = result
+        if ok:
+            assert converted is not None
+            successes.append((line_number, converted))
+        else:
+            assert error is not None
+            failures.append((line_number, error))
+    return successes, failures
+
+
+def build_split_parallel(
+    src: Path,
+    dst: Path,
+    limit: int = 0,
+    workers: int | None = None,
+    chunk_size: int = 64,
+) -> dict:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    accepted = 0
+    skipped = 0
+    reasons: Counter[str] = Counter()
+    max_workers = workers or max((os.cpu_count() or 1) - 1, 1)
+
+    with src.open("r", encoding="utf-8") as reader, dst.open(
+        "w", encoding="utf-8"
+    ) as writer, ProcessPoolExecutor(max_workers=max_workers) as executor:
+        tasks = (
+            (line_number, line)
+            for line_number, line in enumerate(reader, start=1)
+            if line.strip()
+        )
+        chunk_iter = _iter_chunks(tasks, chunk_size=chunk_size)
+        for successes, failures in tqdm(
+            executor.map(_process_chunk, chunk_iter),
+            desc=f"Building {dst.name}",
+            unit="chunk",
+        ):
+            for _line_number, converted in successes:
+                writer.write(converted + "\n")
+                accepted += 1
+            for line_number, error in failures:
+                skipped += 1
+                reason, _, _message = error.partition(":")
+                reasons[reason] += 1
+                if skipped <= 10:
+                    print(
+                        f"[{src.name}:{line_number}] skipped: {error}",
+                        file=sys.stderr,
+                    )
+
+    return {
+        "source": str(src),
+        "output": str(dst),
+        "accepted": accepted,
+        "skipped": skipped,
+        "skip_reasons": dict(reasons),
+    }
 
 
 def build_split(src: Path, dst: Path, *, limit: int = 0) -> dict:
@@ -23,7 +111,14 @@ def build_split(src: Path, dst: Path, *, limit: int = 0) -> dict:
     with src.open("r", encoding="utf-8") as reader, dst.open(
         "w", encoding="utf-8"
     ) as writer:
-        for line_number, line in enumerate(reader, start=1):
+        total_lines = sum(1 for _ in reader)
+        reader.seek(0)
+        for line_number, line in tqdm(
+            enumerate(reader, start=1),
+            desc=f"Building {dst.name}",
+            total=total_lines,
+            unit="line",
+        ):
             if not line.strip():
                 continue
             if limit and accepted >= limit:
@@ -67,6 +162,7 @@ def main() -> int:
         nargs="+",
         default=["train", "valid", "test"],
     )
+    parser.add_argument("--parallel", action="store_true")
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args()
 
@@ -75,13 +171,22 @@ def main() -> int:
         src = args.input_dir / f"{split}.jsonl"
         if not src.exists():
             raise FileNotFoundError(src)
-        reports.append(
-            build_split(
-                src,
-                args.output_dir / f"{split}.jsonl",
-                limit=args.limit,
+        if args.parallel:
+            reports.append(
+                build_split_parallel(
+                    src,
+                    args.output_dir / f"{split}.jsonl",
+                    limit=args.limit,
+                )
             )
-        )
+        else:
+            reports.append(
+                build_split(
+                    src,
+                    args.output_dir / f"{split}.jsonl",
+                    limit=args.limit,
+                )
+            )
 
     manifest = {
         "version": "mech_proof_sft_v1",
