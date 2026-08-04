@@ -19,29 +19,47 @@ The compatibility directory and schema retain the historical name `primitives`, 
 
 ```text
 knowledge/
-  source_registry.yaml                 # source URLs, licenses and download gates
+  source_registry.yaml                 # URLs, licenses, quality and health policy
   primitives/
     core_polar_primitives.yaml         # reviewed knowledge-anchor records
   raw/                                 # downloaded locally; not committed by default
   corpus/                              # bounded textbook passages and frozen index
   candidates/                          # evidence-linked extraction tasks
-  manifests/                           # SHA-256 and revision manifests
+  manifests/                           # SHA-256, revision and health manifests
 ```
 
 ## Source policy
 
-Every source is registered before acquisition. The registry records source type, URL, license, redistribution constraints and explicit acceptance requirements.
+Every source is registered before acquisition. The registry records source type, URL, license, redistribution constraints, explicit acceptance requirements, evidence quality, permitted uses and prohibited interpretations.
 
 | Source | Evidence role | Automated use |
 |---|---|---|
 | IUPAC Gold Book individual terms | standard terminology | per-term JSON with canonical-code validation |
 | RXNO | reaction-family taxonomy | official ontology download |
-| Wikibooks Organic Chemistry | open textbook explanations | revision-aware MediaWiki fallbacks |
+| Wikibooks Organic Chemistry | open textbook explanations | revision-aware MediaWiki fallbacks and page-level quality warnings |
 | selected LibreTexts pages | open mechanism explanations | text-only download after license-marker checks |
 | MIT OpenCourseWare | non-commercial course evidence | explicit non-commercial acknowledgement |
 | PMechDB/PMechRP | mechanism data and benchmark assets | manual upstream request; no bypass or automatic derivative redistribution |
 
 A Web page, LLM extraction or database row does not automatically become accepted chemistry or a released anchor.
+
+## Quality metadata
+
+Each source defines a `quality` block; individual pages may override it through `page_quality`.
+
+```yaml
+quality_status: reviewed | usable_with_caution | low_priority
+retrieval_weight: 0.0-1.0
+review_warning: true | false
+scientific_scope: [...]
+allowed_uses: [...]
+disallowed_uses: [...]
+quality_notes: ...
+```
+
+Quality metadata is an evidence-governance signal, not a learned probability and not a formal verifier. In particular, introductory community-authored pages may be used for broad context or candidate evidence while remaining prohibited as mechanism ground truth, selectivity evidence or feasibility evidence.
+
+The downloader writes the resolved quality fields into each artifact manifest. `build_textbook_corpus.py` propagates them into `TextbookPassage.metadata`, enabling reviewed-source-only and low-quality-source-removed H3 analyses.
 
 ## Download and verification
 
@@ -75,6 +93,30 @@ python scripts/download_mechanistic_sources.py \
   verify --output knowledge/raw
 ```
 
+## Source health monitoring
+
+Run a live source audit without modifying the corpus:
+
+```bash
+python scripts/check_source_health.py \
+  --registry knowledge/source_registry.yaml \
+  --output outputs/source_health.json
+```
+
+The audit checks:
+
+```text
+configured and resolved titles
+page and revision identifiers
+non-empty content and minimum content length
+soft 404 responses and unresolved redirects
+final URL, response bytes and SHA-256
+source/page quality warnings
+backend failures and fallbacks
+```
+
+`.github/workflows/source-health-check.yml` runs weekly and can be triggered manually. It uploads the complete report and opens or updates a source-health issue when a registered source fails. The scheduled job does not block ordinary pull requests because external availability is not deterministic.
+
 ## Network and identifier handling
 
 ### Gold Book canonical codes
@@ -100,7 +142,9 @@ REST source
 -> action=raw
 ```
 
-Each artifact records the successful backend, revision information when available, content hash and earlier backend errors.
+Every backend result passes one common validator before it can enter the manifest. REST or Action API success without content or a revision is rejected; Export XML must contain a revision and text; raw/local imports retain an explicit revision limitation. Soft missing-page text and unresolved `#REDIRECT` content are rejected rather than accepted as evidence.
+
+Each artifact records the successful backend, configured and resolved titles, revision information when available, content length, content hash, quality metadata and earlier backend errors.
 
 Proxy example:
 
@@ -112,7 +156,7 @@ python scripts/download_mechanistic_sources.py \
   --proxy http://127.0.0.1:7890
 ```
 
-Offline MediaWiki import accepts `.xml`, `.txt` or compatible `.json` files:
+Offline MediaWiki import accepts `.xml`, `.txt` or compatible `.json` files and passes the same content validator:
 
 ```bash
 python scripts/download_mechanistic_sources.py \
@@ -138,7 +182,7 @@ python scripts/index_textbook_corpus.py \
   --output knowledge/corpus/bm25_index.json
 ```
 
-Every passage retains source, locator, revision, license, exact evidence hash and artifact provenance. The final corpus and index are frozen before test evaluation.
+Every passage retains source, locator, revision, license, exact evidence hash, artifact provenance and source-quality metadata. The final corpus and index are frozen before test evaluation.
 
 ## Evidence extraction queue
 
@@ -171,6 +215,7 @@ review status
 
 ```text
 registered source
+  -> source health and license audit
   -> revision/hash-preserving evidence acquisition
   -> bounded evidence-linked candidate
   -> independent role and action encoding
