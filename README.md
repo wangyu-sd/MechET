@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/assets/mechet-icon.svg" alt="MechET project icon" width="168" />
+
 # MechET
 
 **Causal and compositional electron-flow reasoning for retrosynthesis**
