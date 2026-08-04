@@ -1,0 +1,97 @@
+name: External source health check
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install source-health dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[knowledge]"
+      - name: Check registered sources
+        run: |
+          python scripts/check_source_health.py \
+            --registry knowledge/source_registry.yaml \
+            --output outputs/source_health.json \
+            --fail-on never
+      - name: Upload source-health report
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-health-report
+          path: outputs/source_health.json
+          retention-days: 30
+      - name: Summarize report
+        id: summary
+        shell: bash
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          report = json.loads(Path('outputs/source_health.json').read_text())
+          counts = report['counts']
+          print(f"errors={counts['error']}")
+          print(f"warnings={counts['warning']}")
+          print(f"healthy={counts['healthy']}")
+          failed = [
+              f"- `{row['source_id']}` / `{row['item']}`: {row['error']}"
+              for row in report['records']
+              if row['status'] == 'error'
+          ]
+          body = (
+              f"External source health check at `{report['created_at']}`.\n\n"
+              f"Healthy: {counts['healthy']}  \nWarnings: {counts['warning']}  \nErrors: {counts['error']}\n\n"
+              + ("\n".join(failed) if failed else "No source failures were detected.")
+              + "\n\nSee the `source-health-report` workflow artifact for the complete revision and hash audit."
+          )
+          delimiter = 'MECHET_SOURCE_HEALTH_BODY'
+          print(f"body<<{delimiter}")
+          print(body)
+          print(delimiter)
+          PY
+      - name: Open, update, or close source-health issue
+        uses: actions/github-script@v7
+        env:
+          SOURCE_ERRORS: ${{ steps.summary.outputs.errors }}
+          SOURCE_BODY: ${{ steps.summary.outputs.body }}
+        with:
+          script: |
+            const title = '[source-health] External mechanistic source failures';
+            const { owner, repo } = context.repo;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              per_page: 100,
+            });
+            const existing = issues.find(issue => !issue.pull_request && issue.title === title);
+            const errors = Number(process.env.SOURCE_ERRORS || '0');
+            const body = process.env.SOURCE_BODY || '';
+            if (errors > 0) {
+              if (existing) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: existing.number, body });
+              } else {
+                await github.rest.issues.create({ owner, repo, title, body, labels: ['source-health'] });
+              }
+            } else if (existing) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `${body}\n\nClosing automatically because the registered sources are healthy.`,
+              });
+              await github.rest.issues.update({ owner, repo, issue_number: existing.number, state: 'closed' });
+            }
