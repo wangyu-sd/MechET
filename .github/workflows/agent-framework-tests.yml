@@ -11,18 +11,22 @@ on:
       - "src/mechet/electron_flow_trace.py"
       - "src/mechet/endpoints.py"
       - "src/mechet/prediction_metrics.py"
+      - "src/mechet/statistical_evaluation.py"
       - "src/mechet/proof_to_trace.py"
       - "src/mechet/tool_schemas.py"
       - "src/mechet/trace_agent_env.py"
       - "scripts/agent_model_init.py"
       - "scripts/infer_mechet.py"
       - "scripts/evaluate_faithfulness.py"
+      - "scripts/aggregate_evaluation_seeds.py"
       - "scripts/train_inverse_agent_*.py"
       - "scripts/train_tool_sft.py"
       - "scripts/build_textbook_tool_sft.py"
       - "configs/agent/**"
       - "configs/knowledge/**"
       - "tests/test_agent_*.py"
+      - "tests/test_statistical_evaluation.py"
+      - "tests/test_evaluation_seed_aggregation.py"
       - "tests/test_runtime_closure.py"
       - "tests/test_trace_proof_binding.py"
       - "tests/test_proof_to_trace.py"
@@ -72,6 +76,7 @@ jobs:
             src/mechet/frozen_evidence_environments.py \
             src/mechet/knowledge_agent_env.py \
             src/mechet/prediction_metrics.py \
+            src/mechet/statistical_evaluation.py \
             src/mechet/proof_to_trace.py \
             src/mechet/tool_schemas.py \
             src/mechet/trace_agent_env.py \
@@ -79,6 +84,7 @@ jobs:
             scripts/agent_model_init.py \
             scripts/build_textbook_tool_sft.py \
             scripts/evaluate_faithfulness.py \
+            scripts/aggregate_evaluation_seeds.py \
             scripts/infer_mechet.py \
             scripts/train_inverse_agent_trl.py \
             scripts/train_inverse_agent_trace.py \
@@ -92,7 +98,9 @@ jobs:
             tests/test_trace_proof_binding.py \
             tests/test_knowledge_agent_env.py \
             tests/test_proof_to_trace.py \
-            tests/test_runtime_closure.py
+            tests/test_runtime_closure.py \
+            tests/test_statistical_evaluation.py \
+            tests/test_evaluation_seed_aggregation.py
       - name: Build root-import Tool-SFT supervision
         run: |
           mkdir -p /tmp/mechet-runtime
@@ -214,11 +222,15 @@ jobs:
             --intervention remove_tool_observations=/tmp/mechet-runtime/remove_tool_observations.jsonl \
             --intervention stale_tool_observations=/tmp/mechet-runtime/stale_tool_observations.jsonl \
             --intervention shuffle_tool_observations=/tmp/mechet-runtime/shuffle_tool_observations.jsonl \
+            --bootstrap-samples 200 \
             --output /tmp/mechet-runtime/h1.json
           grep -q frozen_causal_intervention_evaluation /tmp/mechet-runtime/h1.json
           grep -q '"same_runtime_contract": true' /tmp/mechet-runtime/h1.json
+          grep -q paired_bootstrap_ci /tmp/mechet-runtime/h1.json
+          grep -q holm_adjusted_mcnemar_p_value /tmp/mechet-runtime/h1.json
       - name: Check runtime CLIs
         run: |
           python scripts/infer_mechet.py --help
           python scripts/evaluate_faithfulness.py --help
+          python scripts/aggregate_evaluation_seeds.py --help
           python scripts/build_textbook_tool_sft.py --help
