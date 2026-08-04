@@ -42,6 +42,8 @@ environment:
   primitive_top_k: 4
 
 training:
+  seed: 17
+  data_seed: 17
   learning_rate: 5.0e-6
   num_train_epochs: 1.0
   per_device_train_batch_size: 1
