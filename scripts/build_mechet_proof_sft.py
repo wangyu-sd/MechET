@@ -162,7 +162,7 @@ def main() -> int:
         nargs="+",
         default=["train", "valid", "test"],
     )
-    parser.add_argument("--parallel", action="store_true")
+    parser.add_argument("--parallel", type=bool, default=True)
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args()
 
