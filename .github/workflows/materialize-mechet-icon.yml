@@ -32,10 +32,7 @@ jobs:
           import base64
           import hashlib
 
-          parts = sorted(Path('.github/icon-chunks').glob('final-part-*.txt'))
-          if len(parts) != 2:
-              raise SystemExit(f'Expected 2 final icon chunks, found {len(parts)}')
-          encoded = ''.join(p.read_text(encoding='utf-8').strip() for p in parts)
+          encoded = Path('.github/icon-chunks/final-icon.b64').read_text(encoding='utf-8').strip()
           raw = base64.b64decode(encoded, validate=True)
           if not raw.startswith(b'\x89PNG\r\n\x1a\n'):
               raise SystemExit('Decoded asset is not a PNG')
@@ -71,7 +68,7 @@ jobs:
           from pathlib import Path
           p = Path('docs/assets/mechet-icon.png')
           assert p.read_bytes().startswith(b'\x89PNG\r\n\x1a\n')
-          assert p.stat().st_size == 19392
+          assert p.stat().st_size == 12885
           assert 'docs/assets/mechet-icon.png' in Path('README.md').read_text(encoding='utf-8')
           PY
 
