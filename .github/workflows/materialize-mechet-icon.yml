@@ -1,9 +1,13 @@
 name: Materialize MechET icon
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/use-original-mechet-icon
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
 
 permissions:
   contents: write
