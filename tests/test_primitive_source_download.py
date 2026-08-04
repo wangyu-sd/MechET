@@ -21,6 +21,13 @@ def test_registry_uses_current_goldbook_code():
     assert source["term_aliases"]["R05171"] == "I03096"
 
 
+def test_registry_uses_existing_wikibooks_carbonyl_chapter():
+    registry = module.load_registry(REPO / "knowledge" / "source_registry.yaml")
+    pages = registry["sources"]["wikibooks_organic_chemistry"]["pages"]
+    assert "Organic Chemistry/Ketones and aldehydes" in pages
+    assert "Organic Chemistry/Carbonyls" not in pages
+
+
 def test_goldbook_uses_canonical_code(monkeypatch, tmp_path):
     def fake_json(url, *, options, params=None):
         assert url.endswith("/I03096/json")
@@ -83,7 +90,7 @@ def test_mediawiki_falls_back_to_export(monkeypatch):
 
 
 def test_mediawiki_local_import_works_without_network(tmp_path):
-    title = "Organic Chemistry/Carbonyls"
+    title = "Organic Chemistry/Ketones and aldehydes"
     (tmp_path / f"{module.slug(title)}.txt").write_text(
         "local wikitext", encoding="utf-8"
     )
