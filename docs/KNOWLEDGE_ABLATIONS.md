@@ -1,23 +1,32 @@
-# Matched evidence-layer experiments
+# H3 — matched evidence-layer experiments
 
-## Scientific question
+> **Question:** does external mechanistic evidence improve induction of a causally grounded electron-flow program beyond trace ownership and additional context alone?  
+> **Constraint:** evidence is an intervention, not a parallel endpoint generator or hard verifier
 
-> Does external mechanistic evidence improve induction of a causally grounded electron-flow program beyond trace ownership and extra context alone?
+## Identification strategy
 
-Evidence is an H3 intervention, not a parallel endpoint generator or hard verifier.
+H3 is not established by comparing “with retrieval” against “without retrieval” in isolation. A credible evidence claim must separate:
 
-## Frozen conditions
+```text
+information value
+from
+context length, retrieval drift, label leakage, direct answer access, and runtime mismatch
+```
 
-| Condition | Endpoint path | Evidence |
-|---|---|---|
-| `trace_no_knowledge` | trace-owned | none |
-| `trace_length_matched_irrelevant` | trace-owned | irrelevant text, exact character budget |
-| `trace_textbook_rag` | trace-owned | frozen textbook evidence |
-| `trace_structured_anchors` | trace-owned | frozen structured anchors |
-| `trace_text_plus_anchors` | trace-owned | both evidence types |
-| `direct_textbook_rag` | direct answer | the same bounded textbook evidence |
+The experiment therefore uses one frozen example universe and six matched conditions.
 
-Only two replay-verified source datasets are manually built; the remaining four conditions are derived automatically by `build_knowledge_ablation_suite.py`.
+## Frozen condition matrix
+
+| Condition | Endpoint path | Evidence | Scientific role |
+|---|---|---|---|
+| `trace_no_knowledge` | Trace-owned | None | Causal-program baseline |
+| `trace_length_matched_irrelevant` | Trace-owned | Irrelevant text with the same character budget | Context-presence control |
+| `trace_textbook_rag` | Trace-owned | Frozen textbook evidence | Natural-language evidence condition |
+| `trace_structured_anchors` | Trace-owned | Frozen structured anchors | Structured evidence condition |
+| `trace_text_plus_anchors` | Trace-owned | Both evidence types | Combined evidence condition |
+| `direct_textbook_rag` | Direct answer | The same bounded textbook evidence | Endpoint-path control |
+
+Only two replay-verified source datasets are built manually. The remaining four conditions are derived automatically by `build_knowledge_ablation_suite.py` from the same stable-ID intersection.
 
 ## Fairness contract
 
@@ -26,21 +35,34 @@ Headline comparisons require:
 ```text
 same frozen stable-ID universe
 same targets and endpoint references
-same base-model family and revision
-same examples and optimizer update schedule
+same base-model family and immutable revision
+same examples and optimizer-update schedule
+frozen model/tokenizer and adapter lineage
 reported tokenizer input and assistant-mask tokens
-same generation temperature, top-p, K, token, and iteration budgets
+same global seed policy and generation budget
+same temperature, top-p, candidate, token, and iteration budgets
 evidence direct reward = zero
 condition-specific adapter hashes reported
 ```
 
 Direct and tool syntax lengths differ. Use supervised-token-normalized compute rather than claiming raw token equality.
 
-## Evidence retrieval contract
+## Retrieval contract
 
-The main textbook query uses target/current-state terms available at inference. Gold reaction-family queries are permitted only in a condition explicitly marked `label_oracle`; the contract validator rejects them elsewhere.
+The headline textbook query uses only target/current-state terms available at inference. Gold reaction-family queries are permitted only in a condition explicitly marked `label_oracle`; the validator rejects them elsewhere.
 
-During H3 prediction, evidence modes replay the exact row-specific bounded evidence result. This prevents retrieval randomness or corpus changes from becoming a hidden condition difference.
+During H3 prediction, evidence modes replay the exact row-specific bounded evidence result. This prevents retrieval randomness, corpus updates, or index changes from becoming hidden condition differences.
+
+Frozen evidence records include:
+
+```text
+passage or anchor identifiers
+content hash
+bounded text or structured fields
+provenance and source revision
+retrieval score and latency
+direct_reward = false
+```
 
 ## Build and validate
 
@@ -59,11 +81,25 @@ python scripts/validate_experiment_contract.py \
   --output outputs/contracts/evidence_conditions.json
 ```
 
-## Training
+The validator must report stable-ID alignment, endpoint alignment, schema validity, evidence budgets, tokenizer input tokens, supervised tokens, truncation, and query leakage.
 
-Six SFT configs are provided. The primary comparison should first be completed at the Tool-SFT stage. Optional GRPO configs exist for trace-only, textbook, anchors, and combined trace conditions; each loads its corresponding Tool-SFT adapter manifest.
+## Training contract
 
-## Prediction artifacts
+Six Tool-SFT configurations are provided. The primary H3 comparison should first be completed at the supervised stage.
+
+Optional GRPO configurations exist for trace-only, textbook, anchors, and combined trace conditions. Each loads its corresponding Tool-SFT adapter and validates:
+
+```text
+adapter SHA-256
+base-model and tokenizer revisions
+data contract
+environment and executor revisions
+seed and data seed
+```
+
+From-base RL is a separately named ablation rather than a hidden initialization difference.
+
+## Prediction artifact contract
 
 Use `scripts/infer_mechet.py` with modes:
 
@@ -76,7 +112,9 @@ combined
 direct
 ```
 
-Every output row must have `artifact_type=prediction`. The evaluator rejects supervision rows, duplicate IDs, and IDs absent from the reference set. Missing predictions are retained as failures.
+Every row must use `artifact_type=prediction` and record a complete runtime contract. The evaluator rejects supervision rows, duplicate IDs, and IDs absent from the frozen reference. Missing predictions remain in the denominator as failures.
+
+Trace conditions receive credit only after an explicit successful `finish_trace`; they never fall back to parsing a free-form direct answer.
 
 ## Evidence-content interventions
 
@@ -90,6 +128,13 @@ python scripts/build_evidence_interventions.py \
   --intervention remove_competing_pathways
 ```
 
+| Intervention | Purpose | Integrity requirement |
+|---|---|---|
+| `passage_shuffle` | Test dependence on sample-specific text | Different donor, same evidence format and budget |
+| `same_topic_wrong` | Distinguish relevant principles from topic-matched language | Reviewed/shared terms; fail when no valid donor exists |
+| `remove_warnings` | Test contribution of caveats and contraindications | Competitor fields remain unchanged |
+| `remove_competing_pathways` | Test contribution of alternative-mechanism information | Warning fields remain unchanged |
+
 The intervention builder preserves:
 
 ```text
@@ -100,8 +145,6 @@ tool budget
 context character budget
 zero direct reward
 ```
-
-`same_topic_wrong` requires reviewed/shared retrieval terms and fails rather than silently selecting an unrelated donor.
 
 ## Evaluation
 
@@ -117,25 +160,40 @@ python scripts/evaluate_knowledge_ablation.py \
   --output outputs/h3/summary.json
 ```
 
-The evaluator recomputes trace and proof results, uses structural exact match as the primary endpoint, reports mapped exact separately, and checks a matched base/revision/generation contract across conditions.
+The evaluator:
 
-Implemented metrics:
+1. aligns all predictions to the frozen reference universe;
+2. retains missing predictions as failures;
+3. checks complete runtime metadata;
+4. requires explicit trace completion for trace conditions;
+5. recompiles and re-executes the trace-owned proof;
+6. reports structural exact match as primary and mapped exact separately;
+7. reports condition-specific adapter lineage.
+
+## Metric semantics
+
+Candidate rollouts are independent generations. Without a frozen ranking score, report **Pass@K**, not Top-K.
+
+Implemented metrics include:
 
 ```text
-structural and mapped Top-1/5/10
-ExecutePass@K and TraceBoundPass@K
-coverage, selective risk, abstention
+StructuralEndpointPass@1/5/10
+MappedEndpointPass@1/5/10
+ExecutePass@1/5/10
+TraceBoundPass@1/5/10
+coverage and selective risk
+abstention rate
 tool-failure recovery
-retrieval Recall@K and Precision@K when gold passage IDs exist
+retrieval Recall@K and Precision@K when frozen passage labels exist
 retrieval latency
-missing prediction and re-execution error rates
+missing-prediction and re-execution error rates
 ```
 
-Reaction-center and synthon metrics remain null until frozen labels exist.
+Reaction-center and synthon metrics remain unavailable until frozen labels exist.
 
 ## Claim gates
 
-Textbook evidence:
+### Textbook evidence
 
 ```text
 trace_textbook_rag > trace_no_knowledge
@@ -143,7 +201,7 @@ and
 trace_textbook_rag > trace_length_matched_irrelevant
 ```
 
-Combined evidence:
+### Combined evidence
 
 ```text
 trace_text_plus_anchors > trace_textbook_rag
@@ -151,14 +209,18 @@ and
 trace_text_plus_anchors > trace_structured_anchors
 ```
 
-Additional requirements:
+### Global integrity
 
 ```text
 all frozen IDs evaluated
-trace paths fully re-executable
+runtime metadata complete and matched
+trace paths explicitly finish and fully re-execute
 zero evidence reward violations
-matched runtime contract
+query leakage absent
 passage/tool interventions reported
+paired uncertainty reported for primary contrasts
 ```
 
-A gain explained by context presence, query leakage, missing predictions, runtime mismatch, or post-test evidence editing does not support H3.
+## Interpretation boundary
+
+A gain explained by context presence, query leakage, missing predictions, runtime mismatch, post-test evidence editing, or adapter-compute imbalance does not support H3. Evidence benefit is a claim about information improving program induction—not a claim that retrieved text establishes chemical truth.
