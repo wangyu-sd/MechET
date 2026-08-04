@@ -41,8 +41,12 @@ class TextbookPassage:
             source_url=str(row.get("source_url") or ""),
             evidence_sha256=digest,
             topics=tuple(map(str, row.get("topics") or ())),
-            reaction_families=tuple(map(str, row.get("reaction_families") or ())),
-            functional_groups=tuple(map(str, row.get("functional_groups") or ())),
+            reaction_families=tuple(
+                map(str, row.get("reaction_families") or ())
+            ),
+            functional_groups=tuple(
+                map(str, row.get("functional_groups") or ())
+            ),
             metadata=dict(row.get("metadata") or {}),
         )
 
@@ -59,6 +63,7 @@ class TextbookStore:
         self.passages = tuple(passages)
         self.by_id = {item.passage_id: item for item in self.passages}
         self.validate()
+        self._manifest = self._build_manifest()
 
     @classmethod
     def load(cls, path: str | Path) -> "TextbookStore":
@@ -88,18 +93,32 @@ class TextbookStore:
         output.parent.mkdir(parents=True, exist_ok=True)
         with output.open("w", encoding="utf-8") as handle:
             for item in self.passages:
-                handle.write(json.dumps(item.to_dict(), ensure_ascii=False) + "\n")
+                handle.write(
+                    json.dumps(item.to_dict(), ensure_ascii=False) + "\n"
+                )
 
-    def manifest(self) -> dict[str, Any]:
+    def _build_manifest(self) -> dict[str, Any]:
         source_counts: dict[str, int] = {}
         licenses: dict[str, int] = {}
         for item in self.passages:
             source_counts[item.source_id] = source_counts.get(item.source_id, 0) + 1
             licenses[item.license] = licenses.get(item.license, 0) + 1
-        payload = "\n".join(sorted(item.evidence_sha256 for item in self.passages))
+        payload = "\n".join(
+            sorted(item.evidence_sha256 for item in self.passages)
+        )
         return {
             "n_passages": len(self.passages),
             "source_counts": source_counts,
             "license_counts": licenses,
             "corpus_digest": hashlib.sha256(payload.encode()).hexdigest(),
+        }
+
+    def manifest(self) -> dict[str, Any]:
+        """Return a copy of the immutable precomputed corpus manifest."""
+
+        return {
+            "n_passages": self._manifest["n_passages"],
+            "source_counts": dict(self._manifest["source_counts"]),
+            "license_counts": dict(self._manifest["license_counts"]),
+            "corpus_digest": self._manifest["corpus_digest"],
         }
