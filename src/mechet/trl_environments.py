@@ -16,6 +16,56 @@ from .knowledge_agent_env import KnowledgeAgentConfig, KnowledgeAugmentedAgentEn
 from .trace_agent_env import TraceOwnedAgentEnv
 
 
+_CONTROL_KEYS = {
+    "ok",
+    "code",
+    "tool",
+    "remaining_tool_calls",
+    "direct_reward",
+    "soft_evidence_only",
+    "frozen_evidence_replay",
+}
+
+
+def _redact_json_value(value: Any, *, key: str = "") -> Any:
+    """Preserve JSON shape while removing chemistry-bearing values."""
+
+    if key.lower() in _CONTROL_KEYS:
+        return value
+    if isinstance(value, dict):
+        return {
+            item_key: _redact_json_value(item, key=str(item_key))
+            for item_key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_json_value(item) for item in value]
+    if isinstance(value, str):
+        return "x" * len(value)
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (int, float)):
+        return 0
+    return value
+
+
+def _length_preserving_redaction(raw: str) -> str:
+    """Mask observation content while preserving schema and serialized length."""
+
+    text = str(raw or "")
+    try:
+        decoded = json.loads(text)
+    except json.JSONDecodeError:
+        return "x" * len(text)
+    redacted = json.dumps(
+        _redact_json_value(decoded),
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    if len(redacted) > len(text):
+        return redacted
+    return redacted + " " * (len(text) - len(redacted))
+
+
 class TraceOwnedTRLEnvironment:
     """TRL facade for the trace-owned main method."""
 
@@ -26,26 +76,67 @@ class TraceOwnedTRLEnvironment:
         forward_checkpoint: str | Path | None = None,
         forward_device: str = "cpu",
         intervention: str = "none",
-        shuffled_observations: dict[str, list[str]] | None = None,
+        shuffled_observations: dict[str, Any] | None = None,
     ) -> None:
         self._env = TraceOwnedAgentEnv(
             config=config,
             forward_checkpoint=forward_checkpoint,
             forward_device=forward_device,
         )
+        self._configure_intervention(intervention, shuffled_observations)
+
+    def _configure_intervention(
+        self,
+        intervention: str,
+        shuffled_observations: dict[str, Any] | None,
+    ) -> None:
         self._intervention = str(intervention or "none")
-        self._shuffled_observations = {
-            str(name): list(values)
-            for name, values in dict(shuffled_observations or {}).items()
-        }
+        self._shuffle_plan = dict(shuffled_observations or {})
+        self._active_shuffled_observations: dict[str, list[str]] = {}
+        self._active_shuffle_donors: dict[str, dict[str, Any]] = {}
+        self._shuffle_unavailable: list[str] = []
         self._shuffle_offsets: dict[str, int] = {}
-        self._last_visible_tool_result = ""
+        self._last_visible_by_tool: dict[str, str] = {}
+        self._current_target_smiles = ""
+        self._removed_observation_lengths_preserved = True
 
     def reset(self, **kwargs: Any) -> str:
         """Reset one rollout and return the initial task observation."""
 
-        self._last_visible_tool_result = ""
+        self._last_visible_by_tool = {}
         self._shuffle_offsets = {}
+        self._current_target_smiles = str(kwargs.get("target_smiles") or "")
+        self._removed_observation_lengths_preserved = True
+        self._active_shuffled_observations = {}
+        self._active_shuffle_donors = {}
+        self._shuffle_unavailable = []
+        if self._shuffle_plan.get("format") == "cross_target_tool_observation_donors_v2":
+            target_plan = dict(
+                (self._shuffle_plan.get("assignments") or {}).get(
+                    self._current_target_smiles, {}
+                )
+            )
+            for tool_name, record in target_plan.items():
+                values = list((record or {}).get("values") or [])
+                if values:
+                    self._active_shuffled_observations[str(tool_name)] = values
+                    self._active_shuffle_donors[str(tool_name)] = {
+                        "donor_id": (record or {}).get("donor_id"),
+                        "donor_target_smiles": (record or {}).get(
+                            "donor_target_smiles"
+                        ),
+                    }
+            self._shuffle_unavailable = list(
+                (self._shuffle_plan.get("unavailable") or {}).get(
+                    self._current_target_smiles, []
+                )
+            )
+        else:
+            self._active_shuffled_observations = {
+                str(name): list(values)
+                for name, values in self._shuffle_plan.items()
+                if isinstance(values, list)
+            }
         return self._env.reset(**kwargs)
 
     def get_reward(self) -> float:
@@ -85,21 +176,15 @@ class TraceOwnedTRLEnvironment:
 
     def _visible(self, tool_name: str, raw: str) -> str:
         if self._intervention == "remove_tool_observations":
-            visible = json.dumps(
-                {
-                    "ok": True,
-                    "intervention": "observation_removed",
-                    "tool": tool_name,
-                },
-                ensure_ascii=False,
+            visible = _length_preserving_redaction(raw)
+            self._removed_observation_lengths_preserved = (
+                self._removed_observation_lengths_preserved
+                and len(visible) == len(str(raw or ""))
             )
-        elif (
-            self._intervention == "stale_tool_observations"
-            and self._last_visible_tool_result
-        ):
-            visible = self._last_visible_tool_result
+        elif self._intervention == "stale_tool_observations":
+            visible = self._last_visible_by_tool.get(tool_name, raw)
         elif self._intervention == "shuffle_tool_observations":
-            values = self._shuffled_observations.get(tool_name) or []
+            values = self._active_shuffled_observations.get(tool_name) or []
             if values:
                 offset = self._shuffle_offsets.get(tool_name, 0)
                 visible = values[offset % len(values)]
@@ -115,11 +200,7 @@ class TraceOwnedTRLEnvironment:
                 )
         else:
             visible = raw
-        if (
-            self._intervention != "stale_tool_observations"
-            or not self._last_visible_tool_result
-        ):
-            self._last_visible_tool_result = visible
+        self._last_visible_by_tool[tool_name] = visible
         return visible
 
     def inspect_state(self) -> str:
@@ -252,7 +333,33 @@ class TraceOwnedTRLEnvironment:
         return self._visible("abstain", self._env.abstain(reason))
 
     def _snapshot(self) -> dict[str, Any]:
-        return self._env.state_dict()
+        state = self._env.state_dict()
+        state["intervention_audit"] = {
+            "intervention": self._intervention,
+            "target_smiles": self._current_target_smiles,
+            "observation_length_preserved": (
+                self._intervention != "remove_tool_observations"
+                or self._removed_observation_lengths_preserved
+            ),
+            "shuffle_donors": self._active_shuffle_donors,
+            "shuffle_unavailable_tools": self._shuffle_unavailable,
+            "shuffle_contract_valid": (
+                self._intervention != "shuffle_tool_observations"
+                or (
+                    bool(self._active_shuffle_donors)
+                    and not self._shuffle_unavailable
+                    and all(
+                        record.get("donor_target_smiles")
+                        != self._current_target_smiles
+                        for record in self._active_shuffle_donors.values()
+                    )
+                )
+            ),
+            "shuffle_plan_contract": dict(
+                self._shuffle_plan.get("contract") or {}
+            ),
+        }
+        return state
 
 
 class TextbookTraceOwnedTRLEnvironment(TraceOwnedTRLEnvironment):
@@ -265,20 +372,14 @@ class TextbookTraceOwnedTRLEnvironment(TraceOwnedTRLEnvironment):
         forward_checkpoint: str | Path | None = None,
         forward_device: str = "cpu",
         intervention: str = "none",
-        shuffled_observations: dict[str, list[str]] | None = None,
+        shuffled_observations: dict[str, Any] | None = None,
     ) -> None:
         self._env = KnowledgeAugmentedAgentEnv(
             config=config,
             forward_checkpoint=forward_checkpoint,
             forward_device=forward_device,
         )
-        self._intervention = str(intervention or "none")
-        self._shuffled_observations = {
-            str(name): list(values)
-            for name, values in dict(shuffled_observations or {}).items()
-        }
-        self._shuffle_offsets = {}
-        self._last_visible_tool_result = ""
+        self._configure_intervention(intervention, shuffled_observations)
 
     def retrieve_textbook_guidance(
         self,

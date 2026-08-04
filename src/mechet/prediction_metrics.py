@@ -87,14 +87,19 @@ def prediction_set_metrics(
     *,
     ks: tuple[int, ...] = (1, 5, 10),
 ) -> dict[str, Any]:
-    """Compute pass@K, selective risk, abstention, and recovery metrics."""
+    """Compute generation-order Pass@K, selective risk, and recovery metrics.
+
+    Candidate lists are independent generations and are not ranked by a frozen
+    model score. Therefore the correct semantics are Pass@K, not Top-K. A true
+    Top-K metric requires a declared ranking score and deterministic ordering.
+    """
 
     rows = list(rows)
     n = max(len(rows), 1)
-    structural_at = {k: 0 for k in ks}
-    mapped_at = {k: 0 for k in ks}
-    execute_at = {k: 0 for k in ks}
-    trace_at = {k: 0 for k in ks}
+    structural_pass = {k: 0 for k in ks}
+    mapped_pass = {k: 0 for k in ks}
+    execute_pass = {k: 0 for k in ks}
+    trace_pass = {k: 0 for k in ks}
     covered = correct_covered = abstained = 0
     failed_tool_rows = recovered_rows = 0
 
@@ -103,10 +108,14 @@ def prediction_set_metrics(
         evaluations = [endpoint_evaluation(item) for item in candidates]
         for k in ks:
             prefix = evaluations[: min(k, len(evaluations))]
-            structural_at[k] += int(any(item.get("structural_exact") for item in prefix))
-            mapped_at[k] += int(any(item.get("mapped_exact") for item in prefix))
-            execute_at[k] += int(any(item.get("formal_execute") for item in prefix))
-            trace_at[k] += int(any(item.get("trace_bound") for item in prefix))
+            structural_pass[k] += int(
+                any(item.get("structural_exact") for item in prefix)
+            )
+            mapped_pass[k] += int(any(item.get("mapped_exact") for item in prefix))
+            execute_pass[k] += int(
+                any(item.get("formal_execute") for item in prefix)
+            )
+            trace_pass[k] += int(any(item.get("trace_bound") for item in prefix))
 
         selected = endpoint_evaluation(row)
         state = dict(row.get("rollout_state") or {})
@@ -121,6 +130,9 @@ def prediction_set_metrics(
 
     result: dict[str, Any] = {
         "n_rows": len(rows),
+        "candidate_metric_semantics": "generation_order_pass_at_k_not_ranked_top_k",
+        "true_top_k_available": False,
+        "true_top_k_unavailable_reason": "candidate artifacts do not contain a frozen ranking score",
         "coverage": covered / n,
         "selective_risk": 1.0 - correct_covered / covered if covered else None,
         "abstention_rate": abstained / n,
@@ -133,9 +145,15 @@ def prediction_set_metrics(
         "synthon_exact_match": None,
         "synthon_metric_status": "unavailable_without_frozen_reference_synthon_labels",
     }
+    legacy_aliases: dict[str, float] = {}
     for k in ks:
-        result[f"structural_precursor_top{k}"] = structural_at[k] / n
-        result[f"mapped_structural_precursor_top{k}"] = mapped_at[k] / n
-        result[f"execute_pass_at_{k}"] = execute_at[k] / n
-        result[f"trace_bound_pass_at_{k}"] = trace_at[k] / n
+        structural_value = structural_pass[k] / n
+        mapped_value = mapped_pass[k] / n
+        result[f"structural_endpoint_pass_at_{k}"] = structural_value
+        result[f"mapped_endpoint_pass_at_{k}"] = mapped_value
+        result[f"execute_pass_at_{k}"] = execute_pass[k] / n
+        result[f"trace_bound_pass_at_{k}"] = trace_pass[k] / n
+        legacy_aliases[f"structural_precursor_top{k}"] = structural_value
+        legacy_aliases[f"mapped_structural_precursor_top{k}"] = mapped_value
+    result["deprecated_metric_aliases_not_for_reporting"] = legacy_aliases
     return result

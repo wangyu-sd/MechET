@@ -3,7 +3,12 @@ import json
 import pytest
 
 from mechet.agent_env import AgentEnvConfig, MechETAgentEnv
-from mechet.agent_inference import ParsedToolCall, execute_tool_call
+from mechet.agent_inference import (
+    ParsedToolCall,
+    append_tool_exchange,
+    execute_tool_call,
+    tool_result_pool,
+)
 from mechet.electron_flow_trace import ElectronFlowTrace, compile_trace_to_proof
 from mechet.endpoints import split_precursor_endpoints, structural_exact
 from mechet.knowledge_ablation import (
@@ -11,6 +16,7 @@ from mechet.knowledge_ablation import (
     condition_metrics,
     make_direct_textbook_condition,
 )
+from mechet.prediction_metrics import prediction_set_metrics
 from mechet.proof_program import (
     ChargeAction,
     ProofEdge,
@@ -109,6 +115,86 @@ def test_unknown_inference_tool_consumes_environment_budget():
     assert state["failed_steps"] == 1
 
 
+def test_terminal_multicall_turn_keeps_one_result_per_call():
+    env = TraceOwnedTRLEnvironment(config=AgentEnvConfig(max_tool_calls=3))
+    env.reset(target_smiles="[CH3:1][OH:2]")
+    messages = []
+    calls = [
+        ParsedToolCall("terminal", "abstain", {"reason": "unsupported"}),
+        ParsedToolCall("late", "inspect_state", {}),
+    ]
+    exchanges = append_tool_exchange(messages, "", calls, env)
+    tool_messages = [item for item in messages if item.get("role") == "tool"]
+    assert len(tool_messages) == len(calls) == len(exchanges)
+    assert exchanges[0]["executed"] is True
+    assert exchanges[1]["executed"] is False
+    assert exchanges[1]["result"]["code"] == "SKIPPED_AFTER_TERMINAL"
+    assert tool_messages[1]["tool_call_id"] == "late"
+
+
+def _prediction_row(identifier: str, target: str, observation: str):
+    return {
+        "id": identifier,
+        "target_smiles": target,
+        "messages": [
+            {
+                "role": "tool",
+                "name": "inspect_state",
+                "tool_call_id": f"{identifier}-call",
+                "content": observation,
+            }
+        ],
+    }
+
+
+def test_shuffle_pool_uses_cross_target_donors_and_records_manifest():
+    first = json.dumps({"ok": True, "state_smiles": "[CH4:1]"})
+    second = json.dumps({"ok": True, "state_smiles": "[NH3:2]"})
+    pool = tool_result_pool(
+        [
+            _prediction_row("a", "[CH4:1]", first),
+            _prediction_row("b", "[NH3:2]", second),
+        ]
+    )
+    assert pool["contract"]["all_observed_tools_have_donors"]
+    for target, tools in pool["assignments"].items():
+        donor = tools["inspect_state"]
+        assert donor["donor_target_smiles"] != target
+        assert donor["values"]
+    assert pool["contract"]["donor_manifest_sha256"]
+
+
+def test_shuffle_pool_never_self_donates_when_only_one_target_exists():
+    pool = tool_result_pool(
+        [_prediction_row("a", "[CH4:1]", json.dumps({"ok": True}))]
+    )
+    assert not pool["contract"]["all_observed_tools_have_donors"]
+    assert pool["assignments"]["[CH4:1]"] == {}
+    assert pool["unavailable"]["[CH4:1]"] == ["inspect_state"]
+
+
+def test_removed_observation_preserves_json_shape_control_fields_and_length():
+    normal = TraceOwnedTRLEnvironment(config=AgentEnvConfig(max_tool_calls=4))
+    removed = TraceOwnedTRLEnvironment(
+        config=AgentEnvConfig(max_tool_calls=4),
+        intervention="remove_tool_observations",
+    )
+    normal.reset(target_smiles="[CH3:1][OH:2]")
+    removed.reset(target_smiles="[CH3:1][OH:2]")
+    raw = normal.inspect_state()
+    masked = removed.inspect_state()
+    raw_json = json.loads(raw)
+    masked_json = json.loads(masked)
+    assert len(masked) == len(raw)
+    assert set(masked_json) == set(raw_json)
+    assert masked_json["ok"] == raw_json["ok"]
+    assert masked_json["remaining_tool_calls"] == raw_json["remaining_tool_calls"]
+    assert masked_json != raw_json
+    assert removed._snapshot()["intervention_audit"][
+        "observation_length_preserved"
+    ]
+
+
 def test_endpoint_views_separate_auxiliary_fragments():
     endpoints = split_precursor_endpoints(
         "[CH3:1][Br:3].[OH-:2].[Na+:4]",
@@ -182,6 +268,34 @@ def test_direct_control_is_supervision_not_prediction_and_ignores_maps():
     metrics = condition_metrics(aligned)
     assert metrics["structural_exact_rate"] == 1.0
     assert metrics["mapped_exact_rate"] == 0.0
+
+
+def test_unranked_candidate_metrics_are_named_pass_at_k():
+    row = {
+        "id": "r1",
+        "artifact_type": "prediction",
+        "prediction_mode": "direct",
+        "target_smiles": "[CH4:1]",
+        "structural_precursor": "[CH4:1]",
+        "prediction": "PRECURSOR: [NH3:2]",
+        "candidates": [
+            {"prediction": "PRECURSOR: [NH3:2]", "rollout_state": {}},
+            {"prediction": "PRECURSOR: [CH4:9]", "rollout_state": {}},
+        ],
+    }
+    metrics = prediction_set_metrics([row], ks=(1, 2))
+    assert metrics["structural_endpoint_pass_at_1"] == 0.0
+    assert metrics["structural_endpoint_pass_at_2"] == 1.0
+    assert metrics["candidate_metric_semantics"] == (
+        "generation_order_pass_at_k_not_ranked_top_k"
+    )
+    assert metrics["true_top_k_available"] is False
+    assert "structural_precursor_top2" not in metrics
+    assert (
+        metrics["deprecated_metric_aliases_not_for_reporting"]
+        ["structural_precursor_top2"]
+        == 1.0
+    )
 
 
 def test_missing_prediction_is_retained_as_failure():
