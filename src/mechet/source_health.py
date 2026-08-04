@@ -61,11 +61,7 @@ def validate_mediawiki_result(
     wikitext = str(result.get("wikitext") or "")
     if not resolved_title:
         raise ValueError(f"MEDIAWIKI_TITLE_MISSING:{configured_title}:{backend}")
-    if len(wikitext.strip()) < int(minimum_characters):
-        raise ValueError(
-            f"MEDIAWIKI_CONTENT_TOO_SHORT:{configured_title}:{backend}:"
-            f"{len(wikitext.strip())}"
-        )
+
     lowered = wikitext.casefold()
     marker = next((item for item in _SOFT_MISSING_MARKERS if item in lowered), None)
     if marker:
@@ -77,6 +73,12 @@ def validate_mediawiki_result(
             f"MEDIAWIKI_UNRESOLVED_REDIRECT:{configured_title}:{backend}:"
             f"{resolved_title}"
         )
+    if len(wikitext.strip()) < int(minimum_characters):
+        raise ValueError(
+            f"MEDIAWIKI_CONTENT_TOO_SHORT:{configured_title}:{backend}:"
+            f"{len(wikitext.strip())}"
+        )
+
     revision_id = result.get("revision_id")
     if backend not in {"raw", "local_import"} and revision_id in (None, ""):
         raise ValueError(
