@@ -1,7 +1,7 @@
 """Deterministic BM25 and molecular-state retrieval for textbook passages."""
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import math
 import re
 from typing import Any, Iterable, Sequence
@@ -11,8 +11,7 @@ from rdkit import Chem
 from .textbook_store import TextbookPassage, TextbookStore
 
 _TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_+\-]{1,}")
-
-_FUNCTIONAL_GROUPS = {
+_FUNCTIONAL_GROUP_SMARTS = {
     "carbonyl": "[CX3]=[OX1]",
     "aldehyde": "[CX3H1](=O)[#6,H]",
     "ketone": "[#6][CX3](=O)[#6]",
@@ -30,6 +29,10 @@ _FUNCTIONAL_GROUPS = {
     "nitro": "[$([NX3+](=O)[O-]),$([NX3](=O)=O)]",
     "epoxide": "[OX2r3]1[CX4r3][CX4r3]1",
     "aromatic": "[a]",
+}
+_COMPILED_FUNCTIONAL_GROUPS = {
+    name: Chem.MolFromSmarts(smarts)
+    for name, smarts in _FUNCTIONAL_GROUP_SMARTS.items()
 }
 
 
@@ -66,8 +69,7 @@ def molecular_state_terms(smiles: str) -> tuple[str, ...]:
     if mol is None:
         return ()
     terms: set[str] = set()
-    for name, smarts in _FUNCTIONAL_GROUPS.items():
-        query = Chem.MolFromSmarts(smarts)
+    for name, query in _COMPILED_FUNCTIONAL_GROUPS.items():
         if query is not None and mol.HasSubstructMatch(query):
             terms.add(name)
     if any(atom.GetFormalCharge() < 0 for atom in mol.GetAtoms()):
@@ -84,7 +86,7 @@ def molecular_state_terms(smiles: str) -> tuple[str, ...]:
 
 
 class TextbookRetriever:
-    """Small deterministic retriever suitable for frozen matched experiments."""
+    """Deterministic indexed retriever suitable for frozen matched experiments."""
 
     def __init__(
         self,
@@ -101,10 +103,31 @@ class TextbookRetriever:
         self.documents = [self._document_tokens(item) for item in store.passages]
         self.lengths = [len(tokens) for tokens in self.documents]
         self.average_length = sum(self.lengths) / max(len(self.lengths), 1)
+        self.term_frequencies: list[dict[str, int]] = []
+        self.passage_term_sets: list[set[str]] = []
         self.document_frequency: dict[str, int] = {}
-        for tokens in self.documents:
-            for token in set(tokens):
-                self.document_frequency[token] = self.document_frequency.get(token, 0) + 1
+        self.inverted_index: dict[str, list[int]] = {}
+        for index, tokens in enumerate(self.documents):
+            frequencies: dict[str, int] = {}
+            for token in tokens:
+                frequencies[token] = frequencies.get(token, 0) + 1
+            term_set = set(frequencies)
+            self.term_frequencies.append(frequencies)
+            self.passage_term_sets.append(term_set)
+            for token in term_set:
+                self.document_frequency[token] = (
+                    self.document_frequency.get(token, 0) + 1
+                )
+                self.inverted_index.setdefault(token, []).append(index)
+        self._manifest = {
+            "strategy": "indexed_bm25_plus_molecular_state_terms",
+            "k1": self.k1,
+            "b": self.b,
+            "state_weight": self.state_weight,
+            "n_documents": len(self.documents),
+            "vocabulary_size": len(self.document_frequency),
+            "corpus": self.store.manifest(),
+        }
 
     @staticmethod
     def _document_tokens(item: TextbookPassage) -> list[str]:
@@ -124,12 +147,9 @@ class TextbookRetriever:
         return math.log(1.0 + (n_docs - df + 0.5) / (df + 0.5))
 
     def _bm25(self, query_terms: Sequence[str], index: int) -> float:
-        tokens = self.documents[index]
-        if not tokens or not query_terms:
+        frequencies = self.term_frequencies[index]
+        if not frequencies or not query_terms:
             return 0.0
-        frequencies: dict[str, int] = {}
-        for token in tokens:
-            frequencies[token] = frequencies.get(token, 0) + 1
         length = self.lengths[index]
         score = 0.0
         for term in query_terms:
@@ -138,28 +158,18 @@ class TextbookRetriever:
                 continue
             numerator = frequency * (self.k1 + 1.0)
             denominator = frequency + self.k1 * (
-                1.0 - self.b + self.b * length / max(self.average_length, 1.0)
+                1.0
+                - self.b
+                + self.b * length / max(self.average_length, 1.0)
             )
             score += self._idf(term) * numerator / denominator
         return score
 
-    @staticmethod
-    def _state_match(item: TextbookPassage, state_terms: set[str]) -> tuple[float, set[str]]:
-        passage_terms = set(
-            tokenize(
-                " ".join(
-                    (
-                        item.title,
-                        *item.topics,
-                        *item.reaction_families,
-                        *item.functional_groups,
-                        item.text,
-                    )
-                )
-            )
-        )
-        matched = state_terms & passage_terms
-        return (len(matched) / max(len(state_terms), 1), matched)
+    def _state_match(
+        self, index: int, state_terms: set[str]
+    ) -> tuple[float, set[str]]:
+        matched = state_terms & self.passage_term_sets[index]
+        return len(matched) / max(len(state_terms), 1), matched
 
     def retrieve(
         self,
@@ -170,18 +180,29 @@ class TextbookRetriever:
         source_ids: Iterable[str] = (),
         max_per_source: int = 3,
     ) -> list[RetrievalResult]:
+        top_k = max(int(top_k), 0)
+        if top_k == 0:
+            return []
         state_terms = set(molecular_state_terms(state_smiles))
         query_terms = tokenize(query)
         if not query_terms:
             query_terms = sorted(state_terms)
+        scoring_terms = set(query_terms) | state_terms
+        candidate_indexes: set[int] = set()
+        for term in scoring_terms:
+            candidate_indexes.update(self.inverted_index.get(term, ()))
+        if not candidate_indexes:
+            return []
+
         allowed_sources = set(map(str, source_ids))
         results: list[RetrievalResult] = []
-        for index, item in enumerate(self.store.passages):
+        for index in candidate_indexes:
+            item = self.store.passages[index]
             if allowed_sources and item.source_id not in allowed_sources:
                 continue
             lexical = self._bm25(query_terms, index)
-            state_score, state_matches = self._state_match(item, state_terms)
-            matched_query = set(query_terms) & set(self.documents[index])
+            state_score, state_matches = self._state_match(index, state_terms)
+            matched_query = set(query_terms) & self.passage_term_sets[index]
             score = lexical + self.state_weight * state_score
             if score <= 0:
                 continue
@@ -207,21 +228,27 @@ class TextbookRetriever:
         per_source: dict[str, int] = {}
         for result in results:
             source_id = result.passage.source_id
-            if max_per_source > 0 and per_source.get(source_id, 0) >= max_per_source:
+            if (
+                max_per_source > 0
+                and per_source.get(source_id, 0) >= max_per_source
+            ):
                 continue
             output.append(result)
             per_source[source_id] = per_source.get(source_id, 0) + 1
-            if len(output) >= max(int(top_k), 0):
+            if len(output) >= top_k:
                 break
         return output
 
     def manifest(self) -> dict[str, Any]:
         return {
-            "strategy": "bm25_plus_molecular_state_terms",
-            "k1": self.k1,
-            "b": self.b,
-            "state_weight": self.state_weight,
-            "n_documents": len(self.documents),
-            "vocabulary_size": len(self.document_frequency),
-            "corpus": self.store.manifest(),
+            **self._manifest,
+            "corpus": {
+                **self._manifest["corpus"],
+                "source_counts": dict(
+                    self._manifest["corpus"]["source_counts"]
+                ),
+                "license_counts": dict(
+                    self._manifest["corpus"]["license_counts"]
+                ),
+            },
         }

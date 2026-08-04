@@ -83,6 +83,8 @@ def dry_run_report(
             training.get("max_tool_calling_iterations", 8)
         ),
         "num_generations": int(training.get("num_generations", 8)),
+        "seed": int(training.get("seed", 17)),
+        "data_seed": int(training.get("data_seed", training.get("seed", 17))),
         "checkpoint_lineage": lineage_report(cfg),
     }
 
@@ -118,31 +120,50 @@ def main() -> int:
 
     training = dict(cfg.get("training") or {})
     env_cfg = environment_config(cfg)
+    seed = int(training.get("seed", 17))
+    data_seed = int(training.get("data_seed", seed))
+    bf16 = bool(
+        training.get(
+            "bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported()
+        )
+    )
+    fp16 = bool(
+        training.get(
+            "fp16", torch.cuda.is_available() and not torch.cuda.is_bf16_supported()
+        )
+    )
+    tf32 = bool(training.get("tf32", torch.cuda.is_available()))
     grpo_args = GRPOConfig(
         output_dir=str(cfg.get("output_dir") or "outputs/agent/inverse_trace_grpo"),
         learning_rate=float(training.get("learning_rate", 5e-6)),
         num_train_epochs=float(training.get("num_train_epochs", 1.0)),
-        per_device_train_batch_size=int(training.get("per_device_train_batch_size", 1)),
-        gradient_accumulation_steps=int(training.get("gradient_accumulation_steps", 8)),
+        per_device_train_batch_size=int(
+            training.get("per_device_train_batch_size", 1)
+        ),
+        gradient_accumulation_steps=int(
+            training.get("gradient_accumulation_steps", 8)
+        ),
         num_generations=int(training.get("num_generations", 8)),
         max_completion_length=int(training.get("max_completion_length", 2048)),
-        max_tool_calling_iterations=int(training.get("max_tool_calling_iterations", 8)),
+        max_tool_calling_iterations=int(
+            training.get("max_tool_calling_iterations", 8)
+        ),
         temperature=float(training.get("temperature", 0.9)),
         top_p=float(training.get("top_p", 0.95)),
         beta=float(training.get("beta", 0.02)),
         use_vllm=bool(training.get("use_vllm", False)),
         logging_steps=int(training.get("logging_steps", 1)),
         save_steps=int(training.get("save_steps", 100)),
-        bf16=bool(
-            training.get(
-                "bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported()
-            )
+        save_total_limit=int(training.get("save_total_limit", 2)),
+        seed=seed,
+        data_seed=data_seed,
+        bf16=bf16,
+        fp16=fp16,
+        tf32=tf32,
+        gradient_checkpointing=bool(
+            training.get("gradient_checkpointing", True)
         ),
-        fp16=bool(
-            training.get(
-                "fp16", torch.cuda.is_available() and not torch.cuda.is_bf16_supported()
-            )
-        ),
+        dataloader_num_workers=int(training.get("dataloader_num_workers", 2)),
         report_to=list(training.get("report_to") or []),
         chat_template_kwargs={
             "enable_thinking": bool(training.get("enable_thinking", True))
@@ -167,8 +188,23 @@ def main() -> int:
     trainer.save_model()
     output = Path(grpo_args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
+    lineage = lineage_report(cfg)
+    lineage["training_runtime"] = {
+        "seed": seed,
+        "data_seed": data_seed,
+        "bf16": bf16,
+        "fp16": fp16,
+        "tf32": tf32,
+        "gradient_checkpointing": bool(
+            training.get("gradient_checkpointing", True)
+        ),
+        "max_tool_calls": env_cfg.max_tool_calls,
+        "max_tool_calling_iterations": int(
+            training.get("max_tool_calling_iterations", 8)
+        ),
+    }
     (output / "checkpoint_lineage.json").write_text(
-        json.dumps(lineage_report(cfg), indent=2, ensure_ascii=False),
+        json.dumps(lineage, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
     return 0

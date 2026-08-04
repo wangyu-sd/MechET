@@ -1,0 +1,93 @@
+name: Runtime correctness and performance tests
+
+on:
+  pull_request:
+    paths:
+      - "src/mechet/strict_prediction_evaluation.py"
+      - "src/mechet/prediction_metrics.py"
+      - "src/mechet/knowledge_agent_env.py"
+      - "src/mechet/textbook_store.py"
+      - "src/mechet/textbook_retriever.py"
+      - "scripts/infer_mechet.py"
+      - "scripts/agent_model_init.py"
+      - "scripts/train_tool_sft.py"
+      - "scripts/train_inverse_agent_trace.py"
+      - "scripts/train_inverse_agent_knowledge.py"
+      - "scripts/evaluate_faithfulness.py"
+      - "scripts/evaluate_knowledge_ablation.py"
+      - "configs/agent/**"
+      - "configs/knowledge/**"
+      - "tests/test_runtime_correctness_performance_v2.py"
+      - "tests/test_agent_model_init.py"
+      - ".github/workflows/runtime-correctness-performance-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/mechet/strict_prediction_evaluation.py"
+      - "src/mechet/prediction_metrics.py"
+      - "src/mechet/knowledge_agent_env.py"
+      - "src/mechet/textbook_store.py"
+      - "src/mechet/textbook_retriever.py"
+      - "scripts/infer_mechet.py"
+      - "scripts/agent_model_init.py"
+      - "scripts/train_tool_sft.py"
+      - "scripts/train_inverse_agent_trace.py"
+      - "scripts/train_inverse_agent_knowledge.py"
+      - "scripts/evaluate_faithfulness.py"
+      - "scripts/evaluate_knowledge_ablation.py"
+      - "configs/agent/**"
+      - "configs/knowledge/**"
+      - "tests/test_runtime_correctness_performance_v2.py"
+      - "tests/test_agent_model_init.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,agent,knowledge]"
+      - name: Compile strict runtime entrypoints
+        run: |
+          python -m py_compile \
+            src/mechet/strict_prediction_evaluation.py \
+            src/mechet/prediction_metrics.py \
+            src/mechet/knowledge_agent_env.py \
+            src/mechet/textbook_store.py \
+            src/mechet/textbook_retriever.py \
+            scripts/infer_mechet.py \
+            scripts/agent_model_init.py \
+            scripts/train_tool_sft.py \
+            scripts/train_inverse_agent_trace.py \
+            scripts/train_inverse_agent_knowledge.py \
+            scripts/evaluate_faithfulness.py \
+            scripts/evaluate_knowledge_ablation.py
+      - name: Run correctness and lineage regressions
+        run: |
+          pytest -q \
+            tests/test_runtime_correctness_performance_v2.py \
+            tests/test_agent_model_init.py
+      - name: Verify aligned headline budgets
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          paths = [
+              Path('configs/agent/inverse_trace_grpo.yaml'),
+              Path('configs/knowledge/inverse_textbook_trace_grpo.yaml'),
+              Path('configs/knowledge/inverse_anchor_trace_grpo.yaml'),
+              Path('configs/knowledge/inverse_combined_trace_grpo.yaml'),
+          ]
+          for path in paths:
+              cfg = yaml.safe_load(path.read_text())
+              assert cfg['environment']['max_tool_calls'] == 16, path
+              assert cfg['training']['max_tool_calling_iterations'] == 16, path
+              assert cfg['training']['seed'] == 17, path
+              assert cfg['training']['data_seed'] == 17, path
+          PY
