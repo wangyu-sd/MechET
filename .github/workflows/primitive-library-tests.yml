@@ -10,8 +10,10 @@ on:
       - "docs/README.md"
       - "src/mechet/primitive_*.py"
       - "src/mechet/textbook_*.py"
+      - "src/mechet/source_health.py"
       - "src/mechet/evidence_context.py"
       - "scripts/download_mechanistic_sources.py"
+      - "scripts/check_source_health.py"
       - "scripts/build_primitive_extraction_queue.py"
       - "scripts/build_textbook_corpus.py"
       - "scripts/index_textbook_corpus.py"
@@ -19,6 +21,7 @@ on:
       - "scripts/train_inverse_agent_primitives.py"
       - "configs/knowledge/**"
       - "tests/test_primitive_*.py"
+      - "tests/test_source_health.py"
       - "tests/test_textbook_retrieval.py"
       - "tests/test_documentation_contract.py"
       - ".github/workflows/primitive-library-tests.yml"
@@ -32,8 +35,10 @@ on:
       - "docs/README.md"
       - "src/mechet/primitive_*.py"
       - "src/mechet/textbook_*.py"
+      - "src/mechet/source_health.py"
       - "src/mechet/evidence_context.py"
       - "scripts/download_mechanistic_sources.py"
+      - "scripts/check_source_health.py"
       - "scripts/build_primitive_extraction_queue.py"
       - "scripts/build_textbook_corpus.py"
       - "scripts/index_textbook_corpus.py"
@@ -41,6 +46,7 @@ on:
       - "scripts/train_inverse_agent_primitives.py"
       - "configs/knowledge/**"
       - "tests/test_primitive_*.py"
+      - "tests/test_source_health.py"
       - "tests/test_textbook_retrieval.py"
       - "tests/test_documentation_contract.py"
 
@@ -64,8 +70,10 @@ jobs:
             src/mechet/primitive_agent_env.py \
             src/mechet/textbook_store.py \
             src/mechet/textbook_retriever.py \
+            src/mechet/source_health.py \
             src/mechet/evidence_context.py \
             scripts/download_mechanistic_sources.py \
+            scripts/check_source_health.py \
             scripts/build_primitive_extraction_queue.py \
             scripts/build_textbook_corpus.py \
             scripts/index_textbook_corpus.py \
@@ -77,6 +85,7 @@ jobs:
             tests/test_primitive_library.py \
             tests/test_primitive_agent_env.py \
             tests/test_primitive_source_download.py \
+            tests/test_source_health.py \
             tests/test_textbook_retrieval.py \
             tests/test_documentation_contract.py
       - name: Validate source registry and license gates
@@ -109,7 +118,7 @@ jobs:
           import hashlib, json, pathlib
           root = pathlib.Path('/tmp/mechet-knowledge')
           path = root / 'open_textbook/pages/carbonyl.json'
-          manifest = {"artifacts":[{"source_id":"open_textbook","path":"pages/carbonyl.json","url":"https://example.org/carbonyl","license":"CC-BY-4.0","sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"status":"downloaded","revision_id":"r1"}]}
+          manifest = {"artifacts":[{"source_id":"open_textbook","path":"pages/carbonyl.json","url":"https://example.org/carbonyl","license":"CC-BY-4.0","sha256":hashlib.sha256(path.read_bytes()).hexdigest(),"status":"downloaded","revision_id":"r1","quality_status":"reviewed","retrieval_weight":1.0,"review_warning":False}]}
           (root/'manifest.json').write_text(json.dumps(manifest))
           PY
           python scripts/build_textbook_corpus.py \
@@ -119,6 +128,7 @@ jobs:
             --corpus /tmp/mechet-knowledge/passages.jsonl \
             --output /tmp/mechet-knowledge/bm25.json
           grep -q carbonyl /tmp/mechet-knowledge/passages.jsonl
+          grep -q quality_status /tmp/mechet-knowledge/passages.jsonl
       - name: Exercise primitive annotation
         run: |
           mkdir -p /tmp/mechet-primitive
