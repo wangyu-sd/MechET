@@ -8,16 +8,20 @@ on:
       - "pyproject.toml"
       - "src/mechet/knowledge_ablation.py"
       - "src/mechet/prediction_metrics.py"
+      - "src/mechet/statistical_evaluation.py"
       - "src/mechet/frozen_evidence_environments.py"
       - "scripts/build_evidence_interventions.py"
       - "scripts/build_knowledge_ablation_suite.py"
       - "scripts/evaluate_knowledge_ablation.py"
+      - "scripts/aggregate_evaluation_seeds.py"
       - "scripts/infer_mechet.py"
       - "scripts/validate_experiment_contract.py"
       - "scripts/train_tool_sft.py"
       - "configs/experiments/**"
       - "configs/knowledge/tool_sft_*.yaml"
       - "tests/test_knowledge_ablation.py"
+      - "tests/test_statistical_evaluation.py"
+      - "tests/test_evaluation_seed_aggregation.py"
       - "tests/test_runtime_closure.py"
       - ".github/workflows/knowledge-ablation-tests.yml"
   push:
@@ -27,10 +31,12 @@ on:
       - "docs/**"
       - "src/mechet/knowledge_ablation.py"
       - "src/mechet/prediction_metrics.py"
+      - "src/mechet/statistical_evaluation.py"
       - "src/mechet/frozen_evidence_environments.py"
       - "scripts/build_evidence_interventions.py"
       - "scripts/build_knowledge_ablation_suite.py"
       - "scripts/evaluate_knowledge_ablation.py"
+      - "scripts/aggregate_evaluation_seeds.py"
       - "scripts/infer_mechet.py"
       - "scripts/validate_experiment_contract.py"
       - "configs/experiments/**"
@@ -54,10 +60,12 @@ jobs:
           python -m py_compile \
             src/mechet/knowledge_ablation.py \
             src/mechet/prediction_metrics.py \
+            src/mechet/statistical_evaluation.py \
             src/mechet/frozen_evidence_environments.py \
             scripts/build_evidence_interventions.py \
             scripts/build_knowledge_ablation_suite.py \
             scripts/evaluate_knowledge_ablation.py \
+            scripts/aggregate_evaluation_seeds.py \
             scripts/infer_mechet.py \
             scripts/validate_experiment_contract.py \
             scripts/train_tool_sft.py
@@ -66,6 +74,8 @@ jobs:
           pytest -q \
             tests/test_knowledge_ablation.py \
             tests/test_runtime_closure.py \
+            tests/test_statistical_evaluation.py \
+            tests/test_evaluation_seed_aggregation.py \
             tests/test_documentation_contract.py
       - name: Build two replay-verified evidence sources
         run: |
@@ -239,13 +249,16 @@ jobs:
             --condition trace_structured_anchors=/tmp/mechet-evidence/trace_structured_anchors.pred.jsonl \
             --condition trace_text_plus_anchors=/tmp/mechet-evidence/trace_text_plus_anchors.pred.jsonl \
             --condition direct_textbook_rag=/tmp/mechet-evidence/direct_textbook_rag.pred.jsonl \
+            --bootstrap-samples 200 \
             --output /tmp/mechet-evidence/h3.json
           grep -q frozen_prediction_evaluation /tmp/mechet-evidence/h3.json
           grep -q '"all_frozen_ids_evaluated": true' /tmp/mechet-evidence/h3.json
           grep -q '"same_base_model_revision_and_generation_budget": true' /tmp/mechet-evidence/h3.json
-          grep -q '"structural_precursor_top1": 1.0' /tmp/mechet-evidence/h3.json
+          grep -q paired_bootstrap_ci /tmp/mechet-evidence/h3.json
+          grep -q holm_adjusted_mcnemar_p_value /tmp/mechet-evidence/h3.json
       - name: Check evidence CLIs
         run: |
           python scripts/build_evidence_interventions.py --help
           python scripts/evaluate_knowledge_ablation.py --help
+          python scripts/aggregate_evaluation_seeds.py --help
           python scripts/validate_experiment_contract.py --help

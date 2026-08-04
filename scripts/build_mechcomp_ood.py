@@ -15,6 +15,10 @@ from mechet.proof_splits import (
     build_compositional_ood_split,
     extract_split_features,
 )
+from mechet.structural_overlap import (
+    annotate_rows_with_overlap,
+    audit_structural_overlap,
+)
 
 
 def _read_jsonl(path: Path) -> list[dict]:
@@ -41,6 +45,13 @@ def main() -> int:
     parser.add_argument("--min-train-primitive-count", type=int, default=2)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--similarity-threshold", type=float, default=0.90)
+    parser.add_argument("--max-near-duplicate-rate", type=float, default=0.0)
+    parser.add_argument(
+        "--skip-fingerprint-audit",
+        action="store_true",
+        help="skip Morgan/Tanimoto near-duplicate audit; exact/scaffold/center audits still run",
+    )
     args = parser.parse_args()
 
     rows = _read_jsonl(args.input)
@@ -73,6 +84,33 @@ def main() -> int:
         min_train_primitive_count=args.min_train_primitive_count,
         seed=args.seed,
     )
+
+    structural_audits: dict[str, dict] = {}
+    for split in ("valid", "test"):
+        report = audit_structural_overlap(
+            splits["train"],
+            splits[split],
+            similarity_threshold=args.similarity_threshold,
+            compute_similarity=not args.skip_fingerprint_audit,
+            max_near_duplicate_rate=args.max_near_duplicate_rate,
+        )
+        annotations = dict(report.pop("row_annotations"))
+        splits[split] = annotate_rows_with_overlap(splits[split], annotations)
+        structural_audits[split] = report
+
+    manifest["structural_overlap_audit"] = structural_audits
+    manifest["claim_gate"].update(
+        {
+            "test_zero_exact_reaction_overlap": structural_audits["test"][
+                "claim_gate"
+            ]["zero_exact_reaction_overlap"],
+            "test_near_duplicate_rate_at_or_below_tolerance": structural_audits[
+                "test"
+            ]["claim_gate"]["near_duplicate_rate_at_or_below_tolerance"],
+            "structural_overlap_audit_complete": True,
+        }
+    )
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for split, split_rows in splits.items():
         _write_jsonl(args.output_dir / f"{split}.jsonl", split_rows)
@@ -87,6 +125,11 @@ def main() -> int:
             "n_quarantined": len(quarantined),
             "quarantine": str(quarantine_path),
             "quarantine_reasons": dict(reasons),
+            "overlap_audit_configuration": {
+                "similarity_threshold": args.similarity_threshold,
+                "max_near_duplicate_rate": args.max_near_duplicate_rate,
+                "fingerprint_audit_enabled": not args.skip_fingerprint_audit,
+            },
         }
     )
     (args.output_dir / "manifest.json").write_text(

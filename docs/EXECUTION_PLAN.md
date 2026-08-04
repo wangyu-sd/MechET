@@ -528,3 +528,19 @@ Stop or narrow a claim when:
 - H2 contains unseen primitives rather than unseen compositions;
 - irrelevant text explains an evidence gain;
 - a learned score overrides deterministic execution.
+
+## Integrity utilities added after the pilot contract
+
+Before a final H1/H2/H3 result package:
+
+```bash
+python scripts/check_documentation_integrity.py --output outputs/documentation_integrity.json
+python scripts/check_source_health.py --output outputs/source_health.json
+python scripts/aggregate_evaluation_seeds.py \
+  --evaluation outputs/seed1/evaluation.json \
+  --evaluation outputs/seed2/evaluation.json \
+  --evaluation outputs/seed3/evaluation.json \
+  --output outputs/multi_seed_summary.json
+```
+
+The H2 split manifest must include the structural-overlap audit and stratified composition-OOD counts. H1/H3 result artifacts must include paired uncertainty and corrected tests; the multi-seed aggregate must satisfy the declared seed-count, interval and direction gates.

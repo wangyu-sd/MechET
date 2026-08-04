@@ -224,3 +224,7 @@ paired uncertainty reported for primary contrasts
 ## Interpretation boundary
 
 A gain explained by context presence, query leakage, missing predictions, runtime mismatch, post-test evidence editing, or adapter-compute imbalance does not support H3. Evidence benefit is a claim about information improving program induction—not a claim that retrieved text establishes chemical truth.
+
+## Statistical identification and multi-seed aggregation
+
+Each primary H3 contrast is evaluated on the same frozen IDs with paired bootstrap confidence intervals and exact McNemar tests. The four primary evidence contrasts are corrected with Holm's method. Final evidence claims require independent-seed aggregation via `scripts/aggregate_evaluation_seeds.py`, a confidence-interval lower bound above the declared minimum effect, and consistent effect direction across seeds.

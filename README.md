@@ -18,6 +18,19 @@
 
 > **MechET asks whether a mechanistic rationale can be the computation that determines a retrosynthetic prediction—not merely a plausible explanation written after the answer.**
 
+## Project status
+
+| Layer | Current status |
+|---|---|
+| Deterministic executor and trace-owned runtime | Implemented and CI-tested |
+| Replay-verified Tool-SFT data contract | Implemented; real-model overfit pending |
+| H1 causal-faithfulness result | **Not established** |
+| H2 compositional-generalization result | **Not established** |
+| H3 evidence-benefit result | **Not established** |
+| Paper-scale benchmark and checkpoints | Pending |
+
+See [`docs/STATUS_MATRIX.md`](docs/STATUS_MATRIX.md) for the complete implementation/evidence matrix. A working infrastructure component is not a positive scientific result.
+
 ## Research thesis
 
 Most mechanism-aware language models optimize an answer and a rationale jointly, but do not guarantee that the rationale is causally upstream of the answer. A chemically plausible chain of thought may therefore coexist with an endpoint produced through an independent, unverifiable channel.
