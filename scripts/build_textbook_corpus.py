@@ -133,11 +133,14 @@ def build(
         except Exception:
             continue
         text = _normalize(text)
+        artifact_fingerprint = str(artifact.get("sha256") or "")
+        if not artifact_fingerprint:
+            artifact_fingerprint = hashlib.sha256(relative.encode("utf-8")).hexdigest()
         for index, chunk in enumerate(
             _chunks(text, minimum=minimum, maximum=maximum, overlap=overlap)
         ):
             digest = hashlib.sha256(chunk.encode("utf-8")).hexdigest()
-            passage_id = f"{source_id}:{digest[:16]}:{index}"
+            passage_id = f"{source_id}:{artifact_fingerprint[:12]}:{digest[:16]}:{index}"
             passages.append(
                 TextbookPassage(
                     passage_id=passage_id,
