@@ -1,6 +1,6 @@
 schema_version: 1
 metadata:
-  purpose: Provenance and license registry for mechanistic primitive references
+  purpose: Provenance, license, and quality registry for mechanistic references
   policy: Downloaded text is evidence for candidate extraction, not automatic chemical truth.
 sources:
   iupac_goldbook_terms:
@@ -25,6 +25,14 @@ sources:
     term_aliases:
       R05171: I03096
     homepage: https://goldbook.iupac.org
+    quality:
+      quality_status: reviewed
+      retrieval_weight: 1.0
+      review_warning: false
+      scientific_scope: [terminology, formal definitions]
+      allowed_uses: [terminology, provenance, definition evidence]
+      disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
+      quality_notes: Individual terms are authoritative terminology, not reaction-specific mechanistic evidence.
 
   rxno:
     title: Name Reaction Ontology
@@ -35,6 +43,13 @@ sources:
     urls:
       - https://purl.obolibrary.org/obo/rxno.owl
     homepage: https://obofoundry.org/ontology/rxno.html
+    quality:
+      quality_status: reviewed
+      retrieval_weight: 0.9
+      review_warning: false
+      scientific_scope: [reaction terminology, ontology]
+      allowed_uses: [terminology, reaction-family indexing, provenance]
+      disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
 
   wikibooks_organic_chemistry:
     title: Wikibooks Organic Chemistry
@@ -61,6 +76,58 @@ sources:
       - Organic Chemistry/Carboxylic acids
     exclude_media: true
     homepage: https://en.wikibooks.org/wiki/Organic_Chemistry
+    quality:
+      quality_status: usable_with_caution
+      retrieval_weight: 0.65
+      review_warning: true
+      scientific_scope: [introductory organic chemistry, qualitative mechanisms]
+      allowed_uses: [broad_context, terminology, candidate_mechanistic_evidence]
+      disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
+      quality_notes: Community-authored educational text; passage-level review is required before headline H3 use.
+    page_quality:
+      Organic Chemistry/Introduction to reactions/Overview of addition, elimination, substitution and rearrangement reactions:
+        quality_status: low_priority
+        retrieval_weight: 0.35
+        review_warning: true
+        scientific_scope: [introductory reaction classification]
+        allowed_uses: [broad_context, terminology]
+        disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
+        quality_notes: Introductory overview with limited mechanistic detail.
+      Organic Chemistry/Introduction to reactions/Review of nucleophilic substitution:
+        quality_status: usable_with_caution
+        retrieval_weight: 0.65
+        review_warning: true
+        scientific_scope: [nucleophilic substitution, qualitative mechanism]
+        allowed_uses: [broad_context, candidate_mechanistic_evidence]
+        disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
+      Organic Chemistry/Alkenes:
+        quality_status: usable_with_caution
+        retrieval_weight: 0.65
+        review_warning: true
+        scientific_scope: [alkene chemistry, qualitative additions]
+        allowed_uses: [broad_context, candidate_mechanistic_evidence]
+        disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
+      Organic Chemistry/Aromatic reactions:
+        quality_status: usable_with_caution
+        retrieval_weight: 0.65
+        review_warning: true
+        scientific_scope: [aromatic reactions, qualitative mechanisms]
+        allowed_uses: [broad_context, candidate_mechanistic_evidence]
+        disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
+      Organic Chemistry/Ketones and aldehydes:
+        quality_status: usable_with_caution
+        retrieval_weight: 0.75
+        review_warning: true
+        scientific_scope: [carbonyl chemistry, aldehydes, ketones, nucleophilic addition]
+        allowed_uses: [broad_context, candidate_mechanistic_evidence]
+        disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
+      Organic Chemistry/Carboxylic acids:
+        quality_status: usable_with_caution
+        retrieval_weight: 0.75
+        review_warning: true
+        scientific_scope: [carboxylic acids, acyl chemistry]
+        allowed_uses: [broad_context, candidate_mechanistic_evidence]
+        disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
 
   libretexts_organic_synthesis_shea:
     title: Organic Synthesis (Shea)
@@ -76,6 +143,13 @@ sources:
       - https://chem.libretexts.org/Bookshelves/Organic_Chemistry/Organic_Synthesis_%28Shea%29/00%3A_Front_Matter/04%3A_Licensing
     text_only: true
     homepage: https://chem.libretexts.org/Bookshelves/Organic_Chemistry/Organic_Synthesis_%28Shea%29
+    quality:
+      quality_status: usable_with_caution
+      retrieval_weight: 0.8
+      review_warning: true
+      scientific_scope: [organic synthesis, qualitative reaction guidance]
+      allowed_uses: [broad_context, candidate_mechanistic_evidence]
+      disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
 
   mit_ocw_organic_chemistry:
     title: MIT OpenCourseWare Organic Chemistry I and II
@@ -95,6 +169,13 @@ sources:
     exclude_markers:
       - All rights reserved
     homepage: https://ocw.mit.edu
+    quality:
+      quality_status: usable_with_caution
+      retrieval_weight: 0.85
+      review_warning: true
+      scientific_scope: [university course materials, organic chemistry]
+      allowed_uses: [broad_context, candidate_mechanistic_evidence, noncommercial_research]
+      disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim, commercial_redistribution]
 
   pmechdb_pmechrp:
     title: PMechDB and PMechRP datasets
@@ -108,3 +189,10 @@ sources:
     notes:
       - Includes elementary polar steps and a 350-pathway textbook benchmark.
       - Do not automatically publish converted or modified derivatives without permission.
+    quality:
+      quality_status: reviewed
+      retrieval_weight: 1.0
+      review_warning: false
+      scientific_scope: [mechanism dataset, textbook pathways]
+      allowed_uses: [noncommercial_research, benchmark_under_license]
+      disallowed_uses: [modified_redistribution, commercial_use_without_permission]
