@@ -8,13 +8,14 @@ on:
       - opened
       - synchronize
       - reopened
+    paths:
+      - .github/icon-materialize.ready
 
 permissions:
   contents: write
 
 jobs:
   materialize:
-    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Check out branch
@@ -29,12 +30,21 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import base64
+          import hashlib
 
-          icon = Path('docs/assets/mechet-icon.png')
-          encoded = ''.join(icon.read_text(encoding='utf-8').split())
+          parts = sorted(Path('.github/icon-chunks').glob('part-*.txt'))
+          if len(parts) != 8:
+              raise SystemExit(f'Expected 8 icon chunks, found {len(parts)}')
+          encoded = ''.join(p.read_text(encoding='utf-8').strip() for p in parts)
           raw = base64.b64decode(encoded, validate=True)
           if not raw.startswith(b'\x89PNG\r\n\x1a\n'):
               raise SystemExit('Decoded asset is not a PNG')
+          expected = Path('.github/icon-materialize.ready').read_text(encoding='utf-8').strip()
+          actual = hashlib.sha256(raw).hexdigest()
+          if actual != expected:
+              raise SystemExit(f'PNG SHA-256 mismatch: {actual} != {expected}')
+
+          icon = Path('docs/assets/mechet-icon.png')
           icon.write_bytes(raw)
 
           readme = Path('README.md')
@@ -64,12 +74,14 @@ jobs:
           assert 'docs/assets/mechet-icon.png' in Path('README.md').read_text(encoding='utf-8')
           PY
 
-      - name: Commit the real PNG and remove this workflow
+      - name: Commit the real PNG and remove temporary materialization files
         shell: bash
         run: |
+          rm -rf .github/icon-chunks
+          rm .github/icon-materialize.ready
           rm .github/workflows/materialize-mechet-icon.yml
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md docs/assets/mechet-icon.png docs/assets/README.md docs/assets/mechet-icon.svg .github/workflows/materialize-mechet-icon.yml
+          git add -A
           git commit -m 'Use the user-provided MechET PNG icon'
           git push origin HEAD:agent/use-original-mechet-icon
