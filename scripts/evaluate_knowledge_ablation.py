@@ -15,12 +15,14 @@ from mechet.knowledge_ablation import (
     align_prediction_artifact,
     file_sha256,
     read_jsonl,
+    row_id,
 )
 from mechet.prediction_metrics import (
     prediction_runtime_contract,
     prediction_set_metrics,
 )
-from mechet.strict_prediction_evaluation import condition_metrics
+from mechet.statistical_evaluation import holm_adjust, paired_binary_contrast
+from mechet.strict_prediction_evaluation import condition_metrics, endpoint_evaluation
 
 ALIASES = {
     "trace_no_knowledge": ("trace_no_knowledge", "none", "trace_none"),
@@ -41,7 +43,7 @@ def parse_condition(value: str) -> tuple[str, Path]:
     return name, Path(path)
 
 
-def find_condition(metrics: dict[str, dict[str, Any]], canonical: str) -> str | None:
+def find_condition(metrics: dict[str, Any], canonical: str) -> str | None:
     for candidate in ALIASES[canonical]:
         if candidate in metrics:
             return candidate
@@ -62,11 +64,68 @@ def is_direct_condition(name: str) -> bool:
     return name in set(ALIASES["direct_textbook_rag"])
 
 
+def _paired_condition_contrast(
+    aligned: dict[str, list[dict[str, Any]]],
+    left: str,
+    right: str,
+    *,
+    bootstrap_samples: int,
+    bootstrap_seed: int,
+    confidence: float,
+) -> dict[str, Any] | None:
+    left_name = find_condition(aligned, left)
+    right_name = find_condition(aligned, right)
+    if left_name is None or right_name is None:
+        return None
+    left_rows = {row_id(row): endpoint_evaluation(row) for row in aligned[left_name]}
+    right_rows = {
+        row_id(row): endpoint_evaluation(row) for row in aligned[right_name]
+    }
+    if set(left_rows) != set(right_rows):
+        raise ValueError(f"paired H3 conditions differ in IDs: {left} vs {right}")
+    identifiers = list(left_rows)
+    inference = paired_binary_contrast(
+        [bool(left_rows[item]["structural_exact"]) for item in identifiers],
+        [bool(right_rows[item]["structural_exact"]) for item in identifiers],
+        bootstrap_samples=bootstrap_samples,
+        bootstrap_seed=bootstrap_seed,
+        confidence=confidence,
+    )
+    return {
+        "left_condition": left_name,
+        "right_condition": right_name,
+        "metric": "structural_exact",
+        **inference,
+    }
+
+
+def _contrast_gate(
+    contrast: dict[str, Any] | None,
+    *,
+    alpha: float,
+    minimum_effect: float,
+) -> bool | None:
+    if contrast is None:
+        return None
+    ci = list(contrast["paired_bootstrap_ci"])
+    adjusted = contrast.get("holm_adjusted_mcnemar_p_value")
+    return bool(
+        float(ci[0]) >= minimum_effect
+        and adjusted is not None
+        and float(adjusted) <= alpha
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--condition", action="append", type=parse_condition, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--bootstrap-samples", type=int, default=5000)
+    parser.add_argument("--bootstrap-seed", type=int, default=31)
+    parser.add_argument("--confidence", type=float, default=0.95)
+    parser.add_argument("--alpha", type=float, default=0.05)
+    parser.add_argument("--minimum-effect", type=float, default=0.0)
     args = parser.parse_args()
 
     if not args.reference.exists():
@@ -143,6 +202,66 @@ def main() -> int:
         metrics, "trace_textbook_rag", "direct_textbook_rag", primary_field
     )
 
+    contrast_specs = {
+        "textbook_minus_trace_only": (
+            "trace_textbook_rag",
+            "trace_no_knowledge",
+        ),
+        "textbook_minus_irrelevant": (
+            "trace_textbook_rag",
+            "trace_length_matched_irrelevant",
+        ),
+        "combined_minus_textbook": (
+            "trace_text_plus_anchors",
+            "trace_textbook_rag",
+        ),
+        "combined_minus_anchors": (
+            "trace_text_plus_anchors",
+            "trace_structured_anchors",
+        ),
+        "trace_textbook_minus_direct": (
+            "trace_textbook_rag",
+            "direct_textbook_rag",
+        ),
+    }
+    paired_contrasts = {
+        name: _paired_condition_contrast(
+            aligned,
+            left,
+            right,
+            bootstrap_samples=args.bootstrap_samples,
+            bootstrap_seed=args.bootstrap_seed + index * 13,
+            confidence=args.confidence,
+        )
+        for index, (name, (left, right)) in enumerate(contrast_specs.items())
+    }
+    primary_family = {
+        name: value
+        for name, value in paired_contrasts.items()
+        if name
+        in {
+            "textbook_minus_trace_only",
+            "textbook_minus_irrelevant",
+            "combined_minus_textbook",
+            "combined_minus_anchors",
+        }
+    }
+    adjusted = holm_adjust(
+        {
+            name: (
+                None
+                if value is None
+                else float(value["mcnemar_exact_p_value"])
+            )
+            for name, value in primary_family.items()
+        }
+    )
+    for name, adjusted_value in adjusted.items():
+        if paired_contrasts[name] is not None:
+            paired_contrasts[name][
+                "holm_adjusted_mcnemar_p_value"
+            ] = adjusted_value
+
     reward_violations = sum(
         int(value.get("knowledge_direct_reward_violations", 0))
         for value in metrics.values()
@@ -167,6 +286,27 @@ def main() -> int:
         for value in metrics.values()
     )
 
+    textbook_gate_none = _contrast_gate(
+        paired_contrasts["textbook_minus_trace_only"],
+        alpha=args.alpha,
+        minimum_effect=args.minimum_effect,
+    )
+    textbook_gate_irrelevant = _contrast_gate(
+        paired_contrasts["textbook_minus_irrelevant"],
+        alpha=args.alpha,
+        minimum_effect=args.minimum_effect,
+    )
+    combined_gate_textbook = _contrast_gate(
+        paired_contrasts["combined_minus_textbook"],
+        alpha=args.alpha,
+        minimum_effect=args.minimum_effect,
+    )
+    combined_gate_anchors = _contrast_gate(
+        paired_contrasts["combined_minus_anchors"],
+        alpha=args.alpha,
+        minimum_effect=args.minimum_effect,
+    )
+
     claim_gates = {
         "all_frozen_ids_evaluated": all_predictions_present,
         "no_reexecution_errors": no_evaluation_errors,
@@ -175,21 +315,26 @@ def main() -> int:
         "same_base_model_revision_and_generation_budget": (
             generation_contract_matched and runtime_complete
         ),
-        "textbook_exceeds_trace_only": (
-            None if textbook_vs_none is None else textbook_vs_none > 0
-        ),
-        "textbook_exceeds_irrelevant_context": (
+        "textbook_exceeds_trace_only": textbook_gate_none,
+        "textbook_exceeds_irrelevant_context": textbook_gate_irrelevant,
+        "textbook_evidence_claim": (
             None
-            if textbook_vs_irrelevant is None
-            else textbook_vs_irrelevant > 0
+            if textbook_gate_none is None or textbook_gate_irrelevant is None
+            else textbook_gate_none and textbook_gate_irrelevant
         ),
+        "combined_exceeds_textbook": combined_gate_textbook,
+        "combined_exceeds_anchors": combined_gate_anchors,
         "combined_exceeds_each_individual": (
             None
-            if combined_vs_textbook is None or combined_vs_anchors is None
-            else combined_vs_textbook > 0 and combined_vs_anchors > 0
+            if combined_gate_textbook is None or combined_gate_anchors is None
+            else combined_gate_textbook and combined_gate_anchors
         ),
         "trace_binding_preserved": trace_binding_ok,
         "zero_direct_evidence_reward_violations": reward_violations == 0,
+        "paired_bootstrap_confidence": args.confidence,
+        "holm_corrected_alpha": args.alpha,
+        "minimum_effect": args.minimum_effect,
+        "multi_seed_aggregation_required_for_final_claim": True,
         "causal_interventions_required_for_final_claim": True,
     }
 
@@ -214,6 +359,13 @@ def main() -> int:
             "combined_minus_anchors_structural_exact": combined_vs_anchors,
             "trace_textbook_minus_direct_textbook_structural_exact": trace_textbook_vs_direct,
         },
+        "paired_contrasts": paired_contrasts,
+        "multiple_comparison_correction": {
+            "method": "Holm family-wise error correction",
+            "family": sorted(primary_family),
+            "adjusted_mcnemar_p_values": adjusted,
+            "alpha": args.alpha,
+        },
         "claim_gates": claim_gates,
         "integrity_passed": (
             all_predictions_present
@@ -228,6 +380,9 @@ def main() -> int:
             "primary_endpoint": "atom-contributing structural precursor exact match with atom maps ignored",
             "secondary_endpoint": "mapped structural precursor exact match",
             "candidate_sets": "generation-order Pass@K without gold-based reranking",
+            "paired_statistics": "paired bootstrap confidence intervals and exact McNemar tests over frozen target IDs",
+            "multiple_comparison_control": "Holm correction over the four primary H3 contrasts",
+            "multi_seed_statistics": "aggregate independent training seeds with aggregate_evaluation_seeds.py before a final scientific claim",
             "selective_risk": "error among non-abstained selected predictions",
             "runtime_matching": "base model, revision, tokenizer revision, seed, selector, temperature, top_p, max tokens, iterations, and K must be present and matched; adapter lineage is condition-specific",
             "trace_metrics": "require an explicit successful finish_trace and are then recomputed from the rollout flow_trace",
