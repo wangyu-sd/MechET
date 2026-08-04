@@ -67,11 +67,14 @@ evaluation_contract:
   recompute_trace_and_proof_metrics: true
   primary_endpoint: structural_precursor_exact_ignore_maps
   secondary_endpoint: mapped_structural_precursor_exact
+  candidate_metric_semantics: generation_order_pass_at_k_not_ranked_top_k
+  true_top_k_requires_frozen_ranking_score: true
   primary_metrics:
-    - structural_precursor_top1
-    - structural_precursor_top5
-    - mapped_structural_precursor_top1
-    - execute_rate
+    - structural_endpoint_pass_at_1
+    - structural_endpoint_pass_at_5
+    - mapped_endpoint_pass_at_1
+    - execute_pass_at_1
+    - trace_bound_pass_at_1
     - trace_endpoint_consistency
     - tool_failure_recovery
     - abstention_risk_coverage
