@@ -1,77 +1,112 @@
-# MechET scientific thesis
+# Scientific thesis
 
-This document is the single source of truth for the scientific question, main method, terminology, permitted claims and falsification criteria. Public documentation, experiment configs and paper text must remain consistent with it.
+> **Authority:** scientific question, terminology, claim boundaries, and falsification criteria  
+> **Scope:** mapped, closed-shell, two-electron polar organic chemistry  
+> **Interpretation:** computational mechanism induction, not experimental mechanism determination
 
-## Central scientific question
+This document is the scientific source of truth for MechET. Public documentation, experiment configurations, figures, and paper text must remain consistent with the contracts below.
+
+## Thesis
+
+> **Retrosynthesis can be formulated as causal program induction over local electron-flow execution primitives.**
+
+The central question is:
 
 > Can mechanistic reasoning in retrosynthesis be made causal and compositional, rather than merely plausible in language?
 
-A generated rationale is not necessarily the computation that produced an answer. Outcome-only and answer-bearing chain-of-thought models can emit a correct precursor alongside a mechanism, state sequence or explanation that is incomplete, inconsistent or causally unused.
+A generated rationale is not necessarily the computation that produced an answer. Outcome-only and answer-bearing chain-of-thought systems may emit a correct precursor together with an incomplete, inconsistent, or causally unused mechanism. MechET addresses this reasoning–answer bypass by making the environment-owned trace the only admissible computational path to the endpoint.
 
-MechET therefore asks whether the intermediate chemical representation can satisfy three properties:
-
-1. **causality** — the intermediate actions are the sole computational source of the endpoint;
-2. **executability** — every claimed state transition is checked by a deterministic chemical environment;
-3. **compositionality** — local electron-flow execution primitives can be recombined into mechanism compositions not observed during training.
-
-## Main hypothesis
-
-Retrosynthesis can be formulated as causal program induction over local electron-flow execution primitives.
+## Computational contract
 
 ```text
 atom-mapped product
-  -> explicit source-to-sink electron-flow actions
-  -> environment-owned molecular-state transitions
-  -> committed trace
-  -> deterministic trace-to-proof compilation
-  -> executor-derived structural precursors
+  -> model-issued source-to-sink actions
+  -> deterministic environment transitions
+  -> committed move trace
+  -> finish_trace
+  -> replay declared moves
+  -> deterministic MECH_PROOF v1 compilation
+  -> proof execution
+  -> full_precursor_state
+  -> structural_precursor + auxiliary_fragments
 ```
 
-The model does not submit an independent proof or answer in the main method. It completes an environment-owned trace with `finish_trace`. The environment deterministically compiles that trace into the only admissible `MECH_PROOF v1` program and derives the precursor by execution.
+The model does not independently submit a proof or precursor in the main method. It commits actions to the environment and terminates with `finish_trace`. The environment compiles the committed trace into the only admissible proof and derives the endpoint by execution.
 
-## Three falsifiable hypotheses
+### Required properties
+
+| Property | Operational meaning | Failure condition |
+|---|---|---|
+| **Causality** | The endpoint is derived only from committed environment transitions | An independent answer channel receives endpoint credit |
+| **Executability** | Every accepted transition and final proof are deterministically checked | A claimed state or proof cannot be replayed |
+| **Compositionality** | Local source-to-sink primitives form complete mechanisms absent from training | Held-out examples require unseen primitives or are explained only by near-duplicate templates |
+| **Evidence separation** | External evidence guides but never defines formal validity | Retrieval or a learned score overrides executor failure |
+
+## Falsifiable hypotheses
 
 ### H1 — Causal faithfulness
 
-The trace-owned program should eliminate the reasoning–answer bypass.
+**Claim.** The trace-owned program is a causal computational path to the precursor rather than a post-hoc explanation.
 
-Predictions:
+**Required evidence.**
 
-- trace, compiled proof and endpoint agree by construction;
-- removing, shuffling or replacing tool observations should materially change model behavior;
-- a model cannot retain endpoint credit after committing an incompatible trace;
-- the legacy loose-trace/independent-proof path should show more reasoning–endpoint disagreement.
+- every credited trace prediction explicitly completes `finish_trace`;
+- declared moves replay to recorded states;
+- trace, move-sequence, compiled-proof, and endpoint artifacts agree;
+- normal and intervention runs use the same model, adapter, revision, seed policy, candidate count, and generation budget;
+- corrupting chemically relevant tool observations produces a measurable paired effect.
 
-A negligible intervention effect would falsify the claim that the model uses the tool-grounded reasoning process.
+**Falsifier.** If removed, stale, or shuffled observations do not materially alter behavior under a valid matched intervention, the claim that the model uses tool-grounded reasoning is unsupported.
+
+**Non-equivalence.** Trace/proof consistency by construction is necessary but insufficient. H1 additionally requires sensitivity to information transmitted through the environment.
 
 ### H2 — Compositional basis
 
-Local electron-flow execution primitives should support unseen mechanism compositions.
+**Claim.** Familiar local electron-flow execution primitives can be recombined into complete move compositions absent from training.
 
-Predictions:
+**Required evidence.**
 
-- each held-out composition is made only from execution primitives represented in training;
-- trace-owned proof models should degrade less than direct, free-form CoT and net-edit baselines as composition novelty increases;
-- success and failure should be explainable by primitive coverage, proof length and topology rather than by reaction-name memorization alone.
+- the primitive basis is `source_to_sink_execution_moves_v1`;
+- each test primitive appears in training at a declared minimum frequency;
+- complete train/test composition overlap is zero;
+- the held-out set is non-empty and fixed before final model evaluation;
+- scaffold, family, reaction-center, and near-duplicate overlap are reported separately;
+- performance is stratified by composition frequency, step count, move count, topology, and structural novelty.
 
-No claim of compositional generalization is permitted if the held-out primitive vocabulary is not covered in training.
+**Falsifier.** A split containing unseen test primitives does not test composition of known units. A split dominated by product or template near-duplicates cannot support a broad compositional-generalization claim.
 
 ### H3 — Separation of formal and empirical evidence
 
-Formal executability and empirical chemical support are different evidence layers.
+**Claim.** External mechanistic evidence improves program induction beyond trace ownership and additional context alone, while remaining subordinate to deterministic execution.
 
-- the deterministic executor answers whether the proposed electron-flow program is formally executable;
-- textbook passages and structured mechanistic knowledge anchors provide external but non-authoritative evidence;
-- an independent forward expert may provide learned process, target-recovery, competitor and uncertainty evidence;
-- neither retrieval nor a learned score may override a formal execution failure.
+**Required evidence.**
 
-A knowledge or forward-evidence claim requires matched controls and causal interventions. These layers are not part of the causal endpoint path.
+- frozen trace-only, irrelevant-text, textbook, anchor, combined, and direct open-book conditions;
+- the same bounded evidence content where a direct/trace comparison is claimed;
+- inference-available retrieval queries in headline conditions;
+- zero direct evidence reward;
+- identical base-model revision and generation contract across compared prediction artifacts;
+- evidence-content interventions such as passage shuffle, same-topic wrong passage, warning removal, and competitor removal.
+
+**Falsifier.** A gain explained by context presence, label leakage, retrieval drift, missing predictions, or runtime mismatch does not support H3.
+
+## Formal assumptions
+
+The main method assumes:
+
+1. atom-mapped molecular states with unique positive map identifiers;
+2. closed-shell, two-electron source-to-sink actions supported by the executor;
+3. deterministic transition verification and proof execution;
+4. a declared endpoint decomposition into `full_precursor_state`, `structural_precursor`, and `auxiliary_fragments`;
+5. a frozen reference universe for evaluation.
+
+These assumptions define the computational scope. They are not claims about universal chemical coverage.
 
 ## Terminology
 
 ### Electron-flow execution primitive
 
-A local executable source-to-sink action such as:
+A local executable source-to-sink action, for example:
 
 ```text
 LP -> BOND
@@ -79,29 +114,44 @@ BOND -> ATOM
 BOND -> BOND
 ```
 
-Execution primitives define the action vocabulary, deterministic transitions and composition-OOD signatures.
+Execution primitives define the model-facing action vocabulary, deterministic transitions, and H2 composition signatures.
 
 ### Mechanistic knowledge anchor
 
-A provenance-aware structured record containing molecular-role patterns, candidate moves, preconditions, warnings, competitors and references. Knowledge anchors guide retrieval; they are not the primitive basis used to define causal execution or compositional splits.
+A provenance-aware structured record containing molecular-role patterns, candidate moves, preconditions, warnings, competitors, and references. Knowledge anchors support retrieval and analysis; their IDs do not define the H2 primitive basis.
 
 ### Trace-owned main method
 
-`TraceOwnedAgentEnv` or a subclass in which `submit_proof` is disabled and `finish_trace` is the only successful terminal method.
+A `TraceOwnedAgentEnv`-derived environment in which `finish_trace` is the only successful endpoint-producing terminal method and free-form proof submission is disabled.
 
 ### Legacy complete-proof baseline
 
-A model that independently generates a complete `MECH_PROOF v1` program or uses a loose tool trace followed by a submitted proof. It is required as a baseline, not described as the main method.
+A model that independently generates a complete `MECH_PROOF v1` program, or uses a loose tool trace followed by a submitted proof. It is a required baseline for measuring the reasoning–answer bypass, not an alternative description of the main method.
 
 ### Soft evidence
 
-Natural-language retrieval, structured knowledge-anchor matches and learned forward scores. Soft evidence may guide or rank an executable proposal but cannot establish formal validity or experimental truth.
+Natural-language retrieval, structured knowledge-anchor matches, and learned forward scores. Soft evidence may guide, rank, or calibrate an executable proposal, but cannot establish formal validity or experimental truth.
+
+## Claim ladder
+
+Claims must be earned in order:
+
+| Level | Claim | Minimum evidence |
+|---|---|---|
+| **L0 — infrastructure** | The trace/proof/evaluation contracts execute as specified | CI and scripted replay |
+| **L1 — learnability** | A model can learn valid tool interaction | Real tokenizer audit and small-set Tool-SFT overfit |
+| **L2 — causal use** | Tool observations are causally used | H1 paired interventions |
+| **L3 — compositional generalization** | Known primitives form unseen compositions | H2 frozen composition-OOD benchmark |
+| **L4 — evidence benefit** | External evidence improves induction beyond controls | H3 matched conditions and interventions |
+| **L5 — downstream utility** | Verified programs improve search or planning | Frozen candidate pools and matched planning budgets |
+
+A downstream result cannot retroactively establish an earlier level.
 
 ## Permitted headline claims
 
-A paper may claim only what the corresponding frozen experiments demonstrate:
+A paper may claim only what frozen experiments demonstrate, including:
 
-1. trace-owned electron-flow programs remove or reduce the reasoning–endpoint bypass;
+1. trace ownership reduces or removes the reasoning–endpoint bypass;
 2. execution primitives support primitive-seen/composition-unseen generalization;
 3. external mechanistic evidence improves program induction beyond extra context alone;
 4. independent empirical evidence improves calibration or competitor ranking after formal execution;
@@ -109,16 +159,16 @@ A paper may claim only what the corresponding frozen experiments demonstrate:
 
 ## Prohibited claims
 
-Current software alone does not establish:
+The current software alone does not establish:
 
-- the unique physical mechanism from a product;
-- low activation barriers, favorable kinetics, high yield or experimental success;
+- a unique physical mechanism from product alone;
+- low activation barriers, favorable kinetics, high yield, or laboratory success;
 - universal condition compatibility;
 - correctness outside the declared closed-shell two-electron scope;
-- chemical truth from a citation, retrieval match or learned score;
+- chemical truth from a citation, retrieval match, or learned score;
 - reaction discovery without external validation.
 
-## Main method versus extensions
+## Core versus extensions
 
 The scientific core is:
 
@@ -126,8 +176,15 @@ The scientific core is:
 causal trace -> executable program -> compositional test
 ```
 
-Textbook evidence, structured knowledge anchors, forward falsification, RL, hypothesis sets and multistep planning are experiments or extensions used to test the core hypotheses. They must not be presented as parallel headline innovations.
+Tool-SFT, retrieval, structured anchors, forward evidence, RL, hypothesis sets, and multistep planning are experiments or extensions used to test or apply the core. They must not be presented as parallel headline innovations.
 
-## Documentation rule
+## Documentation authority
 
-When documents disagree, this file and `TRACE_FAITHFULNESS.md` define the main method. The authoritative execution order is `EXECUTION_PLAN.md`; the complete experiment definitions are in `PROOF_CENTRIC_EXPERIMENT_PLAN.md`.
+When documents disagree, resolve them in this order:
+
+1. `SCIENTIFIC_THESIS.md` — scientific meaning and claim boundaries;
+2. `TRACE_FAITHFULNESS.md` — main runtime contract;
+3. `PROOF_CENTRIC_EXPERIMENT_PLAN.md` — paper-level evidence requirements;
+4. `EXECUTION_PLAN.md` — operational order, artifacts, and stopping gates.
+
+Lower-authority documents must be updated rather than used to create a parallel source of truth.

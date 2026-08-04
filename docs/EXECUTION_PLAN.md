@@ -1,26 +1,69 @@
-# MechET execution plan
+# Execution plan
 
-This document is the operational source of truth for running the causal and compositional MechET study. Each phase has executable entrypoints, required artifacts, and a stopping gate. RL, forward evidence, and planning are postponed until the preceding scientific gate passes.
+> **Role:** operational source of truth for the MechET study  
+> **Principle:** no phase begins until the preceding scientific gate passes  
+> **Default scope:** mapped, closed-shell, two-electron polar organic chemistry
 
-## Phase 0 — freeze contracts
+## Phase map
 
-Freeze and record:
+| Phase | Objective | Primary artifact | Gate |
+|---|---|---|---|
+| **0** | Freeze code, data, model, and reporting contracts | Reproducibility manifest | All revisions and seeds explicit |
+| **1** | Build executable proof data and remove benchmark overlap | Clean proof dataset | Execution, endpoint, and leakage audits pass |
+| **2** | Measure proof-to-trace coverage and build evidence assets | Replay-verified source conditions | Coverage supports the declared chemistry scope |
+| **3** | Derive six matched evidence conditions | Frozen suite manifest | IDs, endpoints, schemas, tokens, and budgets align |
+| **4** | Establish real Tool-SFT learnability | Adapter manifest and pilot report | Tool syntax and held-out completion improve |
+| **5** | Test H1 causal faithfulness | Normal/intervention prediction artifacts | Strict trace integrity and paired sensitivity |
+| **6** | Test H2 compositional generalization | Frozen composition-OOD split | Known primitives, unseen complete compositions |
+| **7** | Test H3 evidence separation | Six-condition evaluation | Evidence exceeds trace-only and matched context controls |
+| **8** | Scale or extend | Scale/forward/planning results | H1–H3 pilots already passed |
+
+---
+
+## Phase 0 — Freeze contracts
+
+### Objective
+
+Make every later artifact attributable to one immutable experimental state.
+
+### Freeze
 
 ```text
 repository commit
-source revisions and licenses
-benchmark SHA-256 files
+source revisions, licenses, and content hashes
+benchmark and dataset SHA-256 files
 executor revision = MECH_PROOF_v1_move_bound
 environment revision
-base model and tokenizer revision
-random seeds
+base-model and tokenizer commit revisions
+adapter lineage
+random seeds and seed policy
+headline tool-call budget = 16
+candidate generation and selector semantics
 ```
 
-Primary scope: mapped, closed-shell, two-electron polar organic chemistry.
+### Required artifact
 
-Gate: all CI workflows pass and `docs/SCIENTIFIC_THESIS.md` matches the public README.
+A machine-readable run manifest containing code, data, model, tokenizer, adapter, environment, executor, and seed revisions.
 
-## Phase 1 — executable proof data
+### Gate
+
+- all CI workflows pass;
+- `README.md` and `SCIENTIFIC_THESIS.md` agree;
+- no reported model or tokenizer is referenced only by a mutable name.
+
+### Stop
+
+Do not train when a revision, seed, source license, or benchmark hash is unresolved.
+
+---
+
+## Phase 1 — Build executable proof data
+
+### Objective
+
+Construct a formally executable proof dataset before introducing tool learning.
+
+### Commands
 
 ```bash
 python scripts/build_mechet_sft.py \
@@ -42,7 +85,7 @@ structural_precursor
 auxiliary_fragments
 ```
 
-Then audit overlap and build a frozen clean set:
+Audit benchmark overlap and freeze a clean training set:
 
 ```bash
 python scripts/audit_reaction_overlap.py \
@@ -60,16 +103,41 @@ python scripts/build_decontaminated_dataset.py \
   --policy exact_structural product
 ```
 
-Gate: source/benchmark manifests, quarantine counts, and overlap matrices are frozen before training.
+### Required artifacts
 
-## Phase 2 — evidence assets and proof-to-trace coverage
+```text
+source and benchmark manifests
+accepted/quarantined row counts
+proof execution diagnostics
+overlap matrices
+clean dataset manifest
+endpoint-view distributions
+```
 
-Build the provenance-aware corpus:
+### Gate
+
+All retained rows execute; endpoint views are populated; benchmark overlap is disclosed and removed according to the frozen policy.
+
+### Stop
+
+Do not continue if execution failures are silently dropped or if benchmark overlap remains unresolved.
+
+---
+
+## Phase 2 — Build evidence assets and measure proof-to-trace coverage
+
+### Objective
+
+Establish the actual chemistry coverage of the trace-owned representation before training a model.
+
+### Evidence assets
 
 ```bash
 python scripts/download_mechanistic_sources.py \
   --registry knowledge/source_registry.yaml \
-  download --source iupac_goldbook_terms --source rxno \
+  download \
+  --source iupac_goldbook_terms \
+  --source rxno \
   --source wikibooks_organic_chemistry \
   --output knowledge/raw
 
@@ -82,7 +150,7 @@ python scripts/index_textbook_corpus.py \
   --output knowledge/corpus/bm25_index.json
 ```
 
-Build two replay-verified source conditions:
+### Replay-verified source conditions
 
 ```bash
 python scripts/build_textbook_tool_sft.py \
@@ -99,29 +167,45 @@ python scripts/build_textbook_tool_sft.py \
   --query-mode state
 ```
 
-The main condition must use `query-mode=state`. `label_oracle` is an upper bound and cannot enter headline results.
+`--query-mode state` is the inference-faithful headline condition. `label_oracle` is an explicitly named upper bound and must not enter headline results.
 
-Required conversion report:
+### Required coverage report
 
 ```text
 root imports preserved
-proof rows read/written/quarantined
-stable quarantine reasons
-conversion rate by source family
+proof rows read, written, and quarantined
+stable quarantine reason codes
+TOOL_BUDGET_EXCEEDED counts
+conversion rate by mechanism family
 trace steps, source-to-sink moves, and imports
 endpoint replay rate
+retained versus rejected structural complexity
 ```
 
-Gate: the retained family and complexity distribution supports the declared scope. Otherwise narrow the scope or extend the converter.
+### Gate
 
-## Phase 3 — matched six-condition data
+The retained family and complexity distribution supports the declared scope. Every accepted row fits the frozen 16-call headline budget.
+
+### Stop
+
+Narrow the scientific scope or extend the converter if accepted data collapse to a small, systematically simpler subset.
+
+---
+
+## Phase 3 — Derive and validate six matched conditions
+
+### Objective
+
+Create H3 conditions that differ only in the declared evidence intervention.
+
+### Build
 
 ```bash
 python scripts/build_knowledge_ablation_suite.py \
   --config configs/experiments/textbook_ablation.yaml
 ```
 
-Validate the actual tool schema and tokenizer contract:
+### Validate
 
 ```bash
 python scripts/validate_experiment_contract.py \
@@ -135,32 +219,47 @@ python scripts/validate_experiment_contract.py \
   --output outputs/contracts/evidence_conditions.json
 ```
 
-Gate:
+### Required artifacts
 
 ```text
-same stable ID universe
-same target and reference endpoints
+same stable-ID universe
+same targets and endpoint references
 no gold reaction-label retrieval query
 valid tool-call/result pairing
+real tokenizer rendering
 non-empty assistant masks
-zero truncation
+zero headline truncation
 frozen evidence character budgets
-reported tokenizer input/supervised tokens
+input-token and supervised-token distributions
+normalization multipliers when used
 ```
 
-Raw direct and tool syntax lengths need not be equal. Match examples and optimizer updates, report supervised-token-normalized compute, and use the validator's multiplier only when exact cumulative supervision matching is required.
+### Gate
 
-## Phase 4 — real Tool-SFT
+The validator passes without assuming raw direct and tool syntax lengths are equal. Compute differences are disclosed using real tokenizer and assistant-mask tokens.
 
-Start with a 32-example overfit:
+### Stop
+
+Do not train conditions whose stable IDs, endpoint references, tool budgets, or tokenizer contracts differ silently.
+
+---
+
+## Phase 4 — Establish Tool-SFT learnability
+
+### Objective
+
+Demonstrate that the interaction contract is learnable before paper-scale on-policy training.
+
+### Pilot
 
 ```bash
 python scripts/train_tool_sft.py \
   --config configs/knowledge/tool_sft_trace_no_knowledge.yaml \
-  --limit 32 --max-steps 100
+  --limit 32 \
+  --max-steps 100
 ```
 
-Run the six matched SFT configs only after the overfit test succeeds:
+After the pilot succeeds, run the matched configurations:
 
 ```text
 tool_sft_trace_no_knowledge.yaml
@@ -171,40 +270,60 @@ tool_sft_combined.yaml
 tool_sft_direct_textbook.yaml
 ```
 
-Required artifacts:
+### Required artifacts
 
 ```text
 data_contract.json
 adapter_manifest.json
 adapter SHA-256
-base model revision
-assistant-mask/token audit
-loss and tool syntax curves
+base-model and tokenizer commit revisions
+seed and data seed
+assistant-mask and token audit
+loss curve
+valid tool-call rate
+finish_trace rate
+held-out execution rate
 ```
 
-Gate: validation execution and `finish_trace` rates improve. Do not start GRPO from an untrained tool policy.
+### Gate
 
-## Phase 5 — H1 causal faithfulness
+Loss falls and held-out valid tool use, `finish_trace`, and execution improve relative to initialization.
 
-Optional on-policy trace training:
+### Stop
+
+A schema-only dry run is not evidence of learnability. Do not start GRPO from an untrained or revision-ambiguous tool policy.
+
+---
+
+## Phase 5 — Test H1 causal faithfulness
+
+### Objective
+
+Determine whether model behavior causally depends on information returned by the environment.
+
+### Optional on-policy refinement
 
 ```bash
 python scripts/train_inverse_agent_trace.py \
   --config configs/agent/inverse_trace_grpo.yaml
 ```
 
-Generate the normal artifact:
+### Normal prediction artifact
 
 ```bash
 python scripts/infer_mechet.py \
   --config configs/agent/inverse_trace_grpo.yaml \
   --data data/benchmarks/h1/test.jsonl \
   --output outputs/h1/normal.jsonl \
-  --mode trace --condition-name trace_no_knowledge \
-  --intervention none --samples-per-target 4
+  --mode trace \
+  --condition-name trace_no_knowledge \
+  --intervention none \
+  --samples-per-target 4 \
+  --seed 17 \
+  --resume
 ```
 
-Repeat with the same model, adapter, model revision, K, temperature, top-p, token limit, and iteration limit:
+Repeat with the identical model, adapter, model/tokenizer revisions, global seed, seed policy, candidate count, temperature, top-p, token limit, iteration limit, and frozen IDs:
 
 ```text
 remove_tool_observations
@@ -216,7 +335,7 @@ disable_intermediate_execution
 
 For shuffle, pass the normal artifact through `--intervention-source`.
 
-Evaluate:
+### Evaluate
 
 ```bash
 python scripts/evaluate_faithfulness.py \
@@ -228,19 +347,31 @@ python scripts/evaluate_faithfulness.py \
   --output outputs/h1/summary.json
 ```
 
-Gate:
+### Gate
 
 ```text
 all frozen IDs evaluated
-normal path 100% trace-bound among completed traces
-trace/proof metrics recompute without error
-identical runtime contract across interventions
-paired causal sensitivity is reported
+missing predictions retained as failures
+normal completed predictions explicitly use finish_trace
+trace, moves, proof, and endpoint recompute without error
+runtime metadata complete and identical across interventions
+intervention construction audited
+paired effects reported with uncertainty
 ```
+
+### Stop
 
 If observation interventions have no material paired effect, do not claim tool-grounded causal reasoning.
 
-## Phase 6 — H2 compositional generalization
+---
+
+## Phase 6 — Test H2 compositional generalization
+
+### Objective
+
+Hold out complete source-to-sink move compositions while retaining all constituent primitives in training.
+
+### Build split
 
 ```bash
 python scripts/build_mechcomp_ood.py \
@@ -252,22 +383,39 @@ python scripts/build_mechcomp_ood.py \
   --seed 42
 ```
 
-The split basis must be `source_to_sink_execution_moves_v1`, not net proof deltas or knowledge-anchor IDs.
-
-Gate:
+### Required manifest
 
 ```text
-non-empty held-out test
+primitive_basis = source_to_sink_execution_moves_v1
+non-empty validation and test sets
 zero train/test complete-composition overlap
-all held-out source-to-sink primitives seen in train
-achieved split fractions disclosed
+all test primitives seen in train
+requested and achieved split fractions
+exact product and reaction overlap audit
+scaffold and reaction-center overlap strata
 ```
 
-Train/evaluate direct, CoT, net-edit, complete-proof, and trace-owned representations on the same frozen split.
+### Evaluation
 
-## Phase 7 — H3 evidence separation
+Train and evaluate direct, CoT, net-edit, complete-proof, and trace-owned representations on the same frozen examples and budgets.
 
-Build evidence-content interventions when needed:
+### Gate
+
+Primitive coverage, composition novelty, and structural novelty are separately reported. No held-out primitive is mislabeled as composition OOD.
+
+### Stop
+
+Do not claim H2 when the test set is empty, contains unseen primitives, or is dominated by unreported structural near-duplicates.
+
+---
+
+## Phase 7 — Test H3 evidence separation
+
+### Objective
+
+Determine whether mechanistic evidence adds information beyond trace ownership and context length.
+
+### Build evidence-content interventions
 
 ```bash
 python scripts/build_evidence_interventions.py \
@@ -279,7 +427,7 @@ python scripts/build_evidence_interventions.py \
   --intervention remove_competing_pathways
 ```
 
-Generate six prediction artifacts with `scripts/infer_mechet.py` using modes:
+Generate prediction artifacts using modes:
 
 ```text
 trace
@@ -290,9 +438,9 @@ combined
 direct
 ```
 
-Evidence modes replay row-specific frozen evidence, so direct and trace conditions receive the same bounded evidence content.
+Evidence modes replay row-specific frozen evidence so direct and trace comparisons receive the same bounded content.
 
-Evaluate:
+### Evaluate
 
 ```bash
 python scripts/evaluate_knowledge_ablation.py \
@@ -306,42 +454,57 @@ python scripts/evaluate_knowledge_ablation.py \
   --output outputs/h3/summary.json
 ```
 
-Gate:
+### Gate
 
 ```text
 all frozen IDs evaluated; missing predictions count as failures
 no supervision rows accepted as predictions
-trace outputs recompile/re-execute
-same base/revision/generation budget across conditions
-condition-specific adapter hashes reported
+trace outputs require explicit successful finish_trace
+same base/model revision and generation contract across conditions
+condition-specific adapter hashes and token-normalized compute reported
 textbook > trace-only and textbook > irrelevant for a text-evidence claim
-combined > each individual condition for a combined-evidence claim
+combined > each individual evidence condition for a combined claim
 ```
 
-## Phase 8 — scale, forward evidence, and planning
+### Stop
+
+A gain explained by irrelevant context, label leakage, post-test evidence editing, missing predictions, or runtime mismatch does not support H3.
+
+---
+
+## Phase 8 — Scale, forward evidence, and planning
+
+### Objective
+
+Extend a validated core rather than use scale or downstream search to substitute for missing scientific evidence.
 
 Only after H1–H3 pilots pass:
 
 ```text
 0.6B / 1.7B / 8B scale study
 formal-process RL
-calibrated forward closure and explicit competitors
-K={1,4,16,64}
+calibrated forward closure with explicit competitors
+K = {1, 4, 16, 64}
 multistep planning under frozen candidate pools
 ```
 
-The forward expert remains a cached, frozen soft-evidence model. Planning is a downstream extension and cannot rescue failed H1 or H2 results.
+The forward expert remains frozen soft evidence. Planning is a downstream extension and cannot rescue failed H1 or H2 results.
 
-## Implemented prediction metrics
+---
+
+## Prediction metrics
+
+Candidate generations are unranked unless a frozen selector score is stored. Report:
 
 ```text
-structural precursor Top-1/5/10, ignoring atom maps
-mapped structural Top-1/5/10
+StructuralEndpointPass@1/5/10
+MappedEndpointPass@1/5/10
 ExecutePass@1/5/10
 TraceBoundPass@1/5/10
-coverage, selective risk, abstention
+coverage and selective risk
+abstention rate
 tool-failure recovery
-retrieval recall/precision when gold passage IDs exist
+retrieval Recall@K / Precision@K with frozen labels
 retrieval latency
 missing-prediction and re-execution error rates
 ```
@@ -352,14 +515,16 @@ Reaction-center and synthon metrics remain unavailable until frozen labels exist
 
 Stop or narrow a claim when:
 
-- conversion coverage is too narrow;
-- gold reaction labels enter a main retrieval query;
-- root imports or declared moves cannot replay;
-- tokenizer masks are empty or examples truncate;
-- required adapters/manifests/hashes do not match;
-- missing predictions are silently removed;
-- runtime budgets differ across a claimed intervention or ablation;
+- proof-to-trace coverage is systematically narrow;
+- a headline retrieval query uses gold reaction labels;
+- root imports or declared moves do not replay;
+- examples exceed the frozen tool budget;
+- tokenizer masks are empty or headline examples truncate;
+- adapter manifests, hashes, or model revisions do not match;
+- missing predictions are removed from the denominator;
+- a trace condition receives credit without explicit `finish_trace`;
+- runtime metadata are incomplete or differ across a claimed comparison;
 - H1 is insensitive to tool observations;
 - H2 contains unseen primitives rather than unseen compositions;
-- irrelevant text explains the evidence gain;
-- any learned score overrides deterministic execution.
+- irrelevant text explains an evidence gain;
+- a learned score overrides deterministic execution.
