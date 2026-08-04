@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import sys
 import time
 from typing import Any, Callable
 from urllib.parse import quote, urlparse
@@ -20,6 +21,11 @@ try:
     import yaml
 except ImportError as exc:  # pragma: no cover
     raise RuntimeError("install mechet[knowledge]") from exc
+
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "src"))
+
+from mechet.source_health import source_quality_metadata, validate_mediawiki_result
 
 DEFAULT_USER_AGENT = "MechET-Primitive-Library/0.2 (+https://github.com/wangyu-sd/MechET)"
 RETRYABLE_STATUS = {408, 425, 429, 500, 502, 503, 504}
@@ -162,6 +168,7 @@ def write(
         "sha256": sha(payload),
         "downloaded_at": now(),
     }
+    record.update(source_quality_metadata(row))
     record.update(extra or {})
     return record
 
@@ -344,6 +351,10 @@ def _download_mediawiki_page(
 ) -> dict[str, Any]:
     local = _local_mediawiki(row, title, import_dir)
     if local is not None:
+        backend = str(local.get("retrieval_backend") or "local_import")
+        local["validation"] = validate_mediawiki_result(
+            local, configured_title=title, backend=backend
+        )
         return local
     functions: dict[str, Callable[[dict, str, NetworkOptions], dict[str, Any]]] = {
         "rest": _mediawiki_rest, "action_api": _mediawiki_action,
@@ -353,6 +364,9 @@ def _download_mediawiki_page(
     for backend in backends:
         try:
             result = functions[backend](row, title, options)
+            result["validation"] = validate_mediawiki_result(
+                result, configured_title=title, backend=backend
+            )
             result["backend_errors"] = errors
             return result
         except Exception as exc:
@@ -382,7 +396,15 @@ def mediawiki(
             root, f"pages/{slug(str(title))}.json", payload, source_id, row,
             str(value.get("canonical_url") or value.get("retrieval_url") or ""),
             "application/json",
-            {"revision_id": value.get("revision_id"), "retrieval_backend": value.get("retrieval_backend")},
+            {
+                "revision_id": value.get("revision_id"),
+                "revision_timestamp": value.get("revision_timestamp"),
+                "retrieval_backend": value.get("retrieval_backend"),
+                "configured_title": str(title),
+                "resolved_title": value.get("title"),
+                "content_characters": len(str(value.get("wikitext") or "")),
+                **source_quality_metadata(row, title=str(title)),
+            },
         ))
     return output
 

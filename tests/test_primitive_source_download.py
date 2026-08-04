@@ -69,7 +69,7 @@ def test_mediawiki_falls_back_to_export(monkeypatch):
         "_mediawiki_export",
         lambda row, title, options: {
             "title": title,
-            "wikitext": "content",
+            "wikitext": "A revisioned textbook passage describing a mechanistic pathway and its electron-flow context. " * 2,
             "revision_id": 7,
             "retrieval_backend": "export",
             "retrieval_url": "https://example/export",
@@ -92,7 +92,7 @@ def test_mediawiki_falls_back_to_export(monkeypatch):
 def test_mediawiki_local_import_works_without_network(tmp_path):
     title = "Organic Chemistry/Ketones and aldehydes"
     (tmp_path / f"{module.slug(title)}.txt").write_text(
-        "local wikitext", encoding="utf-8"
+        "A locally imported textbook passage with sufficient mechanistic content for validation. " * 2, encoding="utf-8"
     )
     result = module._download_mediawiki_page(
         {"license": "CC-BY-SA"},
@@ -102,7 +102,7 @@ def test_mediawiki_local_import_works_without_network(tmp_path):
         tmp_path,
     )
     assert result["retrieval_backend"] == "local_import"
-    assert result["wikitext"] == "local wikitext"
+    assert "locally imported textbook passage" in result["wikitext"]
 
 
 def test_mediawiki_failure_is_actionable(monkeypatch):
@@ -136,3 +136,37 @@ def test_backend_list_accepts_comma_and_repeat():
     ]
     with pytest.raises(ValueError):
         module._backend_list(["unknown"])
+
+def test_mediawiki_invalid_success_falls_through_to_next_backend(monkeypatch):
+    monkeypatch.setattr(
+        module,
+        "_mediawiki_rest",
+        lambda row, title, options: {
+            "title": title,
+            "revision_id": None,
+            "wikitext": "",
+            "retrieval_backend": "rest",
+        },
+    )
+    monkeypatch.setattr(
+        module,
+        "_mediawiki_export",
+        lambda row, title, options: {
+            "title": title,
+            "revision_id": 9,
+            "wikitext": "A valid exported mechanistic textbook passage with enough content for the common validator. " * 2,
+            "retrieval_backend": "export",
+            "retrieval_url": "https://example/export",
+        },
+    )
+    result = module._download_mediawiki_page(
+        {},
+        "Organic Chemistry/Ketones and aldehydes",
+        module.NetworkOptions(),
+        ["rest", "export"],
+        None,
+    )
+    assert result["retrieval_backend"] == "export"
+    assert result["validation"]["content_nonempty"]
+    assert result["backend_errors"][0]["backend"] == "rest"
+

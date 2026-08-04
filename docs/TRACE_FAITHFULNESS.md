@@ -229,3 +229,7 @@ H1 is unsupported when any of the following hold:
 ## Scope
 
 Trace ownership establishes a causal computational contract. It does not establish that an inferred mechanism is unique, kinetically favored, high yielding, or experimentally realized.
+
+## Statistical identification
+
+The primary H1 comparison uses frozen target IDs as paired units. `evaluate_faithfulness.py` reports a paired bootstrap confidence interval, an exact McNemar test, and Holm correction over the declared intervention family. A final claim additionally requires independent training-seed aggregation through `scripts/aggregate_evaluation_seeds.py`; a single positive point estimate is insufficient.

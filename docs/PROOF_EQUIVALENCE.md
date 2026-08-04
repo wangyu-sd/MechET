@@ -209,3 +209,7 @@ Structured executor failures remain available for analysis and bounded repair. A
 ## Interpretation boundary
 
 H2 supports a compositional-generalization claim only when known source-to-sink units form unseen complete programs under audited structural overlap. It does not establish a unique physical mechanism or experimental feasibility.
+
+## Automated structural-overlap audit
+
+`build_mechcomp_ood.py` now audits exact product, structural-precursor and full reaction overlap; Murcko scaffold overlap; reaction-center context overlap; reaction-family overlap; and Morgan/Tanimoto near duplicates. Valid and test rows receive `metadata.mechcomp_structural_overlap`, and the manifest reports composition-OOD strata for scaffold-seen/unseen, center-seen/unseen and family-seen/unseen subsets. Composition novelty must not be interpreted as scaffold or family novelty.
