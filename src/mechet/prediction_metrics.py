@@ -55,8 +55,12 @@ def prediction_runtime_contract(
             for field in _RUNTIME_REQUIRED_FIELDS
             if contract.get(field) in (None, "")
         ]
-        if include_adapter and contract.get("adapter") and not contract.get(
-            "adapter_sha256"
+        is_scripted = contract.get("model_revision") == "scripted"
+        if (
+            include_adapter
+            and contract.get("adapter")
+            and not contract.get("adapter_sha256")
+            and not is_scripted
         ):
             missing.append("adapter_sha256")
         if missing:
