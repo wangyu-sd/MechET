@@ -63,6 +63,65 @@ def _paired_effect(normal_rows, intervention_rows) -> dict[str, Any]:
     }
 
 
+def _audit_intervention(
+    name: str, predictions: list[dict[str, Any]]
+) -> dict[str, Any]:
+    audits = [
+        dict((row.get("rollout_state") or {}).get("intervention_audit") or {})
+        for row in predictions
+    ]
+    present = len(audits) == len(predictions) and all(bool(item) for item in audits)
+    result: dict[str, Any] = {
+        "n_rows": len(predictions),
+        "audit_present_for_all_rows": present,
+    }
+    if name == "remove_tool_observations":
+        result["length_preserved_for_all_rows"] = present and all(
+            item.get("observation_length_preserved") is True for item in audits
+        )
+    if name == "shuffle_tool_observations":
+        self_donor_pairs = []
+        unavailable = {}
+        for row, audit in zip(predictions, audits):
+            target = str(audit.get("target_smiles") or row.get("target_smiles") or "")
+            donors = dict(audit.get("shuffle_donors") or {})
+            for tool_name, donor in donors.items():
+                donor_target = str((donor or {}).get("donor_target_smiles") or "")
+                if donor_target == target:
+                    self_donor_pairs.append(
+                        {
+                            "id": row_id(row),
+                            "tool": tool_name,
+                            "target_smiles": target,
+                        }
+                    )
+            missing = list(audit.get("shuffle_unavailable_tools") or [])
+            if missing:
+                unavailable[row_id(row)] = missing
+        result.update(
+            {
+                "shuffle_contract_valid_for_all_rows": present
+                and all(item.get("shuffle_contract_valid") is True for item in audits),
+                "self_donor_pairs": self_donor_pairs,
+                "self_donor_free": not self_donor_pairs,
+                "unavailable_tools_by_id": unavailable,
+                "all_called_tool_types_have_donors": not unavailable,
+                "donor_manifest_sha256": sorted(
+                    {
+                        str(
+                            (item.get("shuffle_plan_contract") or {}).get(
+                                "donor_manifest_sha256"
+                            )
+                            or ""
+                        )
+                        for item in audits
+                    }
+                ),
+            }
+        )
+    return result
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", type=Path, required=True)
@@ -113,6 +172,10 @@ def main() -> int:
         }
         for name, rows in interventions.items()
     }
+    intervention_audits = {
+        name: _audit_intervention(name, rows)
+        for name, rows in intervention_predictions.items()
+    }
     runtime_contracts = {
         "normal": normal_runtime,
         **{
@@ -129,6 +192,8 @@ def main() -> int:
     runtime_matched_across = len(set(runtime_digests.values())) == 1
 
     paired = {name: _paired_effect(normal, rows) for name, rows in interventions.items()}
+    remove_audit = intervention_audits.get("remove_tool_observations", {})
+    shuffle_audit = intervention_audits.get("shuffle_tool_observations", {})
     integrity = {
         "normal_all_predictions_present": normal_metrics["missing_prediction_rate"] == 0,
         "normal_trace_binding_complete": normal_metrics["trace_prediction_rate"] == 1 and normal_metrics["trace_bound_rate"] == 1,
@@ -137,6 +202,19 @@ def main() -> int:
         "interventions_no_reexecution_errors": all(value["evaluation_error_rate"] == 0 for value in intervention_metrics.values()),
         "runtime_contract_consistent_within_artifacts": runtime_consistent_within,
         "same_model_adapter_and_generation_budget": runtime_matched_across,
+        "removed_observation_lengths_preserved": remove_audit.get(
+            "length_preserved_for_all_rows"
+        )
+        is True,
+        "shuffle_has_no_self_donors": shuffle_audit.get("self_donor_free") is True,
+        "shuffle_donors_available": shuffle_audit.get(
+            "all_called_tool_types_have_donors"
+        )
+        is True,
+        "shuffle_contract_valid": shuffle_audit.get(
+            "shuffle_contract_valid_for_all_rows"
+        )
+        is True,
     }
     required_names = {
         "remove_tool_observations",
@@ -149,6 +227,12 @@ def main() -> int:
         for value in paired.values()
     ]
     causal_sensitivity = bool(effects) and max(effects) >= args.minimum_absolute_drop
+    intervention_contract_valid = (
+        integrity["removed_observation_lengths_preserved"]
+        and integrity["shuffle_has_no_self_donors"]
+        and integrity["shuffle_donors_available"]
+        and integrity["shuffle_contract_valid"]
+    )
 
     result = {
         "artifact_type": "frozen_causal_intervention_evaluation",
@@ -163,6 +247,7 @@ def main() -> int:
         "runtime_contract_digests": runtime_digests,
         "normal": normal_metrics,
         "interventions": intervention_metrics,
+        "intervention_audits": intervention_audits,
         "paired_effects": paired,
         "integrity": integrity,
         "claim_gates": {
@@ -172,12 +257,13 @@ def main() -> int:
             "all_prediction_artifacts_complete": integrity["normal_all_predictions_present"] and integrity["interventions_all_predictions_present"],
             "all_outputs_recompute_without_error": integrity["normal_no_reexecution_errors"] and integrity["interventions_no_reexecution_errors"],
             "same_runtime_contract": runtime_consistent_within and runtime_matched_across,
+            "intervention_contract_valid": intervention_contract_valid,
             "causal_sensitivity_observed": causal_sensitivity,
             "minimum_absolute_drop": args.minimum_absolute_drop,
         },
         "interpretation": {
-            "positive_result": "The same model, adapter, and generation budget is causally sensitive to environment-observation interventions.",
-            "negative_result": "Runtime mismatch or intervention insensitivity blocks the causal tool-grounding claim.",
+            "positive_result": "The same model, adapter, and generation budget is causally sensitive to audited environment-observation interventions.",
+            "negative_result": "Runtime mismatch, invalid intervention construction, or intervention insensitivity blocks the causal tool-grounding claim.",
             "structural_metric": "Atom-contributing structural precursor exact match, ignoring atom-map labels.",
         },
     }
