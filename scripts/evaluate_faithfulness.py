@@ -13,13 +13,12 @@ sys.path.insert(0, str(REPO / "src"))
 
 from mechet.knowledge_ablation import (
     align_prediction_artifact,
-    condition_metrics,
-    endpoint_evaluation,
     file_sha256,
     read_jsonl,
     row_id,
 )
 from mechet.prediction_metrics import prediction_runtime_contract, prediction_set_metrics
+from mechet.strict_prediction_evaluation import condition_metrics, endpoint_evaluation
 
 
 def parse_artifact(value: str) -> tuple[str, Path]:
@@ -33,12 +32,20 @@ def parse_artifact(value: str) -> tuple[str, Path]:
 
 def _paired_effect(normal_rows, intervention_rows) -> dict[str, Any]:
     normal = {row_id(row): endpoint_evaluation(row) for row in normal_rows}
-    intervention = {row_id(row): endpoint_evaluation(row) for row in intervention_rows}
+    intervention = {
+        row_id(row): endpoint_evaluation(row) for row in intervention_rows
+    }
     identifiers = list(normal)
-    normal_correct = sum(bool(normal[item]["structural_exact"]) for item in identifiers)
-    intervention_correct = sum(bool(intervention[item]["structural_exact"]) for item in identifiers)
+    normal_correct = sum(
+        bool(normal[item]["structural_exact"]) for item in identifiers
+    )
+    intervention_correct = sum(
+        bool(intervention[item]["structural_exact"]) for item in identifiers
+    )
     normal_trace = sum(bool(normal[item]["trace_bound"]) for item in identifiers)
-    intervention_trace = sum(bool(intervention[item]["trace_bound"]) for item in identifiers)
+    intervention_trace = sum(
+        bool(intervention[item]["trace_bound"]) for item in identifiers
+    )
     lost_correct = sum(
         bool(normal[item]["structural_exact"])
         and not bool(intervention[item]["structural_exact"])
@@ -54,10 +61,16 @@ def _paired_effect(normal_rows, intervention_rows) -> dict[str, Any]:
         "n_ids": len(identifiers),
         "normal_structural_exact_rate": normal_correct / n,
         "intervention_structural_exact_rate": intervention_correct / n,
-        "structural_exact_delta_intervention_minus_normal": (intervention_correct - normal_correct) / n,
+        "structural_exact_delta_intervention_minus_normal": (
+            intervention_correct - normal_correct
+        )
+        / n,
         "normal_trace_bound_rate": normal_trace / n,
         "intervention_trace_bound_rate": intervention_trace / n,
-        "trace_bound_delta_intervention_minus_normal": (intervention_trace - normal_trace) / n,
+        "trace_bound_delta_intervention_minus_normal": (
+            intervention_trace - normal_trace
+        )
+        / n,
         "correct_to_incorrect_rate": lost_correct / n,
         "incorrect_to_correct_rate": gained_correct / n,
     }
@@ -131,18 +144,26 @@ def main() -> int:
     parser.add_argument("--minimum-absolute-drop", type=float, default=0.01)
     args = parser.parse_args()
 
-    for path in [args.reference, args.normal, *(path for _, path in args.intervention)]:
+    for path in [
+        args.reference,
+        args.normal,
+        *(path for _, path in args.intervention),
+    ]:
         if not path.exists():
             raise FileNotFoundError(path)
 
     reference = read_jsonl(args.reference)
     normal_predictions = read_jsonl(args.normal)
-    normal = align_prediction_artifact(reference, normal_predictions, condition_name="normal")
+    normal = align_prediction_artifact(
+        reference, normal_predictions, condition_name="normal"
+    )
     normal_metrics = {
         **condition_metrics(normal),
         **prediction_set_metrics(normal),
     }
-    normal_runtime = prediction_runtime_contract(normal_predictions, include_adapter=True)
+    normal_runtime = prediction_runtime_contract(
+        normal_predictions, include_adapter=True
+    )
 
     interventions: dict[str, list[dict[str, Any]]] = {}
     intervention_predictions: dict[str, list[dict[str, Any]]] = {}
@@ -158,7 +179,9 @@ def main() -> int:
             raise ValueError(f"duplicate intervention name: {name}")
         predictions = read_jsonl(path)
         intervention_predictions[name] = predictions
-        interventions[name] = align_prediction_artifact(reference, predictions, condition_name=name)
+        interventions[name] = align_prediction_artifact(
+            reference, predictions, condition_name=name
+        )
         sources[name] = {
             "path": str(path),
             "sha256": file_sha256(path),
@@ -184,29 +207,61 @@ def main() -> int:
         },
     }
     runtime_digests = {
-        name: value["runtime_contract_sha256"] for name, value in runtime_contracts.items()
+        name: value["runtime_contract_sha256"]
+        for name, value in runtime_contracts.items()
     }
     runtime_consistent_within = all(
-        value["runtime_contract_consistent"] for value in runtime_contracts.values()
+        value["runtime_contract_consistent"]
+        for value in runtime_contracts.values()
+    )
+    runtime_complete = all(
+        value["runtime_contract_complete"] for value in runtime_contracts.values()
     )
     runtime_matched_across = len(set(runtime_digests.values())) == 1
 
-    paired = {name: _paired_effect(normal, rows) for name, rows in interventions.items()}
+    paired = {
+        name: _paired_effect(normal, rows)
+        for name, rows in interventions.items()
+    }
     remove_audit = intervention_audits.get("remove_tool_observations", {})
     shuffle_audit = intervention_audits.get("shuffle_tool_observations", {})
     integrity = {
-        "normal_all_predictions_present": normal_metrics["missing_prediction_rate"] == 0,
-        "normal_trace_binding_complete": normal_metrics["trace_prediction_rate"] == 1 and normal_metrics["trace_bound_rate"] == 1,
-        "normal_no_reexecution_errors": normal_metrics["evaluation_error_rate"] == 0,
-        "interventions_all_predictions_present": all(value["missing_prediction_rate"] == 0 for value in intervention_metrics.values()),
-        "interventions_no_reexecution_errors": all(value["evaluation_error_rate"] == 0 for value in intervention_metrics.values()),
+        "normal_all_predictions_present": normal_metrics[
+            "missing_prediction_rate"
+        ]
+        == 0,
+        "normal_trace_binding_complete": normal_metrics[
+            "trace_prediction_rate"
+        ]
+        == 1
+        and normal_metrics["trace_bound_rate"] == 1
+        and normal_metrics["unfinished_or_invalid_prediction_rate"] == 0,
+        "normal_no_reexecution_errors": normal_metrics[
+            "evaluation_error_rate"
+        ]
+        == 0,
+        "interventions_all_predictions_present": all(
+            value["missing_prediction_rate"] == 0
+            for value in intervention_metrics.values()
+        ),
+        "interventions_no_reexecution_errors": all(
+            value["evaluation_error_rate"] == 0
+            for value in intervention_metrics.values()
+        ),
+        "interventions_all_explicitly_finished": all(
+            value["unfinished_or_invalid_prediction_rate"] == 0
+            for value in intervention_metrics.values()
+        ),
         "runtime_contract_consistent_within_artifacts": runtime_consistent_within,
-        "same_model_adapter_and_generation_budget": runtime_matched_across,
+        "runtime_contract_complete": runtime_complete,
+        "same_model_adapter_and_generation_budget": runtime_matched_across
+        and runtime_complete,
         "removed_observation_lengths_preserved": remove_audit.get(
             "length_preserved_for_all_rows"
         )
         is True,
-        "shuffle_has_no_self_donors": shuffle_audit.get("self_donor_free") is True,
+        "shuffle_has_no_self_donors": shuffle_audit.get("self_donor_free")
+        is True,
         "shuffle_donors_available": shuffle_audit.get(
             "all_called_tool_types_have_donors"
         )
@@ -226,7 +281,9 @@ def main() -> int:
         -float(value["structural_exact_delta_intervention_minus_normal"])
         for value in paired.values()
     ]
-    causal_sensitivity = bool(effects) and max(effects) >= args.minimum_absolute_drop
+    causal_sensitivity = (
+        bool(effects) and max(effects) >= args.minimum_absolute_drop
+    )
     intervention_contract_valid = (
         integrity["removed_observation_lengths_preserved"]
         and integrity["shuffle_has_no_self_donors"]
@@ -253,22 +310,39 @@ def main() -> int:
         "claim_gates": {
             "required_interventions_present": not missing_required,
             "missing_required_interventions": missing_required,
-            "normal_path_is_fully_trace_bound": integrity["normal_trace_binding_complete"],
-            "all_prediction_artifacts_complete": integrity["normal_all_predictions_present"] and integrity["interventions_all_predictions_present"],
-            "all_outputs_recompute_without_error": integrity["normal_no_reexecution_errors"] and integrity["interventions_no_reexecution_errors"],
-            "same_runtime_contract": runtime_consistent_within and runtime_matched_across,
+            "normal_path_is_fully_trace_bound": integrity[
+                "normal_trace_binding_complete"
+            ],
+            "all_prediction_artifacts_complete": integrity[
+                "normal_all_predictions_present"
+            ]
+            and integrity["interventions_all_predictions_present"],
+            "all_trace_predictions_explicitly_finished": integrity[
+                "normal_trace_binding_complete"
+            ]
+            and integrity["interventions_all_explicitly_finished"],
+            "all_outputs_recompute_without_error": integrity[
+                "normal_no_reexecution_errors"
+            ]
+            and integrity["interventions_no_reexecution_errors"],
+            "same_runtime_contract": runtime_consistent_within
+            and runtime_matched_across
+            and runtime_complete,
+            "runtime_contract_complete": runtime_complete,
             "intervention_contract_valid": intervention_contract_valid,
             "causal_sensitivity_observed": causal_sensitivity,
             "minimum_absolute_drop": args.minimum_absolute_drop,
         },
         "interpretation": {
-            "positive_result": "The same model, adapter, and generation budget is causally sensitive to audited environment-observation interventions.",
-            "negative_result": "Runtime mismatch, invalid intervention construction, or intervention insensitivity blocks the causal tool-grounding claim.",
+            "positive_result": "The same model, adapter, seed, and generation budget is causally sensitive to audited environment-observation interventions after explicit finish_trace termination.",
+            "negative_result": "Runtime mismatch, incomplete metadata, invalid intervention construction, missing finish_trace, or intervention insensitivity blocks the causal tool-grounding claim.",
             "structural_metric": "Atom-contributing structural precursor exact match, ignoring atom-map labels.",
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    args.output.write_text(
+        json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0
 
