@@ -18,6 +18,7 @@ from mechet.proof_splits import (
 from mechet.structural_overlap import (
     annotate_rows_with_overlap,
     audit_structural_overlap,
+    reaction_center_context_signature,
 )
 
 
@@ -63,6 +64,7 @@ def main() -> int:
     for row in rows:
         try:
             extract_split_features(row)
+            reaction_center_context_signature(row)
             accepted.append(row)
         except Exception as exc:
             code = str(exc).split(":", 1)[0].strip() or type(exc).__name__
