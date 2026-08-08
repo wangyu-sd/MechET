@@ -18,6 +18,7 @@ training:
   save_steps: 100
   trust_remote_code: true
   report_to: []
+  model_revision: 'main'
 
 lora:
   r: 16
