@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter, defaultdict
 from copy import deepcopy
 import hashlib
 import json
@@ -10,6 +11,12 @@ from pathlib import Path
 import re
 import sys
 from typing import Any, Mapping
+
+try:
+    from tqdm import tqdm
+except ImportError:  # pragma: no cover - fallback for minimal environments
+    def tqdm(iterable, **_kwargs):
+        return iterable
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
@@ -109,7 +116,9 @@ def passage_shuffle(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         raise ValueError("passage shuffle requires at least two rows")
     prepared = [(row, _tool_result_location(row, TEXTBOOK_TOOL)[1]) for row in rows]
     output: list[dict[str, Any]] = []
-    for index, (row, original) in enumerate(prepared):
+    for index, (row, original) in enumerate(
+        tqdm(prepared, desc="passage_shuffle", unit="row")
+    ):
         donor = prepared[(index + 1) % len(prepared)]
         if row_id(donor[0]) == row_id(row):
             raise ValueError(f"{row_id(row)}: passage shuffle selected itself")
@@ -124,28 +133,50 @@ def passage_shuffle(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return output
 
 
-def same_topic_wrong(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    prepared = [(row, _tool_result_location(row, TEXTBOOK_TOOL)[1]) for row in rows]
+def same_topic_wrong(
+    rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    prepared = []
+    term_index: dict[str, list[int]] = defaultdict(list)
+    for row in rows:
+        original = _tool_result_location(row, TEXTBOOK_TOOL)[1]
+        terms = _terms(original)
+        passage_ids = set((original.get("context") or {}).get("passage_ids") or [])
+        row_key = row_id(row)
+        prepared.append((row, original, row_key, terms, passage_ids))
+        for term in terms:
+            term_index[term].append(len(prepared) - 1)
     output: list[dict[str, Any]] = []
-    for row, original in prepared:
-        source_terms = _terms(original)
-        source_ids = set((original.get("context") or {}).get("passage_ids") or [])
+    quarantined: list[dict[str, Any]] = []
+    for index, (row, original, row_key, source_terms, source_ids) in enumerate(
+        tqdm(prepared, desc="same_topic_wrong", unit="row")
+    ):
         candidates = []
-        for donor_row, donor_result in prepared:
-            if row_id(donor_row) == row_id(row):
-                continue
-            donor_ids = set(
-                (donor_result.get("context") or {}).get("passage_ids") or []
-            )
-            shared = source_terms & _terms(donor_result)
+        candidate_indices: set[int] = set()
+        for term in source_terms:
+            candidate_indices.update(term_index.get(term, ()))
+        candidate_indices.discard(index)
+        for donor_index in candidate_indices:
+            donor_row, donor_result, donor_key, donor_terms, donor_ids = prepared[
+                donor_index
+            ]
+            shared = source_terms & donor_terms
             if shared and source_ids.isdisjoint(donor_ids):
                 candidates.append(
-                    (len(shared), row_id(donor_row), donor_row, donor_result, shared)
+                    (len(shared), donor_key, donor_row, donor_result, shared)
                 )
         if not candidates:
-            raise ValueError(
-                f"{row_id(row)}: no same-topic wrong-passage donor; add reviewed topic labels"
+            quarantined.append(
+                {
+                    "id": row_key,
+                    "error_code": "NO_SAME_TOPIC_WRONG_PASSAGE_DONOR",
+                    "error": (
+                        f"{row_key}: no same-topic wrong-passage donor; "
+                        "add reviewed topic labels"
+                    ),
+                }
             )
+            continue
         _, _, donor_row, donor_result, shared = max(
             candidates, key=lambda item: (item[0], item[1])
         )
@@ -158,7 +189,7 @@ def same_topic_wrong(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         metadata["shared_retrieval_terms"] = sorted(shared)
         value["metadata"] = metadata
         output.append(value)
-    return output
+    return output, quarantined
 
 
 def _remove_selected_keys(value: Any, blocked: set[str]) -> Any:
@@ -190,7 +221,7 @@ def _rewrite_anchor_result(
 
 def remove_warnings(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
-    for row in rows:
+    for row in tqdm(rows, desc="remove_warnings", unit="row"):
         value = _rewrite_anchor_result(row, _WARNING_KEYS, "remove_warnings")
         try:
             _, result = _tool_result_location(value, TEXTBOOK_TOOL)
@@ -211,7 +242,7 @@ def remove_competing_pathways(
     rows: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
-    for row in rows:
+    for row in tqdm(rows, desc="remove_competing_pathways", unit="row"):
         value = _rewrite_anchor_result(
             row, _COMPETITOR_KEYS, "remove_competing_pathways"
         )
@@ -253,6 +284,7 @@ def main() -> int:
     args = parser.parse_args()
 
     rows = read_jsonl(args.input)
+    rows_by_id = {row_id(row): row for row in rows}
     transforms = {
         "passage_shuffle": passage_shuffle,
         "same_topic_wrong": same_topic_wrong,
@@ -262,29 +294,32 @@ def main() -> int:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     outputs = {}
     for name in args.intervention:
+        quarantined: list[dict[str, Any]] = []
         transformed = transforms[name](rows)
+        if name == "same_topic_wrong":
+            transformed, quarantined = transformed
         path = args.output_dir / f"{name}.jsonl"
         write_jsonl(path, transformed)
+        quarantine_path = None
+        if quarantined:
+            quarantine_path = args.output_dir / f"{name}.quarantine.jsonl"
+            write_jsonl(quarantine_path, quarantined)
         outputs[name] = {
             "path": str(path),
             "n_rows": len(transformed),
+            "n_quarantined": len(quarantined),
+            "quarantine": str(quarantine_path) if quarantine_path else None,
+            "quarantine_reasons": dict(
+                Counter(item["error_code"] for item in quarantined)
+            ),
             "stable_ids_sha256": hashlib.sha256(
                 "\n".join(row_id(item) for item in transformed).encode()
             ).hexdigest(),
             "characters_preserved": all(
-                int(
-                    (left.get("metadata") or {}).get(
-                        "textbook_context_characters"
-                    )
-                    or 0
-                )
-                == int(
-                    (right.get("metadata") or {}).get(
-                        "textbook_context_characters"
-                    )
-                    or 0
-                )
-                for left, right in zip(rows, transformed)
+                int((rows_by_id[row_id(item)].get("metadata") or {}).get("textbook_context_characters") or 0)
+                == int((item.get("metadata") or {}).get("textbook_context_characters") or 0)
+                for item in transformed
+                if row_id(item) in rows_by_id
             ),
         }
     manifest = {
