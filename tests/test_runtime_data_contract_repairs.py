@@ -157,6 +157,27 @@ def test_mutable_downstream_config_defers_to_adapter_commit():
         resolve_lineage_revision(SHA_B, SHA_A)
 
 
+def test_inference_revision_prefers_frozen_adapter_over_mutable_config():
+    module = load_script("infer_mechet.py")
+    assert (
+        module._resolve_revision(
+            {"training": {"model_revision": "main"}},
+            "",
+            {"base_model_revision": SHA_A},
+            scripted=False,
+        )
+        == SHA_A
+    )
+    with pytest.raises(ValueError, match="immutable 40-hex model revision"):
+        module._resolve_revision(
+            {"training": {"model_revision": "main"}},
+            "",
+            {},
+            scripted=False,
+        )
+    assert module._resolve_revision({}, "", {}, scripted=True) == "scripted"
+
+
 def test_transformers5_length_grouping_uses_sampling_strategy():
     module = load_script("train_tool_sft.py")
 
@@ -349,3 +370,13 @@ def test_same_topic_wrong_writes_paired_eligible_reference(tmp_path):
     assert eligible["stable_ids"] == [row["id"] for row in transformed]
     assert [row["id"] for row in reference] == [row["id"] for row in transformed]
     assert manifest["contract"]["full_input_id_universe_preserved"] is False
+
+
+def test_repaired_runner_clis_parse():
+    for name in (
+        "run_h1_suite.py",
+        "run_h2_suite.py",
+        "run_h3_suite.py",
+        "run_h3_intervention.py",
+    ):
+        subprocess.check_call([sys.executable, str(REPO / "scripts" / name), "--help"])
