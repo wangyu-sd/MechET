@@ -18,16 +18,16 @@ from mechet.knowledge_ablation import (
 from mechet.tool_schemas import trace_tool_schemas
 
 
-def _load_conversational_records():
+def _load_tool_sft_module():
     path = Path(__file__).resolve().parents[1] / "scripts" / "train_tool_sft.py"
     spec = importlib.util.spec_from_file_location("mechet_train_tool_sft", path)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.conversational_records
+    return module
 
 
-conversational_records = _load_conversational_records()
+tool_sft_module = _load_tool_sft_module()
 
 
 def tool_call(name, arguments=None, call_id="call_1"):
@@ -64,6 +64,29 @@ def row(identifier, target, context_text, passage_id, *, anchors=False):
         "n_characters": len(context_text),
         "truncated": False,
     }
+    textbook = {
+        "ok": True,
+        "context": context,
+        "matches": [
+            {
+                "passage_id": passage_id,
+                "matched_terms": [],
+                "state_terms": [],
+            }
+        ],
+        "direct_reward": False,
+    }
+    anchors_result = {
+        "ok": True,
+        "matches": [
+            {
+                "primitive_id": passage_id,
+                "warnings": ["warning survives competitor removal"],
+                "competitors": ["competitor survives warning removal"],
+            }
+        ],
+        "direct_reward": False,
+    }
     messages = [
         {"role": "system", "content": "Use trace-owned tools."},
         {"role": "user", "content": f"TARGET: {target}"},
@@ -75,13 +98,10 @@ def row(identifier, target, context_text, passage_id, *, anchors=False):
         tool_result(
             "retrieve_textbook_guidance",
             {
-                "ok": True,
+                **textbook,
                 "query": passage_id,
                 "state_smiles": target,
-                "context": context,
-                "matches": [{"passage_id": passage_id}],
                 "soft_evidence_only": True,
-                "direct_reward": False,
             },
             "knowledge",
         ),
@@ -93,10 +113,8 @@ def row(identifier, target, context_text, passage_id, *, anchors=False):
                 tool_result(
                     "retrieve_primitives",
                     {
-                        "ok": True,
-                        "matches": [{"primitive_id": passage_id}],
+                        **anchors_result,
                         "soft_evidence_only": True,
-                        "direct_reward": False,
                     },
                     "anchor",
                 ),
@@ -274,12 +292,14 @@ def test_contract_summary_counts_tool_call_supervision_and_schemas():
     assert summary["chemistry_tool_calls"] == 4
 
 
-def test_tool_sft_records_keep_messages_and_tools():
-    prepared = conversational_records(rows())
-    assert prepared[0]["id"] == "r1"
-    assert "messages" in prepared[0]
-    assert "tools" in prepared[0]
-    assert "text" not in prepared[0]
+def test_tool_sft_validates_messages_and_tools_without_legacy_record_projection():
+    source = rows()
+    report = tool_sft_module.validate_rows(source, require_trace_owned=True)
+    assert report["conversation_schema_valid"] is True
+    assert report["n_rows"] == 2
+    assert "messages" in source[0]
+    assert "tools" in source[0]
+    assert "text" not in source[0]
 
 
 def test_prediction_alignment_rejects_supervision_artifact():
