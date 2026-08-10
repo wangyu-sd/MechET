@@ -8,6 +8,8 @@ on:
       - "pyproject.toml"
       - "src/mechet/agent_*.py"
       - "src/mechet/*environment*.py"
+      - "src/mechet/assistant_masking.py"
+      - "src/mechet/model_revision.py"
       - "src/mechet/electron_flow_trace.py"
       - "src/mechet/endpoints.py"
       - "src/mechet/prediction_metrics.py"
@@ -19,12 +21,20 @@ on:
       - "scripts/infer_mechet.py"
       - "scripts/evaluate_faithfulness.py"
       - "scripts/aggregate_evaluation_seeds.py"
+      - "scripts/build_h1_benchmark.py"
+      - "scripts/build_knowledge_ablation_suite.py"
+      - "scripts/build_evidence_interventions.py"
+      - "scripts/run_h1_suite.py"
+      - "scripts/run_h2_suite.py"
+      - "scripts/run_h3_suite.py"
       - "scripts/train_inverse_agent_*.py"
       - "scripts/train_tool_sft.py"
       - "scripts/build_textbook_tool_sft.py"
       - "configs/agent/**"
       - "configs/knowledge/**"
+      - "configs/experiments/**"
       - "tests/test_agent_*.py"
+      - "tests/test_runtime_data_contract_repairs.py"
       - "tests/test_statistical_evaluation.py"
       - "tests/test_evaluation_seed_aggregation.py"
       - "tests/test_runtime_closure.py"
@@ -41,6 +51,7 @@ on:
       - "scripts/**"
       - "configs/agent/**"
       - "configs/knowledge/**"
+      - "configs/experiments/**"
       - "tests/**"
 
 jobs:
@@ -71,6 +82,8 @@ jobs:
             src/mechet/agent_env.py \
             src/mechet/agent_inference.py \
             src/mechet/anchor_trl_environment.py \
+            src/mechet/assistant_masking.py \
+            src/mechet/model_revision.py \
             src/mechet/electron_flow_trace.py \
             src/mechet/endpoints.py \
             src/mechet/frozen_evidence_environments.py \
@@ -82,10 +95,16 @@ jobs:
             src/mechet/trace_agent_env.py \
             src/mechet/trl_environments.py \
             scripts/agent_model_init.py \
+            scripts/build_h1_benchmark.py \
+            scripts/build_knowledge_ablation_suite.py \
+            scripts/build_evidence_interventions.py \
             scripts/build_textbook_tool_sft.py \
             scripts/evaluate_faithfulness.py \
             scripts/aggregate_evaluation_seeds.py \
             scripts/infer_mechet.py \
+            scripts/run_h1_suite.py \
+            scripts/run_h2_suite.py \
+            scripts/run_h3_suite.py \
             scripts/train_inverse_agent_trl.py \
             scripts/train_inverse_agent_trace.py \
             scripts/train_inverse_agent_knowledge.py \
@@ -99,6 +118,7 @@ jobs:
             tests/test_knowledge_agent_env.py \
             tests/test_proof_to_trace.py \
             tests/test_runtime_closure.py \
+            tests/test_runtime_data_contract_repairs.py \
             tests/test_statistical_evaluation.py \
             tests/test_evaluation_seed_aggregation.py
       - name: Build root-import Tool-SFT supervision
@@ -146,7 +166,8 @@ jobs:
           output_dir: /tmp/mechet-runtime/adapter
           training:
             assistant_only_loss: true
-            max_length: 4096
+            packing: false
+            max_length: 12288
           contract:
             require_trace_owned: true
             terminal_tool: finish_trace
@@ -154,7 +175,8 @@ jobs:
           python scripts/train_tool_sft.py \
             --config /tmp/mechet-runtime/tool_sft.yaml --dry-run \
             | tee /tmp/mechet-runtime/tool_sft_report.json
-          grep -q conversational_messages_with_tools /tmp/mechet-runtime/tool_sft_report.json
+          grep -q pretokenized_chatml_with_explicit_assistant_labels /tmp/mechet-runtime/tool_sft_report.json
+          grep -q '"assistant_only_loss": true' /tmp/mechet-runtime/tool_sft_report.json
           grep -q '"conversation_schema_valid": true' /tmp/mechet-runtime/tool_sft_report.json
       - name: Exercise explicit TRL facades
         run: |
@@ -234,3 +256,7 @@ jobs:
           python scripts/evaluate_faithfulness.py --help
           python scripts/aggregate_evaluation_seeds.py --help
           python scripts/build_textbook_tool_sft.py --help
+          python scripts/build_h1_benchmark.py --help
+          python scripts/run_h1_suite.py --help
+          python scripts/run_h2_suite.py --help
+          python scripts/run_h3_suite.py --help
