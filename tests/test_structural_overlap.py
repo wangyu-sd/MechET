@@ -1,3 +1,5 @@
+from rdkit import Chem
+
 from mechet.structural_overlap import (
     annotate_rows_with_overlap,
     audit_structural_overlap,
@@ -81,10 +83,9 @@ def test_canonical_unmapped_smiles_removes_map_labels():
 
 def test_reaction_center_context_uses_step_imports_not_only_target_atoms():
     value = imported_center_row()
-    target_maps = {
-        atom.GetAtomMapNum()
-        for atom in __import__("rdkit").Chem.MolFromSmiles(value["target_smiles"]).GetAtoms()
-    }
+    mol = Chem.MolFromSmiles(value["target_smiles"])
+    assert mol is not None
+    target_maps = {atom.GetAtomMapNum() for atom in mol.GetAtoms()}
     assert 3 not in target_maps
     signature = reaction_center_context_signature(value)
     assert len(signature) == 64
