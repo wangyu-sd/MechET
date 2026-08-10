@@ -4,10 +4,10 @@ initial_adapter_path: outputs/agent/tool_sft_trace_no_knowledge_qwen3_0_6b
 initial_adapter_manifest: outputs/agent/tool_sft_trace_no_knowledge_qwen3_0_6b/adapter_manifest.json
 initial_adapter_sha256: auto
 require_initial_adapter: true
-evidence_suite_manifest: data/knowledge_ablation/v2/manifest.json
+evidence_suite_manifest: data/knowledge_ablation/v2/train/manifest.json
 environment_revision: trace_owned_move_replay_v2
 executor_revision: MECH_PROOF_v1_move_bound
-train_file: data/knowledge_ablation/v2/trace_no_knowledge.jsonl
+train_file: data/knowledge_ablation/v2/train/trace_no_knowledge.jsonl
 output_dir: outputs/agent/inverse_trace_grpo
 forward_checkpoint: ""
 forward_device: cpu
@@ -41,6 +41,7 @@ training:
   temperature: 0.9
   top_p: 0.95
   beta: 0.02
+  # Portable default. Use inverse_trace_grpo_vllm.yaml for paper-scale throughput.
   use_vllm: false
   logging_steps: 1
   save_steps: 100
