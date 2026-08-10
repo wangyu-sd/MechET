@@ -1,0 +1,57 @@
+# Paper-scale throughput profile. The portable/default config keeps vLLM off so
+# CPU/single-GPU smoke tests do not acquire a hidden serving dependency.
+scientific_hypothesis: H1_causal_faithfulness
+model_name_or_path: Qwen/Qwen3-0.6B
+initial_adapter_path: outputs/agent/tool_sft_trace_no_knowledge_qwen3_0_6b
+initial_adapter_manifest: outputs/agent/tool_sft_trace_no_knowledge_qwen3_0_6b/adapter_manifest.json
+initial_adapter_sha256: auto
+require_initial_adapter: true
+evidence_suite_manifest: data/knowledge_ablation/v2/train/manifest.json
+environment_revision: trace_owned_move_replay_v2
+executor_revision: MECH_PROOF_v1_move_bound
+train_file: data/knowledge_ablation/v2/train/trace_no_knowledge.jsonl
+output_dir: outputs/agent/inverse_trace_grpo_vllm
+forward_checkpoint: ""
+forward_device: cpu
+limit_examples: 0
+
+environment:
+  max_tool_calls: 16
+  formal_success: 1.0
+  formal_failure: -4.0
+  endpoint_exact: 2.0
+  successful_step: 0.05
+  successful_step_cap: 3
+  failed_step_penalty: 0.25
+  tool_use_bonus: 0.0
+  no_tool_penalty: 0.5
+  forward_reward_scale: 0.0
+  abstain_reward: -0.25
+  unfinished_reward: -4.0
+  require_tool_use: true
+
+training:
+  seed: 17
+  data_seed: 17
+  learning_rate: 5.0e-6
+  num_train_epochs: 1.0
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  num_generations: 8
+  max_completion_length: 2048
+  max_tool_calling_iterations: 16
+  temperature: 0.9
+  top_p: 0.95
+  beta: 0.02
+  use_vllm: true
+  logging_steps: 1
+  save_steps: 100
+  enable_thinking: true
+  trust_remote_code: true
+  report_to: []
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
