@@ -1,0 +1,46 @@
+condition_name: h2_mechcomp_trace_owned
+scientific_hypothesis: H2_compositional_generalization
+model_name_or_path: Qwen/Qwen3-0.6B
+train_file: data/ood/mechcomp_source_sink/train.jsonl
+output_dir: outputs/h2/tool_sft_trace_qwen3_0_6b
+limit_examples: 0
+
+training:
+  learning_rate: 2.0e-5
+  num_train_epochs: 1.0
+  max_steps: -1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+  max_length: 12288
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  logging_steps: 1
+  save_steps: 100
+  trust_remote_code: true
+  report_to: []
+  model_revision: main
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  stable_id_manifest: data/ood/mechcomp_source_sink/manifest.json
+  validation_report: null
+  require_trace_owned: true
+  endpoint_source: environment_owned_trace
+  terminal_tool: finish_trace
+  free_form_proof_submission: false
+  knowledge_direct_reward: false
+  environment_revision: trace_owned_move_replay_v2
+  executor_revision: MECH_PROOF_v1_move_bound
+  h2_train_only: true
+  h2_test_file: data/ood/mechcomp_source_sink/test.jsonl
+  real_overfit_smoke_test_required: true
+  smoke_command: >-
+    python scripts/train_tool_sft.py --config
+    configs/agent/tool_sft_mechcomp_trace.yaml --limit 32 --max-steps 100
+  rl_after_supervised_signal_only: false
