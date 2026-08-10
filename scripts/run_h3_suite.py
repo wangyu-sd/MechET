@@ -10,6 +10,10 @@ import sys
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "src"))
+
+from mechet.model_revision import is_immutable_revision
+
 CONDITIONS = {
     "trace_no_knowledge": {
         "mode": "trace",
@@ -82,7 +86,7 @@ def _check_adapter(condition: str, adapter: Path, train_file: Path) -> dict[str,
             f"H3_ADAPTER_TRAIN_SPLIT_MISMATCH:{condition}:{observed}!={expected}"
         )
     revision = str(manifest.get("base_model_revision") or "")
-    if len(revision) != 40:
+    if not is_immutable_revision(revision):
         raise ValueError(f"{condition}: adapter lacks immutable base-model revision")
     return manifest
 
@@ -135,16 +139,20 @@ def main() -> int:
     args.out_dir.mkdir(parents=True, exist_ok=True)
     predictions: dict[str, Path] = {}
     adapter_meta: dict[str, Any] = {}
+    inference_revisions: dict[str, str] = {}
     for condition, spec in CONDITIONS.items():
         data = args.suite_root / f"{condition}.jsonl"
         train_file = train_root / f"{condition}.jsonl"
         adapter = adapters[condition]
         config = configs[condition]
+        immutable_revision = ""
         if not args.dry_run:
             for path in (data, train_file, config):
                 if not path.exists():
                     raise FileNotFoundError(path)
             adapter_meta[condition] = _check_adapter(condition, adapter, train_file)
+            immutable_revision = str(adapter_meta[condition]["base_model_revision"])
+            inference_revisions[condition] = immutable_revision
         output = args.out_dir / f"{condition}.jsonl"
         predictions[condition] = output
         cmd = [
@@ -175,6 +183,8 @@ def main() -> int:
             "--top-p",
             str(args.top_p),
         ]
+        if immutable_revision:
+            cmd += ["--model-revision", immutable_revision]
         if args.limit:
             cmd += ["--limit", str(args.limit)]
         if args.resume:
@@ -204,6 +214,8 @@ def main() -> int:
             name: value.get("base_model_revision")
             for name, value in adapter_meta.items()
         },
+        "inference_model_revisions": inference_revisions,
+        "inference_revisions_pinned_from_adapter_manifests": not args.dry_run,
         "seed": args.seed,
         "samples_per_target": args.samples_per_target,
         "dry_run": args.dry_run,
