@@ -2,8 +2,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-import pytest
-
 
 def load_module():
     path = Path(__file__).resolve().parents[1] / "scripts" / "build_evidence_interventions.py"
@@ -124,15 +122,19 @@ def test_passage_shuffle_uses_a_different_donor_and_preserves_length():
 
 
 def test_same_topic_wrong_requires_shared_terms_and_different_passage():
-    changed = mod.same_topic_wrong(rows())
+    changed, quarantined = mod.same_topic_wrong(rows())
+    assert quarantined == []
     assert changed[0]["metadata"]["evidence_donor_id"] == "r2"
     assert changed[0]["metadata"]["shared_retrieval_terms"]
 
 
-def test_same_topic_wrong_fails_without_a_reviewed_donor():
+def test_same_topic_wrong_quarantines_when_no_reviewed_donor_exists():
     single = [row("r1", "[CH4:1]", "p1", "Only text", ["unique"])]
-    with pytest.raises(ValueError, match="no same-topic wrong-passage donor"):
-        mod.same_topic_wrong(single)
+    changed, quarantined = mod.same_topic_wrong(single)
+    assert changed == []
+    assert len(quarantined) == 1
+    assert quarantined[0]["id"] == "r1"
+    assert quarantined[0]["error_code"] == "NO_SAME_TOPIC_WRONG_PASSAGE_DONOR"
 
 
 def test_warning_and_competitor_interventions_are_isolated():
