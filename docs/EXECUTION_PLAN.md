@@ -10,12 +10,12 @@
 |---|---|---|---|
 | **0** | Freeze code, data, model, and reporting contracts | Reproducibility manifest | All revisions and seeds explicit |
 | **1** | Build executable proof data and remove benchmark overlap | Clean proof dataset | Execution, endpoint, and leakage audits pass |
-| **2** | Measure proof-to-trace coverage and build evidence assets | Replay-verified source conditions | Coverage supports the declared chemistry scope |
-| **3** | Derive six matched evidence conditions | Frozen suite manifest | IDs, endpoints, schemas, tokens, and budgets align |
+| **2** | Measure proof-to-trace coverage and build evidence assets | Replay-verified train/valid/test source rows | Coverage supports the declared chemistry scope |
+| **3** | Derive six matched evidence conditions separately for train/valid/test | Split evidence-suite manifests | IDs, endpoints, schemas, tokens, budgets, and split isolation align |
 | **4** | Establish real Tool-SFT learnability | Adapter manifest and pilot report | Tool syntax and held-out completion improve |
-| **5** | Test H1 causal faithfulness | Normal/intervention prediction artifacts | Strict trace integrity and paired sensitivity |
-| **6** | Test H2 compositional generalization | Frozen composition-OOD split | Known primitives, unseen complete compositions |
-| **7** | Test H3 evidence separation | Six-condition evaluation | Evidence exceeds trace-only and matched context controls |
+| **5** | Test H1 causal faithfulness | Frozen H1 benchmark and paired intervention artifacts | Strict trace integrity and paired sensitivity |
+| **6** | Test H2 compositional generalization | Frozen composition-OOD split and H2-only checkpoint | Known primitives, unseen complete compositions |
+| **7** | Test H3 evidence separation | Held-out six-condition evaluation | Evidence exceeds trace-only and matched context controls |
 | **8** | Scale or extend | Scale/forward/planning results | H1–H3 pilots already passed |
 
 ---
@@ -41,15 +41,13 @@ headline tool-call budget = 16
 candidate generation and selector semantics
 ```
 
-### Required artifact
-
-A machine-readable run manifest containing code, data, model, tokenizer, adapter, environment, executor, and seed revisions.
+A configuration may request a human-readable Hugging Face revision such as `main`, but a real Tool-SFT run must resolve it to the actual full 40-hex commit SHA. `adapter_manifest.json` stores both the requested revision and immutable resolved revision. Required GRPO runs inherit the immutable adapter revision; a mutable adapter revision is a hard error.
 
 ### Gate
 
 - all CI workflows pass;
 - `README.md` and `SCIENTIFIC_THESIS.md` agree;
-- no reported model or tokenizer is referenced only by a mutable name.
+- no reported remote model or tokenizer remains referenced only by a mutable name.
 
 ### Stop
 
@@ -75,14 +73,6 @@ python scripts/build_mechet_proof_sft.py \
   --input-dir data/mechet_sft \
   --output-dir data/mechet_proof_sft \
   --splits train valid test
-```
-
-Every accepted row must execute and store:
-
-```text
-full_precursor_state
-structural_precursor
-auxiliary_fragments
 ```
 
 Audit benchmark overlap and freeze a clean training set:
@@ -111,7 +101,7 @@ accepted/quarantined row counts
 proof execution diagnostics
 overlap matrices
 clean dataset manifest
-endpoint-view distributions
+full_precursor_state / structural_precursor / auxiliary_fragments
 ```
 
 ### Gate
@@ -120,15 +110,15 @@ All retained rows execute; endpoint views are populated; benchmark overlap is di
 
 ### Stop
 
-Do not continue if execution failures are silently dropped or if benchmark overlap remains unresolved.
+Do not continue if execution failures are silently dropped or benchmark overlap remains unresolved.
 
 ---
 
-## Phase 2 — Build evidence assets and measure proof-to-trace coverage
+## Phase 2 — Build replay-verified train/valid/test evidence sources
 
 ### Objective
 
-Establish the actual chemistry coverage of the trace-owned representation before training a model.
+Establish chemistry coverage and create evidence-bearing source rows without mixing training and final evaluation examples.
 
 ### Evidence assets
 
@@ -152,19 +142,23 @@ python scripts/index_textbook_corpus.py \
 
 ### Replay-verified source conditions
 
-```bash
-python scripts/build_textbook_tool_sft.py \
-  --input data/mechet_proof_clean/train.jsonl \
-  --corpus knowledge/corpus/passages.jsonl \
-  --output data/textbook_tool_sft/train.jsonl \
-  --query-mode state
+Build both textbook-only and textbook+anchor source rows for every frozen proof split:
 
-python scripts/build_textbook_tool_sft.py \
-  --input data/mechet_proof_clean/train.jsonl \
-  --corpus knowledge/corpus/passages.jsonl \
-  --output data/textbook_tool_sft/train_text_and_anchors.jsonl \
-  --enable-structured-primitives \
-  --query-mode state
+```bash
+for split in train valid test; do
+  python scripts/build_textbook_tool_sft.py \
+    --input data/mechet_proof_clean/${split}.jsonl \
+    --corpus knowledge/corpus/passages.jsonl \
+    --output data/textbook_tool_sft/${split}.jsonl \
+    --query-mode state
+
+  python scripts/build_textbook_tool_sft.py \
+    --input data/mechet_proof_clean/${split}.jsonl \
+    --corpus knowledge/corpus/passages.jsonl \
+    --output data/textbook_tool_sft/${split}_text_and_anchors.jsonl \
+    --enable-structured-primitives \
+    --query-mode state
+done
 ```
 
 `--query-mode state` is the inference-faithful headline condition. `label_oracle` is an explicitly named upper bound and must not enter headline results.
@@ -188,15 +182,15 @@ The retained family and complexity distribution supports the declared scope. Eve
 
 ### Stop
 
-Narrow the scientific scope or extend the converter if accepted data collapse to a small, systematically simpler subset.
+Narrow the scientific scope or extend the converter if accepted data collapse to a systematically simpler subset.
 
 ---
 
-## Phase 3 — Derive and validate six matched conditions
+## Phase 3 — Derive and validate split-isolated H3 conditions
 
 ### Objective
 
-Create H3 conditions that differ only in the declared evidence intervention.
+Create the six H3 conditions independently inside train, valid, and test so final evaluation never reuses train-derived evidence rows.
 
 ### Build
 
@@ -205,25 +199,40 @@ python scripts/build_knowledge_ablation_suite.py \
   --config configs/experiments/textbook_ablation.yaml
 ```
 
-### Validate
+This writes:
+
+```text
+data/knowledge_ablation/v2/train/*.jsonl
+data/knowledge_ablation/v2/valid/*.jsonl
+data/knowledge_ablation/v2/test/*.jsonl
+data/knowledge_ablation/v2/{train,valid,test}/manifest.json
+data/knowledge_ablation/v2/manifest.json
+```
+
+The top manifest hard-checks zero stable-ID overlap between train, valid, and test.
+
+### Validate the training contract
 
 ```bash
 python scripts/validate_experiment_contract.py \
   --model-name Qwen/Qwen3-0.6B \
-  --condition trace_no_knowledge=data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
-  --condition trace_length_matched_irrelevant=data/knowledge_ablation/v2/trace_length_matched_irrelevant.jsonl \
-  --condition trace_textbook_rag=data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
-  --condition trace_structured_anchors=data/knowledge_ablation/v2/trace_structured_anchors.jsonl \
-  --condition trace_text_plus_anchors=data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
-  --condition direct_textbook_rag=data/knowledge_ablation/v2/direct_textbook_rag.jsonl \
-  --output outputs/contracts/evidence_conditions.json
+  --condition trace_no_knowledge=data/knowledge_ablation/v2/train/trace_no_knowledge.jsonl \
+  --condition trace_length_matched_irrelevant=data/knowledge_ablation/v2/train/trace_length_matched_irrelevant.jsonl \
+  --condition trace_textbook_rag=data/knowledge_ablation/v2/train/trace_textbook_rag.jsonl \
+  --condition trace_structured_anchors=data/knowledge_ablation/v2/train/trace_structured_anchors.jsonl \
+  --condition trace_text_plus_anchors=data/knowledge_ablation/v2/train/trace_text_plus_anchors.jsonl \
+  --condition direct_textbook_rag=data/knowledge_ablation/v2/train/direct_textbook_rag.jsonl \
+  --output outputs/contracts/evidence_conditions_train.json
 ```
+
+Repeat the same validation for `valid/` and `test/` before model selection or final evaluation.
 
 ### Required artifacts
 
 ```text
-same stable-ID universe
-same targets and endpoint references
+same stable-ID universe within each split
+zero stable-ID overlap across train/valid/test
+same targets and endpoint references within matched conditions
 no gold reaction-label retrieval query
 valid tool-call/result pairing
 real tokenizer rendering
@@ -231,16 +240,15 @@ non-empty assistant masks
 zero headline truncation
 frozen evidence character budgets
 input-token and supervised-token distributions
-normalization multipliers when used
 ```
 
 ### Gate
 
-The validator passes without assuming raw direct and tool syntax lengths are equal. Compute differences are disclosed using real tokenizer and assistant-mask tokens.
+All three split manifests pass. Do not use a train-derived suite as H3 reference data.
 
 ### Stop
 
-Do not train conditions whose stable IDs, endpoint references, tool budgets, or tokenizer contracts differ silently.
+Do not train or evaluate conditions whose stable IDs, endpoint references, tool budgets, tokenizer contracts, or split identities differ silently.
 
 ---
 
@@ -249,6 +257,19 @@ Do not train conditions whose stable IDs, endpoint references, tool budgets, or 
 ### Objective
 
 Demonstrate that the interaction contract is learnable before paper-scale on-policy training.
+
+### Qwen3 tokenizer contract
+
+The six matched Tool-SFT configurations use:
+
+```text
+max_length = 12288
+assistant_mask_method = final_chatml_token_scan_v1
+packing = false
+assistant_only_loss = true
+```
+
+Qwen3 does not expose an automatic assistant-token mask through its shipped chat template. MechET renders each complete tool-bearing conversation once, tokenizes once, scans final ChatML assistant spans, and refuses any headline truncation.
 
 ### Pilot
 
@@ -259,7 +280,7 @@ python scripts/train_tool_sft.py \
   --max-steps 100
 ```
 
-After the pilot succeeds, run the matched configurations:
+After the pilot succeeds, train the matched configurations:
 
 ```text
 tool_sft_trace_no_knowledge.yaml
@@ -270,20 +291,26 @@ tool_sft_combined.yaml
 tool_sft_direct_textbook.yaml
 ```
 
+Each configuration reads only `data/knowledge_ablation/v2/train/`.
+
 ### Required artifacts
 
 ```text
 data_contract.json
 adapter_manifest.json
 adapter SHA-256
-base-model and tokenizer commit revisions
+requested model revision
+immutable resolved base-model and tokenizer commit revisions
 seed and data seed
-assistant-mask and token audit
+assistant-mask method and P50/P95/P99/max token audit
+zero truncation
 loss curve
 valid tool-call rate
 finish_trace rate
 held-out execution rate
 ```
+
+For Transformers 5.x, length grouping is applied through `train_sampling_strategy=group_by_length` when available; older compatible APIs may use `group_by_length`. The actual applied field is written to the data contract.
 
 ### Gate
 
@@ -291,7 +318,7 @@ Loss falls and held-out valid tool use, `finish_trace`, and execution improve re
 
 ### Stop
 
-A schema-only dry run is not evidence of learnability. Do not start GRPO from an untrained or revision-ambiguous tool policy.
+A schema-only dry run is not evidence of learnability. Do not start GRPO from an untrained, mutable-revision, or train/test-contaminated tool policy.
 
 ---
 
@@ -301,29 +328,51 @@ A schema-only dry run is not evidence of learnability. Do not start GRPO from an
 
 Determine whether model behavior causally depends on information returned by the environment.
 
+### Freeze the H1 benchmark
+
+Build H1 from the held-out trace condition, not from training rows:
+
+```bash
+python scripts/build_h1_benchmark.py \
+  --input data/knowledge_ablation/v2/test/trace_no_knowledge.jsonl \
+  --train-reference data/knowledge_ablation/v2/train/trace_no_knowledge.jsonl \
+  --output-dir data/benchmarks/h1 \
+  --max-tool-calls 16
+```
+
+The builder requires explicit successful `finish_trace`, executor replay, trace ownership, reference endpoints, the frozen tool budget, and zero stable-ID overlap with the supplied training reference.
+
 ### Optional on-policy refinement
+
+Portable smoke/default:
 
 ```bash
 python scripts/train_inverse_agent_trace.py \
   --config configs/agent/inverse_trace_grpo.yaml
 ```
 
-### Normal prediction artifact
+Paper-scale throughput profile:
 
 ```bash
-python scripts/infer_mechet.py \
+python scripts/train_inverse_agent_trace.py \
+  --config configs/agent/inverse_trace_grpo_vllm.yaml
+```
+
+vLLM is an execution backend, not a scientific condition.
+
+### Run the matched H1 suite
+
+```bash
+python scripts/run_h1_suite.py \
   --config configs/agent/inverse_trace_grpo.yaml \
   --data data/benchmarks/h1/test.jsonl \
-  --output outputs/h1/normal.jsonl \
-  --mode trace \
-  --condition-name trace_no_knowledge \
-  --intervention none \
+  --out-dir outputs/h1 \
   --samples-per-target 4 \
   --seed 17 \
   --resume
 ```
 
-Repeat with the identical model, adapter, model/tokenizer revisions, global seed, seed policy, candidate count, temperature, top-p, token limit, iteration limit, and frozen IDs:
+The runner executes the normal condition plus:
 
 ```text
 remove_tool_observations
@@ -333,26 +382,14 @@ disable_inspect_state
 disable_intermediate_execution
 ```
 
-For shuffle, pass the normal artifact through `--intervention-source`.
-
-### Evaluate
-
-```bash
-python scripts/evaluate_faithfulness.py \
-  --reference data/benchmarks/h1/test.jsonl \
-  --normal outputs/h1/normal.jsonl \
-  --intervention remove_tool_observations=outputs/h1/remove.jsonl \
-  --intervention stale_tool_observations=outputs/h1/stale.jsonl \
-  --intervention shuffle_tool_observations=outputs/h1/shuffle.jsonl \
-  --output outputs/h1/summary.json
-```
+It calls `scripts/infer_mechet.py` under the same model, adapter, immutable revision, seed policy, candidate count, temperature, top-p, token budget, and iteration budget, then calls `scripts/evaluate_faithfulness.py`.
 
 ### Gate
 
 ```text
 all frozen IDs evaluated
 missing predictions retained as failures
-normal completed predictions explicitly use finish_trace
+normal completed predictions explicitly use `finish_trace`
 trace, moves, proof, and endpoint recompute without error
 runtime metadata complete and identical across interventions
 intervention construction audited
@@ -371,17 +408,41 @@ If observation interventions have no material paired effect, do not claim tool-g
 
 Hold out complete source-to-sink move compositions while retaining all constituent primitives in training.
 
-### Build split
+### Build the split before training the H2 model
 
 ```bash
 python scripts/build_mechcomp_ood.py \
-  --input data/knowledge_ablation/v2/trace_no_knowledge.jsonl \
+  --input data/knowledge_ablation/v2/train/trace_no_knowledge.jsonl \
   --output-dir data/ood/mechcomp_source_sink \
   --test-fraction 0.10 \
   --valid-fraction 0.10 \
   --min-train-primitive-count 5 \
   --seed 42
 ```
+
+The reaction-center audit is step-state-aware: each local center is computed from `step.state_before + step.imports`. Atoms legitimately introduced on the precursor side are therefore not quarantined merely because they are absent from the product target.
+
+### Train only on the H2 train split
+
+```bash
+python scripts/train_tool_sft.py \
+  --config configs/agent/tool_sft_mechcomp_trace.yaml
+```
+
+Do **not** reuse an adapter trained on the full pre-split `trace_no_knowledge` data. `run_h2_suite.py` checks that `adapter_manifest.json::train_file_sha256` exactly matches `data/ood/mechcomp_source_sink/train.jsonl`.
+
+### Headline trace-owned inference
+
+```bash
+python scripts/run_h2_suite.py \
+  --split-dir data/ood/mechcomp_source_sink \
+  --adapter outputs/h2/tool_sft_trace_qwen3_0_6b \
+  --out-dir outputs/h2 \
+  --samples-per-target 4 \
+  --seed 17
+```
+
+The headline MechET condition uses `scripts/infer_mechet.py --mode trace`. `scripts/infer_mechet_proof.py` is only the independent complete-proof baseline; it is not the trace-owned H2 path. Direct, CoT, net-edit, complete-proof, and trace-owned baselines must each be trained on the same frozen H2/train IDs.
 
 ### Required manifest
 
@@ -392,20 +453,17 @@ zero train/test complete-composition overlap
 all test primitives seen in train
 requested and achieved split fractions
 exact product and reaction overlap audit
-scaffold and reaction-center overlap strata
+scaffold and step-state reaction-center overlap strata
+near-duplicate audit
 ```
-
-### Evaluation
-
-Train and evaluate direct, CoT, net-edit, complete-proof, and trace-owned representations on the same frozen examples and budgets.
 
 ### Gate
 
-Primitive coverage, composition novelty, and structural novelty are separately reported. No held-out primitive is mislabeled as composition OOD.
+Primitive coverage, composition novelty, and structural novelty are separately reported, including scaffold-seen/unseen, reaction-center-seen/unseen, and family-seen/unseen strata.
 
 ### Stop
 
-Do not claim H2 when the test set is empty, contains unseen primitives, or is dominated by unreported structural near-duplicates.
+Do not claim H2 when the test set is empty, contains unseen primitives, reuses a full-data-trained checkpoint, or is dominated by unreported structural near-duplicates.
 
 ---
 
@@ -413,13 +471,25 @@ Do not claim H2 when the test set is empty, contains unseen primitives, or is do
 
 ### Objective
 
-Determine whether mechanistic evidence adds information beyond trace ownership and context length.
+Determine whether mechanistic evidence adds information beyond trace ownership and context length on a frozen held-out test split.
+
+### Six-condition held-out inference
+
+```bash
+python scripts/run_h3_suite.py \
+  --suite-root data/knowledge_ablation/v2/test \
+  --out-dir outputs/h3 \
+  --samples-per-target 4 \
+  --seed 17
+```
+
+The runner verifies that every condition-specific adapter was trained on the corresponding file under `data/knowledge_ablation/v2/train/`, runs all six `scripts/infer_mechet.py` modes, and calls `scripts/evaluate_knowledge_ablation.py` with `test/trace_textbook_rag.jsonl` as the frozen reference.
 
 ### Build evidence-content interventions
 
 ```bash
 python scripts/build_evidence_interventions.py \
-  --input data/knowledge_ablation/v2/trace_text_plus_anchors.jsonl \
+  --input data/knowledge_ablation/v2/test/trace_text_plus_anchors.jsonl \
   --output-dir data/evidence_interventions/v2 \
   --intervention passage_shuffle \
   --intervention same_topic_wrong \
@@ -427,56 +497,38 @@ python scripts/build_evidence_interventions.py \
   --intervention remove_competing_pathways
 ```
 
-Generate prediction artifacts using modes:
+`same_topic_wrong` may legitimately lack a donor for some examples. Those examples are quarantined **for that intervention only**. The builder writes:
 
 ```text
-trace
-irrelevant
-textbook
-anchors
-combined
-direct
+same_topic_wrong.jsonl
+same_topic_wrong.reference.jsonl
+same_topic_wrong.eligible_ids.json
+same_topic_wrong.quarantine.jsonl   # only when needed
 ```
 
-Evidence modes replay row-specific frozen evidence so direct and trace comparisons receive the same bounded content.
-
-### Evaluate
-
-```bash
-python scripts/evaluate_knowledge_ablation.py \
-  --reference data/knowledge_ablation/v2/trace_textbook_rag.jsonl \
-  --condition trace_no_knowledge=outputs/h3/trace.jsonl \
-  --condition trace_length_matched_irrelevant=outputs/h3/irrelevant.jsonl \
-  --condition trace_textbook_rag=outputs/h3/textbook.jsonl \
-  --condition trace_structured_anchors=outputs/h3/anchors.jsonl \
-  --condition trace_text_plus_anchors=outputs/h3/combined.jsonl \
-  --condition direct_textbook_rag=outputs/h3/direct.jsonl \
-  --output outputs/h3/summary.json
-```
+Any paired intervention analysis must use the generated `*.reference.jsonl`; it must not compare the reduced intervention set against the full baseline ID universe.
 
 ### Gate
 
 ```text
-all frozen IDs evaluated; missing predictions count as failures
+all frozen test IDs evaluated for the six headline conditions
+missing predictions retained as failures
 no supervision rows accepted as predictions
 trace outputs require explicit successful finish_trace
-same base/model revision and generation contract across conditions
+same base/model revision and generation contract across compared conditions
 condition-specific adapter hashes and token-normalized compute reported
 textbook > trace-only and textbook > irrelevant for a text-evidence claim
 combined > each individual evidence condition for a combined claim
+subset evidence interventions use their paired eligible-ID reference
 ```
 
 ### Stop
 
-A gain explained by irrelevant context, label leakage, post-test evidence editing, missing predictions, or runtime mismatch does not support H3.
+A gain explained by irrelevant context, label leakage, train-derived evaluation, post-test evidence editing, missing predictions, unmatched eligible IDs, or runtime mismatch does not support H3.
 
 ---
 
 ## Phase 8 — Scale, forward evidence, and planning
-
-### Objective
-
-Extend a validated core rather than use scale or downstream search to substitute for missing scientific evidence.
 
 Only after H1–H3 pilots pass:
 
@@ -520,16 +572,19 @@ Stop or narrow a claim when:
 - root imports or declared moves do not replay;
 - examples exceed the frozen tool budget;
 - tokenizer masks are empty or headline examples truncate;
-- adapter manifests, hashes, or model revisions do not match;
+- adapter manifests, hashes, or immutable model revisions do not match;
 - missing predictions are removed from the denominator;
 - a trace condition receives credit without explicit `finish_trace`;
 - runtime metadata are incomplete or differ across a claimed comparison;
 - H1 is insensitive to tool observations;
 - H2 contains unseen primitives rather than unseen compositions;
+- an H2 checkpoint saw held-out composition examples during training;
+- H3 final evaluation uses train-derived rows;
+- a subset evidence intervention is compared on unmatched IDs;
 - irrelevant text explains an evidence gain;
 - a learned score overrides deterministic execution.
 
-## Integrity utilities added after the pilot contract
+## Integrity utilities
 
 Before a final H1/H2/H3 result package:
 
@@ -543,4 +598,4 @@ python scripts/aggregate_evaluation_seeds.py \
   --output outputs/multi_seed_summary.json
 ```
 
-The H2 split manifest must include the structural-overlap audit and stratified composition-OOD counts. H1/H3 result artifacts must include paired uncertainty and corrected tests; the multi-seed aggregate must satisfy the declared seed-count, interval and direction gates.
+The H2 split manifest must include the structural-overlap audit and stratified composition-OOD counts. H1/H3 result artifacts must include paired uncertainty and corrected tests; the multi-seed aggregate must satisfy the declared seed-count, interval, and direction gates.
