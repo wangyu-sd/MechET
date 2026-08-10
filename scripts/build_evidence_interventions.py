@@ -14,14 +14,19 @@ from typing import Any, Mapping
 
 try:
     from tqdm import tqdm
-except ImportError:  # pragma: no cover - fallback for minimal environments
+except ImportError:  # pragma: no cover
     def tqdm(iterable, **_kwargs):
         return iterable
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from mechet.knowledge_ablation import read_jsonl, row_id, write_jsonl
+from mechet.knowledge_ablation import (
+    read_jsonl,
+    row_id,
+    validate_alignment,
+    write_jsonl,
+)
 
 TEXTBOOK_TOOL = "retrieve_textbook_guidance"
 ANCHOR_TOOL = "retrieve_primitives"
@@ -172,7 +177,7 @@ def same_topic_wrong(
                     "error_code": "NO_SAME_TOPIC_WRONG_PASSAGE_DONOR",
                     "error": (
                         f"{row_key}: no same-topic wrong-passage donor; "
-                        "add reviewed topic labels"
+                        "this row is excluded only from this paired intervention"
                     ),
                 }
             )
@@ -266,6 +271,12 @@ def remove_competing_pathways(
     return output
 
 
+def _stable_ids_sha(rows: list[Mapping[str, Any]]) -> str:
+    return hashlib.sha256(
+        "\n".join(row_id(item) for item in rows).encode()
+    ).hexdigest()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
@@ -292,35 +303,69 @@ def main() -> int:
         "remove_competing_pathways": remove_competing_pathways,
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    outputs = {}
+    outputs: dict[str, Any] = {}
     for name in args.intervention:
         quarantined: list[dict[str, Any]] = []
         transformed = transforms[name](rows)
         if name == "same_topic_wrong":
             transformed, quarantined = transformed
+        eligible_ids = [row_id(item) for item in transformed]
+        matched_reference = [rows_by_id[identifier] for identifier in eligible_ids]
+        validate_alignment(
+            {"reference": matched_reference, "intervention": transformed}
+        )
+
         path = args.output_dir / f"{name}.jsonl"
+        reference_path = args.output_dir / f"{name}.reference.jsonl"
+        eligible_path = args.output_dir / f"{name}.eligible_ids.json"
         write_jsonl(path, transformed)
+        write_jsonl(reference_path, matched_reference)
+        eligible_payload = {
+            "intervention": name,
+            "n_input": len(rows),
+            "n_eligible": len(eligible_ids),
+            "eligible_fraction": len(eligible_ids) / max(len(rows), 1),
+            "stable_ids": eligible_ids,
+            "stable_ids_sha256": _stable_ids_sha(transformed),
+        }
+        eligible_path.write_text(
+            json.dumps(eligible_payload, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
         quarantine_path = None
         if quarantined:
             quarantine_path = args.output_dir / f"{name}.quarantine.jsonl"
             write_jsonl(quarantine_path, quarantined)
         outputs[name] = {
             "path": str(path),
+            "paired_reference": str(reference_path),
+            "eligible_ids": str(eligible_path),
             "n_rows": len(transformed),
             "n_quarantined": len(quarantined),
+            "eligible_fraction": len(transformed) / max(len(rows), 1),
+            "same_ids_as_full_input": len(transformed) == len(rows),
             "quarantine": str(quarantine_path) if quarantine_path else None,
             "quarantine_reasons": dict(
                 Counter(item["error_code"] for item in quarantined)
             ),
-            "stable_ids_sha256": hashlib.sha256(
-                "\n".join(row_id(item) for item in transformed).encode()
-            ).hexdigest(),
+            "stable_ids_sha256": _stable_ids_sha(transformed),
+            "paired_reference_ids_sha256": _stable_ids_sha(matched_reference),
             "characters_preserved": all(
-                int((rows_by_id[row_id(item)].get("metadata") or {}).get("textbook_context_characters") or 0)
-                == int((item.get("metadata") or {}).get("textbook_context_characters") or 0)
+                int(
+                    (rows_by_id[row_id(item)].get("metadata") or {}).get(
+                        "textbook_context_characters"
+                    )
+                    or 0
+                )
+                == int(
+                    (item.get("metadata") or {}).get(
+                        "textbook_context_characters"
+                    )
+                    or 0
+                )
                 for item in transformed
-                if row_id(item) in rows_by_id
             ),
+            "paired_alignment_valid": True,
         }
     manifest = {
         "artifact_type": "evidence_intervention_suite",
@@ -328,11 +373,15 @@ def main() -> int:
         "n_rows": len(rows),
         "outputs": outputs,
         "contract": {
-            "same_ids_targets_endpoints": True,
             "same_chemistry_trace": True,
             "same_context_character_budget": True,
             "direct_reward": False,
             "intervention_fields_are_isolated": True,
+            "paired_reference_written_for_every_intervention": True,
+            "subset_interventions_must_use_their_paired_reference": True,
+            "full_input_id_universe_preserved": all(
+                item["same_ids_as_full_input"] for item in outputs.values()
+            ),
         },
     }
     (args.output_dir / "manifest.json").write_text(
