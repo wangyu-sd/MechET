@@ -13,6 +13,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
 from mechet.knowledge_ablation import align_prediction_artifact, file_sha256, read_jsonl, row_id
+from mechet.model_revision import is_immutable_revision
 from mechet.prediction_metrics import prediction_set_metrics
 from mechet.strict_prediction_evaluation import condition_metrics, endpoint_evaluation
 
@@ -36,8 +37,9 @@ def _validate_adapter_train_split(adapter: Path, train_file: Path) -> dict[str, 
             "H2_ADAPTER_TRAIN_SPLIT_MISMATCH: adapter was not trained on the "
             f"frozen H2 train split: {observed} != {expected}"
         )
-    if not manifest.get("base_model_revision"):
-        raise ValueError("H2 adapter has no frozen base_model_revision")
+    revision = str(manifest.get("base_model_revision") or "")
+    if not is_immutable_revision(revision):
+        raise ValueError("H2 adapter has no immutable base_model_revision")
     return manifest
 
 
@@ -110,8 +112,10 @@ def main() -> int:
             raise FileNotFoundError(path)
 
     adapter_manifest = None
+    immutable_revision = ""
     if not args.dry_run:
         adapter_manifest = _validate_adapter_train_split(args.adapter, train_file)
+        immutable_revision = str(adapter_manifest["base_model_revision"])
         split_manifest = _load_object(split_manifest_path)
         gate = dict(split_manifest.get("claim_gate") or {})
         if gate.get("all_test_primitives_seen_in_train") is False:
@@ -149,6 +153,8 @@ def main() -> int:
         "--top-p",
         str(args.top_p),
     ]
+    if immutable_revision:
+        cmd += ["--model-revision", immutable_revision]
     if args.limit:
         cmd += ["--limit", str(args.limit)]
     if args.resume:
@@ -172,7 +178,8 @@ def main() -> int:
         "test_sha256": file_sha256(test_file),
         "adapter": str(args.adapter),
         "adapter_sha256": adapter_manifest.get("adapter_sha256") if adapter_manifest else None,
-        "adapter_base_model_revision": adapter_manifest.get("base_model_revision") if adapter_manifest else None,
+        "adapter_base_model_revision": immutable_revision or None,
+        "inference_model_revision": immutable_revision or None,
         "headline": {
             **condition_metrics(aligned),
             **prediction_set_metrics(aligned),
