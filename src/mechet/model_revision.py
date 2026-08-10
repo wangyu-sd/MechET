@@ -32,6 +32,26 @@ def tokenizer_commit_revision(tokenizer: Any) -> str:
     return ""
 
 
+def hub_commit_revision(
+    model_name_or_path: str,
+    requested_revision: str | None,
+) -> str:
+    """Resolve a remote Hugging Face model revision through Hub metadata."""
+
+    if Path(str(model_name_or_path)).exists():
+        return ""
+    try:
+        from huggingface_hub import model_info
+    except ImportError:
+        return ""
+    info = model_info(
+        str(model_name_or_path),
+        revision=str(requested_revision or "").strip() or None,
+    )
+    sha = str(getattr(info, "sha", "") or "").strip()
+    return sha.lower() if is_immutable_revision(sha) else ""
+
+
 def resolve_loaded_model_revision(
     *,
     model_name_or_path: str,
@@ -40,30 +60,42 @@ def resolve_loaded_model_revision(
 ) -> dict[str, str | None]:
     """Resolve a mutable request such as ``main`` to an immutable revision.
 
-    Remote model runs must end with a full 40-hex commit SHA. Local model paths are
-    deliberately marked as local rather than pretending a Git revision exists;
-    callers should separately hash local model artifacts when they are used in a
-    final experiment.
+    Remote model runs must end with a full 40-hex commit SHA. Transformers normally
+    records the resolved snapshot on the tokenizer. If that metadata is absent, the
+    Hub model record is queried as a fallback. Local model paths are deliberately
+    marked as local rather than pretending a Git revision exists; callers should
+    separately hash local model artifacts for final experiments.
     """
 
     requested = str(requested_revision or "").strip()
     tokenizer_revision = tokenizer_commit_revision(tokenizer)
+    hub_revision = ""
     if tokenizer_revision:
         resolved = tokenizer_revision
+        source = "tokenizer_commit_hash"
     elif is_immutable_revision(requested):
         resolved = requested.lower()
+        source = "requested_immutable_revision"
     elif Path(str(model_name_or_path)).exists():
         resolved = None
+        source = "local_model_path"
     else:
-        raise ValueError(
-            "MUTABLE_MODEL_REVISION_UNRESOLVED: requested revision "
-            f"{requested or '<default>'!r} did not resolve to an immutable "
-            "40-hex commit SHA through the loaded tokenizer"
-        )
+        hub_revision = hub_commit_revision(model_name_or_path, requested_revision)
+        if not hub_revision:
+            raise ValueError(
+                "MUTABLE_MODEL_REVISION_UNRESOLVED: requested revision "
+                f"{requested or '<default>'!r} did not resolve to an immutable "
+                "40-hex commit SHA through either the loaded tokenizer or Hugging "
+                "Face Hub metadata"
+            )
+        resolved = hub_revision
+        source = "huggingface_hub_model_info"
     return {
         "requested_model_revision": requested or None,
         "resolved_model_revision": resolved,
         "tokenizer_revision": tokenizer_revision or resolved,
+        "model_revision_resolution_source": source,
+        "hub_resolved_model_revision": hub_revision or None,
     }
 
 
