@@ -30,6 +30,7 @@ from mechet.frozen_evidence_environments import (
 )
 from mechet.knowledge_ablation import read_jsonl, row_id
 from mechet.knowledge_agent_env import KnowledgeAgentConfig
+from mechet.model_revision import resolve_lineage_revision
 from mechet.tool_schemas import trace_tool_schemas
 from mechet.trl_environments import (
     LegacyProofTRLEnvironment,
@@ -75,22 +76,27 @@ def _adapter_manifest(adapter: str) -> dict[str, Any]:
 def _resolve_revision(
     cfg: Mapping[str, Any], cli_revision: str, manifest: Mapping[str, Any], *, scripted: bool
 ) -> str:
+    if scripted:
+        return "scripted"
     training = dict(cfg.get("training") or {})
-    revision = str(
+    configured = str(
         cli_revision
         or training.get("model_revision")
         or cfg.get("model_revision")
-        or manifest.get("base_model_revision")
+        or ""
+    ).strip()
+    adapter_revision = str(
+        manifest.get("base_model_revision")
         or manifest.get("model_revision")
         or ""
     ).strip()
+    revision = resolve_lineage_revision(configured, adapter_revision)
     if revision:
         return revision
-    if scripted:
-        return "scripted"
     raise ValueError(
-        "non-scripted inference requires a frozen model revision via "
-        "--model-revision, training.model_revision, or adapter_manifest.json"
+        "non-scripted inference requires an immutable 40-hex model revision via "
+        "--model-revision or adapter_manifest.json; mutable config aliases such "
+        "as main are not frozen inference revisions"
     )
 
 
@@ -640,7 +646,10 @@ def main() -> int:
             revision=model_revision,
             device_map=args.device_map or None,
         )
-        tokenizer_revision = str(getattr(tokenizer, "name_or_path", "") or model_revision)
+        # The tokenizer is loaded from the same frozen model revision. Preserve the
+        # immutable commit in prediction metadata instead of replacing it with a
+        # mutable repository/model name such as Qwen/Qwen3-0.6B.
+        tokenizer_revision = model_revision
 
     completed = _completed_ids(args.output) if args.resume else set()
     if args.output.exists() and not args.resume:
