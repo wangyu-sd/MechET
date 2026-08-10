@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -16,6 +17,7 @@ from mechet.knowledge_ablation import (
     read_jsonl,
     row_id,
 )
+from mechet.model_revision import is_immutable_revision
 from mechet.prediction_metrics import prediction_runtime_contract, prediction_set_metrics
 from mechet.statistical_evaluation import paired_binary_contrast
 from mechet.strict_prediction_evaluation import condition_metrics, endpoint_evaluation
@@ -42,6 +44,34 @@ def _outcomes(rows):
     }
 
 
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _adapter_manifest(adapter: Path, train_file: Path) -> dict:
+    path = adapter / "adapter_manifest.json"
+    if not path.exists():
+        raise FileNotFoundError(path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError("H3_INTERVENTION_ADAPTER_MANIFEST_INVALID")
+    observed = str(value.get("train_file_sha256") or "")
+    expected = _sha256(train_file)
+    if observed != expected:
+        raise ValueError(
+            "H3_INTERVENTION_ADAPTER_TRAIN_SPLIT_MISMATCH:"
+            f"{observed}!={expected}"
+        )
+    revision = str(value.get("base_model_revision") or "")
+    if not is_immutable_revision(revision):
+        raise ValueError("H3_INTERVENTION_ADAPTER_REVISION_NOT_IMMUTABLE")
+    return dict(value)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--name", choices=sorted(INTERVENTIONS), required=True)
@@ -60,6 +90,11 @@ def main() -> int:
         type=Path,
         default=REPO / "outputs/agent/tool_sft_text_plus_anchors_qwen3_0_6b",
     )
+    parser.add_argument(
+        "--train-file",
+        type=Path,
+        default=REPO / "data/knowledge_ablation/v2/train/trace_text_plus_anchors.jsonl",
+    )
     parser.add_argument("--out-dir", type=Path, default=REPO / "outputs/h3/interventions")
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--samples-per-target", type=int, default=4)
@@ -74,14 +109,24 @@ def main() -> int:
     intervention_data = args.intervention_dir / f"{args.name}.jsonl"
     reference = args.intervention_dir / f"{args.name}.reference.jsonl"
     eligible = args.intervention_dir / f"{args.name}.eligible_ids.json"
+    immutable_revision = ""
+    adapter_meta = None
     if not args.dry_run:
-        for path in (intervention_data, reference, eligible, args.config):
+        for path in (
+            intervention_data,
+            reference,
+            eligible,
+            args.config,
+            args.train_file,
+        ):
             if not path.exists():
                 raise FileNotFoundError(path)
         eligible_payload = json.loads(eligible.read_text(encoding="utf-8"))
         reference_ids = [row_id(row) for row in read_jsonl(reference)]
         if reference_ids != list(eligible_payload.get("stable_ids") or []):
             raise ValueError("H3_INTERVENTION_ELIGIBLE_ID_MISMATCH")
+        adapter_meta = _adapter_manifest(args.adapter, args.train_file)
+        immutable_revision = str(adapter_meta["base_model_revision"])
 
     condition_dir = args.out_dir / args.name
     condition_dir.mkdir(parents=True, exist_ok=True)
@@ -109,6 +154,8 @@ def main() -> int:
         "--top-p",
         str(args.top_p),
     ]
+    if immutable_revision:
+        common += ["--model-revision", immutable_revision]
     _run(
         common
         + [
@@ -176,6 +223,11 @@ def main() -> int:
         "reference": str(reference),
         "eligible_ids": str(eligible),
         "n_paired_ids": len(identifiers),
+        "adapter": str(args.adapter),
+        "adapter_sha256": adapter_meta.get("adapter_sha256") if adapter_meta else None,
+        "adapter_train_file": str(args.train_file),
+        "adapter_train_file_sha256": _sha256(args.train_file),
+        "inference_model_revision": immutable_revision,
         "baseline": {
             **condition_metrics(baseline),
             **prediction_set_metrics(baseline),
