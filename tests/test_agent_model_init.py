@@ -5,6 +5,11 @@ from pathlib import Path
 import pytest
 
 
+SHA_A = "a" * 40
+SHA_B = "b" * 40
+SHA_C = "c" * 40
+
+
 def load_module():
     path = Path(__file__).resolve().parents[1] / "scripts" / "agent_model_init.py"
     spec = importlib.util.spec_from_file_location("agent_model_init", path)
@@ -22,7 +27,7 @@ def valid_adapter(
     *,
     environment="trace-v2",
     executor="proof-v2",
-    model_revision="revision-abc",
+    model_revision=SHA_A,
 ):
     adapter = tmp_path / "adapter"
     adapter.mkdir()
@@ -35,6 +40,7 @@ def valid_adapter(
         "adapter_path": str(adapter),
         "adapter_sha256": digest,
         "base_model": "Qwen/Qwen3-0.6B",
+        "requested_model_revision": "main",
         "base_model_revision": model_revision,
         "tokenizer_revision": model_revision,
         "condition_name": "trace_no_knowledge",
@@ -56,13 +62,16 @@ def test_lineage_report_records_and_validates_adapter_manifest(tmp_path):
             "require_initial_adapter": True,
             "environment_revision": "trace-v2",
             "executor_revision": "proof-v2",
+            "training": {"model_revision": "main"},
         }
     )
     assert report["initial_adapter_exists"] is True
     assert report["initial_adapter_hash_matches"] is True
     assert report["initial_adapter_sha256_actual"] == digest
     assert report["adapter_artifact_type"] == "trainable_peft_adapter"
-    assert report["resolved_model_revision"] == "revision-abc"
+    assert report["configured_model_revision"] == "main"
+    assert report["resolved_model_revision"] == SHA_A
+    assert report["resolved_model_revision_is_immutable"] is True
 
 
 def test_required_adapter_must_exist(tmp_path):
@@ -118,8 +127,8 @@ def test_environment_revision_must_match(tmp_path):
         )
 
 
-def test_model_revision_must_match(tmp_path):
-    adapter, _ = valid_adapter(tmp_path, model_revision="revision-old")
+def test_immutable_model_revision_must_match(tmp_path):
+    adapter, _ = valid_adapter(tmp_path, model_revision=SHA_B)
     with pytest.raises(ValueError, match="base model revision mismatch"):
         agent_model_init.validate_lineage(
             {
@@ -127,12 +136,54 @@ def test_model_revision_must_match(tmp_path):
                 "initial_adapter_path": str(adapter),
                 "initial_adapter_sha256": "auto",
                 "require_initial_adapter": True,
-                "training": {"model_revision": "revision-new"},
+                "training": {"model_revision": SHA_C},
             }
         )
 
 
-def test_required_adapter_needs_revision_or_explicit_config(tmp_path):
+def test_mutable_config_alias_defers_to_frozen_adapter_revision(tmp_path):
+    adapter, _ = valid_adapter(tmp_path, model_revision=SHA_B)
+    report = agent_model_init.validate_lineage(
+        {
+            "model_name_or_path": "Qwen/Qwen3-0.6B",
+            "initial_adapter_path": str(adapter),
+            "initial_adapter_sha256": "auto",
+            "require_initial_adapter": True,
+            "training": {"model_revision": "main"},
+        }
+    )
+    assert report["configured_model_revision_is_immutable"] is False
+    assert report["resolved_model_revision"] == SHA_B
+
+
+def test_required_adapter_rejects_mutable_manifest_revision(tmp_path):
+    adapter, _ = valid_adapter(tmp_path, model_revision="main")
+    with pytest.raises(ValueError, match="ADAPTER_MODEL_REVISION_NOT_IMMUTABLE"):
+        agent_model_init.validate_lineage(
+            {
+                "model_name_or_path": "Qwen/Qwen3-0.6B",
+                "initial_adapter_path": str(adapter),
+                "initial_adapter_sha256": "auto",
+                "require_initial_adapter": True,
+            }
+        )
+
+
+def test_required_adapter_can_use_explicit_immutable_revision_if_manifest_old(tmp_path):
+    adapter, _ = valid_adapter(tmp_path, model_revision="")
+    report = agent_model_init.validate_lineage(
+        {
+            "model_name_or_path": "Qwen/Qwen3-0.6B",
+            "initial_adapter_path": str(adapter),
+            "initial_adapter_sha256": "auto",
+            "require_initial_adapter": True,
+            "training": {"model_revision": SHA_C},
+        }
+    )
+    assert report["resolved_model_revision"] == SHA_C
+
+
+def test_required_adapter_without_any_revision_fails(tmp_path):
     adapter, _ = valid_adapter(tmp_path, model_revision="")
     with pytest.raises(ValueError, match="no frozen base-model revision"):
         agent_model_init.validate_lineage(
@@ -143,16 +194,6 @@ def test_required_adapter_needs_revision_or_explicit_config(tmp_path):
                 "require_initial_adapter": True,
             }
         )
-    report = agent_model_init.validate_lineage(
-        {
-            "model_name_or_path": "Qwen/Qwen3-0.6B",
-            "initial_adapter_path": str(adapter),
-            "initial_adapter_sha256": "auto",
-            "require_initial_adapter": True,
-            "training": {"model_revision": "revision-explicit"},
-        }
-    )
-    assert report["resolved_model_revision"] == "revision-explicit"
 
 
 def test_optional_adapter_is_reported_without_failure(tmp_path):

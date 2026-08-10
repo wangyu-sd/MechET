@@ -4,8 +4,13 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import sys
 from typing import Any
 
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "src"))
+
+from mechet.model_revision import is_immutable_revision, revision_contract
 
 _EXCLUDED_HASH_FILES = {"adapter_manifest.json", "data_contract.json"}
 
@@ -62,12 +67,10 @@ def lineage_report(cfg: dict[str, Any]) -> dict[str, Any]:
     configured_model_revision = str(
         training.get("model_revision") or cfg.get("model_revision") or ""
     ).strip()
-    adapter_model_revision = str(
-        manifest.get("base_model_revision")
-        or manifest.get("model_revision")
-        or ""
-    ).strip()
-    resolved_model_revision = configured_model_revision or adapter_model_revision
+    revision = revision_contract(
+        configured_revision=configured_model_revision,
+        adapter_manifest=manifest,
+    )
     return {
         "initial_adapter_path": adapter or None,
         "initial_adapter_exists": bool(path and path.exists()),
@@ -83,7 +86,8 @@ def lineage_report(cfg: dict[str, Any]) -> dict[str, Any]:
         "require_initial_adapter": bool(cfg.get("require_initial_adapter", False)),
         "adapter_artifact_type": manifest.get("artifact_type"),
         "adapter_base_model": manifest.get("base_model"),
-        "adapter_base_model_revision": adapter_model_revision or None,
+        "adapter_requested_model_revision": manifest.get("requested_model_revision"),
+        "adapter_base_model_revision": revision.get("adapter_base_model_revision"),
         "adapter_tokenizer_revision": manifest.get("tokenizer_revision"),
         "adapter_condition_name": manifest.get("condition_name"),
         "adapter_environment_revision": manifest.get("environment_revision"),
@@ -95,7 +99,13 @@ def lineage_report(cfg: dict[str, Any]) -> dict[str, Any]:
         "environment_revision": environment_revision or None,
         "executor_revision": executor_revision or None,
         "configured_model_revision": configured_model_revision or None,
-        "resolved_model_revision": resolved_model_revision or None,
+        "configured_model_revision_is_immutable": is_immutable_revision(
+            configured_model_revision
+        ),
+        "resolved_model_revision": revision.get("resolved_model_revision"),
+        "resolved_model_revision_is_immutable": revision.get(
+            "resolved_revision_is_immutable"
+        ),
     }
 
 
@@ -128,17 +138,15 @@ def validate_lineage(cfg: dict[str, Any]) -> dict[str, Any]:
             "Tool-SFT base model mismatch: "
             f"{report['adapter_base_model']} != {model_name}"
         )
-    configured_revision = report["configured_model_revision"]
-    adapter_revision = report["adapter_base_model_revision"]
-    if configured_revision and adapter_revision and configured_revision != adapter_revision:
-        raise ValueError(
-            "Tool-SFT base model revision mismatch: "
-            f"{adapter_revision} != {configured_revision}"
-        )
     if required and not report["resolved_model_revision"]:
         raise ValueError(
             "required Tool-SFT adapter has no frozen base-model revision; "
-            "retrain it or set training.model_revision explicitly"
+            "retrain it with the current Tool-SFT pipeline"
+        )
+    if required and not report["resolved_model_revision_is_immutable"]:
+        raise ValueError(
+            "required Tool-SFT adapter base-model revision is mutable; "
+            "the adapter manifest must record the resolved 40-hex commit SHA"
         )
     for key, adapter_key in (
         ("environment_revision", "adapter_environment_revision"),
@@ -171,9 +179,7 @@ def build_trainable_model(cfg: dict[str, Any], torch_module):
 
     initial_adapter = str(cfg.get("initial_adapter_path") or "").strip()
     training = dict(cfg.get("training") or {})
-    revision = lineage.get("resolved_model_revision") or training.get(
-        "model_revision"
-    )
+    revision = lineage.get("resolved_model_revision")
     if initial_adapter:
         dtype = None
         if bool(training.get("bf16", False)):
@@ -196,6 +202,13 @@ def build_trainable_model(cfg: dict[str, Any], torch_module):
         )
         return model, None
 
+    configured_revision = str(training.get("model_revision") or "").strip()
+    if configured_revision and not is_immutable_revision(configured_revision):
+        raise ValueError(
+            "from-base GRPO requires training.model_revision to be an immutable "
+            "40-hex commit SHA; mutable aliases are allowed only for Tool-SFT, "
+            "which resolves and records the actual commit"
+        )
     lora = dict(cfg.get("lora") or {})
     peft_config = LoraConfig(
         r=int(lora.get("r", 16)),

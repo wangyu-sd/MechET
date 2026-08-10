@@ -6,10 +6,10 @@ initial_adapter_path: outputs/agent/tool_sft_anchors_qwen3_0_6b
 initial_adapter_manifest: outputs/agent/tool_sft_anchors_qwen3_0_6b/adapter_manifest.json
 initial_adapter_sha256: auto
 require_initial_adapter: true
-evidence_suite_manifest: data/knowledge_ablation/v2/manifest.json
+evidence_suite_manifest: data/knowledge_ablation/v2/train/manifest.json
 environment_revision: anchor_trace_owned_move_replay_v2
 executor_revision: MECH_PROOF_v1_move_bound
-train_file: data/knowledge_ablation/v2/trace_structured_anchors.jsonl
+train_file: data/knowledge_ablation/v2/train/trace_structured_anchors.jsonl
 output_dir: outputs/agent/inverse_anchor_trace_grpo
 textbook_corpus_path: knowledge/corpus/passages.jsonl
 primitive_library_path: knowledge/primitives/core_polar_primitives.yaml

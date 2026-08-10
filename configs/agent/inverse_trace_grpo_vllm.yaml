@@ -1,19 +1,16 @@
-scientific_hypothesis: H3_empirical_evidence_separation
-condition_name: trace_text_plus_anchors
-evidence_mode: combined
+# Paper-scale throughput profile. The portable/default config keeps vLLM off so
+# CPU/single-GPU smoke tests do not acquire a hidden serving dependency.
+scientific_hypothesis: H1_causal_faithfulness
 model_name_or_path: Qwen/Qwen3-0.6B
-initial_adapter_path: outputs/agent/tool_sft_text_plus_anchors_qwen3_0_6b
-initial_adapter_manifest: outputs/agent/tool_sft_text_plus_anchors_qwen3_0_6b/adapter_manifest.json
+initial_adapter_path: outputs/agent/tool_sft_trace_no_knowledge_qwen3_0_6b
+initial_adapter_manifest: outputs/agent/tool_sft_trace_no_knowledge_qwen3_0_6b/adapter_manifest.json
 initial_adapter_sha256: auto
 require_initial_adapter: true
 evidence_suite_manifest: data/knowledge_ablation/v2/train/manifest.json
-environment_revision: textbook_anchor_trace_owned_move_replay_v2
+environment_revision: trace_owned_move_replay_v2
 executor_revision: MECH_PROOF_v1_move_bound
-train_file: data/knowledge_ablation/v2/train/trace_text_plus_anchors.jsonl
-output_dir: outputs/agent/inverse_combined_trace_grpo
-textbook_corpus_path: knowledge/corpus/passages.jsonl
-primitive_library_path: knowledge/primitives/core_polar_primitives.yaml
-primitive_source_registry_path: knowledge/source_registry.yaml
+train_file: data/knowledge_ablation/v2/train/trace_no_knowledge.jsonl
+output_dir: outputs/agent/inverse_trace_grpo_vllm
 forward_checkpoint: ""
 forward_device: cpu
 limit_examples: 0
@@ -32,14 +29,6 @@ environment:
   abstain_reward: -0.25
   unfinished_reward: -4.0
   require_tool_use: true
-  require_textbook_corpus: true
-  auto_textbook_on_reset: false
-  textbook_top_k: 4
-  textbook_max_characters: 5000
-  textbook_max_passage_characters: 1200
-  textbook_max_per_source: 2
-  enable_structured_primitives: true
-  primitive_top_k: 4
 
 training:
   seed: 17
@@ -54,7 +43,7 @@ training:
   temperature: 0.9
   top_p: 0.95
   beta: 0.02
-  use_vllm: false
+  use_vllm: true
   logging_steps: 1
   save_steps: 100
   enable_thinking: true

@@ -4,6 +4,8 @@ scientific_question: >-
   electron-flow program beyond trace ownership and extra context alone?
 output_dir: data/knowledge_ablation/v2
 
+# Base condition definitions. When `splits` is present, source-condition inputs
+# below are overridden separately for train/valid/test before matched derivation.
 conditions:
   trace_textbook_rag:
     input: data/textbook_tool_sft/train.jsonl
@@ -41,6 +43,22 @@ conditions:
     knowledge: same_bounded_natural_language_textbook
     environment: direct_answer
 
+# Final H3 results must never be evaluated on the train-derived suite. Build
+# replay-verified textbook/combined source rows for all three proof splits first.
+splits:
+  train:
+    inputs:
+      trace_textbook_rag: data/textbook_tool_sft/train.jsonl
+      trace_text_plus_anchors: data/textbook_tool_sft/train_text_and_anchors.jsonl
+  valid:
+    inputs:
+      trace_textbook_rag: data/textbook_tool_sft/valid.jsonl
+      trace_text_plus_anchors: data/textbook_tool_sft/valid_text_and_anchors.jsonl
+  test:
+    inputs:
+      trace_textbook_rag: data/textbook_tool_sft/test.jsonl
+      trace_text_plus_anchors: data/textbook_tool_sft/test_text_and_anchors.jsonl
+
 training_contract:
   model_family: Qwen3
   scales: [0.6B, 1.7B, 8B]
@@ -50,6 +68,9 @@ training_contract:
   same_lora_rank: true
   same_training_updates: true
   raw_assistant_token_equality_assumed: false
+  max_length: 12288
+  zero_truncation_required: true
+  assistant_mask_method: final_chatml_token_scan_v1
   supervised_token_budget_policy: >-
     Measure real tokenizer input and assistant-mask tokens for every condition;
     report token-normalized compute and use explicit sampling/update multipliers
@@ -62,6 +83,8 @@ training_contract:
 
 evaluation_contract:
   frozen_reference_ids_required: true
+  final_split: test
+  train_valid_test_id_overlap_allowed: false
   missing_prediction_policy: count_as_failure
   duplicate_or_extra_prediction_policy: hard_error
   recompute_trace_and_proof_metrics: true
@@ -105,5 +128,6 @@ evaluation_contract:
     - temporal_holdout
   claim_gate: >-
     Textbook gains must exceed both trace-only and length-matched irrelevant
-    context under the frozen ID universe, and the trace-owned path must remain
-    fully re-executable and causally sensitive to tool-observation interventions.
+    context on the frozen held-out test ID universe, and the trace-owned path
+    must remain fully re-executable and causally sensitive to tool-observation
+    interventions.

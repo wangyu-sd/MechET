@@ -17,7 +17,7 @@ from mechet.knowledge_ablation import (
     read_jsonl,
     validate_alignment,
 )
-from train_tool_sft import tokenizer_audit, validate_rows
+from train_tool_sft import tokenize_rows, validate_rows
 
 
 def parse_condition(value: str) -> tuple[str, Path]:
@@ -46,17 +46,10 @@ def _has_textbook(name: str) -> bool:
     }
 
 
-def _assistant_mask(payload: dict[str, Any]) -> list[int]:
-    for key, value in payload.items():
-        if "assistant" in str(key).lower() and "mask" in str(key).lower():
-            return [int(item) for item in value]
-    return []
-
-
 def _tokenizer_condition_summary(
     rows: list[dict[str, Any]], tokenizer, max_length: int
 ) -> dict[str, Any]:
-    audit = tokenizer_audit(rows, tokenizer, max_length=max_length)
+    _, audit = tokenize_rows(rows, tokenizer, max_length=max_length)
     input_tokens = int(audit["total_input_tokens"])
     supervised_tokens = int(audit["total_supervised_tokens"])
     return {
@@ -72,7 +65,12 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model-name", default="Qwen/Qwen3-0.6B")
     parser.add_argument("--model-revision", default="")
-    parser.add_argument("--max-length", type=int, default=4096)
+    parser.add_argument(
+        "--max-length",
+        type=int,
+        default=12288,
+        help="frozen matched-condition token budget; any over-budget row is a violation",
+    )
     parser.add_argument(
         "--skip-tokenizer-audit",
         action="store_true",
@@ -170,6 +168,8 @@ def main() -> int:
                         "code": "CONTEXT_TRUNCATION",
                         "condition": name,
                         "count": summary["truncation_count"],
+                        "maximum": summary.get("max_input_tokens"),
+                        "budget": summary.get("configured_max_length"),
                     }
                 )
             if not bool(summary.get("assistant_mask_valid")):
@@ -198,6 +198,9 @@ def main() -> int:
         "conditions": summaries,
         "tokenizer_audit_skipped": args.skip_tokenizer_audit,
         "tokenizer_conditions": tokenizer_summaries,
+        "frozen_max_length": args.max_length,
+        "assistant_mask_contract": "final_chatml_token_scan_v1",
+        "zero_truncation_required": True,
         "supervised_token_totals": supervised_totals,
         "suggested_sampling_or_update_multiplier_to_match_supervised_tokens": normalization,
         "budget_policy": (

@@ -18,7 +18,15 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO))
 
+from mechet.assistant_masking import (
+    encode_assistant_only_conversation,
+    percentile_nearest_rank,
+)
 from mechet.collator import AssistantOnlyCollator
+from mechet.model_revision import (
+    is_immutable_revision,
+    resolve_loaded_model_revision,
+)
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
@@ -192,171 +200,111 @@ def validate_rows(
     }
 
 
-def conversational_records(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        {
-            "id": str(row["id"]),
-            "messages": row["messages"],
-            "tools": row.get("tools") or [],
-        }
-        for row in rows
-    ]
-
-
-def _flatten_token_ids(value: Any) -> list[int]:
-    if hasattr(value, "tolist"):
-        value = value.tolist()
-    if not isinstance(value, list):
-        raise ValueError("tokenizer did not return a list of token ids")
-    while len(value) == 1 and isinstance(value[0], list):
-        value = value[0]
-    if any(isinstance(item, list) for item in value):
-        raise ValueError("tokenizer returned nested token ids")
-    return [int(item) for item in value]
-
-
-def _render_chat_text(
-    tokenizer,
-    messages: list[dict[str, Any]],
-    *,
-    tools: list[dict[str, Any]] | None = None,
-    add_generation_prompt: bool = False,
-) -> str:
-    kwargs: dict[str, Any] = {
-        "tokenize": False,
-        "add_generation_prompt": add_generation_prompt,
-    }
-    if tools:
-        kwargs["tools"] = tools
-    attempts = [
-        {"enable_thinking": False, **kwargs},
-        dict(kwargs),
-    ]
-    if tools:
-        without_tools = dict(kwargs)
-        without_tools.pop("tools", None)
-        attempts.extend(
-            [
-                {"enable_thinking": False, **without_tools},
-                without_tools,
-            ]
-        )
-    last_error: TypeError | None = None
-    for attempt in attempts:
-        try:
-            return tokenizer.apply_chat_template(messages, **attempt)
-        except TypeError as exc:
-            last_error = exc
-        try:
-            return tokenizer.apply_chat_template(conversation=messages, **attempt)
-        except TypeError as exc:
-            last_error = exc
-    raise last_error or TypeError("chat template rendering failed")
-
-
-def _tokenize_text(tokenizer, text: str) -> list[int]:
-    encoded = tokenizer(text, add_special_tokens=False, truncation=False)
-    return _flatten_token_ids(encoded["input_ids"])
-
-
-def _encode_row(
-    tokenizer,
-    row: dict[str, Any],
-    *,
-    max_length: int,
-) -> tuple[dict[str, list[int]], int]:
-    messages = list(row.get("messages") or [])
-    if not messages:
-        raise ValueError("row has no messages")
-    tools = list(row.get("tools") or [])
-    rendered = _render_chat_text(
-        tokenizer,
-        messages,
-        tools=tools or None,
-        add_generation_prompt=False,
-    )
-    input_ids = _tokenize_text(tokenizer, rendered)
-    full_length = len(input_ids)
-    mask = [0] * full_length
-    assistant_found = False
-    for index, message in enumerate(messages):
-        if str(message.get("role") or "") != "assistant":
-            continue
-        assistant_found = True
-        prefix_text = _render_chat_text(
-            tokenizer,
-            messages[:index],
-            tools=tools or None,
-            add_generation_prompt=True,
-        )
-        assistant_text = _render_chat_text(
-            tokenizer,
-            messages[: index + 1],
-            tools=tools or None,
-            add_generation_prompt=False,
-        )
-        start = len(_tokenize_text(tokenizer, prefix_text))
-        end = len(_tokenize_text(tokenizer, assistant_text))
-        start = max(0, min(start, full_length))
-        end = max(start, min(end, full_length))
-        for token_index in range(start, end):
-            mask[token_index] = 1
-    if not assistant_found:
-        raise ValueError("row has no assistant messages")
-    if full_length > max_length:
-        input_ids = input_ids[-max_length:]
-        mask = mask[-max_length:]
-    labels = [
-        token_id if supervised else -100
-        for token_id, supervised in zip(input_ids, mask)
-    ]
-    if not any(value != -100 for value in labels):
-        raise ValueError("truncation removed all assistant labels")
-    return {
-        "input_ids": input_ids,
-        "attention_mask": [1] * len(input_ids),
-        "labels": labels,
-    }, full_length
-
-
 def tokenize_rows(
-    rows: list[dict[str, Any]], tokenizer, *, max_length: int
+    rows: list[dict[str, Any]], tokenizer: Any, *, max_length: int
 ) -> tuple[list[dict[str, list[int]]], dict[str, Any]]:
+    """Render each conversation once and supervise only final ChatML assistant spans."""
+
     encoded_rows: list[dict[str, list[int]]] = []
     lengths: list[int] = []
     supervised: list[int] = []
-    zero_mask_ids: list[str] = []
-    truncated = 0
+    assistant_turns: list[int] = []
+    over_budget_ids: list[str] = []
+    mask_methods: set[str] = set()
     for row in rows:
-        encoded, raw_length = _encode_row(tokenizer, row, max_length=max_length)
-        input_ids = list(encoded.get("input_ids") or [])
-        mask = [int(value != -100) for value in list(encoded.get("labels") or [])]
-        n_supervised = sum(mask)
-        if n_supervised <= 0:
-            zero_mask_ids.append(str(row.get("id") or ""))
-        lengths.append(len(input_ids))
-        supervised.append(n_supervised)
-        truncated += int(raw_length > max_length)
+        encoded, audit = encode_assistant_only_conversation(
+            tokenizer,
+            row,
+            max_length=max_length,
+        )
+        identifier = str(row.get("id") or "")
+        lengths.append(int(audit["raw_length"]))
+        supervised.append(int(audit["supervised_tokens"]))
+        assistant_turns.append(int(audit["assistant_turns"]))
+        mask_methods.add(str(audit["mask_method"]))
+        if bool(audit["exceeds_max_length"]):
+            over_budget_ids.append(identifier)
         encoded_rows.append(encoded)
-    if zero_mask_ids:
-        raise ValueError(f"rows with zero assistant mask: {zero_mask_ids[:10]}")
+    if any(value <= 0 for value in supervised):
+        raise ValueError("one or more rows have zero assistant supervision")
     audit = {
         "tokenizer_name_or_path": getattr(tokenizer, "name_or_path", "unknown"),
-        "tokenizer_revision": str(
-            getattr(tokenizer, "init_kwargs", {}).get("_commit_hash")
-            or getattr(tokenizer, "init_kwargs", {}).get("revision")
-            or "unresolved"
-        ),
         "n_tokenizer_audited_rows": len(encoded_rows),
         "total_input_tokens": sum(lengths),
         "total_supervised_tokens": sum(supervised),
         "max_input_tokens": max(lengths, default=0),
+        "p50_input_tokens": percentile_nearest_rank(lengths, 0.50),
+        "p95_input_tokens": percentile_nearest_rank(lengths, 0.95),
+        "p99_input_tokens": percentile_nearest_rank(lengths, 0.99),
         "min_supervised_tokens": min(supervised, default=0),
-        "truncation_count": truncated,
-        "truncation_rate": truncated / max(len(rows), 1),
+        "max_assistant_turns": max(assistant_turns, default=0),
+        "configured_max_length": int(max_length),
+        "truncation_count": len(over_budget_ids),
+        "truncation_rate": len(over_budget_ids) / max(len(rows), 1),
+        "over_budget_ids": over_budget_ids[:50],
         "assistant_mask_valid": True,
+        "assistant_mask_methods": sorted(mask_methods),
+        "zero_truncation_required": True,
     }
     return encoded_rows, audit
+
+
+def _training_argument_kwargs(
+    TrainingArguments: Any,
+    *,
+    cfg: dict[str, Any],
+    training: dict[str, Any],
+    max_steps: int,
+    seed: int,
+    data_seed: int,
+    bf16: bool,
+    fp16: bool,
+    tf32: bool,
+    gradient_checkpointing: bool,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    kwargs: dict[str, Any] = {
+        "output_dir": str(cfg.get("output_dir") or "outputs/agent/tool_sft"),
+        "learning_rate": float(training.get("learning_rate", 2e-5)),
+        "num_train_epochs": float(training.get("num_train_epochs", 1.0)),
+        "max_steps": max_steps,
+        "per_device_train_batch_size": int(
+            training.get("per_device_train_batch_size", 1)
+        ),
+        "gradient_accumulation_steps": int(
+            training.get("gradient_accumulation_steps", 8)
+        ),
+        "logging_steps": int(training.get("logging_steps", 1)),
+        "save_steps": int(training.get("save_steps", 100)),
+        "save_total_limit": int(training.get("save_total_limit", 2)),
+        "seed": seed,
+        "data_seed": data_seed,
+        "bf16": bf16,
+        "fp16": fp16,
+        "tf32": tf32,
+        "gradient_checkpointing": gradient_checkpointing,
+        "dataloader_num_workers": int(training.get("dataloader_num_workers", 2)),
+        "optim": str(training.get("optim", "adamw_torch_fused")),
+        "report_to": list(training.get("report_to") or []),
+        "remove_unused_columns": False,
+        "ddp_find_unused_parameters": False,
+    }
+    fields = dict(getattr(TrainingArguments, "__dataclass_fields__", {}) or {})
+    requested_grouping = bool(training.get("group_by_length", True))
+    grouping = {
+        "requested": requested_grouping,
+        "api_field": None,
+        "applied_value": None,
+    }
+    if "train_sampling_strategy" in fields:
+        value = "group_by_length" if requested_grouping else "random"
+        kwargs["train_sampling_strategy"] = value
+        grouping.update({"api_field": "train_sampling_strategy", "applied_value": value})
+    elif "group_by_length" in fields:
+        kwargs["group_by_length"] = requested_grouping
+        grouping.update(
+            {"api_field": "group_by_length", "applied_value": requested_grouping}
+        )
+    return kwargs, grouping
 
 
 def main() -> int:
@@ -383,6 +331,14 @@ def main() -> int:
     contract = dict(cfg.get("contract") or {})
     require_trace_owned = bool(contract.get("require_trace_owned", True))
     training = dict(cfg.get("training") or {})
+    if bool(training.get("packing", False)):
+        raise ValueError(
+            "packing=true is unsupported by the pretokenized assistant-only Trainer path"
+        )
+    if not bool(training.get("assistant_only_loss", True)):
+        raise ValueError(
+            "train_tool_sft.py requires assistant_only_loss=true; labels are explicitly masked"
+        )
     configured_max_steps = int(training.get("max_steps", -1))
     max_steps = int(args.max_steps or configured_max_steps)
     seed = int(training.get("seed", 17))
@@ -396,8 +352,9 @@ def main() -> int:
         "model_name_or_path": cfg.get("model_name_or_path"),
         "condition_name": cfg.get("condition_name"),
         "output_dir": cfg.get("output_dir"),
-        "dataset_format": "conversational_messages_with_tools",
-        "assistant_only_loss": bool(training.get("assistant_only_loss", True)),
+        "dataset_format": "pretokenized_chatml_with_explicit_assistant_labels",
+        "assistant_only_loss": True,
+        "packing": False,
         "max_steps": max_steps,
         "seed": seed,
         "data_seed": data_seed,
@@ -418,8 +375,7 @@ def main() -> int:
     try:
         import torch
         from datasets import Dataset
-        from peft import LoraConfig
-        from peft import get_peft_model
+        from peft import LoraConfig, get_peft_model
         from transformers import (
             AutoModelForCausalLM,
             AutoTokenizer,
@@ -443,19 +399,32 @@ def main() -> int:
         raise ValueError("tokenizer does not expose a conversational chat template")
     if getattr(tokenizer, "pad_token", None) is None:
         tokenizer.pad_token = tokenizer.eos_token
+
+    revision_info = resolve_loaded_model_revision(
+        model_name_or_path=model_name,
+        requested_revision=requested_revision,
+        tokenizer=tokenizer,
+    )
+    resolved_revision = str(revision_info.get("resolved_model_revision") or "")
+    report.update(revision_info)
+    report["model_revision_frozen"] = is_immutable_revision(resolved_revision)
+    if not report["model_revision_frozen"] and not Path(model_name).exists():
+        raise ValueError("remote Tool-SFT training requires an immutable model revision")
+
     encoded_rows, audit = tokenize_rows(
         rows,
         tokenizer,
-        max_length=int(training.get("max_length", 4096)),
+        max_length=int(training.get("max_length", 12288)),
     )
     report.update(audit)
     if report["truncation_count"]:
         raise ValueError(
-            "Tool-SFT rows exceed max_length; increase the frozen budget or rebuild data"
+            "Tool-SFT rows exceed max_length; increase the same frozen max_length "
+            "for every matched condition or rebuild the data. "
+            f"max={report['max_input_tokens']} budget={report['configured_max_length']} "
+            f"examples={report['over_budget_ids'][:10]}"
         )
-    resolved_revision = str(
-        requested_revision or report.get("tokenizer_revision") or "unresolved"
-    )
+
     bf16 = bool(
         training.get(
             "bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported()
@@ -471,7 +440,7 @@ def main() -> int:
     dtype = torch.bfloat16 if bf16 else torch.float16 if fp16 else None
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
-        revision=None if resolved_revision == "unresolved" else resolved_revision,
+        revision=resolved_revision or requested_revision,
         trust_remote_code=trust_remote_code,
         torch_dtype=dtype,
     )
@@ -490,30 +459,22 @@ def main() -> int:
         task_type="CAUSAL_LM",
     )
     model = get_peft_model(model, peft_config)
-    model.gradient_checkpointing_enable()
+    if gradient_checkpointing:
+        model.gradient_checkpointing_enable()
 
-    training_args = TrainingArguments(
-        output_dir=str(cfg.get("output_dir") or "outputs/agent/tool_sft"),
-        learning_rate=float(training.get("learning_rate", 2e-5)),
-        num_train_epochs=float(training.get("num_train_epochs", 1.0)),
+    training_kwargs, grouping = _training_argument_kwargs(
+        TrainingArguments,
+        cfg=cfg,
+        training=training,
         max_steps=max_steps,
-        per_device_train_batch_size=int(training.get("per_device_train_batch_size", 1)),
-        gradient_accumulation_steps=int(training.get("gradient_accumulation_steps", 8)),
-        logging_steps=int(training.get("logging_steps", 1)),
-        save_steps=int(training.get("save_steps", 100)),
-        save_total_limit=int(training.get("save_total_limit", 2)),
         seed=seed,
         data_seed=data_seed,
         bf16=bf16,
         fp16=fp16,
         tf32=tf32,
         gradient_checkpointing=gradient_checkpointing,
-        dataloader_num_workers=int(training.get("dataloader_num_workers", 2)),
-        optim=str(training.get("optim", "adamw_torch_fused")),
-        report_to=list(training.get("report_to") or []),
-        remove_unused_columns=False,
-        ddp_find_unused_parameters=False,
     )
+    training_args = TrainingArguments(**training_kwargs)
     try:
         dataset = Dataset.from_list(encoded_rows, on_mixed_types="use_json")
     except TypeError:
@@ -529,7 +490,7 @@ def main() -> int:
     trainer.save_model()
     output = Path(training_args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
-    report["base_model_revision"] = resolved_revision
+    report["base_model_revision"] = resolved_revision or None
     report["training_runtime"] = {
         "seed": seed,
         "data_seed": data_seed,
@@ -537,7 +498,7 @@ def main() -> int:
         "fp16": fp16,
         "tf32": tf32,
         "gradient_checkpointing": gradient_checkpointing,
-        "group_by_length": bool(training.get("group_by_length", True)),
+        "length_grouping": grouping,
     }
     (output / "data_contract.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -548,8 +509,9 @@ def main() -> int:
         "adapter_path": str(output),
         "adapter_sha256": adapter_hash,
         "base_model": model_name,
-        "base_model_revision": resolved_revision,
-        "tokenizer_revision": report.get("tokenizer_revision"),
+        "requested_model_revision": revision_info.get("requested_model_revision"),
+        "base_model_revision": resolved_revision or None,
+        "tokenizer_revision": revision_info.get("tokenizer_revision"),
         "condition_name": cfg.get("condition_name"),
         "scientific_hypothesis": cfg.get("scientific_hypothesis"),
         "data_contract": str(output / "data_contract.json"),

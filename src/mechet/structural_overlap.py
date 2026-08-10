@@ -11,7 +11,11 @@ from rdkit import Chem, DataStructs
 from rdkit.Chem import rdFingerprintGenerator
 from rdkit.Chem.Scaffolds import MurckoScaffold
 
-from .proof_to_trace import ProofTracePlan, execution_primitive_signatures
+from .proof_to_trace import (
+    ProofTracePlan,
+    execution_primitive_signature,
+    execution_primitive_signatures,
+)
 
 
 _MORGAN = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
@@ -99,13 +103,17 @@ def _trace_plan(row: Mapping[str, Any]) -> ProofTracePlan:
     return ProofTracePlan.from_dict(value)
 
 
-def reaction_center_context_signature(row: Mapping[str, Any]) -> str:
-    """Hash a map-independent local target context plus move primitives."""
+def _step_reaction_center_context(step) -> dict[str, Any]:
+    """Return a map-independent local context in the state where a move occurs."""
 
-    plan = _trace_plan(row)
-    mol = Chem.MolFromSmiles(plan.target_smiles)
+    augmented_smiles = ".".join(
+        part for part in (step.state_before, *step.imports) if str(part).strip()
+    )
+    mol = Chem.MolFromSmiles(augmented_smiles)
     if mol is None:
-        raise ValueError("REACTION_CENTER_TARGET_INVALID")
+        raise ValueError(
+            f"REACTION_CENTER_STEP_STATE_INVALID:step={step.step_index}"
+        )
     map_to_index = {
         int(atom.GetAtomMapNum()): atom.GetIdx()
         for atom in mol.GetAtoms()
@@ -113,32 +121,41 @@ def reaction_center_context_signature(row: Mapping[str, Any]) -> str:
     }
     involved_maps: set[int] = set()
     move_topology: list[dict[str, Any]] = []
-    for step in plan.steps:
-        for move in step.moves:
-            source = dict(move.get("source") or {})
-            sink = dict(move.get("sink") or {})
-            source_maps = [int(item) for item in source.get("atoms") or []]
-            sink_maps = [int(item) for item in sink.get("atoms") or []]
-            involved_maps.update(source_maps)
-            involved_maps.update(sink_maps)
-            move_topology.append(
-                {
-                    "source_kind": str(source.get("kind") or ""),
-                    "sink_kind": str(sink.get("kind") or ""),
-                    "source_size": len(source_maps),
-                    "sink_size": len(sink_maps),
-                    "electrons": int(move.get("electrons", 2)),
-                }
-            )
-    selected_indices = {
-        map_to_index[item] for item in involved_maps if item in map_to_index
-    }
+    step_primitives: list[str] = []
+    for move in step.moves:
+        source = dict(move.get("source") or {})
+        sink = dict(move.get("sink") or {})
+        source_maps = [int(item) for item in source.get("atoms") or []]
+        sink_maps = [int(item) for item in sink.get("atoms") or []]
+        involved_maps.update(source_maps)
+        involved_maps.update(sink_maps)
+        move_topology.append(
+            {
+                "source_kind": str(source.get("kind") or ""),
+                "sink_kind": str(sink.get("kind") or ""),
+                "source_size": len(source_maps),
+                "sink_size": len(sink_maps),
+                "electrons": int(move.get("electrons", 2)),
+            }
+        )
+        step_primitives.append(
+            execution_primitive_signature(move, step.state_before, step.imports)
+        )
+    if not involved_maps:
+        raise ValueError(
+            f"REACTION_CENTER_ATOMS_MISSING:step={step.step_index}:no_move_maps"
+        )
+    missing_maps = sorted(involved_maps - set(map_to_index))
+    if missing_maps:
+        raise ValueError(
+            "REACTION_CENTER_ATOMS_MISSING:"
+            f"step={step.step_index}:maps={missing_maps}"
+        )
+    selected_indices = {map_to_index[item] for item in involved_maps}
     for index in list(selected_indices):
         selected_indices.update(
             neighbor.GetIdx() for neighbor in mol.GetAtomWithIdx(index).GetNeighbors()
         )
-    if not selected_indices:
-        raise ValueError("REACTION_CENTER_ATOMS_MISSING")
     local = Chem.MolFragmentToSmiles(
         _clear_atom_maps(mol),
         atomsToUse=sorted(selected_indices),
@@ -146,9 +163,31 @@ def reaction_center_context_signature(row: Mapping[str, Any]) -> str:
         isomericSmiles=True,
         allBondsExplicit=True,
     )
-    payload = {
-        "local_target_context": local,
+    return {
+        "step_index": int(step.step_index),
+        "local_state_context": local,
         "move_topology": move_topology,
+        "execution_primitives": step_primitives,
+        "n_edge_imports": len(step.imports),
+    }
+
+
+def reaction_center_context_signature(row: Mapping[str, Any]) -> str:
+    """Hash ordered local contexts at the states where electron moves execute.
+
+    The old audit searched every move atom only in ``target_smiles``. That is not
+    valid for inverse traces: a legitimate source/sink atom may enter through an
+    edge import before the corresponding move. The revised signature therefore
+    uses ``step.state_before + step.imports`` for each step and preserves step
+    order while removing atom-map labels from the local structural context.
+    """
+
+    plan = _trace_plan(row)
+    if not plan.steps:
+        raise ValueError("REACTION_CENTER_STEPS_MISSING")
+    payload = {
+        "context_definition": "step_state_plus_edge_imports_v2",
+        "steps": [_step_reaction_center_context(step) for step in plan.steps],
         "execution_primitives": list(execution_primitive_signatures(plan)),
     }
     return hashlib.sha256(
@@ -242,6 +281,7 @@ def audit_structural_overlap(
             "exact_reaction_seen_in_train": reaction_seen,
             "murcko_scaffold_seen_in_train": scaffold_seen,
             "reaction_center_context_seen_in_train": center_seen,
+            "reaction_center_context_definition": "step_state_plus_edge_imports_v2",
             "family_label": family or None,
             "family_seen_in_train": family_seen,
             "maximum_product_tanimoto_to_train": maximum_similarity,
@@ -255,6 +295,7 @@ def audit_structural_overlap(
     report = {
         "n_train": len(train_values),
         "n_heldout": n,
+        "reaction_center_context_definition": "step_state_plus_edge_imports_v2",
         "similarity_metric": (
             "Morgan radius=2, 2048-bit Tanimoto on the largest product fragment"
             if compute_similarity

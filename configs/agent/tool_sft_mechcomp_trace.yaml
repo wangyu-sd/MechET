@@ -1,8 +1,8 @@
-condition_name: trace_no_knowledge
-scientific_hypothesis: H1_causal_faithfulness
+condition_name: h2_mechcomp_trace_owned
+scientific_hypothesis: H2_compositional_generalization
 model_name_or_path: Qwen/Qwen3-0.6B
-train_file: data/knowledge_ablation/v2/train/trace_no_knowledge.jsonl
-output_dir: outputs/agent/tool_sft_trace_no_knowledge_qwen3_0_6b
+train_file: data/ood/mechcomp_source_sink/train.jsonl
+output_dir: outputs/h2/tool_sft_trace_qwen3_0_6b
 limit_examples: 0
 
 training:
@@ -19,8 +19,6 @@ training:
   save_steps: 100
   trust_remote_code: true
   report_to: []
-  # This is a request alias only. train_tool_sft.py resolves and records the
-  # immutable 40-hex Hugging Face commit in the adapter manifest.
   model_revision: main
 
 lora:
@@ -30,8 +28,8 @@ lora:
   target_modules: [q_proj, k_proj, v_proj, o_proj]
 
 contract:
-  stable_id_manifest: data/knowledge_ablation/v2/train/manifest.json
-  validation_report: outputs/contracts/evidence_conditions_train.json
+  stable_id_manifest: data/ood/mechcomp_source_sink/manifest.json
+  validation_report: null
   require_trace_owned: true
   endpoint_source: environment_owned_trace
   terminal_tool: finish_trace
@@ -39,14 +37,10 @@ contract:
   knowledge_direct_reward: false
   environment_revision: trace_owned_move_replay_v2
   executor_revision: MECH_PROOF_v1_move_bound
-  matched_against:
-    - trace_length_matched_irrelevant
-    - trace_textbook_rag
-    - trace_structured_anchors
-    - trace_text_plus_anchors
-    - direct_textbook_rag
+  h2_train_only: true
+  h2_test_file: data/ood/mechcomp_source_sink/test.jsonl
   real_overfit_smoke_test_required: true
   smoke_command: >-
     python scripts/train_tool_sft.py --config
-    configs/knowledge/tool_sft_trace_no_knowledge.yaml --limit 32 --max-steps 100
-  rl_after_supervised_signal_only: true
+    configs/agent/tool_sft_mechcomp_trace.yaml --limit 32 --max-steps 100
+  rl_after_supervised_signal_only: false

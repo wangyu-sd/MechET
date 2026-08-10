@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Build all matched evidence-layer conditions and a frozen suite manifest."""
+"""Build matched evidence conditions with optional train/valid/test isolation."""
 from __future__ import annotations
 
 import argparse
+from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
@@ -46,6 +47,8 @@ def load_config(path: Path) -> dict[str, Any]:
     value = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(value.get("conditions"), dict):
         raise ValueError("suite config requires a conditions mapping")
+    if value.get("splits") is not None and not isinstance(value.get("splits"), dict):
+        raise ValueError("suite config splits must be a mapping")
     return dict(value)
 
 
@@ -81,18 +84,40 @@ def derive_conditions(
             raise ValueError(f"unresolved derived condition dependencies: {unresolved}")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, required=True)
-    parser.add_argument("--output-dir", type=Path)
-    args = parser.parse_args()
+def _conditions_with_split_inputs(
+    base: dict[str, Any], split_spec: dict[str, Any]
+) -> dict[str, Any]:
+    conditions = deepcopy(base)
+    inputs = dict(split_spec.get("inputs") or {})
+    if not inputs:
+        raise ValueError("each split requires an inputs mapping")
+    for name, path in inputs.items():
+        if name not in conditions:
+            raise ValueError(f"split overrides unknown condition: {name}")
+        if conditions[name].get("derive_from"):
+            raise ValueError(
+                f"split input override must target a source condition, not {name}"
+            )
+        conditions[name]["input"] = str(path)
+    required_sources = {
+        name
+        for name, spec in conditions.items()
+        if not dict(spec or {}).get("derive_from")
+    }
+    missing = sorted(required_sources - set(inputs))
+    if missing:
+        raise ValueError(f"split inputs missing source conditions: {missing}")
+    return conditions
 
-    config = load_config(args.config)
-    output_dir = args.output_dir or Path(
-        str(config.get("output_dir") or "data/knowledge_ablation")
-    )
-    conditions = dict(config["conditions"])
 
+def build_one_suite(
+    *,
+    config: dict[str, Any],
+    conditions: dict[str, Any],
+    output_dir: Path,
+    config_path: Path,
+    split_name: str | None = None,
+) -> tuple[dict[str, Any], list[str]]:
     loaded: dict[str, list[dict[str, Any]]] = {}
     input_meta: dict[str, dict[str, Any]] = {}
     derived_specs: dict[str, dict[str, Any]] = {}
@@ -100,6 +125,8 @@ def main() -> int:
         spec = dict(spec_value or {})
         if spec.get("input"):
             path = Path(str(spec["input"]))
+            if not path.exists():
+                raise FileNotFoundError(f"condition input does not exist: {path}")
             loaded[name] = read_jsonl(path)
             input_meta[name] = {
                 "input": str(path),
@@ -117,7 +144,7 @@ def main() -> int:
     validate_alignment(matched)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    written = {}
+    written: dict[str, Any] = {}
     for name in conditions:
         rows = matched[name]
         path = output_dir / f"{name}.jsonl"
@@ -131,11 +158,13 @@ def main() -> int:
 
     ids_digest = hashlib.sha256("\n".join(identifiers).encode()).hexdigest()
     manifest = {
-        "suite_id": str(config.get("suite_id") or args.config.stem),
+        "suite_id": str(config.get("suite_id") or config_path.stem),
+        "split": split_name,
         "scientific_question": str(config.get("scientific_question") or ""),
-        "config": str(args.config),
-        "config_sha256": file_sha256(args.config),
+        "config": str(config_path),
+        "config_sha256": file_sha256(config_path),
         "n_matched_ids": len(identifiers),
+        "matched_ids": identifiers,
         "matched_ids_sha256": ids_digest,
         "conditions": written,
         "controls": {
@@ -158,6 +187,93 @@ def main() -> int:
         "training_contract": dict(config.get("training_contract") or {}),
         "evaluation_contract": dict(config.get("evaluation_contract") or {}),
     }
+    (output_dir / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    return manifest, identifiers
+
+
+def _cross_split_overlap(id_sets: dict[str, set[str]]) -> dict[str, int]:
+    names = list(id_sets)
+    output: dict[str, int] = {}
+    for left_index, left in enumerate(names):
+        for right in names[left_index + 1 :]:
+            output[f"{left}__{right}"] = len(id_sets[left] & id_sets[right])
+    return output
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path)
+    args = parser.parse_args()
+
+    config = load_config(args.config)
+    output_dir = args.output_dir or Path(
+        str(config.get("output_dir") or "data/knowledge_ablation")
+    )
+    conditions = dict(config["conditions"])
+    split_specs = dict(config.get("splits") or {})
+
+    if not split_specs:
+        manifest, _ = build_one_suite(
+            config=config,
+            conditions=conditions,
+            output_dir=output_dir,
+            config_path=args.config,
+        )
+        print(json.dumps(manifest, indent=2, ensure_ascii=False))
+        return 0
+
+    required = {"train", "valid", "test"}
+    missing_splits = sorted(required - set(split_specs))
+    if missing_splits:
+        raise ValueError(
+            f"split-aware evidence suite requires train/valid/test; missing {missing_splits}"
+        )
+
+    split_manifests: dict[str, Any] = {}
+    id_sets: dict[str, set[str]] = {}
+    for split_name in ("train", "valid", "test"):
+        split_spec = dict(split_specs[split_name] or {})
+        split_conditions = _conditions_with_split_inputs(conditions, split_spec)
+        split_manifest, identifiers = build_one_suite(
+            config=config,
+            conditions=split_conditions,
+            output_dir=output_dir / split_name,
+            config_path=args.config,
+            split_name=split_name,
+        )
+        id_sets[split_name] = set(identifiers)
+        split_manifests[split_name] = {
+            "manifest": str(output_dir / split_name / "manifest.json"),
+            "n_matched_ids": split_manifest["n_matched_ids"],
+            "matched_ids_sha256": split_manifest["matched_ids_sha256"],
+        }
+
+    overlap = _cross_split_overlap(id_sets)
+    if any(overlap.values()):
+        raise ValueError(f"evidence train/valid/test stable IDs overlap: {overlap}")
+
+    manifest = {
+        "suite_id": str(config.get("suite_id") or args.config.stem),
+        "artifact_type": "split_evidence_suite_manifest",
+        "config": str(args.config),
+        "config_sha256": file_sha256(args.config),
+        "output_dir": str(output_dir),
+        "splits": split_manifests,
+        "cross_split_id_overlap": overlap,
+        "controls": {
+            "train_valid_test_stable_ids_disjoint": True,
+            "final_evaluation_split": "test",
+            "training_split": "train",
+            "model_selection_split": "valid",
+        },
+        "training_contract": dict(config.get("training_contract") or {}),
+        "evaluation_contract": dict(config.get("evaluation_contract") or {}),
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False),
         encoding="utf-8",
