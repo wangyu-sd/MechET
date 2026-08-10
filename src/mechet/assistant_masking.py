@@ -23,7 +23,12 @@ def render_chat(
     tools: list[dict[str, Any]] | None = None,
     add_generation_prompt: bool = False,
 ) -> str:
-    """Render a Qwen-style chat once, tolerating minor Transformers API drift."""
+    """Render a Qwen-style chat once, tolerating minor Transformers API drift.
+
+    Tool-bearing supervision must retain the tool schema. If the loaded template
+    cannot accept ``tools=...`` we fail rather than silently training a different
+    prompt contract.
+    """
 
     kwargs: dict[str, Any] = {
         "tokenize": False,
@@ -35,15 +40,6 @@ def render_chat(
         {"enable_thinking": False, **kwargs},
         dict(kwargs),
     ]
-    if tools:
-        no_tools = dict(kwargs)
-        no_tools.pop("tools", None)
-        attempts.extend(
-            [
-                {"enable_thinking": False, **no_tools},
-                no_tools,
-            ]
-        )
     last_error: TypeError | None = None
     for attempt in attempts:
         try:
@@ -56,7 +52,8 @@ def render_chat(
             )
         except TypeError as exc:
             last_error = exc
-    raise last_error or TypeError("chat template rendering failed")
+    suffix = " with tool schemas" if tools else ""
+    raise TypeError(f"chat template rendering failed{suffix}: {last_error}")
 
 
 def tokenize_text(tokenizer: Any, text: str) -> list[int]:
