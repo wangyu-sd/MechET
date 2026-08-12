@@ -261,6 +261,7 @@ def _training_argument_kwargs(
     fp16: bool,
     tf32: bool,
     gradient_checkpointing: bool,
+    has_validation: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     kwargs: dict[str, Any] = {
         "output_dir": str(cfg.get("output_dir") or "outputs/agent/tool_sft"),
@@ -289,6 +290,35 @@ def _training_argument_kwargs(
         "ddp_find_unused_parameters": False,
     }
     fields = dict(getattr(TrainingArguments, "__dataclass_fields__", {}) or {})
+    if has_validation:
+        eval_strategy = str(training.get("eval_strategy", "epoch"))
+        if "eval_strategy" in fields:
+            kwargs["eval_strategy"] = eval_strategy
+        elif "evaluation_strategy" in fields:
+            kwargs["evaluation_strategy"] = eval_strategy
+        kwargs["per_device_eval_batch_size"] = int(
+            training.get("per_device_eval_batch_size", 1)
+        )
+        if "eval_accumulation_steps" in fields:
+            kwargs["eval_accumulation_steps"] = int(
+                training.get("eval_accumulation_steps", 8)
+            )
+    if gradient_checkpointing and "gradient_checkpointing_kwargs" in fields:
+        kwargs["gradient_checkpointing_kwargs"] = {
+            "use_reentrant": False,
+        }
+    use_liger_kernel = bool(training.get("use_liger_kernel", False))
+    if use_liger_kernel:
+        if "use_liger_kernel" not in fields:
+            raise RuntimeError(
+                "use_liger_kernel=true requires a Transformers version that "
+                "exposes TrainingArguments.use_liger_kernel"
+            )
+        kwargs["use_liger_kernel"] = True
+        if "liger_kernel_config" in fields:
+            kwargs["liger_kernel_config"] = dict(
+                training.get("liger_kernel_config") or {}
+            )
     requested_grouping = bool(training.get("group_by_length", True))
     grouping = {
         "requested": requested_grouping,
@@ -318,6 +348,12 @@ def main() -> int:
         default=0,
         help="override training.max_steps for a fixed overfit smoke test",
     )
+    parser.add_argument(
+        "--num-train-epochs",
+        type=float,
+        default=None,
+        help="override training.num_train_epochs without editing the frozen YAML",
+    )
     args = parser.parse_args()
 
     cfg = load_yaml(args.config)
@@ -328,9 +364,27 @@ def main() -> int:
         train_file,
         limit=args.limit or int(cfg.get("limit_examples", 0) or 0),
     )
+    validation_file_value = str(cfg.get("validation_file") or "").strip()
+    validation_file = Path(validation_file_value) if validation_file_value else None
+    if validation_file is not None and not validation_file.exists():
+        raise FileNotFoundError(
+            f"validation_file does not exist: {validation_file}"
+        )
     contract = dict(cfg.get("contract") or {})
     require_trace_owned = bool(contract.get("require_trace_owned", True))
     training = dict(cfg.get("training") or {})
+    if args.num_train_epochs is not None:
+        if args.num_train_epochs <= 0:
+            raise ValueError("--num-train-epochs must be positive")
+        training["num_train_epochs"] = float(args.num_train_epochs)
+    validation_limit = int(training.get("validation_limit", 0) or 0)
+    if args.limit and not validation_limit:
+        validation_limit = args.limit
+    validation_rows = (
+        read_rows(validation_file, limit=validation_limit)
+        if validation_file is not None
+        else []
+    )
     if bool(training.get("packing", False)):
         raise ValueError(
             "packing=true is unsupported by the pretokenized assistant-only Trainer path"
@@ -349,6 +403,17 @@ def main() -> int:
         "scientific_hypothesis": cfg.get("scientific_hypothesis"),
         "train_file": str(train_file),
         "train_file_sha256": file_sha256(train_file),
+        "validation_file": str(validation_file) if validation_file else None,
+        "validation_file_sha256": (
+            file_sha256(validation_file) if validation_file else None
+        ),
+        "validation": (
+            validate_rows(
+                validation_rows, require_trace_owned=require_trace_owned
+            )
+            if validation_rows
+            else None
+        ),
         "model_name_or_path": cfg.get("model_name_or_path"),
         "condition_name": cfg.get("condition_name"),
         "output_dir": cfg.get("output_dir"),
@@ -356,6 +421,7 @@ def main() -> int:
         "assistant_only_loss": True,
         "packing": False,
         "max_steps": max_steps,
+        "num_train_epochs": float(training.get("num_train_epochs", 1.0)),
         "seed": seed,
         "data_seed": data_seed,
         "stable_id_manifest": contract.get("stable_id_manifest"),
@@ -425,6 +491,22 @@ def main() -> int:
             f"examples={report['over_budget_ids'][:10]}"
         )
 
+    encoded_validation_rows: list[dict[str, list[int]]] = []
+    if validation_rows:
+        encoded_validation_rows, validation_audit = tokenize_rows(
+            validation_rows,
+            tokenizer,
+            max_length=int(training.get("max_length", 12288)),
+        )
+        report["validation_tokenizer_audit"] = validation_audit
+        if validation_audit["truncation_count"]:
+            raise ValueError(
+                "validation Tool-SFT rows exceed max_length; "
+                f"max={validation_audit['max_input_tokens']} "
+                f"budget={validation_audit['configured_max_length']} "
+                f"examples={validation_audit['over_budget_ids'][:10]}"
+            )
+
     bf16 = bool(
         training.get(
             "bf16", torch.cuda.is_available() and torch.cuda.is_bf16_supported()
@@ -460,7 +542,14 @@ def main() -> int:
     )
     model = get_peft_model(model, peft_config)
     if gradient_checkpointing:
-        model.gradient_checkpointing_enable()
+        if hasattr(model, "enable_input_require_grads"):
+            model.enable_input_require_grads()
+        try:
+            model.gradient_checkpointing_enable(
+                gradient_checkpointing_kwargs={"use_reentrant": False}
+            )
+        except TypeError:
+            model.gradient_checkpointing_enable()
 
     training_kwargs, grouping = _training_argument_kwargs(
         TrainingArguments,
@@ -473,16 +562,30 @@ def main() -> int:
         fp16=fp16,
         tf32=tf32,
         gradient_checkpointing=gradient_checkpointing,
+        has_validation=bool(encoded_validation_rows),
     )
     training_args = TrainingArguments(**training_kwargs)
     try:
         dataset = Dataset.from_list(encoded_rows, on_mixed_types="use_json")
     except TypeError:
         dataset = Dataset.from_list(encoded_rows)
+    try:
+        validation_dataset = (
+            Dataset.from_list(encoded_validation_rows, on_mixed_types="use_json")
+            if encoded_validation_rows
+            else None
+        )
+    except TypeError:
+        validation_dataset = (
+            Dataset.from_list(encoded_validation_rows)
+            if encoded_validation_rows
+            else None
+        )
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=dataset,
+        eval_dataset=validation_dataset,
         processing_class=tokenizer,
         data_collator=AssistantOnlyCollator(tokenizer),
     )
@@ -498,6 +601,8 @@ def main() -> int:
         "fp16": fp16,
         "tf32": tf32,
         "gradient_checkpointing": gradient_checkpointing,
+        "use_liger_kernel": bool(training.get("use_liger_kernel", False)),
+        "liger_kernel_config": dict(training.get("liger_kernel_config") or {}),
         "length_grouping": grouping,
     }
     (output / "data_contract.json").write_text(

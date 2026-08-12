@@ -44,7 +44,24 @@ curl -L -o data/raw/uspto50k/USPTO_50K.csv \
   https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_50K.csv
 ```
 
-### 3. USPTO-MIT
+### 3. mech-USPTO-31k
+
+Mechanistic USPTO-derived elementary steps with source-to-sink arrows. This is
+the source for inverse Tool-SFT and is distinct from USPTO-50K and FlowER.
+
+```bash
+python scripts/forward_expert_data.py download \
+  --dataset mech_uspto_31k \
+  --revision d708ff68be35fd02d2c1e183ee3d437b0b647f53 \
+  --output data/raw/mech_uspto_31k
+```
+
+See
+[`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](../docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md)
+for the complete replay, stitching, inverse conversion, validation, and
+training procedure.
+
+### 4. USPTO-MIT
 
 Larger USPTO subset curated by Jin et al. (~479k reactions; forward / retro baselines).
 

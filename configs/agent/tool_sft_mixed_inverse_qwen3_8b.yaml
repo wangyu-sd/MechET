@@ -1,0 +1,67 @@
+condition_name: mixed_flower_mech_uspto_trace_no_knowledge
+scientific_hypothesis: shared_inverse_trace_pretraining
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/mixed_inverse_tool_sft/train.a100_20480.jsonl
+validation_file: data/mixed_inverse_tool_sft/valid.jsonl
+test_file: data/mixed_inverse_tool_sft/test.jsonl
+output_dir: outputs/agent/tool_sft_mixed_inverse_qwen3_8b
+limit_examples: 0
+
+training:
+  learning_rate: 2.0e-5
+  num_train_epochs: 1.0
+  max_steps: -1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 4
+  eval_accumulation_steps: 8
+  eval_strategy: epoch
+  max_length: 20480
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  gradient_checkpointing: true
+  # Fuse lm_head + cross entropy so long sequences never materialize the
+  # [sequence, 151669] logits tensor (the source of the 40 GB A100 OOM).
+  use_liger_kernel: true
+  liger_kernel_config:
+    rope: false
+    rms_norm: false
+    swiglu: false
+    cross_entropy: false
+    fused_linear_cross_entropy: true
+  dataloader_num_workers: 2
+  logging_steps: 5
+  save_steps: 250
+  save_total_limit: 2
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  stable_id_manifest: data/mixed_inverse_tool_sft/training_manifest.json
+  validation_report: outputs/mixed_inverse_overlap/decontaminated_heldout/overlap_summary.json
+  require_trace_owned: true
+  endpoint_source: environment_owned_trace
+  terminal_tool: finish_trace
+  free_form_proof_submission: false
+  knowledge_direct_reward: false
+  corpus_used: false
+  source_dataset: flower_mech_proof_plus_mech_uspto_31k
+  environment_revision: trace_owned_move_replay_v2
+  executor_revision: MECH_PROOF_v1_move_bound
+  exact_structural_train_heldout_overlap: 0
+  real_overfit_smoke_test_required: true
+  smoke_command: >-
+    torchrun --standalone --nproc_per_node=8 scripts/train_tool_sft.py
+    --config configs/agent/tool_sft_mixed_inverse_qwen3_8b.yaml
+    --limit 32 --max-steps 20
+  rl_after_supervised_signal_only: true

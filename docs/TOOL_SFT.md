@@ -24,6 +24,12 @@ executable MECH_PROOF v1
 
 Only replay-verified rows are accepted. Unsupported topology, ambiguous electron pairing, failed imports, move/state mismatch, terminal replay failure, and tool-budget overflow are quarantined with stable reason codes.
 
+The mech-USPTO-31k inverse path starts from globally stitched forward traces
+rather than MECH_PROOF conversion. Its separate `trace_no_knowledge` v2
+contract, stereochemistry normalization boundary, 11,429-row coverage report,
+and complete reproduction commands are documented in
+[`MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](MECH_USPTO_31K_INVERSE_TOOL_SFT.md).
+
 ## Retrieval query contract
 
 Headline textbook rows use only inference-available molecular information:
@@ -98,6 +104,44 @@ python scripts/train_tool_sft.py \
 ```
 
 A credible pilot reports training/validation loss, valid tool-call rate, `finish_trace` rate, formal execution, trace-bound behavior, and held-out endpoint performance. A schema-only dry run does not establish learnability.
+
+## Mixed inverse pretraining run
+
+The shared Qwen3-8B run combines the two datasets that implement the same
+product-to-executable-inverse-trace objective:
+
+- FlowER mechanism proofs converted to trace-owned Tool-SFT;
+- stitched mech-USPTO-31k inverse traces.
+
+Knowledge retrieval is stripped from the FlowER rows, so every example is in
+the `trace_no_knowledge` condition and the textbook corpus is not a training
+input. The natural-frequency mixture is structurally decontaminated against
+the union of valid and test before training. `training_manifest.json` binds the
+split hashes, source counts, overlap report, tokenizer audits, model revision,
+and the zero-corpus contract. The A100-40GB run uses a 20,480-token frozen
+budget. Four 20,481--31,605-token FlowER training traces are explicitly
+quarantined because Qwen3's full-vocabulary FP32 loss materialization does not
+fit on A100-40GB at those lengths. Validation and test remain complete, and no
+accepted trace is silently truncated.
+
+Training uses Liger 0.6.2 fused linear cross entropy for Qwen3. This computes
+the language-model head and assistant-only cross entropy in chunks instead of
+materializing a `[sequence, 151669]` FP32 logits tensor. Only that fused loss is
+enabled; Liger RoPE, RMSNorm, and SwiGLU replacements are disabled so the model
+definition otherwise remains unchanged. The launcher verifies the vendored
+wheel SHA-256 before installing it into a per-job temporary directory.
+
+```bash
+python scripts/build_mixed_inverse_tool_sft.py
+python scripts/finalize_mixed_inverse_tool_sft.py
+
+torchrun --standalone --nproc_per_node=8 scripts/train_tool_sft.py \
+  --config configs/agent/tool_sft_mixed_inverse_qwen3_8b.yaml
+```
+
+The checked-in Taiji launcher requests one host with eight H20 GPUs. Its
+resource fallback order is H20, A100, then V100; only one task should be active
+at a time.
 
 ## Training reproducibility
 

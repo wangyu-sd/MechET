@@ -31,6 +31,10 @@ This page defines the authority order and the shortest reading path for differen
 11. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — optional independent forward evidence and calibration requirements.
 12. [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) — framework adapters and downstream planning integration.
 
+Dataset-specific implementation notes, including
+[`MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](MECH_USPTO_31K_INVERSE_TOOL_SFT.md),
+inherit these contracts and do not override the authority order above.
+
 [`STATUS_MATRIX.md`](STATUS_MATRIX.md) is a living implementation/evidence status page, not a competing scientific source of truth.
 
 When documents disagree, update the lower-authority document. Do not create a parallel source of truth.
@@ -177,6 +181,7 @@ A later level cannot rescue an earlier failure.
 - [`STATUS_MATRIX.md`](STATUS_MATRIX.md) — implementation status versus unestablished scientific results.
 - [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) — evidence-tool implementation details.
 - [`DATA_LEAKAGE_AND_ICLR_PLAN.md`](DATA_LEAKAGE_AND_ICLR_PLAN.md) — overlap audits and benchmark freezing.
+- [`MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](MECH_USPTO_31K_INVERSE_TOOL_SFT.md) — inverse Tool-SFT source identity, v2 stereo policy, coverage, and reproduction.
 - [`../knowledge/README.md`](../knowledge/README.md) — source licensing, quality metadata, and asset policy.
 - [`../data/README.md`](../data/README.md) — local data construction.
 

@@ -141,8 +141,62 @@ def _without_tools(row: Mapping[str, Any], blocked: set[str]) -> dict[str, Any]:
     return value
 
 
+_TRACE_ONLY_SYSTEM_PROMPT = """You are MechET, a trace-owned inverse electron-flow agent.
+Reconstruct the precursor only through explicit environment tool calls. The
+final proof and precursor must be produced by finish_trace."""
+
+
+def _strip_knowledge_prompt(messages: list[dict[str, Any]]) -> None:
+    marker = "INITIAL ENVIRONMENT OBSERVATION:\n"
+    for message in messages:
+        role = str(message.get("role") or "")
+        content = str(message.get("content") or "")
+        if role == "system" and any(
+            term in content.lower() for term in ("textbook", "retrieved evidence")
+        ):
+            message["content"] = _TRACE_ONLY_SYSTEM_PROMPT
+            continue
+        if role != "user":
+            continue
+        content = content.replace(
+            "Retrieve relevant textbook guidance, reproduce the executable "
+            "inverse trace, and finish the environment-owned program.",
+            "Reproduce the executable inverse trace and finish the "
+            "environment-owned program.",
+        )
+        if marker not in content:
+            message["content"] = content
+            continue
+        prefix, raw_observation = content.split(marker, 1)
+        try:
+            observation = json.loads(raw_observation)
+        except json.JSONDecodeError:
+            message["content"] = content
+            continue
+        observation["instructions"] = [
+            instruction
+            for instruction in observation.get("instructions") or []
+            if not any(
+                term in str(instruction).lower()
+                for term in ("retrieved evidence", "textbook", "retrieve_primitives")
+            )
+        ]
+        observation["knowledge"] = {
+            "textbook_enabled": False,
+            "structured_primitives_enabled": False,
+            "structured_anchors_enabled": False,
+            "knowledge_reward": False,
+        }
+        message["content"] = (
+            prefix
+            + marker
+            + json.dumps(observation, ensure_ascii=False)
+        )
+
+
 def strip_knowledge_messages(row: Mapping[str, Any]) -> dict[str, Any]:
     value = _without_tools(row, KNOWLEDGE_TOOLS)
+    _strip_knowledge_prompt(value["messages"])
     value["tools"] = trace_tool_schemas()
     metadata = dict(value.get("metadata") or {})
     metadata.update(
