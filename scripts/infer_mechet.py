@@ -297,6 +297,12 @@ def _load_model(
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
+    torch_dtype = None
+    if torch.cuda.is_available():
+        # Volta/V100 cannot execute BF16 kernels.  Ampere and newer use BF16;
+        # older CUDA devices load the same frozen model in FP16.
+        major, _ = torch.cuda.get_device_capability(0)
+        torch_dtype = torch.bfloat16 if major >= 8 else torch.float16
     tokenizer = AutoTokenizer.from_pretrained(
         model_name, revision=revision, trust_remote_code=True
     )
@@ -304,7 +310,7 @@ def _load_model(
         model_name,
         revision=revision,
         trust_remote_code=True,
-        torch_dtype=(torch.bfloat16 if torch.cuda.is_available() else None),
+        torch_dtype=torch_dtype,
         device_map=device_map or ("auto" if torch.cuda.is_available() else None),
     )
     if adapter:

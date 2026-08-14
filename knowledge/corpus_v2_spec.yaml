@@ -1,0 +1,61 @@
+schema_version: 1
+corpus_id: organic-textbook-corpus-v2
+status: development
+purpose: Broad soft evidence for organic mechanism induction and independent organic-chemistry evaluation
+layers:
+  redistributable:
+    allowed_licenses:
+      - CC-BY-4.0
+      - CC-BY-SA-4.0-individual-terms
+      - CC-BY-SA-4.0-and-GFDL-unless-noted
+  noncommercial_research:
+    allowed_licenses:
+      - CC-BY-NC-SA-4.0
+    release_separately: true
+  external_reference_only:
+    include_in_corpus: false
+    examples: [NIST Chemistry WebBook SRD 69]
+required_topic_coverage:
+  bonding_and_structure: 50
+  acid_base: 50
+  substitution: 50
+  elimination: 30
+  addition: 50
+  carbonyl: 80
+  aromatic: 50
+  oxidation_reduction: 30
+  radical: 25
+  photochemistry: 10
+  electrochemistry: 5
+  pericyclic: 20
+  rearrangement: 20
+  stereochemistry: 50
+  organometallic: 30
+  heterocycle: 20
+  polymer: 10
+  biomolecule: 20
+  kinetics: 20
+  thermodynamics: 20
+  solvent_effects: 20
+  spectroscopy: 50
+  mass_spectrometry: 25
+  chromatography: 10
+  ionization: 15
+  fragmentation: 15
+required_phase_coverage:
+  solution_phase: 150
+  gas_phase: 25
+quality_gates:
+  minimum_passages: 1500
+  maximum_passages_with_markup: 0
+  maximum_passages_with_page_furniture: 0
+  maximum_passages_with_urls: 0
+  maximum_exact_duplicate_fraction: 0.001
+  minimum_source_count: 2
+freeze_before_final_test:
+  - source registry
+  - raw artifact hashes and revisions
+  - passage hashes
+  - chunking parameters
+  - retrieval parameters
+  - evaluation questions and answer rubrics

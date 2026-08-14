@@ -22,6 +22,8 @@ class TextbookPassage:
     topics: tuple[str, ...] = ()
     reaction_families: tuple[str, ...] = ()
     functional_groups: tuple[str, ...] = ()
+    phases: tuple[str, ...] = ()
+    modalities: tuple[str, ...] = ()
     metadata: dict[str, Any] | None = None
 
     @classmethod
@@ -47,6 +49,8 @@ class TextbookPassage:
             functional_groups=tuple(
                 map(str, row.get("functional_groups") or ())
             ),
+            phases=tuple(map(str, row.get("phases") or ())),
+            modalities=tuple(map(str, row.get("modalities") or ())),
             metadata=dict(row.get("metadata") or {}),
         )
 
@@ -55,6 +59,8 @@ class TextbookPassage:
         value["topics"] = list(self.topics)
         value["reaction_families"] = list(self.reaction_families)
         value["functional_groups"] = list(self.functional_groups)
+        value["phases"] = list(self.phases)
+        value["modalities"] = list(self.modalities)
         return value
 
 

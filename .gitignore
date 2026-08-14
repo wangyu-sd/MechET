@@ -17,8 +17,12 @@ venv/
 .vscode/
 
 # Data & outputs (large)
-data/mechet_sft/
-data/orbit_mech_et_sft/
+artifacts/
+data/**
+!data/README.md
+!data/FORWARD_EXPERT.md
+!data/samples/
+!data/samples/**
 *.jsonl
 !data/samples/*.jsonl
 outputs/

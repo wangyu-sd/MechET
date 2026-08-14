@@ -1,0 +1,247 @@
+{
+  "artifact_type": "provisional_flower_baseline_evidence_inventory",
+  "schema_version": 1,
+  "created_at": "2026-08-14",
+  "status": "evidence_inventory_not_a_cross_model_leaderboard",
+  "dataset_lineage": {
+    "elementary_transition_rows": 218997,
+    "reaction_trajectories": 28971,
+    "mechet_proof_compatible_test_rows": 3562,
+    "mechet_executable_tool_trace_test_rows": 3080,
+    "mean_transitions_per_trajectory": 7.55918
+  },
+  "intended_fair_endpoint_contract": {
+    "evaluation_unit": "one complete reaction per stable test ID",
+    "observable_input": "product molecular graph only",
+    "target": "unordered multiset of atom-contributing structural precursor fragments",
+    "normalization": "remove atom maps, RDKit canonicalize, fragment-order invariant, stereochemistry retained",
+    "candidate_metrics": [
+      "ranked_top_1",
+      "ranked_top_5",
+      "ranked_top_10"
+    ],
+    "required_audits": [
+      "identical_stable_test_ids",
+      "train_test_overlap_zero_under_frozen_structural_key",
+      "identical_missing_prediction_denominator",
+      "frozen_candidate_ranking"
+    ]
+  },
+  "results": [
+    {
+      "system": "MechET Qwen3-8B three-epoch Tool-SFT",
+      "condition": "flower_trace_3epoch_k10",
+      "evidence_status": "complete_frozen_current_protocol",
+      "comparability_bucket": "current_mechet_headline",
+      "evaluation_unit": "complete executable inverse trajectory",
+      "n": 3080,
+      "input": "mapped product only",
+      "target": "structural precursor multiset",
+      "candidate_semantics": "generation_order_pass_at_k_not_ranked_top_k",
+      "metrics": {
+        "structural_pass_at_1": 0.75,
+        "structural_pass_at_5": 0.8964285714285715,
+        "structural_pass_at_10": 0.9211038961038961,
+        "mapped_pass_at_1": 0.6577922077922078,
+        "mapped_pass_at_5": 0.8435064935064935,
+        "mapped_pass_at_10": 0.8798701298701299,
+        "selected_structural_exact": 0.8288961038961039,
+        "selected_execute_rate": 0.9974025974025974
+      },
+      "source": "docs/results/flower_qwen3_8b_3epoch_k10.json",
+      "source_sha256": "4da90354c4b7e1091f17f7f0932e5269286db1e9d19df9de42239a7a6fb45f1a"
+    },
+    {
+      "system": "RXNGraphormer",
+      "condition": "orbit_retro",
+      "evidence_status": "complete_historical_different_task",
+      "comparability_bucket": "transition_level_predecessor_prediction",
+      "evaluation_unit": "one FlowER elementary transition",
+      "n": 218997,
+      "input": "complete successor-state molecular world",
+      "target": "complete predecessor-state molecular world",
+      "candidate_semantics": "beam_ranked_top_k",
+      "metrics": {
+        "strict_top_1": 0.531281250428088,
+        "strict_top_5": 0.6827901752078795,
+        "strict_top_10": 0.6960141006497806,
+        "main_only_top_1": 0.6685753686123554,
+        "main_only_top_5": 0.797476677762709,
+        "main_only_top_10": 0.8088923592560628,
+        "valid_decode_rate_per_candidate": 0.5860285757339142
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/rxngraphormer_retro/test/metrics_main_only.json",
+      "source_sha256": "a92ef87db8dfedec9f725ad303db52950eabee28d63f0cf4ec7c2e13663a680f"
+    },
+    {
+      "system": "RXNGraphormer",
+      "condition": "orbit_main_product",
+      "evidence_status": "complete_historical_proxy",
+      "comparability_bucket": "reaction_level_product_only_full_world_target",
+      "evaluation_unit": "one complete reaction",
+      "n": 28971,
+      "input": "main product only",
+      "target": "complete reverse world including structural and auxiliary fragments",
+      "candidate_semantics": "beam_ranked_top_k",
+      "metrics": {
+        "strict_top_1": 0.05301853577715647,
+        "strict_top_5": 0.09278243761002382,
+        "strict_top_10": 0.10541576058817438,
+        "main_only_top_1": 0.5134444789617203,
+        "main_only_top_5": 0.6103689896793345,
+        "main_only_top_10": 0.6298712505609058,
+        "valid_decode_rate_per_candidate": 0.5357978668323496
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/rxngraphormer_main_product/test/metrics_main_only.json",
+      "source_sha256": "7cfdf36ebd53a94b6e72c2d8c52485fc87ecd35e113e4151df54139744db8050"
+    },
+    {
+      "system": "Molecular Transformer BART implementation",
+      "condition": "orbit_main_product_100_epoch",
+      "evidence_status": "complete_historical_proxy",
+      "comparability_bucket": "reaction_level_product_only_full_world_target",
+      "evaluation_unit": "one complete reaction",
+      "n": 28971,
+      "input": "main product only",
+      "target": "complete reverse world including structural and auxiliary fragments",
+      "candidate_semantics": "beam_ranked_top_k",
+      "metrics": {
+        "strict_top_1": 0.00024162093127610368,
+        "strict_top_5": 0.0002761382071726899,
+        "strict_top_10": 0.00031065548306927616,
+        "main_only_top_1": 0.8704911808360084,
+        "main_only_top_5": 0.964964964964965,
+        "main_only_top_10": 0.982396189292741,
+        "valid_decode_rate": 0.9869662766214491
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/molecular_transformer/test/metrics_100ep.json",
+      "source_sha256": "ed9212f4e2fbc4a50004d457e489dd52fa7e33f942cf15398ba3b911bc7c37aa"
+    },
+    {
+      "system": "Graph2SMILES",
+      "condition": "flower_completion_full_world",
+      "evidence_status": "complete_historical_proxy",
+      "comparability_bucket": "reaction_level_product_only_full_world_target",
+      "evaluation_unit": "one complete reaction",
+      "n": 28970,
+      "input": "main product only",
+      "target": "complete reverse world including structural and auxiliary fragments",
+      "candidate_semantics": "beam_ranked_top_k",
+      "metrics": {
+        "strict_top_1": 0.028960994131860547,
+        "strict_top_5": 0.037176389368312045,
+        "strict_top_10": 0.03752157404211253,
+        "main_only_top_1": 0.16848463928201587,
+        "main_only_top_5": 0.17711425612702797,
+        "main_only_top_10": 0.18001380738695202,
+        "valid_decode_rate": 1.0
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/g2s/test/metrics_full.json",
+      "source_sha256": "bd598be977a8d7ac280fe2a0492a83e09c55102036380fdc63e1c0e8b8cb60dc"
+    },
+    {
+      "system": "RXNGraphormer",
+      "condition": "orbit_completion",
+      "evidence_status": "complete_historical_non_retrosynthesis_task",
+      "comparability_bucket": "environment_completion_excluded_from_endpoint_table",
+      "evaluation_unit": "one complete reaction",
+      "n": 28894,
+      "input": "main product",
+      "target": "hidden environment and byproducts",
+      "candidate_semantics": "beam_ranked_top_k",
+      "metrics": {
+        "strict_top_1": 0.0,
+        "strict_top_10": 0.0,
+        "main_only_top_1": 0.00010382778431508272,
+        "main_only_top_10": 0.0024918668235619852,
+        "valid_decode_rate_per_candidate": 0.5815532636533537
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/rxngraphormer_completion/test/metrics_extended.json",
+      "source_sha256": "e959fccee8ca5d74c8ca8a169a006317afb9794b9f8d1407d73165c39d2a3c25"
+    },
+    {
+      "system": "old ORBIT v2 endpoint baseline",
+      "condition": "endpoint_baseline",
+      "evidence_status": "provisional_small_subset",
+      "comparability_bucket": "internal_pre_mechet_model",
+      "evaluation_unit": "repository-defined full-chain case",
+      "n": 500,
+      "input": "legacy ORBIT protocol",
+      "target": "legacy endpoint exact",
+      "candidate_semantics": "top1_only",
+      "metrics": {
+        "top_1_exact": 0.624,
+        "valid_decode_rate": 1.0,
+        "reaction_center_f1_n_2000": 0.5746148911035833,
+        "be_trajectory_mae_n_2000": 0.016033778447716033
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/orbit_v2_benchmark/endpoint_baseline.json",
+      "source_sha256": "1ec3c460352a09c82f6be25c809bb6757db98f8b47bf1a9767a91e3742f60952"
+    },
+    {
+      "system": "LocalRetro",
+      "condition": "historical_reflow_run",
+      "evidence_status": "invalid_or_misaligned_run",
+      "comparability_bucket": "do_not_interpret_as_model_performance",
+      "evaluation_unit": "nominal complete reaction",
+      "n": 28971,
+      "metrics": {
+        "strict_top_1": 0.0,
+        "main_only_top_1": 0.0,
+        "non_empty_rate": 0.045597321459390425
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/localretro/test/metrics_full.json",
+      "source_sha256": "994dcab1bbc6a591308493b10a463b8445d4759ae262403b760889afd93639ed"
+    },
+    {
+      "system": "NeuralSym",
+      "condition": "historical_reflow_run",
+      "evidence_status": "invalid_or_misaligned_run",
+      "comparability_bucket": "do_not_interpret_as_model_performance",
+      "evaluation_unit": "nominal complete reaction",
+      "n": 28971,
+      "metrics": {
+        "strict_top_1": 0.0,
+        "main_only_top_1": 0.0,
+        "non_empty_rate": 0.00010355182768975873
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/neuralsym/test/metrics_full.json",
+      "source_sha256": "809c2bad2b912e05901b8c59a172b7aef6d74ea8342404e77c60dbf100b0a676"
+    },
+    {
+      "system": "Retroformer",
+      "condition": "historical_reflow_partial_run",
+      "evidence_status": "incomplete_or_misaligned_run",
+      "comparability_bucket": "do_not_interpret_as_model_performance",
+      "evaluation_unit": "partial complete-reaction subset",
+      "n": 9153,
+      "metrics": {
+        "strict_top_1": 0.0,
+        "main_only_top_1": 0.00021850759313886157,
+        "valid_decode_rate": 0.9946465639680979
+      },
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/retroformer/test/metrics_full.json",
+      "source_sha256": "8a0a743bb202b9e3c8f5f0e39f45b73956905fee6fbd1df83395687c4e454ea0"
+    },
+    {
+      "system": "FlowER inverse historical run",
+      "condition": "reflow_20260522",
+      "evidence_status": "failed_incomplete_inference",
+      "comparability_bucket": "do_not_score",
+      "n_prediction_records": 69279,
+      "failure_evidence": [
+        "OOM batches were replaced by placeholders",
+        "final metric computation raised an IndexError",
+        "no trustworthy final metrics artifact exists"
+      ],
+      "source": "/aaa/fionafyang/buddy1/whaleywang/reflow/outputs/paper_results/baseline_benchmark/flower/test/predictions.json",
+      "source_sha256": "355b2cc464f3a78ca6df2aab9db16795c17f9ec022c1c0d04afa55c6a86678a7"
+    }
+  ],
+  "missing_completed_results": [
+    "GraphRetro on the frozen MechET test",
+    "ELECTRO on the frozen MechET test",
+    "DeepMech on the frozen MechET test",
+    "ranked MechET Top-k under a frozen gold-independent ranker"
+  ]
+}
