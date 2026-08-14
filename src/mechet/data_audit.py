@@ -284,8 +284,16 @@ def record_from_mechet_row(row: Mapping[str, Any]) -> ReactionRecord:
         if role == "assistant":
             proof = content
     metadata = dict(row.get("metadata") or {})
+    # Current agent datasets keep the endpoint fields at the top level.  Older
+    # MechET artifacts stored the same values only inside ``metadata`` or the
+    # rendered chat messages, so retain those fallbacks for compatibility.
+    product = str(row.get("target_smiles") or product)
     reactants = str(
-        metadata.get("initial_reactants")
+        row.get("full_precursor_state")
+        or row.get("full_precursor")
+        or row.get("structural_precursor")
+        or row.get("expected_precursor")
+        or metadata.get("initial_reactants")
         or metadata.get("derived_precursor")
         or metadata.get("reactants")
         or ""

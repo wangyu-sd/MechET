@@ -179,6 +179,7 @@ A later level cannot rescue an earlier failure.
 ## Companion documents
 
 - [`STATUS_MATRIX.md`](STATUS_MATRIX.md) — implementation status versus unestablished scientific results.
+- [`FLOWER_BASELINE_FAIR_COMPARISON.md`](FLOWER_BASELINE_FAIR_COMPARISON.md) — evidence-level inventory of existing FlowER-derived baseline results, dataset denominators, comparability limits, and the matched-rerun table.
 - [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) — evidence-tool implementation details.
 - [`DATA_LEAKAGE_AND_ICLR_PLAN.md`](DATA_LEAKAGE_AND_ICLR_PLAN.md) — overlap audits and benchmark freezing.
 - [`MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](MECH_USPTO_31K_INVERSE_TOOL_SFT.md) — inverse Tool-SFT source identity, v2 stereo policy, coverage, and reproduction.

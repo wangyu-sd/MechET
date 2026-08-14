@@ -1,5 +1,13 @@
 # Data
 
+## FlowER full-endpoint evaluation views
+
+`scripts/build_flower_endpoint_matched_subset.py` derives the frozen 3,080-row
+endpoint view corresponding to the executable-trace test from the complete
+28,971-row FlowER endpoint test. Matching uses the original FlowER trajectory
+ID, preserves the full-endpoint reference policy, and writes a hash-bearing
+manifest with any trace/endpoint reference disagreements.
+
 ## Shipped samples
 
 - `samples/valid_mini.jsonl` — tiny gold MECH_ET examples (linear / tree / DAG) for smoke tests.
@@ -78,6 +86,28 @@ curl -L -o data/raw/uspto_mit/USPTO_MIT.csv \
 
 ## Build MechET SFT from FlowER
 
+### Complete reaction-level endpoint track (no trace filtering)
+
+Use this track for the full product-only retrosynthesis denominator.  It keeps
+all official FlowER reaction/trajectory rows: 257,171 train, 2,890 validation,
+and 28,971 test.  It must not be described as executable mechanism
+supervision; the replay-verified Tool-SFT data below is a separately reported
+subset.
+
+```bash
+python scripts/build_flower_full_endpoint_sft.py \
+  --data-root /path/to/data-containing-flower_retro-and-flower_new_dataset \
+  --output-dir data/flower_full_endpoint_sft \
+  --splits train valid test
+```
+
+The primary target contains whole reactant fragments sharing at least one atom
+map with the mapped main product.  Non-contributing fragments are retained in
+`auxiliary_fragments`; no reaction is dropped because its mechanism cannot be
+compiled or replayed.
+
+### Executable mechanism / trace track
+
 ```bash
 python scripts/build_mechet_sft.py \
   --flower-root "${FLOWER_ROOT:-/path/to/flower_new_dataset}" \
@@ -87,6 +117,12 @@ python scripts/build_mechet_sft.py \
 # Resume a partial train split:
 python scripts/build_mechet_sft.py --out-dir data/mechet_sft --splits train --resume
 ```
+
+This path can quarantine rows at graph validation, proof compilation, and tool
+replay.  Always report its retained count and coverage against the complete
+endpoint split; do not use its smaller test set as the full FlowER test set.
+The graph builder aggregates by trajectory ID across the entire source file;
+FlowER IDs are not guaranteed to occupy one contiguous block.
 
 If you already built data in the parent `reflow` repo:
 

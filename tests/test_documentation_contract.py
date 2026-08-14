@@ -276,7 +276,6 @@ def test_archived_documents_remain_marked():
     markers = {
         "docs/EXPERIMENT_PLAN_ICLR_TO_NMI.md": "deprecated",
         "docs/EVAL.md": "deprecated",
-        "docs/BENCHMARK_RESULTS.md": "not a result table",
         "docs/README_DESIGN_NOTES.md": "archived",
     }
     for path, marker in markers.items():

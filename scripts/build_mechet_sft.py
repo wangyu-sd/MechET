@@ -39,28 +39,28 @@ def iter_flower_groups(
     *,
     limit: int | None = None,
 ) -> Iterator[tuple[str, list[tuple[str, str]]]]:
-    current_tid: str | None = None
-    current_steps: list[tuple[str, str]] = []
-    n_groups = 0
+    # FlowER trajectories are mostly, but not completely, contiguous.  The old
+    # transition-based iterator split a trajectory every time another ID was
+    # interleaved, creating 2,033 extra train groups, 19 extra validation
+    # groups, and 266 extra test groups in the current upstream release.
+    groups: dict[str, list[tuple[str, str]]] = {}
+    order: list[str] = []
     with split_path.open("r", encoding="utf-8") as handle:
         for line in handle:
             parsed = parse_flower_line(line)
             if parsed is None:
                 continue
             reactants, products, tid = parsed
-            if current_tid is None:
-                current_tid = tid
-            if tid != current_tid:
-                yield current_tid, current_steps
-                n_groups += 1
-                if limit is not None and n_groups >= limit:
-                    return
-                current_tid = tid
-                current_steps = []
-            current_steps.append((reactants, products))
-    if current_tid is not None and current_steps:
-        if limit is None or n_groups < limit:
-            yield current_tid, current_steps
+            if tid not in groups:
+                if limit is not None and len(order) >= limit:
+                    # Continue scanning: selected IDs can recur later in the
+                    # file and their groups must remain complete.
+                    continue
+                groups[tid] = []
+                order.append(tid)
+            groups[tid].append((reactants, products))
+    for tid in order:
+        yield tid, groups[tid]
 
 
 def _build_row(graph: FlowERMechanismGraph, *, source_split: str) -> dict[str, Any] | None:
@@ -110,7 +110,7 @@ def _build_row(graph: FlowERMechanismGraph, *, source_split: str) -> dict[str, A
             "electron_conserved": bool(checked.get("electron_conserved")),
         },
     }
-    return convert_record_to_qwen_sft(raw, task_type="mech_et_cot_retro")
+    return convert_record_to_qwen_sft(raw)
 
 
 def _load_done_ids(out_path: Path) -> set[str]:

@@ -1,0 +1,57 @@
+condition_name: flower_full_endpoint_direct_decontaminated
+scientific_hypothesis: full_endpoint_pretraining_before_executable_trace_sft
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/flower_full_endpoint_sft_decontaminated/train.jsonl
+validation_file: data/flower_full_endpoint_sft_decontaminated/valid.jsonl
+test_file: data/flower_full_endpoint_sft_decontaminated/test.jsonl
+output_dir: outputs/agent/sft_flower_full_endpoint_qwen3_8b_h20_run_20260814
+limit_examples: 0
+
+training:
+  learning_rate: 2.0e-5
+  # Default only. The Taiji launcher accepts NUM_TRAIN_EPOCHS overrides.
+  num_train_epochs: 3.0
+  max_steps: -1
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 2
+  eval_accumulation_steps: 8
+  eval_strategy: epoch
+  max_length: 4096
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config:
+    rope: false
+    rms_norm: false
+    swiglu: false
+    cross_entropy: false
+    fused_linear_cross_entropy: true
+  dataloader_num_workers: 4
+  logging_steps: 10
+  save_steps: 1000
+  save_total_limit: 3
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  stable_id_manifest: data/flower_full_endpoint_sft_decontaminated/manifest.json
+  require_trace_owned: false
+  endpoint_source: supervised_structural_precursor
+  free_form_proof_submission: false
+  corpus_used: false
+  source_dataset: flower_full_endpoint_reaction_level
+  exact_structural_train_heldout_overlap: 0
+  full_test_denominator: 28971
+  next_stage: executable_trace_tool_sft
