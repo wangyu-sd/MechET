@@ -337,7 +337,7 @@ def _generate_response(
     if tools:
         kwargs["tools"] = tools
     encoded = tokenizer.apply_chat_template(**kwargs)
-    if not isinstance(encoded, dict) or "input_ids" not in encoded:
+    if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
         raise ValueError("chat template did not return model inputs")
     device = next(model.parameters()).device
     inputs = {
@@ -564,6 +564,22 @@ def main() -> int:
     parser.add_argument("--temperature", type=float, default=0.7)
     parser.add_argument("--top-p", type=float, default=0.95)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument(
+        "--id",
+        action="append",
+        dest="selected_ids",
+        default=[],
+        help="evaluate only this stable row ID; repeat to select multiple rows",
+    )
+    parser.add_argument(
+        "--source",
+        action="append",
+        dest="selected_sources",
+        default=[],
+        help="evaluate only rows with this metadata.mixture_source",
+    )
+    parser.add_argument("--shard-count", type=int, default=1)
+    parser.add_argument("--shard-index", type=int, default=0)
     parser.add_argument("--scripted-actions", type=Path)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -573,8 +589,30 @@ def main() -> int:
         raise ValueError("samples-per-target must be >= 1")
     cfg = load_yaml(args.config)
     rows = read_jsonl(args.data)
+    if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
+        raise ValueError("require shard_count >= 1 and 0 <= shard_index < shard_count")
+    if args.selected_sources:
+        requested_sources = set(args.selected_sources)
+        rows = [
+            row
+            for row in rows
+            if str((row.get("metadata") or {}).get("mixture_source") or "")
+            in requested_sources
+        ]
+    if args.selected_ids:
+        requested_ids = set(args.selected_ids)
+        rows = [row for row in rows if row_id(row) in requested_ids]
+        found_ids = {row_id(row) for row in rows}
+        missing_ids = sorted(requested_ids - found_ids)
+        if missing_ids:
+            raise ValueError(f"selected inference IDs were absent: {missing_ids}")
     if args.limit:
         rows = rows[: args.limit]
+    rows = [
+        row
+        for index, row in enumerate(rows)
+        if index % args.shard_count == args.shard_index
+    ]
     if not rows:
         raise ValueError("inference data is empty")
     condition_name = args.condition_name or args.mode
@@ -625,6 +663,9 @@ def main() -> int:
         "adapter_sha256": adapter_hash or None,
         "seed": args.seed,
         "candidate_selector": CANDIDATE_SELECTOR,
+        "selected_sources": list(args.selected_sources),
+        "shard_count": args.shard_count,
+        "shard_index": args.shard_index,
     }
     if args.dry_run:
         print(json.dumps(dry_payload, indent=2, ensure_ascii=False))
@@ -779,6 +820,9 @@ def main() -> int:
         "adapter_sha256": adapter_hash or None,
         "seed": args.seed,
         "candidate_selector": CANDIDATE_SELECTOR,
+        "selected_sources": list(args.selected_sources),
+        "shard_count": args.shard_count,
+        "shard_index": args.shard_index,
         "software_versions": versions,
     }
     args.output.with_suffix(args.output.suffix + ".manifest.json").write_text(

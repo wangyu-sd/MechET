@@ -43,7 +43,10 @@ _TOPIC_KEYWORDS = {
 
 def _collect_strings(value: Any, *, key: str = "") -> Iterable[str]:
     if isinstance(value, str):
-        if key.lower() in _TEXT_KEYS or len(value) >= 160:
+        # Downloaded JSON contains long provenance fields (for example Gold Book
+        # citations, licence text and disclaimers) alongside the evidence text.
+        # Only explicit content-bearing keys belong in the retrieval corpus.
+        if key.lower() in _TEXT_KEYS:
             yield value
         return
     if isinstance(value, dict):
@@ -59,8 +62,10 @@ def _artifact_text(path: Path) -> tuple[str, str]:
     if path.suffix.lower() == ".json":
         payload = json.loads(raw)
         parts = [item.strip() for item in _collect_strings(payload) if item.strip()]
+        term = payload.get("term") if isinstance(payload, dict) else None
+        term = term if isinstance(term, dict) else {}
         title = (
-            str(payload.get("title") or payload.get("term", {}).get("name") or path.stem)
+            str(payload.get("title") or term.get("title") or term.get("name") or path.stem)
             if isinstance(payload, dict)
             else path.stem
         )

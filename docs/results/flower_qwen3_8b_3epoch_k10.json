@@ -1,0 +1,64 @@
+{
+  "artifact_type": "frozen_benchmark_result_snapshot",
+  "status": "complete",
+  "task": "mechet_flower_qwen3_8b_3ep_test_k10_8a100_20260813_01",
+  "condition_name": "flower_trace_3epoch_k10",
+  "benchmark": {
+    "name": "FlowER inverse trace test",
+    "scope": "same_source_test",
+    "n_targets": 3080,
+    "reference_sha256": "047e8bcb9b0abc57e44adad2f6406d69f1521d4d86fba21cc9a550d9c8b0b57b",
+    "stable_ids_sha256": "fe30eec946fab075da0ce63ed41034578735e20454d25031b80e4a792c36946b"
+  },
+  "sampling": {
+    "samples_per_target": 10,
+    "n_candidates": 30800,
+    "candidate_count_min": 10,
+    "candidate_count_max": 10,
+    "seed": 17,
+    "temperature": 0.7,
+    "top_p": 0.95,
+    "max_iterations": 24,
+    "max_new_tokens": 512,
+    "semantics": "generation_order_pass_at_k_not_ranked_top_k"
+  },
+  "model": {
+    "base_model": "Qwen/Qwen3-8B",
+    "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+    "adapter_sha256": "2970d8ab5ad8e10947f1b484a1dbe3ab6ca226ffaa6c8dbf7bf529966a4c2c8c",
+    "training_epochs": 3,
+    "corpus_used": false
+  },
+  "metrics": {
+    "structural_endpoint_pass_at_1": 0.75,
+    "structural_endpoint_pass_at_5": 0.8964285714285715,
+    "structural_endpoint_pass_at_10": 0.9211038961038961,
+    "mapped_endpoint_pass_at_1": 0.6577922077922078,
+    "mapped_endpoint_pass_at_5": 0.8435064935064935,
+    "mapped_endpoint_pass_at_10": 0.8798701298701299,
+    "execute_pass_at_1": 0.9402597402597402,
+    "execute_pass_at_5": 0.9964285714285714,
+    "execute_pass_at_10": 0.9974025974025974,
+    "trace_bound_pass_at_1": 0.9402597402597402,
+    "trace_bound_pass_at_5": 0.9964285714285714,
+    "trace_bound_pass_at_10": 0.9974025974025974,
+    "selector_selected_structural_exact": 0.8288961038961039,
+    "selector_selected_mapped_exact": 0.740909090909091,
+    "selector_selected_execute_rate": 0.9974025974025974,
+    "abstention_rate": 0.0025974025974025974,
+    "evaluation_error_rate": 0.0016233766233766235,
+    "tool_failure_rows": 26,
+    "tool_failure_recovery_rate": 0.6923076923076923
+  },
+  "integrity": {
+    "predictions_sha256": "fa13349c61ab251f03fdf15aa098687e42c18947d647d24373094f5c968b2be8",
+    "runtime_contract_sha256": "17e56b7b3a82de597bafee96b45e05035236ee656f21c4873cc042d8bb2904e7",
+    "runtime_contract_consistent": true,
+    "runtime_contract_complete": true
+  },
+  "claims": {
+    "ranked_top_k_available": false,
+    "external_transfer_result": false,
+    "mechanism_ground_truth_uniqueness_claimed": false
+  }
+}

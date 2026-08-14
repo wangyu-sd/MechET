@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import subprocess
 import sys
+from collections import UserDict
 
 import pytest
 import yaml
@@ -178,6 +179,46 @@ def test_inference_revision_prefers_frozen_adapter_over_mutable_config():
     assert module._resolve_revision({}, "", {}, scripted=True) == "scripted"
 
 
+def test_inference_accepts_mapping_model_inputs(monkeypatch):
+    module = load_script("infer_mechet.py")
+    torch = pytest.importorskip("torch")
+
+    class FakeTokenizer:
+        eos_token_id = 0
+
+        def apply_chat_template(self, **_kwargs):
+            return UserDict(
+                {
+                    "input_ids": torch.tensor([[1, 2]]),
+                    "attention_mask": torch.tensor([[1, 1]]),
+                }
+            )
+
+        def decode(self, tokens, skip_special_tokens=False):
+            assert skip_special_tokens is False
+            return "generated:" + ",".join(str(int(x)) for x in tokens)
+
+    class FakeModel:
+        def parameters(self):
+            yield torch.nn.Parameter(torch.zeros(1))
+
+        def generate(self, **_kwargs):
+            return torch.tensor([[1, 2, 3]])
+
+    text, prefix = module._generate_response(
+        FakeModel(),
+        FakeTokenizer(),
+        [{"role": "user", "content": "x"}],
+        [],
+        max_new_tokens=4,
+        temperature=0,
+        top_p=1.0,
+        seed=17,
+    )
+    assert text == "generated:3"
+    assert prefix.tolist() == [1, 2]
+
+
 def test_transformers5_length_grouping_uses_sampling_strategy():
     module = load_script("train_tool_sft.py")
 
@@ -201,6 +242,73 @@ def test_transformers5_length_grouping_uses_sampling_strategy():
     assert kwargs["train_sampling_strategy"] == "group_by_length"
     assert report["api_field"] == "train_sampling_strategy"
     assert report["applied_value"] == "group_by_length"
+
+
+def test_training_arguments_enable_validation_across_transformers_api():
+    module = load_script("train_tool_sft.py")
+
+    class FakeTrainingArguments:
+        __dataclass_fields__ = {
+            "evaluation_strategy": object(),
+            "eval_accumulation_steps": object(),
+            "gradient_checkpointing_kwargs": object(),
+            "group_by_length": object(),
+        }
+
+    kwargs, _ = module._training_argument_kwargs(
+        FakeTrainingArguments,
+        cfg={"output_dir": "out"},
+        training={"eval_strategy": "epoch", "eval_accumulation_steps": 4},
+        max_steps=-1,
+        seed=17,
+        data_seed=17,
+        bf16=True,
+        fp16=False,
+        tf32=True,
+        gradient_checkpointing=True,
+        has_validation=True,
+    )
+    assert kwargs["evaluation_strategy"] == "epoch"
+    assert kwargs["per_device_eval_batch_size"] == 1
+    assert kwargs["eval_accumulation_steps"] == 4
+    assert kwargs["gradient_checkpointing_kwargs"] == {
+        "use_reentrant": False
+    }
+
+
+def test_training_arguments_enable_fused_liger_loss_when_requested():
+    module = load_script("train_tool_sft.py")
+
+    class FakeTrainingArguments:
+        __dataclass_fields__ = {
+            "use_liger_kernel": object(),
+            "liger_kernel_config": object(),
+        }
+
+    kernel_config = {
+        "rope": False,
+        "rms_norm": False,
+        "swiglu": False,
+        "cross_entropy": False,
+        "fused_linear_cross_entropy": True,
+    }
+    kwargs, _ = module._training_argument_kwargs(
+        FakeTrainingArguments,
+        cfg={"output_dir": "out"},
+        training={
+            "use_liger_kernel": True,
+            "liger_kernel_config": kernel_config,
+        },
+        max_steps=1,
+        seed=17,
+        data_seed=17,
+        bf16=True,
+        fp16=False,
+        tf32=True,
+        gradient_checkpointing=True,
+    )
+    assert kwargs["use_liger_kernel"] is True
+    assert kwargs["liger_kernel_config"] == kernel_config
 
 
 def _h1_row(identifier="h1", calls=1):

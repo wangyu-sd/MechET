@@ -58,7 +58,7 @@ sources:
     license: CC-BY-SA-4.0-and-GFDL-unless-noted
     redistribution: text_allowed_with_attribution_and_sharealike
     api_url: https://en.wikibooks.org/w/api.php
-    rest_api_url: https://en.wikibooks.org/w/rest.php/v1/page/{title}
+    rest_api_url: https://api.wikimedia.org/core/v1/wikibooks/en/page/{title}
     export_url: https://en.wikibooks.org/wiki/Special:Export/{title}
     raw_url: https://en.wikibooks.org/w/index.php?title={title}&action=raw
     page_url: https://en.wikibooks.org/wiki/{title}

@@ -1,0 +1,18 @@
+{
+  "business_flag": "AI4LSLab_KEMO_QY_A100",
+  "task_flag": "mechet_mixed_inverse_qwen3_8b_8a100_20260811_04",
+  "readable_name": "MechET modify-task preservation probe",
+  "template_flag": "kubeflow_job_learning",
+  "task_type": "general_gpu_type",
+  "dataset_id": "F06A5CC1127144DE9CF3FF9BDBE77A1A",
+  "model_id": "8b1d80eb9feffd4e019ff02b16d90092",
+  "host_num": 1,
+  "host_gpu_num": 8,
+  "GPUName": "A100",
+  "image_full_name": "mirrors.tencent.com/whaleywang/metabo:taiji7",
+  "quota_type": "public",
+  "is_elasticity": false,
+  "priority_level": "HIGH",
+  "location": "qy",
+  "start_cmd": "bash -lc 'echo MODIFY_TASK_PROBE'"
+}

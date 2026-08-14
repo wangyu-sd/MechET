@@ -24,6 +24,7 @@
 |---|---|
 | Deterministic executor and trace-owned runtime | Implemented and CI-tested |
 | Replay-verified Tool-SFT data contract | Implemented; real-model overfit pending |
+| mech-USPTO-31k inverse Tool-SFT v2 | 11,429/11,429 stitched traces accepted; replay and tokenizer audits passed |
 | Qwen3 assistant-only token contract | Implemented; final-sequence mask and zero-truncation audit |
 | Train/valid/test evidence isolation | Implemented; final H3 uses held-out `test/` only |
 | H1 causal-faithfulness result | **Not established** |
@@ -192,6 +193,13 @@ pip install -e ".[agent,knowledge]"
 The released compatibility window includes `trl>=1.8,<2`, `transformers>=5.2,<6`, and `datasets>=4.7,<6`.
 
 ### 2. Build replay-verified trajectories for all splits
+
+For the separate mech-USPTO-31k inverse initialization dataset, use the frozen
+download-to-training pipeline in
+[`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md).
+It contains 9,118 train, 1,187 valid, and 1,124 test rows. This
+`trace_no_knowledge` dataset does not use the textbook corpus and is distinct
+from FlowER and the USPTO-50K benchmark.
 
 ```bash
 for split in train valid test; do
@@ -367,8 +375,8 @@ The software alone does **not** establish:
 | Trace-owned move replay and proof compilation | Implemented and CI-tested |
 | Explicit TRL tool facades | Implemented and CI-tested |
 | Root-import-preserving proof-to-trace conversion | Implemented and CI-tested |
-| Replay-verified Tool-SFT construction | Implemented; full-data coverage not yet reported |
-| Qwen3 final-sequence assistant masking | Implemented; real full-data tokenizer audit pending |
+| Replay-verified Tool-SFT construction | Implemented; mech-USPTO inverse v2 accepts 11,429/11,429 globally stitched traces |
+| Qwen3 final-sequence assistant masking | Implemented; mech-USPTO inverse full-data audit has zero truncation |
 | Split-isolated H3 suite construction | Implemented; final results not yet reported |
 | Canonical seeded/resumable inference | Implemented and CI-tested |
 | Strict H1/H3 evaluators | Implemented and CI-tested |
@@ -388,6 +396,7 @@ No positive H1, H2, or H3 conclusion is claimed before full-data coverage, real 
 | [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md) | Paper-level claim–evidence contract |
 | [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) | Ordered commands, artifacts, gates, and stopping rules |
 | [`docs/TOOL_SFT.md`](docs/TOOL_SFT.md) | Replay-verified supervision, Qwen3 assistant masking, and checkpoint lineage |
+| [`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md) | mech-USPTO source identity, inverse v2 protocol, coverage, validation, and reproduction commands |
 | [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) | H2 execution-primitive signatures and composition splits |
 | [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) | H3 matched evidence conditions and interventions |
 | [`docs/README.md`](docs/README.md) | Documentation authority map and reading paths |

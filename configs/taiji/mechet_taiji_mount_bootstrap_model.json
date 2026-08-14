@@ -1,0 +1,5 @@
+{
+  "business_flag": "AI4LSLab_KEMO_QY_A100",
+  "model_name": "mechet_taiji_mount_bootstrap_ceph_v2_20260811",
+  "model_local_file_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_mount_bootstrap"
+}

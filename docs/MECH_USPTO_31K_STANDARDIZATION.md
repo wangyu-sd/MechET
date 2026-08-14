@@ -16,3 +16,9 @@ python scripts/forward_expert_data.py build \
 ```
 
 RXNMapper is not required for these elementary-step rows. Original arrow-referenced map labels are retained; newly assigned maps are local deterministic identifiers recorded in metadata.
+
+Standardized elementary rows are not yet complete reaction traces. Retain only
+reaction IDs for which every raw step survived, then stitch adjacent local map
+namespaces before inverse conversion. The authoritative end-to-end commands,
+coverage counts, and v2 stereochemistry policy are in
+[`MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](MECH_USPTO_31K_INVERSE_TOOL_SFT.md).

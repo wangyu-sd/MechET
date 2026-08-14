@@ -243,6 +243,33 @@ def test_strip_knowledge_retains_chemistry_trace_and_schema():
     assert "finish_trace" in names
 
 
+def test_strip_knowledge_rewrites_textbook_prompt_and_observation():
+    source = rows()[0]
+    source["messages"][0]["content"] = "Retrieved textbook evidence is soft."
+    source["messages"][1]["content"] = (
+        "Retrieve relevant textbook guidance, reproduce the executable inverse "
+        "trace, and finish the environment-owned program.\n\n"
+        "INITIAL ENVIRONMENT OBSERVATION:\n"
+        + json.dumps(
+            {
+                "instructions": [
+                    "Retrieved evidence is citable soft guidance.",
+                    "Use explicit electron-flow actions.",
+                ],
+                "knowledge": {"textbook_enabled": True},
+            }
+        )
+    )
+
+    value = strip_knowledge_messages(source)
+
+    prompt = "\n".join(str(message.get("content") or "") for message in value["messages"][:2])
+    assert "retrieved textbook evidence" not in prompt.lower()
+    assert "retrieve relevant" not in prompt.lower()
+    assert '"textbook_enabled": false' in prompt.lower()
+    assert "Use explicit electron-flow actions." in prompt
+
+
 def test_strip_textbook_keep_anchors_derives_anchor_only_condition():
     value = strip_textbook_keep_anchors(rows(anchors=True)[0])
     names = tool_names(value)
