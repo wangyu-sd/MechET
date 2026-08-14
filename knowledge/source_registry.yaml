@@ -129,6 +129,103 @@ sources:
         allowed_uses: [broad_context, candidate_mechanistic_evidence]
         disallowed_uses: [mechanism_ground_truth, selectivity_claim, feasibility_claim]
 
+  wikibooks_metabolomics_analytical_methods:
+    title: Wikibooks Metabolomics - Analytical Methods
+    source_type: open_textbook
+    downloader: wikimedia_xml_dump
+    license: CC-BY-SA-4.0-and-GFDL-unless-noted
+    redistribution: text_allowed_with_attribution_and_sharealike
+    dump_prefix: Metabolomics/Analytical Methods
+    homepage: https://en.wikibooks.org/wiki/Metabolomics/Analytical_Methods
+    quality:
+      quality_status: usable_with_caution
+      retrieval_weight: 0.65
+      review_warning: true
+      scientific_scope: [mass spectrometry, chromatography, metabolomics]
+      allowed_uses: [broad_context, analytical_chemistry_context, candidate_gas_phase_evidence]
+      disallowed_uses: [fragmentation_ground_truth, structure_ground_truth, quantitative_instrument_claim]
+      quality_notes: Community-authored analytical overview; retain for retrieval candidates and review before headline evaluation.
+
+  wikibooks_general_chemistry_electrochemistry:
+    title: Wikibooks General Chemistry - Electrochemistry
+    source_type: open_textbook
+    downloader: wikimedia_xml_dump
+    license: CC-BY-SA-4.0-and-GFDL-unless-noted
+    redistribution: text_allowed_with_attribution_and_sharealike
+    dump_prefix: General Chemistry/Redox Reactions/Electrochemistry
+    homepage: https://en.wikibooks.org/wiki/General_Chemistry/Redox_Reactions/Electrochemistry
+    quality:
+      quality_status: usable_with_caution
+      retrieval_weight: 0.55
+      review_warning: true
+      scientific_scope: [electrochemistry, redox fundamentals]
+      allowed_uses: [broad_context, terminology, electrochemistry_context]
+      disallowed_uses: [organic_mechanism_ground_truth, feasibility_claim, selectivity_claim]
+
+  wikibooks_gas_phase_ion_chemistry:
+    title: Wikibooks Gas Phase Ion Chemistry
+    source_type: open_reference
+    downloader: wikimedia_xml_dump
+    license: CC-BY-SA-4.0-and-GFDL-unless-noted
+    redistribution: text_allowed_with_attribution_and_sharealike
+    dump_prefix: "Chemical Sciences: A Manual for CSIR-UGC National Eligibility Test for Lectureship and JRF/Gas phase ion chemistry"
+    homepage: https://en.wikibooks.org/wiki/Chemical_Sciences:_A_Manual_for_CSIR-UGC_National_Eligibility_Test_for_Lectureship_and_JRF/Gas_phase_ion_chemistry
+    quality:
+      quality_status: low_priority
+      retrieval_weight: 0.35
+      review_warning: true
+      scientific_scope: [gas-phase ions, ion-molecule reactions]
+      allowed_uses: [broad_context, candidate_gas_phase_evidence]
+      disallowed_uses: [fragmentation_ground_truth, mechanism_ground_truth, quantitative_claim]
+      quality_notes: Community-authored reference page; never use as a formal gas-phase verifier.
+
+  wikibooks_continuum_solvation_models:
+    title: Wikibooks Computational Chemistry - Continuum Solvation Models
+    source_type: open_reference
+    downloader: wikimedia_xml_dump
+    license: CC-BY-SA-4.0-and-GFDL-unless-noted
+    redistribution: text_allowed_with_attribution_and_sharealike
+    dump_prefix: Computational Chemistry/Continuum solvation models
+    homepage: https://en.wikibooks.org/wiki/Computational_Chemistry/Continuum_solvation_models
+    quality:
+      quality_status: low_priority
+      retrieval_weight: 0.35
+      review_warning: true
+      scientific_scope: [solvation, continuum solvent models]
+      allowed_uses: [broad_context, physical_organic_context]
+      disallowed_uses: [mechanism_ground_truth, quantitative_prediction, feasibility_claim]
+
+  openstax_organic_chemistry_10e:
+    title: OpenStax Organic Chemistry - A Tenth Edition
+    source_type: open_textbook
+    downloader: openstax_book
+    license: CC-BY-NC-SA-4.0
+    redistribution: noncommercial_attribution_sharealike
+    requires_noncommercial_acceptance: true
+    seed_url: https://openstax.org/books/organic-chemistry/pages/dedication-and-preface
+    homepage: https://openstax.org/details/books/organic-chemistry
+    book_slug: organic-chemistry
+    quality:
+      quality_status: reviewed
+      retrieval_weight: 0.95
+      review_warning: false
+      scientific_scope:
+        - comprehensive undergraduate organic chemistry
+        - reaction mechanisms
+        - synthesis
+        - spectroscopy
+        - mass spectrometry
+      allowed_uses:
+        - broad_context
+        - candidate_mechanistic_evidence
+        - noncommercial_research
+        - open_book_evaluation
+      disallowed_uses:
+        - mechanism_ground_truth
+        - feasibility_claim
+        - commercial_redistribution
+      quality_notes: Full structured textbook; end-of-chapter problems and answer keys are held out of the retrieval corpus for evaluation construction.
+
   libretexts_organic_synthesis_shea:
     title: Organic Synthesis (Shea)
     source_type: open_textbook

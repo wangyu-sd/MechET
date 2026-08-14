@@ -184,7 +184,35 @@ python scripts/index_textbook_corpus.py \
 
 Every passage retains source, locator, revision, license, exact evidence hash, artifact provenance and source-quality metadata. The final corpus and index are frozen before test evaluation.
 
+### Broad organic/gas-phase textbook corpus v2
+
+The larger development build and independent OpenStax question queue are
+documented in
+[`docs/TEXTBOOK_CORPUS_V2.md`](../docs/TEXTBOOK_CORPUS_V2.md). It keeps prose
+and evaluator-only answers in separate assets; the original 32-passage pilot
+corpus is not overwritten. Experimental spectra are outside this corpus
+contract.
+
 ## Evidence extraction queue
+
+For the broad v2 passage corpus, prepare deterministic, provenance-bound
+knowledge-extraction tasks with:
+
+```bash
+python scripts/extract_textbook_knowledge.py prepare \
+  --corpus knowledge/organic_textbook_corpus_v2/passages.jsonl \
+  --corpus-manifest knowledge/organic_textbook_corpus_v2/passages.manifest.json \
+  --spec knowledge/corpus_v2_spec.yaml \
+  --accept-noncommercial \
+  --output knowledge/candidates/textbook_knowledge_v1/tasks.jsonl
+```
+
+The non-commercial flag is an explicit license-layer acknowledgement; omit it
+for the redistributable-only layer. Model responses are still unreviewed
+candidates and can be checked with the script's `validate` subcommand. Neither
+preparation nor validation releases an anchor or establishes chemical truth.
+
+The legacy raw-artifact queue remains available for compatibility:
 
 ```bash
 python scripts/build_primitive_extraction_queue.py \

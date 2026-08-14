@@ -137,6 +137,8 @@ class TextbookRetriever:
                 *item.topics,
                 *item.reaction_families,
                 *item.functional_groups,
+                *item.phases,
+                *item.modalities,
             )
         )
         return tokenize(metadata + " " + item.text)
