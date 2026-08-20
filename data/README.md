@@ -1,12 +1,17 @@
 # Data
 
+## Benchmark-universe rule
+
+Headline one-step retrosynthesis experiments use the **complete reaction-level splits**:
+
+- FlowER: 257,171 train / 2,890 valid / 28,971 test;
+- mech-USPTO-31k: 24,959 train / 3,120 valid / 3,120 test.
+
+Executable trace datasets are additional program-supervision views and must not replace these denominators. See [`docs/DATASET_PROCESSING_PROTOCOL.md`](../docs/DATASET_PROCESSING_PROTOCOL.md).
+
 ## FlowER full-endpoint evaluation views
 
-`scripts/build_flower_endpoint_matched_subset.py` derives the frozen 3,080-row
-endpoint view corresponding to the executable-trace test from the complete
-28,971-row FlowER endpoint test. Matching uses the original FlowER trajectory
-ID, preserves the full-endpoint reference policy, and writes a hash-bearing
-manifest with any trace/endpoint reference disagreements.
+`scripts/build_flower_endpoint_matched_subset.py` derives the frozen 3,080-row endpoint view corresponding to the executable-trace test from the complete 28,971-row FlowER endpoint test. Matching uses the original FlowER trajectory ID, preserves the full-endpoint reference policy, and writes a hash-bearing manifest with any trace/endpoint reference disagreements. The 3,080-row view is for trace-matched analyses only; it is not the full benchmark.
 
 ## Shipped samples
 
@@ -18,7 +23,7 @@ Do **not** commit full FlowER dumps or multi-GB JSONL.
 
 ### 1. FlowER mechanistic dataset (`flower_new_dataset`)
 
-Used by `scripts/build_mechet_sft.py` to build MechET SFT JSONL.
+Used by `scripts/build_mechet_sft.py` to build MechET trace SFT JSONL.
 
 | Item | Link |
 |------|------|
@@ -27,15 +32,12 @@ Used by `scripts/build_mechet_sft.py` to build MechET SFT JSONL.
 
 ```bash
 mkdir -p data/raw
-# Download data.zip from Figshare into data/raw/, then:
 unzip data/raw/data.zip -d data/raw
-# Locate the directory that contains train.txt / val.txt / test.txt, e.g.:
 export FLOWER_ROOT=data/raw/data/flower_new_dataset
 ls "$FLOWER_ROOT"/{train,val,test}.txt
 ```
 
-Line format: `mapped_reactants>>mapped_products|sequence_idx`  
-Elementary steps with the same index form one mechanism graph.
+Line format: `mapped_reactants>>mapped_products|sequence_idx`. Elementary steps with the same index form one mechanism graph.
 
 ### 2. USPTO-50K
 
@@ -54,8 +56,7 @@ curl -L -o data/raw/uspto50k/USPTO_50K.csv \
 
 ### 3. mech-USPTO-31k
 
-Mechanistic USPTO-derived elementary steps with source-to-sink arrows. This is
-the source for inverse Tool-SFT and is distinct from USPTO-50K and FlowER.
+Mechanistic USPTO-derived elementary steps with source-to-sink arrows. The upstream reaction universe contains exactly 31,199 reactions: 24,959 train, 3,120 validation, and 3,120 test.
 
 ```bash
 python scripts/forward_expert_data.py download \
@@ -64,10 +65,17 @@ python scripts/forward_expert_data.py download \
   --output data/raw/mech_uspto_31k
 ```
 
-See
-[`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](../docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md)
-for the complete replay, stitching, inverse conversion, validation, and
-training procedure.
+Build the **full reaction-level endpoint benchmark** with no executor filtering:
+
+```bash
+python scripts/build_mech_uspto_full_endpoint_sft.py \
+  --data-root data/raw/mech_uspto_31k/data \
+  --output-dir data/mech_uspto_31k_full_endpoint_sft
+```
+
+The builder groups elementary rows by `rxn_idx`. For each reaction it uses `elem_reac_min` from `step_idx_forward = 0` as the precursor-side reference and the unique reaction-level `rxn_prod_min` as the product. It requires all 31,199 reactions to be present and does not run the executor, discard unsupported mechanisms, or perform trace stitching.
+
+The separate executable-trace path is documented in [`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](../docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md). Its 11,429 reactions are a program-supervision subset, not the mech-USPTO benchmark denominator.
 
 ### 4. USPTO-MIT
 
@@ -84,15 +92,11 @@ curl -L -o data/raw/uspto_mit/USPTO_MIT.csv \
   https://deepchemdata.s3.us-west-1.amazonaws.com/datasets/USPTO_MIT.csv
 ```
 
-## Build MechET SFT from FlowER
+## Build FlowER endpoint and trace views
 
 ### Complete reaction-level endpoint track (no trace filtering)
 
-Use this track for the full product-only retrosynthesis denominator.  It keeps
-all official FlowER reaction/trajectory rows: 257,171 train, 2,890 validation,
-and 28,971 test.  It must not be described as executable mechanism
-supervision; the replay-verified Tool-SFT data below is a separately reported
-subset.
+Use this track for the full product-only retrosynthesis denominator. It keeps all official FlowER reaction/trajectory rows: 257,171 train, 2,890 validation, and 28,971 test.
 
 ```bash
 python scripts/build_flower_full_endpoint_sft.py \
@@ -101,10 +105,7 @@ python scripts/build_flower_full_endpoint_sft.py \
   --splits train valid test
 ```
 
-The primary target contains whole reactant fragments sharing at least one atom
-map with the mapped main product.  Non-contributing fragments are retained in
-`auxiliary_fragments`; no reaction is dropped because its mechanism cannot be
-compiled or replayed.
+The primary target contains whole reactant fragments sharing at least one atom map with the mapped main product. Non-contributing fragments are retained in `auxiliary_fragments`; no reaction is dropped because its mechanism cannot be compiled or replayed.
 
 ### Executable mechanism / trace track
 
@@ -114,15 +115,10 @@ python scripts/build_mechet_sft.py \
   --out-dir data/mechet_sft \
   --splits train valid test
 
-# Resume a partial train split:
 python scripts/build_mechet_sft.py --out-dir data/mechet_sft --splits train --resume
 ```
 
-This path can quarantine rows at graph validation, proof compilation, and tool
-replay.  Always report its retained count and coverage against the complete
-endpoint split; do not use its smaller test set as the full FlowER test set.
-The graph builder aggregates by trajectory ID across the entire source file;
-FlowER IDs are not guaranteed to occupy one contiguous block.
+This path can quarantine rows at graph validation, proof compilation, and tool replay. Always report its retained count and coverage against the complete endpoint split; do not use its smaller test set as the full FlowER test set. The graph builder aggregates by trajectory ID across the entire source file; FlowER IDs are not guaranteed to occupy one contiguous block.
 
 If you already built data in the parent `reflow` repo:
 
@@ -140,7 +136,6 @@ ln -s /path/to/reflow/data/orbit_mech_et_sft data/mechet_sft
 It is topology-balanced (`linear` / `tree` / `dag_branch_join`) for pipeline smoke / memorization checks before `sft_pilot.yaml`. **Not** a formal train/val split.
 
 ```bash
-# After build (or symlink) has data/mechet_sft/valid.jsonl:
 python scripts/make_mechet_overfit32.py \
   --src data/mechet_sft/valid.jsonl \
   --out-dir data/mechet_sft/overfit32 \
@@ -149,4 +144,4 @@ python scripts/make_mechet_overfit32.py \
 python scripts/train_mechet_sft.py --config configs/overfit32.yaml
 ```
 
-`manifest.json` in the out dir records ids, seed, and topology counts.
+`manifest.json` in the output directory records IDs, seed, and topology counts.
