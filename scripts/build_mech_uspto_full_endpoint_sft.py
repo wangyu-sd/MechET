@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Build the complete 31,199-reaction mech-USPTO product-to-precursor benchmark.
+"""Build the complete 31,199-reaction mech-USPTO endpoint benchmark.
 
-The upstream dataset stores one row per elementary mechanism step.  Headline
+The upstream dataset stores one row per elementary mechanism step. Headline
 retrosynthesis evaluation is reaction-level, so this builder groups by
-``rxn_idx`` and keeps every upstream reaction.  It deliberately performs no
+``rxn_idx`` and keeps every upstream reaction. It deliberately performs no
 executor replay, step-validity filtering, or global trace-stitching.
 
 For each reaction, the precursor-side reference is ``elem_reac_min`` from the
 first forward elementary step and the product is the reaction-level
-``rxn_prod_min`` value.  The replay-compatible inverse Tool-SFT data is a
-separate subset and must not define the benchmark denominator.
+``rxn_prod_min`` value. Both mapped and unmapped canonical views are frozen so
+published baselines can use their native preprocessing without remapping the
+reaction independently.
 """
 from __future__ import annotations
 
@@ -39,13 +40,29 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def canonical_smiles(value: str) -> str:
-    text = str(value or "").strip()
+def _parse_smiles(value: Any) -> Chem.Mol:
+    if value is None or pd.isna(value):
+        raise ValueError("empty SMILES")
+    text = str(value).strip()
     if not text:
         raise ValueError("empty SMILES")
-    mol = Chem.MolFromSmiles(text)
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(text, params)
     if mol is None:
         raise ValueError(f"invalid SMILES: {text}")
+    return mol
+
+
+def canonical_mapped_smiles(value: Any) -> str:
+    """Canonicalize while preserving all upstream atom-map labels."""
+    mol = _parse_smiles(value)
+    return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+
+
+def canonical_unmapped_smiles(value: Any) -> str:
+    """Canonicalize the same structure after removing atom-map labels."""
+    mol = _parse_smiles(value)
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(0)
         if atom.HasProp("molAtomMapNumber"):
@@ -62,6 +79,21 @@ def _first_forward_row(group: pd.DataFrame) -> pd.Series:
             f"minimum={int(row['step_idx_forward'])}"
         )
     return row
+
+
+def _unique_product(group: pd.DataFrame, *, mapped: bool) -> str:
+    canonicalizer = canonical_mapped_smiles if mapped else canonical_unmapped_smiles
+    values = {
+        canonicalizer(value)
+        for value in group["rxn_prod_min"].tolist()
+        if value is not None and not pd.isna(value) and str(value).strip()
+    }
+    if len(values) != 1:
+        rxn_idx = int(group.iloc[0]["rxn_idx"])
+        raise ValueError(
+            f"reaction {rxn_idx} has {len(values)} distinct rxn_prod_min values"
+        )
+    return next(iter(values))
 
 
 def build_split(source: Path, output: Path, split: str) -> dict[str, Any]:
@@ -82,18 +114,11 @@ def build_split(source: Path, output: Path, split: str) -> dict[str, Any]:
     with output.open("w", encoding="utf-8") as handle:
         for rxn_idx, group in groups:
             first = _first_forward_row(group)
-            precursor = canonical_smiles(str(first["elem_reac_min"]))
+            precursor_mapped = canonical_mapped_smiles(first["elem_reac_min"])
+            precursor_unmapped = canonical_unmapped_smiles(first["elem_reac_min"])
+            product_mapped = _unique_product(group, mapped=True)
+            product_unmapped = _unique_product(group, mapped=False)
 
-            product_values = {
-                canonical_smiles(str(value))
-                for value in group["rxn_prod_min"].tolist()
-                if str(value or "").strip()
-            }
-            if len(product_values) != 1:
-                raise ValueError(
-                    f"reaction {rxn_idx} has {len(product_values)} distinct rxn_prod_min values"
-                )
-            product = next(iter(product_values))
             stable_id = f"mech-uspto31k-full:{split}:{int(rxn_idx)}"
             stable_ids.append(stable_id)
             row = {
@@ -101,14 +126,26 @@ def build_split(source: Path, output: Path, split: str) -> dict[str, Any]:
                 "source_id": str(int(rxn_idx)),
                 "artifact_type": "supervision" if split == "train" else "evaluation_target",
                 "task_type": "mech_uspto_31k_full_endpoint_retro",
-                "target_smiles": product,
-                "structural_precursor": precursor,
-                "expected_precursor": precursor,
-                "full_precursor_state": precursor,
+                # Mapped fields preserve the source representation for methods
+                # whose published preprocessing requires mapped reactions.
+                "product_mapped": product_mapped,
+                "precursor_mapped": precursor_mapped,
+                # Unmapped fields are the common endpoint-evaluation view.
+                "product_unmapped": product_unmapped,
+                "precursor_unmapped": precursor_unmapped,
+                "reaction_mapped": f"{precursor_mapped}>>{product_mapped}",
+                "reaction_unmapped": f"{precursor_unmapped}>>{product_unmapped}",
+                # Existing MechET data readers expect these aliases. Keep the
+                # mapped target for address construction and the mapped source
+                # reference; the shared evaluator removes maps structurally.
+                "target_smiles": product_mapped,
+                "structural_precursor": precursor_mapped,
+                "expected_precursor": precursor_mapped,
+                "full_precursor_state": precursor_mapped,
                 "messages": [
                     {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": f"TARGET: {product}"},
-                    {"role": "assistant", "content": f"PRECURSOR: {precursor}"},
+                    {"role": "user", "content": f"TARGET: {product_mapped}"},
+                    {"role": "assistant", "content": f"PRECURSOR: {precursor_mapped}"},
                 ],
                 "metadata": {
                     "source_dataset": "mech_uspto_31k",
@@ -117,6 +154,8 @@ def build_split(source: Path, output: Path, split: str) -> dict[str, Any]:
                     "reaction_level_benchmark": True,
                     "benchmark_universe": "full_31199",
                     "endpoint_policy": "elem_reac_min_at_forward_step_0_to_rxn_prod_min",
+                    "mapped_view_source": "upstream_mech_uspto_atom_maps",
+                    "unmapped_view_source": "same_row_maps_removed_rdkit_canonical",
                     "mechanism_supervision": False,
                     "executable_trace_required": False,
                 },
@@ -164,19 +203,23 @@ def main() -> int:
         )
 
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "artifact_type": "mech_uspto_31k_full_reaction_endpoint_benchmark",
         "source_dataset": "SchwallerGroup/mech_uspto_31k",
         "benchmark_universe": "all_31199_reactions",
         "reaction_counts": EXPECTED_REACTIONS,
         "total_reactions": sum(EXPECTED_REACTIONS.values()),
         "endpoint_policy": "elem_reac_min at step_idx_forward=0 -> rxn_prod_min",
+        "representations": [
+            "upstream mapped canonical SMILES",
+            "same structures with maps removed and RDKit canonicalized",
+        ],
         "coverage_contract": (
             "100% upstream reaction-level split coverage; no executor replay or "
             "trace-stitch filtering"
         ),
         "trace_subset": (
-            "data/mech_uspto_31k_inverse_tool_sft; separate mechanism-supervision view"
+            "data/mech_uspto_31k_inverse_tool_sft; separate program-analysis view"
         ),
         "splits": splits,
     }
