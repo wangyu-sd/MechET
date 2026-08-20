@@ -1,46 +1,209 @@
 # MechET external baseline execution plan
 
-## Purpose
+## 0. Non-negotiable dataset definition
 
-This document defines the **published external retrosynthesis baselines** to be reproduced for the MechET paper, separates them from MechET-specific ablations, and divides the workload between two collaborators.
+Headline external-baseline experiments use the **complete reaction-level datasets**, not the executable-trace subsets.
 
-The goal is not to reproduce every historical retrosynthesis model. The goal is to cover the main inductive biases that a reviewer could reasonably argue already solve the same one-step inverse-prediction problem:
+| Dataset | Train | Valid | Test | Total | Headline use |
+|---|---:|---:|---:|---:|---|
+| FlowER full reaction-level | 257,171 | 2,890 | 28,971 | 289,032 | full matched retrosynthesis benchmark |
+| mech-USPTO-31k full reaction-level | 24,959 | 3,120 | 3,120 | 31,199 | full matched retrosynthesis benchmark |
 
-1. local reaction templates;
-2. aligned sequence translation;
-3. iterative molecular editing;
-4. graph-generative modeling;
-5. reaction-center/leaving-group factorization;
-6. explicit reaction-operation languages;
-7. flow-based diverse/feasibility-guided generation;
-8. reasoning-oriented reaction LLMs.
+The smaller executable subsets have a different role:
 
-**Important:** any method invented inside MechET (direct-Qwen control, generic edit control, one-shot electron-flow generation, no-enumeration, stale feedback, no-feedback, independent answer channel, etc.) is an **internal ablation/control**, not an external baseline.
+- FlowER executable-trace test subset: 3,080 / 28,971 test reactions;
+- mech-USPTO executable inverse Tool-SFT subset: 9,118 / 1,187 / 1,124 = 11,429 reactions.
+
+Those subsets are used only for **electron-flow program supervision and program-level analysis**. They are not the main benchmark denominator and external baselines must not be trained only on them.
+
+Authoritative processing details: [`DATASET_PROCESSING_PROTOCOL.md`](DATASET_PROCESSING_PROTOCOL.md).
 
 ---
 
-## 1. Frozen evaluation contract
+## 1. Purpose
 
-All external baselines must ultimately be evaluated by the **same MechET-side evaluator**, not by each external repository's own top-k script alone.
+This document defines the published external retrosynthesis baselines to reproduce for the MechET paper and divides the work between two collaborators.
 
-### Datasets
+External methods establish field-level competitiveness. Any method created inside MechET---direct Qwen, generic sparse edit, one-shot electron flow, no enumeration, stale feedback, no feedback, independent answer channel---is an **internal control/ablation**, not an external baseline.
 
-Primary datasets:
+All matched external methods receive the same complete reaction IDs and the same product-to-precursor task. Each method retains its **published native training target**; no external method receives MechET electron-flow traces or executor states.
 
-- FlowER-derived inverse benchmark;
-- mech-USPTO-31k inverse benchmark.
+---
 
-Use the frozen train/validation/test reaction IDs already maintained by MechET. Do not re-split reactions independently inside each baseline repository.
+## 2. Frozen common reaction exports
 
-### Common input/output contract
+All baseline preprocessing must start from shared exports:
 
-Create one adapter per baseline that exports predictions to:
+```text
+data/external_baselines/
+  flower_full/
+    train.jsonl
+    valid.jsonl
+    test.jsonl
+    manifest.json
+  mech_uspto_31k_full/
+    train.jsonl
+    valid.jsonl
+    test.jsonl
+    manifest.json
+```
+
+FlowER full reaction-level data are built with:
+
+```bash
+python scripts/build_flower_full_endpoint_sft.py \
+  --data-root /path/to/flower/data \
+  --output-dir data/flower_full_endpoint_sft \
+  --splits train valid test
+```
+
+mech-USPTO full reaction-level data are built with:
+
+```bash
+python scripts/build_mech_uspto_full_endpoint_sft.py \
+  --data-root data/raw/mech_uspto_31k/data \
+  --output-dir data/mech_uspto_31k_full_endpoint_sft
+```
+
+Do not re-split reactions inside an external repository.
+
+---
+
+## 3. What each baseline is actually trained to predict
+
+The reaction universe is shared; the supervision representation is method-native.
+
+| Method | Training input | Native training target derived from the full train reactions | MechET trace allowed? | Priority |
+|---|---|---|:---:|---:|
+| LocalRetro | product graph | local atom/bond reaction-template labels extracted from train reactions only | No | P0 |
+| R-SMILES | root-aligned product SMILES | root-aligned precursor SMILES | No | P0 |
+| EditRetro | product string | official oracle edit sequence / iterative edit supervision | No | P0 |
+| RetroBridge | product graph | paired precursor graph under the published Markov-bridge objective | No | P0 |
+| ReactSeq | mapped+kekulized product/reaction representation | official ReactSeq operation sequence derived from product/precursor pair | No | P0 |
+| RETRO SYNFLOW | product graph / synthons | published reaction-center + synthon + flow-matching supervision | No | P0-heavy |
+| RxnNano | product prompt | published mapped-retrosynthesis target under its native curriculum/consistency recipe | No | P0/P1 |
+| Retro-MTGR | product graph | reaction-center + leaving-group/reactant multi-task labels | No | P1 |
+| RetroDFM-R | official model input | official pretrained model only at first; no home-made reduced recipe | No | contextual |
+| RetroReasoner | official model input | use only when official training/checkpoint path is verifiable | No | contextual |
+
+### Important methodological boundary
+
+Do **not** convert every baseline into a generic `product -> reactants` Transformer and keep its paper name. For example:
+
+- LocalRetro must still learn local templates;
+- EditRetro must still learn its iterative edit policy;
+- ReactSeq must still learn ReactSeq operations;
+- RETRO SYNFLOW must include its published reaction-center/synthon flow formulation if it is labeled RETRO SYNFLOW.
+
+If only a reduced component is runnable, report the component by its actual name rather than attributing it to the full published method.
+
+---
+
+## 4. P0 external baseline set
+
+### LocalRetro
+
+Role: tests whether local reaction templates already explain MechET's gains.
+
+Required procedure:
+1. convert the **full** FlowER or mech-USPTO training split to the official atom-mapped reaction format;
+2. extract templates from the training split only;
+3. train official LocalRetro;
+4. decode the corresponding full test split;
+5. export candidates to the shared MechET evaluator.
+
+### R-SMILES
+
+Role: tests whether product/reactant sequence alignment alone is sufficient.
+
+Required procedure:
+1. use the complete train reaction pairs;
+2. apply official root alignment;
+3. train the published retrosynthesis configuration;
+4. beam-decode the complete test split.
+
+### EditRetro
+
+Role: strongest sparse-edit comparison.
+
+Required procedure:
+1. derive official oracle edits from every full-train product/precursor pair;
+2. preserve the original staged/iterative training procedure;
+3. preserve native iterative decoding and ranking;
+4. evaluate on every full-test reaction.
+
+### RetroBridge
+
+Role: modern graph-generative comparison independent of an LLM decoder.
+
+Required procedure:
+1. construct product/reactant graph pairs for all full-train reactions;
+2. train the official bridge model;
+3. use a frozen sampling budget for the complete test set;
+4. export candidates before any gold-dependent processing.
+
+### ReactSeq
+
+Role: closest published reaction-operation language baseline.
+
+Required procedure:
+1. convert every full-train reaction to the mapped/kekulized form expected by the official code;
+2. derive ReactSeq targets using the official transformer;
+3. train the official sequence model;
+4. transform decoded ReactSeq predictions back to precursor SMILES;
+5. evaluate all full-test IDs.
+
+### RETRO SYNFLOW
+
+Role: strong flow-based accuracy/diversity comparison.
+
+Required matched condition:
+1. train the published reaction-center component on the full train split;
+2. construct synthons using that published pipeline;
+3. train the synthon-to-reactant flow model on the full train split;
+4. evaluate the complete test split under a fixed candidate budget.
+
+Forward-oracle/Feynman--Kac steering is a secondary condition if its reward model can be reproduced without cross-dataset leakage.
+
+A plain direct `GraphDiscreteFM(product -> reactants)` run is not labeled full RETRO SYNFLOW.
+
+### RxnNano
+
+Role: runnable reaction-LLM comparison, especially relevant to atom-map nuisance controls.
+
+Use the published mapped-retrosynthesis recipe and its native curriculum/consistency setup. A generic Qwen LoRA trained only on our pairs is an internal backbone control, not RxnNano.
+
+---
+
+## 5. P1 / contextual methods
+
+### Retro-MTGR — P1
+
+Train its native reaction-center and leaving-group/reactant multi-task objectives on the full train split. Do not use repository index ranges that create a new split.
+
+### RetroDFM-R — contextual first
+
+Use the official checkpoint for an explicitly separated external-pretrained reference. Do not place it in the matched block unless the full published training recipe is reproduced on our full reaction split.
+
+### RetroReasoner — contextual
+
+Keep in Related Work unless an official checkpoint/training path is available. Do not implement a home-made `RetroReasoner-like` system and label it RetroReasoner.
+
+### FlowER and MechSMILES
+
+Their native tasks are mechanistic/forward or mechanism-reconstruction tasks, not the matched product-only retrosynthesis task. They remain mechanistic neighboring work. Any reverse adaptation is an internal task adaptation, not an existing external baseline.
+
+---
+
+## 6. Shared output contract
+
+Every baseline exports:
 
 ```text
 outputs/external_baselines/<method>/<dataset>/predictions.jsonl
 ```
 
-Each record should contain at least:
+Each row contains at least:
 
 ```json
 {
@@ -48,11 +211,7 @@ Each record should contain at least:
   "product": "...",
   "reference_precursors": "...",
   "candidates": [
-    {
-      "rank": 1,
-      "precursors": "...",
-      "score": 0.0
-    }
+    {"rank": 1, "precursors": "...", "score": 0.0}
   ],
   "runtime_ms": 0.0,
   "source_method": "...",
@@ -60,478 +219,113 @@ Each record should contain at least:
 }
 ```
 
-Preserve atom maps if the model emits them, but do not require all external models to output mapped precursors. The centralized evaluator will separately compute structural exact match, mapped exact where applicable, full-precursor exact match where meaningful, round-trip plausibility, missing-prediction rate and invalid-SMILES rate.
+At least top-10 candidates are exported when the method supports them. Missing predictions remain failures in the full test denominator.
 
-### Required top-k
+All final endpoint scores are recomputed with one MechET-side evaluator.
 
-At minimum export top-10 candidates per target whenever the method supports ranked sampling/beam search. The paper can report P@1/3/5/10 from the same artifacts.
+Cross-method metrics:
+- Success@1/3/5/10;
+- invalid-output rate;
+- missing-output rate;
+- full precursor / structural precursor views where source annotations permit;
+- forward round-trip consistency as a separate model-based diagnostic.
 
-### Fairness rules
-
-- Same train/valid/test reaction IDs for all retrained methods.
-- No reaction class label unless MechET also receives it in that experiment.
-- Do not use a method's USPTO-50K test checkpoint as a matched result on our datasets.
-- Official checkpoints may be used only in a clearly labeled **external-checkpoint reference** block.
-- Do not manually improve a baseline architecture. Only adapt I/O and data loading as needed.
-- If a published implementation fundamentally cannot support the dataset after reasonable engineering effort, record the blocker rather than silently replacing the method with a home-made approximation.
+Do not rename independent stochastic Pass@K as beam Top-K.
 
 ---
 
-## 2. Baseline audit
+## 7. Assignment to two collaborators
 
-### 2.1 LocalRetro — P0
-
-**Paper:** Chen & Jung, JACS Au 2021  
-**Official code:** https://github.com/kaist-amsg/LocalRetro  
-**Paradigm:** local reaction templates + global graph context.
-
-Why it matters:
-
-- Directly tests whether MechET's advantage is already explained by the locality of reaction changes.
-- A strong and mature template-based reference.
-
-Implementation notes:
-
-- Official code supports USPTO-50K and USPTO-MIT.
-- Requires atom-mapped reactions for template extraction.
-- Training pipeline is explicit: template extraction -> preprocessing -> training -> decoding.
-- Official README reports roughly 100 min training on a 3090 for USPTO-50K, so our smaller mechanistic datasets should be manageable.
-
-Adaptation needed:
-
-1. export MechET splits to LocalRetro-style atom-mapped `reactants>>products` files;
-2. derive templates **only from the training split**;
-3. run official preprocessing/training/decoding;
-4. convert decoded predictions into the common JSONL format.
-
-Risk: **low-medium**. Main issue is template coverage on the smaller mechanistic corpora.
-
----
-
-### 2.2 R-SMILES — P0
-
-**Paper:** Root-aligned SMILES: A Tight Representation for Chemical Reaction Prediction  
-**Official code:** https://github.com/otori-bird/retrosynthesis  
-**Paradigm:** sequence translation with root-aligned product/reactant SMILES.
-
-Why it matters:
-
-- Tests a strong alternative explanation: perhaps the main difficulty is only sequence misalignment, not reaction-program representation.
-- Provides the natural sequence baseline between direct SMILES generation and MechET.
-
-Adaptation needed:
-
-1. convert frozen train/valid/test reactions to the repository's raw format;
-2. generate root-aligned source/target pairs using the official preprocessing;
-3. train using the provided retrosynthesis recipe;
-4. export beam predictions to the common JSONL format.
-
-Risk: **medium**. The codebase is older and data preprocessing is representation-specific, but the task itself is directly compatible.
-
----
-
-### 2.3 EditRetro — P0
-
-**Paper:** Nature Communications 2024  
-**Official code:** https://github.com/yuqianghan/editretro  
-**Paradigm:** iterative string editing.
-
-Why it matters:
-
-- Probably the most important non-mechanistic comparator for MechET's sparse-residual claim.
-- Tests whether explicit local editing alone is sufficient without electron-flow semantics/execution.
-
-Adaptation needed:
-
-1. reuse official preprocessing while replacing the dataset split with MechET frozen IDs;
-2. train the official architecture without architecture changes;
-3. run iterative generation and preserve the method's native ranking score;
-4. export top-k precursor predictions.
-
-Risk: **medium**. The repository is complete and has public checkpoints/scripts, but preprocessing and iterative decoding need careful adaptation.
-
----
-
-### 2.4 RetroBridge — P0
-
-**Paper:** ICLR 2024  
-**Official code:** https://github.com/igashov/RetroBridge  
-**Paradigm:** graph-generative Markov bridge.
-
-Why it matters:
-
-- Represents a modern non-autoregressive/template-free graph-generative baseline.
-- Tests whether MechET gains are specific to an LLM/autoregressive decoder.
-
-Implementation notes:
-
-- Official training, sampling and evaluation code are public.
-- Model checkpoints are available, but matched experiments require retraining on our splits.
-- Sampling is relatively expensive because the published recipe uses many bridge steps.
-
-Adaptation needed:
-
-1. create a dataset object from frozen product/reactant pairs;
-2. retrain with the official architecture;
-3. sample top-k candidates using a fixed sampling budget;
-4. export candidates before any method-specific round-trip reranking so the MechET-side evaluator remains authoritative.
-
-Risk: **medium-high** due to sampling cost, not conceptual incompatibility.
-
----
-
-### 2.5 Retro-MTGR — P1
-
-**Paper:** Nature Communications 2025  
-**Official code:** https://github.com/zpczaizheli/Retro-MTGR  
-**Paradigm:** multi-task graph representation learning for reaction-center deduction + reactant/leaving-group recommendation.
-
-Why it matters:
-
-- Gives a strong explicit decomposition baseline for reaction center and precursor realization.
-- Useful for the paper's failure-mode analysis separating disconnection vs leaving-group errors.
-
-Implementation notes:
-
-- Public code supports USPTO-50K and USPTO-MIT style datasets.
-- Code is more legacy/hard-coded than the other repositories (Python 3.7 / file-path edits / index-range split specification).
-
-Risk: **medium-high engineering risk**, but training itself is not expected to be the bottleneck.
-
-Recommendation: run after P0 baselines are stable.
-
----
-
-### 2.6 ReactSeq — P0
-
-**Paper:** Nature Machine Intelligence 2025  
-**Official code:** https://github.com/jiachengxiong/ReactSeq  
-**Paradigm:** explicit reaction-description language built from stepwise molecular editing operations.
-
-Why it matters:
-
-- The closest published competitor to MechET at the level of an explicit transformation language.
-- Essential for showing that MechET is not simply another reaction tokenization scheme.
-
-Implementation notes:
-
-- Full data generation, training, inference and ReactSeq-to-reactant transformation code are public.
-- Requires **mapped and kekulized reaction SMILES** for ReactSeq generation.
-- Uses two environments in the official recipe: OpenNMT/PyTorch for training and older RDKit/Indigo for preprocessing/transformation.
-- Official recipe uses heavy data augmentation; for fairness, record exact augmentation and keep the same augmentation policy across both mechanistic corpora.
-
-Adaptation needed:
-
-1. export mapped reactions and kekulize using the official transformation logic;
-2. generate ReactSeq targets;
-3. train with official OpenNMT configuration;
-4. decode ReactSeq and transform predictions back to reactant SMILES;
-5. export to common JSONL.
-
-Risk: **medium-high**, mostly environment/preprocessing complexity.
-
----
-
-### 2.7 RETRO SYNFLOW — P0 (heavy)
-
-**Paper:** NeurIPS 2025  
-**Official code:** https://github.com/DSL-Lab/RetroSynFlow  
-**Paradigm:** discrete flow matching for accurate/diverse retrosynthesis, with optional feasibility steering.
-
-Why it matters:
-
-- Strong modern comparison for accuracy + diversity + learned feasibility guidance.
-- Particularly important for the claim that MechET provides an internal transformation-consistency signal rather than relying only on a learned forward oracle.
-
-Implementation notes:
-
-- Clean public experiment API.
-- Official example trains the product->reactant flow model for hundreds of epochs and uses multi-GPU jobs.
-- Synthon-completion variants additionally require a reaction-center model.
-
-Recommended matched condition:
-
-- first reproduce the direct `product -> reactants` GraphDiscreteFM setting;
-- treat reward-steered inference as a secondary condition if the required forward model is available and domain-compatible.
-
-Risk: **high compute**, low conceptual risk.
-
----
-
-### 2.8 RxnNano — P0/P1 runnable LLM comparator
-
-**Paper/preprint:** 2026  
-**Official code:** https://github.com/rlisml/RxnNano  
-**Paradigm:** compact reaction LLM with hierarchical curriculum, latent chemical consistency and atom-map permutation invariance.
-
-Why it matters:
-
-- It is a much more practical runnable LLM comparator than a paper with no released training code.
-- Directly supports mapped retrosynthesis JSONL and LoRA training.
-- Its atom-map permutation invariance makes it especially relevant to MechET's map-nuisance controls.
-
-Implementation notes:
-
-- Public training command supports mapped retrosynthesis directly.
-- Default example uses Qwen2.5-7B-Instruct + LoRA.
-- Data JSONL is simple: `product`, `reactants`, optional `rxn_Class`.
-
-Risk: **medium compute**, low engineering risk.
-
-Recommendation: include as the primary **runnable external LLM** if resources permit.
-
----
-
-### 2.9 RetroDFM-R — external-checkpoint reference first
-
-**Paper:** 2025  
-**Official code:** https://github.com/OpenDFM/RetroDFM-R  
-**Paradigm:** retrosynthesis reasoning LLM with continual pretraining, cold-start distillation and RL.
-
-Why it matters:
-
-- Strong reasoning-based retrosynthesis reference.
-- Official 8B checkpoint and inference code are public.
-
-Why not make matched retraining P0:
-
-- The published pipeline includes multiple large stages (continual pretraining, distillation, RL/OpenRLHF).
-- Re-running the full recipe on our 11k-scale mechanistic dataset would be expensive and would not be a clean architecture-only comparison.
-
-Recommended use:
-
-1. use the official checkpoint as an **external-checkpoint reference** on an exact-clean compatible target set;
-2. do not use it to identify the causal effect of MechET's representation;
-3. only attempt matched retraining if later reviewer pressure makes it necessary.
-
-Risk: **high compute for retraining; low risk for inference-only reference**.
-
----
-
-### 2.10 RetroReasoner — contextual until official code is verified
-
-**Paper/preprint:** 2026, arXiv:2603.12666  
-**Paradigm:** structured disconnection reasoning + SFT + round-trip RL.
-
-It is highly relevant scientifically, but at the time of this audit I did **not verify a public official training repository** from the paper/search results.
-
-Recommendation:
-
-- keep in Related Work;
-- do not assign a collaborator to reimplement it from the paper;
-- add it to the runnable benchmark only if official code/checkpoints become available.
-
-Do **not** create a home-made 'RetroReasoner-like' baseline and label it RetroReasoner.
-
----
-
-## 3. Recommended final comparator tiers
-
-### P0 — should be completed for the main empirical comparison
-
-1. LocalRetro
-2. R-SMILES
-3. EditRetro
-4. RetroBridge
-5. ReactSeq
-6. RETRO SYNFLOW
-7. RxnNano (runnable LLM comparator)
-
-### P1 — useful strengthening
-
-8. Retro-MTGR
-9. RetroDFM-R official checkpoint on an external/compatible evaluation setting
-
-### Context only unless implementation becomes available
-
-10. RetroReasoner
-11. FlowER native forward model
-12. MechSMILES native mechanism model
-
-FlowER and MechSMILES are neighboring mechanistic works, not native product-only retrosynthesis baselines.
-
----
-
-## 4. Assignment to two collaborators
-
-The split below is designed to balance **engineering complexity + GPU cost**, not simply the number of models.
+The split balances engineering effort and GPU cost.
 
 ### Collaborator A
 
-#### A1. LocalRetro — P0
-- expected engineering: low-medium
-- expected compute: low
-- first target: mech-USPTO
-- second target: FlowER-derived
+1. **LocalRetro — P0**
+   - full mech-USPTO first, then full FlowER;
+   - verify train-only template extraction.
 
-#### A2. ReactSeq — P0
-- expected engineering: medium-high due to dual environments + reaction transformation
-- expected compute: medium
-- special responsibility: validate mapped/kekulized conversion on 100 reactions before training
+2. **ReactSeq — P0**
+   - full mech-USPTO + full FlowER;
+   - first validate mapped/kekulized conversion on 100 reactions.
 
-#### A3. RetroBridge — P0
-- expected engineering: medium
-- expected compute: medium-high at inference
-- special responsibility: ensure sampling budget is fixed and recorded
+3. **RetroBridge — P0**
+   - full mech-USPTO + full FlowER;
+   - record sampling steps and candidate budget.
 
-#### A4. RxnNano — P0/P1
-- expected engineering: low-medium
-- expected compute: medium (7B LoRA)
-- special responsibility: report mapped vs map-permuted evaluation using the same checkpoint
-
-**Collaborator A deliverable:** template/edit-language/graph-generation/LLM breadth.
-
----
+4. **RxnNano — P0/P1**
+   - full datasets under the official mapped-retro recipe;
+   - report canonical-map and random-map test views.
 
 ### Collaborator B
 
-#### B1. R-SMILES — P0
-- expected engineering: medium
-- expected compute: medium
-- special responsibility: verify root-alignment preprocessing preserves the frozen split and reaction identity
+1. **R-SMILES — P0**
+   - full mech-USPTO + full FlowER;
+   - verify root alignment preserves stable IDs.
 
-#### B2. EditRetro — P0
-- expected engineering: medium
-- expected compute: medium
-- special responsibility: preserve native iterative decoding and ranking
+2. **EditRetro — P0**
+   - full mech-USPTO + full FlowER;
+   - preserve official edit targets and iterative decoding.
 
-#### B3. RETRO SYNFLOW — P0 heavy
-- expected engineering: medium
-- expected compute: high
-- special responsibility: first run direct product->reactant flow matching; add reward steering only as a secondary condition
+3. **RETRO SYNFLOW — P0-heavy**
+   - full mech-USPTO + full FlowER;
+   - reaction-center + synthon flow first; steering secondary.
 
-#### B4. Retro-MTGR — P1
-- expected engineering: medium-high because of legacy/hard-coded data loading
-- expected compute: low-medium
-- special responsibility: use frozen IDs rather than repository index-based train/test ranges
+4. **Retro-MTGR — P1**
+   - full reaction universes only.
 
-#### B5. RetroDFM-R — reference only
-- no matched retraining initially
-- run official 8B checkpoint inference on the agreed exact-clean external set
-- export outputs to the common JSONL format
-
-**Collaborator B deliverable:** sequence/edit/flow/factorized/reasoning breadth.
+5. **RetroDFM-R — contextual**
+   - official checkpoint inference only until a matched full-data reproduction is justified.
 
 ---
 
-## 5. Shared milestones
+## 8. Milestones before full training
 
-### Milestone 0 — common data adapter
+### Milestone 0 — freeze full dataset manifests
 
-Before either collaborator trains a model, freeze shared exports:
-
-```text
-data/external_baselines/
-  flower_inverse/{train,valid,test}.csv
-  mech_uspto_inverse/{train,valid,test}.csv
-```
-
-Minimum columns:
+Required counts:
 
 ```text
-stable_id,split,rxn_smiles,product,reactants
+FlowER:       257171 / 2890 / 28971
+mech-USPTO:    24959 / 3120 / 3120
 ```
 
-`rxn_smiles` should remain atom-mapped. Also provide unmapped `product` and `reactants` if a baseline expects unmapped strings.
+No baseline training begins until these counts and stable-ID hashes are frozen.
 
 ### Milestone 1 — 100-reaction preprocessing audit
 
-For every method:
+For each method:
+- run official preprocessing on 100 frozen reactions;
+- verify stable IDs survive preprocessing;
+- verify product and precursor identity after representation conversion;
+- verify no validation/test rows enter train-derived vocabularies/templates;
+- save external repository commit SHA and environment lockfile.
 
-- preprocess 100 reactions;
-- verify zero cross-split leakage;
-- verify product/reactant identity after any canonicalization;
-- verify the method can decode at least one syntactically valid prediction;
-- save the exact external repository commit SHA and environment lockfile.
+### Milestone 2 — 32--128 reaction overfit test
 
-No full training should start before this passes.
+Confirm:
+- training loss decreases;
+- inference returns syntactically valid candidates;
+- prediction candidates map back to the original stable IDs;
+- common JSONL export works.
 
-### Milestone 2 — overfit/smoke test
+### Milestone 3 — full mech-USPTO
 
-- train on a tiny subset (32-128 reactions);
-- confirm training loss decreases;
-- confirm inference pipeline reaches final precursor SMILES;
-- confirm predictions can be converted to common JSONL.
+Run all assigned P0 methods on 24,959 / 3,120 / 3,120.
 
-### Milestone 3 — mech-USPTO full run
+### Milestone 4 — full FlowER
 
-Run the full frozen mech-USPTO split first. It is smaller and is the cleanest place to catch task adaptation bugs.
-
-### Milestone 4 — FlowER-derived full run
-
-Repeat with the frozen FlowER-derived split using exactly the same method configuration unless a dataset-size hyperparameter must change.
-
-### Milestone 5 — centralized evaluation
-
-Do **not** manually paste numbers from external repositories into the paper. All final tables should be generated from common prediction JSONLs by one MechET-side evaluation script.
+Run all assigned P0 methods on 257,171 / 2,890 / 28,971.
 
 ---
 
-## 6. Required artifact checklist per baseline
+## 9. Where executable subsets are used
 
-Each completed method must provide:
+The 3,080 FlowER trace test cases and 11,429 mech-USPTO inverse traces are reserved for questions that require a gold executable program:
 
-```text
-external_baselines/<method>/
-  README_RUN.md
-  upstream.json
-  environment.yml or requirements.lock
-  data_adapter.py
-  train_command.sh
-  infer_command.sh
-  flower_inverse/predictions.jsonl
-  mech_uspto_inverse/predictions.jsonl
-  logs/
-```
+- one-shot electron-flow vs closed-loop MechET;
+- no-enumeration / stale-feedback controls;
+- program execution and endpoint--program consistency;
+- C1/C2/C3 primitive/motif composition splits;
+- detailed electron-flow trajectory analysis.
 
-`upstream.json` must include:
-
-```json
-{
-  "repository": "...",
-  "commit": "...",
-  "license": "...",
-  "paper": "...",
-  "modified_files": ["..."],
-  "notes": "only data/I-O adaptation; no architecture changes"
-}
-```
-
----
-
-## 7. Stop / escalation rules
-
-A collaborator should stop and document the blocker instead of rewriting the published method if any of the following happens:
-
-1. official preprocessing assumes unavailable labels that would leak target information;
-2. the method fundamentally requires a reaction class not supplied to MechET;
-3. adapting the dataset would require replacing the published model architecture;
-4. decoding cannot be mapped back to precursor SMILES without an undocumented component;
-5. full reproduction would require an unreasonable training pipeline relative to its role as a baseline (RetroDFM-R is the clearest example).
-
-In those cases, move the method to the external-checkpoint/context tier and replace it with another **published runnable method**, not a home-made surrogate.
-
----
-
-## 8. Recommended paper-facing baseline set after this audit
-
-For the main table, the most defensible executable set is:
-
-```text
-LocalRetro
-R-SMILES
-EditRetro
-RetroBridge
-ReactSeq
-RETRO SYNFLOW
-RxnNano
-MechET
-```
-
-Add Retro-MTGR if the legacy implementation adapts cleanly.
-
-Use RetroDFM-R in a separated external-checkpoint block unless matched retraining is later justified.
-
-Keep RetroReasoner in Related Work until official code/checkpoints are verified.
-
-This list gives substantially better experimental coverage than adding multiple home-made Qwen baselines. Internal MechET variants should appear only in the ablation table, where they answer representation/execution questions rather than SOTA-comparison questions.
+External field-level baseline performance is **not** restricted to those subsets.
