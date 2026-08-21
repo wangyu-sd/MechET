@@ -2,9 +2,12 @@
 """Build the complete FlowER reaction-level inverse endpoint dataset.
 
 This builder deliberately does not compile mechanisms into MECH_PROOF.  Every
-row in ``flower_retro`` is retained, so endpoint coverage is identical to the
-official reaction/trajectory split.  Executable trace data remains a separate
-subset with its own coverage denominator.
+row in the reaction-level ``flower_retro`` view is retained, so endpoint
+coverage is identical to the official reaction/trajectory split.  The view is
+derived reproducibly from the public ``flower_new_dataset`` trajectories by
+``scripts/build_flower_retro.py``; it is not a separate required download.
+Executable trace data remains a separate subset with its own coverage
+denominator.
 """
 from __future__ import annotations
 

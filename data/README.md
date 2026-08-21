@@ -39,6 +39,40 @@ ls "$FLOWER_ROOT"/{train,val,test}.txt
 
 Line format: `mapped_reactants>>mapped_products|sequence_idx`. Elementary steps with the same index form one mechanism graph.
 
+#### Derive `flower_retro` (no separate download)
+
+The public archive may contain only `flower_new_dataset`.  The
+`flower_retro` directory used by the complete reaction-level endpoint track is
+**not another required download**.  It is the deterministic endpoint view of
+the trajectories: for each trajectory ID, in first-appearance order, take the
+left side of its first elementary transition and the right side of its last
+elementary transition.
+
+```bash
+export FLOWER_ROOT=data/raw/data/flower_new_dataset
+
+python scripts/build_flower_retro.py \
+  --flower-root "$FLOWER_ROOT" \
+  --output-dir "$(dirname "$FLOWER_ROOT")/flower_retro" \
+  --splits train valid test
+
+ls "$(dirname "$FLOWER_ROOT")/flower_retro"/{train,val,test}.txt
+```
+
+The builder fails closed unless the official artifacts have the following
+row counts and SHA-256 digests:
+
+| Split/file | Rows | SHA-256 |
+|---|---:|---|
+| `train.txt` | 257,171 | `35ca595c362249c4922a9157a316c8c7fb839b5627d03c0d544abe46314615a5` |
+| `val.txt` | 2,890 | `19ddcd0fd8ad5134994ce92e2556c011cba41466bb5bbde08c14f693bb138769` |
+| `test.txt` | 28,971 | `5fb019a128ad9f2ec62f23fea4be22f9d5baf226147c9ec0985fba0213988e6d` |
+
+These hashes were verified byte-for-byte against the historical local
+`flower_retro` files used by the MechET full-endpoint experiments.  Use
+`--allow-noncanonical` only for toy tests or explicitly documented alternate
+upstream revisions.
+
 ### 2. USPTO-50K
 
 Standard single-step retrosynthesis benchmark (~50k classified reactions).
@@ -100,7 +134,7 @@ Use this track for the full product-only retrosynthesis denominator. It keeps al
 
 ```bash
 python scripts/build_flower_full_endpoint_sft.py \
-  --data-root /path/to/data-containing-flower_retro-and-flower_new_dataset \
+  --data-root "$(dirname "$FLOWER_ROOT")" \
   --output-dir data/flower_full_endpoint_sft \
   --splits train valid test
 ```

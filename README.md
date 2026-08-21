@@ -192,6 +192,31 @@ pip install -e ".[agent,knowledge]"
 
 The released compatibility window includes `trl>=1.8,<2`, `transformers>=5.2,<6`, and `datasets>=4.7,<6`.
 
+### FlowER data prerequisite
+
+The public FlowER archive provides `flower_new_dataset` elementary
+trajectories.  The reaction-level `flower_retro` files required by the full
+endpoint track are derived locally; they are not an undocumented second
+download:
+
+```bash
+# Download and unzip Figshare data.zip as documented in data/README.md, then:
+export FLOWER_ROOT=data/raw/data/flower_new_dataset
+
+python scripts/build_flower_retro.py \
+  --flower-root "$FLOWER_ROOT" \
+  --output-dir "$(dirname "$FLOWER_ROOT")/flower_retro" \
+  --splits train valid test
+
+python scripts/build_flower_full_endpoint_sft.py \
+  --data-root "$(dirname "$FLOWER_ROOT")" \
+  --output-dir data/flower_full_endpoint_sft \
+  --splits train valid test
+```
+
+The derivation, canonical row counts, and SHA-256 values are documented in
+[`data/README.md`](data/README.md#derive-flower_retro-no-separate-download).
+
 ### 2. Build replay-verified trajectories for all splits
 
 For the separate mech-USPTO-31k inverse initialization dataset, use the frozen
