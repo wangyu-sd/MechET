@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Freeze the full-endpoint rows matching the executable FlowER trace test."""
+"""Build the incomplete 3,080/28,971 FlowER trace-view diagnostic subset.
+
+This output is never a full benchmark test set and is not headline-eligible.
+"""
 from __future__ import annotations
 
 import argparse

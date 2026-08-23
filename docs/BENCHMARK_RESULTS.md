@@ -1,13 +1,19 @@
 # Benchmark results and historical inventory
 
-## Completed frozen runs
+> [!CAUTION]
+> **INCOMPLETE TRACE-VIEW RESULT — NOT A FULL BENCHMARK.** Every `3,080`
+> FlowER result in this file covers only the replay-compatible subset of the
+> complete `28,971`-reaction test set. It is diagnostic only and is prohibited
+> from headline/full-corpus comparisons.
 
-### FlowER inverse trace, Qwen3-8B, three-epoch Tool-SFT
+## Completed incomplete trace-view diagnostics (not headline results)
+
+### FlowER inverse trace, Qwen3-8B, three-epoch Tool-SFT — incomplete 3,080/28,971 view
 
 This is a completed same-source FlowER test run, not an external-transfer
 result. The model receives only the mapped product and must construct the
 precursor through environment-owned electron-flow tools. It does not use the
-textbook corpus. The test contains 3,080 targets; ten independent sampled
+textbook corpus. The incomplete trace-view subset contains 3,080 targets; ten independent sampled
 rollouts were retained for every target (30,800 candidates total).
 
 | Metric | Pass@1 | Pass@5 | Pass@10 |

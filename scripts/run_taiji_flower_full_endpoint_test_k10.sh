@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+echo >&2 "NOTICE: the primary evaluation is full FlowER 28,971; every matched 3,080-row output is an INCOMPLETE TRACE-VIEW diagnostic subset only."
+
 repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 adapter=${ENDPOINT_ADAPTER:-$repo_dir/outputs/agent/sft_flower_full_endpoint_qwen3_8b_h20_run_20260814}
@@ -52,6 +54,8 @@ python scripts/build_flower_endpoint_matched_subset.py \
   --trace-reference "$trace_test" \
   --output "$matched_file" \
   --expected-rows 3080
+
+echo >&2 "NOTICE: matched subset created: 3,080/28,971, incomplete trace-view diagnostic only."
 
 mkdir -p "$output_dir/generation" "$output_dir/nll_ranking"
 pids=()

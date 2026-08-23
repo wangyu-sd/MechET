@@ -1,5 +1,10 @@
 # FlowER-derived baseline evidence and fair-comparison view
 
+> [!CAUTION]
+> Every `3,080`-case result in this document is an **INCOMPLETE TRACE-VIEW
+> SUBSET** of the full FlowER test set (`28,971`). It is diagnostic only and
+> must not be used as a headline or full-benchmark result.
+
 Status: provisional evidence inventory, 2026-08-14. This document organizes
 the results that already exist. It is not yet a cross-model leaderboard.
 
@@ -8,7 +13,7 @@ Machine-readable companion:
 
 ## Executive conclusion
 
-The repository currently contains one complete result under the frozen MechET
+The repository currently contains one complete **incomplete-trace-view diagnostic** under the frozen MechET
 protocol and several useful historical baseline results under related but
 different FlowER-derived protocols. The historical results should be retained
 as evidence, but a numerical ordering across rows would conflate:

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+echo >&2 "WARNING: INCOMPLETE TRACE-VIEW SUBSET: evaluating 1,124/3,120 mech-USPTO-31k test reactions; output is not headline-eligible."
+
 repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
 reference="$repo_dir/data/mech_uspto_31k_inverse_tool_sft/test.jsonl"
 predictions="$repo_dir/outputs/eval/mech_uspto31k_qwen3_8b_k10/predictions.jsonl"

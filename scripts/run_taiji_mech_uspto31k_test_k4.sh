@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+echo >&2 "WARNING: INCOMPLETE TRACE-VIEW SUBSET: this legacy job evaluates 1,124/3,120 mech-USPTO-31k test reactions; never report it as the full benchmark."
+
 repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 adapter="$repo_dir/outputs/agent/tool_sft_mixed_inverse_qwen3_8b"
@@ -89,6 +91,9 @@ with output.open("w", encoding="utf-8") as handle:
 digest = hashlib.sha256(output.read_bytes()).hexdigest()
 manifest = {
     "artifact_type": "mech_uspto31k_sampled_test_manifest",
+    "benchmark_scope": "incomplete_trace_view_subset_not_headline",
+    "full_test_denominator": 3120,
+    "headline_eligible": False,
     "n_targets": len(rows),
     "samples_per_target": samples_per_target,
     "n_candidates": len(rows) * samples_per_target,
