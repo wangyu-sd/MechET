@@ -1,11 +1,14 @@
 {
   "artifact_type": "frozen_benchmark_result_snapshot",
-  "status": "complete",
+  "status": "complete_incomplete_trace_view_only",
+  "headline_eligible": false,
+  "warning": "INCOMPLETE TRACE-VIEW SUBSET: 3080/28971 FlowER test reactions; not a full benchmark result",
   "task": "mechet_flower_qwen3_8b_3ep_test_k10_8a100_20260813_01",
   "condition_name": "flower_trace_3epoch_k10",
   "benchmark": {
     "name": "FlowER inverse trace test",
-    "scope": "same_source_test",
+    "scope": "incomplete_trace_view_subset_not_headline",
+    "full_test_denominator": 28971,
     "n_targets": 3080,
     "reference_sha256": "047e8bcb9b0abc57e44adad2f6406d69f1521d4d86fba21cc9a550d9c8b0b57b",
     "stable_ids_sha256": "fe30eec946fab075da0ce63ed41034578735e20454d25031b80e4a792c36946b"

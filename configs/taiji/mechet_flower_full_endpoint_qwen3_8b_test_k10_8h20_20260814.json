@@ -25,7 +25,7 @@
   "resource_usage": "experiment",
   "base_model": "Qwen/Qwen3-8B@b968826d9c46dd6066d109eabc6255188de91218",
   "output_base_model": "Qwen3-8B-MechET-FlowER-Full-Endpoint-Eval",
-  "task_description": "Full 28,971-row FlowER product-only endpoint evaluation with ten independent candidates, teacher-forced assistant-token NLL ranking, and a matched 3,080-row executable-trace subset report.",
+  "task_description": "Full 28,971-row FlowER product-only endpoint evaluation with ten independent candidates and NLL ranking; the matched 3,080-row output is explicitly an INCOMPLETE TRACE-VIEW diagnostic subset, not a headline benchmark.",
   "business_info": {
     "task_category": "evaluation",
     "task_description": "FlowER full endpoint ranked K=10 evaluation with a matched executable-trace subset.",

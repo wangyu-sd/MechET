@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+echo >&2 "WARNING: INCOMPLETE TRACE-VIEW SUBSET: this legacy job evaluates 3,080/28,971 FlowER test reactions; never report it as the full benchmark."
+
 repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 adapter="$repo_dir/outputs/agent/tool_sft_flower_inverse_qwen3_8b_h20_run_20260812"
@@ -99,6 +101,9 @@ with output.open("w", encoding="utf-8") as handle:
 digest = hashlib.sha256(output.read_bytes()).hexdigest()
 manifest = {
     "artifact_type": "flower_3epoch_sampled_test_manifest",
+    "benchmark_scope": "incomplete_trace_view_subset_not_headline",
+    "full_test_denominator": 28971,
+    "headline_eligible": False,
     "n_targets": len(rows),
     "samples_per_target": samples_per_target,
     "n_candidates": len(rows) * samples_per_target,

@@ -1,5 +1,12 @@
 # mech-USPTO-31k inverse Tool-SFT
 
+> [!CAUTION]
+> **INCOMPLETE TRACE-VIEW SUBSET.** The `1,124` test rows below are only the
+> replay-compatible inverse-trace subset of the complete `3,120`-reaction
+> mech-USPTO-31k test split. They are valid for program supervision and
+> diagnostics, but must not be reported as the full benchmark denominator or
+> a headline endpoint result.
+
 > **Role:** replay-verified inverse-trace supervision for model initialization
 >
 > **Contract:** `mech_uspto_inverse_trace_owned_v2`
@@ -86,8 +93,8 @@ stereo-insensitive.
 | Raw elementary-step rows | 91,805 | 11,396 | 11,625 | 114,826 |
 | Executable standardized step rows | 72,963 | 9,087 | 9,326 | 91,376 |
 | Reactions with every step executable | 15,117 | 1,903 | 1,895 | 18,915 |
-| Globally mapped stitched forward traces | 9,118 | 1,187 | 1,124 | 11,429 |
-| Accepted inverse Tool-SFT v2 rows | **9,118** | **1,187** | **1,124** | **11,429** |
+| Globally mapped stitched forward traces *(incomplete trace view)* | 9,118 | 1,187 | 1,124 | 11,429 |
+| Accepted inverse Tool-SFT v2 rows *(incomplete trace view)* | **9,118** | **1,187** | **1,124** | **11,429** |
 
 The inverse conversion is 11,429/11,429 with empty inverse quarantine files.
 This is 100% of the globally stitched forward traces, not 100% of the original
