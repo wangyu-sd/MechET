@@ -20,7 +20,15 @@ The complete endpoint export is produced by `scripts/build_flower_full_endpoint_
 - test: **3,120** reactions
 - total: **31,199** reactions
 
-The upstream files contain elementary-step rows keyed by `rxn_idx`. The reaction-level precursor is the minimized reactant state of the first forward elementary step (`step_idx_forward = 0`, `elem_reac_min`), and the product is the reaction-level minimized product (`rxn_prod_min`). Each `rxn_idx` contributes exactly one benchmark reaction.
+The upstream files contain elementary-step rows keyed by `rxn_idx`. The
+reaction-level precursor is the complete species state at the first forward
+step (`step_idx_forward = 0`, `elem_reac_spe`); `elem_reac_min` is not used
+because it omits substrates introduced in later elementary steps. The desired
+product proxy is the deterministic largest organic fragment of the invariant
+reaction-level final mixture (`rxn_prod_min`). Each pair is mapped once with
+RXNMapper 0.4.2 and then product-only canonically reindexed. Each `rxn_idx`
+contributes exactly one benchmark reaction, and all external methods share the
+same mapping.
 
 ## Trace-supervision subsets are not benchmark denominators
 

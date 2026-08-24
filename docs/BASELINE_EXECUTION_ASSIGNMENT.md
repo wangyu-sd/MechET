@@ -72,12 +72,20 @@ Every external repository must start from the resulting
 start from `textbook_tool_sft`, `flower_inverse_tool_sft`, or the 3,080-row
 trace test view.
 
-mech-USPTO full reaction-level data are built with:
+mech-USPTO full reaction-level data are built from the public HF endpoint
+snapshot and mapped once for all external methods:
 
 ```bash
-python scripts/build_mech_uspto_full_endpoint_sft.py \
-  --data-root data/raw/mech_uspto_31k/data \
-  --output-dir data/mech_uspto_31k_full_endpoint_sft
+python -m venv .venv-rxnmapper
+.venv-rxnmapper/bin/pip install -r requirements/rxnmapper.txt
+.venv-rxnmapper/bin/python scripts/build_mech_uspto31k_rxnmapper_baseline.py \
+  --hf-root data/raw/mech_uspto_31k/data \
+  --output-dir data/mech_uspto_31k_full_endpoint_rxnmapper \
+  --localretro-dir data/baselines/localretro_mech_uspto_31k_rxnmapper
+
+python scripts/export_full_baseline_pairs.py \
+  --datasets mech_uspto_31k_full \
+  --mech-uspto-dir data/mech_uspto_31k_full_endpoint_rxnmapper
 ```
 
 Do not re-split reactions inside an external repository.
