@@ -20,14 +20,22 @@ The complete endpoint export is produced by `scripts/build_flower_full_endpoint_
 - test: **3,120** reactions
 - total: **31,199** reactions
 
-The upstream files contain elementary-step rows keyed by `rxn_idx`. The reaction-level precursor is the minimized reactant state of the first forward elementary step (`step_idx_forward = 0`, `elem_reac_min`), and the product is the reaction-level minimized product (`rxn_prod_min`). Each `rxn_idx` contributes exactly one benchmark reaction.
+The upstream files contain elementary-step rows keyed by `rxn_idx`. The
+reaction-level precursor is the complete species state at the first forward
+step (`step_idx_forward = 0`, `elem_reac_spe`); `elem_reac_min` is not used
+because it omits substrates introduced in later elementary steps. The desired
+product proxy is the deterministic largest organic fragment of the invariant
+reaction-level final mixture (`rxn_prod_min`). Each pair is mapped once with
+RXNMapper 0.4.2 and then product-only canonically reindexed. Each `rxn_idx`
+contributes exactly one benchmark reaction, and all external methods share the
+same mapping.
 
 ## Trace-supervision subsets are not benchmark denominators
 
 Executable inverse traces are derived from the full sources only when the current symbolic executor can replay and stitch the complete mechanism.
 
 - FlowER executable-trace test subset: **3,080** reactions from the 28,971-reaction full test split.
-- mech-USPTO executable inverse Tool-SFT subset: **11,429** reactions total = 9,118 / 1,187 / 1,124 train/validation/test.
+- mech-USPTO current-compiler executable inverse Tool-SFT subset: **12,724** reactions total = 10,152 / 1,319 / 1,253 train/validation/test. The older 9,118 / 1,187 / 1,124 artifact is a deprecated pilot.
 
 These subsets are used for electron-flow program supervision, program-level ablations, C1/C2/C3 composition analysis, and trace-specific diagnostics. They must **never** replace the full FlowER or full mech-USPTO reaction-level universes in the headline endpoint benchmark.
 
@@ -93,3 +101,14 @@ data/external_baselines/<dataset>/
 ```
 
 The manifest records row counts, stable-ID hashes, source hashes, preprocessing revision, and any excluded/quarantined rows. For the full benchmark exports, mechanism replay incompatibility is **not** an exclusion criterion.
+
+The FlowER handoff is generated independently of mech-USPTO readiness:
+
+```bash
+python scripts/export_full_baseline_pairs.py --datasets flower_full
+```
+
+The shared JSONL contains mapped and unmapped product/precursor views plus the
+complete mapped reaction string. Method-specific code may derive templates,
+root alignment, edit operations, or graph pairs from these rows, but may not
+change the frozen split or silently drop test IDs.

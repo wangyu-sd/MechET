@@ -12,7 +12,7 @@ Headline external-baseline experiments use the **complete reaction-level dataset
 The smaller executable subsets have a different role:
 
 - FlowER executable-trace test subset: 3,080 / 28,971 test reactions;
-- mech-USPTO executable inverse Tool-SFT subset: 9,118 / 1,187 / 1,124 = 11,429 reactions.
+- mech-USPTO current executable inverse Tool-SFT subset: 10,152 / 1,319 / 1,253 = 12,724 reactions. The old 9,118 / 1,187 / 1,124 artifact is a deprecated pilot.
 
 Those subsets are used only for **electron-flow program supervision and program-level analysis**. They are not the main benchmark denominator and external baselines must not be trained only on them.
 
@@ -57,12 +57,35 @@ python scripts/build_flower_full_endpoint_sft.py \
   --splits train valid test
 ```
 
-mech-USPTO full reaction-level data are built with:
+Freeze the shared, method-agnostic FlowER handoff with:
 
 ```bash
-python scripts/build_mech_uspto_full_endpoint_sft.py \
-  --data-root data/raw/mech_uspto_31k/data \
-  --output-dir data/mech_uspto_31k_full_endpoint_sft
+python scripts/export_full_baseline_pairs.py \
+  --datasets flower_full \
+  --flower-dir data/flower_full_endpoint_sft \
+  --output-root data/external_baselines
+```
+
+Every external repository must start from the resulting
+`data/external_baselines/flower_full/{train,valid,test}.jsonl` and preserve its
+`stable_id`. It may then derive its published native representation. Do not
+start from `textbook_tool_sft`, `flower_inverse_tool_sft`, or the 3,080-row
+trace test view.
+
+mech-USPTO full reaction-level data are built from the public HF endpoint
+snapshot and mapped once for all external methods:
+
+```bash
+python -m venv .venv-rxnmapper
+.venv-rxnmapper/bin/pip install -r requirements/rxnmapper.txt
+.venv-rxnmapper/bin/python scripts/build_mech_uspto31k_rxnmapper_baseline.py \
+  --hf-root data/raw/mech_uspto_31k/data \
+  --output-dir data/mech_uspto_31k_full_endpoint_rxnmapper \
+  --localretro-dir data/baselines/localretro_mech_uspto_31k_rxnmapper
+
+python scripts/export_full_baseline_pairs.py \
+  --datasets mech_uspto_31k_full \
+  --mech-uspto-dir data/mech_uspto_31k_full_endpoint_rxnmapper
 ```
 
 Do not re-split reactions inside an external repository.
@@ -320,7 +343,7 @@ Run all assigned P0 methods on 257,171 / 2,890 / 28,971.
 
 ## 9. Where executable subsets are used
 
-The 3,080 FlowER trace test cases and 11,429 mech-USPTO inverse traces are reserved for questions that require a gold executable program:
+The 3,080 FlowER trace test cases and 12,724 current-compiler mech-USPTO inverse traces are reserved for questions that require a gold executable program:
 
 - one-shot electron-flow vs closed-loop MechET;
 - no-enumeration / stale-feedback controls;

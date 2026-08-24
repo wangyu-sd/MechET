@@ -1,0 +1,8 @@
+# Isolated runtime for the shared mech-USPTO endpoint atom mapping.
+# Keep separate from the Qwen training environment (Transformers 5.x).
+rxnmapper==0.4.2
+transformers==4.57.1
+tokenizers==0.22.2
+pandas>=2.0
+pyarrow>=14
+rdkit
