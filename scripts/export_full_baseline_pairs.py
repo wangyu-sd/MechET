@@ -221,20 +221,31 @@ def main() -> int:
         type=Path,
         default=Path("data/external_baselines"),
     )
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        choices=sorted(EXPECTED),
+        default=sorted(EXPECTED),
+        help=(
+            "Datasets to export. Select flower_full alone while the mapped "
+            "mech-USPTO full endpoint source is unavailable."
+        ),
+    )
     args = parser.parse_args()
 
-    manifests = {
-        "flower_full": export_dataset(
+    manifests: dict[str, Any] = {}
+    if "flower_full" in args.datasets:
+        manifests["flower_full"] = export_dataset(
             args.flower_dir,
             args.output_root / "flower_full",
             dataset="flower_full",
-        ),
-        "mech_uspto_31k_full": export_dataset(
+        )
+    if "mech_uspto_31k_full" in args.datasets:
+        manifests["mech_uspto_31k_full"] = export_dataset(
             args.mech_uspto_dir,
             args.output_root / "mech_uspto_31k_full",
             dataset="mech_uspto_31k_full",
-        ),
-    }
+        )
     print(json.dumps(manifests, indent=2, ensure_ascii=False))
     return 0
 
