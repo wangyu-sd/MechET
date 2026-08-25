@@ -159,7 +159,11 @@ def _verify_declared_moves(
     return source_augmented
 
 
-def compile_trace_to_proof(trace: ElectronFlowTrace) -> TraceCompilation:
+def compile_trace_to_proof(
+    trace: ElectronFlowTrace,
+    *,
+    declared_moves_already_verified: bool = False,
+) -> TraceCompilation:
     """Replay moves, compile ``MECH_PROOF v1``, and verify every state."""
 
     if not trace.target_smiles:
@@ -174,7 +178,11 @@ def compile_trace_to_proof(trace: ElectronFlowTrace) -> TraceCompilation:
             raise ValueError("trace step indices must be contiguous")
         if not sides_equal(previous, transition.state_before, ignore_maps=False):
             raise ValueError(f"TRACE_STATE_DISCONTINUITY at step {index}")
-        source_augmented = _verify_declared_moves(transition, index)
+        source_augmented = (
+            _augmented_state(transition.state_before, transition.imports)
+            if declared_moves_already_verified
+            else _verify_declared_moves(transition, index)
+        )
         bonds, lone_pairs, charges = _get_be_delta(
             source_augmented, transition.state_after
         )

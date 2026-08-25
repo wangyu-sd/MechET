@@ -1,0 +1,89 @@
+condition_name: flower_full_trace_no_knowledge_v4_fast_kernel
+scientific_hypothesis: full_reaction_coverage_trace_owned_tool_sft
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/flower_inverse_tool_sft_full_v4/train.jsonl
+validation_file: data/flower_inverse_tool_sft_full_v4/valid.jsonl
+test_file: data/flower_inverse_tool_sft_full_v4/test.jsonl
+pretokenized_cache_dir: data/flower_inverse_tool_sft_full_v4/qwen3_8b_tokens_20480
+pretokenization_world_size: 8
+output_dir: outputs/benchmarks/tool_sft_flower_full_qwen3_8b_h20_fast
+limit_examples: 0
+
+environment:
+  max_tool_calls: 40
+  # The frozen v4 rows contain complete state_smiles after tool calls.
+  observation_mode: full_state
+
+training:
+  qlora: true
+  # Uses PyTorch's fused Flash-SDPA on H20 without requiring an external
+  # flash-attn wheel. The launcher fails closed when Flash-SDPA is unavailable.
+  attention_implementation: sdpa
+  require_flash_sdp: true
+  bf16: false
+  fp16: true
+  tf32: false
+  learning_rate: 2.0e-5
+  num_train_epochs: 3.0
+  max_steps: -1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8
+  eval_accumulation_steps: 8
+  eval_strategy: epoch
+  max_length: 20480
+  window_context_tokens: 8192
+  packing: false
+  assistant_only_loss: true
+  group_by_length: false
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config:
+    rope: true
+    rms_norm: true
+    swiglu: true
+    cross_entropy: false
+    fused_linear_cross_entropy: true
+  # Dynamic 3k--20k shapes can cause costly recompilation. Enable only after
+  # the Flash-SDPA/Liger profile passes its fixed-step benchmark.
+  torch_compile: false
+  include_tokens_per_second: true
+  include_num_input_tokens_seen: true
+  dataloader_num_workers: 2
+  logging_steps: 10
+  save_steps: 100
+  save_total_limit: 2
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  paper_baseline_id: A7
+  paper_method_name: mechet
+  paper_run_role: kernel_benchmark_not_headline_result
+  observation_contract: full_state_legacy_not_action_delta_main
+  optimization_profile: pytorch_flash_sdpa_liger_full_v1
+  stable_id_manifest: data/flower_inverse_tool_sft_full_v4/training_manifest.json
+  validation_report: data/flower_inverse_tool_sft_full_v4/training_manifest.json
+  expected_train_rows: 257171
+  expected_validation_rows: 2890
+  expected_test_rows: 28971
+  expected_upstream_endpoint_fallback_rows: 4
+  require_trace_owned: true
+  endpoint_source: environment_owned_trace
+  terminal_tool: finish_trace
+  free_form_proof_submission: false
+  knowledge_direct_reward: false
+  corpus_used: false
+  source_dataset: flower_new_dataset_full_reaction_level_v4
+  environment_revision: trace_owned_move_replay_v3_radical_pair
+  executor_revision: MECH_PROOF_v1_full_coverage_v4
+  real_overfit_smoke_test_required: true

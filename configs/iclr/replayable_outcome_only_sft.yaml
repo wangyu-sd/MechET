@@ -1,0 +1,49 @@
+condition_name: iclr_h2_replayable_outcome_only_seed11
+scientific_hypothesis: matched_representation_baseline_outcome_only
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/iclr_replayable/train/outcome_only.jsonl
+validation_file: data/iclr_replayable/valid/outcome_only.jsonl
+output_dir: outputs/iclr/replayable_outcome_only_seed11
+limit_examples: 0
+
+training: &training
+  learning_rate: 2.0e-5
+  num_train_epochs: 1.0
+  max_steps: 1000
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 16
+  eval_accumulation_steps: 8
+  eval_strategy: epoch
+  max_length: 16384
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config: {rope: false, rms_norm: false, swiglu: false, cross_entropy: false, fused_linear_cross_entropy: true}
+  dataloader_num_workers: 4
+  logging_steps: 10
+  save_steps: 250
+  save_total_limit: 2
+  seed: 11
+  data_seed: 11
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora: &lora
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  stable_id_manifest: data/iclr_replayable/train/manifest.json
+  validation_report: outputs/contracts/iclr_replayable_seed11_train.json
+  expected_train_rows: 27640
+  require_trace_owned: false
+  endpoint_source: supervised_structural_precursor
+  corpus_used: false
+  source_dataset: flower_mech_proof_replayable
+  seed_policy: single_seed_11_stage1

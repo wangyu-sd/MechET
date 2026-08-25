@@ -24,6 +24,22 @@ def load(path: Path) -> dict[str, dict]:
     return {str(row.get("id")): row for row in rows}
 
 
+def canonical_proof_id(row_id: str) -> str:
+    """Map trace-owned wrapper IDs back to the underlying FlowER proof ID."""
+    prefix = "textbook-tool-sft:"
+    return row_id[len(prefix) :] if row_id.startswith(prefix) else row_id
+
+
+def load_id_filter(path: Path) -> set[str]:
+    ids: set[str] = set()
+    with path.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                ids.add(canonical_proof_id(str(json.loads(line).get("id") or "")))
+    ids.discard("")
+    return ids
+
+
 def write_task(path: Path, rows: list[dict]) -> None:
     with path.open("w", encoding="utf-8") as handle:
         for row in rows:
@@ -35,25 +51,40 @@ def main() -> int:
     parser.add_argument("--proof-input", type=Path, required=True)
     parser.add_argument("--state-input", type=Path, default=None)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--id-filter-from",
+        type=Path,
+        default=None,
+        help="Optional JSONL whose IDs freeze the replayable common subset.",
+    )
     parser.add_argument("--tasks", nargs="+", choices=["outcome_only", "state_cot", "net_edit", "proof"], default=["outcome_only", "state_cot", "net_edit", "proof"])
     args = parser.parse_args()
 
     proof_rows = load(args.proof_input)
     state_rows = load(args.state_input) if args.state_input else {}
     common_ids = set(proof_rows)
+    allowed_ids = load_id_filter(args.id_filter_from) if args.id_filter_from else None
+    if allowed_ids is not None:
+        common_ids &= allowed_ids
     if "state_cot" in args.tasks:
         if not state_rows:
             raise ValueError("--state-input is required for the state_cot baseline")
         common_ids &= set(state_rows)
     ordered_ids = sorted(common_ids)
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path = args.output_dir / "manifest.json"
+    prior_manifest = {}
+    if manifest_path.exists():
+        prior_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest = {
         "proof_input": str(args.proof_input),
         "state_input": str(args.state_input) if args.state_input else None,
         "n_proof": len(proof_rows),
         "n_state": len(state_rows),
+        "id_filter_from": str(args.id_filter_from) if args.id_filter_from else None,
+        "n_filter_ids": len(allowed_ids) if allowed_ids is not None else None,
         "n_matched": len(ordered_ids),
-        "tasks": {},
+        "tasks": dict(prior_manifest.get("tasks") or {}),
     }
 
     builders = {
@@ -79,7 +110,7 @@ def main() -> int:
             "n_skipped": len(ordered_ids) - len(accepted),
             "skip_reasons": dict(skipped),
         }
-    (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     print(json.dumps(manifest, indent=2))
     return 0
 

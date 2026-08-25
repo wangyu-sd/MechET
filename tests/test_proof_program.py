@@ -8,6 +8,7 @@ from mechet.proof_program import (
     parse_proof_program,
     verify_proof,
 )
+from mechet.mech_et import BEDelta
 
 
 def substitution_program() -> ProofProgram:
@@ -82,3 +83,27 @@ def test_state_annotated_mechanism_compiles_to_action_only_proof():
         expected_precursor="[CH3:1][Br:3].[OH-:2]",
     )
     assert score["endpoint_exact"]
+
+
+def test_declared_proton_transfer_delta_is_not_recomputed_from_compact_states():
+    """A mapped proton is an executable atom, not removable decoration."""
+    program = compile_from_states(
+        target_smiles="[NH:1]([CH3:2])[H:4]",
+        target_state_ids=["s0"],
+        precursor_state_id="s1",
+        states={
+            "s0": "[NH:1]([CH3:2])[H:4].[Cl-:3]",
+            "s1": "[NH-:1][CH3:2].[Cl:3][H:4]",
+        },
+        edges=[("s0", "s1")],
+        edge_deltas={
+            ("s0", "s1"): BEDelta(
+                bonds=[(1, 4, -1), (3, 4, +1)],
+                lone_pairs=[(1, +2), (3, -2)],
+                charges=[(1, 0, -1), (3, -1, 0)],
+            )
+        },
+    )
+    result = execute_proof(program)
+    assert result.ok, result.diagnostics
+    assert result.states["s1"]

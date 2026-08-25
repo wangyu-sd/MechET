@@ -1,0 +1,63 @@
+condition_name: iclr_flower_full_complete_proof_seed17
+scientific_hypothesis: full_flower_independent_complete_proof_baseline
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/iclr_full_v4/proof/train.jsonl
+validation_file: data/iclr_full_v4/proof/valid.jsonl
+test_file: data/iclr_full_v4/proof/test.jsonl
+pretokenized_cache_dir: data/iclr_full_v4/proof/qwen3_8b_tokens_20480
+pretokenization_world_size: 8
+output_dir: outputs/iclr/full_proof_seed17
+limit_examples: 0
+
+training:
+  qlora: true
+  attention_implementation: mechet_xformers_causal
+  bf16: false
+  fp16: true
+  tf32: false
+  learning_rate: 2.0e-5
+  num_train_epochs: 3.0
+  max_steps: -1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8
+  eval_accumulation_steps: 8
+  eval_strategy: epoch
+  max_length: 20480
+  window_context_tokens: 8192
+  packing: false
+  assistant_only_loss: true
+  group_by_length: false
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config: {rope: false, rms_norm: false, swiglu: false, cross_entropy: false, fused_linear_cross_entropy: true}
+  dataloader_num_workers: 2
+  logging_steps: 10
+  save_steps: 250
+  save_total_limit: 3
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  paper_baseline_id: auxiliary_independent_complete_proof
+  paper_method_name: independent_complete_proof
+  paper_role: R2_reasoning_provenance_audit
+  paper_run_role: auxiliary_screen_not_headline_matched
+  baseline_task: proof
+  stable_id_manifest: data/iclr_full_v4/manifest.json
+  expected_train_rows: 257167
+  expected_validation_rows: 2890
+  expected_test_rows: 28967
+  require_trace_owned: false
+  corpus_used: false
+  source_dataset: flower_new_dataset_full_reaction_level_v4_strict_proof
+  seed_policy: single_seed_17_stage1

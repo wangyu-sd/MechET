@@ -204,6 +204,7 @@ def build_inverse_tool_sft_row(
     forward_trace: Mapping[str, Any],
     *,
     product_reference: str,
+    observation_mode: str = "action_delta",
 ) -> dict[str, Any]:
     reaction_id = str(forward_trace.get("id") or "")
     forward_steps = list(forward_trace.get("steps") or [])
@@ -221,7 +222,10 @@ def build_inverse_tool_sft_row(
     )
     required_calls = len(initial_imports) + len(forward_steps) + 1
     env = TraceOwnedAgentEnv(
-        config=AgentEnvConfig(max_tool_calls=max(12, required_calls + 2))
+        config=AgentEnvConfig(
+            max_tool_calls=max(12, required_calls + 2),
+            observation_mode=observation_mode,
+        )
     )
     observation = json.loads(
         env.reset(target_smiles=target, expected_precursor=initial_state)
@@ -231,6 +235,9 @@ def build_inverse_tool_sft_row(
         for instruction in observation.get("instructions") or []
         if "inspect_state" not in str(instruction)
     ]
+    if observation_mode != "full_state":
+        # TARGET is already the authoritative first line of the user prompt.
+        observation.pop("target_smiles", None)
     messages: list[dict[str, Any]] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {
@@ -276,7 +283,7 @@ def build_inverse_tool_sft_row(
         if not result.get("ok"):
             raise ValueError(f"INVERSE_MOVE_REPLAY_FAILED: {result}")
         if not sides_equal(
-            str(result.get("state_smiles") or ""),
+            env.current_state,
             expected_after,
             ignore_maps=False,
         ):
@@ -284,13 +291,14 @@ def build_inverse_tool_sft_row(
                 f"INVERSE_MOVE_STATE_MISMATCH: step={inverse_index}"
             )
         messages.append(_tool_result(call_id, "apply_coupled_electron_moves", result))
+        transition = env.flow_trace.transitions[-1]
         inverse_steps.append(
             {
                 "step_index": inverse_index,
                 "forward_step_index": int(forward_step.get("step_index", 0)),
-                "state_before": str(result["trace_step"]["state_before"]),
-                "state_after": str(result["state_smiles"]),
-                "imports": list(result["trace_step"].get("imports") or []),
+                "state_before": transition.state_before,
+                "state_after": transition.state_after,
+                "imports": list(transition.imports),
                 "moves": moves,
             }
         )
@@ -301,6 +309,7 @@ def build_inverse_tool_sft_row(
     if not terminal.get("ok") or not terminal.get("endpoint_exact"):
         raise ValueError(f"INVERSE_FINISH_TRACE_FAILED: {terminal}")
     messages.append(_tool_result(call_id, "finish_trace", terminal))
+    terminal_audit = dict(env.final_result)
     messages.append(
         {
             "role": "assistant",
@@ -339,6 +348,7 @@ def build_inverse_tool_sft_row(
             "source_product_reference": product_reference,
             "direction": "inverse",
             "trace_condition": "trace_no_knowledge",
+            "observation_mode": f"{observation_mode}_v1",
             "trace_plan": plan,
             "n_trace_steps": len(inverse_steps),
             "n_trace_moves": sum(len(step["moves"]) for step in inverse_steps),
@@ -349,9 +359,9 @@ def build_inverse_tool_sft_row(
                 "atom_maps": list(stereo_maps),
                 "count": len(stereo_maps),
             },
-            "compiled_proof": terminal.get("compiled_proof"),
-            "trace_digest": terminal.get("trace_digest"),
-            "move_sequence_digest": terminal.get("move_sequence_digest"),
+            "compiled_proof": terminal_audit.get("compiled_proof"),
+            "trace_digest": terminal_audit.get("trace_digest"),
+            "move_sequence_digest": terminal_audit.get("move_sequence_digest"),
             "executor_replayed": True,
             "endpoint_source": "environment_owned_trace",
         },

@@ -241,6 +241,13 @@ def _canonical_mapped(smiles_or_mol: str | Chem.Mol) -> str:
 
 def _canonical_unmapped(smiles: str) -> str:
     mol = _mol_from_smiles(smiles)
+    # Endpoint equality is structural and must not change merely because an
+    # equivalent hydrogen is represented explicitly to carry an electron-flow
+    # atom map in the proof.
+    try:
+        mol = Chem.RemoveHs(mol)
+    except Exception:
+        pass
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(0)
     return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
@@ -605,14 +612,71 @@ def compile_from_states(
     precursor_state_id: str,
     states: dict[str, str],
     edges: list[tuple[str, str]],
+    edge_deltas: dict[tuple[str, str], Any] | None = None,
 ) -> ProofProgram:
     """Compile a state-annotated mechanism into an action-only proof."""
-    roots = {
-        state_id: _imports_for_root(target_smiles, states[state_id])
-        for state_id in target_state_ids
-    }
-    proof_edges: list[ProofEdge] = []
+    # A FlowER reaction can contain several terminal states with the same
+    # heavy-atom product but different mapped proton assignments.  A proof has
+    # one concrete TARGET_SMILES, so only exact terminal roots are valid entry
+    # points.  Retain their complete subgraph to the precursor; alternative
+    # terminal labellings remain represented in MECH_ET but are not executable
+    # from this particular target instance.
+    roots: dict[str, list[str]] = {}
+    for state_id in target_state_ids:
+        try:
+            roots[state_id] = _imports_for_root(
+                target_smiles,
+                states[state_id],
+            )
+        except ProofProgramError as exc:
+            if "TARGET_SMILES is not an exact fragment" not in str(exc):
+                raise
+    if not roots:
+        raise ProofProgramError(
+            "TARGET_SMILES is not an exact fragment of any target state"
+        )
+
+    adjacency: dict[str, list[str]] = {}
+    reverse_adjacency: dict[str, list[str]] = {}
     for src, dst in edges:
+        adjacency.setdefault(src, []).append(dst)
+        reverse_adjacency.setdefault(dst, []).append(src)
+
+    reachable = set(roots)
+    frontier = list(roots)
+    while frontier:
+        src = frontier.pop()
+        for dst in adjacency.get(src, []):
+            if dst not in reachable:
+                reachable.add(dst)
+                frontier.append(dst)
+
+    reaches_precursor = {precursor_state_id}
+    frontier = [precursor_state_id]
+    while frontier:
+        dst = frontier.pop()
+        for src in reverse_adjacency.get(dst, []):
+            if src not in reaches_precursor:
+                reaches_precursor.add(src)
+                frontier.append(src)
+    proof_edge_pairs = [
+        (src, dst)
+        for src, dst in edges
+        if src in reachable
+        and dst in reachable
+        and src in reaches_precursor
+        and dst in reaches_precursor
+    ]
+    roots = {
+        state_id: imports
+        for state_id, imports in roots.items()
+        if state_id in reaches_precursor
+    }
+    if not roots:
+        raise ProofProgramError("no exact target root can reach precursor")
+
+    proof_edges: list[ProofEdge] = []
+    for src, dst in proof_edge_pairs:
         if src not in states or dst not in states:
             raise ProofProgramError(
                 f"edge references missing state {src}->{dst}"
@@ -631,10 +695,37 @@ def compile_from_states(
         source_augmented = _canonical_mapped(
             _combine_smiles(states[src], imports)
         )
-        bonds, lone_pairs, charges = _get_be_delta(
-            source_augmented,
-            states[dst],
-        )
+        declared = (edge_deltas or {}).get((src, dst))
+        if declared is None:
+            bonds, lone_pairs, charges = _get_be_delta(
+                source_augmented,
+                states[dst],
+            )
+        else:
+            bonds = list(declared.bonds)
+            lone_pairs = list(declared.lone_pairs)
+            charges = [
+                ChargeAction(atom_map, q0, q1)
+                for atom_map, q0, q1 in declared.charges
+            ]
+            # FlowER defines a state delta on the union of the two state
+            # matrices and assigns zero to atoms absent from the source.  The
+            # proof executor, however, must materialize those atoms first via
+            # IMPORT; an isolated imported H (for example) has a non-zero
+            # diagonal BE entry before it is bonded.  Add only this import
+            # baseline correction.  Existing-atom LP deltas remain exactly the
+            # declared FlowER values and are still checked strictly.
+            _derived_bonds, derived_lps, _derived_charges = _get_be_delta(
+                source_augmented,
+                states[dst],
+            )
+            imported_maps = dst_maps - src_maps
+            declared_lp_maps = {atom_map for atom_map, _ in lone_pairs}
+            lone_pairs.extend(
+                (atom_map, delta)
+                for atom_map, delta in derived_lps
+                if atom_map in imported_maps and atom_map not in declared_lp_maps
+            )
         proof_edges.append(
             ProofEdge(
                 src,
@@ -654,6 +745,16 @@ def compile_from_states(
     executed = execute_proof(program)
     if not executed.ok:
         raise ProofProgramError(executed.diagnostics[0]["message"])
+    for state_id, expected in states.items():
+        actual = executed.states.get(state_id)
+        if actual is not None and not sides_equal(
+            actual,
+            expected,
+            ignore_maps=False,
+        ):
+            raise ProofProgramError(
+                f"compiled proof does not reconstruct state {state_id}"
+            )
     if not sides_equal(
         executed.precursor_smiles,
         states[precursor_state_id],
@@ -680,4 +781,5 @@ def compile_mech_et_body(mechanism_body: str) -> ProofProgram:
         precursor_state_id=str(parsed.get("precursor_state_id") or ""),
         states=dict(parsed.get("states") or {}),
         edges=list(parsed.get("retro_edges") or []),
+        edge_deltas=dict(parsed.get("edge_deltas") or {}),
     )

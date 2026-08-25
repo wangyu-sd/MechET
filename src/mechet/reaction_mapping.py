@@ -5,6 +5,10 @@ from collections import Counter
 from dataclasses import dataclass
 
 from rdkit import Chem
+from rdkit.Chem.MolStandardize import rdMolStandardize
+
+
+_UNCHARGER = rdMolStandardize.Uncharger()
 
 
 @dataclass(frozen=True)
@@ -54,28 +58,46 @@ def _canonical(mol: Chem.Mol) -> str:
     return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
 
 
-def remove_atom_maps(smiles: str) -> str:
+def remove_atom_maps(smiles: str, *, neutralize: bool = False) -> str:
     mol = _mol(smiles)
     for atom in mol.GetAtoms():
         atom.SetAtomMapNum(0)
+    if neutralize:
+        mol = _UNCHARGER.uncharge(mol)
     return _canonical(mol)
 
 
-def fragment_multiset_unmapped(smiles: str) -> Counter[str]:
+def fragment_multiset_unmapped(
+    smiles: str, *, neutralize: bool = False
+) -> Counter[str]:
     output: Counter[str] = Counter()
     for fragment in str(smiles or "").split("."):
         if fragment.strip():
-            output[remove_atom_maps(fragment)] += 1
+            output[remove_atom_maps(fragment, neutralize=neutralize)] += 1
     return output
 
 
-def assert_product_contained_in_reference(product: str, reference: str) -> None:
-    """Require the original desired product to occur in the mechanism final mixture."""
+def assert_product_contained_in_reference(product: str, reference: str) -> str:
+    """Require an exact or neutralized desired product in the final mixture.
+
+    The mechanism endpoint can retain an acid/base salt even when the original
+    reaction-level desired product is neutral. Exact containment remains the
+    first audit; neutralization is a named fallback and never changes the
+    mapped product used as model input or evaluation reference.
+    """
     wanted = fragment_multiset_unmapped(product)
     available = fragment_multiset_unmapped(reference)
-    missing = wanted - available
-    if missing:
-        raise ValueError(f"mapped reaction product is absent from rxn_prod_min: {dict(missing)}")
+    if not (wanted - available):
+        return "exact"
+    wanted_neutral = fragment_multiset_unmapped(product, neutralize=True)
+    available_neutral = fragment_multiset_unmapped(reference, neutralize=True)
+    missing = wanted_neutral - available_neutral
+    if not missing:
+        return "neutralized"
+    raise ValueError(
+        "mapped reaction product is absent from rxn_prod_min after exact and "
+        f"neutralized audits: {dict(missing)}"
+    )
 
 
 def product_only_reindex_reaction(reaction: str) -> MappedReaction:

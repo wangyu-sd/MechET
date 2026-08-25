@@ -48,6 +48,9 @@ class FlowERMechanismGraph:
     target_state_ids: list[str] = field(default_factory=list)
     source_path: str | None = None
     diagnostics: list[dict[str, str]] = field(default_factory=list)
+    # Original edge occurrences are retained because two mapless-identical
+    # states can use different atom-map namespaces on different branches.
+    raw_steps: list[tuple[str, str]] = field(default_factory=list)
 
     @property
     def n_states(self) -> int:
@@ -152,6 +155,33 @@ class FlowERMechanismGraph:
 
     def compact_main_product(self) -> str:
         return compact_mapped_smiles(self.main_product)
+
+
+def endpoint_fallback_graph(
+    trajectory_id: str,
+    reactants: str,
+    products: str,
+    *,
+    source_path: str | None = None,
+) -> FlowERMechanismGraph:
+    """Build a labelled one-edge graph for four malformed named test IDs."""
+    return FlowERMechanismGraph(
+        trajectory_id=trajectory_id,
+        states={
+            "s0": GraphState("s0", products, official_state_key(products) or ""),
+            "s1": GraphState("s1", reactants, official_state_key(reactants) or ""),
+        },
+        forward_edges=[("s1", "s0")],
+        precursor_state_id="s1",
+        target_state_ids=["s0"],
+        source_path=source_path,
+        diagnostics=[
+            {
+                "code": "UPSTREAM_ENDPOINT_FALLBACK",
+                "message": "named test ID has no reaction-level FlowER path; compiled frozen flower_retro endpoints",
+            }
+        ],
+    )
 
 
 _STATE_KEY_CACHE: dict[str, str | None] = {}
@@ -288,6 +318,50 @@ def compact_mapped_smiles(smiles: str) -> str:
     return out
 
 
+def compact_mapped_smiles_preserving(
+    smiles: str,
+    preserve_maps: Iterable[int],
+) -> str:
+    """Drop spectator H atoms while retaining selected mapped hydrogens.
+
+    FlowER maps every explicit hydrogen.  Keeping all of them makes MECH_ET
+    unnecessarily long, but dropping a hydrogen that participates in a bond
+    delta destroys proton-transfer states.  Before ``RemoveHs`` we therefore
+    clear maps only on non-reactive H atoms and ask RDKit to retain the mapped
+    (reactive) ones.
+    """
+    text = (smiles or "").strip()
+    if not text:
+        return ""
+    keep = {int(atom_map) for atom_map in preserve_maps if int(atom_map) > 0}
+    if not keep or Chem is None:
+        return compact_mapped_smiles(text)
+    try:
+        ps = Chem.SmilesParserParams()
+        ps.removeHs = False
+        ps.sanitize = True
+        mol = Chem.MolFromSmiles(text, ps)
+        if mol is None:
+            return _join_frags(_split_frags(text))
+        for atom in mol.GetAtoms():
+            if atom.GetAtomicNum() == 1 and atom.GetAtomMapNum() not in keep:
+                atom.SetIntProp("_mechet_original_map", atom.GetAtomMapNum())
+                atom.SetAtomMapNum(0)
+        params = Chem.RemoveHsParameters()
+        params.removeMapped = False
+        mol = Chem.RemoveHs(mol, params)
+        # Hydrides and H-H atoms are intentionally not removed by RDKit.
+        # Restore their maps so the executable proof never contains anonymous
+        # atoms.
+        for atom in mol.GetAtoms():
+            if atom.HasProp("_mechet_original_map"):
+                atom.SetAtomMapNum(atom.GetIntProp("_mechet_original_map"))
+                atom.ClearProp("_mechet_original_map")
+        return Chem.MolToSmiles(mol)
+    except Exception:
+        return _join_frags(_split_frags(text))
+
+
 def expand_state_smiles(active: str, shared: str = "") -> str:
     """Reconstruct full system SMILES from SHARED + per-state ACTIVE frags."""
     return _join_frags(_split_frags(shared) + _split_frags(active))
@@ -313,6 +387,8 @@ def build_mechanism_graph(
     steps: list[tuple[str, str]],
     *,
     source_path: str | None = None,
+    expected_reactants: str | None = None,
+    expected_products: str | None = None,
 ) -> FlowERMechanismGraph | None:
     """Build an official-semantic mechanism graph from elementary steps."""
     diagnostics: list[dict[str, str]] = []
@@ -351,6 +427,52 @@ def build_mechanism_graph(
         seen_edges.add(edge)
         unique_forward.append(edge)
 
+    # Four upstream test IDs (RC/PC/PM/RS) are reused across unrelated
+    # mechanism snippets.  The aligned flower_retro row still supplies the
+    # reaction-level endpoints.  Select exactly the connected component lying
+    # on a path between those endpoints; for ordinary numeric IDs this is a
+    # no-op and also serves as an endpoint consistency guard.
+    expected_root = official_state_key(expected_reactants or "")
+    expected_target = official_state_key(expected_products or "")
+    if expected_root in key_to_mapped and expected_target in key_to_mapped:
+        adjacency: dict[str, list[str]] = defaultdict(list)
+        reverse_adjacency: dict[str, list[str]] = defaultdict(list)
+        for src, dst in unique_forward:
+            adjacency[src].append(dst)
+            reverse_adjacency[dst].append(src)
+        from_root = {expected_root}
+        queue = deque([expected_root])
+        while queue:
+            src = queue.popleft()
+            for dst in adjacency.get(src, []):
+                if dst not in from_root:
+                    from_root.add(dst)
+                    queue.append(dst)
+        to_target = {expected_target}
+        queue = deque([expected_target])
+        while queue:
+            dst = queue.popleft()
+            for src in reverse_adjacency.get(dst, []):
+                if src not in to_target:
+                    to_target.add(src)
+                    queue.append(src)
+        component = from_root & to_target
+        if expected_root in component and expected_target in component:
+            key_order = [key for key in key_order if key in component]
+            key_to_mapped = {
+                key: value for key, value in key_to_mapped.items() if key in component
+            }
+            unique_forward = [
+                (src, dst)
+                for src, dst in unique_forward
+                if src in component and dst in component
+            ]
+            self_loop_keys = self_loop_keys & component
+            # The four named test mechanisms omit the duplicated terminal
+            # self-loop used by numeric FlowER trajectories.  Their aligned
+            # flower_retro product is the authoritative terminal endpoint.
+            self_loop_keys.add(expected_target)
+
     # Official start: in-degree 0 (self-loops count toward in-degree in NX).
     # We compute NX-style in-degree including self-loops.
     nodes = set(key_to_mapped)
@@ -387,6 +509,7 @@ def build_mechanism_graph(
         target_state_ids=tmp_targets,
         source_path=source_path,
         diagnostics=diagnostics,
+        raw_steps=list(steps),
     )
     # Renumber by reverse topo: targets first, precursor last.
     ordered = _reverse_topo_order(tmp_graph)
@@ -410,6 +533,250 @@ def build_mechanism_graph(
         target_state_ids=targets,
         source_path=source_path,
         diagnostics=diagnostics,
+        raw_steps=list(steps),
+    )
+
+
+def _remap_smiles(smiles: str, mapping: dict[int, int]) -> str:
+    ps = Chem.SmilesParserParams()
+    ps.removeHs = False
+    ps.sanitize = True
+    mol = Chem.MolFromSmiles(smiles, ps)
+    if mol is None:
+        raise ValueError("cannot parse state for atom-map alignment")
+    for atom in mol.GetAtoms():
+        old = atom.GetAtomMapNum()
+        if old in mapping:
+            atom.SetAtomMapNum(mapping[old])
+    return Chem.MolToSmiles(mol)
+
+
+def _align_retro_transition(
+    current_product: str,
+    raw_reactants: str,
+    raw_products: str,
+) -> str | None:
+    """Express a raw forward edge in the current product map namespace."""
+    try:
+        ps = Chem.SmilesParserParams()
+        ps.removeHs = False
+        ps.sanitize = True
+        current = Chem.MolFromSmiles(current_product, ps)
+        product = Chem.MolFromSmiles(raw_products, ps)
+        if current is None or product is None or current.GetNumAtoms() != product.GetNumAtoms():
+            return None
+        if Chem.MolToSmiles(current) == Chem.MolToSmiles(product):
+            return Chem.MolToSmiles(Chem.MolFromSmiles(raw_reactants, ps))
+        current_plain = Chem.Mol(current)
+        product_plain = Chem.Mol(product)
+        for atom in current_plain.GetAtoms():
+            atom.SetAtomMapNum(0)
+        for atom in product_plain.GetAtoms():
+            atom.SetAtomMapNum(0)
+        if Chem.MolToSmiles(current_plain, isomericSmiles=False) != Chem.MolToSmiles(
+            product_plain,
+            isomericSmiles=False,
+        ):
+            return None
+        # Canonical ranks give a deterministic linear-time isomorphism.  A
+        # full substructure search is prohibitively expensive for symmetric
+        # organometallic ligand systems.
+        current_ranks = list(
+            Chem.CanonicalRankAtoms(
+                current_plain,
+                breakTies=True,
+                includeChirality=False,
+                includeIsotopes=True,
+            )
+        )
+        product_ranks = list(
+            Chem.CanonicalRankAtoms(
+                product_plain,
+                breakTies=True,
+                includeChirality=False,
+                includeIsotopes=True,
+            )
+        )
+        current_by_rank = {rank: idx for idx, rank in enumerate(current_ranks)}
+        if set(current_by_rank) != set(product_ranks):
+            return None
+        mapping: dict[int, int] = {}
+        for product_idx, rank in enumerate(product_ranks):
+            current_idx = current_by_rank[rank]
+            old = product.GetAtomWithIdx(product_idx).GetAtomMapNum()
+            new = current.GetAtomWithIdx(current_idx).GetAtomMapNum()
+            if old > 0 and new > 0:
+                mapping[old] = new
+        return _remap_smiles(raw_reactants, mapping)
+    except Exception:
+        return None
+
+
+def executable_witness_graph(graph: FlowERMechanismGraph) -> FlowERMechanismGraph:
+    """Project a possibly branched FlowER graph to one map-consistent proof.
+
+    FlowER's evaluator joins states after removing atom maps.  Reusing one
+    arbitrary mapped representative at such a join corrupts electron deltas.
+    This routine instead follows one complete target-to-precursor witness and
+    transports atom maps edge-by-edge using exact molecular isomorphism.
+    """
+    if not graph.raw_steps or not graph.states:
+        return graph
+
+    reverse_adj: dict[str, list[str]] = defaultdict(list)
+    forward_adj: dict[str, list[str]] = defaultdict(list)
+    for src, dst in graph.forward_edges:
+        reverse_adj[dst].append(src)
+        forward_adj[src].append(dst)
+
+    def reverse_path(start: str) -> list[str] | None:
+        queue: deque[tuple[str, list[str]]] = deque([(start, [start])])
+        seen = {start}
+        while queue:
+            state_id, path = queue.popleft()
+            if state_id == graph.precursor_state_id:
+                return path
+            for nxt in reverse_adj.get(state_id, []):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    queue.append((nxt, path + [nxt]))
+        return None
+
+    # Prefer a terminal that actually contains the selected mapped product.
+    main_product = graph.main_product
+    target_order = list(graph.target_state_ids)
+    target_order.sort(
+        key=lambda sid: 0
+        if main_product in graph.states[sid].mapped_smiles.split(".")
+        else 1
+    )
+    chosen_target = target_order[0]
+    path = None
+    for target in target_order:
+        candidate = reverse_path(target)
+        if candidate is not None:
+            chosen_target, path = target, candidate
+            break
+
+    repaired_gap = False
+    if path is None:
+        # Some upstream sequences contain a self-loop terminal disconnected by
+        # one omitted elementary edge.  Connect it to a reachable forward leaf
+        # explicitly; the inferred edge is verified by the same executor.
+        reachable = {graph.precursor_state_id}
+        queue = deque([graph.precursor_state_id])
+        while queue:
+            state_id = queue.popleft()
+            for nxt in forward_adj.get(state_id, []):
+                if nxt not in reachable:
+                    reachable.add(nxt)
+                    queue.append(nxt)
+        leaves = [sid for sid in reachable if not forward_adj.get(sid)]
+        if not leaves:
+            return graph
+        leaf = max(
+            leaves,
+            key=lambda sid: _heavy_atom_count(graph.states[sid].mapped_smiles),
+        )
+        tail = reverse_path(leaf)
+        if tail is None:
+            return graph
+        path = [chosen_target] + tail
+        repaired_gap = True
+
+    normalized_states = [graph.states[path[0]].mapped_smiles]
+    for index, (child_id, parent_id) in enumerate(zip(path, path[1:])):
+        if repaired_gap and index == 0:
+            normalized_states.append(graph.states[parent_id].mapped_smiles)
+            continue
+        child_key = graph.states[child_id].canonical_key
+        parent_key = graph.states[parent_id].canonical_key
+        aligned = None
+        for raw_reactants, raw_products in graph.raw_steps:
+            if (
+                official_state_key(raw_reactants) == parent_key
+                and official_state_key(raw_products) == child_key
+            ):
+                aligned = _align_retro_transition(
+                    normalized_states[-1],
+                    raw_reactants,
+                    raw_products,
+                )
+                if aligned is not None:
+                    break
+        normalized_states.append(
+            aligned if aligned is not None else graph.states[parent_id].mapped_smiles
+        )
+
+    # FlowER occasionally introduces a disconnected reagent/catalyst in a
+    # later forward state and then omits it again.  Such atoms cannot be part of
+    # a retrosynthetic proof rooted at the recorded precursor.  Project only
+    # whole transient fragments whose maps are completely absent from the
+    # precursor; never delete atoms from a retained molecular fragment.
+    precursor_mol = Chem.MolFromSmiles(normalized_states[-1])
+    precursor_maps = {
+        atom.GetAtomMapNum()
+        for atom in precursor_mol.GetAtoms()
+        if atom.GetAtomMapNum() > 0
+    } if precursor_mol is not None else set()
+    projected_states: list[str] = []
+    transient_fragment_count = 0
+    for smiles in normalized_states:
+        kept: list[str] = []
+        for fragment in _split_frags(smiles):
+            mol = Chem.MolFromSmiles(fragment)
+            maps = {
+                atom.GetAtomMapNum()
+                for atom in mol.GetAtoms()
+                if atom.GetAtomMapNum() > 0
+            } if mol is not None else set()
+            if maps and maps.isdisjoint(precursor_maps):
+                transient_fragment_count += 1
+                continue
+            kept.append(fragment)
+        projected_states.append(_join_frags(kept))
+    normalized_states = projected_states
+
+    states = {
+        f"s{i}": GraphState(
+            state_id=f"s{i}",
+            mapped_smiles=smiles,
+            canonical_key=official_state_key(smiles) or "",
+        )
+        for i, smiles in enumerate(normalized_states)
+    }
+    diagnostics = list(graph.diagnostics)
+    diagnostics.append(
+        {
+            "code": "EXECUTABLE_WITNESS",
+            "message": f"selected {len(states)} states from {graph.n_states}",
+        }
+    )
+    if repaired_gap:
+        diagnostics.append(
+            {
+                "code": "INFERRED_MISSING_EDGE",
+                "message": "connected a disconnected upstream terminal to a reachable leaf",
+            }
+        )
+    if transient_fragment_count:
+        diagnostics.append(
+            {
+                "code": "PROJECTED_TRANSIENT_SPECTATOR",
+                "message": f"removed {transient_fragment_count} state-fragment occurrences",
+            }
+        )
+    return FlowERMechanismGraph(
+        trajectory_id=graph.trajectory_id,
+        states=states,
+        forward_edges=[
+            (f"s{i + 1}", f"s{i}") for i in range(len(states) - 1)
+        ],
+        precursor_state_id=f"s{len(states) - 1}",
+        target_state_ids=["s0"],
+        source_path=graph.source_path,
+        diagnostics=diagnostics,
+        raw_steps=list(graph.raw_steps),
     )
 
 

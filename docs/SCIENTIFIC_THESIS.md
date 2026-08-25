@@ -1,10 +1,14 @@
 # Scientific thesis
 
-> **Authority:** scientific question, terminology, claim boundaries, and falsification criteria  
+> **Authority:** implementation-level terminology and claim boundaries. The
+> ICLR experiment matrix in `wangyu-sd/MechET-paper` is authoritative when
+> experiment names, priorities, or scope differ.
 > **Scope:** mapped, closed-shell, two-electron polar organic chemistry  
 > **Interpretation:** computational mechanism induction, not experimental mechanism determination
 
-This document is the scientific source of truth for MechET. Public documentation, experiment configurations, figures, and paper text must remain consistent with the contracts below.
+This document defines the runtime interpretation of MechET. Paper experiments
+must follow [`PAPER_EXPERIMENT_PROTOCOL.md`](PAPER_EXPERIMENT_PROTOCOL.md),
+which mirrors the paper repository at a frozen revision.
 
 ## Thesis
 
@@ -75,7 +79,10 @@ The model does not independently submit a proof or precursor in the main method.
 
 **Falsifier.** A split containing unseen test primitives does not test composition of known units. A split dominated by product or template near-duplicates cannot support a broad compositional-generalization claim.
 
-### H3 — Separation of formal and empirical evidence
+### H3 — Separation of formal and empirical evidence (outside current ICLR)
+
+**Status.** This is a separate future-study claim. Textbook/RAG experiments do
+not contribute to the current ICLR R1--R7 evidence chain.
 
 **Claim.** External mechanistic evidence improves program induction beyond trace ownership and additional context alone, while remaining subordinate to deterministic execution.
 
@@ -142,8 +149,8 @@ Claims must be earned in order:
 | **L1 — learnability** | A model can learn valid tool interaction | Real tokenizer audit and small-set Tool-SFT overfit |
 | **L2 — causal use** | Tool observations are causally used | H1 paired interventions |
 | **L3 — compositional generalization** | Known primitives form unseen compositions | H2 frozen composition-OOD benchmark |
-| **L4 — evidence benefit** | External evidence improves induction beyond controls | H3 matched conditions and interventions |
-| **L5 — downstream utility** | Verified programs improve search or planning | Frozen candidate pools and matched planning budgets |
+| **L4 — robust utility** | Gains persist under data scaling, OOD and cross-corpus transfer | Paper R5/R6 matched experiments |
+| **L5 — downstream utility** | Verified programs improve search or planning | Future frozen candidate pools and matched planning budgets |
 
 A downstream result cannot retroactively establish an earlier level.
 
@@ -153,9 +160,9 @@ A paper may claim only what frozen experiments demonstrate, including:
 
 1. trace ownership reduces or removes the reasoning–endpoint bypass;
 2. execution primitives support primitive-seen/composition-unseen generalization;
-3. external mechanistic evidence improves program induction beyond extra context alone;
-4. independent empirical evidence improves calibration or competitor ranking after formal execution;
-5. verified route edges improve planning reliability under matched budgets.
+3. executable local operators improve data efficiency and robust transfer;
+4. independent empirical evidence improves calibration only when separately tested;
+5. verified route edges improve planning reliability only in a future matched study.
 
 ## Prohibited claims
 
@@ -182,9 +189,9 @@ Tool-SFT, retrieval, structured anchors, forward evidence, RL, hypothesis sets, 
 
 When documents disagree, resolve them in this order:
 
-1. `SCIENTIFIC_THESIS.md` — scientific meaning and claim boundaries;
-2. `TRACE_FAITHFULNESS.md` — main runtime contract;
-3. `PROOF_CENTRIC_EXPERIMENT_PLAN.md` — paper-level evidence requirements;
+1. the frozen `MechET-paper/EXPERIMENT_MATRIX.md` revision recorded in `PAPER_EXPERIMENT_PROTOCOL.md`;
+2. `PAPER_EXPERIMENT_PROTOCOL.md` — local implementation mapping;
+3. `SCIENTIFIC_THESIS.md` and `TRACE_FAITHFULNESS.md` — runtime meaning and contracts;
 4. `EXECUTION_PLAN.md` — operational order, artifacts, and stopping gates.
 
 Lower-authority documents must be updated rather than used to create a parallel source of truth.

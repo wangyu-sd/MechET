@@ -6,7 +6,14 @@ shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 adapter="$repo_dir/outputs/agent/tool_sft_mixed_inverse_qwen3_8b"
 test_file="$repo_dir/data/benchmarks/uspto50k/test.inverse_eval.jsonl"
 samples_per_target=${SAMPLES_PER_TARGET:-10}
+gpu_count=${EVAL_GPU_COUNT:-8}
+if ! [[ "$gpu_count" =~ ^[1-8]$ ]]; then
+  echo "EVAL_GPU_COUNT must be an integer from 1 to 8, got: $gpu_count" >&2
+  exit 2
+fi
 output_dir="$repo_dir/outputs/eval/uspto50k_standard_mixed_qwen3_8b_k${samples_per_target}"
+ranking_dir="$output_dir/nll_ranking_v1"
+revision=b968826d9c46dd6066d109eabc6255188de91218
 
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -17,11 +24,13 @@ export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export TOKENIZERS_PARALLELISM=false
 export PYTHONPATH="$repo_dir/src:$repo_dir${PYTHONPATH:+:$PYTHONPATH}"
+export EVAL_GPU_COUNT="$gpu_count"
 
 python - <<'PY'
 from pathlib import Path
 import hashlib
 import json
+import os
 import torch
 
 test_file = Path("data/benchmarks/uspto50k/test.inverse_eval.jsonl")
@@ -38,32 +47,42 @@ if digest != test["inverse_eval_sha256"]:
     raise SystemExit(f"USPTO-50K test hash mismatch: {digest}")
 if test["rows"] != 5007 or not test["mapped_role_rows"] == 5007:
     raise SystemExit(f"unexpected frozen test manifest: {test}")
-if not torch.cuda.is_available() or torch.cuda.device_count() != 8:
-    raise SystemExit(f"expected exactly 8 CUDA devices, got {torch.cuda.device_count()}")
-print({"cuda_devices": 8, "torch": torch.__version__, "test_rows": test["rows"]})
+expected_devices = int(os.environ["EVAL_GPU_COUNT"])
+if not torch.cuda.is_available() or torch.cuda.device_count() != expected_devices:
+    raise SystemExit(
+        f"expected exactly {expected_devices} CUDA devices, "
+        f"got {torch.cuda.device_count()}"
+    )
+print({"cuda_devices": expected_devices, "torch": torch.__version__, "test_rows": test["rows"]})
 PY
 
 mkdir -p "$output_dir"
 pids=()
-for gpu in $(seq 0 7); do
-  shard=$(printf '%02d' "$gpu")
-  CUDA_VISIBLE_DEVICES="$gpu" python scripts/infer_mechet.py \
-    --config configs/agent/tool_sft_mixed_inverse_qwen3_8b.yaml \
-    --data "$test_file" \
-    --output "$output_dir/predictions.shard-${shard}.jsonl" \
-    --mode trace \
-    --condition-name "uspto50k_standard_product_only_trace_k${samples_per_target}" \
-    --adapter "$adapter" \
-    --shard-count 8 \
-    --shard-index "$gpu" \
-    --samples-per-target "$samples_per_target" \
-    --max-iterations 12 \
-    --max-new-tokens 512 \
-    --temperature 0.7 \
-    --top-p 0.95 \
-    --seed 17 \
-    --resume \
-    >"$output_dir/shard-${shard}.log" 2>&1 &
+for gpu in $(seq 0 $((gpu_count - 1))); do
+  (
+    shard_index="$gpu"
+    while [[ "$shard_index" -lt 8 ]]; do
+      shard=$(printf '%02d' "$shard_index")
+      CUDA_VISIBLE_DEVICES="$gpu" python scripts/infer_mechet.py \
+        --config configs/agent/tool_sft_mixed_inverse_qwen3_8b.yaml \
+        --data "$test_file" \
+        --output "$output_dir/predictions.shard-${shard}.jsonl" \
+        --mode trace \
+        --condition-name "uspto50k_standard_product_only_trace_k${samples_per_target}" \
+        --adapter "$adapter" \
+        --shard-count 8 \
+        --shard-index "$shard_index" \
+        --samples-per-target "$samples_per_target" \
+        --max-iterations 12 \
+        --max-new-tokens 512 \
+        --temperature 0.7 \
+        --top-p 0.95 \
+        --seed 17 \
+        --resume \
+        >"$output_dir/shard-${shard}.log" 2>&1
+      shard_index=$((shard_index + gpu_count))
+    done
+  ) &
   pids+=("$!")
 done
 
@@ -120,10 +139,48 @@ manifest = {
 print(json.dumps(manifest, indent=2, ensure_ascii=False))
 PY
 
-exec python scripts/evaluate_prediction_set.py \
+python scripts/evaluate_prediction_set.py \
   --reference "$test_file" \
   --predictions "$output_dir/predictions.jsonl" \
   --output "$output_dir/evaluation.json" \
   --condition-name "uspto50k_standard_product_only_trace_k${samples_per_target}" \
   --expected-rows 5007 \
   --expected-candidates "$samples_per_target"
+
+mkdir -p "$ranking_dir"
+pids=()
+for gpu in $(seq 0 $((gpu_count - 1))); do
+  (
+    shard_index="$gpu"
+    while [[ "$shard_index" -lt 8 ]]; do
+      shard=$(printf '%02d' "$shard_index")
+      CUDA_VISIBLE_DEVICES="$gpu" python scripts/score_and_rank_predictions.py score \
+        --predictions "$output_dir/predictions.jsonl" \
+        --output "$ranking_dir/nll_scores.shard-${shard}.jsonl" \
+        --model Qwen/Qwen3-8B \
+        --revision "$revision" \
+        --adapter "$adapter" \
+        --shard-count 8 \
+        --shard-index "$shard_index" \
+        --max-length 24576 \
+        >"$ranking_dir/shard-${shard}.log" 2>&1
+      shard_index=$((shard_index + gpu_count))
+    done
+  ) &
+  pids+=("$!")
+done
+
+status=0
+for pid in "${pids[@]}"; do
+  wait "$pid" || status=1
+done
+if [[ "$status" -ne 0 ]]; then
+  tail -n 100 "$ranking_dir"/shard-*.log
+  exit "$status"
+fi
+
+exec python scripts/score_and_rank_predictions.py aggregate \
+  --reference "$test_file" \
+  --predictions "$output_dir/predictions.jsonl" \
+  --ranking-dir "$ranking_dir" \
+  --output "$ranking_dir/evaluation.json"

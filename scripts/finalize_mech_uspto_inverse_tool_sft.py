@@ -8,6 +8,15 @@ import json
 from pathlib import Path
 
 
+FORBIDDEN_VISIBLE_STATE_KEYS = {
+    "state_smiles",
+    "state_before",
+    "state_after",
+    "local_state_before",
+    "local_state_after",
+}
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -54,6 +63,7 @@ def main() -> int:
 
         ids: set[str] = set()
         trace_steps = trace_moves = root_imports = rows = 0
+        observation_modes: set[str] = set()
         with data.open(encoding="utf-8") as handle:
             for line in handle:
                 if not line.strip():
@@ -65,6 +75,21 @@ def main() -> int:
                 ids.add(stable_id)
                 rows += 1
                 metadata = row["metadata"]
+                observation_mode = str(metadata.get("observation_mode") or "")
+                observation_modes.add(observation_mode)
+                if observation_mode != "action_delta_v1":
+                    raise ValueError(
+                        f"OBSERVATION_MODE_MISMATCH:{split}:{stable_id}:{observation_mode}"
+                    )
+                for message in row.get("messages") or []:
+                    if message.get("role") != "tool" or message.get("name") == "finish_trace":
+                        continue
+                    result = json.loads(str(message.get("content") or "{}"))
+                    leaked = FORBIDDEN_VISIBLE_STATE_KEYS & set(result)
+                    if leaked:
+                        raise ValueError(
+                            f"INTERMEDIATE_STATE_LEAK:{split}:{stable_id}:{sorted(leaked)}"
+                        )
                 trace_steps += int(metadata["n_trace_steps"])
                 trace_moves += int(metadata["n_trace_moves"])
                 root_imports += int(metadata["n_trace_imports"])
@@ -92,6 +117,8 @@ def main() -> int:
             "trace_steps": trace_steps,
             "trace_moves": trace_moves,
             "root_imports": root_imports,
+            "observation_modes": sorted(observation_modes),
+            "intermediate_state_leaks": 0,
             "file": str(data),
             "sha256": sha256(data),
             "quarantine": str(quarantine),
@@ -186,6 +213,8 @@ def main() -> int:
         "scientific_contract": "mech_uspto_inverse_trace_owned_v2",
         "source": "mech_uspto_31k",
         "condition": "trace_no_knowledge",
+        "observation_mode": "action_delta_v1",
+        "intermediate_state_model_visible": False,
         "target_source": "rxn_prod_min matched into globally mapped final state",
         "endpoint_source": "environment_owned_finish_trace",
         "corpus_used": False,

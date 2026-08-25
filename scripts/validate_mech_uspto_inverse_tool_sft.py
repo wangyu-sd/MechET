@@ -55,8 +55,15 @@ def validate_row(row: dict) -> dict[str, int]:
         for message in messages
         for call in message.get("tool_calls") or []
     ]
+    metadata = dict(row.get("metadata") or {})
+    observation_mode = str(metadata.get("observation_mode") or "full_state")
+    if observation_mode.endswith("_v1"):
+        observation_mode = observation_mode[:-3]
     env = TraceOwnedAgentEnv(
-        config=AgentEnvConfig(max_tool_calls=max(12, len(calls) + 2))
+        config=AgentEnvConfig(
+            max_tool_calls=max(12, len(calls) + 2),
+            observation_mode=observation_mode,
+        )
     )
     env.reset(
         target_smiles=str(row.get("target_smiles") or ""),
@@ -104,7 +111,6 @@ def validate_row(row: dict) -> dict[str, int]:
     terminal = env.final_result
     if not terminal.get("formal_execute") or not terminal.get("endpoint_exact"):
         raise ValueError("REPLAY_FINISH_NOT_EXACT")
-    metadata = dict(row.get("metadata") or {})
     if terminal.get("compiled_proof") != metadata.get("compiled_proof"):
         raise ValueError("METADATA_COMPILED_PROOF_MISMATCH")
     return counts

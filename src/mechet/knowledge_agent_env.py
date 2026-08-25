@@ -258,7 +258,13 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
         self.trace.append(
             {"event": "retrieve_textbook_guidance", "result": result}
         )
-        return json.dumps(result, ensure_ascii=False)
+        visible = dict(result)
+        if self.config.observation_mode != "full_state":
+            visible.pop("state_smiles", None)
+            visible["observation_mode"] = (
+                f"{self.config.observation_mode}_v1"
+            )
+        return json.dumps(visible, ensure_ascii=False)
 
     def retrieve_primitives(self, query: str = "", top_k: int = 0) -> str:
         self._consume_call()
@@ -301,7 +307,13 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
                 }
         self.primitive_retrievals.append(result)
         self.trace.append({"event": "retrieve_primitives", "result": result})
-        return json.dumps(result, ensure_ascii=False)
+        visible = dict(result)
+        if self.config.observation_mode != "full_state":
+            visible.pop("state_smiles", None)
+            visible["observation_mode"] = (
+                f"{self.config.observation_mode}_v1"
+            )
+        return json.dumps(visible, ensure_ascii=False)
 
     def state_dict(self) -> dict[str, Any]:
         value = super().state_dict()

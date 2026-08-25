@@ -1,7 +1,8 @@
 # mech-USPTO-31k inverse Tool-SFT
 
 > [!CAUTION]
-> **INCOMPLETE TRACE-VIEW SUBSET.** The `1,124` test rows below are only the
+> **INCOMPLETE TRACE-VIEW SUBSET.** The current compiler produces `1,253` test
+> traces. They are only the
 > replay-compatible inverse-trace subset of the complete `3,120`-reaction
 > mech-USPTO-31k test split. They are valid for program supervision and
 > diagnostics, but must not be reported as the full benchmark denominator or
@@ -85,9 +86,11 @@ This rule normalized one reaction-center tag in each of 19 rows. It does not
 invent a stereoisomer and does not make general endpoint matching
 stereo-insensitive.
 
-## Frozen local coverage
+## Versioned local coverage
 
-| Stage | train | valid | test | total |
+The 2026-08-11 artifact is retained only as a deprecated historical pilot:
+
+| 2026-08-11 stage | train | valid | test | total |
 |---|---:|---:|---:|---:|
 | Raw reactions | 24,959 | 3,120 | 3,120 | 31,199 |
 | Raw elementary-step rows | 91,805 | 11,396 | 11,625 | 114,826 |
@@ -102,8 +105,32 @@ This is 100% of the globally stitched forward traces, not 100% of the original
 must execute, every reaction must retain all steps, and adjacent independently
 mapped states must be stitchable into one global atom-map scope.
 
-Train, valid, and test contain 11,429 unique stable IDs with zero pairwise ID
-overlap.
+The old paper-facing action-only derivative is retained under
+`data/mech_uspto_31k_inverse_tool_sft_action_delta_v1/`. It has the identical
+9,118 / 1,187 / 1,124 stable-ID universe, zero conversion quarantines, zero
+split overlap, and zero model-visible intermediate-state leaks. Its manifest
+requires `observation_mode=action_delta_v1`; the environment still owns the
+private molecular state and terminal compiled proof.
+
+It is labelled `deprecated_pilot` and is forbidden for new training.
+
+The current compiler was rerun from the frozen raw parquet on 2026-08-24:
+
+| 2026-08-24 current compiler stage | train | valid | test | total |
+|---|---:|---:|---:|---:|
+| Raw reactions | 24,959 | 3,120 | 3,120 | 31,199 |
+| Raw elementary-step rows | 91,805 | 11,396 | 11,625 | 114,826 |
+| Executable standardized step rows | 74,170 | 9,234 | 9,478 | 92,882 |
+| Reactions with every step executable | 16,207 | 2,042 | 2,027 | 20,276 |
+| Globally mapped stitched traces | 10,152 | 1,319 | 1,253 | 12,724 |
+| Action-delta inverse rows | **10,152** | **1,319** | **1,253** | **12,724** |
+
+The versioned outputs are
+`data/forward_expert/mech_uspto_31k_recompiled_20260824/` and
+`data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/`.
+The inverse conversion is 12,724/12,724; this is still a strict executable
+trace subset, not 100% of the 31,199-reaction endpoint universe. Consult
+`docs/MECH_USPTO_31K_ARTIFACT_REGISTRY.md` before selecting an artifact.
 
 ## Reproduce from download
 
@@ -126,20 +153,20 @@ for spec in train:train valid:val test:test; do
 
   python scripts/forward_expert_data.py standardize \
     --input data/raw/mech_uspto_31k/data/${raw_split}-00000-of-00001.parquet \
-    --output data/forward_expert/mech_uspto_31k/standardized/${split}.jsonl \
-    --quarantine data/forward_expert/mech_uspto_31k/standardized/${split}.quarantine.jsonl \
+    --output data/forward_expert/mech_uspto_31k_recompiled_20260824/standardized/${split}.jsonl \
+    --quarantine data/forward_expert/mech_uspto_31k_recompiled_20260824/standardized/${split}.quarantine.jsonl \
     --source mech_uspto_31k
 
   python scripts/select_complete_mech_uspto_reactions.py \
     --raw-parquet data/raw/mech_uspto_31k/data/${raw_split}-00000-of-00001.parquet \
-    --standardized data/forward_expert/mech_uspto_31k/standardized/${split}.jsonl \
-    --output data/forward_expert/mech_uspto_31k/complete_reaction_ids/${split}.jsonl
+    --standardized data/forward_expert/mech_uspto_31k_recompiled_20260824/standardized/${split}.jsonl \
+    --output data/forward_expert/mech_uspto_31k_recompiled_20260824/complete_reaction_ids/${split}.jsonl
 
   python scripts/stitch_mech_uspto_traces.py \
-    --input data/forward_expert/mech_uspto_31k/standardized/${split}.jsonl \
-    --complete-ids data/forward_expert/mech_uspto_31k/complete_reaction_ids/${split}.jsonl \
-    --output data/forward_expert/mech_uspto_31k/traces/${split}.jsonl \
-    --quarantine data/forward_expert/mech_uspto_31k/traces/${split}.quarantine.jsonl
+    --input data/forward_expert/mech_uspto_31k_recompiled_20260824/standardized/${split}.jsonl \
+    --complete-ids data/forward_expert/mech_uspto_31k_recompiled_20260824/complete_reaction_ids/${split}.jsonl \
+    --output data/forward_expert/mech_uspto_31k_recompiled_20260824/traces/${split}.jsonl \
+    --quarantine data/forward_expert/mech_uspto_31k_recompiled_20260824/traces/${split}.quarantine.jsonl
 done
 ```
 
@@ -152,22 +179,25 @@ for spec in train:train valid:val test:test; do
   raw_split=${spec##*:}
 
   python scripts/build_mech_uspto_inverse_tool_sft.py \
-    --input data/forward_expert/mech_uspto_31k/traces/${split}.jsonl \
+    --input data/forward_expert/mech_uspto_31k_recompiled_20260824/traces/${split}.jsonl \
     --raw-parquet data/raw/mech_uspto_31k/data/${raw_split}-00000-of-00001.parquet \
-    --output data/mech_uspto_31k_inverse_tool_sft/${split}.jsonl \
-    --quarantine data/mech_uspto_31k_inverse_tool_sft/${split}.quarantine.jsonl
+    --output data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/${split}.jsonl \
+    --quarantine data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/${split}.quarantine.jsonl \
+    --observation-mode action_delta
 
   python scripts/validate_mech_uspto_inverse_tool_sft.py \
-    --input data/mech_uspto_31k_inverse_tool_sft/${split}.jsonl \
-    --output data/mech_uspto_31k_inverse_tool_sft/${split}.validation.json
+    --input data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/${split}.jsonl \
+    --output data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/${split}.validation.json
 
   python scripts/audit_tool_sft_token_lengths.py \
-    --config configs/agent/tool_sft_mech_uspto_31k_inverse.yaml \
-    --input data/mech_uspto_31k_inverse_tool_sft/${split}.jsonl \
-    --output data/mech_uspto_31k_inverse_tool_sft/${split}.tokenizer_audit.json
+    --config configs/agent/tool_sft_mech_uspto_31k_action_delta_v2_qwen3_8b_a100.yaml \
+    --input data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/${split}.jsonl \
+    --output data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/${split}.tokenizer_audit.json
 done
 
-python scripts/finalize_mech_uspto_inverse_tool_sft.py
+python scripts/finalize_mech_uspto_inverse_tool_sft.py \
+  --data-dir data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824 \
+  --training-config configs/agent/tool_sft_mech_uspto_31k_action_delta_v2_qwen3_8b_a100.yaml
 ```
 
 The finalizer refuses stale replay reports, stale tokenizer audits, failed
@@ -175,6 +205,34 @@ validation, duplicate IDs, or split overlap. It writes aggregate validation,
 tokenizer-audit, and manifest JSON files.
 
 ## Train
+
+The current Qwen3-8B action-only screen uses the immutable revision
+`b968826d9c46dd6066d109eabc6255188de91218`, QLoRA, assistant-only loss, three
+epochs, no max-step cap, and the fully audited action-only files:
+
+```bash
+torchrun --standalone --nproc_per_node=8 scripts/train_tool_sft.py \
+  --config configs/agent/tool_sft_mech_uspto_31k_action_delta_v2_qwen3_8b_a100.yaml
+```
+
+Its tokenizer audit covers all 11,429 rows with zero truncation; the largest
+conversation is 3,049 tokens under the pinned Qwen3-8B tokenizer. A real run
+must finish with `adapter_manifest.json` and `data_contract.json` whose train
+SHA-256 equals the action-only manifest before inference is allowed.
+
+After that adapter exists, the K=10 executable rollout runner is:
+
+```bash
+bash scripts/run_taiji_mech_uspto31k_action_delta_infer_k10.sh
+```
+
+The runner is resumable, uses two generation workers per GPU, validates the
+adapter/data/revision lineage, and reports generation-order Pass@1/5/10 plus
+the environment-selected candidate. It deliberately stamps every artifact as
+`program_view_subset_not_full_endpoint`: 1,124 is never a substitute for the
+official 3,120-reaction endpoint test denominator.
+
+### Legacy small-model configuration
 
 The frozen configuration uses Qwen3-0.6B at immutable model/tokenizer commit
 `c1899de289a04d12100db370d81485cdf75e47ca`, assistant-only loss, LoRA, and

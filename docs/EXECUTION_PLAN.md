@@ -1,22 +1,30 @@
 # Execution plan
 
-> **Role:** operational source of truth for the MechET study  
+> **Role:** operational plan subordinate to the paper experiment matrix
 > **Principle:** no phase begins until the preceding scientific gate passes  
 > **Default scope:** mapped, closed-shell, two-electron polar organic chemistry
 
-## Phase map
+## Paper-first phase map
 
 | Phase | Objective | Primary artifact | Gate |
 |---|---|---|---|
-| **0** | Freeze code, data, model, and reporting contracts | Reproducibility manifest | All revisions and seeds explicit |
-| **1** | Build executable proof data and remove benchmark overlap | Clean proof dataset | Execution, endpoint, and leakage audits pass |
-| **2** | Measure proof-to-trace coverage and build evidence assets | Replay-verified train/valid/test source rows | Coverage supports the declared chemistry scope |
-| **3** | Derive six matched evidence conditions separately for train/valid/test | Split evidence-suite manifests | IDs, endpoints, schemas, tokens, budgets, and split isolation align |
-| **4** | Establish real Tool-SFT learnability | Adapter manifest and pilot report | Tool syntax and held-out completion improve |
-| **5** | Test H1 causal faithfulness | Frozen H1 benchmark and paired intervention artifacts | Strict trace integrity and paired sensitivity |
-| **6** | Test H2 compositional generalization | Frozen composition-OOD split and H2-only checkpoint | Known primitives, unseen complete compositions |
-| **7** | Test H3 evidence separation | Held-out six-condition evaluation | Evidence exceeds trace-only and matched context controls |
-| **8** | Scale or extend | Scale/forward/planning results | H1–H3 pilots already passed |
+| **0** | Freeze code, data, model, compute and reporting contracts | Reproducibility manifest | All revisions, hashes, budgets and seeds explicit |
+| **R1** | Two-corpus overall inverse performance | Matched endpoint/execution table | FlowER and mech-USPTO results use frozen denominators |
+| **R2** | Reasoning provenance and endpoint consistency | CEIR/TraceBound audit | Reasoning parsers and execution checks are frozen |
+| **R3** | Counterfactual state adaptation | Paired accurate-vs-stale intervention | Positive SAE under the same actual environment state |
+| **R4** | MechComp-OOD C1/C2/C3 | Fresh split-specific checkpoints | C2 has seen primitives/bigrams and unseen full programs |
+| **R5** | Data efficiency | 5/10/25/50/100% learning curves | Fixed subset seeds and matched token/step reporting |
+| **R6** | Structural OOD and transfer | OOD retention and bidirectional transfer | Exact-clean lineage and map controls pass |
+| **R7** | Theory-linked analysis and recovery | Prespecified regression and recovery curves | Covariates and intervention windows are frozen |
+
+Mandatory internal conditions are A0 Direct, A1 Free-CoT, A2 State-CoT, A3
+NetEdit, A4 OpenFlow, A5 Loose trace + answer, A6 MechSMILES-format and A7
+MechET. Required ablations are B1--B5 as defined in
+[`PAPER_EXPERIMENT_PROTOCOL.md`](PAPER_EXPERIMENT_PROTOCOL.md).
+
+The older numbered implementation phases below remain useful for building data
+and runtime artifacts, but they do not override R1--R7 priority. In particular,
+the H3/textbook phase is outside the current ICLR protocol.
 
 ---
 
@@ -467,7 +475,7 @@ Do not claim H2 when the test set is empty, contains unseen primitives, reuses a
 
 ---
 
-## Phase 7 — Test H3 evidence separation
+## Legacy Phase 7 — Test H3 evidence separation (outside current ICLR)
 
 ### Objective
 
@@ -530,7 +538,7 @@ A gain explained by irrelevant context, label leakage, train-derived evaluation,
 
 ## Phase 8 — Scale, forward evidence, and planning
 
-Only after H1–H3 pilots pass:
+Only after matched SFT, R3 and R4-C2 are frozen:
 
 ```text
 0.6B / 1.7B / 8B scale study
@@ -579,14 +587,14 @@ Stop or narrow a claim when:
 - H1 is insensitive to tool observations;
 - H2 contains unseen primitives rather than unseen compositions;
 - an H2 checkpoint saw held-out composition examples during training;
-- H3 final evaluation uses train-derived rows;
+- a future H3 evaluation uses train-derived rows;
 - a subset evidence intervention is compared on unmatched IDs;
 - irrelevant text explains an evidence gain;
 - a learned score overrides deterministic execution.
 
 ## Integrity utilities
 
-Before a final H1/H2/H3 result package:
+Before a final R1--R7 result package:
 
 ```bash
 python scripts/check_documentation_integrity.py --output outputs/documentation_integrity.json
@@ -598,4 +606,7 @@ python scripts/aggregate_evaluation_seeds.py \
   --output outputs/multi_seed_summary.json
 ```
 
-The H2 split manifest must include the structural-overlap audit and stratified composition-OOD counts. H1/H3 result artifacts must include paired uncertainty and corrected tests; the multi-seed aggregate must satisfy the declared seed-count, interval, and direction gates.
+The R4 split manifest must include the structural-overlap audit and stratified
+composition-OOD counts. R3 artifacts must include paired uncertainty and
+corrected tests; every headline aggregate must satisfy the declared seed-count,
+interval, and direction gates.

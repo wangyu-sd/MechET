@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "source_dataset": "FlowER",
+  "full_reaction_denominator": {
+    "train": 257171,
+    "valid": 2890,
+    "test": 28971
+  },
+  "artifacts": [
+    {
+      "artifact_id": "flower_full_endpoint_v1",
+      "path": "data/flower_full_endpoint_sft",
+      "status": "validated",
+      "training_allowed": true,
+      "view": "full_endpoint",
+      "rows": {"train": 257171, "valid": 2890, "test": 28971}
+    },
+    {
+      "artifact_id": "flower_strict_proof_full_v4",
+      "path": "data/mechet_proof_sft_flower_full_v4",
+      "status": "validated",
+      "training_allowed": true,
+      "view": "strict_executable_proof",
+      "rows": {"train": 257167, "valid": 2890, "test": 28967},
+      "excluded_named_upstream_corrupt_rows": {"train": 4, "valid": 0, "test": 4}
+    },
+    {
+      "artifact_id": "flower_hybrid_full_state_trace_v4",
+      "path": "data/flower_inverse_tool_sft_full_v4",
+      "status": "validated_legacy_observation",
+      "training_allowed": false,
+      "view": "full_reaction_coverage_with_legacy_full_state_feedback",
+      "rows": {"train": 257171, "valid": 2890, "test": 28971},
+      "strict_trace_rows_total": 289024,
+      "upstream_endpoint_fallback_rows_total": 8
+    },
+    {
+      "artifact_id": "flower_action_delta_v1",
+      "path": "data/flower_inverse_tool_sft_action_delta_v1",
+      "status": "validated",
+      "training_allowed": true,
+      "view": "strict_executable_action_delta",
+      "rows": {"train": 257167, "valid": 2890, "test": 28967},
+      "excluded_named_upstream_corrupt_rows": {"train": 4, "valid": 0, "test": 4}
+    }
+  ]
+}

@@ -330,9 +330,45 @@ def _generate_response(
     top_p: float,
     seed: int,
 ) -> tuple[str, Any]:
+    texts, prefix = _generate_responses(
+        model,
+        tokenizer,
+        messages,
+        tools,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        seeds=[seed],
+    )
+    return texts[0], prefix
+
+
+def _generate_responses(
+    model,
+    tokenizer,
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]],
+    *,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    seeds: list[int],
+) -> tuple[list[str], Any]:
+    """Sample several direct candidates in one model.generate call.
+
+    Transformer generation expands the single encoded prompt to
+    ``num_return_sequences`` internally, so the prompt/model load is shared
+    across K candidates.  The batch is deterministically seeded by its first
+    candidate; every candidate still records its stable logical seed and the
+    common batch seed in the output artifact.
+    """
     import torch
 
-    _set_seed(seed)
+    if not seeds:
+        raise ValueError("generation seeds must not be empty")
+    if len(seeds) > 1 and temperature <= 0:
+        raise ValueError("batched direct candidates require stochastic decoding")
+    _set_seed(seeds[0])
     kwargs: dict[str, Any] = {
         "conversation": messages,
         "tokenize": True,
@@ -357,13 +393,45 @@ def _generate_response(
         "do_sample": temperature > 0,
         "top_p": top_p,
         "pad_token_id": tokenizer.eos_token_id,
+        "num_return_sequences": len(seeds),
     }
     if temperature > 0:
         generate_kwargs["temperature"] = temperature
     with torch.inference_mode():
         output = model.generate(**inputs, **generate_kwargs)
-    generated = output[0, input_length:]
-    return tokenizer.decode(generated, skip_special_tokens=False), inputs["input_ids"][0]
+    generated = output[:, input_length:]
+
+    # ``generate`` right-pads an already-finished sequence to the longest
+    # sequence in the sampled batch.  Qwen uses ``<|im_end|>`` as both EOS and
+    # (in this launcher) the pad token, so decoding the untrimmed tensor can
+    # turn a short valid answer into thousands of repeated ``<|im_end|>``
+    # strings whenever a sibling candidate hits the token budget.  Besides
+    # bloating the artifact, that poisoned downstream NLL ranking.  Preserve
+    # the first EOS token and discard only the batch-alignment padding after it.
+    eos_token_ids: set[int] = set()
+    configured_eos = getattr(getattr(model, "generation_config", None), "eos_token_id", None)
+    if isinstance(configured_eos, int):
+        eos_token_ids.add(configured_eos)
+    elif configured_eos is not None:
+        eos_token_ids.update(int(token_id) for token_id in configured_eos)
+    if tokenizer.eos_token_id is not None:
+        eos_token_ids.add(int(tokenizer.eos_token_id))
+
+    trimmed = []
+    for tokens in generated:
+        token_values = [int(token_id) for token_id in tokens.tolist()]
+        stop = next(
+            (
+                index + 1
+                for index, token_id in enumerate(token_values)
+                if token_id in eos_token_ids
+            ),
+            len(token_values),
+        )
+        trimmed.append(tokens[:stop])
+    return [
+        tokenizer.decode(tokens, skip_special_tokens=False) for tokens in trimmed
+    ], inputs["input_ids"][0]
 
 
 def _rank_candidate(candidate: Mapping[str, Any]) -> tuple[float, ...]:
@@ -478,28 +546,45 @@ def _run_direct_candidate(
     scripted_response: str | None,
     seed: int,
 ) -> dict[str, Any]:
+    if scripted_response is None:
+        return _run_direct_candidates(
+            row,
+            model=model,
+            tokenizer=tokenizer,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            sample_indices=[sample_index],
+            seeds=[seed],
+        )[0]
+    return _direct_candidate_record(
+        row,
+        raw=scripted_response,
+        sample_index=sample_index,
+        seed=seed,
+        sampling_batch_seed=seed,
+        sampling_batch_size=1,
+        generation_error="",
+    )
+
+
+def _direct_candidate_record(
+    row: Mapping[str, Any],
+    *,
+    raw: str,
+    sample_index: int,
+    seed: int,
+    sampling_batch_seed: int,
+    sampling_batch_size: int,
+    generation_error: str,
+) -> dict[str, Any]:
     messages = _direct_messages(row)
-    raw = scripted_response
-    generation_error = ""
-    if raw is None:
-        try:
-            raw, _ = _generate_response(
-                model,
-                tokenizer,
-                messages,
-                [],
-                max_new_tokens=max_new_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                seed=seed,
-            )
-        except Exception as exc:
-            raw = ""
-            generation_error = str(exc)
     messages.append({"role": "assistant", "content": raw})
     return {
         "sample_index": sample_index,
         "seed": seed,
+        "sampling_batch_seed": sampling_batch_seed,
+        "sampling_batch_size": sampling_batch_size,
         "messages": messages,
         "prediction": raw,
         "generation_error": generation_error,
@@ -508,6 +593,80 @@ def _run_direct_candidate(
         ),
         "rollout_state": {},
     }
+
+
+def _run_direct_candidates(
+    row: Mapping[str, Any],
+    *,
+    model: Any,
+    tokenizer: Any,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    sample_indices: list[int],
+    seeds: list[int],
+) -> list[dict[str, Any]]:
+    if len(sample_indices) != len(seeds) or not seeds:
+        raise ValueError("direct candidate indices/seeds must be non-empty and aligned")
+    generation_error = ""
+    try:
+        raw_texts, _ = _generate_responses(
+            model,
+            tokenizer,
+            _direct_messages(row),
+            [],
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            seeds=seeds,
+        )
+    except Exception as exc:
+        # A conservative recursive fallback keeps every requested candidate if
+        # a chosen microbatch is too large for a particular GPU.  A singleton
+        # failure is recorded in the artifact instead of aborting the shard.
+        if len(seeds) > 1 and "out of memory" in str(exc).lower():
+            try:
+                import torch
+
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except ImportError:
+                pass
+            middle = len(seeds) // 2
+            return _run_direct_candidates(
+                row,
+                model=model,
+                tokenizer=tokenizer,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                sample_indices=sample_indices[:middle],
+                seeds=seeds[:middle],
+            ) + _run_direct_candidates(
+                row,
+                model=model,
+                tokenizer=tokenizer,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                sample_indices=sample_indices[middle:],
+                seeds=seeds[middle:],
+            )
+        raw_texts = [""] * len(seeds)
+        generation_error = str(exc)
+    batch_seed = seeds[0]
+    return [
+        _direct_candidate_record(
+            row,
+            raw=raw,
+            sample_index=sample_index,
+            seed=seed,
+            sampling_batch_seed=batch_seed,
+            sampling_batch_size=len(seeds),
+            generation_error=generation_error,
+        )
+        for sample_index, seed, raw in zip(sample_indices, seeds, raw_texts, strict=True)
+    ]
 
 
 def _script_map(path: Path | None) -> dict[str, Any]:
@@ -563,8 +722,26 @@ def main() -> int:
         ],
         default="none",
     )
+    parser.add_argument(
+        "--observation-mode",
+        choices=["action_delta", "reaction_center_delta", "full_state"],
+        default=None,
+        help=(
+            "Model-visible environment feedback. If omitted, trace conditions "
+            "default to action_delta and legacy complete-proof defaults to full_state."
+        ),
+    )
     parser.add_argument("--intervention-source", type=Path)
     parser.add_argument("--samples-per-target", type=int, default=1)
+    parser.add_argument(
+        "--direct-sample-batch-size",
+        type=int,
+        default=1,
+        help=(
+            "For --mode direct, generate this many sampled candidates in one "
+            "model.generate call. OOM batches are bisected automatically."
+        ),
+    )
     parser.add_argument("--max-iterations", type=int, default=12)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.7)
@@ -593,7 +770,25 @@ def main() -> int:
 
     if args.samples_per_target < 1:
         raise ValueError("samples-per-target must be >= 1")
+    if args.direct_sample_batch_size < 1:
+        raise ValueError("direct-sample-batch-size must be >= 1")
+    if (
+        args.mode == "direct"
+        and args.direct_sample_batch_size > 1
+        and args.temperature <= 0
+    ):
+        raise ValueError("batched direct sampling requires temperature > 0")
     cfg = load_yaml(args.config)
+    if args.mode != "direct":
+        environment = dict(cfg.get("environment") or {})
+        if args.observation_mode:
+            environment["observation_mode"] = args.observation_mode
+        else:
+            environment.setdefault(
+                "observation_mode",
+                "full_state" if args.mode == "legacy" else "action_delta",
+            )
+        cfg["environment"] = environment
     rows = read_jsonl(args.data)
     if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
         raise ValueError("require shard_count >= 1 and 0 <= shard_index < shard_count")
@@ -661,6 +856,9 @@ def main() -> int:
             str((item.get("function") or {}).get("name") or "") for item in tools
         ],
         "intervention": args.intervention,
+        "observation_mode": (
+            env_config.observation_mode if env_config is not None else None
+        ),
         "scripted": bool(scripts),
         "model_name": model_name or None,
         "model_revision": model_revision,
@@ -669,6 +867,7 @@ def main() -> int:
         "adapter_sha256": adapter_hash or None,
         "seed": args.seed,
         "candidate_selector": CANDIDATE_SELECTOR,
+        "direct_sample_batch_size": args.direct_sample_batch_size,
         "selected_sources": list(args.selected_sources),
         "shard_count": args.shard_count,
         "shard_index": args.shard_index,
@@ -713,53 +912,79 @@ def main() -> int:
                 continue
             script = scripts.get(identifier, scripts.get("*"))
             candidates: list[dict[str, Any]] = []
-            for sample_index in range(args.samples_per_target):
-                seed = _candidate_seed(args.seed, identifier, sample_index)
-                if args.mode == "direct":
-                    scripted_response = None
-                    if script is not None:
+            if args.mode == "direct" and script is None:
+                for start in range(0, args.samples_per_target, args.direct_sample_batch_size):
+                    sample_indices = list(
+                        range(
+                            start,
+                            min(
+                                start + args.direct_sample_batch_size,
+                                args.samples_per_target,
+                            ),
+                        )
+                    )
+                    seeds = [
+                        _candidate_seed(args.seed, identifier, sample_index)
+                        for sample_index in sample_indices
+                    ]
+                    candidates.extend(
+                        _run_direct_candidates(
+                            row,
+                            model=model,
+                            tokenizer=tokenizer,
+                            max_new_tokens=args.max_new_tokens,
+                            temperature=args.temperature,
+                            top_p=args.top_p,
+                            sample_indices=sample_indices,
+                            seeds=seeds,
+                        )
+                    )
+            else:
+                for sample_index in range(args.samples_per_target):
+                    seed = _candidate_seed(args.seed, identifier, sample_index)
+                    if args.mode == "direct":
                         scripted_response = (
                             str(script[min(sample_index, len(script) - 1)])
                             if isinstance(script, list)
                             else str(script)
                         )
-                    candidate = _run_direct_candidate(
-                        row,
-                        model=model,
-                        tokenizer=tokenizer,
-                        max_new_tokens=args.max_new_tokens,
-                        temperature=args.temperature,
-                        top_p=args.top_p,
-                        sample_index=sample_index,
-                        scripted_response=scripted_response,
-                        seed=seed,
-                    )
-                else:
-                    actions = None
-                    if script is not None:
-                        if not isinstance(script, list):
-                            raise ValueError(
-                                f"scripted actions for {identifier} must be a list"
-                            )
-                        actions = [dict(item) for item in script]
-                    candidate = _run_trace_candidate(
-                        row,
-                        cfg,
-                        args.mode,
-                        intervention=args.intervention,
-                        shuffled=shuffled,
-                        model=model,
-                        tokenizer=tokenizer,
-                        tools=tools,
-                        max_iterations=args.max_iterations,
-                        max_new_tokens=args.max_new_tokens,
-                        temperature=args.temperature,
-                        top_p=args.top_p,
-                        scripted_actions=actions,
-                        sample_index=sample_index,
-                        seed=seed,
-                    )
-                candidates.append(candidate)
+                        candidate = _run_direct_candidate(
+                            row,
+                            model=model,
+                            tokenizer=tokenizer,
+                            max_new_tokens=args.max_new_tokens,
+                            temperature=args.temperature,
+                            top_p=args.top_p,
+                            sample_index=sample_index,
+                            scripted_response=scripted_response,
+                            seed=seed,
+                        )
+                    else:
+                        actions = None
+                        if script is not None:
+                            if not isinstance(script, list):
+                                raise ValueError(
+                                    f"scripted actions for {identifier} must be a list"
+                                )
+                            actions = [dict(item) for item in script]
+                        candidate = _run_trace_candidate(
+                            row,
+                            cfg,
+                            args.mode,
+                            intervention=args.intervention,
+                            shuffled=shuffled,
+                            model=model,
+                            tokenizer=tokenizer,
+                            tools=tools,
+                            max_iterations=args.max_iterations,
+                            max_new_tokens=args.max_new_tokens,
+                            temperature=args.temperature,
+                            top_p=args.top_p,
+                            scripted_actions=actions,
+                            sample_index=sample_index,
+                            seed=seed,
+                        )
+                    candidates.append(candidate)
             selected = (
                 candidates[0]
                 if args.mode == "direct"
@@ -793,6 +1018,7 @@ def main() -> int:
                     "max_new_tokens": args.max_new_tokens,
                     "max_iterations": args.max_iterations,
                     "samples_per_target": args.samples_per_target,
+                    "direct_sample_batch_size": args.direct_sample_batch_size,
                     "seed": args.seed,
                     "candidate_selector": CANDIDATE_SELECTOR,
                     "software_versions": versions,
@@ -800,6 +1026,11 @@ def main() -> int:
                 "metadata": {
                     "condition_name": condition_name,
                     "intervention": args.intervention,
+                    "observation_mode": (
+                        env_config.observation_mode
+                        if env_config is not None
+                        else None
+                    ),
                     "reference_source_id": row.get("source_id"),
                     "frozen_evidence_replay": args.mode
                     in {"textbook", "irrelevant", "anchors", "combined"},
@@ -819,6 +1050,9 @@ def main() -> int:
         "mode": args.mode,
         "condition_name": condition_name,
         "intervention": args.intervention,
+        "observation_mode": (
+            env_config.observation_mode if env_config is not None else None
+        ),
         "base_model": model_name or "scripted",
         "model_revision": model_revision,
         "tokenizer_revision": tokenizer_revision,

@@ -164,6 +164,11 @@ def main() -> int:
     )
     parser.add_argument("--parallel", type=bool, default=True)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument(
+        "--allow-incomplete",
+        action="store_true",
+        help="Write a partial artifact instead of failing when any row cannot compile.",
+    )
     args = parser.parse_args()
 
     reports = []
@@ -204,6 +209,12 @@ def main() -> int:
         encoding="utf-8",
     )
     print(json.dumps(manifest, indent=2))
+    if manifest["skipped_total"] and not args.allow_incomplete:
+        raise RuntimeError(
+            "MECH_PROOF coverage is incomplete: "
+            f"{manifest['skipped_total']} rows failed compilation; "
+            "partial artifacts are not accepted by default"
+        )
     return 0
 
 

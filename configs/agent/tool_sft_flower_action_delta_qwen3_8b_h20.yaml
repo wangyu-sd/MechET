@@ -1,0 +1,84 @@
+condition_name: flower_strict_action_delta_v1_qwen3_8b_h20
+scientific_hypothesis: action_only_trace_owned_endpoint_without_intermediate_state
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/flower_inverse_tool_sft_action_delta_v1/train.jsonl
+validation_file: data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl
+test_file: data/flower_inverse_tool_sft_action_delta_v1/test.jsonl
+pretokenized_cache_dir: data/flower_inverse_tool_sft_action_delta_v1/qwen3_8b_tokens_16384_h20
+pretokenization_world_size: 8
+output_dir: outputs/agent/tool_sft_flower_action_delta_qwen3_8b_h20_20260823
+limit_examples: 0
+
+environment:
+  max_tool_calls: 40
+  observation_mode: action_delta
+
+training:
+  qlora: true
+  attention_implementation: sdpa
+  require_flash_sdp: true
+  bf16: true
+  fp16: false
+  tf32: true
+  learning_rate: 2.0e-5
+  num_train_epochs: 3.0
+  max_steps: -1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8
+  eval_accumulation_steps: 8
+  eval_strategy: epoch
+  max_length: 16384
+  window_context_tokens: 8192
+  packing: false
+  assistant_only_loss: true
+  group_by_length: false
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config:
+    rope: true
+    rms_norm: true
+    swiglu: true
+    cross_entropy: false
+    fused_linear_cross_entropy: true
+  torch_compile: false
+  include_tokens_per_second: true
+  include_num_input_tokens_seen: true
+  dataloader_num_workers: 2
+  logging_steps: 10
+  save_steps: 250
+  save_total_limit: 3
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  paper_baseline_id: A7
+  paper_method_name: mechet
+  paper_run_role: strict_action_delta_main_screen
+  observation_contract: action_delta_v1
+  stable_id_manifest: data/flower_inverse_tool_sft_action_delta_v1/training_manifest.json
+  validation_report: data/flower_inverse_tool_sft_action_delta_v1/training_manifest.json
+  expected_train_rows: 257167
+  expected_validation_rows: 2890
+  expected_test_rows: 28967
+  expected_upstream_endpoint_fallback_rows: 0
+  require_strict_trace_universe_complete: true
+  require_trace_owned: true
+  endpoint_source: environment_owned_trace
+  terminal_tool: finish_trace
+  free_form_proof_submission: false
+  knowledge_direct_reward: false
+  corpus_used: false
+  source_dataset: flower_new_dataset_strict_proof_universe_v4
+  environment_revision: trace_owned_action_delta_v1
+  executor_revision: MECH_PROOF_v1_full_coverage_v4
+  real_overfit_smoke_test_required: true

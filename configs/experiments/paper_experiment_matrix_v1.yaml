@@ -1,0 +1,113 @@
+protocol_name: mechet_iclr2027_paper_v1
+authority:
+  repository: wangyu-sd/MechET-paper
+  revision: 47b0166174f0ab921c01d11f83cbf66db8659177
+  matrix: EXPERIMENT_MATRIX.md
+  remaining_results: TODO_RESULTS.md
+  imported_at: 2026-08-20
+
+scope:
+  task: one_step_product_only_retrosynthesis
+  chemistry: mapped_closed_shell_two_electron_polar_organic
+  datasets:
+    - flower_derived_inverse
+    - mech_uspto_31k_replay_verified_inverse
+  excluded_from_iclr:
+    - textbook_rag_h3
+    - multistep_route_planning
+  optional_after_matched_sft_is_frozen:
+    - on_policy_rl
+    - model_size_scaling
+
+headline_matched_contract:
+  identical_stable_id_universe: true
+  identical_base_revision: true
+  matched_supervised_token_budget: false
+  matched_optimizer_family: true
+  matched_candidate_and_inference_budget: true
+  missing_predictions_are_failures: true
+  pragmatic_matching_fields: [backbone, epochs, decoder, evaluator, clean_test_ids]
+  mech_uspto_mapping_source: hf_step0_elem_reac_spe_to_principal_rxn_prod_min_pinned_rxnmapper
+  forbid_rxn_prod_min_as_product_mapped: true
+  require_cross_side_atom_map_identity: true
+  product_only_canonical_reindex_synchronized_to_reactants: true
+  atom_mapping_failure_policy: fail_build_never_filter
+
+matched_qwen3_8b_controls:
+  A0: {name: direct, output: precursor, implementation_status: trained_old_inference_stopped}
+  A1: {name: free_cot, output: free_cot_then_precursor, implementation_status: training_submitted_20260824}
+  A2: {name: state_cot, output: explicit_states_then_precursor, implementation_status: trained_old_inference_stopped}
+  A3: {name: net_edit, output: sparse_atom_bond_edit_then_precursor, implementation_status: trained_old_inference_stopped}
+  A4: {name: openflow, output: complete_electron_flow_program_execute_at_end, implementation_status: training_submitted_20260824}
+  A5: {name: loose_trace_answer, output: interactive_trace_plus_independent_precursor, implementation_status: training_submitted_20260824}
+  A6: {name: mechsmiles_format, output: one_shot_inverse_arrow_serialization, implementation_status: training_submitted_20260824}
+  A7: {name: mechet, output: action_delta_trace_owned_endpoint, implementation_status: main_action_delta_training_running}
+
+current_operational_views:
+  flower_full_endpoint: {train: 257171, valid: 2890, test: 28971, status: validated}
+  flower_strict_program: {train: 257167, valid: 2890, test: 28967, status: validated}
+  mech_uspto_current_program: {train: 10152, valid: 1319, test: 1253, status: validated_trace_view_not_full_endpoint}
+  mech_uspto_full_endpoint: {train: 24959, valid: 3120, test: 3120, status: rxnmapper_full_build_submitted}
+
+active_execution_policy_20260824:
+  flower_clean_working_universe: {train: 257167, valid: 2890, test: 28967}
+  exclude_only: named_proven_corrupt_upstream_endpoint_rows
+  stopped_compute: [A0_old_inference, A2_old_inference, A3_old_inference, independent_proof_old_inference, mech_uspto_deprecated_1124_inference]
+  active_compute: [A7_flower_action_delta_training, mech_uspto_current_compiler_action_delta_training]
+  next_gate: A7_unified_k10_evaluation
+
+mechet_ablations:
+  B1: no_source_sink_enumeration
+  B2: execute_at_end
+  B3: stale_feedback
+  B4: independent_answer_channel
+  B5: legal_action_matched_answer_model
+
+external_comparators:
+  matched_priority:
+    - inverse_flower
+    - reactseq
+    - editretro
+    - retrobridge
+  field_context:
+    - localretro
+    - r_smiles
+    - retro_mtgr
+    - retro_synflow
+    - retrodfm_r
+    - retroreasoner
+
+evidence_chain:
+  R1: two_corpus_overall_inverse_performance
+  R2: reasoning_provenance_and_endpoint_consistency
+  R3: counterfactual_execution_feedback_and_state_visibility
+  R4: mechcomp_ood_c1_c2_c3
+  R5: data_efficiency_and_rare_program_generalization
+  R6: structural_ood_length_and_cross_corpus_transfer
+  R7: theory_linked_mechanism_analysis_and_recovery
+
+headline_metrics:
+  - structural_pass_at_1_5_10
+  - full_precursor_pass_at_1_5_10
+  - auxiliary_precision_recall
+  - mapped_exact
+  - execute_pass_at_1_5_10
+  - trace_bound_pass
+  - endpoint_program_consistency
+  - ceir
+  - execution_feedback_adaptation_effect
+  - state_visibility_delta
+  - round_trip_plausibility
+
+run_priority:
+  P0_A: [A0, A3, A4, A7, inverse_flower]
+  P0_B_C2: [A0, A3, A4, A7, inverse_flower]
+  P0_C_H1: [A7, B1, A5]
+  P0_D_three_seed: [R1, R3, R4_C2, A1, A6]
+  P1:
+    - R4_C1_C3
+    - R5
+    - R6
+    - full_component_ablations
+    - selection_bias_audit
+    - endpoint_completeness_and_round_trip

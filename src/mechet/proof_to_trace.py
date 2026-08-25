@@ -86,81 +86,185 @@ def _units(edge: ProofEdge):
         target.extend([pair] * abs(int(delta)))
     lp_gain: list[int] = []
     lp_loss: list[int] = []
+    radical_gain: list[int] = []
+    radical_loss: list[int] = []
     for atom_map, delta in edge.lone_pairs:
+        odd_target = radical_gain if delta > 0 else radical_loss
         if int(delta) % 2:
-            raise ValueError("ODD_LONE_PAIR_DELTA")
+            odd_target.append(int(atom_map))
         target = lp_gain if delta > 0 else lp_loss
         target.extend([int(atom_map)] * (abs(int(delta)) // 2))
-    return decreased, increased, lp_gain, lp_loss
+    return decreased, increased, lp_gain, lp_loss, radical_gain, radical_loss
+
+
+def _be_delta_move(edge: ProofEdge) -> tuple[dict[str, Any], ...]:
+    """Exact executable fallback for non-pairwise FlowER electron events."""
+    return (
+        {
+            "mode": "BE_DELTA",
+            "bond_deltas": [
+                {"atoms": [int(left), int(right)], "delta": int(delta)}
+                for left, right, delta in edge.bonds
+            ],
+            "charge_actions": [
+                {
+                    "atom_map": int(action.atom_map),
+                    "q0": int(action.q0),
+                    "q1": int(action.q1),
+                }
+                for action in edge.charges
+            ],
+        },
+    )
 
 
 def infer_moves_from_edge(edge: ProofEdge) -> tuple[dict[str, Any], ...]:
-    """Infer a unique source-sink pairing from one executable proof edge."""
+    """Infer a replay-exact local pairing of all two-electron units.
 
-    decreased, increased, lp_gain, lp_loss = _units(edge)
-    moves: list[dict[str, Any]] = []
+    A sparse BE delta fixes electron sources and sinks but can admit several
+    arrow pairings.  Rejecting every non-unique bipartite matching discarded
+    valid FlowER states.  We instead enumerate *local* pairings permitted by
+    the executor and retain the canonical first matching whose aggregate
+    formal-charge delta is exactly the one declared by the proof edge.  Thus
+    the tie-break changes no molecular state and invents no net edit.
+    """
 
-    remaining_increased: list[tuple[int, int]] = []
-    for pair in increased:
-        donors = [atom for atom in lp_loss if atom in pair]
-        if len(donors) == 1:
-            donor = donors[0]
-            lp_loss.remove(donor)
-            moves.append(
+    (
+        decreased,
+        increased,
+        lp_gain,
+        lp_loss,
+        radical_gain,
+        radical_loss,
+    ) = _units(edge)
+    selected: list[dict[str, Any]] = []
+
+    # FlowER includes organometallic coordination and occasional homolysis as
+    # two one-electron diagonal changes coupled to one bond-order change.  Keep
+    # that elementary event atomic with an explicit RADICAL_PAIR container.
+    for pair in list(increased):
+        if all(atom in radical_loss for atom in pair):
+            increased.remove(pair)
+            for atom in pair:
+                radical_loss.remove(atom)
+            selected.append(
                 {
-                    "source": {"kind": "LP", "atoms": [donor]},
+                    "source": {"kind": "RADICAL_PAIR", "atoms": list(pair)},
                     "sink": {"kind": "BOND", "atoms": list(pair)},
                     "electrons": 2,
                 }
             )
-        else:
-            remaining_increased.append(pair)
-
-    remaining_decreased: list[tuple[int, int]] = []
-    for pair in decreased:
-        acceptors = [atom for atom in lp_gain if atom in pair]
-        if len(acceptors) == 1:
-            acceptor = acceptors[0]
-            lp_gain.remove(acceptor)
-            moves.append(
+    for pair in list(decreased):
+        if all(atom in radical_gain for atom in pair):
+            decreased.remove(pair)
+            for atom in pair:
+                radical_gain.remove(atom)
+            selected.append(
                 {
                     "source": {"kind": "BOND", "atoms": list(pair)},
-                    "sink": {"kind": "ATOM", "atoms": [acceptor]},
+                    "sink": {"kind": "RADICAL_PAIR", "atoms": list(pair)},
                     "electrons": 2,
                 }
             )
-        else:
-            remaining_decreased.append(pair)
-
-    while remaining_decreased or remaining_increased:
-        candidates: list[tuple[int, int]] = []
-        for old_index, old_pair in enumerate(remaining_decreased):
-            for new_index, new_pair in enumerate(remaining_increased):
-                if len(set(old_pair) & set(new_pair)) == 1:
-                    candidates.append((old_index, new_index))
-        if len(candidates) != 1:
-            raise ValueError(
-                "AMBIGUOUS_ELECTRON_PAIRING: "
-                f"decreased={remaining_decreased} increased={remaining_increased}"
-            )
-        old_index, new_index = candidates[0]
-        old_pair = remaining_decreased.pop(old_index)
-        new_pair = remaining_increased.pop(new_index)
-        moves.append(
-            {
-                "source": {"kind": "BOND", "atoms": list(old_pair)},
-                "sink": {"kind": "BOND", "atoms": list(new_pair)},
-                "electrons": 2,
-            }
-        )
-
-    if lp_gain or lp_loss:
-        raise ValueError(
-            f"UNPAIRED_LONE_PAIR_DELTA: gain={lp_gain} loss={lp_loss}"
-        )
-    if not moves:
+    if radical_gain or radical_loss:
+        return _be_delta_move(edge)
+    sources = sorted(
+        [("LP", (atom,)) for atom in lp_loss]
+        + [("BOND", pair) for pair in decreased]
+    )
+    sinks = sorted(
+        [("ATOM", (atom,)) for atom in lp_gain]
+        + [("BOND", pair) for pair in increased]
+    )
+    if not sources and not sinks and selected:
+        return tuple(selected)
+    if not sources and not sinks:
         raise ValueError("EDGE_HAS_NO_INFERABLE_MOVES")
-    return tuple(moves)
+    if len(sources) != len(sinks):
+        return _be_delta_move(edge)
+
+    expected_charge = {
+        int(action.atom_map): int(action.q1) - int(action.q0)
+        for action in edge.charges
+        if int(action.q1) != int(action.q0)
+    }
+
+    def candidate(
+        source: tuple[str, tuple[int, ...]],
+        sink: tuple[str, tuple[int, ...]],
+    ) -> tuple[dict[str, Any], dict[int, int]] | None:
+        source_kind, source_atoms = source
+        sink_kind, sink_atoms = sink
+        charge: dict[int, int] = {}
+        if source_kind == "LP" and sink_kind == "BOND":
+            donor = source_atoms[0]
+            if donor not in sink_atoms:
+                return None
+            acceptor = next(atom for atom in sink_atoms if atom != donor)
+            charge = {donor: 1, acceptor: -1}
+        elif source_kind == "BOND" and sink_kind == "ATOM":
+            target = sink_atoms[0]
+            if target not in source_atoms:
+                return None
+            other = next(atom for atom in source_atoms if atom != target)
+            charge = {target: -1, other: 1}
+        elif source_kind == sink_kind == "BOND":
+            shared = set(source_atoms) & set(sink_atoms)
+            if len(shared) != 1:
+                return None
+            centre = next(iter(shared))
+            old = next(atom for atom in source_atoms if atom != centre)
+            new = next(atom for atom in sink_atoms if atom != centre)
+            charge = {old: 1, new: -1}
+        else:
+            return None
+        move = {
+            "source": {"kind": source_kind, "atoms": list(source_atoms)},
+            "sink": {"kind": sink_kind, "atoms": list(sink_atoms)},
+            "electrons": 2,
+        }
+        return move, charge
+
+    options = [
+        [(sink_index, candidate(source, sink)) for sink_index, sink in enumerate(sinks)]
+        for source in sources
+    ]
+    options = [
+        [(sink_index, value) for sink_index, value in row if value is not None]
+        for row in options
+    ]
+    if any(not row for row in options):
+        return _be_delta_move(edge)
+
+    def search(
+        source_index: int,
+        used_sinks: set[int],
+        charge_delta: dict[int, int],
+    ) -> bool:
+        if source_index == len(sources):
+            normalized = {
+                atom: delta for atom, delta in charge_delta.items() if delta
+            }
+            return normalized == expected_charge
+        for sink_index, value in options[source_index]:
+            if sink_index in used_sinks:
+                continue
+            assert value is not None
+            move, contribution = value
+            updated = dict(charge_delta)
+            for atom, delta in contribution.items():
+                updated[atom] = updated.get(atom, 0) + delta
+            selected.append(move)
+            used_sinks.add(sink_index)
+            if search(source_index + 1, used_sinks, updated):
+                return True
+            used_sinks.remove(sink_index)
+            selected.pop()
+        return False
+
+    if not search(0, set(), {}):
+        return _be_delta_move(edge)
+    return tuple(selected)
 
 
 def _linear_edges(program) -> tuple[str, list[ProofEdge]]:

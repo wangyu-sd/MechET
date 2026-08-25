@@ -1,5 +1,14 @@
 # Data
 
+## Artifact status labels
+
+Before using any generated dataset, read the nearest `ARTIFACT_STATUS.json`.
+`scripts/train_tool_sft.py` rejects an artifact whose sidecar has
+`training_allowed: false`. The persistent registries are
+`configs/datasets/flower_artifacts.json` and
+`configs/datasets/mech_uspto_31k_artifacts.json`; human-readable mech-USPTO
+lineage is recorded in `docs/MECH_USPTO_31K_ARTIFACT_REGISTRY.md`.
+
 ## Benchmark-universe rule
 
 Headline one-step retrosynthesis experiments use the **complete reaction-level splits**:
@@ -102,9 +111,11 @@ python scripts/forward_expert_data.py download \
 Build the **full reaction-level endpoint benchmark** with no executor filtering:
 
 ```bash
-python scripts/build_mech_uspto_full_endpoint_sft.py \
-  --data-root data/raw/mech_uspto_31k/data \
-  --output-dir data/mech_uspto_31k_full_endpoint_sft
+PYTHONPATH=artifacts/rxnmapper_pydeps \
+python scripts/build_mech_uspto31k_rxnmapper_baseline.py \
+  --hf-root data/raw/mech_uspto_31k/data \
+  --output-dir data/mech_uspto_31k_full_endpoint_rxnmapper \
+  --localretro-dir data/baselines/localretro_mech_uspto_31k_rxnmapper
 ```
 
 The builder groups elementary rows by `rxn_idx`. For each reaction it uses `elem_reac_min` from `step_idx_forward = 0` as the precursor-side reference and the unique reaction-level `rxn_prod_min` as the product. It requires all 31,199 reactions to be present and does not run the executor, discard unsupported mechanisms, or perform trace stitching.

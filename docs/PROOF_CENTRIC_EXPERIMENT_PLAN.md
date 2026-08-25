@@ -1,6 +1,8 @@
-# Authoritative experiment contract
+# Legacy proof-centric implementation contract
 
-> **Role:** paper-level claims, mandatory comparisons, integrity gates, and falsification criteria  
+> **Role:** detailed implementation and integrity gates. Paper-level experiment
+> names and priorities are controlled by
+> [`PAPER_EXPERIMENT_PROTOCOL.md`](PAPER_EXPERIMENT_PROTOCOL.md).
 > **Commands:** [`EXECUTION_PLAN.md`](EXECUTION_PLAN.md)  
 > **Detailed runtime and data contracts:** [`TRACE_FAITHFULNESS.md`](TRACE_FAITHFULNESS.md), [`TOOL_SFT.md`](TOOL_SFT.md), [`PROOF_EQUIVALENCE.md`](PROOF_EQUIVALENCE.md), and [`KNOWLEDGE_ABLATIONS.md`](KNOWLEDGE_ABLATIONS.md)
 
@@ -286,7 +288,10 @@ family-wise false-acceptance and false-rejection analysis
 
 ## Scale and planning
 
-Scale studies, RL reward decomposition, K-hypothesis search, and multistep planning are downstream experiments. They begin only after H1–H3 pilots pass and cannot rescue a failed causal or compositional claim.
+Scale studies, RL reward decomposition, textbook/RAG, K-hypothesis search, and
+multistep planning are downstream or separate studies. They begin only after
+the paper's matched SFT, R3 and R4-C2 results are frozen and cannot rescue a
+failed causal or compositional claim.
 
 ## Prohibited interpretations
 

@@ -1,0 +1,54 @@
+condition_name: qwen3_8b_qlora_runtime_smoke
+scientific_hypothesis: runtime_only_not_an_experiment
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/textbook_tool_sft/test.jsonl
+validation_file: ""
+output_dir: /tmp/mechet_qwen3_8b_qlora_t4_smoke
+limit_examples: 1
+
+training:
+  qlora: true
+  attention_implementation: mechet_xformers_causal
+  bf16: false
+  fp16: true
+  tf32: false
+  learning_rate: 2.0e-5
+  num_train_epochs: 1
+  max_steps: 1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 1
+  max_length: 20480
+  packing: false
+  assistant_only_loss: true
+  group_by_length: false
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config:
+    rope: false
+    rms_norm: false
+    swiglu: false
+    cross_entropy: false
+    fused_linear_cross_entropy: true
+  dataloader_num_workers: 0
+  logging_steps: 1
+  save_steps: 10
+  save_total_limit: 1
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  expected_upstream_endpoint_fallback_rows: 0
+  require_trace_owned: true
+  environment_revision: trace_owned_move_replay_v3_radical_pair
+  executor_revision: MECH_PROOF_v1_full_coverage_v4
+  terminal_tool: finish_trace
+  real_overfit_smoke_test_required: true

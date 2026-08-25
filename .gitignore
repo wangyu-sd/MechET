@@ -19,6 +19,9 @@ venv/
 # Data & outputs (large)
 artifacts/
 data/**
+!data/**/
+!data/**/ARTIFACT_STATUS.json
+!data/**/COMPILER_LINEAGE.json
 !data/README.md
 !data/FORWARD_EXPERT.md
 !data/samples/
