@@ -46,12 +46,6 @@ def prediction_runtime_contract(
             "samples_per_target": model.get("samples_per_target"),
             "seed": model.get("seed"),
             "candidate_selector": model.get("candidate_selector"),
-            "max_tool_calls": model.get("max_tool_calls"),
-            "prompt_source": model.get("prompt_source"),
-            "prompt_contract_sha256": model.get("prompt_contract_sha256"),
-            "tool_schema_sha256": model.get("tool_schema_sha256"),
-            "config_sha256": model.get("config_sha256"),
-            "data_sha256": model.get("data_sha256"),
         }
         if include_adapter:
             contract["adapter_sha256"] = model.get("adapter_sha256")
