@@ -52,6 +52,7 @@ not answers, rewards, or validity oracles."""
 DIRECT_SYSTEM = """Predict the atom-contributing structural precursor SMILES.
 Return one line beginning with PRECURSOR:."""
 CANDIDATE_SELECTOR = "sample0_direct__formal_trace_reward_failures_v1"
+REFERENCE_OBSERVATION_MARKER = "INITIAL ENVIRONMENT OBSERVATION:\n"
 
 
 def load_yaml(path: Path | None) -> dict[str, Any]:
@@ -266,9 +267,127 @@ def _direct_messages(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _trace_messages(
-    row: Mapping[str, Any], mode: str, observation: str
+def _reference_trace_messages(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Return the exact system/user preamble used to train this row."""
+    system = next(
+        (
+            dict(message)
+            for message in row.get("messages") or []
+            if message.get("role") == "system"
+        ),
+        None,
+    )
+    user = next(
+        (
+            dict(message)
+            for message in row.get("messages") or []
+            if message.get("role") == "user"
+        ),
+        None,
+    )
+    if system is None or user is None:
+        raise ValueError("reference row has no system/user training preamble")
+    target = str(row.get("target_smiles") or "")
+    if not str(user.get("content") or "").startswith(f"TARGET: {target}\n"):
+        raise ValueError("reference user prompt does not match target_smiles")
+    return [system, user]
+
+
+def _reference_initial_observation(row: Mapping[str, Any]) -> dict[str, Any]:
+    user = _reference_trace_messages(row)[1]
+    content = str(user.get("content") or "")
+    if REFERENCE_OBSERVATION_MARKER not in content:
+        raise ValueError("reference user prompt has no initial observation")
+    payload = content.split(REFERENCE_OBSERVATION_MARKER, 1)[1].strip()
+    value = json.loads(payload)
+    if not isinstance(value, dict):
+        raise ValueError("reference initial observation is not a JSON object")
+    return dict(value)
+
+
+def _reference_tools(
+    rows: list[Mapping[str, Any]], runtime_tools: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
+    encoded = {
+        json.dumps(row.get("tools") or [], sort_keys=True, separators=(",", ":"))
+        for row in rows
+    }
+    if len(encoded) != 1:
+        raise ValueError("reference rows do not share one frozen tool schema")
+    tools = json.loads(next(iter(encoded)))
+    if not tools:
+        raise ValueError("reference rows have no frozen tool schema")
+    if tools != runtime_tools:
+        raise ValueError("reference and runtime tool schemas differ")
+    return tools
+
+
+def _reference_prompt_contract(
+    rows: list[Mapping[str, Any]],
+    *,
+    tools: list[dict[str, Any]],
+    env_config: AgentEnvConfig | KnowledgeAgentConfig,
+    max_iterations: int,
+) -> dict[str, Any]:
+    observations = [_reference_initial_observation(row) for row in rows]
+    budgets = {int(item.get("max_tool_calls") or 0) for item in observations}
+    modes = {
+        str((item.get("faithfulness_contract") or {}).get("observation_mode") or "")
+        for item in observations
+    }
+    system_prompts = {
+        str(_reference_trace_messages(row)[0].get("content") or "") for row in rows
+    }
+    if len(budgets) != 1 or 0 in budgets:
+        raise ValueError(f"reference rows have inconsistent tool budgets: {sorted(budgets)}")
+    budget = next(iter(budgets))
+    if budget != int(env_config.max_tool_calls):
+        raise ValueError(
+            f"reference max_tool_calls={budget} != runtime {env_config.max_tool_calls}"
+        )
+    if max_iterations != budget:
+        raise ValueError(
+            f"reference max_tool_calls={budget} != max_iterations={max_iterations}"
+        )
+    if modes != {str(env_config.observation_mode)}:
+        raise ValueError(
+            f"reference observation modes {sorted(modes)} != runtime "
+            f"{env_config.observation_mode}"
+        )
+    if len(system_prompts) != 1:
+        raise ValueError("reference rows do not share one frozen system prompt")
+    schema_payload = json.dumps(tools, sort_keys=True, separators=(",", ":"))
+    system_prompt = next(iter(system_prompts))
+    value = {
+        "source": "reference_training_messages_v1",
+        "max_tool_calls": budget,
+        "max_iterations": max_iterations,
+        "observation_mode": str(env_config.observation_mode),
+        "system_prompt_sha256": hashlib.sha256(system_prompt.encode()).hexdigest(),
+        "tool_schema_sha256": hashlib.sha256(schema_payload.encode()).hexdigest(),
+    }
+    value["contract_sha256"] = hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return value
+
+
+def _trace_messages(
+    row: Mapping[str, Any],
+    mode: str,
+    observation: str,
+    *,
+    prompt_source: str = "runtime",
+) -> list[dict[str, Any]]:
+    if prompt_source == "reference":
+        if mode != "trace":
+            raise ValueError("reference prompt source is supported only for trace mode")
+        reference_observation = _reference_initial_observation(row)
+        runtime_observation = json.loads(observation)
+        for key in ("task", "max_tool_calls", "faithfulness_contract"):
+            if reference_observation.get(key) != runtime_observation.get(key):
+                raise ValueError(f"reference/runtime initial observation mismatch: {key}")
+        return _reference_trace_messages(row)
     suffix = (
         EVIDENCE_SUFFIX
         if mode in {"textbook", "irrelevant", "anchors", "combined"}
@@ -462,6 +581,7 @@ def _run_trace_candidate(
     temperature: float,
     top_p: float,
     scripted_actions: list[dict[str, Any]] | None,
+    prompt_source: str,
     sample_index: int,
     seed: int,
 ) -> dict[str, Any]:
@@ -480,7 +600,12 @@ def _run_trace_candidate(
     if mode in {"anchors", "combined"}:
         reset_kwargs["frozen_anchor_result"] = _tool_result(row, "retrieve_primitives")
     observation = env.reset(**reset_kwargs)
-    messages = _trace_messages(row, mode, observation)
+    messages = _trace_messages(
+        row,
+        mode,
+        observation,
+        prompt_source=prompt_source,
+    )
     if scripted_actions is not None:
         result = scripted_rollout(env, scripted_actions, messages=messages)
         result.update(
@@ -488,6 +613,7 @@ def _run_trace_candidate(
                 "sample_index": sample_index,
                 "seed": seed,
                 "termination_reason": "scripted",
+                "candidate_status": "scripted",
             }
         )
         return result
@@ -530,6 +656,9 @@ def _run_trace_candidate(
         "exchanges": exchanges,
         "rollout_state": env._snapshot(),
         "termination_reason": termination_reason,
+        "candidate_status": (
+            "generation_error" if generation_error else termination_reason
+        ),
         "generation_error": generation_error,
     }
 
@@ -734,6 +863,15 @@ def main() -> int:
     parser.add_argument("--intervention-source", type=Path)
     parser.add_argument("--samples-per-target", type=int, default=1)
     parser.add_argument(
+        "--prompt-source",
+        choices=["runtime", "reference"],
+        default="runtime",
+        help=(
+            "runtime rebuilds the inference preamble; reference reuses the exact "
+            "system/user training messages and hard-validates budget/schema parity"
+        ),
+    )
+    parser.add_argument(
         "--direct-sample-batch-size",
         type=int,
         default=1,
@@ -846,6 +984,33 @@ def main() -> int:
                 f"{len(oversized)} rows exceed environment.max_tool_calls={budget}; "
                 f"examples={oversized[:10]}"
             )
+    if args.prompt_source == "reference":
+        if env_config is None:
+            raise ValueError("reference prompt source requires a tool environment")
+        tools = _reference_tools(rows, tools)
+        prompt_contract = _reference_prompt_contract(
+            rows,
+            tools=tools,
+            env_config=env_config,
+            max_iterations=args.max_iterations,
+        )
+    else:
+        schema_payload = json.dumps(tools, sort_keys=True, separators=(",", ":"))
+        prompt_contract = {
+            "source": "runtime_generated_v1",
+            "max_tool_calls": (
+                int(env_config.max_tool_calls) if env_config is not None else None
+            ),
+            "max_iterations": args.max_iterations,
+            "observation_mode": (
+                str(env_config.observation_mode) if env_config is not None else None
+            ),
+            "tool_schema_sha256": hashlib.sha256(schema_payload.encode()).hexdigest(),
+        }
+        prompt_contract["contract_sha256"] = hashlib.sha256(
+            json.dumps(prompt_contract, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+    config_hash = path_sha256(args.config) if args.config is not None else ""
 
     dry_payload = {
         "artifact_type": "inference_dry_run",
@@ -865,8 +1030,11 @@ def main() -> int:
         "tokenizer_revision": tokenizer_revision,
         "adapter": adapter or None,
         "adapter_sha256": adapter_hash or None,
+        "config_sha256": config_hash or None,
+        "data_sha256": data_hash,
         "seed": args.seed,
         "candidate_selector": CANDIDATE_SELECTOR,
+        "prompt_contract": prompt_contract,
         "direct_sample_batch_size": args.direct_sample_batch_size,
         "selected_sources": list(args.selected_sources),
         "shard_count": args.shard_count,
@@ -981,6 +1149,7 @@ def main() -> int:
                             temperature=args.temperature,
                             top_p=args.top_p,
                             scripted_actions=actions,
+                            prompt_source=args.prompt_source,
                             sample_index=sample_index,
                             seed=seed,
                         )
@@ -1021,6 +1190,16 @@ def main() -> int:
                     "direct_sample_batch_size": args.direct_sample_batch_size,
                     "seed": args.seed,
                     "candidate_selector": CANDIDATE_SELECTOR,
+                    "max_tool_calls": (
+                        int(env_config.max_tool_calls)
+                        if env_config is not None
+                        else None
+                    ),
+                    "prompt_source": args.prompt_source,
+                    "prompt_contract_sha256": prompt_contract["contract_sha256"],
+                    "tool_schema_sha256": prompt_contract["tool_schema_sha256"],
+                    "config_sha256": config_hash or None,
+                    "data_sha256": data_hash,
                     "software_versions": versions,
                 },
                 "metadata": {
@@ -1058,8 +1237,11 @@ def main() -> int:
         "tokenizer_revision": tokenizer_revision,
         "adapter": adapter or None,
         "adapter_sha256": adapter_hash or None,
+        "config_sha256": config_hash or None,
+        "data_sha256": data_hash,
         "seed": args.seed,
         "candidate_selector": CANDIDATE_SELECTOR,
+        "prompt_contract": prompt_contract,
         "selected_sources": list(args.selected_sources),
         "shard_count": args.shard_count,
         "shard_index": args.shard_index,

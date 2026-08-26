@@ -140,6 +140,23 @@ CEIR, SAE and frozen round-trip plausibility where applicable. Also record
 supervised tokens, optimizer steps, GPU-hours, candidates per target, generated
 tokens, environment transitions, wall time and peak memory.
 
+### Frozen interactive-inference contract
+
+An interactive A7 result is valid only when inference reuses the frozen
+training system prompt and tool schema and matches the observation mode,
+tool-call budget and outer iteration budget exactly. Candidate count is part of
+the denominator: missing, OOM and generation-error candidates are retained as
+explicit failures. Each result bundle records first-candidate and
+gold-independent NLL-selected mapped, structural map-free and neutralized
+metrics, together with per-candidate completion status and cumulative/mean
+assistant NLL. It also freezes adapter, dataset, compiler, executor, prompt
+contract and inference-config hashes/revisions.
+
+The pre-issue-36 mech-USPTO current-compiler rollout violated this contract
+(12-call training prompt versus 40-call runtime, regenerated prompt, and two
+workers per 40-GiB A100). Its approximately 1.60% Pass@10 is diagnostic-only
+and is not a paper comparison.
+
 ## Explicitly outside this ICLR protocol
 
 Textbook/RAG/H3 and multistep route planning are separate future studies.

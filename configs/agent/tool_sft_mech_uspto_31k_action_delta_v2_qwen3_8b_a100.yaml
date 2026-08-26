@@ -10,7 +10,8 @@ output_dir: outputs/agent/tool_sft_mech_uspto_31k_action_delta_v2_qwen3_8b
 limit_examples: 0
 
 environment:
-  max_tool_calls: 40
+  # Must match the frozen initial observation in every training/test row.
+  max_tool_calls: 12
   observation_mode: action_delta
 
 training:
