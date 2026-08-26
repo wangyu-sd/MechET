@@ -853,7 +853,12 @@ def main() -> int:
     )
     parser.add_argument(
         "--observation-mode",
-        choices=["action_delta", "reaction_center_delta", "full_state"],
+        choices=[
+            "action_delta",
+            "compact_full_state",
+            "reaction_center_delta",
+            "full_state",
+        ],
         default=None,
         help=(
             "Model-visible environment feedback. If omitted, trace conditions "

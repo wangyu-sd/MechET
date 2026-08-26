@@ -260,7 +260,9 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
         )
         visible = dict(result)
         if self.config.observation_mode != "full_state":
-            visible.pop("state_smiles", None)
+            state_smiles = visible.pop("state_smiles", self.current_state)
+            if self.config.observation_mode == "compact_full_state":
+                visible["current_state_smiles"] = state_smiles
             visible["observation_mode"] = (
                 f"{self.config.observation_mode}_v1"
             )
@@ -309,7 +311,9 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
         self.trace.append({"event": "retrieve_primitives", "result": result})
         visible = dict(result)
         if self.config.observation_mode != "full_state":
-            visible.pop("state_smiles", None)
+            state_smiles = visible.pop("state_smiles", self.current_state)
+            if self.config.observation_mode == "compact_full_state":
+                visible["current_state_smiles"] = state_smiles
             visible["observation_mode"] = (
                 f"{self.config.observation_mode}_v1"
             )

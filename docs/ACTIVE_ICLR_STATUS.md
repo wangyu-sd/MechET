@@ -18,14 +18,14 @@ Last updated: 2026-08-26.
 The old protocol-mismatched ~1.60% mech-USPTO action-delta result remains
 **diagnostic only**.
 
-## Only two active ICLR issues
+## Active ICLR issue
 
-### #36 — matched mech-USPTO action-delta rerun
+### #36 — matched mech-USPTO action-delta rerun (closed)
 
 Implementation/protocol repair is complete on `main` via PR #40.
-The issue stays open only until the complete K=10 + NLL-ranked rerun artifact
-finishes and is validated. Do not create another implementation branch unless
-the frozen rerun itself exposes a new bug.
+Issue #36 was closed on 2026-08-26. Do not create, retry or expand experiments
+under #36. The one already-running K=10 + NLL task may finish and be archived;
+any newly discovered defect must be scoped as a separate issue.
 
 ### #37 — compact-full-state A7 main run
 
@@ -59,6 +59,17 @@ Fast execution gate:
 
 Do not wait for three new matched full trainings before obtaining the A7 result.
 
+Gate status on 2026-08-26:
+
+- 2,048 frozen training rows rebuilt with zero quarantine;
+- stable IDs, assistant actions, every authoritative state and the executed
+  endpoint are identical to the matching legacy full-state rows;
+- no model-visible proof/digest or duplicated before/after state fields;
+- Qwen3-8B chat-template input tokens are 11,951,517 vs 23,721,228, or
+  **50.38%** of legacy full-state;
+- full strict-universe train/valid/test construction is in progress; submit
+  exactly one resumable 1-epoch A7 job after the full artifact audit passes.
+
 ## Consolidated / deferred issues
 
 - #38 is superseded by #37. Its useful content (lossless removal of redundant
@@ -69,6 +80,7 @@ Do not wait for three new matched full trainings before obtaining the A7 result.
 ## Priority order
 
 1. implement + launch #37 compact-full-state A7;
-2. finish the already-prepared #36 matched rerun artifact;
+2. allow the already-running #36 matched rerun artifact to finish; do not
+   create a replacement;
 3. external baselines / paper analyses continue independently;
 4. do not reopen marked-SMILES representation work before the main A7 result.
