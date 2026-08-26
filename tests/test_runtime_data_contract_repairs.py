@@ -9,10 +9,12 @@ import pytest
 import yaml
 
 from mechet.assistant_masking import encode_assistant_only_conversation
+from mechet.agent_env import AgentEnvConfig
 from mechet.model_revision import (
     resolve_lineage_revision,
     resolve_loaded_model_revision,
 )
+from mechet.tool_schemas import trace_tool_schemas
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -177,6 +179,75 @@ def test_inference_revision_prefers_frozen_adapter_over_mutable_config():
             scripted=False,
         )
     assert module._resolve_revision({}, "", {}, scripted=True) == "scripted"
+
+
+def _reference_trace_row(max_tool_calls: int = 12) -> dict:
+    observation = {
+        "task": "trace_owned_inverse_electron_flow",
+        "max_tool_calls": max_tool_calls,
+        "faithfulness_contract": {
+            "free_form_proof_submission": False,
+            "endpoint_source": "environment_owned_trace",
+            "final_tool": "finish_trace",
+            "declared_moves_replayed_before_compilation": True,
+            "observation_mode": "action_delta",
+        },
+    }
+    return {
+        "id": "matched-contract",
+        "target_smiles": "[CH3:1][OH:2]",
+        "messages": [
+            {"role": "system", "content": "FROZEN TRAIN SYSTEM"},
+            {
+                "role": "user",
+                "content": (
+                    "TARGET: [CH3:1][OH:2]\nFrozen training instruction.\n\n"
+                    "INITIAL ENVIRONMENT OBSERVATION:\n"
+                    + json.dumps(observation)
+                ),
+            },
+        ],
+        "tools": trace_tool_schemas(),
+    }
+
+
+def test_reference_prompt_contract_reuses_training_preamble_and_budget():
+    module = load_script("infer_mechet.py")
+    row = _reference_trace_row()
+    tools = module._reference_tools([row], trace_tool_schemas())
+    env_config = AgentEnvConfig(max_tool_calls=12, observation_mode="action_delta")
+    contract = module._reference_prompt_contract(
+        [row], tools=tools, env_config=env_config, max_iterations=12
+    )
+    assert contract["source"] == "reference_training_messages_v1"
+    assert contract["max_tool_calls"] == contract["max_iterations"] == 12
+    runtime_observation = json.dumps(
+        {
+            **module._reference_initial_observation(row),
+            "instructions": ["runtime-only display text is not model-visible"],
+        }
+    )
+    assert module._trace_messages(
+        row,
+        "trace",
+        runtime_observation,
+        prompt_source="reference",
+    ) == row["messages"][:2]
+
+
+def test_reference_prompt_contract_rejects_budget_mismatch():
+    module = load_script("infer_mechet.py")
+    row = _reference_trace_row()
+    with pytest.raises(ValueError, match="reference max_tool_calls=12 != runtime 40"):
+        module._reference_prompt_contract(
+            [row],
+            tools=trace_tool_schemas(),
+            env_config=AgentEnvConfig(
+                max_tool_calls=40,
+                observation_mode="action_delta",
+            ),
+            max_iterations=12,
+        )
 
 
 def test_inference_accepts_mapping_model_inputs(monkeypatch):

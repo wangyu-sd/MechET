@@ -55,7 +55,7 @@
 | FlowER full-reaction trace v4 | 257,171 / 2,890 / 28,971 rows; 289,024 strict traces + 8 labelled endpoint fallbacks; zero split-ID overlap |
 | FlowER A7 action-only screen | `action_delta_v1` frozen at 257,167 / 2,890 / 28,967 strict executable rows with zero state leaks; frozen cache is one lossless window per train row; real 8×A100 gradient training is active and the unused H20 candidate was stopped |
 | Full FlowER P0 control screens | A0 Direct and A2 State-CoT: 257,171 train rows; A3 NetEdit and auxiliary complete-proof: 257,167 strict-proof rows; all four 3-epoch adapters exist; clean complete-proof K=10 inference is running and A0/A2/A3 are queued with EOS-safe batched decoding; final Tier-A still requires common IDs and matched supervised-token budget |
-| mech-USPTO-31k inverse Tool-SFT v2 | 11,429/11,429 stitched traces accepted; replay/tokenizer audits passed; action-only Qwen3-8B completed three epochs on the 9,118-row train subset and its explicitly non-headline 1,124-row K=10 program-view rollout is queued |
+| mech-USPTO-31k inverse Tool-SFT v2 | Current compiler accepted 12,724/12,724 stitched traces (10,152 / 1,319 / 1,253); replay/tokenizer audits passed; action-only Qwen3-8B completed three epochs and issue #36 tracks the matched-contract K=10+NLL rerun on the explicitly non-headline 1,253-row program-view subset |
 | Qwen3 assistant-only token contract | Implemented; final-sequence mask and zero-truncation audit |
 | Future textbook/RAG evidence isolation | Implemented infrastructure; outside current ICLR protocol |
 | H1 causal-faithfulness result | **Not established** |

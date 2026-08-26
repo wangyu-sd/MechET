@@ -6,12 +6,16 @@ import argparse
 from collections import Counter
 import json
 from pathlib import Path
+import sys
 from typing import Any
+
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO / "src"))
 
 from rdkit import Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
-from mechet.endpoints import structural_exact
+from mechet.endpoints import mapped_exact, structural_exact
 from mechet.knowledge_ablation import read_jsonl
 
 
@@ -110,6 +114,34 @@ def score(args: argparse.Namespace) -> int:
             for candidate in row.get("candidates") or []:
                 messages = candidate.get("messages") or []
                 n_assistant = sum(message.get("role") == "assistant" for message in messages)
+                generation_error = str(candidate.get("generation_error") or "")
+                candidate_status = str(
+                    candidate.get("candidate_status")
+                    or candidate.get("termination_reason")
+                    or "missing_status"
+                )
+                item: dict[str, Any] = {
+                    "sample_index": int(candidate.get("sample_index") or 0),
+                    "assistant_turns": n_assistant,
+                    "candidate_status": candidate_status,
+                    "termination_reason": str(candidate.get("termination_reason") or ""),
+                    "generation_error": generation_error,
+                    "score_status": "ok",
+                }
+                if generation_error:
+                    item.update(
+                        {
+                            "score_status": "candidate_generation_error",
+                            "sequence_tokens": 0,
+                            "assistant_tokens": 0,
+                            "assistant_nll_sum": None,
+                            "assistant_logprob_sum": None,
+                            "assistant_mean_logprob": None,
+                            "assistant_mean_nll": None,
+                        }
+                    )
+                    scores.append(item)
+                    continue
                 encoded = tokenizer.apply_chat_template(
                     messages,
                     tools=row.get("tools") or None,
@@ -118,17 +150,13 @@ def score(args: argparse.Namespace) -> int:
                     return_tensors="pt",
                 )
                 ids = encoded["input_ids"][0].tolist()
-                item: dict[str, Any] = {
-                    "sample_index": int(candidate.get("sample_index") or 0),
-                    "sequence_tokens": len(ids),
-                    "assistant_turns": n_assistant,
-                    "score_status": "ok",
-                }
+                item["sequence_tokens"] = len(ids)
                 if len(ids) > args.max_length:
                     item.update(
                         {
                             "score_status": "sequence_too_long",
                             "assistant_tokens": 0,
+                            "assistant_nll_sum": None,
                             "assistant_logprob_sum": None,
                             "assistant_mean_logprob": None,
                             "assistant_mean_nll": None,
@@ -159,6 +187,7 @@ def score(args: argparse.Namespace) -> int:
                 item.update(
                     {
                         "assistant_tokens": n_tokens,
+                        "assistant_nll_sum": nll_sum,
                         "assistant_logprob_sum": -nll_sum if nll_sum is not None else None,
                         "assistant_mean_logprob": -mean_nll if mean_nll is not None else None,
                         "assistant_mean_nll": mean_nll,
@@ -234,23 +263,50 @@ def aggregate(args: argparse.Namespace) -> int:
     for identifier, reference in references.items():
         prediction = predictions[identifier]
         ranking = rankings[identifier]
+        candidates = list(prediction.get("candidates") or [])
+        if not candidates:
+            raise ValueError(f"prediction has no candidates: {identifier}")
+        first_candidate = min(
+            candidates, key=lambda item: int(item.get("sample_index") or 0)
+        )
+        first_final = (
+            (first_candidate.get("rollout_state") or {}).get("final_result") or {}
+        )
+        first_predicted = str(first_final.get("structural_precursor") or "")
         index = int(ranking["selected_candidate_index"])
-        candidate = prediction["candidates"][index]
+        candidate = candidates[index]
         final = (candidate.get("rollout_state") or {}).get("final_result") or {}
         predicted = str(final.get("structural_precursor") or "")
         expected = str(reference.get("structural_precursor") or "")
-        strict = structural_exact(predicted, expected)
+        mapped = mapped_exact(predicted, expected)
+        structural = structural_exact(predicted, expected)
         neutral = bool(predicted and _neutral_key(predicted) == _neutral_key(expected))
-        counts["strict_selected"] += strict
+        first_mapped = mapped_exact(first_predicted, expected)
+        first_structural = structural_exact(first_predicted, expected)
+        first_neutral = bool(
+            first_predicted and _neutral_key(first_predicted) == _neutral_key(expected)
+        )
+        counts["mapped_selected"] += mapped
+        counts["structural_selected"] += structural
         counts["neutralized_selected"] += neutral
+        counts["mapped_first"] += first_mapped
+        counts["structural_first"] += first_structural
+        counts["neutralized_first"] += first_neutral
         for item in ranking["candidate_scores"]:
             status[item["score_status"]] += 1
         selected_rows.append(
             {
                 "id": identifier,
                 "selected_candidate_index": index,
-                "strict_exact": strict,
+                "mapped_exact": mapped,
+                "structural_map_free_exact": structural,
+                "strict_exact": structural,
                 "neutralized_exact": neutral,
+                "first_candidate": {
+                    "mapped_exact": first_mapped,
+                    "structural_map_free_exact": first_structural,
+                    "neutralized_exact": first_neutral,
+                },
                 "ranking": ranking,
             }
         )
@@ -260,10 +316,23 @@ def aggregate(args: argparse.Namespace) -> int:
         "n_rows": len(references),
         "n_candidates": sum(status.values()),
         "score_status": dict(status),
-        "strict_selected_hits": counts["strict_selected"],
-        "strict_selected_accuracy": counts["strict_selected"] / len(references),
+        "mapped_selected_hits": counts["mapped_selected"],
+        "mapped_selected_accuracy": counts["mapped_selected"] / len(references),
+        "structural_map_free_selected_hits": counts["structural_selected"],
+        "structural_map_free_selected_accuracy": counts["structural_selected"]
+        / len(references),
+        "strict_selected_hits": counts["structural_selected"],
+        "strict_selected_accuracy": counts["structural_selected"] / len(references),
         "neutralized_selected_hits": counts["neutralized_selected"],
         "neutralized_selected_accuracy": counts["neutralized_selected"] / len(references),
+        "mapped_first_candidate_hits": counts["mapped_first"],
+        "mapped_first_candidate_accuracy": counts["mapped_first"] / len(references),
+        "structural_map_free_first_candidate_hits": counts["structural_first"],
+        "structural_map_free_first_candidate_accuracy": counts["structural_first"]
+        / len(references),
+        "neutralized_first_candidate_hits": counts["neutralized_first"],
+        "neutralized_first_candidate_accuracy": counts["neutralized_first"]
+        / len(references),
         "selection_uses_ground_truth": False,
         "evaluation_uses_ground_truth": True,
     }

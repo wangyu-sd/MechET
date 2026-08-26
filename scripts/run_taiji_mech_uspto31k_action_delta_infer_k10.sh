@@ -31,7 +31,8 @@ echo >&2 "WARNING: PROGRAM-VIEW SUBSET: this evaluates ${expected_rows}/3,120 me
 output_dir=${MECHET_INFERENCE_OUTPUT:-$default_output}
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
 samples_per_target=${SAMPLES_PER_TARGET:-10}
-workers_per_gpu=${MECHET_GENERATION_WORKERS_PER_GPU:-2}
+workers_per_gpu=${MECHET_GENERATION_WORKERS_PER_GPU:-1}
+max_iterations=${MECHET_MAX_ITERATIONS:-12}
 gpu_count=8
 full_endpoint_rows=3120
 revision=b968826d9c46dd6066d109eabc6255188de91218
@@ -48,13 +49,18 @@ export PYTHONPATH="$repo_dir/src:$repo_dir${PYTHONPATH:+:$PYTHONPATH}"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 if [[ ! "$samples_per_target" =~ ^[1-9][0-9]*$ ]] || \
-   [[ ! "$workers_per_gpu" =~ ^[1-9][0-9]*$ ]]; then
-  echo >&2 "samples and worker counts must be positive integers"
+   [[ ! "$workers_per_gpu" =~ ^[1-9][0-9]*$ ]] || \
+   [[ ! "$max_iterations" =~ ^[1-9][0-9]*$ ]]; then
+  echo >&2 "samples, worker, and iteration counts must be positive integers"
+  exit 2
+fi
+if [[ "$data_version" == "v2" && "$workers_per_gpu" -ne 1 ]]; then
+  echo >&2 "matched v2 evaluation requires exactly one generation worker per GPU"
   exit 2
 fi
 generation_shards=$((gpu_count * workers_per_gpu))
 
-python - "$config" "$reference" "$manifest" "$adapter" "$expected_gpu" "$revision" "$expected_rows" <<'PY'
+python - "$config" "$reference" "$manifest" "$adapter" "$expected_gpu" "$revision" "$expected_rows" "$max_iterations" <<'PY'
 import hashlib
 import json
 from pathlib import Path
@@ -63,7 +69,7 @@ import sys
 import torch
 import yaml
 
-config_path, reference_path, manifest_path, adapter_path, expected_gpu, revision, expected_rows = sys.argv[1:]
+config_path, reference_path, manifest_path, adapter_path, expected_gpu, revision, expected_rows, max_iterations = sys.argv[1:]
 config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
 reference = Path(reference_path)
 manifest_file = Path(manifest_path)
@@ -99,6 +105,52 @@ if str(adapter_manifest.get("train_file_sha256") or "") != str(
 contract = json.loads((adapter / "data_contract.json").read_text())
 if str(contract.get("observation_mode") or config["environment"]["observation_mode"]) != "action_delta":
     raise SystemExit("adapter data contract is not action_delta")
+artifact_status = dict(contract.get("artifact_status") or {})
+compiler_artifact_id = str(artifact_status.get("compiler_artifact_id") or "")
+executor_revision = str(adapter_manifest.get("executor_revision") or "")
+environment_revision = str(adapter_manifest.get("environment_revision") or "")
+if not compiler_artifact_id or not executor_revision or not environment_revision:
+    raise SystemExit("adapter lineage omits compiler/executor/environment revision")
+runtime_budget = int(config["environment"]["max_tool_calls"])
+if runtime_budget != int(max_iterations):
+    raise SystemExit(
+        f"environment.max_tool_calls={runtime_budget} != max_iterations={max_iterations}"
+    )
+systems = set()
+schemas = set()
+prompt_budgets = set()
+prompt_modes = set()
+marker = "INITIAL ENVIRONMENT OBSERVATION:\n"
+with reference.open(encoding="utf-8") as handle:
+    for line in handle:
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        systems.add(next(
+            str(item.get("content") or "")
+            for item in row["messages"]
+            if item.get("role") == "system"
+        ))
+        user = next(
+            str(item.get("content") or "")
+            for item in row["messages"]
+            if item.get("role") == "user"
+        )
+        if marker not in user:
+            raise SystemExit(f"row {row.get('id')} has no frozen initial observation")
+        observation = json.loads(user.split(marker, 1)[1])
+        prompt_budgets.add(int(observation.get("max_tool_calls") or 0))
+        prompt_modes.add(str(
+            (observation.get("faithfulness_contract") or {}).get("observation_mode")
+            or ""
+        ))
+        schemas.add(json.dumps(row.get("tools") or [], sort_keys=True, separators=(",", ":")))
+if len(systems) != 1 or len(schemas) != 1:
+    raise SystemExit("reference rows do not share one system prompt and tool schema")
+if prompt_budgets != {runtime_budget}:
+    raise SystemExit(f"reference prompt budgets {prompt_budgets} != runtime {runtime_budget}")
+if prompt_modes != {"action_delta"}:
+    raise SystemExit(f"reference prompt observation modes are {prompt_modes}")
 if torch.cuda.device_count() != 8:
     raise SystemExit(f"expected 8 GPUs, got {torch.cuda.device_count()}")
 names = [torch.cuda.get_device_name(index) for index in range(8)]
@@ -109,6 +161,14 @@ print(
         "benchmark_scope": "program_view_subset_not_full_endpoint",
         "test_rows": int(split["rows"]),
         "observation_mode": manifest["observation_mode"],
+        "max_tool_calls": runtime_budget,
+        "max_iterations": int(max_iterations),
+        "prompt_source": "reference_training_messages_v1",
+        "system_prompt_sha256": hashlib.sha256(next(iter(systems)).encode()).hexdigest(),
+        "tool_schema_sha256": hashlib.sha256(next(iter(schemas)).encode()).hexdigest(),
+        "compiler_artifact_id": compiler_artifact_id,
+        "executor_revision": executor_revision,
+        "environment_revision": environment_revision,
         "adapter": str(adapter.resolve()),
         "gpus": names,
     }
@@ -128,10 +188,11 @@ for worker in $(seq 0 $((generation_shards - 1))); do
     --observation-mode action_delta \
     --condition-name "mech_uspto31k_action_delta_${data_version}_k${samples_per_target}" \
     --adapter "$adapter" \
+    --prompt-source reference \
     --shard-count "$generation_shards" \
     --shard-index "$worker" \
     --samples-per-target "$samples_per_target" \
-    --max-iterations 12 \
+    --max-iterations "$max_iterations" \
     --max-new-tokens 512 \
     --temperature 0.7 \
     --top-p 0.95 \
@@ -150,7 +211,8 @@ if [[ "$status" -ne 0 ]]; then
   exit "$status"
 fi
 
-python - "$output_dir" "$expected_rows" "$full_endpoint_rows" "$samples_per_target" "$generation_shards" <<'PY'
+python - "$output_dir" "$expected_rows" "$full_endpoint_rows" "$samples_per_target" "$generation_shards" "$reference" "$manifest" "$config" "$adapter" <<'PY'
+from collections import Counter
 import hashlib
 import json
 from pathlib import Path
@@ -161,6 +223,10 @@ expected_rows = int(sys.argv[2])
 full_endpoint_rows = int(sys.argv[3])
 k = int(sys.argv[4])
 expected_shards = int(sys.argv[5])
+reference_path = Path(sys.argv[6])
+dataset_manifest_path = Path(sys.argv[7])
+config_path = Path(sys.argv[8])
+adapter_path = Path(sys.argv[9])
 shards = sorted((root / "generation").glob("predictions.shard-*.jsonl"))
 if len(shards) != expected_shards:
     raise SystemExit(f"expected {expected_shards} shards, got {len(shards)}")
@@ -177,19 +243,86 @@ predictions = root / "predictions.jsonl"
 with predictions.open("w", encoding="utf-8") as handle:
     for row in rows:
         handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-manifest = {
+candidate_status = Counter()
+generation_errors = 0
+oom_candidates = 0
+for row in rows:
+    for candidate in row.get("candidates") or []:
+        status = str(
+            candidate.get("candidate_status")
+            or candidate.get("termination_reason")
+            or "missing_status"
+        )
+        candidate_status[status] += 1
+        error = str(candidate.get("generation_error") or "")
+        generation_errors += int(bool(error))
+        oom_candidates += int("out of memory" in error.lower())
+shard_manifests = [
+    json.loads(path.with_suffix(path.suffix + ".manifest.json").read_text())
+    for path in shards
+]
+def require_one(field, *, encode=False):
+    values = {
+        (
+            json.dumps(item.get(field) or {}, sort_keys=True, separators=(",", ":"))
+            if encode
+            else str(item.get(field) or "")
+        )
+        for item in shard_manifests
+    }
+    if len(values) != 1 or not next(iter(values)):
+        raise SystemExit(f"generation shards disagree on or omit {field}: {values}")
+    return next(iter(values))
+
+runtime_contract = json.loads(require_one("prompt_contract", encode=True))
+adapter_sha256 = require_one("adapter_sha256")
+data_sha256 = require_one("data_sha256")
+config_sha256 = require_one("config_sha256")
+model_revision = require_one("model_revision")
+if data_sha256 != hashlib.sha256(reference_path.read_bytes()).hexdigest():
+    raise SystemExit("generation manifest/reference SHA-256 mismatch")
+if config_sha256 != hashlib.sha256(config_path.read_bytes()).hexdigest():
+    raise SystemExit("generation manifest/config SHA-256 mismatch")
+adapter_manifest_path = adapter_path / "adapter_manifest.json"
+adapter_contract_path = adapter_path / "data_contract.json"
+adapter_manifest = json.loads(adapter_manifest_path.read_text())
+adapter_contract = json.loads(adapter_contract_path.read_text())
+artifact_status = dict(adapter_contract.get("artifact_status") or {})
+compiler_artifact_id = str(artifact_status.get("compiler_artifact_id") or "")
+executor_revision = str(adapter_manifest.get("executor_revision") or "")
+environment_revision = str(adapter_manifest.get("environment_revision") or "")
+if not compiler_artifact_id or not executor_revision or not environment_revision:
+    raise SystemExit("adapter lineage omits compiler/executor/environment revision")
+run_manifest = {
     "artifact_type": "mech_uspto31k_action_delta_sampled_test_manifest",
     "benchmark_scope": "program_view_subset_not_full_endpoint",
     "headline_eligible_as_full_endpoint_benchmark": False,
     "n_targets": len(rows),
     "full_endpoint_test_denominator": full_endpoint_rows,
     "samples_per_target": k,
+    "n_candidates_expected": len(rows) * k,
+    "n_candidates_recorded": sum(candidate_status.values()),
+    "candidate_status": dict(sorted(candidate_status.items())),
+    "generation_error_candidates": generation_errors,
+    "oom_candidates": oom_candidates,
+    "candidate_coverage": sum(candidate_status.values()) / (len(rows) * k),
     "candidate_metric_semantics": "generation_order_pass_at_k; environment-ranked selected candidate reported separately",
+    "reference_sha256": hashlib.sha256(reference_path.read_bytes()).hexdigest(),
+    "dataset_manifest_sha256": hashlib.sha256(dataset_manifest_path.read_bytes()).hexdigest(),
+    "inference_config_sha256": config_sha256,
+    "adapter_sha256": adapter_sha256,
+    "adapter_manifest_sha256": hashlib.sha256(adapter_manifest_path.read_bytes()).hexdigest(),
+    "adapter_data_contract_sha256": hashlib.sha256(adapter_contract_path.read_bytes()).hexdigest(),
+    "base_model_revision": model_revision,
+    "compiler_artifact_id": compiler_artifact_id,
+    "executor_revision": executor_revision,
+    "environment_revision": environment_revision,
+    "prompt_contract": runtime_contract,
     "predictions": str(predictions.resolve()),
     "predictions_sha256": hashlib.sha256(predictions.read_bytes()).hexdigest(),
 }
-(root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-print(json.dumps(manifest, indent=2))
+(root / "manifest.json").write_text(json.dumps(run_manifest, indent=2) + "\n")
+print(json.dumps(run_manifest, indent=2))
 PY
 
 score_pids=()

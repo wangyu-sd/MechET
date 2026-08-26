@@ -215,7 +215,7 @@ torchrun --standalone --nproc_per_node=8 scripts/train_tool_sft.py \
   --config configs/agent/tool_sft_mech_uspto_31k_action_delta_v2_qwen3_8b_a100.yaml
 ```
 
-Its tokenizer audit covers all 11,429 rows with zero truncation; the largest
+Its tokenizer audit covers all 12,724 rows with zero truncation; the largest
 conversation is 3,049 tokens under the pinned Qwen3-8B tokenizer. A real run
 must finish with `adapter_manifest.json` and `data_contract.json` whose train
 SHA-256 equals the action-only manifest before inference is allowed.
@@ -226,11 +226,28 @@ After that adapter exists, the K=10 executable rollout runner is:
 bash scripts/run_taiji_mech_uspto31k_action_delta_infer_k10.sh
 ```
 
-The runner is resumable, uses two generation workers per GPU, validates the
-adapter/data/revision lineage, and reports generation-order Pass@1/5/10 plus
-the environment-selected candidate. It deliberately stamps every artifact as
-`program_view_subset_not_full_endpoint`: 1,124 is never a substitute for the
-official 3,120-reaction endpoint test denominator.
+For the current v2 artifact, the runner reuses the exact frozen training
+system/user preamble and tool schema. It requires the prompt, environment and
+outer rollout loop to share the same 12-call budget, and it uses one generation
+worker per 40-GiB A100. Any prompt/schema/budget mismatch fails before model
+loading. Each of the 1,253 rows must retain exactly ten candidates; generation
+errors and OOMs remain explicit failed candidates rather than disappearing
+from the denominator.
+
+The output bundle reports generation-order Pass@1/5/10 and gold-independent
+formal-execution-gated assistant-mean-NLL selection. NLL records retain both
+cumulative and mean assistant NLL, plus candidate completion/error status.
+First-candidate and NLL-selected results are each reported as mapped exact,
+structural map-free exact and neutralized exact. The run manifest freezes the
+adapter, dataset, compiler, executor, prompt contract and inference-config
+lineage. Every artifact is stamped `program_view_subset_not_full_endpoint`:
+1,253 is never a substitute for the official 3,120-reaction endpoint test
+denominator.
+
+The earlier approximately 1.60% Pass@10 result used a 40-call runtime against
+12-call training prompts, regenerated the prompt, and ran two workers per
+40-GiB A100. It is a protocol-mismatched diagnostic and must not be used as an
+architecture result. The matched rerun is tracked in GitHub issue #36.
 
 ### Legacy small-model configuration
 

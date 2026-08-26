@@ -111,3 +111,88 @@ def test_endpoint_evaluator_reports_pass_and_nll_ranked_topk(tmp_path: Path):
     assert report["generation_order"]["structural_pass_at_3"] == 1.0
     assert report["nll_ranked"]["structural_top_1"] == 1.0
     assert report["nll_ranked"]["selection_uses_ground_truth"] is False
+
+
+def test_trace_nll_report_separates_first_mapped_map_free_and_neutralized(tmp_path: Path):
+    reference = tmp_path / "reference.jsonl"
+    predictions = tmp_path / "predictions.jsonl"
+    ranking_dir = tmp_path / "ranking"
+    ranking_dir.mkdir()
+    output = tmp_path / "nll-evaluation.json"
+    reference.write_text(
+        json.dumps(
+            _row(
+                "r1",
+                "1",
+                "[CH3:1][OH:2]",
+                "[CH3:1][Br:3].[OH-:2]",
+            )
+        )
+        + "\n"
+    )
+    predictions.write_text(
+        json.dumps(
+            {
+                "id": "r1",
+                "prediction_mode": "trace",
+                "candidates": [
+                    {
+                        "sample_index": 0,
+                        "rollout_state": {
+                            "final_result": {
+                                "structural_precursor": "[CH3:10][Br:30].[OH-:20]",
+                                "formal_execute": True,
+                                "trace_bound": True,
+                            }
+                        },
+                    },
+                    {
+                        "sample_index": 1,
+                        "rollout_state": {
+                            "final_result": {
+                                "structural_precursor": "[CH3:1][Br:3].[OH-:2]",
+                                "formal_execute": True,
+                                "trace_bound": True,
+                            }
+                        },
+                    },
+                ],
+            }
+        )
+        + "\n"
+    )
+    (ranking_dir / "nll_scores.shard-000.jsonl").write_text(
+        json.dumps(
+            {
+                "id": "r1",
+                "selected_candidate_index": 1,
+                "candidate_scores": [
+                    {"assistant_mean_nll": 2.0, "score_status": "ok"},
+                    {"assistant_mean_nll": 1.0, "score_status": "ok"},
+                ],
+            }
+        )
+        + "\n"
+    )
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/score_and_rank_predictions.py",
+            "aggregate",
+            "--reference",
+            str(reference),
+            "--predictions",
+            str(predictions),
+            "--ranking-dir",
+            str(ranking_dir),
+            "--output",
+            str(output),
+        ],
+        check=True,
+    )
+    report = json.loads(output.read_text())
+    assert report["mapped_first_candidate_accuracy"] == 0.0
+    assert report["structural_map_free_first_candidate_accuracy"] == 1.0
+    assert report["mapped_selected_accuracy"] == 1.0
+    assert report["structural_map_free_selected_accuracy"] == 1.0
+    assert report["selection_uses_ground_truth"] is False
