@@ -185,6 +185,7 @@ def build_row(
             str(corpus) if corpus is not None else "knowledge/corpus/passages.jsonl"
         ),
         require_textbook_corpus=use_textbook,
+        enable_textbook_retrieval=use_textbook,
         max_tool_calls=max(16, required_calls + 2),
         textbook_top_k=top_k,
         textbook_max_characters=max_context_characters,

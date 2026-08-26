@@ -78,6 +78,22 @@ def test_action_delta_textbook_result_does_not_repeat_state(tmp_path):
     assert env.state_dict()["textbook_retrievals"][-1]["state_smiles"]
 
 
+def test_no_knowledge_mode_does_not_enable_an_existing_corpus(tmp_path):
+    corpus = tmp_path / "passages.jsonl"
+    write_corpus(corpus)
+    env = KnowledgeAugmentedAgentEnv(
+        config=KnowledgeAgentConfig(
+            textbook_corpus_path=str(corpus),
+            enable_textbook_retrieval=False,
+            require_textbook_corpus=False,
+        )
+    )
+
+    observation = json.loads(env.reset(target_smiles="[CH3:1][OH:2]"))
+
+    assert observation["knowledge"]["textbook_enabled"] is False
+
+
 def test_auto_retrieval_is_reproducible_and_bounded(tmp_path):
     corpus = tmp_path / "passages.jsonl"
     write_corpus(corpus)
