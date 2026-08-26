@@ -82,11 +82,15 @@ def score(args: argparse.Namespace) -> int:
     tokenizer = AutoTokenizer.from_pretrained(
         args.model, revision=args.revision, trust_remote_code=True
     )
+    if not torch.cuda.is_available():
+        raise RuntimeError("candidate NLL scoring requires a CUDA device")
+    compute_major, _ = torch.cuda.get_device_capability()
+    model_dtype = torch.bfloat16 if compute_major >= 8 else torch.float16
     base = AutoModelForCausalLM.from_pretrained(
         args.model,
         revision=args.revision,
         trust_remote_code=True,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=model_dtype,
         device_map="auto",
         # The Taiji H20 image does not ship the optional flash_attn package.
         # PyTorch SDPA selects its fused CUDA backend without that dependency.

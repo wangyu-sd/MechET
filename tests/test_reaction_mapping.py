@@ -41,6 +41,13 @@ def test_original_product_must_be_in_mechanism_final_mixture():
     mapped = product_only_reindex_reaction(
         "[CH3:1][Br:2].[OH-:3]>>[CH3:1][OH:3]"
     )
-    assert_product_contained_in_reference(mapped.products, "CO.[Br-]")
+    assert assert_product_contained_in_reference(mapped.products, "CO.[Br-]") == "exact"
     with pytest.raises(ValueError, match="absent from rxn_prod_min"):
         assert_product_contained_in_reference(mapped.products, "CC.[Br-]")
+
+
+def test_product_join_audit_accepts_named_neutralized_salt_fallback():
+    mode = assert_product_contained_in_reference(
+        "[CH3:1][NH:2][CH3:3]", "C[NH2+]C.[Cl-]"
+    )
+    assert mode == "neutralized"

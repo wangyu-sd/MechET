@@ -17,12 +17,33 @@ def test_outcome_uses_structural_precursor_only():
     answer = row["messages"][-1]["content"]
     assert "[Na+]" not in answer
     assert "[CH3:1][Br:3]" in answer
+    assert "outcome" not in row["messages"][0]["content"].lower()
+    assert row["messages"][1]["content"] == "TARGET: [CH3:1][OH:2]"
 
 
 def test_proof_has_no_answer_channel():
     row = build_proof_row(ROW)
     assert "<proof>" in row["messages"][-1]["content"]
     assert "<answer>" not in row["messages"][-1]["content"]
+    assert "MECH_PROOF v1" in row["messages"][0]["content"]
+
+
+def test_top_level_structural_precursor_is_supported():
+    row = dict(ROW)
+    row["structural_precursor"] = "[CH3:1][Br:3].[OH-:2]"
+    row["metadata"] = {}
+    assert "[CH3:1][Br:3]" in build_outcome_only_row(row)["messages"][-1]["content"]
+
+
+def test_representation_baseline_preserves_source_fallback_without_tool_semantics():
+    row = dict(ROW)
+    row["metadata"] = {
+        **ROW["metadata"],
+        "upstream_endpoint_fallback": True,
+    }
+    output = build_outcome_only_row(row)
+    assert "upstream_endpoint_fallback" not in output["metadata"]
+    assert output["metadata"]["source_upstream_endpoint_fallback"] is True
 
 
 def test_net_edit_is_single_step_baseline():

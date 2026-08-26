@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -41,6 +42,30 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def enforce_artifact_status(
+    train_file: Path, contract: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Fail closed when a dataset sidecar marks an artifact unsafe for training."""
+
+    status_path = train_file.parent / "ARTIFACT_STATUS.json"
+    if not status_path.is_file():
+        return None
+    status = dict(json.loads(status_path.read_text(encoding="utf-8")))
+    if bool(status.get("training_allowed")):
+        return status
+    override = bool(contract.get("allow_deprecated_artifact", False)) or os.environ.get(
+        "MECHET_ALLOW_DEPRECATED_ARTIFACT", ""
+    ).strip().lower() in {"1", "true", "yes"}
+    if not override:
+        artifact_id = str(status.get("artifact_id") or train_file.parent)
+        reason = str(status.get("reason") or "artifact is not approved for training")
+        raise ValueError(
+            f"ARTIFACT_TRAINING_FORBIDDEN:{artifact_id}:{reason}; "
+            "inspect ARTIFACT_STATUS.json and the dataset registry"
+        )
+    return status
+
+
 def selected_directory_sha256(path: Path) -> str:
     digest = hashlib.sha256()
     excluded = {"adapter_manifest.json", "data_contract.json"}
@@ -56,6 +81,62 @@ def selected_directory_sha256(path: Path) -> str:
             for chunk in iter(lambda: handle.read(1024 * 1024), b""):
                 digest.update(chunk)
     return digest.hexdigest()
+
+
+def resolve_cached_arrow_files(
+    cache_dir: Path, manifest_paths: list[str]
+) -> list[str]:
+    """Bind manifest shard names to the selected cache directory.
+
+    Pretokenization manifests are portable artifacts, but older manifests
+    record paths relative to the repository.  A node-local cache override must
+    not silently mmap those original Ceph paths again.
+    """
+
+    resolved: list[str] = []
+    for recorded in manifest_paths:
+        path = cache_dir / Path(recorded).name
+        if not path.is_file():
+            raise FileNotFoundError(f"cached Arrow shard does not exist: {path}")
+        resolved.append(str(path))
+    return resolved
+
+
+def resolve_resume_checkpoint(value: str | None, output_dir: Path) -> Path | None:
+    """Resolve an explicit checkpoint or the newest checkpoint in output_dir.
+
+    Resume is opt-in.  This prevents a benchmark output directory from silently
+    inheriting unrelated optimizer state while still making interrupted Taiji
+    jobs straightforward to continue.
+    """
+
+    requested = str(value or "").strip()
+    if not requested or requested.lower() in {"0", "false", "none", "no"}:
+        return None
+    if requested.lower() in {"1", "true", "auto", "latest"}:
+        candidates: list[tuple[int, Path]] = []
+        for path in output_dir.glob("checkpoint-*"):
+            if not path.is_dir():
+                continue
+            try:
+                step = int(path.name.rsplit("-", 1)[1])
+            except (IndexError, ValueError):
+                continue
+            if (path / "trainer_state.json").is_file():
+                candidates.append((step, path))
+        if not candidates:
+            raise FileNotFoundError(
+                f"no resumable checkpoint exists under {output_dir}"
+            )
+        return max(candidates, key=lambda item: item[0])[1]
+    checkpoint = Path(requested).expanduser()
+    if not checkpoint.is_dir():
+        raise FileNotFoundError(f"resume checkpoint does not exist: {checkpoint}")
+    if not (checkpoint / "trainer_state.json").is_file():
+        raise FileNotFoundError(
+            f"resume checkpoint has no trainer_state.json: {checkpoint}"
+        )
+    return checkpoint
 
 
 def read_rows(path: Path, limit: int = 0) -> list[dict[str, Any]]:
@@ -76,7 +157,10 @@ def schema_tool_names(tools: list[dict[str, Any]]) -> set[str]:
 
 
 def validate_conversation(
-    row: dict[str, Any], *, require_trace_owned: bool
+    row: dict[str, Any],
+    *,
+    require_trace_owned: bool,
+    allow_upstream_endpoint_fallback: bool = False,
 ) -> dict[str, int]:
     identifier = str(row.get("id") or "")
     messages = list(row.get("messages") or [])
@@ -131,6 +215,14 @@ def validate_conversation(
     if pending:
         raise ValueError(f"tool calls without results in {identifier}: {pending}")
     metadata = dict(row.get("metadata") or {})
+    if metadata.get("upstream_endpoint_fallback") is True:
+        if not allow_upstream_endpoint_fallback:
+            raise ValueError(f"endpoint fallback is not allowed: {identifier}")
+        if calls or results:
+            raise ValueError(f"endpoint fallback must not claim tool replay: {identifier}")
+        if metadata.get("endpoint_source") != "upstream_frozen_endpoint_fallback":
+            raise ValueError(f"endpoint fallback provenance is invalid: {identifier}")
+        return {"tool_calls": 0, "tool_results": 0, "finish_trace": 0}
     if require_trace_owned:
         if finish_trace != 1:
             raise ValueError(
@@ -150,13 +242,16 @@ def validate_conversation(
 
 
 def validate_rows(
-    rows: list[dict[str, Any]], *, require_trace_owned: bool
+    rows: list[dict[str, Any]],
+    *,
+    require_trace_owned: bool,
+    allow_upstream_endpoint_fallback: bool = False,
 ) -> dict[str, Any]:
     if not rows:
         raise ValueError("Tool-SFT dataset is empty")
     ids: set[str] = set()
     tool_calls = tool_results = finish_rows = trace_bound = 0
-    assistant_messages = 0
+    assistant_messages = upstream_endpoint_fallback_rows = 0
     per_row_calls: list[int] = []
     for row in rows:
         identifier = str(row.get("id") or "")
@@ -172,7 +267,12 @@ def validate_rows(
             message.get("role") == "assistant" for message in messages
         )
         counts = validate_conversation(
-            row, require_trace_owned=require_trace_owned
+            row,
+            require_trace_owned=require_trace_owned,
+            allow_upstream_endpoint_fallback=allow_upstream_endpoint_fallback,
+        )
+        upstream_endpoint_fallback_rows += int(
+            (row.get("metadata") or {}).get("upstream_endpoint_fallback") is True
         )
         tool_calls += counts["tool_calls"]
         tool_results += counts["tool_results"]
@@ -197,6 +297,7 @@ def validate_rows(
         "finish_trace_rate": finish_rows / denominator,
         "require_trace_owned": require_trace_owned,
         "conversation_schema_valid": True,
+        "upstream_endpoint_fallback_rows": upstream_endpoint_fallback_rows,
     }
 
 
@@ -307,6 +408,17 @@ def _training_argument_kwargs(
         kwargs["gradient_checkpointing_kwargs"] = {
             "use_reentrant": False,
         }
+    for field, default in (
+        ("torch_compile", False),
+        ("include_tokens_per_second", True),
+        ("include_num_input_tokens_seen", True),
+    ):
+        if field in fields:
+            kwargs[field] = bool(training.get(field, default))
+    for field in ("torch_compile_backend", "torch_compile_mode"):
+        value = str(training.get(field) or "").strip()
+        if value and field in fields:
+            kwargs[field] = value
     use_liger_kernel = bool(training.get("use_liger_kernel", False))
     if use_liger_kernel:
         if "use_liger_kernel" not in fields:
@@ -343,6 +455,16 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument(
+        "--resume-from-checkpoint",
+        nargs="?",
+        const="auto",
+        default=None,
+        help=(
+            "resume optimizer/scheduler/RNG state from a checkpoint path; "
+            "without a path, select the latest checkpoint in output_dir"
+        ),
+    )
+    parser.add_argument(
         "--max-steps",
         type=int,
         default=0,
@@ -357,12 +479,50 @@ def main() -> int:
     args = parser.parse_args()
 
     cfg = load_yaml(args.config)
+    output_override = os.environ.get("MECHET_OUTPUT_DIR", "").strip()
+    if output_override:
+        cfg["output_dir"] = output_override
+    cache_override = os.environ.get("MECHET_PRETOKENIZED_CACHE_DIR", "").strip()
+    if cache_override:
+        cfg["pretokenized_cache_dir"] = cache_override
+    resume_request = (
+        args.resume_from_checkpoint
+        if args.resume_from_checkpoint is not None
+        else os.environ.get(
+            "MECHET_RESUME_FROM_CHECKPOINT",
+            str((cfg.get("training") or {}).get("resume_from_checkpoint") or ""),
+        )
+    )
+    resume_checkpoint = resolve_resume_checkpoint(
+        resume_request,
+        Path(str(cfg.get("output_dir") or "outputs/agent/tool_sft")),
+    )
     train_file = Path(str(cfg.get("train_file") or ""))
     if not train_file.exists():
         raise FileNotFoundError(f"train_file does not exist: {train_file}")
-    rows = read_rows(
-        train_file,
-        limit=args.limit or int(cfg.get("limit_examples", 0) or 0),
+    cache_value = str(cfg.get("pretokenized_cache_dir") or "").strip()
+    cache_dir = Path(cache_value) if cache_value else None
+    cache_manifest_path = cache_dir / "manifest.json" if cache_dir else None
+    cache_manifest = (
+        json.loads(cache_manifest_path.read_text(encoding="utf-8"))
+        if cache_manifest_path is not None and cache_manifest_path.exists()
+        else None
+    )
+    if cache_dir is not None and cache_manifest is None and not args.dry_run:
+        raise FileNotFoundError(
+            f"pretokenized cache manifest does not exist: {cache_manifest_path}"
+        )
+    if cache_manifest is not None and (
+        args.limit or int(cfg.get("limit_examples", 0) or 0)
+    ):
+        raise ValueError("pretokenized cache cannot be combined with a row limit")
+    rows = (
+        []
+        if cache_manifest is not None
+        else read_rows(
+            train_file,
+            limit=args.limit or int(cfg.get("limit_examples", 0) or 0),
+        )
     )
     validation_file_value = str(cfg.get("validation_file") or "").strip()
     validation_file = Path(validation_file_value) if validation_file_value else None
@@ -371,7 +531,11 @@ def main() -> int:
             f"validation_file does not exist: {validation_file}"
         )
     contract = dict(cfg.get("contract") or {})
+    artifact_status = enforce_artifact_status(train_file, contract)
     require_trace_owned = bool(contract.get("require_trace_owned", True))
+    expected_fallback_rows = int(
+        contract.get("expected_upstream_endpoint_fallback_rows", 0) or 0
+    )
     training = dict(cfg.get("training") or {})
     if args.num_train_epochs is not None:
         if args.num_train_epochs <= 0:
@@ -381,9 +545,13 @@ def main() -> int:
     if args.limit and not validation_limit:
         validation_limit = args.limit
     validation_rows = (
-        read_rows(validation_file, limit=validation_limit)
-        if validation_file is not None
-        else []
+        []
+        if cache_manifest is not None
+        else (
+            read_rows(validation_file, limit=validation_limit)
+            if validation_file is not None
+            else []
+        )
     )
     if bool(training.get("packing", False)):
         raise ValueError(
@@ -394,25 +562,55 @@ def main() -> int:
             "train_tool_sft.py requires assistant_only_loss=true; labels are explicitly masked"
         )
     configured_max_steps = int(training.get("max_steps", -1))
-    max_steps = int(args.max_steps or configured_max_steps)
+    env_max_steps = int(os.environ.get("MECHET_MAX_STEPS", "0") or 0)
+    max_steps = int(args.max_steps or env_max_steps or configured_max_steps)
     seed = int(training.get("seed", 17))
     data_seed = int(training.get("data_seed", seed))
-    report = {
-        **validate_rows(rows, require_trace_owned=require_trace_owned),
-        "artifact_type": "tool_sft_data_contract",
-        "scientific_hypothesis": cfg.get("scientific_hypothesis"),
-        "train_file": str(train_file),
-        "train_file_sha256": file_sha256(train_file),
-        "validation_file": str(validation_file) if validation_file else None,
-        "validation_file_sha256": (
-            file_sha256(validation_file) if validation_file else None
-        ),
-        "validation": (
+    validated_train = (
+        dict(cache_manifest["splits"]["train"])
+        if cache_manifest is not None
+        else validate_rows(
+            rows,
+            require_trace_owned=require_trace_owned,
+            allow_upstream_endpoint_fallback=expected_fallback_rows > 0,
+        )
+    )
+    validated_validation = (
+        dict(cache_manifest["splits"]["validation"])
+        if cache_manifest is not None
+        else (
             validate_rows(
-                validation_rows, require_trace_owned=require_trace_owned
+                validation_rows,
+                require_trace_owned=require_trace_owned,
+                allow_upstream_endpoint_fallback=expected_fallback_rows > 0,
             )
             if validation_rows
             else None
+        )
+    )
+    report = {
+        **validated_train,
+        "artifact_type": "tool_sft_data_contract",
+        "scientific_hypothesis": cfg.get("scientific_hypothesis"),
+        "train_file": str(train_file),
+        "train_file_sha256": (
+            cache_manifest["sources"]["train"]["sha256"]
+            if cache_manifest is not None
+            else file_sha256(train_file)
+        ),
+        "validation_file": str(validation_file) if validation_file else None,
+        "validation_file_sha256": (
+            (
+                cache_manifest["sources"]["validation"]["sha256"]
+                if cache_manifest is not None
+                else file_sha256(validation_file)
+            )
+            if validation_file
+            else None
+        ),
+        "validation": validated_validation,
+        "pretokenized_cache_manifest": (
+            str(cache_manifest_path) if cache_manifest is not None else None
         ),
         "model_name_or_path": cfg.get("model_name_or_path"),
         "condition_name": cfg.get("condition_name"),
@@ -425,6 +623,7 @@ def main() -> int:
         "seed": seed,
         "data_seed": data_seed,
         "stable_id_manifest": contract.get("stable_id_manifest"),
+        "artifact_status": artifact_status,
         "validation_report": contract.get("validation_report"),
         "environment_revision": contract.get("environment_revision"),
         "executor_revision": contract.get("executor_revision"),
@@ -434,17 +633,27 @@ def main() -> int:
             contract.get("real_overfit_smoke_test_required", False)
         ),
     }
+    if report["upstream_endpoint_fallback_rows"] != expected_fallback_rows:
+        raise ValueError(
+            "upstream endpoint fallback count mismatch: "
+            f"{report['upstream_endpoint_fallback_rows']} != {expected_fallback_rows}"
+        )
     if args.dry_run:
         print(json.dumps(report, indent=2, ensure_ascii=False))
         return 0
 
     try:
         import torch
-        from datasets import Dataset
-        from peft import LoraConfig, get_peft_model
+        from datasets import Dataset, concatenate_datasets
+        from peft import (
+            LoraConfig,
+            get_peft_model,
+            prepare_model_for_kbit_training,
+        )
         from transformers import (
             AutoModelForCausalLM,
             AutoTokenizer,
+            BitsAndBytesConfig,
             Trainer,
             TrainingArguments,
         )
@@ -477,11 +686,24 @@ def main() -> int:
     if not report["model_revision_frozen"] and not Path(model_name).exists():
         raise ValueError("remote Tool-SFT training requires an immutable model revision")
 
-    encoded_rows, audit = tokenize_rows(
-        rows,
-        tokenizer,
-        max_length=int(training.get("max_length", 12288)),
-    )
+    if cache_manifest is not None:
+        if str(cache_manifest.get("model_name_or_path")) != model_name:
+            raise ValueError("pretokenized cache model_name_or_path mismatch")
+        if int(cache_manifest.get("max_length") or 0) != int(
+            training.get("max_length", 12288)
+        ):
+            raise ValueError("pretokenized cache max_length mismatch")
+        encoded_rows = []
+        audit = dict(cache_manifest["splits"]["train"])
+        audit["arrow_files"] = resolve_cached_arrow_files(
+            cache_dir, list(audit["arrow_files"])
+        )
+    else:
+        encoded_rows, audit = tokenize_rows(
+            rows,
+            tokenizer,
+            max_length=int(training.get("max_length", 12288)),
+        )
     report.update(audit)
     if report["truncation_count"]:
         raise ValueError(
@@ -492,7 +714,13 @@ def main() -> int:
         )
 
     encoded_validation_rows: list[dict[str, list[int]]] = []
-    if validation_rows:
+    if cache_manifest is not None:
+        validation_audit = dict(cache_manifest["splits"]["validation"])
+        validation_audit["arrow_files"] = resolve_cached_arrow_files(
+            cache_dir, list(validation_audit["arrow_files"])
+        )
+        report["validation_tokenizer_audit"] = validation_audit
+    elif validation_rows:
         encoded_validation_rows, validation_audit = tokenize_rows(
             validation_rows,
             tokenizer,
@@ -520,11 +748,55 @@ def main() -> int:
     tf32 = bool(training.get("tf32", torch.cuda.is_available()))
     gradient_checkpointing = bool(training.get("gradient_checkpointing", True))
     dtype = torch.bfloat16 if bf16 else torch.float16 if fp16 else None
+    use_qlora = bool(training.get("qlora", False))
+    quantization_config = (
+        BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=dtype or torch.float16,
+        )
+        if use_qlora
+        else None
+    )
+    attention_implementation = str(
+        training.get("attention_implementation") or ""
+    ).strip()
+    if attention_implementation == "flash_attention_2":
+        try:
+            import flash_attn  # noqa: F401
+        except ImportError as exc:
+            raise RuntimeError(
+                "attention_implementation=flash_attention_2 requires the "
+                "optional flash-attn package; use sdpa for the PyTorch Flash-SDPA "
+                "backend when no compatible wheel is installed"
+            ) from exc
+    if bool(training.get("require_flash_sdp", False)):
+        if attention_implementation != "sdpa":
+            raise ValueError("require_flash_sdp=true requires attention_implementation=sdpa")
+        if not torch.cuda.is_available() or not torch.backends.cuda.flash_sdp_enabled():
+            raise RuntimeError("PyTorch Flash-SDPA is unavailable on this CUDA runtime")
+    if attention_implementation == "mechet_xformers_causal":
+        if int(training.get("per_device_train_batch_size", 1)) != 1:
+            raise ValueError(
+                "mechet_xformers_causal requires per_device_train_batch_size=1"
+            )
+        if int(training.get("per_device_eval_batch_size", 1)) != 1:
+            raise ValueError(
+                "mechet_xformers_causal requires per_device_eval_batch_size=1"
+            )
+        from mechet.xformers_attention import register_xformers_attention
+
+        register_xformers_attention()
+    local_rank = int(os.environ.get("LOCAL_RANK", "0"))
     model = AutoModelForCausalLM.from_pretrained(
         model_name,
         revision=resolved_revision or requested_revision,
         trust_remote_code=trust_remote_code,
         torch_dtype=dtype,
+        quantization_config=quantization_config,
+        device_map={"": local_rank} if use_qlora else None,
+        attn_implementation=attention_implementation or None,
     )
     if gradient_checkpointing and hasattr(model, "config"):
         model.config.use_cache = False
@@ -540,6 +812,12 @@ def main() -> int:
         ),
         task_type="CAUSAL_LM",
     )
+    if use_qlora:
+        model = prepare_model_for_kbit_training(
+            model,
+            use_gradient_checkpointing=gradient_checkpointing,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
+        )
     model = get_peft_model(model, peft_config)
     if gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
@@ -562,25 +840,36 @@ def main() -> int:
         fp16=fp16,
         tf32=tf32,
         gradient_checkpointing=gradient_checkpointing,
-        has_validation=bool(encoded_validation_rows),
+        has_validation=validated_validation is not None,
     )
     training_args = TrainingArguments(**training_kwargs)
-    try:
-        dataset = Dataset.from_list(encoded_rows, on_mixed_types="use_json")
-    except TypeError:
-        dataset = Dataset.from_list(encoded_rows)
-    try:
-        validation_dataset = (
-            Dataset.from_list(encoded_validation_rows, on_mixed_types="use_json")
-            if encoded_validation_rows
-            else None
+    if cache_manifest is not None:
+        dataset = concatenate_datasets(
+            [Dataset.from_file(path) for path in audit["arrow_files"]]
         )
-    except TypeError:
-        validation_dataset = (
-            Dataset.from_list(encoded_validation_rows)
-            if encoded_validation_rows
-            else None
+        validation_dataset = concatenate_datasets(
+            [
+                Dataset.from_file(path)
+                for path in validation_audit["arrow_files"]
+            ]
         )
+    else:
+        try:
+            dataset = Dataset.from_list(encoded_rows, on_mixed_types="use_json")
+        except TypeError:
+            dataset = Dataset.from_list(encoded_rows)
+        try:
+            validation_dataset = (
+                Dataset.from_list(encoded_validation_rows, on_mixed_types="use_json")
+                if encoded_validation_rows
+                else None
+            )
+        except TypeError:
+            validation_dataset = (
+                Dataset.from_list(encoded_validation_rows)
+                if encoded_validation_rows
+                else None
+            )
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -589,7 +878,11 @@ def main() -> int:
         processing_class=tokenizer,
         data_collator=AssistantOnlyCollator(tokenizer),
     )
-    trainer.train()
+    trainer.train(
+        resume_from_checkpoint=(
+            str(resume_checkpoint) if resume_checkpoint is not None else None
+        )
+    )
     trainer.save_model()
     output = Path(training_args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
@@ -601,6 +894,16 @@ def main() -> int:
         "fp16": fp16,
         "tf32": tf32,
         "gradient_checkpointing": gradient_checkpointing,
+        "qlora": use_qlora,
+        "quantization": "bnb_nf4_double_quant" if use_qlora else None,
+        "attention_implementation": attention_implementation or None,
+        "require_flash_sdp": bool(training.get("require_flash_sdp", False)),
+        "resume_from_checkpoint": (
+            str(resume_checkpoint) if resume_checkpoint is not None else None
+        ),
+        "torch_compile": bool(training.get("torch_compile", False)),
+        "torch_compile_backend": training.get("torch_compile_backend"),
+        "torch_compile_mode": training.get("torch_compile_mode"),
         "use_liger_kernel": bool(training.get("use_liger_kernel", False)),
         "liger_kernel_config": dict(training.get("liger_kernel_config") or {}),
         "length_grouping": grouping,

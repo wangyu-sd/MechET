@@ -57,6 +57,27 @@ def test_textbook_retrieval_is_soft_logged_evidence(tmp_path):
     assert env.state_dict()["textbook_retrievals"]
 
 
+def test_action_delta_textbook_result_does_not_repeat_state(tmp_path):
+    corpus = tmp_path / "passages.jsonl"
+    write_corpus(corpus)
+    env = KnowledgeAugmentedAgentEnv(
+        config=KnowledgeAgentConfig(
+            textbook_corpus_path=str(corpus),
+            require_textbook_corpus=True,
+            observation_mode="action_delta",
+        )
+    )
+    env.reset(target_smiles="[CH3:1][C:2](=[O:3])[CH3:4]")
+
+    visible = json.loads(env.retrieve_textbook_guidance("carbonyl"))
+
+    assert visible["ok"] is True
+    assert visible["observation_mode"] == "action_delta_v1"
+    assert "state_smiles" not in visible
+    # Full state remains available only to the internal audit trail.
+    assert env.state_dict()["textbook_retrievals"][-1]["state_smiles"]
+
+
 def test_auto_retrieval_is_reproducible_and_bounded(tmp_path):
     corpus = tmp_path / "passages.jsonl"
     write_corpus(corpus)

@@ -8,6 +8,11 @@ from typing import Any
 from rdkit import Chem
 
 from .agent_env import AgentEnvConfig, MechETAgentEnv
+from .compact_observation import (
+    compact_failure_observation,
+    compact_terminal_observation,
+    compact_transition_observation,
+)
 from .electron_flow_trace import ElectronFlowTrace, compile_trace_to_proof
 from .proof_program import _canonical_mapped, _combine_smiles
 
@@ -35,6 +40,14 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
         self.pending_imports: list[str] = []
 
     def reset(self, *args: Any, **kwargs: Any) -> str:
+        if self.config.observation_mode not in {
+            "full_state",
+            "action_delta",
+            "reaction_center_delta",
+        }:
+            raise ValueError(
+                f"unsupported observation_mode: {self.config.observation_mode}"
+            )
         observation = json.loads(super().reset(*args, **kwargs))
         self.flow_trace = ElectronFlowTrace(self.target_smiles)
         self.last_committed_state = self.target_smiles
@@ -45,9 +58,18 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             "endpoint_source": "environment_owned_trace",
             "final_tool": "finish_trace",
             "declared_moves_replayed_before_compilation": True,
+            "observation_mode": self.config.observation_mode,
         }
+        inspect_instruction = (
+            "Use inspect_state before referencing atom maps."
+            if self.config.observation_mode == "full_state"
+            else (
+                "Atom maps come from TARGET and imported fragments; inspect_state "
+                "returns legal-action inventory without serializing the current state."
+            )
+        )
         observation["instructions"] = [
-            "Use inspect_state before referencing atom maps.",
+            inspect_instruction,
             "Use import_fragment when a required mapped precursor fragment is absent.",
             "Use explicit electron-flow actions for every claimed transition.",
             "Call finish_trace; the environment replays moves and compiles MECH_PROOF v1.",
@@ -56,6 +78,16 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
         ]
         self.trace[-1]["observation"] = observation
         return json.dumps(observation, ensure_ascii=False)
+
+    def inspect_state(self) -> str:
+        """Inspect legal containers without leaking compact-mode state SMILES."""
+
+        raw = json.loads(super().inspect_state())
+        if self.config.observation_mode == "full_state" or not raw.get("ok"):
+            return json.dumps(raw, ensure_ascii=False)
+        raw.pop("state_smiles", None)
+        raw["observation_mode"] = f"{self.config.observation_mode}_v1"
+        return json.dumps(raw, ensure_ascii=False)
 
     @staticmethod
     def _atom_maps(smiles: str) -> set[int]:
@@ -99,10 +131,28 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
                 "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
             }
         self.trace.append({"event": "import_fragment", "result": result})
+        if self.config.observation_mode != "full_state":
+            if not result.get("ok"):
+                return json.dumps(
+                    compact_failure_observation(
+                        result, observation_mode=self.config.observation_mode
+                    ),
+                    ensure_ascii=False,
+                )
+            return json.dumps(
+                {
+                    "ok": True,
+                    "observation_mode": f"{self.config.observation_mode}_v1",
+                    "pending_import_count": len(self.pending_imports),
+                    "remaining_tool_calls": result["remaining_tool_calls"],
+                },
+                ensure_ascii=False,
+            )
         return json.dumps(result, ensure_ascii=False)
 
     def _apply_moves(self, moves: list[dict[str, Any]]) -> str:
         state_before = self.last_committed_state
+        execution_state_before = self.current_state
         imports = tuple(self.pending_imports)
         result = json.loads(super()._apply_moves(moves))
         if result.get("ok"):
@@ -121,6 +171,20 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             if self.trace and self.trace[-1].get("event") == "apply_moves":
                 self.trace[-1]["authoritative_transition"] = transition.to_dict()
                 self.trace[-1]["result"] = result
+        if self.config.observation_mode != "full_state":
+            return json.dumps(
+                compact_transition_observation(
+                    result=result,
+                    state_before=execution_state_before,
+                    state_after=self.current_state,
+                    moves=moves,
+                    radius=self.config.reaction_center_radius,
+                    include_local_state=(
+                        self.config.observation_mode == "reaction_center_delta"
+                    ),
+                ),
+                ensure_ascii=False,
+            )
         return json.dumps(result, ensure_ascii=False)
 
     def submit_proof(self, proof: str) -> str:
@@ -147,9 +211,19 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
                 "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
             }
             self.trace.append({"event": "finish_trace_failed", "result": result})
+            if self.config.observation_mode != "full_state":
+                result = compact_failure_observation(
+                    result, observation_mode=self.config.observation_mode
+                )
             return json.dumps(result, ensure_ascii=False)
         try:
-            compilation = compile_trace_to_proof(self.flow_trace)
+            # Every transition was already replayed successfully by
+            # ``_apply_moves`` before it entered ``flow_trace``.  Compilation
+            # still derives and executes the proof, but need not replay the
+            # same moves a second time.
+            compilation = compile_trace_to_proof(
+                self.flow_trace, declared_moves_already_verified=True
+            )
         except Exception as exc:
             self._consume_call()
             self.failed_steps += 1
@@ -160,9 +234,18 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
                 "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
             }
             self.trace.append({"event": "finish_trace_failed", "result": result})
+            if self.config.observation_mode != "full_state":
+                result = compact_failure_observation(
+                    result, observation_mode=self.config.observation_mode
+                )
             return json.dumps(result, ensure_ascii=False)
 
-        result = json.loads(MechETAgentEnv.submit_proof(self, compilation.proof))
+        result = json.loads(
+            self._submit_preexecuted_proof(
+                proof=compilation.proof,
+                precursor_smiles=compilation.precursor_smiles,
+            )
+        )
         result.update(
             {
                 "ok": bool(result.get("formal_execute")),
@@ -179,6 +262,13 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
         if self.trace and self.trace[-1].get("event") == "submit_proof":
             self.trace[-1]["event"] = "finish_trace"
             self.trace[-1]["result"] = result
+        if self.config.observation_mode != "full_state":
+            return json.dumps(
+                compact_terminal_observation(
+                    result, observation_mode=self.config.observation_mode
+                ),
+                ensure_ascii=False,
+            )
         return json.dumps(result, ensure_ascii=False)
 
     def state_dict(self) -> dict[str, Any]:

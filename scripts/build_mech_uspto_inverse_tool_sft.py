@@ -39,6 +39,11 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--quarantine", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument(
+        "--observation-mode",
+        choices=("action_delta", "reaction_center_delta", "full_state"),
+        default="action_delta",
+    )
     args = parser.parse_args()
 
     raw = pd.read_parquet(
@@ -71,6 +76,7 @@ def main() -> int:
                 value = build_inverse_tool_sft_row(
                     row,
                     product_reference=product_references[reaction_id],
+                    observation_mode=args.observation_mode,
                 )
                 good.write(json.dumps(value, ensure_ascii=False) + "\n")
                 written += 1
@@ -97,6 +103,8 @@ def main() -> int:
         "scientific_contract": "mech_uspto_inverse_trace_owned_v2",
         "source": "mech_uspto_31k",
         "condition": "trace_no_knowledge",
+        "observation_mode": f"{args.observation_mode}_v1",
+        "intermediate_state_model_visible": args.observation_mode != "action_delta",
         "read": read,
         "written": written,
         "quarantined": read - written,

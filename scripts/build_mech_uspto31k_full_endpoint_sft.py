@@ -9,6 +9,7 @@ CSV (or an equivalent lossless table).
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import csv
 import hashlib
 import json
@@ -153,6 +154,7 @@ def build_split(
     localretro_dir.mkdir(parents=True, exist_ok=True)
 
     seen: set[str] = set()
+    join_audit_modes: Counter[str] = Counter()
     with endpoint_tmp.open("w", encoding="utf-8") as endpoint_handle, localretro_tmp.open(
         "w", encoding="utf-8", newline=""
     ) as localretro_handle:
@@ -170,9 +172,10 @@ def build_split(
             except KeyError as exc:
                 raise ValueError(f"{split}: original mapped reaction missing for {source['source']}") from exc
             mapped = product_only_reindex_reaction(original_reaction)
-            assert_product_contained_in_reference(
+            join_audit_mode = assert_product_contained_in_reference(
                 mapped.products, source["rxn_prod_min"]
             )
+            join_audit_modes[join_audit_mode] += 1
             stable_id = f"mech-uspto31k-full:{source['source']}"
             full_precursor = mapped.reactants
             row = {
@@ -206,6 +209,7 @@ def build_split(
                     "atom_map_policy": "product_only_canonical_reindex_synchronized_to_reactants",
                     "endpoint_policy": "original_reaction_product_and_atom_contributing_reactant_fragments",
                     "rxn_prod_min_role": "mechanism_final_mixture_join_audit_only",
+                    "rxn_prod_min_join_audit": join_audit_mode,
                     "mapped_roles_supported": True,
                     "mechanism_supervision": False,
                     "coverage_track": "full_endpoint",
@@ -232,6 +236,7 @@ def build_split(
         "stable_ids_sha256": hashlib.sha256(
             "\n".join(sorted(f"mech-uspto31k-full:rxn_{value}" for value in seen)).encode()
         ).hexdigest(),
+        "rxn_prod_min_join_audit_modes": dict(sorted(join_audit_modes.items())),
     }
 
 

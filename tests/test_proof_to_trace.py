@@ -76,7 +76,7 @@ def test_converted_plan_replays_through_trace_owned_environment(tmp_path):
     assert replay["terminal"]["compiled_proof"]
 
 
-def test_ambiguous_electron_pairing_is_rejected():
+def test_ambiguous_electron_pairing_uses_canonical_charge_exact_matching():
     edge = ProofEdge(
         "s0",
         "s1",
@@ -84,11 +84,29 @@ def test_ambiguous_electron_pairing_is_rejected():
         lone_pairs=[],
         charges=[],
     )
-    with pytest.raises(ValueError, match="AMBIGUOUS_ELECTRON_PAIRING"):
-        infer_moves_from_edge(edge)
+    moves = infer_moves_from_edge(edge)
+    assert len(moves) == 2
+    assert all(move["source"]["kind"] == "BOND" for move in moves)
 
 
-def test_unpaired_lone_pair_delta_is_rejected():
+def test_radical_pair_bond_formation_is_explicit():
+    edge = ProofEdge(
+        "s0",
+        "s1",
+        bonds=[(1, 2, +1)],
+        lone_pairs=[(1, -1), (2, -1)],
+        charges=[],
+    )
+    assert infer_moves_from_edge(edge) == (
+        {
+            "source": {"kind": "RADICAL_PAIR", "atoms": [1, 2]},
+            "sink": {"kind": "BOND", "atoms": [1, 2]},
+            "electrons": 2,
+        },
+    )
+
+
+def test_unpaired_lone_pair_delta_uses_exact_be_fallback():
     edge = ProofEdge(
         "s0",
         "s1",
@@ -96,5 +114,6 @@ def test_unpaired_lone_pair_delta_is_rejected():
         lone_pairs=[(3, +2)],
         charges=[],
     )
-    with pytest.raises(ValueError):
-        infer_moves_from_edge(edge)
+    moves = infer_moves_from_edge(edge)
+    assert moves[0]["mode"] == "BE_DELTA"
+    assert moves[0]["bond_deltas"] == [{"atoms": [1, 2], "delta": -1}]

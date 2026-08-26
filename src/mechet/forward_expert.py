@@ -29,11 +29,11 @@ class ElectronContainer:
         kind = self.kind.upper().replace("LONE_PAIR", "LP")
         atoms = (
             tuple(sorted(int(value) for value in self.atoms))
-            if kind == "BOND"
+            if kind in {"BOND", "RADICAL_PAIR"}
             else tuple(int(value) for value in self.atoms)
         )
-        expected = 2 if kind == "BOND" else 1
-        if kind not in {"LP", "ATOM", "BOND"} or len(atoms) != expected:
+        expected = 2 if kind in {"BOND", "RADICAL_PAIR"} else 1
+        if kind not in {"LP", "ATOM", "BOND", "RADICAL_PAIR"} or len(atoms) != expected:
             raise ValueError(f"invalid electron container: {kind} {atoms}")
         object.__setattr__(self, "kind", kind)
         object.__setattr__(self, "atoms", atoms)
@@ -175,11 +175,75 @@ def verify_electron_step(
 ) -> dict[str, Any]:
     """Apply coupled arrows atomically and return the sanitized next state."""
     try:
-        parsed = [ElectronMove.parse(value) for value in moves]
         mol = _mol(smiles)
+        # Proof compilation operates on an explicit Kekule graph.  Applying
+        # integer bond deltas directly to aromatic 1.5-order bonds makes
+        # Python's round(1.5)==2 turn a +1 shift into an invalid triple bond.
+        # Use the identical representation here so tool replay and the formal
+        # proof executor have exactly the same bond-order semantics.
+        try:
+            Chem.Kekulize(mol, clearAromaticFlags=True)
+        except Exception:
+            pass
         atom_index = {
             atom.GetAtomMapNum(): atom.GetIdx() for atom in mol.GetAtoms()
         }
+        delta_moves = [
+            dict(value)
+            for value in moves
+            if isinstance(value, dict) and value.get("mode") == "BE_DELTA"
+        ]
+        if delta_moves:
+            if len(delta_moves) != 1 or len(moves) != 1:
+                raise ValueError("BE_DELTA_MUST_BE_ONE_ATOMIC_MOVE")
+            payload = delta_moves[0]
+            rw = Chem.RWMol(mol)
+            for item in payload.get("bond_deltas") or []:
+                atoms = tuple(sorted(int(value) for value in item.get("atoms") or []))
+                delta = int(item.get("delta") or 0)
+                if len(atoms) != 2 or not delta or set(atoms) - set(atom_index):
+                    raise ValueError("BE_DELTA_BOND_INVALID")
+                left, right = atom_index[atoms[0]], atom_index[atoms[1]]
+                old_bond = rw.GetBondBetweenAtoms(left, right)
+                old_order = (
+                    int(round(old_bond.GetBondTypeAsDouble())) if old_bond else 0
+                )
+                new_order = old_order + delta
+                if old_bond:
+                    rw.RemoveBond(left, right)
+                if new_order not in {0, 1, 2, 3}:
+                    raise ValueError("BE_DELTA_BOND_ORDER_INVALID")
+                if new_order:
+                    rw.AddBond(
+                        left,
+                        right,
+                        {
+                            1: Chem.BondType.SINGLE,
+                            2: Chem.BondType.DOUBLE,
+                            3: Chem.BondType.TRIPLE,
+                        }[new_order],
+                    )
+            for item in payload.get("charge_actions") or []:
+                atom_map = int(item.get("atom_map") or 0)
+                if atom_map not in atom_index:
+                    raise ValueError("BE_DELTA_CHARGE_MAP_INVALID")
+                atom = rw.GetAtomWithIdx(atom_index[atom_map])
+                q0, q1 = int(item.get("q0") or 0), int(item.get("q1") or 0)
+                if atom.GetFormalCharge() != q0:
+                    raise ValueError("BE_DELTA_CHARGE_PRECONDITION")
+                atom.SetFormalCharge(q1)
+            output = rw.GetMol()
+            Chem.SanitizeMol(output)
+            return {
+                "ok": True,
+                "state_smiles": Chem.MolToSmiles(
+                    output, canonical=True, isomericSmiles=True
+                ),
+                "code": "PASS",
+                "execution_mode": "BE_DELTA",
+            }
+
+        parsed = [ElectronMove.parse(value) for value in moves]
         bond_delta: dict[tuple[int, int], int] = {}
         charge_delta: dict[int, int] = {}
 
@@ -189,7 +253,26 @@ def verify_electron_step(
         for move in parsed:
             if set(move.source.atoms + move.sink.atoms) - set(atom_index):
                 raise ValueError("ATOM_MAP_MISSING")
-            if move.source.kind == "LP":
+            if (
+                move.source.kind == "RADICAL_PAIR"
+                and move.sink.kind == "BOND"
+                and move.source.atoms == move.sink.atoms
+            ):
+                pair = move.source.atoms
+                if any(
+                    _lp_electrons(mol.GetAtomWithIdx(atom_index[atom])) < 1
+                    for atom in pair
+                ):
+                    raise ValueError("SOURCE_HAS_NO_RADICAL_ELECTRONS")
+                bond_delta[pair] = bond_delta.get(pair, 0) + 1
+            elif (
+                move.source.kind == "BOND"
+                and move.sink.kind == "RADICAL_PAIR"
+                and move.source.atoms == move.sink.atoms
+            ):
+                pair = move.source.atoms
+                bond_delta[pair] = bond_delta.get(pair, 0) - 1
+            elif move.source.kind == "LP":
                 donor = move.source.atoms[0]
                 if _lp_electrons(mol.GetAtomWithIdx(atom_index[donor])) < 2:
                     raise ValueError("SOURCE_HAS_NO_ELECTRON_PAIR")

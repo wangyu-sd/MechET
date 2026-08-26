@@ -1,3 +1,5 @@
+import json
+
 from mechet.forward_expert import verify_electron_step
 from mechet.inverse_trace_data import (
     build_inverse_tool_sft_row,
@@ -57,6 +59,23 @@ def test_builds_finish_trace_owned_inverse_supervision() -> None:
     assert value["expected_precursor"] == "[CH3:1][Br:3].[OH-:2]"
     assert value["metadata"]["direction"] == "inverse"
     assert value["metadata"]["endpoint_source"] == "environment_owned_trace"
+    assert value["metadata"]["observation_mode"] == "action_delta_v1"
+    intermediate = [
+        json.loads(message["content"])
+        for message in value["messages"]
+        if message.get("role") == "tool" and message.get("name") != "finish_trace"
+    ]
+    assert all(
+        not {
+            "state_smiles",
+            "state_before",
+            "state_after",
+            "local_state_before",
+            "local_state_after",
+        }
+        & set(result)
+        for result in intermediate
+    )
     assert any(
         message.get("name") == "finish_trace" for message in value["messages"]
     )

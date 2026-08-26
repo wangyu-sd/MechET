@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "source_dataset": "mech_uspto_31k",
+  "full_reaction_denominator": {
+    "train": 24959,
+    "valid": 3120,
+    "test": 3120
+  },
+  "artifacts": [
+    {
+      "artifact_id": "raw_hf_d708ff6",
+      "path": "data/raw/mech_uspto_31k",
+      "status": "source",
+      "training_allowed": false
+    },
+    {
+      "artifact_id": "forward_20260811_v1",
+      "path": "data/forward_expert/mech_uspto_31k",
+      "status": "deprecated_pilot",
+      "training_allowed": false,
+      "stitched_rows": {"train": 9118, "valid": 1187, "test": 1124}
+    },
+    {
+      "artifact_id": "inverse_20260811_v2",
+      "path": "data/mech_uspto_31k_inverse_tool_sft",
+      "status": "deprecated_pilot",
+      "training_allowed": false,
+      "rows": {"train": 9118, "valid": 1187, "test": 1124}
+    },
+    {
+      "artifact_id": "mixed_20260811_v1",
+      "path": "data/mixed_inverse_tool_sft",
+      "status": "deprecated_pilot",
+      "training_allowed": false,
+      "mech_uspto_train_rows": 9118
+    },
+    {
+      "artifact_id": "full_endpoint_pseudomap_invalid",
+      "path": "data/mech_uspto_31k_full_endpoint_sft",
+      "status": "invalid",
+      "training_allowed": false
+    },
+    {
+      "artifact_id": "action_delta_20260823_v1",
+      "path": "data/mech_uspto_31k_inverse_tool_sft_action_delta_v1",
+      "status": "deprecated_pilot",
+      "training_allowed": false,
+      "rows": {"train": 9118, "valid": 1187, "test": 1124}
+    },
+    {
+      "artifact_id": "compiler_20260824_v2",
+      "path": "data/forward_expert/mech_uspto_31k_recompiled_20260824",
+      "status": "validated_trace_source",
+      "training_allowed": false,
+      "stitched_rows": {"train": 10152, "valid": 1319, "test": 1253},
+      "base_git_commit": "08db65cb79f7c5a8d68ffd506f156579787b81bf",
+      "compiler_worktree_diff_sha256": "671958f6e37a1b951288e1d812f279a7b2bd178bf360709ef0d06d1b7f853d67"
+    },
+    {
+      "artifact_id": "action_delta_20260824_v2",
+      "path": "data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824",
+      "status": "validated",
+      "training_allowed": true,
+      "rows": {"train": 10152, "valid": 1319, "test": 1253},
+      "full_reaction_denominator": {"train": 24959, "valid": 3120, "test": 3120},
+      "inverse_conversion": {"read": 12724, "written": 12724, "quarantined": 0},
+      "compiler_artifact_id": "compiler_20260824_v2"
+    }
+  ]
+}

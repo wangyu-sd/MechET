@@ -4,9 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
+try:
+    from rdkit import Chem
+except Exception:  # pragma: no cover
+    Chem = None  # type: ignore
+
 from mechet.mech_et import (
     MECH_ET_HEADER,
-    be_delta_exact,
     be_delta_from_mapped_smiles,
     electron_conserved,
     verify_mech_et,
@@ -47,6 +51,54 @@ def _declared_be_delta_edges(mechanism_body: str) -> set[tuple[str, str]]:
         if current is not None and line and not line.startswith(("BOND ", "LP ", "CHARGE ")):
             current = None
     return declared
+
+
+def _aromatic_bond_map_pairs(smiles: str) -> set[tuple[int, int]]:
+    """Return mapped bonds whose endpoints remain aromatic in this state."""
+    if Chem is None:
+        return set()
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return set()
+    pairs: set[tuple[int, int]] = set()
+    for bond in mol.GetBonds():
+        if not bond.GetIsAromatic():
+            continue
+        atom_i = bond.GetBeginAtom().GetAtomMapNum()
+        atom_j = bond.GetEndAtom().GetAtomMapNum()
+        if atom_i > 0 and atom_j > 0:
+            pairs.add(tuple(sorted((atom_i, atom_j))))
+    return pairs
+
+
+def _be_delta_exact_for_states(
+    written: Any,
+    derived: Any,
+    src_state: str,
+    dst_state: str,
+) -> bool:
+    """Compare deltas while tolerating legacy Kekule resonance edits.
+
+    Older serialized gold traces computed BE deltas before RDKit compacted the
+    corresponding states.  Alternating bond changes inside a ring that is
+    aromatic in both states are representation-only; all other bond and lone
+    pair changes remain exact.
+    """
+    stable_aromatic = _aromatic_bond_map_pairs(src_state) & _aromatic_bond_map_pairs(
+        dst_state
+    )
+
+    def substantive_bonds(delta: Any) -> list[tuple[int, int, int]]:
+        return sorted(
+            bond
+            for bond in delta.bonds
+            if tuple(sorted((bond[0], bond[1]))) not in stable_aromatic
+        )
+
+    return (
+        substantive_bonds(written) == substantive_bonds(derived)
+        and sorted(written.lone_pairs) == sorted(derived.lone_pairs)
+    )
 
 
 def _target_state_contains_product(parsed: dict[str, Any], product_smiles: str) -> bool:
@@ -146,7 +198,12 @@ def verify_mech_et_strict(
             )
             continue
 
-        core_exact = be_delta_exact(written, derived, check_charge=False)
+        core_exact = _be_delta_exact_for_states(
+            written,
+            derived,
+            states[src],
+            states[dst],
+        )
         charge_exact = not written.charges or sorted(written.charges) == sorted(derived.charges)
         if core_exact and charge_exact:
             exact_edges += 1

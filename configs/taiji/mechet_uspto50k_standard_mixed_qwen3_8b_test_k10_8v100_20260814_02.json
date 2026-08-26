@@ -1,0 +1,39 @@
+{
+  "business_flag": "AI4LSLab_KEMO_V100",
+  "readable_name": "MechET USPTO-50K standard product-only K=10 (8xV100, Ceph bootstrap)",
+  "template_flag": "kubeflow_job_learning",
+  "task_flag": "mechet_uspto50k_standard_mixed_qwen3_8b_test_k10_8v100_20260814_02",
+  "task_type": "general_gpu_type",
+  "dataset_id": "F06A5CC1127144DE9CF3FF9BDBE77A1A",
+  "model_id": "8b1d80eb9feffd4e019ff02b16d90092",
+  "host_num": 1,
+  "host_gpu_num": 8,
+  "GPUName": "V100",
+  "image_full_name": "mirrors.tencent.com/whaleywang/metabo:taiji7",
+  "quota_type": "public",
+  "is_elasticity": false,
+  "is_mount_ceph": false,
+  "priority_level": "HIGH",
+  "location": "cq",
+  "task_queuing_priority": "P2",
+  "keep_running_after_trainer_finish": false,
+  "task_category": "evaluation",
+  "task_description": "Product-only class-unknown inference on frozen USPTO-50K test; K=10, FP16 V100, credential-free runtime Ceph bootstrap.",
+  "resource_usage": "experiment",
+  "base_model": "Qwen/Qwen3-8B@b968826d9c46dd6066d109eabc6255188de91218",
+  "output_base_model": "",
+  "job_type": "mpijob",
+  "dynamic_scheduling_config": {
+    "dynamic_scheduling_strategy": "speed_first",
+    "dynamic_scheduling_resource_queue": {
+      "private": {"enable": false},
+      "public": {"enable": true},
+      "discount": {"enable": false},
+      "tidal": {"enable": false, "is_multi_specifications_task": false},
+      "elastic": {"enable": false, "is_multi_specifications_task": false},
+      "mixing": {"enable": false}
+    }
+  },
+  "init_cmd": "test -x ./taiji_client && test -x ./ceph_rootfs/usr/bin/ceph-fuse && mkdir -p /aaa/fionafyang && export PATH=\"$PWD/ceph_rootfs/usr/bin:$PATH\" && export LD_LIBRARY_PATH=\"$PWD/ceph_rootfs/usr/lib/x86_64-linux-gnu/ceph:$PWD/ceph_rootfs/usr/lib/x86_64-linux-gnu:$PWD/ceph_rootfs/lib/x86_64-linux-gnu:${LD_LIBRARY_PATH:-}\" && ./taiji_client mount -l cq -tk \"$TAIJI_API_TOKEN\" /aaa/fionafyang && test -d /aaa/fionafyang/buddy1/whaleywang/MechET",
+  "start_cmd": "bash -lc 'exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/run_taiji_uspto50k_standard_test_k10.sh'"
+}

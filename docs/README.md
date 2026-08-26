@@ -2,7 +2,7 @@
 
 MechET has one scientific story:
 
-> **A retrosynthetic mechanism is treated as a causal, executable program over source-to-sink electron-flow primitives, then tested for causal use, compositional generalization, and evidence benefit.**
+> **A retrosynthetic transformation is treated as a causal, executable inverse electron-flow program, then evaluated through the paper's R1--R7 evidence chain.**
 
 This page defines the authority order and the shortest reading path for different audiences.
 
@@ -10,25 +10,25 @@ This page defines the authority order and the shortest reading path for differen
 
 | Reader | Recommended path | Purpose |
 |---|---|---|
-| **Editor or reviewer** | `README` → `STATUS_MATRIX` → `SCIENTIFIC_THESIS` → `PROOF_CENTRIC_EXPERIMENT_PLAN` | Separate implemented infrastructure from established scientific evidence |
-| **Experimental lead** | `EXECUTION_PLAN` → `TOOL_SFT` → H1/H2/H3 topic documents | Run the study in the correct order and stop at failed gates |
+| **Editor or reviewer** | `README` → `PAPER_EXPERIMENT_PROTOCOL` → `STATUS_MATRIX` → `SCIENTIFIC_THESIS` | Separate paper claims, implemented infrastructure, and established evidence |
+| **Experimental lead** | `PAPER_EXPERIMENT_PROTOCOL` → `EXECUTION_PLAN` → `TOOL_SFT` → R3/R4 topic documents | Run A0--A7, B1--B5 and R1--R7 in paper order |
 | **Runtime developer** | `TRACE_FAITHFULNESS` → `PROOF_CARRYING` → `FRAMEWORK_MIGRATION` | Preserve the causal endpoint path and tool surface |
 | **Data/evidence curator** | `KNOWLEDGE_ABLATIONS` → `TEXTBOOK_RAG` → `MECHANISTIC_PRIMITIVE_LIBRARY` | Build frozen evidence conditions with provenance, quality metadata, and controls |
 | **Planning researcher** | Core documents first → `FORWARD_ELECTRON_EXPERT` → planning adapters | Treat planning as a downstream extension, not evidence for H1/H2 |
 
 ## Authority order
 
-1. [`SCIENTIFIC_THESIS.md`](SCIENTIFIC_THESIS.md) — scientific question, hypotheses, terminology, claim ladder, and prohibited interpretations.
-2. [`TRACE_FAITHFULNESS.md`](TRACE_FAITHFULNESS.md) — main causal runtime contract and H1 intervention semantics.
-3. [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md) — paper-level claim–evidence matrix and integrity gates.
-4. [`EXECUTION_PLAN.md`](EXECUTION_PLAN.md) — ordered commands, required artifacts, stopping conditions, and handoff criteria.
-5. [`TOOL_SFT.md`](TOOL_SFT.md) — replay-verified supervision, tokenizer audit, learnability gate, and adapter lineage.
-6. [`PROOF_EQUIVALENCE.md`](PROOF_EQUIVALENCE.md) — H2 source-to-sink execution primitives, composition signatures, and structural-overlap audit.
-7. [`KNOWLEDGE_ABLATIONS.md`](KNOWLEDGE_ABLATIONS.md) — H3 matched evidence conditions, interventions, and claim gates.
-8. [`TEXTBOOK_RAG.md`](TEXTBOOK_RAG.md) — corpus provenance, bounded retrieval, source-quality metadata, and evidence-card contract.
-9. [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) — structured mechanistic knowledge anchors.
-10. [`PROOF_CARRYING.md`](PROOF_CARRYING.md) — `MECH_PROOF v1`, execution semantics, and complete-proof baselines.
-11. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — optional independent forward evidence and calibration requirements.
+1. [`PAPER_EXPERIMENT_PROTOCOL.md`](PAPER_EXPERIMENT_PROTOCOL.md) — frozen implementation mirror of the paper's experiment matrix.
+2. [`SCIENTIFIC_THESIS.md`](SCIENTIFIC_THESIS.md) — runtime terminology, claim boundaries, and prohibited interpretations.
+3. [`TRACE_FAITHFULNESS.md`](TRACE_FAITHFULNESS.md) — main causal runtime contract and R3 intervention semantics.
+4. [`EXECUTION_PLAN.md`](EXECUTION_PLAN.md) — R1--R7 order, required artifacts, stopping conditions, and handoff criteria.
+5. [`PROOF_CENTRIC_EXPERIMENT_PLAN.md`](PROOF_CENTRIC_EXPERIMENT_PLAN.md) — legacy proof-centric integrity details.
+6. [`TOOL_SFT.md`](TOOL_SFT.md) — replay-verified supervision, tokenizer audit, learnability gate, and adapter lineage.
+7. [`PROOF_EQUIVALENCE.md`](PROOF_EQUIVALENCE.md) — R4 source-to-sink primitives, composition signatures, and overlap audit.
+8. [`PROOF_CARRYING.md`](PROOF_CARRYING.md) — `MECH_PROOF v1`, execution semantics, and complete-proof audit baseline.
+9. [`MECHANISTIC_PRIMITIVE_LIBRARY.md`](MECHANISTIC_PRIMITIVE_LIBRARY.md) — provenance-aware soft anchors, distinct from executable primitives.
+10. [`KNOWLEDGE_ABLATIONS.md`](KNOWLEDGE_ABLATIONS.md) and [`TEXTBOOK_RAG.md`](TEXTBOOK_RAG.md) — future-study evidence infrastructure outside current ICLR.
+11. [`FORWARD_ELECTRON_EXPERT.md`](FORWARD_ELECTRON_EXPERT.md) — optional learned forward score and its non-formal boundary.
 12. [`FRAMEWORK_MIGRATION.md`](FRAMEWORK_MIGRATION.md) — framework adapters and downstream planning integration.
 
 Dataset-specific implementation notes, including
@@ -56,12 +56,11 @@ formal verification
         +-----------------------------+
         |                             |
         v                             v
-H1 causal-use test              H2 composition test
+R3 state-adaptation test        R4 composition test
 observation interventions       known primitives / unseen compositions
         |
         v
-H3 evidence test
-frozen textbook/anchors vs matched controls
+R5/R6/R7 efficiency, OOD, transfer and mechanism analysis
 ```
 
 ## Runtime contract
@@ -118,7 +117,7 @@ Missing predictions remain in the denominator as failures. Duplicate or extra ID
 
 ## Statistical contract
 
-H1 and H3 primary contrasts now report:
+R3 primary paired contrasts report:
 
 ```text
 paired bootstrap confidence intervals over frozen target IDs
@@ -127,7 +126,13 @@ Holm family-wise error correction over declared contrast families
 independent-seed aggregation with seed-level bootstrap intervals
 ```
 
-A point estimate above zero is not sufficient for a final claim. `scripts/aggregate_evaluation_seeds.py` combines independent H1 or H3 evaluation artifacts after each seed has passed its own runtime and pairing checks.
+Seed reports are aggregated with `scripts/aggregate_evaluation_seeds.py`; the
+same reporting bundle records exact, scaffold, reaction-center and
+near-duplicate overlap audits.
+
+A point estimate above zero is not sufficient for a final claim. Future H3
+artifacts retain the same statistical utilities but do not enter the current
+ICLR evidence chain.
 
 ## Source and documentation integrity
 

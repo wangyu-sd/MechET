@@ -30,6 +30,7 @@ from mechet.mech_graph import (
     _split_frags,
     _unescape_quotes,
     compact_mapped_smiles,
+    compact_mapped_smiles_preserving,
     expand_state_smiles,
     official_state_key,
 )
@@ -346,7 +347,55 @@ def _center_maps_from_delta(delta: BEDelta) -> list[int]:
 def format_mech_et_cot(graph: FlowERMechanismGraph) -> str:
     """Serialize full MECH_ET v3 body for a FlowER mechanism graph."""
     ordered_ids = _reverse_topo_order(graph)
-    compact = {sid: compact_mapped_smiles(graph.states[sid].mapped_smiles) for sid in ordered_ids}
+    # Compute deltas before state compaction.  Their atom maps identify the
+    # explicit hydrogens that must survive serialization for proton transfer.
+    reverse_edges = sorted(
+        graph.reverse_edges(),
+        key=lambda e: (
+            ordered_ids.index(e[0]) if e[0] in ordered_ids else 10**9,
+            ordered_ids.index(e[1]) if e[1] in ordered_ids else 10**9,
+            e[0],
+            e[1],
+        ),
+    )
+    raw_edge_deltas: dict[tuple[str, str], BEDelta] = {}
+    reactive_maps: set[int] = set()
+    for src, dst in reverse_edges:
+        # RETRO a->b : Δ = BE(b) - BE(a)
+        raw_src = graph.states[src].mapped_smiles
+        raw_dst = graph.states[dst].mapped_smiles
+        delta = be_delta_from_mapped_smiles(raw_src, raw_dst)
+        if delta is None:
+            delta = BEDelta()
+        raw_edge_deltas[(src, dst)] = delta
+        for atom_i, atom_j, _change in delta.bonds:
+            reactive_maps.update((atom_i, atom_j))
+        for atom_map, _change in delta.lone_pairs:
+            reactive_maps.add(atom_map)
+        for atom_map, _q0, _q1 in delta.charges:
+            reactive_maps.add(atom_map)
+    compact = {
+        sid: compact_mapped_smiles_preserving(
+            graph.states[sid].mapped_smiles,
+            reactive_maps,
+        )
+        for sid in ordered_ids
+    }
+    # Serialize deltas in the same aromatic/Kekule representation as the
+    # serialized states.  The raw pass above is only used to discover mapped
+    # hydrogens that compaction must retain.  Reusing its deltas here would
+    # emit resonance-only bond edits that cannot be recovered from the
+    # aromatic compact states and would fail strict replay.
+    edge_deltas: list[tuple[str, str, BEDelta]] = []
+    first_delta: BEDelta | None = None
+    for src, dst in reverse_edges:
+        delta = be_delta_from_mapped_smiles(compact[src], compact[dst])
+        if delta is None:
+            delta = raw_edge_deltas[(src, dst)]
+        edge_deltas.append((src, dst, delta))
+        if first_delta is None and not delta.is_empty():
+            first_delta = delta
+
     frag_sets = {sid: set(_split_frags(compact[sid])) for sid in ordered_ids}
     shared: set[str] = set.intersection(*frag_sets.values()) if frag_sets else set()
     if shared and graph.n_states >= 2:
@@ -361,31 +410,7 @@ def format_mech_et_cot(graph: FlowERMechanismGraph) -> str:
         shared = set()
         active = compact
 
-    # BE deltas from raw (explicit-H) mapped states so proton-transfer maps survive.
-    # STATE lines remain compact (strip-H + SHARED) for length.
-    reverse_edges = sorted(
-        graph.reverse_edges(),
-        key=lambda e: (
-            ordered_ids.index(e[0]) if e[0] in ordered_ids else 10**9,
-            ordered_ids.index(e[1]) if e[1] in ordered_ids else 10**9,
-            e[0],
-            e[1],
-        ),
-    )
-    edge_deltas: list[tuple[str, str, BEDelta]] = []
-    first_delta: BEDelta | None = None
-    for src, dst in reverse_edges:
-        # RETRO a->b : Δ = BE(b) - BE(a)
-        raw_src = graph.states[src].mapped_smiles
-        raw_dst = graph.states[dst].mapped_smiles
-        delta = be_delta_from_mapped_smiles(raw_src, raw_dst)
-        if delta is None:
-            delta = BEDelta()
-        edge_deltas.append((src, dst, delta))
-        if first_delta is None and not delta.is_empty():
-            first_delta = delta
-
-    product = graph.compact_main_product()
+    product = compact_mapped_smiles_preserving(graph.main_product, reactive_maps)
     perceive = perceive_from_product(
         product,
         center_maps=_center_maps_from_delta(first_delta) if first_delta else None,

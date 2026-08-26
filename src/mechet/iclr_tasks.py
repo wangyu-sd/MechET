@@ -1,7 +1,6 @@
-"""Build matched ICLR task variants from one frozen, decontaminated corpus."""
+"""Build leakage-free retrosynthesis task variants from FlowER rows."""
 from __future__ import annotations
 
-from copy import deepcopy
 import re
 from typing import Any, Mapping
 
@@ -10,8 +9,35 @@ from mechet.data_audit import split_structural_and_environment
 _PROOF_BLOCK = re.compile(r"<proof>\s*(.*?)\s*</proof>", re.I | re.S)
 _MECHANISM_BLOCK = re.compile(r"<mechanism>\s*(.*?)\s*</mechanism>", re.I | re.S)
 
+_SYSTEM_PROMPTS = {
+    "outcome_only_retro": (
+        "Given only a mapped product SMILES, predict the atom-contributing "
+        "structural precursor SMILES. Output exactly <answer> followed by the "
+        "precursor and </answer>."
+    ),
+    "state_cot_core_retro": (
+        "Given only a mapped product SMILES, reason through the reverse "
+        "electron-transfer mechanism as MECH_ET v3, then predict the "
+        "atom-contributing structural precursors. Output exactly one "
+        "<mechanism> block followed by one <answer> block."
+    ),
+    "net_edit_retro": (
+        "Given only a mapped product SMILES, predict a single NET_EDIT v1 "
+        "reaction-center program and the atom-contributing structural "
+        "precursors. Output exactly one <edit> block followed by one "
+        "<answer> block."
+    ),
+    "mech_proof_core_retro": (
+        "Given only a mapped product SMILES, emit one complete executable "
+        "MECH_PROOF v1 program. Output exactly one <proof> block; the proof "
+        "executor derives the precursor, so do not emit an answer block."
+    ),
+}
+
 
 def _product(row: Mapping[str, Any]) -> str:
+    if row.get("target_smiles"):
+        return str(row["target_smiles"])
     for message in row.get("messages") or []:
         content = str(message.get("content") or "")
         if message.get("role") == "user" and content.startswith("TARGET:"):
@@ -28,21 +54,46 @@ def _assistant(row: Mapping[str, Any]) -> str:
 
 def _gold_precursor(row: Mapping[str, Any]) -> str:
     metadata = row.get("metadata") or {}
-    return str(metadata.get("derived_precursor") or metadata.get("initial_reactants") or "")
+    return str(
+        row.get("structural_precursor")
+        or metadata.get("structural_precursor")
+        or row.get("expected_precursor")
+        or metadata.get("derived_precursor")
+        or metadata.get("initial_reactants")
+        or row.get("full_precursor_state")
+        or ""
+    )
 
 
 def core_precursor(row: Mapping[str, Any]) -> str:
+    explicit = str(
+        row.get("structural_precursor")
+        or (row.get("metadata") or {}).get("structural_precursor")
+        or ""
+    ).strip()
+    if explicit:
+        return explicit
     roles = split_structural_and_environment(_gold_precursor(row), _product(row))
     return roles.structural_smiles
 
 
 def _replace_assistant(row: Mapping[str, Any], content: str, task_type: str) -> dict[str, Any]:
-    output = deepcopy(dict(row))
-    messages = [dict(message) for message in output.get("messages") or [] if message.get("role") != "assistant"]
-    messages.append({"role": "assistant", "content": content})
-    output["messages"] = messages
+    product = _product(row)
+    if not product:
+        raise ValueError("row has no mapped product target")
+    output = dict(row)
+    output["messages"] = [
+        {"role": "system", "content": _SYSTEM_PROMPTS[task_type]},
+        {"role": "user", "content": f"TARGET: {product}"},
+        {"role": "assistant", "content": content},
+    ]
     output["task_type"] = task_type
     metadata = dict(output.get("metadata") or {})
+    # Representation baselines contain no model-facing tools. Preserve the
+    # source-lineage fact without inheriting the trace runtime's special
+    # endpoint-fallback semantics, which are validated only for tool rows.
+    if metadata.pop("upstream_endpoint_fallback", False) is True:
+        metadata["source_upstream_endpoint_fallback"] = True
     metadata["task_type"] = task_type
     metadata["core_precursor"] = core_precursor(row)
     output["metadata"] = metadata

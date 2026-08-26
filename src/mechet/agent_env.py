@@ -46,6 +46,8 @@ class AgentEnvConfig:
     abstain_reward: float = -0.25
     unfinished_reward: float = -4.0
     require_tool_use: bool = False
+    observation_mode: str = "full_state"
+    reaction_center_radius: int = 1
 
 
 class MechETAgentEnv:
@@ -321,6 +323,67 @@ class MechETAgentEnv:
             }
             terminal_reward = self.config.formal_failure
 
+        process_reward = (
+            self.config.successful_step
+            * min(self.successful_steps, self.config.successful_step_cap)
+            - self.config.failed_step_penalty * self.failed_steps
+        )
+        if self.successful_steps:
+            process_reward += self.config.tool_use_bonus
+        elif self.config.require_tool_use:
+            process_reward -= self.config.no_tool_penalty
+        self.reward = float(terminal_reward + process_reward)
+        self.finalized = True
+        output["reward"] = self.reward
+        output["tool_calls"] = self.tool_calls
+        output["successful_steps"] = self.successful_steps
+        output["failed_steps"] = self.failed_steps
+        self.final_result = output
+        self.trace.append({"event": "submit_proof", "result": output})
+        return json.dumps(output, ensure_ascii=False)
+
+    def _submit_preexecuted_proof(
+        self, *, proof: str, precursor_smiles: str
+    ) -> str:
+        """Finalize a proof already executed by a trusted environment compiler.
+
+        This is intentionally not exposed as a model tool.  Trace-owned
+        environments call it only after ``compile_trace_to_proof`` has executed
+        the generated program and checked every intermediate state.
+        """
+
+        self._consume_call()
+        endpoint_exact = bool(
+            self.expected_precursor
+            and sides_equal(
+                precursor_smiles,
+                self.expected_precursor,
+                ignore_maps=True,
+            )
+        )
+        endpoints = split_precursor_endpoints(
+            precursor_smiles, self.target_smiles
+        )
+        output: dict[str, Any] = {
+            "formal_execute": True,
+            "derived_precursor": precursor_smiles,
+            **endpoints.to_dict(),
+            "endpoint_exact": endpoint_exact,
+        }
+        terminal_reward = self.config.formal_success
+        if endpoint_exact:
+            terminal_reward += self.config.endpoint_exact
+        if self.forward_model is not None:
+            forward = score_inverse_proof_forward(
+                self.forward_model,
+                proof,
+                competitor_products=self.competitor_products,
+                conditions=self.conditions,
+            )
+            output["forward"] = forward
+            terminal_reward += self.config.forward_reward_scale * float(
+                forward.get("forward_reward") or 0.0
+            )
         process_reward = (
             self.config.successful_step
             * min(self.successful_steps, self.config.successful_step_cap)

@@ -219,6 +219,95 @@ def test_inference_accepts_mapping_model_inputs(monkeypatch):
     assert prefix.tolist() == [1, 2]
 
 
+def test_direct_inference_batches_sampled_candidates_in_one_generate_call():
+    module = load_script("infer_mechet.py")
+    torch = pytest.importorskip("torch")
+
+    class FakeTokenizer:
+        eos_token_id = 0
+
+        def apply_chat_template(self, **_kwargs):
+            return {
+                "input_ids": torch.tensor([[1, 2]]),
+                "attention_mask": torch.tensor([[1, 1]]),
+            }
+
+        def decode(self, tokens, skip_special_tokens=False):
+            assert skip_special_tokens is False
+            return "generated:" + ",".join(str(int(x)) for x in tokens)
+
+    class FakeModel:
+        calls = 0
+
+        def parameters(self):
+            yield torch.nn.Parameter(torch.zeros(1))
+
+        def generate(self, **kwargs):
+            self.calls += 1
+            assert kwargs["num_return_sequences"] == 3
+            return torch.tensor([[1, 2, 3], [1, 2, 4], [1, 2, 5]])
+
+    model = FakeModel()
+    texts, prefix = module._generate_responses(
+        model,
+        FakeTokenizer(),
+        [{"role": "user", "content": "x"}],
+        [],
+        max_new_tokens=4,
+        temperature=0.7,
+        top_p=0.95,
+        seeds=[17, 18, 19],
+    )
+    assert model.calls == 1
+    assert texts == ["generated:3", "generated:4", "generated:5"]
+    assert prefix.tolist() == [1, 2]
+
+
+def test_direct_inference_trims_only_padding_after_first_eos():
+    module = load_script("infer_mechet.py")
+    torch = pytest.importorskip("torch")
+
+    class FakeTokenizer:
+        eos_token_id = 0
+
+        def apply_chat_template(self, **_kwargs):
+            return {
+                "input_ids": torch.tensor([[1, 2]]),
+                "attention_mask": torch.tensor([[1, 1]]),
+            }
+
+        def decode(self, tokens, skip_special_tokens=False):
+            assert skip_special_tokens is False
+            return ",".join(str(int(x)) for x in tokens)
+
+    class FakeModel:
+        generation_config = type("GenerationConfig", (), {"eos_token_id": [0, 9]})()
+
+        def parameters(self):
+            yield torch.nn.Parameter(torch.zeros(1))
+
+        def generate(self, **_kwargs):
+            return torch.tensor(
+                [
+                    [1, 2, 3, 0, 0, 0],
+                    [1, 2, 4, 5, 9, 0],
+                    [1, 2, 6, 7, 8, 8],
+                ]
+            )
+
+    texts, _ = module._generate_responses(
+        FakeModel(),
+        FakeTokenizer(),
+        [{"role": "user", "content": "x"}],
+        [],
+        max_new_tokens=4,
+        temperature=0.7,
+        top_p=0.95,
+        seeds=[17, 18, 19],
+    )
+    assert texts == ["3,0", "4,5,9", "6,7,8,8"]
+
+
 def test_transformers5_length_grouping_uses_sampling_strategy():
     module = load_script("train_tool_sft.py")
 
@@ -242,6 +331,30 @@ def test_transformers5_length_grouping_uses_sampling_strategy():
     assert kwargs["train_sampling_strategy"] == "group_by_length"
     assert report["api_field"] == "train_sampling_strategy"
     assert report["applied_value"] == "group_by_length"
+
+
+def test_node_local_cache_rebinds_manifest_arrow_paths(tmp_path):
+    module = load_script("train_tool_sft.py")
+    local_cache = tmp_path / "local-cache"
+    local_cache.mkdir()
+    (local_cache / "train.rank00.arrow").write_bytes(b"arrow")
+
+    resolved = module.resolve_cached_arrow_files(
+        local_cache,
+        ["data/original-cache/train.rank00.arrow"],
+    )
+
+    assert resolved == [str(local_cache / "train.rank00.arrow")]
+
+
+def test_node_local_cache_rejects_missing_arrow_shard(tmp_path):
+    module = load_script("train_tool_sft.py")
+
+    with pytest.raises(FileNotFoundError, match="cached Arrow shard"):
+        module.resolve_cached_arrow_files(
+            tmp_path,
+            ["data/original-cache/train.rank07.arrow"],
+        )
 
 
 def test_training_arguments_enable_validation_across_transformers_api():
@@ -309,6 +422,59 @@ def test_training_arguments_enable_fused_liger_loss_when_requested():
     )
     assert kwargs["use_liger_kernel"] is True
     assert kwargs["liger_kernel_config"] == kernel_config
+
+
+def test_training_arguments_expose_kernel_benchmark_metrics():
+    module = load_script("train_tool_sft.py")
+
+    class FakeTrainingArguments:
+        __dataclass_fields__ = {
+            "torch_compile": object(),
+            "torch_compile_backend": object(),
+            "torch_compile_mode": object(),
+            "include_tokens_per_second": object(),
+            "include_num_input_tokens_seen": object(),
+        }
+
+    kwargs, _ = module._training_argument_kwargs(
+        FakeTrainingArguments,
+        cfg={"output_dir": "out"},
+        training={
+            "torch_compile": True,
+            "torch_compile_backend": "inductor",
+            "torch_compile_mode": "reduce-overhead",
+        },
+        max_steps=1,
+        seed=17,
+        data_seed=17,
+        bf16=False,
+        fp16=True,
+        tf32=False,
+        gradient_checkpointing=True,
+    )
+    assert kwargs["torch_compile"] is True
+    assert kwargs["torch_compile_backend"] == "inductor"
+    assert kwargs["torch_compile_mode"] == "reduce-overhead"
+    assert kwargs["include_tokens_per_second"] is True
+    assert kwargs["include_num_input_tokens_seen"] is True
+
+
+def test_resume_checkpoint_is_explicit_and_selects_latest(tmp_path):
+    module = load_script("train_tool_sft.py")
+    for step in (10, 20):
+        checkpoint = tmp_path / f"checkpoint-{step}"
+        checkpoint.mkdir()
+        (checkpoint / "trainer_state.json").write_text("{}", encoding="utf-8")
+    incomplete = tmp_path / "checkpoint-30"
+    incomplete.mkdir()
+
+    assert module.resolve_resume_checkpoint(None, tmp_path) is None
+    assert module.resolve_resume_checkpoint("auto", tmp_path) == (
+        tmp_path / "checkpoint-20"
+    )
+    assert module.resolve_resume_checkpoint(
+        str(tmp_path / "checkpoint-10"), tmp_path
+    ) == (tmp_path / "checkpoint-10")
 
 
 def _h1_row(identifier="h1", calls=1):

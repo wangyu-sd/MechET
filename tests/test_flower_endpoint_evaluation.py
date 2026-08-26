@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from build_flower_endpoint_matched_subset import build_subset
 from score_and_rank_predictions import _rank_key
+from mechet.knowledge_ablation import extract_direct_prediction
 
 
 def _row(identifier: str, source: str, target: str, precursor: str) -> dict:
@@ -42,6 +43,16 @@ def test_direct_rank_key_uses_mean_nll_without_trace_fields():
     high = {"assistant_mean_nll": 1.5, "score_status": "ok"}
     assert _rank_key(low, candidate, direct=True) > _rank_key(
         high, candidate, direct=True
+    )
+
+
+def test_direct_endpoint_extraction_supports_iclr_answer_blocks():
+    prediction = (
+        "<mechanism>\nMECH_ET v3\n</mechanism>\n"
+        "<answer>\n[OH-:2].[CH3:1][Br:3]\n</answer>"
+    )
+    assert extract_direct_prediction({"prediction": prediction}) == (
+        "[OH-:2].[CH3:1][Br:3]"
     )
 
 

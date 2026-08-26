@@ -150,12 +150,32 @@ jobs:
           python scripts/build_textbook_tool_sft.py \
             --input /tmp/mechet-runtime/proofs.jsonl \
             --corpus /tmp/mechet-runtime/passages.jsonl \
-            --output /tmp/mechet-runtime/train.jsonl
-          grep -q '"initial_imports": \["\[Br-:3\]"\]' /tmp/mechet-runtime/train.jsonl
-          grep -q '"textbook_query_source": "target_state_terms"' /tmp/mechet-runtime/train.jsonl
-          grep -q '"gold_label_query_used": false' /tmp/mechet-runtime/train.jsonl
-          grep -q '"tools"' /tmp/mechet-runtime/train.jsonl
-          grep -q PROOF_MISSING /tmp/mechet-runtime/train.quarantine.jsonl
+            --output /tmp/mechet-runtime/train.jsonl \
+            --allow-incomplete
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          row = json.loads(
+              Path('/tmp/mechet-runtime/train.jsonl')
+              .read_text(encoding='utf-8')
+              .splitlines()[0]
+          )
+          metadata = row['metadata']
+          assert metadata['trace_plan']['initial_imports'] == ['[Br-:3]']
+          assert metadata['textbook_query_source'] == 'target_state_terms'
+          assert metadata['gold_label_query_used'] is False
+          assert row['tools']
+
+          quarantine = [
+              json.loads(line)
+              for line in Path('/tmp/mechet-runtime/train.quarantine.jsonl')
+              .read_text(encoding='utf-8')
+              .splitlines()
+              if line.strip()
+          ]
+          assert any(item.get('error_code') == 'PROOF_MISSING' for item in quarantine)
+          PY
       - name: Validate Tool-SFT schema without downloading a model
         run: |
           cat > /tmp/mechet-runtime/tool_sft.yaml <<'EOF'

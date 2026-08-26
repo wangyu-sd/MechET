@@ -1,0 +1,59 @@
+protocol_name: mechet_a7_observation_granularity_v1
+scientific_question: >-
+  Does serializing intermediate molecular state improve executable
+  retrosynthesis enough to justify its context and compute cost?
+
+main_condition: action_delta
+
+conditions:
+  action_delta:
+    builder_argument: action_delta
+    molecular_state_visible: false
+    visible_feedback: [success_or_failure, error_code, remaining_tool_calls]
+    paper_role: main
+
+  reaction_center_delta:
+    builder_argument: reaction_center_delta
+    molecular_state_visible: changed_one_hop_mapped_neighbourhood
+    visible_feedback: [success_or_failure, error_code, local_before, local_after]
+    paper_role: representation_ablation
+
+  full_state:
+    builder_argument: full_state
+    molecular_state_visible: complete_mapped_intermediate_state
+    visible_feedback: [legacy_complete_tool_results]
+    paper_role: legacy_upper_bound_ablation
+
+matched_contract:
+  identical_stable_ids: true
+  identical_action_targets: true
+  identical_base_model_revision: true
+  identical_optimizer_family: true
+  identical_candidate_budget: true
+  report_natural_length_efficiency: true
+  require_length_matched_redaction_before_information_claim: true
+  executor_keeps_complete_state_in_all_conditions: true
+  endpoint_always_owned_by_finish_trace: true
+
+metrics:
+  chemistry:
+    - structural_pass_at_1_5_10
+    - execute_pass_at_1_5_10
+    - trace_bound_pass_at_1_5_10
+    - endpoint_program_consistency
+  interaction:
+    - invalid_action_rate
+    - failed_action_recovery_rate
+    - successful_finish_trace_rate
+    - mean_tool_calls
+  efficiency:
+    - input_tokens_per_reaction
+    - supervised_tokens_per_reaction
+    - train_examples_per_second
+    - rollout_tokens_per_second
+    - rollout_latency
+
+legacy_artifacts:
+  data/flower_inverse_tool_sft_full_v4:
+    observation_mode: full_state_legacy
+    headline_action_delta_eligible: false

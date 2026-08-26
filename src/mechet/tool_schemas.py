@@ -52,30 +52,67 @@ TRACE_TOOLS: tuple[dict[str, Any], ...] = (
                 "type": "array",
                 "minItems": 1,
                 "items": {
-                    "type": "object",
-                    "properties": {
-                        "source": {
-                            "type": "object",
-                            "properties": {
-                                "kind": {"type": "string", "enum": ["LP", "BOND"]},
-                                "atoms": {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 2},
+                    "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "source": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {"type": "string", "enum": ["LP", "BOND", "RADICAL_PAIR"]},
+                                "atoms": {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 2}
+                              },
+                              "required": ["kind", "atoms"],
+                              "additionalProperties": False
                             },
-                            "required": ["kind", "atoms"],
-                            "additionalProperties": False,
-                        },
-                        "sink": {
-                            "type": "object",
-                            "properties": {
-                                "kind": {"type": "string", "enum": ["ATOM", "LP", "BOND"]},
-                                "atoms": {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 2},
+                            "sink": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {"type": "string", "enum": ["ATOM", "LP", "BOND", "RADICAL_PAIR"]},
+                                "atoms": {"type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 2}
+                              },
+                              "required": ["kind", "atoms"],
+                              "additionalProperties": False
                             },
-                            "required": ["kind", "atoms"],
-                            "additionalProperties": False,
+                            "electrons": {"type": "integer", "enum": [2]}
+                          },
+                          "required": ["source", "sink"],
+                          "additionalProperties": False
                         },
-                        "electrons": {"type": "integer", "enum": [2]},
-                    },
-                    "required": ["source", "sink"],
-                    "additionalProperties": False,
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mode": {"type": "string", "enum": ["BE_DELTA"]},
+                            "bond_deltas": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "atoms": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2},
+                                  "delta": {"type": "integer", "minimum": -3, "maximum": 3}
+                                },
+                                "required": ["atoms", "delta"],
+                                "additionalProperties": False
+                              }
+                            },
+                            "charge_actions": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "atom_map": {"type": "integer"},
+                                  "q0": {"type": "integer"},
+                                  "q1": {"type": "integer"}
+                                },
+                                "required": ["atom_map", "q0", "q1"],
+                                "additionalProperties": False
+                              }
+                            }
+                          },
+                          "required": ["mode", "bond_deltas", "charge_actions"],
+                          "additionalProperties": False
+                        }
+                    ]
                 },
             }
         },

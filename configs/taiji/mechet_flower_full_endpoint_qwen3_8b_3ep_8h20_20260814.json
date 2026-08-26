@@ -1,0 +1,47 @@
+{
+  "business_flag": "AI4LSLab_KEMO_ZJK_H20",
+  "readable_name": "MechET FlowER full endpoint SFT Qwen3-8B (3 epochs, 8xH20)",
+  "template_flag": "kubeflow_job_learning",
+  "task_flag": "mechet_flower_full_endpoint_qwen3_8b_3ep_8h20_20260814_01",
+  "task_type": "general_gpu_type",
+  "dataset_id": "F06A5CC1127144DE9CF3FF9BDBE77A1A",
+  "model_id": "152FF65EEDD84C6AA76D7F4C1A5B3BAB",
+  "host_num": 1,
+  "host_gpu_num": 8,
+  "GPUName": "H20",
+  "image_full_name": "mirrors.tencent.com/whaleywang/metabo:taiji7",
+  "quota_type": "public",
+  "is_elasticity": false,
+  "is_mount_ceph": true,
+  "mount_ceph_business_flag": "",
+  "priority_level": "HIGH",
+  "location": "",
+  "task_queuing_priority": "P2",
+  "keep_running_after_trainer_finish": false,
+  "task_category": "fine_tuning",
+  "task_description": "Qwen3-8B endpoint SFT on complete FlowER reaction-level train/valid/test with exact held-out reaction decontamination; stage 1 before executable trace Tool-SFT.",
+  "resource_usage": "experiment",
+  "base_model": "Qwen/Qwen3-8B@b968826d9c46dd6066d109eabc6255188de91218",
+  "output_base_model": "Qwen3-8B-MechET-FlowER-Full-Endpoint-SFT",
+  "business_info": {
+    "task_category": "fine_tuning",
+    "task_description": "Qwen3-8B endpoint SFT on complete FlowER reaction-level data before executable trace Tool-SFT.",
+    "resource_usage": "experiment",
+    "base_model": "Qwen/Qwen3-8B@b968826d9c46dd6066d109eabc6255188de91218",
+    "output_base_model": "Qwen3-8B-MechET-FlowER-Full-Endpoint-SFT"
+  },
+  "job_type": "mpijob",
+  "dynamic_scheduling_config": {
+    "dynamic_scheduling_strategy": "speed_first",
+    "dynamic_scheduling_resource_queue": {
+      "private": {"enable": false},
+      "public": {"enable": true},
+      "discount": {"enable": false},
+      "tidal": {"enable": false, "is_multi_specifications_task": false},
+      "elastic": {"enable": false, "is_multi_specifications_task": false},
+      "mixing": {"enable": false}
+    }
+  },
+  "init_cmd": "test -d /aaa/fionafyang/buddy1/whaleywang/MechET",
+  "start_cmd": "bash -lc 'export NUM_TRAIN_EPOCHS=3.0; export MECHET_TRAINING_CONFIG=configs/agent/sft_flower_full_endpoint_qwen3_8b_h20.yaml; exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/run_taiji_flower_full_endpoint_qwen3_8b.sh'"
+}

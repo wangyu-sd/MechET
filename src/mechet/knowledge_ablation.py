@@ -29,6 +29,7 @@ CHEMISTRY_TOOLS = {
 _DIRECT_ENDPOINT_RE = re.compile(
     r"(?:PRECURSOR|ANSWER)\s*:\s*([^\n]+)", re.IGNORECASE
 )
+_ANSWER_BLOCK_RE = re.compile(r"<answer>\s*(.*?)\s*</answer>", re.IGNORECASE | re.DOTALL)
 
 
 def read_jsonl(path: str | Path) -> list[dict[str, Any]]:
@@ -484,12 +485,18 @@ def extract_direct_prediction(row: Mapping[str, Any]) -> str:
     ):
         text = str(value or "").strip()
         if text:
+            answer = _ANSWER_BLOCK_RE.search(text)
+            if answer:
+                return answer.group(1).strip()
             match = _DIRECT_ENDPOINT_RE.search(text)
             return (match.group(1) if match else text).strip()
     for message in reversed(row.get("messages") or []):
         if message.get("role") != "assistant":
             continue
         text = str(message.get("content") or "").strip()
+        answer = _ANSWER_BLOCK_RE.search(text)
+        if answer:
+            return answer.group(1).strip()
         match = _DIRECT_ENDPOINT_RE.search(text)
         if match:
             return match.group(1).strip()

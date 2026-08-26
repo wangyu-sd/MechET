@@ -204,10 +204,10 @@ class TraceOwnedTRLEnvironment:
         return visible
 
     def inspect_state(self) -> str:
-        """Inspect the mapped state and enumerate legal electron containers.
+        """Enumerate legal electron containers for the current private state.
 
         Returns:
-            JSON observation containing the current state, sources, and sinks.
+            JSON sources and sinks; complete state SMILES only in full-state mode.
         """
 
         if self._intervention == "disable_inspect_state":
@@ -226,7 +226,7 @@ class TraceOwnedTRLEnvironment:
             fragment_smiles: Atom-mapped fragment SMILES with unique positive maps.
 
         Returns:
-            JSON result containing the augmented state or a stable failure code.
+            JSON action result; complete augmented state only in full-state mode.
         """
 
         if not str(fragment_smiles or "").strip():
@@ -254,7 +254,7 @@ class TraceOwnedTRLEnvironment:
             sink_atoms: One sink atom map for ATOM/LP or two for BOND.
 
         Returns:
-            JSON execution result and the sanitized next state.
+            JSON execution result under the configured observation granularity.
         """
 
         if self._intervention == "disable_intermediate_execution":
@@ -281,7 +281,7 @@ class TraceOwnedTRLEnvironment:
             moves: Non-empty list of source/sink move objects.
 
         Returns:
-            JSON execution result and the sanitized next state.
+            JSON execution result under the configured observation granularity.
         """
 
         if self._intervention == "disable_intermediate_execution":
@@ -315,7 +315,8 @@ class TraceOwnedTRLEnvironment:
         """Compile, execute, and finish the environment-owned trace.
 
         Returns:
-            JSON terminal result containing the compiled proof and precursor.
+            JSON terminal endpoint and audit fields; the full proof stays internal
+            outside full-state legacy mode.
         """
 
         return self._visible("finish_trace", self._env.finish_trace())

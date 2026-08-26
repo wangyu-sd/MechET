@@ -18,18 +18,49 @@
 
 > **MechET asks whether a mechanistic rationale can be the computation that determines a retrosynthetic prediction—not merely a plausible explanation written after the answer.**
 
+> **Paper authority:** the ICLR experiment definitions and priorities follow
+> [`MechET-paper/EXPERIMENT_MATRIX.md`](https://github.com/wangyu-sd/MechET-paper/blob/main/EXPERIMENT_MATRIX.md).
+> The implementation mapping is frozen in
+> [`docs/PAPER_EXPERIMENT_PROTOCOL.md`](docs/PAPER_EXPERIMENT_PROTOCOL.md) and
+> [`configs/experiments/paper_experiment_matrix_v1.yaml`](configs/experiments/paper_experiment_matrix_v1.yaml).
+
 ## Project status
+
+> **Dataset-lineage warning:** before describing a FlowER split as "full" or
+> submitting a FlowER job, read [`PROJECT_MEMORY.md`](PROJECT_MEMORY.md). The
+> full reaction-level split is **257,171 / 2,890 / 28,971**; the 32k proof and
+> 28k/27k executable-trace artifacts are legacy derived subsets. The separate
+> v4 full-reaction artifact retains all rows and labels its eight corrupt
+> upstream endpoint fallbacks explicitly.
+
+> [!CAUTION]
+> **Incomplete trace-view subsets:** FlowER `3,080` and mech-USPTO-31k
+> `1,124` are replay-compatible **test subsets**, not complete benchmark test
+> sets. They are diagnostic/program-analysis views only and must never be
+> reported as full-test or headline results. The complete denominators are
+> FlowER `28,971` and mech-USPTO-31k `3,120`.
+
+> [!WARNING]
+> **mech-USPTO mapping source:** `rxn_prod_min` is unmapped and must never be
+> copied into a field named `product_mapped`. The active public-source protocol
+> reconstructs complete reaction pairs from HF `elem_reac_spe` step 0 and the
+> principal `rxn_prod_min` product, maps them once with pinned RXNMapper, then
+> applies synchronized product-only canonical reindexing. See
+> [`docs/MECH_USPTO_31K_FULL_ENDPOINT.md`](docs/MECH_USPTO_31K_FULL_ENDPOINT.md).
 
 | Layer | Current status |
 |---|---|
 | Deterministic executor and trace-owned runtime | Implemented and CI-tested |
-| Replay-verified Tool-SFT data contract | Implemented; real-model overfit pending |
-| mech-USPTO-31k inverse Tool-SFT v2 | 11,429/11,429 stitched traces accepted; replay and tokenizer audits passed |
+| Replay-verified Tool-SFT data contract | Implemented; real Qwen3-8B one-step QLoRA runtime smoke passed |
+| FlowER full-reaction trace v4 | 257,171 / 2,890 / 28,971 rows; 289,024 strict traces + 8 labelled endpoint fallbacks; zero split-ID overlap |
+| FlowER A7 action-only screen | `action_delta_v1` frozen at 257,167 / 2,890 / 28,967 strict executable rows with zero state leaks; frozen cache is one lossless window per train row; real 8×A100 gradient training is active and the unused H20 candidate was stopped |
+| Full FlowER P0 control screens | A0 Direct and A2 State-CoT: 257,171 train rows; A3 NetEdit and auxiliary complete-proof: 257,167 strict-proof rows; all four 3-epoch adapters exist; clean complete-proof K=10 inference is running and A0/A2/A3 are queued with EOS-safe batched decoding; final Tier-A still requires common IDs and matched supervised-token budget |
+| mech-USPTO-31k inverse Tool-SFT v2 | 11,429/11,429 stitched traces accepted; replay/tokenizer audits passed; action-only Qwen3-8B completed three epochs on the 9,118-row train subset and its explicitly non-headline 1,124-row K=10 program-view rollout is queued |
 | Qwen3 assistant-only token contract | Implemented; final-sequence mask and zero-truncation audit |
-| Train/valid/test evidence isolation | Implemented; final H3 uses held-out `test/` only |
+| Future textbook/RAG evidence isolation | Implemented infrastructure; outside current ICLR protocol |
 | H1 causal-faithfulness result | **Not established** |
 | H2 compositional-generalization result | **Not established** |
-| H3 evidence-benefit result | **Not established** |
+| Textbook/RAG/H3 | Outside the current ICLR paper protocol |
 | Paper-scale benchmark and checkpoints | Pending |
 
 See [`docs/STATUS_MATRIX.md`](docs/STATUS_MATRIX.md) for the complete implementation/evidence matrix. A working infrastructure component is not a positive scientific result.
@@ -40,13 +71,21 @@ Most mechanism-aware language models optimize an answer and a rationale jointly,
 
 MechET removes that ambiguity by formulating retrosynthesis as **causal program induction over explicit source-to-sink electron-flow actions**. The model commits actions to a deterministic environment; an environment-owned trace is then the only computational source of the executable proof and precursor.
 
-The study is organized around three falsifiable hypotheses:
+The ICLR study is organized around a seven-part evidence chain (R1--R7), with
+two central mechanistic tests: counterfactual state adaptation and MechComp-OOD
+C2. The older H1/H2 names remain useful shorthand for these two tests:
 
 | Hypothesis | Scientific question | Required evidence | Falsifying outcome |
 |---|---|---|---|
 | **H1 — causal faithfulness** | Does the committed tool trace determine the endpoint? | Successful `finish_trace`, trace/proof replay, and paired observation interventions under an identical runtime contract | Endpoint performance is unchanged when chemically relevant tool observations are removed, stale, or shuffled |
 | **H2 — compositional basis** | Can familiar local execution primitives form unseen complete mechanisms? | Primitive-seen/composition-unseen splits built from `source_to_sink_execution_moves_v1` | Held-out examples contain unseen primitives, or performance is explained only by scaffold/template overlap |
-| **H3 — evidence separation** | Does external mechanistic evidence improve program induction beyond extra context alone? | Frozen textbook/anchor conditions, length-matched controls, direct open-book controls, and zero evidence reward | Gains disappear against irrelevant context or arise from query leakage, runtime mismatch, or missing predictions |
+| **H3 — evidence separation** *(future study)* | Does external textbook evidence add information beyond the executable trace? | Frozen retrieval, length-matched irrelevant text, passage shuffle and content controls | Any gain disappears under matched controls or depends on label-oracle information |
+| **R1/R2 — performance and provenance** | Does the executable representation recover precursors while exposing valid, endpoint-consistent programs? | Matched A0--A7 controls across FlowER and mech-USPTO | Gains vanish under matched data/compute or reasoning is incompatible with the endpoint |
+
+The complete paper sequence additionally covers data efficiency, structural
+OOD, cross-corpus transfer, theory-linked analyses and recovery. Textbook/RAG
+evidence experiments are retained in the repository as a separate future
+study; they are not part of the current ICLR claim set.
 
 The authoritative claim definitions and boundaries are in [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md).
 
@@ -54,9 +93,10 @@ The authoritative claim definitions and boundaries are in [`docs/SCIENTIFIC_THES
 
 ```text
 atom-mapped product
-  -> inspect state and import missing mapped fragments
+  -> use product atom maps and import missing mapped fragments
   -> explicit source-to-sink electron-flow actions
-  -> environment-owned molecular-state transitions
+  -> environment-owned molecular-state transitions (executor-internal)
+  -> action success/failure feedback (model-visible default)
   -> committed move trace
   -> finish_trace
   -> replay declared moves
@@ -78,6 +118,30 @@ abstain
 ```
 
 `reset` and `get_reward` are framework methods. Internal helpers such as `state_dict` and `_snapshot` remain private, and the main method does not expose `submit_proof`. Independent complete-proof submission is retained only as a named legacy baseline.
+
+### Observation contract
+
+The main A7 representation is `action_delta_v1`: the product is supplied once,
+but intermediate molecular-state SMILES are not placed in the model context.
+The executor still keeps the complete mapped state, validates every action, and
+uses that private state to compile and execute the terminal proof. `inspect_state`
+returns the legal source/sink inventory without returning `state_smiles` in this
+mode.
+
+State visibility is an ablation, not a requirement of the main method:
+
+| Builder mode | Model-visible transition result | Paper role |
+|---|---|---|
+| `action_delta` | success/failure, stable code and remaining budget | **Main/default** |
+| `reaction_center_delta` | action result plus mapped one-hop changed neighbourhood | Representation ablation |
+| `full_state` | complete legacy state after each tool call | Legacy/upper-bound ablation |
+
+All three modes execute the identical actions with the same private executor.
+They must be compared on identical stable IDs and action targets. Report endpoint
+and execution metrics together with invalid-action rate, recovery, context tokens,
+training throughput and rollout latency. The existing
+`data/flower_inverse_tool_sft_full_v4` artifact predates this contract and contains
+full-state observations; it must not be labelled as the action-only main result.
 
 ### Causal contract
 
@@ -121,15 +185,17 @@ Textbook passages, structured mechanistic knowledge anchors, and learned forward
 
 ## Experimental program
 
-The paper-level logic is deliberately sequential:
+The current ICLR paper logic is deliberately sequential:
 
 ```text
 coverage and leakage audit
-  -> replay-verified Tool-SFT
-  -> H1 causal intervention test
-  -> H2 composition-OOD test
-  -> H3 matched evidence test
-  -> optional scale, RL, forward evidence, and planning
+  -> R1/R2 matched performance and provenance
+  -> R3 counterfactual state adaptation
+  -> R4 MechComp-OOD, with C2 as headline
+  -> R5 data efficiency
+  -> R6 OOD and cross-corpus transfer
+  -> R7 theory-linked analysis and recovery
+  -> optional RL, scale, textbook/RAG, and planning
 ```
 
 Later stages cannot rescue a failed earlier claim. In particular, planning quality does not establish trace faithfulness, and retrieval gains do not establish compositional generalization.
@@ -161,7 +227,10 @@ non-empty held-out test
 
 Scaffold, family, step-state reaction-center, and near-duplicate overlap must be reported separately rather than conflated with composition novelty. The H2 model is retrained **after** the composition split on H2/train only.
 
-### H3 — evidence separation
+### Future study — textbook/RAG evidence separation
+
+This implemented suite is not part of the current ICLR experiment matrix. It
+is retained for a later evidence-conditioning study.
 
 The matched conditions are:
 
@@ -222,7 +291,8 @@ The derivation, canonical row counts, and SHA-256 values are documented in
 For the separate mech-USPTO-31k inverse initialization dataset, use the frozen
 download-to-training pipeline in
 [`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md).
-It contains 9,118 train, 1,187 valid, and 1,124 test rows. This
+It contains 9,118 train, 1,187 valid, and **1,124 incomplete trace-view test
+subset** rows. This
 `trace_no_knowledge` dataset does not use the textbook corpus and is distinct
 from FlowER and the USPTO-50K benchmark.
 
@@ -232,6 +302,7 @@ for split in train valid test; do
     --input data/mechet_proof_clean/${split}.jsonl \
     --corpus knowledge/corpus/passages.jsonl \
     --output data/textbook_tool_sft/${split}.jsonl \
+    --observation-mode action_delta \
     --query-mode state
 
   python scripts/build_textbook_tool_sft.py \
@@ -239,6 +310,7 @@ for split in train valid test; do
     --corpus knowledge/corpus/passages.jsonl \
     --output data/textbook_tool_sft/${split}_text_and_anchors.jsonl \
     --enable-structured-primitives \
+    --observation-mode action_delta \
     --query-mode state
 done
 ```
@@ -343,7 +415,7 @@ python scripts/run_h2_suite.py \
 
 `run_h2_suite.py` refuses an adapter whose `train_file_sha256` does not match the frozen H2/train split. The headline trace-owned path uses `scripts/infer_mechet.py --mode trace`; `scripts/infer_mechet_proof.py` is an independent complete-proof baseline only.
 
-### 8. Run held-out H3
+### Optional future study: run held-out H3
 
 ```bash
 python scripts/run_h3_suite.py \
@@ -402,26 +474,28 @@ The software alone does **not** establish:
 | Root-import-preserving proof-to-trace conversion | Implemented and CI-tested |
 | Replay-verified Tool-SFT construction | Implemented; mech-USPTO inverse v2 accepts 11,429/11,429 globally stitched traces |
 | Qwen3 final-sequence assistant masking | Implemented; mech-USPTO inverse full-data audit has zero truncation |
-| Split-isolated H3 suite construction | Implemented; final results not yet reported |
+| Split-isolated H3 suite construction | Implemented future-study infrastructure; outside current ICLR |
 | Canonical seeded/resumable inference | Implemented and CI-tested |
-| Strict H1/H3 evaluators | Implemented and CI-tested |
-| H1/H2/H3 reproducible runners | Implemented; real checkpoints required |
+| Strict intervention/evidence evaluators | Implemented and CI-tested |
+| R3/R4 reproducible runners | Implemented foundations; paper checkpoints and splits still required |
 | H2 source-to-sink composition split | Implemented; benchmark statistics not yet released |
 | Paper-scale checkpoints and frozen results | Not released |
 | Experimental or kinetic validation | External evidence required |
 
-No positive H1, H2, or H3 conclusion is claimed before full-data coverage, real model overfit, non-scripted inference, multi-seed training, and frozen benchmark evaluation.
+No positive R1--R7 conclusion is claimed before its paper-declared matched
+data, compute, inference, multi-seed and frozen-evaluation contracts pass.
 
 ## Documentation
 
 | Document | Role |
 |---|---|
-| [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md) | Scientific question, hypotheses, terminology, and permitted claims |
+| [`docs/PAPER_EXPERIMENT_PROTOCOL.md`](docs/PAPER_EXPERIMENT_PROTOCOL.md) | Paper-authoritative A0--A7, B1--B5 and R1--R7 implementation mapping |
+| [`docs/SCIENTIFIC_THESIS.md`](docs/SCIENTIFIC_THESIS.md) | Runtime terminology and permitted claim boundaries |
 | [`docs/TRACE_FAITHFULNESS.md`](docs/TRACE_FAITHFULNESS.md) | Main causal runtime and H1 intervention contract |
-| [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md) | Paper-level claim–evidence contract |
+| [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md) | Legacy proof-centric implementation contract |
 | [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) | Ordered commands, artifacts, gates, and stopping rules |
 | [`docs/TOOL_SFT.md`](docs/TOOL_SFT.md) | Replay-verified supervision, Qwen3 assistant masking, and checkpoint lineage |
 | [`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md) | mech-USPTO source identity, inverse v2 protocol, coverage, validation, and reproduction commands |
 | [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) | H2 execution-primitive signatures and composition splits |
-| [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) | H3 matched evidence conditions and interventions |
+| [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) | Future textbook/RAG evidence conditions and interventions |
 | [`docs/README.md`](docs/README.md) | Documentation authority map and reading paths |
