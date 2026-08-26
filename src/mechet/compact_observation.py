@@ -1,9 +1,9 @@
 """Compact chemistry observations for trace-owned inverse execution.
 
 The executor keeps the authoritative complete molecular state. Model-facing
-observations expose either no molecular state (the default) or a mapped
-reaction-centre neighbourhood for a controlled ablation. Both avoid repeated
-serialization of the whole molecule after every tool call.
+observations expose either no molecular state, one authoritative current state,
+or a mapped reaction-centre neighbourhood for a controlled ablation. All modes
+remove duplicated transition/audit serialization.
 """
 from __future__ import annotations
 
@@ -82,7 +82,10 @@ def mapped_reaction_center_smiles(
 
 
 def compact_failure_observation(
-    result: Mapping[str, Any], *, observation_mode: str
+    result: Mapping[str, Any],
+    *,
+    observation_mode: str,
+    current_state_smiles: str | None = None,
 ) -> dict[str, Any]:
     """Return only stable control fields from a failed executor call."""
 
@@ -92,6 +95,39 @@ def compact_failure_observation(
         if key in result
     }
     compact["observation_mode"] = f"{observation_mode}_v1"
+    if observation_mode == "compact_full_state":
+        compact["current_state_smiles"] = str(current_state_smiles or "")
+    return compact
+
+
+def compact_full_state_observation(
+    result: Mapping[str, Any],
+    *,
+    current_state_smiles: str,
+    include_inventory: bool = False,
+) -> dict[str, Any]:
+    """Expose one authoritative state without duplicated transition audit data."""
+
+    if not result.get("ok"):
+        return compact_failure_observation(
+            result,
+            observation_mode="compact_full_state",
+            current_state_smiles=current_state_smiles,
+        )
+    compact: dict[str, Any] = {
+        "ok": True,
+        "code": result.get("code", "PASS"),
+        "observation_mode": "compact_full_state_v1",
+        "current_state_smiles": current_state_smiles,
+        "remaining_tool_calls": result.get("remaining_tool_calls"),
+    }
+    if include_inventory:
+        for key in ("sources", "sinks"):
+            if key in result:
+                compact[key] = result[key]
+    for key in ("pending_import_count", "trace_bound"):
+        if key in result:
+            compact[key] = result[key]
     return compact
 
 
@@ -145,7 +181,7 @@ def compact_terminal_observation(
 ) -> dict[str, Any]:
     """Expose the executed endpoint once while retaining full audit data inside."""
 
-    keep = (
+    keep = [
         "ok",
         "formal_execute",
         "endpoint_exact",
@@ -160,7 +196,10 @@ def compact_terminal_observation(
         "tool_calls",
         "successful_steps",
         "failed_steps",
-    )
+    ]
+    if observation_mode == "compact_full_state":
+        keep.remove("trace_digest")
+        keep.remove("move_sequence_digest")
     compact = {key: result[key] for key in keep if key in result}
     compact["observation_mode"] = f"{observation_mode}_v1"
     return compact

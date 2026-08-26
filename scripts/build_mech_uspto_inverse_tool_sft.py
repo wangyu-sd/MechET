@@ -41,7 +41,12 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument(
         "--observation-mode",
-        choices=("action_delta", "reaction_center_delta", "full_state"),
+        choices=(
+            "action_delta",
+            "compact_full_state",
+            "reaction_center_delta",
+            "full_state",
+        ),
         default="action_delta",
     )
     args = parser.parse_args()

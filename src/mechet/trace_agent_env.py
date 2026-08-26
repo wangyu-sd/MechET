@@ -10,6 +10,7 @@ from rdkit import Chem
 from .agent_env import AgentEnvConfig, MechETAgentEnv
 from .compact_observation import (
     compact_failure_observation,
+    compact_full_state_observation,
     compact_terminal_observation,
     compact_transition_observation,
 )
@@ -42,6 +43,7 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
     def reset(self, *args: Any, **kwargs: Any) -> str:
         if self.config.observation_mode not in {
             "full_state",
+            "compact_full_state",
             "action_delta",
             "reaction_center_delta",
         }:
@@ -60,14 +62,15 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             "declared_moves_replayed_before_compilation": True,
             "observation_mode": self.config.observation_mode,
         }
-        inspect_instruction = (
-            "Use inspect_state before referencing atom maps."
-            if self.config.observation_mode == "full_state"
-            else (
+        inspect_instruction = "Use inspect_state before referencing atom maps."
+        if self.config.observation_mode in {
+            "action_delta",
+            "reaction_center_delta",
+        }:
+            inspect_instruction = (
                 "Atom maps come from TARGET and imported fragments; inspect_state "
                 "returns legal-action inventory without serializing the current state."
             )
-        )
         observation["instructions"] = [
             inspect_instruction,
             "Use import_fragment when a required mapped precursor fragment is absent.",
@@ -83,7 +86,18 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
         """Inspect legal containers without leaking compact-mode state SMILES."""
 
         raw = json.loads(super().inspect_state())
-        if self.config.observation_mode == "full_state" or not raw.get("ok"):
+        if self.config.observation_mode == "full_state":
+            return json.dumps(raw, ensure_ascii=False)
+        if self.config.observation_mode == "compact_full_state":
+            return json.dumps(
+                compact_full_state_observation(
+                    raw,
+                    current_state_smiles=self.current_state,
+                    include_inventory=True,
+                ),
+                ensure_ascii=False,
+            )
+        if not raw.get("ok"):
             return json.dumps(raw, ensure_ascii=False)
         raw.pop("state_smiles", None)
         raw["observation_mode"] = f"{self.config.observation_mode}_v1"
@@ -132,6 +146,16 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             }
         self.trace.append({"event": "import_fragment", "result": result})
         if self.config.observation_mode != "full_state":
+            if self.config.observation_mode == "compact_full_state":
+                visible = dict(result)
+                visible["pending_import_count"] = len(self.pending_imports)
+                return json.dumps(
+                    compact_full_state_observation(
+                        visible,
+                        current_state_smiles=self.current_state,
+                    ),
+                    ensure_ascii=False,
+                )
             if not result.get("ok"):
                 return json.dumps(
                     compact_failure_observation(
@@ -172,6 +196,14 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
                 self.trace[-1]["authoritative_transition"] = transition.to_dict()
                 self.trace[-1]["result"] = result
         if self.config.observation_mode != "full_state":
+            if self.config.observation_mode == "compact_full_state":
+                return json.dumps(
+                    compact_full_state_observation(
+                        result,
+                        current_state_smiles=self.current_state,
+                    ),
+                    ensure_ascii=False,
+                )
             return json.dumps(
                 compact_transition_observation(
                     result=result,
@@ -198,6 +230,14 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             "remaining_tool_calls": self.config.max_tool_calls - self.tool_calls,
         }
         self.trace.append({"event": "submit_proof_rejected", "result": result})
+        if self.config.observation_mode == "compact_full_state":
+            return json.dumps(
+                compact_full_state_observation(
+                    result,
+                    current_state_smiles=self.current_state,
+                ),
+                ensure_ascii=False,
+            )
         return json.dumps(result, ensure_ascii=False)
 
     def finish_trace(self) -> str:
@@ -213,7 +253,9 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             self.trace.append({"event": "finish_trace_failed", "result": result})
             if self.config.observation_mode != "full_state":
                 result = compact_failure_observation(
-                    result, observation_mode=self.config.observation_mode
+                    result,
+                    observation_mode=self.config.observation_mode,
+                    current_state_smiles=self.current_state,
                 )
             return json.dumps(result, ensure_ascii=False)
         try:
@@ -236,7 +278,9 @@ class TraceOwnedAgentEnv(MechETAgentEnv):
             self.trace.append({"event": "finish_trace_failed", "result": result})
             if self.config.observation_mode != "full_state":
                 result = compact_failure_observation(
-                    result, observation_mode=self.config.observation_mode
+                    result,
+                    observation_mode=self.config.observation_mode,
+                    current_state_smiles=self.current_state,
                 )
             return json.dumps(result, ensure_ascii=False)
 

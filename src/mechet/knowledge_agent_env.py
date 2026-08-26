@@ -19,6 +19,7 @@ from .trace_agent_env import TraceOwnedAgentEnv
 @dataclass(frozen=True)
 class KnowledgeAgentConfig(AgentEnvConfig):
     textbook_corpus_path: str = "knowledge/corpus/passages.jsonl"
+    enable_textbook_retrieval: bool = True
     textbook_top_k: int = 4
     textbook_max_characters: int = 5000
     textbook_max_passage_characters: int = 1200
@@ -119,12 +120,12 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
         corpus = Path(textbook_corpus_path or cfg.textbook_corpus_path)
         self.textbook_store: TextbookStore | None = None
         self.textbook_retriever: TextbookRetriever | None = None
-        if corpus.exists():
+        if cfg.enable_textbook_retrieval and corpus.exists():
             corpus_key = _asset_stamp(corpus)
             self.textbook_store, self.textbook_retriever = _cached_textbook_assets(
                 *corpus_key
             )
-        elif cfg.require_textbook_corpus:
+        elif cfg.enable_textbook_retrieval and cfg.require_textbook_corpus:
             raise FileNotFoundError(f"textbook corpus does not exist: {corpus}")
         self.textbook_corpus_path = str(corpus)
 
@@ -260,7 +261,9 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
         )
         visible = dict(result)
         if self.config.observation_mode != "full_state":
-            visible.pop("state_smiles", None)
+            state_smiles = visible.pop("state_smiles", self.current_state)
+            if self.config.observation_mode == "compact_full_state":
+                visible["current_state_smiles"] = state_smiles
             visible["observation_mode"] = (
                 f"{self.config.observation_mode}_v1"
             )
@@ -309,7 +312,9 @@ class KnowledgeAugmentedAgentEnv(TraceOwnedAgentEnv):
         self.trace.append({"event": "retrieve_primitives", "result": result})
         visible = dict(result)
         if self.config.observation_mode != "full_state":
-            visible.pop("state_smiles", None)
+            state_smiles = visible.pop("state_smiles", self.current_state)
+            if self.config.observation_mode == "compact_full_state":
+                visible["current_state_smiles"] = state_smiles
             visible["observation_mode"] = (
                 f"{self.config.observation_mode}_v1"
             )

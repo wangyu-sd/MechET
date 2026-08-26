@@ -162,6 +162,7 @@ def build_row(
 ) -> dict[str, Any]:
     if observation_mode not in {
         "action_delta",
+        "compact_full_state",
         "reaction_center_delta",
         "full_state",
     }:
@@ -184,6 +185,7 @@ def build_row(
             str(corpus) if corpus is not None else "knowledge/corpus/passages.jsonl"
         ),
         require_textbook_corpus=use_textbook,
+        enable_textbook_retrieval=use_textbook,
         max_tool_calls=max(16, required_calls + 2),
         textbook_top_k=top_k,
         textbook_max_characters=max_context_characters,
@@ -417,11 +419,17 @@ def main() -> int:
     parser.add_argument("--allow-incomplete", action="store_true")
     parser.add_argument(
         "--observation-mode",
-        choices=("action_delta", "reaction_center_delta", "full_state"),
+        choices=(
+            "action_delta",
+            "compact_full_state",
+            "reaction_center_delta",
+            "full_state",
+        ),
         default="action_delta",
         help=(
             "Model-facing environment feedback. action_delta exposes no "
-            "intermediate molecular state and is the default."
+            "intermediate molecular state; compact_full_state exposes one "
+            "authoritative current state after every nonterminal call."
         ),
     )
     args = parser.parse_args()
@@ -574,7 +582,8 @@ def main() -> int:
         "headline_eligible": args.query_mode == "state",
         "observation_mode": f"{args.observation_mode}_v1",
         "intermediate_state_model_visible": args.observation_mode != "action_delta",
-        "main_observation_contract": args.observation_mode == "action_delta",
+        "main_observation_contract": args.observation_mode
+        == "compact_full_state",
         "read": read,
         "written": written,
         "quarantined": read - written,

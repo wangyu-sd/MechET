@@ -4,6 +4,7 @@ from rdkit import Chem
 
 from mechet.agent_env import AgentEnvConfig
 from mechet.compact_observation import (
+    compact_full_state_observation,
     compact_terminal_observation,
     compact_transition_observation,
     mapped_reaction_center_smiles,
@@ -177,3 +178,79 @@ def test_failed_action_delta_result_cannot_leak_state():
         "code": "MOVE_FAILED",
         "observation_mode": "action_delta_v1",
     }
+
+
+def test_compact_full_state_keeps_one_authoritative_state_only():
+    value = compact_full_state_observation(
+        {
+            "ok": True,
+            "state_smiles": "duplicated",
+            "state_before": "duplicated",
+            "state_after": "duplicated",
+            "trace_step": {"state_before": "duplicated"},
+            "trace_digest": "audit-only",
+            "remaining_tool_calls": 3,
+            "trace_bound": True,
+        },
+        current_state_smiles="[Br-:2].[CH3:1][OH:3]",
+    )
+
+    assert value == {
+        "ok": True,
+        "code": "PASS",
+        "observation_mode": "compact_full_state_v1",
+        "current_state_smiles": "[Br-:2].[CH3:1][OH:3]",
+        "remaining_tool_calls": 3,
+        "trace_bound": True,
+    }
+
+
+def test_compact_full_state_environment_updates_state_after_every_nonterminal_call():
+    env = TraceOwnedAgentEnv(
+        config=AgentEnvConfig(
+            max_tool_calls=8,
+            observation_mode="compact_full_state",
+        )
+    )
+    env.reset(
+        target_smiles="[CH3:1][Br:2]",
+        expected_precursor="[Br-:2].[CH3:1][OH:3]",
+    )
+
+    inspected = json.loads(env.inspect_state())
+    assert inspected["current_state_smiles"] == "[CH3:1][Br:2]"
+    assert "state_smiles" not in inspected
+    imported = json.loads(env.import_fragment("[OH-:3]"))
+    assert imported["current_state_smiles"] == "[CH3:1][Br:2].[OH-:3]"
+    assert imported["pending_import_count"] == 1
+    assert "imported_fragment" not in imported
+
+    transition = json.loads(
+        env.apply_coupled_electron_moves(
+            json.dumps(
+                [
+                    {
+                        "source": {"kind": "LP", "atoms": [3]},
+                        "sink": {"kind": "BOND", "atoms": [1, 3]},
+                        "electrons": 2,
+                    },
+                    {
+                        "source": {"kind": "BOND", "atoms": [1, 2]},
+                        "sink": {"kind": "ATOM", "atoms": [2]},
+                        "electrons": 2,
+                    },
+                ]
+            )
+        )
+    )
+    assert transition["current_state_smiles"] == "[Br-:2].[CH3:1][OH:3]"
+    assert "state_before" not in transition
+    assert "state_after" not in transition
+    assert "trace_digest" not in transition
+    assert env.trace[-1]["result"]["trace_digest"]
+
+    terminal = json.loads(env.finish_trace())
+    assert terminal["derived_precursor"] == transition["current_state_smiles"]
+    assert "compiled_proof" not in terminal
+    assert "trace_digest" not in terminal
+    assert "move_sequence_digest" not in terminal
