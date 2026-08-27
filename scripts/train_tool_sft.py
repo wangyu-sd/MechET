@@ -530,6 +530,14 @@ def main() -> int:
     args = parser.parse_args()
 
     cfg = load_yaml(args.config)
+    initial_adapter_override = os.environ.get(
+        "MECHET_INITIAL_ADAPTER_PATH", ""
+    ).strip()
+    if initial_adapter_override:
+        cfg["initial_adapter_path"] = initial_adapter_override
+        cfg["initial_adapter_manifest"] = str(
+            Path(initial_adapter_override) / "adapter_manifest.json"
+        )
     output_override = os.environ.get("MECHET_OUTPUT_DIR", "").strip()
     if output_override:
         cfg["output_dir"] = output_override

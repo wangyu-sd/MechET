@@ -25,6 +25,7 @@ export HF_HUB_CACHE="$shared_hf_cache"
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 export TOKENIZERS_PARALLELISM=false
+export PYTHONUNBUFFERED=1
 export PYTHONPATH="$runtime_target:$repo_dir/src:$repo_dir${PYTHONPATH:+:$PYTHONPATH}"
 export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -92,6 +93,27 @@ print(
     }
 )
 PY
+
+if [[ ${MECHET_STAGE_INITIAL_ADAPTER:-0} == 1 ]]; then
+  initial_adapter=$(python - "$training_config" <<'PY'
+from pathlib import Path
+import sys
+import yaml
+
+cfg = yaml.safe_load(Path(sys.argv[1]).read_text(encoding="utf-8"))
+print(str(cfg.get("initial_adapter_path") or ""))
+PY
+  )
+  if [[ -z "$initial_adapter" || ! -f "$initial_adapter/adapter_model.safetensors" ]]; then
+    echo "MECHET_STAGE_INITIAL_ADAPTER=1 but no valid initial adapter is configured" >&2
+    exit 2
+  fi
+  local_initial_adapter=${MECHET_LOCAL_INITIAL_ADAPTER_DIR:-/tmp/mechet_initial_adapter}
+  mkdir -p "$local_initial_adapter"
+  cp -a "$initial_adapter/." "$local_initial_adapter/"
+  export MECHET_INITIAL_ADAPTER_PATH="$local_initial_adapter"
+  echo "[MechET] staged initial adapter to node-local storage: $local_initial_adapter"
+fi
 
 token_cache_manifest=$(python - "$training_config" <<'PY'
 from pathlib import Path

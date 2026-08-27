@@ -3,7 +3,7 @@
   "readable_name": "meteor MechET A7 compact-full-state A0 warm-start BF16 1ep (8xH20 ZJK)",
   "template_flag": "kubeflow_job_learning",
   "task_type": "general_gpu_type",
-  "task_flag": "meteor_mechet_flower_a7_a0_warmstart_bf16_1ep_8h20_zjk_20260827_02",
+  "task_flag": "meteor_mechet_flower_a7_a0_warmstart_bf16_1ep_8h20_zjk_20260827_03",
   "dataset_id": "F06A5CC1127144DE9CF3FF9BDBE77A1A",
   "model_id": "152FF65EEDD84C6AA76D7F4C1A5B3BAB",
   "host_num": 1,
@@ -26,5 +26,5 @@
   "output_base_model": "meteor-MechET-A7-Compact-Full-State-A0-Warmstart-BF16-ZJK",
   "job_type": "mpijob",
   "init_cmd": "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK",
-  "start_cmd": "bash -lc 'TAIJI_HEARTBEAT_LABEL=meteor-mechet-a7-a0-warmstart-h20 TAIJI_HEARTBEAT_SECONDS=60 MECHET_EXPECTED_GPU=H20 MECHET_OUTPUT_DIR=outputs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a0_warmstart_h20_20260827 MECHET_TRAINING_CONFIG=configs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a0_warmstart_a100.yaml exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/taiji_run_with_heartbeat.sh bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/run_taiji_compact_full_state_sft.sh'"
+  "start_cmd": "bash -lc 'TAIJI_HEARTBEAT_LABEL=meteor-mechet-a7-a0-warmstart-h20 TAIJI_HEARTBEAT_SECONDS=60 MECHET_EXPECTED_GPU=H20 MECHET_STAGE_INITIAL_ADAPTER=1 MECHET_LOCAL_INITIAL_ADAPTER_DIR=/tmp/mechet_a0_endpoint_adapter MECHET_OUTPUT_DIR=outputs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a0_warmstart_h20_20260827 MECHET_TRAINING_CONFIG=configs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a0_warmstart_a100.yaml exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/taiji_run_with_heartbeat.sh bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/run_taiji_compact_full_state_sft.sh'"
 }
