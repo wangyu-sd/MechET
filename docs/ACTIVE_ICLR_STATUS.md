@@ -7,6 +7,32 @@
 
 Last updated: 2026-08-26.
 
+## A2 State-CoT resource decision (2026-08-26)
+
+The full-test A2 State-CoT K=10 job was intentionally stopped after preserving
+1,266/28,971 generated targets.  The stopped task is
+`mechet_flower_a2_state_cot_k10_nll_8a100_20260824_01`; its eight 40-GiB A100s
+are released and the partial artifact remains under
+`outputs/eval/iclr_full/state_cot_seed17_k10_batched_v2/`.
+
+The observed throughput was about 26 targets/hour.  Continuing the original
+K=10, `max_new_tokens=14336` configuration would therefore have required about
+45 additional days.  The pragmatic replacement is full-test K=1 with
+`max_new_tokens=4096`, plus K=10 on an explicitly labelled approximately 3k
+subset.  Estimated wall time for the replacement full-test screen is 1--3 days
+on 8xA100, subject to a short throughput probe before submission.
+
+## A7 BF16 A100 migration (2026-08-27)
+
+The 8xV100 compact-full-state task was stopped after about 20 hours without a
+first checkpoint; its measured throughput implied at least roughly 14 days for
+one epoch.  The replacement task is
+`meteor_mechet_flower_compact_full_state_qwen3_8b_bf16_1ep_8a100_qy_20260827_01`
+on 8xA100.  It uses BF16, TF32, Flash-SDPA and full Liger kernels.  The Taiji
+task and readable name both use the mandatory `meteor` prefix, and the complete
+startup/training command is wrapped by `scripts/taiji_run_with_heartbeat.sh`
+so unbuffered default-POD stdout remains live at least once every 60 seconds.
+
 ## What is already on `main`
 
 - PR #35 (`b7e26027`) merged the full-data protocol/runtime update.

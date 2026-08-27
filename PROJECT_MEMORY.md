@@ -1,5 +1,16 @@
 # MechET project memory: authoritative data and model lineage
 
+> **Permanent Taiji submission guard (user-mandated, 2026-08-27):** every new
+> Taiji task must have both its `task_flag` and readable task name start with
+> `meteor`.  The user program must stream unbuffered stdout/stderr to Taiji's
+> default POD log continuously; never redirect the training log to a file or a
+> non-default logging path.  Long training steps must be wrapped by
+> `scripts/taiji_run_with_heartbeat.sh` with a heartbeat interval no longer
+> than 60 seconds, so the platform always observes live output.  After every
+> submission, verify an actual running POD, fresh default-log heartbeats, the
+> expected processes, and non-idle GPUs.  A successful create/start response
+> alone is never considered a successful task launch.
+
 > **Permanent denominator guard:** FlowER `3,080`, old mech-USPTO-31k `1,124`,
 > and current-compiler mech-USPTO-31k `1,253` are incomplete
 > replay-compatible test subsets. Never call any of them the
