@@ -84,14 +84,14 @@ mask_diag = 2 * max_nodes * I
 
 #### 本地修改
 
-- 删除送入 eigensolver 的 dummy-node 对角块。
-- 新增 `eigh_real_nodes()`，按 `node_mask` 逐图提取真实节点拉普拉斯子矩阵。
-- 由 batched eigendecomposition 改为逐图 eigendecomposition。
-- 谱分解工作精度固定为 `torch.float64`。
+- 删除原始 batch padding 产生的重复对角谱。
+- 新增 `eigh_real_nodes()`，按有效节点数将图放入 16-node buckets，正常路径在 GPU 上批量 FP32 分解。
+- bucket 内 padding 使用互不相同、且高于真实拉普拉斯谱上界的对角值，避免重新产生简并谱。
+- 对孤立/dummy node 使用低于 `1e-5` 连通分量阈值的确定性 tie-break。
 - 分解前再次执行 `(L + L.T) / 2`，确保数值对称。
 - 增加空图检查以及 `NaN/Inf` 检查。
-- CUDA 分解失败时回退到 CPU LAPACK。
-- CPU 仍失败时，在对角线上加入最大 `1e-10` 的微小 jitter 后重试。
+- 批量 FP32 分解失败时，仅将受影响 bucket 拆为逐图 GPU FP64 重试。
+- GPU FP64 仍失败时回退 CPU LAPACK；CPU 仍失败时加入最大 `1e-10` jitter。
 - 分解结果重新填充到 batch 原始形状，保持后续特征维度和接口不变。
 - `extra_features=eigenvalues` 和 `extra_features=all` 两条路径都使用新求解器。
 
@@ -102,7 +102,7 @@ mask_diag = 2 * max_nodes * I
 - 启动阶段：batch element 4，error code 5257。
 - Epoch 8：batch element 0，error code 1。
 
-两次错误都来自 `torch.linalg.eigh` 对高度退化或数值困难的拉普拉斯矩阵分解不收敛。单纯将 `L` 转为 float64 的中间修复仍然失败，因此最终改为完全排除 dummy node，并加入 CPU 和 jitter 回退。
+两次错误都来自 `torch.linalg.eigh` 对高度退化或数值困难的拉普拉斯矩阵分解不收敛。单纯将 `L` 转为 float64 的中间修复仍然失败，因此最终去掉 batch padding 的重复谱、稳定孤立节点简并子空间，并加入分层回退。
 
 #### 保持不变的语义
 
@@ -112,7 +112,7 @@ mask_diag = 2 * max_nodes * I
 
 #### 代价
 
-逐图分解比单次 batched CUDA 分解有更多 Python 调度开销；发生 CPU fallback 时会进一步变慢。该修改优先保证长时间训练不会因为个别图的谱分解失败而终止。
+正常路径不再逐图调用 eigensolver；相近大小的图在同一 GPU kernel 中处理。只有异常 bucket 才进入逐图 FP64/CPU 路径，因此稳定性成本不再由每个 batch 承担。
 
 ### 3.3 `train.py`
 
@@ -143,7 +143,10 @@ mask_diag = 2 * max_nodes * I
 #### 训练参数
 
 - Trainer 新增 `accumulate_grad_batches`，默认值为 1。
-- FlowER 和 USPTO 配置利用梯度累积，在显存允许的小 micro-batch 下保持有效 batch size。
+- Trainer 支持配置 `devices`、`strategy`、`precision`、TF32 和 gradient clipping。
+- FlowER 和 USPTO 正式配置使用 8-GPU DDP、BF16 mixed precision，global batch 均为 64。
+- 自定义数据按完整 validation VLB 保存 `best.ckpt`，并支持 patience-based early stopping。
+- 正式训练关闭周期性 500-step chain sampling；采样由独立 evaluation job 完成。
 
 ### 3.4 `src/frameworks/markov_bridge.py`
 
@@ -283,12 +286,14 @@ swanlab_mode: online
 
 ### 4.5 `tests/test_extra_features.py`
 
-新增两个单元测试：
+谱分解单元测试覆盖：
 
-- `extra_features=all` 确认 `eigh` 使用 float64，输出恢复为输入 dtype 且结果有限。
-- `extra_features=eigenvalues` 确认 `eigvalsh` 使用 float64，输出恢复 dtype 且结果有限。
+- `extra_features=all/eigenvalues` 的批量 FP32 快路径和输出 dtype。
+- 不同图大小的 bucket 合并。
+- 批量失败后只对受影响图执行 FP64 fallback。
+- 非连续 node mask 的显式拒绝。
 
-当前测试尚未覆盖 CUDA 失败后的 CPU fallback、jitter fallback、dummy-node 子矩阵截取、strict dataset failure 和端到端 checkpoint 恢复。
+当前测试尚未覆盖真实 CUDA 驱动错误后的 CPU/jitter 二级 fallback、strict dataset failure 和端到端 DDP checkpoint 恢复。
 
 ## 5. 新增配置
 
@@ -298,8 +303,9 @@ swanlab_mode: online
 - 扩散步数：500
 - 谱/环额外特征：`all`
 - 分子额外特征：关闭
-- micro-batch：16
-- 梯度累积：4
+- 8-GPU DDP，BF16 mixed precision
+- per-GPU micro-batch：8
+- 梯度累积：1
 - 有效 batch：64
 - 模型深度：5 层
 - 输出路径指向 `/data/pxy/models/RetroBridge/flower_full`
@@ -312,11 +318,12 @@ swanlab_mode: online
 - 扩散步数：500
 - 谱/环额外特征：`all`
 - 分子额外特征：关闭
-- micro-batch：8
-- 梯度累积：8
+- 8-GPU DDP，BF16 mixed precision
+- per-GPU micro-batch：8
+- 梯度累积：1
 - 有效 batch：64
 - 模型深度：5 层
-- 配置包含一个具体 `resume` 实验名。
+- `resume` 默认为空，避免在新环境错误绑定旧 checkpoint。
 
 该配置用于 Mech-USPTO-31K full。注释要求严格预处理并保留验证、测试全部行；任何转换失败应终止预处理。
 
@@ -382,13 +389,13 @@ swanlab_mode: online
 
 ### 8.4 谱特征稳定性与速度
 
-当前实现消除了 dummy-node 人工重复谱，并提供多级 fallback，但真实分子图仍可能有重复特征值；对应特征向量的符号和退化子空间基底并不唯一。逐图 float64/CPU fallback 也会比官方 batched CUDA 实现慢。
+当前实现消除了 batch padding 的人工重复谱，并对孤立节点作阈值内的确定性 tie-break。真实分子图仍可能有重复特征值；对应特征向量的符号和退化子空间基底并不唯一。正常路径是 bucketed GPU FP32，逐图 FP64/CPU 只用于异常 bucket。
 
 ### 8.5 CLI 和依赖兼容性
 
 - 官方命令中的 `--disable_wandb` 在本地已失效，应使用 `--disable_swanlab`。
 - 本地依赖替换为 SwanLab，直接使用官方 requirements/命令无法复现本地日志行为。
-- USPTO 配置中的具体 `resume` 名称依赖现有 checkpoint 目录，不是可移植默认值。
+- 两个正式配置默认从头训练；恢复训练时必须显式填写已有实验名。
 
 ### 8.6 版本追踪
 

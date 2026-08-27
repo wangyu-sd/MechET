@@ -110,48 +110,167 @@ class EigenFeatures:
             raise NotImplementedError(f"Mode {self.mode} is not implemented")
 
 
-def eigh_real_nodes(laplacian, node_mask, compute_eigenvectors):
-    """Diagonalize each graph without the repeated eigenvalues from padded nodes."""
+def eigh_real_nodes(laplacian, node_mask, compute_eigenvectors, bucket_size=16):
+    """Diagonalize valid graph blocks with a batched fast path and safe fallbacks.
+
+    ``to_dense_batch`` right-pads graphs to the largest graph in a batch.  Sending
+    that padded tensor directly to a symmetric eigensolver creates a large,
+    repeated artificial spectrum and was the source of intermittent CUDA
+    convergence failures. Graphs with similar valid-node counts are grouped
+    into small size buckets. Padding inside a bucket receives distinct high
+    diagonal values, so it cannot mix with the molecular spectrum or recreate
+    the repeated-eigenvalue failure.
+
+    The normal path uses the input floating-point dtype (float32 in training),
+    which is substantially faster than unconditional per-graph float64.  If a
+    grouped solve fails, only the affected group is retried graph-by-graph in
+    float64, first on the current device and then on CPU with a final tiny
+    diagonal jitter.  Results are returned in the input dtype so mixed-precision
+    training does not retain large float64 tensors in the autograd graph.
+    """
+    if laplacian.ndim != 3 or laplacian.shape[-1] != laplacian.shape[-2]:
+        raise ValueError(f"Expected a batched square Laplacian, got {laplacian.shape}")
+    if node_mask.shape != laplacian.shape[:2]:
+        raise ValueError(
+            f"node_mask shape {node_mask.shape} does not match Laplacian {laplacian.shape}"
+        )
+    if bucket_size < 1:
+        raise ValueError(f"bucket_size must be positive, got {bucket_size}")
+
     batch_size, max_nodes, _ = laplacian.shape
-    work_dtype = torch.float64
+    output_dtype = laplacian.dtype
+    if output_dtype not in (torch.float32, torch.float64):
+        # CUDA symmetric eigensolvers do not support fp16/bf16. ExtraFeatures
+        # currently constructs float32 adjacency, but keep this helper robust.
+        output_dtype = torch.float32
     eigenvalues = torch.full(
         (batch_size, max_nodes),
         2 * max_nodes,
-        dtype=work_dtype,
+        dtype=output_dtype,
         device=laplacian.device,
     )
     eigenvectors = (
         torch.zeros(
             (batch_size, max_nodes, max_nodes),
-            dtype=work_dtype,
+            dtype=output_dtype,
             device=laplacian.device,
         )
         if compute_eigenvectors
         else None
     )
 
-    for batch_index in range(batch_size):
-        node_indices = torch.nonzero(node_mask[batch_index], as_tuple=False).flatten()
-        num_nodes = node_indices.numel()
-        if num_nodes == 0:
-            raise ValueError(f"Cannot compute spectral features for empty graph {batch_index}")
+    node_counts = node_mask.sum(dim=1, dtype=torch.long)
+    if (node_counts == 0).any():
+        empty = torch.nonzero(node_counts == 0, as_tuple=False).flatten().tolist()
+        raise ValueError(f"Cannot compute spectral features for empty graphs {empty}")
 
-        graph_laplacian = laplacian[batch_index].index_select(0, node_indices).index_select(1, node_indices)
-        graph_laplacian = graph_laplacian.to(work_dtype)
-        graph_laplacian = (graph_laplacian + graph_laplacian.transpose(0, 1)) / 2
-        if not torch.isfinite(graph_laplacian).all():
-            raise ValueError(f"Non-finite Laplacian entries in graph {batch_index}")
+    # PyG's to_dense_batch guarantees right-padded masks. Fail loudly if this
+    # invariant changes, because slicing [:n, :n] would then select wrong nodes.
+    packed_mask = torch.arange(max_nodes, device=node_mask.device).unsqueeze(0) < node_counts.unsqueeze(1)
+    if not torch.equal(node_mask.bool(), packed_mask):
+        raise ValueError("Spectral batching requires right-padded contiguous node masks")
+
+    bucket_sizes = torch.clamp(
+        ((node_counts + bucket_size - 1) // bucket_size) * bucket_size,
+        max=max_nodes,
+    )
+    for bucket_nodes_tensor in torch.unique(bucket_sizes, sorted=True):
+        bucket_nodes = int(bucket_nodes_tensor.item())
+        graph_indices = torch.nonzero(
+            bucket_sizes == bucket_nodes_tensor, as_tuple=False
+        ).flatten()
+        group_node_counts = node_counts.index_select(0, graph_indices)
+        graph_laplacians = laplacian.index_select(0, graph_indices)[
+            :, :bucket_nodes, :bucket_nodes
+        ]
+        graph_laplacians = graph_laplacians.to(output_dtype)
+        graph_laplacians = (
+            graph_laplacians + graph_laplacians.transpose(-1, -2)
+        ) / 2
+        valid_in_bucket = (
+            torch.arange(bucket_nodes, device=node_mask.device).unsqueeze(0)
+            < group_node_counts.unsqueeze(1)
+        )
+        graph_laplacians = _stabilize_spectral_bucket(
+            graph_laplacians, valid_in_bucket
+        )
+        if not torch.isfinite(graph_laplacians).all():
+            bad = graph_indices[
+                ~torch.isfinite(graph_laplacians).flatten(1).all(dim=1)
+            ].tolist()
+            raise ValueError(f"Non-finite Laplacian entries in graphs {bad}")
 
         try:
+            values, vectors = _eigh(graph_laplacians, compute_eigenvectors)
+        except RuntimeError:
+            values, vectors = _eigh_group_with_fallback(
+                graph_laplacians,
+                graph_indices,
+                compute_eigenvectors,
+                destination_device=laplacian.device,
+                output_dtype=output_dtype,
+            )
+
+        eigenvalues[graph_indices, :bucket_nodes] = values.to(output_dtype)
+        if eigenvectors is not None:
+            vectors = vectors.to(output_dtype) * valid_in_bucket.unsqueeze(-1)
+            eigenvectors[graph_indices, :bucket_nodes, :bucket_nodes] = vectors
+
+    return eigenvalues, eigenvectors
+
+
+def _stabilize_spectral_bucket(graph_laplacians, valid_node_mask):
+    """Make right padding and isolated-node degeneracy safe for batched eigh."""
+    bucket_nodes = graph_laplacians.shape[-1]
+    node_index = torch.arange(
+        bucket_nodes,
+        device=graph_laplacians.device,
+        dtype=graph_laplacians.dtype,
+    )
+    diagonal = graph_laplacians.diagonal(dim1=-2, dim2=-1)
+
+    # A combinatorial Laplacian has lambda_max <= 2 * max_degree. Values above
+    # 4 * bucket_nodes are safely outside the molecular spectrum. Distinct
+    # padding values avoid an artificial degenerate eigenspace.
+    padding_diagonal = 4 * bucket_nodes + node_index + 1
+    diagonal.copy_(torch.where(valid_node_mask, diagonal, padding_diagonal))
+
+    # Explicit RetroBridge dummy nodes can create a large exact zero eigenspace.
+    # This deterministic tie-break stays below the 1e-5 connected-component
+    # threshold while choosing a stable basis for that degenerate subspace.
+    isolated = valid_node_mask & (diagonal == 0)
+    tie_break = (node_index + 1) * (5e-6 / (bucket_nodes + 1))
+    diagonal.add_(isolated * tie_break)
+    return graph_laplacians
+
+
+def _eigh_group_with_fallback(
+    graph_laplacians,
+    graph_indices,
+    compute_eigenvectors,
+    destination_device,
+    output_dtype,
+):
+    """Retry a failed batched solve while isolating pathological graphs."""
+    value_rows = []
+    vector_rows = []
+    for local_index, batch_index_tensor in enumerate(graph_indices):
+        batch_index = int(batch_index_tensor.item())
+        graph_laplacian = graph_laplacians[local_index].to(torch.float64)
+        try:
             values, vectors = _eigh(graph_laplacian, compute_eigenvectors)
-        except RuntimeError as device_error:
-            # CUDA's batched symmetric eigensolver can fail on highly degenerate
-            # molecular Laplacians. CPU LAPACK is slower but reliable as a rare fallback.
+        except RuntimeError:
             cpu_laplacian = graph_laplacian.detach().cpu()
             try:
                 values, vectors = _eigh(cpu_laplacian, compute_eigenvectors)
             except RuntimeError:
-                jitter = torch.linspace(0, 1e-10, num_nodes, dtype=work_dtype)
+                jitter = torch.linspace(
+                    0,
+                    1e-10,
+                    graph_laplacian.shape[0],
+                    dtype=torch.float64,
+                    device="cpu",
+                )
                 try:
                     values, vectors = _eigh(
                         cpu_laplacian + torch.diag(jitter),
@@ -160,17 +279,16 @@ def eigh_real_nodes(laplacian, node_mask, compute_eigenvectors):
                 except RuntimeError as cpu_error:
                     raise RuntimeError(
                         f"Eigen decomposition failed for graph {batch_index} "
-                        f"with {num_nodes} real nodes"
+                        f"with {graph_laplacian.shape[0]} valid nodes"
                     ) from cpu_error
-            values = values.to(laplacian.device)
-            if vectors is not None:
-                vectors = vectors.to(laplacian.device)
 
-        eigenvalues[batch_index, :num_nodes] = values
-        if eigenvectors is not None:
-            eigenvectors[batch_index, node_indices, :num_nodes] = vectors
+        value_rows.append(values.to(device=destination_device, dtype=output_dtype))
+        if compute_eigenvectors:
+            vector_rows.append(vectors.to(device=destination_device, dtype=output_dtype))
 
-    return eigenvalues, eigenvectors
+    values = torch.stack(value_rows)
+    vectors = torch.stack(vector_rows) if compute_eigenvectors else None
+    return values, vectors
 
 
 def _eigh(matrix, compute_eigenvectors):

@@ -12,14 +12,44 @@ Official implementation of RetroBridge, a [**Markov bridge model for retrosynthe
 
 |Software|Version|
 |-----|-----|
-|Python|3.9|
-|CUDA|11.6|
+|Python|3.10|
+|CUDA|12.8|
 
 ```shell
-conda create --name retrobridge python=3.9 rdkit=2023.09.5 -c conda-forge -y
+conda create --name retrobridge python=3.10 rdkit=2025.09.1 -c conda-forge -y
 conda activate retrobridge
 pip install -r requirements.txt
 ```
+
+The pinned environment is the tested MechET/H20-A100 adaptation. The upstream
+RetroBridge environment used Python 3.9, Torch 1.13 and CUDA 11.6; see
+`MODIFICATIONS_FROM_OFFICIAL.md` for the exact provenance and compatibility
+changes.
+
+## MechET full-data training
+
+The FlowER-full and mech-USPTO-31K configurations use eight GPUs, DDP, BF16
+mixed precision and a global batch size of 64. Build and audit the graph cache
+before training, then keep stdout/stderr attached to the job log:
+
+```shell
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
+python -u train.py \
+  --config configs/mechet_retrobridge_flower_full.yaml \
+  --model RetroBridge
+```
+
+The spectral features use a bucketed GPU FP32 fast path. Only a failed bucket
+is retried per graph in GPU FP64, CPU FP64 and finally CPU FP64 with jitter. Run
+the hardware-local microbenchmark before a long job:
+
+```shell
+python -u benchmark_spectral_solver.py --device cuda --repeats 50
+```
+
+Formal training does not run 500-step sampling inside validation. It writes a
+rolling `last.ckpt`, retains the best validation-VLB checkpoint and stops after
+the configured patience; fixed-budget Top-k sampling is a separate job.
 
 ## Example
 

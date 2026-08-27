@@ -1,11 +1,13 @@
---extra-index-url https://download.pytorch.org/whl/cu116
-torch==1.13.0+cu116
-
-torch-geometric==2.4.0
--f https://data.pyg.org/whl/torch-1.13.0+cu116.html
-
-pytorch_lightning==2.2.0
-pandas==1.5.3
+# CUDA 12.8 supports both Hopper (H20) and Ampere (A100). Install this file in
+# the documented Python 3.10 environment; CPU-only and older-driver systems
+# should install a matching PyTorch wheel explicitly before the remaining deps.
+--extra-index-url https://download.pytorch.org/whl/cu128
+torch==2.8.0
+torch-geometric==2.7.0
+pytorch_lightning==2.3.3
+pandas==2.3.3
+numpy==1.26.4
+PyYAML==6.0.2
 matplotlib==3.6.1
 imageio==2.34.0
 networkx==2.8.7

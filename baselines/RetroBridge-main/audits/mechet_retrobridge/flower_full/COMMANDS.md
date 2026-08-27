@@ -166,16 +166,19 @@ Do not start full training unless this audit completes successfully. Retain
 ```bash
 cd /home/estar/pxy/mechet/baselines/RetroBridge-main
 
-CUDA_VISIBLE_DEVICES=7 \
+CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 \
 MPLCONFIGDIR=/tmp/retrobridge-mpl \
-.venv-retrobridge/bin/python train.py \
+.venv-retrobridge/bin/python -u train.py \
   --config configs/mechet_retrobridge_flower_full.yaml \
   --model RetroBridge
 ```
 
-The full-data configuration currently trains on one visible GPU. Its physical
-batch size is 16 and `accumulate_grad_batches: 4`, giving an effective batch
-size of 64. Change `CUDA_VISIBLE_DEVICES=7` if another GPU should be used.
+The full-data configuration uses eight visible GPUs with Lightning DDP and
+BF16 mixed precision. Its per-GPU batch size is 8, giving a global batch size
+of 64 without gradient accumulation. Prebuild and audit all graph caches before
+launch; file locks and atomic cache writes protect against accidental concurrent
+initialization. Validation selects `best.ckpt` by full epoch VLB, while the
+500-step sampling evaluation runs separately rather than inside training.
 Training metrics, hyperparameters, molecule images, and chain GIFs are logged
 to the `RetroBridge` SwanLab project. Run `.venv-retrobridge/bin/swanlab login`
 once before starting online logging. CSV metrics are retained locally as a

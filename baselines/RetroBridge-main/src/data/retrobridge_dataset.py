@@ -1,5 +1,6 @@
 import json
 import os
+import fcntl
 import numpy as np
 import pandas as pd
 import torch
@@ -131,6 +132,17 @@ class RetroBridgeDataset(InMemoryDataset):
             subprocess.run(f'wget {url} -O {path}', shell=True)
 
     def process(self):
+        """Build one split once, even when Lightning launches multiple ranks."""
+        output_path = self.processed_paths[self.file_idx]
+        os.makedirs(self.processed_dir, exist_ok=True)
+        lock_path = output_path + '.lock'
+        with open(lock_path, 'a') as lock_handle:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+            if os.path.exists(output_path):
+                return
+            self._process_split(output_path)
+
+    def _process_split(self, output_path):
         table = pd.read_csv(self.split_paths[self.file_idx])
         data_list = []
         failures = []
@@ -228,7 +240,9 @@ class RetroBridgeDataset(InMemoryDataset):
         for stable_id, reason in failures:
             print(f'Error processing molecule {stable_id}: {reason}')
         print(f'Dataset contains {len(data_list)} reactions')
-        torch.save(self.collate(data_list), self.processed_paths[self.file_idx])
+        temporary_path = f'{output_path}.tmp.{os.getpid()}'
+        torch.save(self.collate(data_list), temporary_path)
+        os.replace(temporary_path, output_path)
 
     @staticmethod
     def compute_graph(molecule, mapping, max_num_nodes, types, bonds):
@@ -348,6 +362,8 @@ class RetroBridgeDataModule(MolecularDataModule):
                 batch_size=self.batch_size,
                 num_workers=self.num_workers,
                 shuffle=(self.shuffle and split == 'train'),
+                pin_memory=torch.cuda.is_available(),
+                persistent_workers=self.num_workers > 0,
             )
 
         self.train_smiles = datasets['train'].r_smiles
@@ -410,38 +426,64 @@ class RetroBridgeDatasetInfos:
             info_dir = f'{datamodule.data_root}/info_retrobridge'
 
         os.makedirs(info_dir, exist_ok=True)
+        statistics_paths = {
+            'dummy_nodes': f'{info_dir}/dummy_nodes_dist.txt',
+            'n_nodes': f'{info_dir}/n_counts.txt',
+            'node_types': f'{info_dir}/atom_types.txt',
+            'edge_types': f'{info_dir}/edge_types.txt',
+            'valencies': f'{info_dir}/valencies.txt',
+        }
+        train_audit = datamodule.metadata.get('splits', {}).get('train', {})
+        expected_manifest = {
+            'format': 'retrobridge-statistics-v2',
+            'source_splits': ['train'],
+            'atom_decoder': self.atom_decoder,
+            'max_n_dummy_nodes': self.max_n_dummy_nodes,
+            'train_count': train_audit.get('count'),
+            'train_stable_id_sha256': train_audit.get('stable_id_sha256'),
+        }
+        manifest_path = f'{info_dir}/statistics_manifest.json'
+        lock_path = f'{info_dir}/statistics.lock'
 
-        if datamodule.evaluation and os.path.exists(f'{info_dir}/dummy_nodes_dist.txt'):
-            self.dummy_nodes_dist = torch.tensor(np.loadtxt(f'{info_dir}/dummy_nodes_dist.txt'))
-            self.n_nodes = torch.tensor(np.loadtxt(f'{info_dir}/n_counts.txt'))
-            self.max_n_nodes = len(self.n_nodes) - 1
-            self.node_types = torch.tensor(np.loadtxt(f'{info_dir}/atom_types.txt'))
-            self.edge_types = torch.tensor(np.loadtxt(f'{info_dir}/edge_types.txt'))
-            self.valency_distribution = torch.tensor(np.loadtxt(f'{info_dir}/valencies.txt'))
-            self.nodes_dist = utils.DistributionNodes(self.n_nodes)
-        else:
-            self.dummy_nodes_dist = datamodule.dummy_atoms_counts(self.max_n_dummy_nodes)
-            print("Distribution of number of dummy nodes", self.dummy_nodes_dist)
-            np.savetxt(f'{info_dir}/dummy_nodes_dist.txt', self.dummy_nodes_dist.numpy())
+        # Every DDP rank constructs the DataModule. Rank-safe caching prevents
+        # eight complete dataset scans and ensures no rank reads half-written stats.
+        with open(lock_path, 'a') as lock_handle:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+            cache_valid = all(os.path.exists(path) for path in statistics_paths.values())
+            if cache_valid and os.path.exists(manifest_path):
+                with open(manifest_path) as handle:
+                    cache_valid = json.load(handle) == expected_manifest
 
-            self.n_nodes = datamodule.node_counts()
-            self.max_n_nodes = len(self.n_nodes) - 1
-            print("Distribution of number of nodes", self.n_nodes)
-            np.savetxt(f'{info_dir}/n_counts.txt', self.n_nodes.numpy())
+            if not cache_valid:
+                statistics = {
+                    'dummy_nodes': datamodule.dummy_atoms_counts(self.max_n_dummy_nodes),
+                    'n_nodes': datamodule.node_counts(splits=('train',)),
+                    'node_types': datamodule.node_types(),
+                    'edge_types': datamodule.edge_counts(),
+                }
+                max_n_nodes = len(statistics['n_nodes']) - 1
+                statistics['valencies'] = datamodule.valency_count(
+                    max_n_nodes, splits=('train',)
+                )
+                for name, values in statistics.items():
+                    print(f"Training-only {name} distribution", values)
+                    temporary_path = f'{statistics_paths[name]}.tmp.{os.getpid()}'
+                    np.savetxt(temporary_path, values.detach().cpu().numpy())
+                    os.replace(temporary_path, statistics_paths[name])
+                temporary_manifest = f'{manifest_path}.tmp.{os.getpid()}'
+                with open(temporary_manifest, 'w') as handle:
+                    json.dump(expected_manifest, handle, indent=2)
+                    handle.write('\n')
+                os.replace(temporary_manifest, manifest_path)
 
-            self.node_types = datamodule.node_types()
-            print("Distribution of node types", self.node_types)
-            np.savetxt(f'{info_dir}/atom_types.txt', self.node_types.numpy())
+            self.dummy_nodes_dist = torch.tensor(np.loadtxt(statistics_paths['dummy_nodes']))
+            self.n_nodes = torch.tensor(np.loadtxt(statistics_paths['n_nodes']))
+            self.node_types = torch.tensor(np.loadtxt(statistics_paths['node_types']))
+            self.edge_types = torch.tensor(np.loadtxt(statistics_paths['edge_types']))
+            self.valency_distribution = torch.tensor(np.loadtxt(statistics_paths['valencies']))
 
-            self.edge_types = datamodule.edge_counts()
-            print("Distribution of edge types", self.edge_types)
-            np.savetxt(f'{info_dir}/edge_types.txt', self.edge_types.numpy())
-
-            valencies = datamodule.valency_count(self.max_n_nodes)
-            print("Distribution of the valencies", valencies)
-            np.savetxt(f'{info_dir}/valencies.txt', valencies.numpy())
-            self.valency_distribution = valencies
-            self.nodes_dist = utils.DistributionNodes(self.n_nodes)
+        self.max_n_nodes = len(self.n_nodes) - 1
+        self.nodes_dist = utils.DistributionNodes(self.n_nodes)
 
     def compute_input_output_dims(self, datamodule, extra_features, domain_features, use_context):
         example_batch = next(iter(datamodule.train_dataloader()))

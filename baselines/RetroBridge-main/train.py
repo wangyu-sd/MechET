@@ -1,5 +1,6 @@
 import os
 import argparse
+import torch
 
 from datetime import datetime
 
@@ -24,6 +25,10 @@ from pdb import set_trace
 
 
 def find_last_checkpoint(checkpoints_dir):
+    if not os.path.isdir(checkpoints_dir):
+        raise FileNotFoundError(
+            f"Cannot resume: checkpoint directory does not exist: {checkpoints_dir}"
+        )
     if 'last.ckpt' in os.listdir(checkpoints_dir):
         return os.path.join(checkpoints_dir, 'last.ckpt')
 
@@ -54,6 +59,8 @@ def main(args):
     os.makedirs(chains_dir, exist_ok=True)
 
     set_deterministic(args.seed)
+    if getattr(args, 'allow_tf32', True):
+        torch.set_float32_matmul_precision('high')
 
     datamodule = RetroBridgeDataModule(
         data_root=data_root,
@@ -194,7 +201,23 @@ def main(args):
             every_n_epochs=1,
         ),
     ]
-    if not datamodule.metadata:
+    if datamodule.metadata:
+        checkpoint_callbacks.append(callbacks.ModelCheckpoint(
+            dirpath=checkpoints_dir,
+            filename='best-{epoch:03d}',
+            save_top_k=1,
+            monitor='val_loss/epoch_CE',
+            mode='min',
+        ))
+        early_stopping_patience = getattr(args, 'early_stopping_patience', None)
+        if early_stopping_patience is not None:
+            checkpoint_callbacks.append(callbacks.EarlyStopping(
+                monitor='val_loss/epoch_CE',
+                mode='min',
+                patience=early_stopping_patience,
+                min_delta=getattr(args, 'early_stopping_min_delta', 0.0),
+            ))
+    else:
         checkpoint_callbacks.extend([
         callbacks.ModelCheckpoint(
             dirpath=top_1_checkpoints_dir,
@@ -236,8 +259,11 @@ def main(args):
         logger=run_logger,
         callbacks=checkpoint_callbacks,
         accelerator=args.device,
-        devices=1,
+        devices=getattr(args, 'devices', 1),
+        strategy=getattr(args, 'strategy', 'auto'),
+        precision=getattr(args, 'precision', '32-true'),
         accumulate_grad_batches=getattr(args, 'accumulate_grad_batches', 1),
+        gradient_clip_val=getattr(args, 'gradient_clip_val', None),
         num_sanity_val_steps=0,
         enable_progress_bar=args.enable_progress_bar,
         log_every_n_steps=args.log_every_steps,

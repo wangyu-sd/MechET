@@ -225,14 +225,21 @@ class MarkovBridge(pl.LightningModule):
             true_E=reactants.E,
             true_y=reactants.y,
         )
+        self.log(
+            'val_loss/epoch_CE',
+            loss.detach(),
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+            batch_size=batch_size,
+        )
 
         if i % self.log_every_steps == 0:
             self.log(f'val_loss/batch_CE', loss.detach(), batch_size=batch_size)
             for metric_name, metric in self.val_loss.compute_metrics().items():
                 self.log(f'val_loss/{metric_name}', metric, batch_size=batch_size)
 
-            self.train_loss.reset()
-            self.train_metrics.reset()
+            self.val_loss.reset()
 
         return {'loss': loss}
 
@@ -277,12 +284,20 @@ class MarkovBridge(pl.LightningModule):
             true_X=true_pX,
             true_E=true_pE,
         )
+        self.log(
+            'val_loss/epoch_CE',
+            loss.detach(),
+            on_step=False,
+            on_epoch=True,
+            sync_dist=True,
+            batch_size=batch_size,
+        )
         if i % self.log_every_steps == 0:
             self.log(f'val_loss/batch_CE', loss.detach(), batch_size=batch_size)
-            for metric_name, metric in self.train_loss.compute_metrics().items():
+            for metric_name, metric in self.val_loss.compute_metrics().items():
                 self.log(f'val_loss/{metric_name}', metric, batch_size=batch_size)
 
-            self.train_loss.reset()
+            self.val_loss.reset()
 
         return {'loss': loss}
 
@@ -305,7 +320,7 @@ class MarkovBridge(pl.LightningModule):
 
     def on_validation_epoch_end(self):
         self.val_counter += 1
-        if self.val_counter % self.sample_every_val == 0:
+        if self.sample_every_val > 0 and self.val_counter % self.sample_every_val == 0:
             self.sample()
             self.trainer.save_checkpoint(os.path.join(self.checkpoints_dir, 'last.ckpt'))
 

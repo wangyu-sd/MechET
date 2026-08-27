@@ -10,8 +10,14 @@ swanlab_workspace: null
 swanlab_mode: online
 seed: 42
 device: gpu
+devices: 8
+strategy: ddp
+precision: bf16-mixed
+allow_tf32: true
 
-sample_every_val: 20
+# Full-chain sampling is run as a separate evaluation job; disabling it during
+# training avoids 128 x 500-step samples every 20 validation epochs.
+sample_every_val: 0
 log_every_steps: 50
 samples_to_generate: 128
 samples_to_save: 128
@@ -21,8 +27,8 @@ number_chain_steps_to_save: 50
 enable_progress_bar: true
 
 dataset: flower_full
-batch_size: 16
-accumulate_grad_batches: 4
+batch_size: 8
+accumulate_grad_batches: 1
 num_workers: 8
 shuffle: true
 extra_nodes: true
@@ -41,6 +47,8 @@ hidden_mlp_dims: {'X': 256, 'E': 128, 'y': 128}
 hidden_dims: {'dx': 256, 'de': 64, 'dy': 64, 'n_head': 8, 'dim_ffX': 256, 'dim_ffE': 128, 'dim_ffy': 128}
 
 n_epochs: 1000
+early_stopping_patience: 30
+early_stopping_min_delta: 0.00001
 lambda_train: [5, 0]
 lr: 0.0002
 weight_decay: 0.000000000001

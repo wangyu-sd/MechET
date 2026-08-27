@@ -29,9 +29,9 @@ class AbstractDataModule(pl.LightningDataModule):
     def __getitem__(self, idx):
         return self.dataloaders['train'][idx]
 
-    def node_counts(self, max_nodes_possible=300):
+    def node_counts(self, max_nodes_possible=300, splits=('train',)):
         all_counts = torch.zeros(max_nodes_possible)
-        for split in ['train', 'val', 'test']:
+        for split in splits:
             for i, data in enumerate(self.dataloaders[split]):
                 unique, counts = torch.unique(data.batch, return_counts=True)
                 for count in counts:
@@ -94,13 +94,13 @@ class AbstractDataModule(pl.LightningDataModule):
 
 
 class MolecularDataModule(AbstractDataModule):
-    def valency_count(self, max_n_nodes):
+    def valency_count(self, max_n_nodes, splits=('train',)):
         valencies = torch.zeros(3 * max_n_nodes - 2)  # Max valency possible if everything is connected
 
         # No bond, single bond, double bond, triple bond, aromatic bond
         multiplier = torch.tensor([0, 1, 2, 3, 1.5])
 
-        for split in ['train', 'val', 'test']:
+        for split in splits:
             for i, data in enumerate(self.dataloaders[split]):
                 n = data.x.shape[0]
 
