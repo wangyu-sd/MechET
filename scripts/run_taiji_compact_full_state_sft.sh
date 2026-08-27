@@ -129,6 +129,52 @@ if [[ ! -f "$token_cache_manifest" ]]; then
     scripts/prepare_tool_sft_arrow.py --config "$training_config"
 fi
 
+if [[ ${MECHET_STAGE_PRETOKENIZED_CACHE:-0} == 1 ]]; then
+  shared_token_cache=$(dirname "$token_cache_manifest")
+  local_token_cache_parent=${MECHET_LOCAL_PRETOKENIZED_CACHE_PARENT:-/tmp}
+  mkdir -p "$local_token_cache_parent"
+  local_token_cache=$(mktemp -d \
+    "$local_token_cache_parent/mechet_pretokenized_cache.XXXXXX")
+  echo "[MechET] staging pretokenized cache to node-local storage: source=$shared_token_cache destination=$local_token_cache"
+  cp -a "$shared_token_cache/." "$local_token_cache/"
+  python - "$shared_token_cache" "$local_token_cache" <<'PY'
+from pathlib import Path
+import sys
+
+source = Path(sys.argv[1])
+destination = Path(sys.argv[2])
+source_files = {
+    path.name: path.stat().st_size
+    for path in source.iterdir()
+    if path.is_file()
+}
+destination_files = {
+    path.name: path.stat().st_size
+    for path in destination.iterdir()
+    if path.is_file()
+}
+if source_files != destination_files:
+    missing = sorted(set(source_files) - set(destination_files))
+    extra = sorted(set(destination_files) - set(source_files))
+    mismatched = sorted(
+        name
+        for name in set(source_files) & set(destination_files)
+        if source_files[name] != destination_files[name]
+    )
+    raise SystemExit(
+        "node-local pretokenized cache verification failed: "
+        f"missing={missing} extra={extra} size_mismatches={mismatched}"
+    )
+if not (destination / "manifest.json").is_file():
+    raise SystemExit("node-local pretokenized cache has no manifest.json")
+print(
+    "[MechET] node-local pretokenized cache verified: "
+    f"files={len(destination_files)} bytes={sum(destination_files.values())}"
+)
+PY
+  export MECHET_PRETOKENIZED_CACHE_DIR="$local_token_cache"
+fi
+
 resume_args=()
 if find "$(python - "$training_config" <<'PY'
 from pathlib import Path
