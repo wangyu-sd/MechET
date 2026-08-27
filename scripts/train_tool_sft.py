@@ -18,7 +18,9 @@ except ImportError as exc:
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "scripts"))
 
+from agent_model_init import validate_lineage
 from mechet.assistant_masking import (
     encode_assistant_only_conversation,
     percentile_nearest_rank,
@@ -81,6 +83,55 @@ def selected_directory_sha256(path: Path) -> str:
             for chunk in iter(lambda: handle.read(1024 * 1024), b""):
                 digest.update(chunk)
     return digest.hexdigest()
+
+
+def validate_initial_adapter_config(
+    cfg: dict[str, Any], lineage: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Fail closed when a warm-start adapter is absent or LoRA-incompatible."""
+
+    adapter_value = str(cfg.get("initial_adapter_path") or "").strip()
+    if not adapter_value:
+        return None
+    adapter_path = Path(adapter_value)
+    adapter_config_path = adapter_path / "adapter_config.json"
+    if not adapter_config_path.is_file():
+        raise FileNotFoundError(
+            f"initial adapter config does not exist: {adapter_config_path}"
+        )
+    adapter_cfg = dict(
+        json.loads(adapter_config_path.read_text(encoding="utf-8"))
+    )
+    requested = dict(cfg.get("lora") or {})
+    expected_targets = set(
+        requested.get("target_modules")
+        or ["q_proj", "k_proj", "v_proj", "o_proj"]
+    )
+    observed_targets = set(adapter_cfg.get("target_modules") or [])
+    checks = {
+        "r": (int(adapter_cfg.get("r", 0)), int(requested.get("r", 16))),
+        "alpha": (
+            int(adapter_cfg.get("lora_alpha", 0)),
+            int(requested.get("alpha", 32)),
+        ),
+        "target_modules": (observed_targets, expected_targets),
+        "task_type": (str(adapter_cfg.get("task_type") or ""), "CAUSAL_LM"),
+    }
+    mismatches = {
+        key: {"observed": observed, "expected": expected}
+        for key, (observed, expected) in checks.items()
+        if observed != expected
+    }
+    if mismatches:
+        raise ValueError(f"initial adapter LoRA config mismatch: {mismatches}")
+    return {
+        **lineage,
+        "adapter_config": str(adapter_config_path),
+        "adapter_lora_r": checks["r"][0],
+        "adapter_lora_alpha": checks["alpha"][0],
+        "adapter_target_modules": sorted(observed_targets),
+        "adapter_task_type": checks["task_type"][0],
+    }
 
 
 def resolve_cached_arrow_files(
@@ -497,6 +548,12 @@ def main() -> int:
         resume_request,
         Path(str(cfg.get("output_dir") or "outputs/agent/tool_sft")),
     )
+    initial_adapter_value = str(cfg.get("initial_adapter_path") or "").strip()
+    initial_adapter_lineage = None
+    if initial_adapter_value or bool(cfg.get("require_initial_adapter", False)):
+        initial_adapter_lineage = validate_initial_adapter_config(
+            cfg, validate_lineage(cfg)
+        )
     train_file = Path(str(cfg.get("train_file") or ""))
     if not train_file.exists():
         raise FileNotFoundError(f"train_file does not exist: {train_file}")
@@ -632,6 +689,7 @@ def main() -> int:
         "real_overfit_smoke_test_required": bool(
             contract.get("real_overfit_smoke_test_required", False)
         ),
+        "initial_adapter_lineage": initial_adapter_lineage,
     }
     if report["upstream_endpoint_fallback_rows"] != expected_fallback_rows:
         raise ValueError(
@@ -647,6 +705,7 @@ def main() -> int:
         from datasets import Dataset, concatenate_datasets
         from peft import (
             LoraConfig,
+            PeftModel,
             get_peft_model,
             prepare_model_for_kbit_training,
         )
@@ -818,7 +877,14 @@ def main() -> int:
             use_gradient_checkpointing=gradient_checkpointing,
             gradient_checkpointing_kwargs={"use_reentrant": False},
         )
-    model = get_peft_model(model, peft_config)
+    if initial_adapter_value:
+        model = PeftModel.from_pretrained(
+            model,
+            initial_adapter_value,
+            is_trainable=True,
+        )
+    else:
+        model = get_peft_model(model, peft_config)
     if gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
@@ -907,6 +973,12 @@ def main() -> int:
         "use_liger_kernel": bool(training.get("use_liger_kernel", False)),
         "liger_kernel_config": dict(training.get("liger_kernel_config") or {}),
         "length_grouping": grouping,
+        "initial_adapter_path": initial_adapter_value or None,
+        "initial_adapter_sha256": (
+            initial_adapter_lineage.get("initial_adapter_sha256_actual")
+            if initial_adapter_lineage
+            else None
+        ),
     }
     (output / "data_contract.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -928,6 +1000,17 @@ def main() -> int:
         "executor_revision": report.get("executor_revision"),
         "seed": seed,
         "data_seed": data_seed,
+        "initial_adapter_path": initial_adapter_value or None,
+        "initial_adapter_sha256": (
+            initial_adapter_lineage.get("initial_adapter_sha256_actual")
+            if initial_adapter_lineage
+            else None
+        ),
+        "initial_adapter_condition_name": (
+            initial_adapter_lineage.get("adapter_condition_name")
+            if initial_adapter_lineage
+            else None
+        ),
     }
     (output / "adapter_manifest.json").write_text(
         json.dumps(adapter_manifest, indent=2, ensure_ascii=False),
