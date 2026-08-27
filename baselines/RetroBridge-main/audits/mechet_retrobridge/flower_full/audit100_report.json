@@ -1,0 +1,76 @@
+{
+  "passed": true,
+  "data_root": "/home/estar/pxy/mechet/baselines/RetroBridge-main/audits/mechet_retrobridge/flower_full/data/audit100",
+  "repository_revision": "unavailable_not_a_git_checkout",
+  "python": "3.10.19",
+  "packages": {
+    "torch": "2.8.0",
+    "torch-geometric": "2.7.0",
+    "pytorch-lightning": "2.3.3",
+    "rdkit": "2025.9.1",
+    "pandas": "2.3.3",
+    "numpy": "1.26.4"
+  },
+  "train_only_vocabulary": true,
+  "train_only_dummy_capacity": true,
+  "atom_decoder": [
+    "C",
+    "O",
+    "N",
+    "Cl",
+    "F",
+    "S",
+    "Br",
+    "P",
+    "I",
+    "B",
+    "Si",
+    "Pd",
+    "*"
+  ],
+  "max_n_dummy_nodes": 38,
+  "splits": [
+    {
+      "stage": "train",
+      "expected_count": 100,
+      "processed_count": 100,
+      "count_matches": true,
+      "unique_stable_ids": 100,
+      "stable_ids_unique": true,
+      "id_mismatch_count": 0,
+      "mapped_identity_mismatch_count": 0,
+      "unmapped_identity_mismatch_count": 0,
+      "native_graph_identity_mismatch_count": 0,
+      "first_stable_id": "flower-full-endpoint:train:1",
+      "last_stable_id": "flower-full-endpoint:train:100"
+    },
+    {
+      "stage": "val",
+      "expected_count": 1,
+      "processed_count": 1,
+      "count_matches": true,
+      "unique_stable_ids": 1,
+      "stable_ids_unique": true,
+      "id_mismatch_count": 0,
+      "mapped_identity_mismatch_count": 0,
+      "unmapped_identity_mismatch_count": 0,
+      "native_graph_identity_mismatch_count": 0,
+      "first_stable_id": "flower-full-endpoint:valid:1",
+      "last_stable_id": "flower-full-endpoint:valid:1"
+    },
+    {
+      "stage": "test",
+      "expected_count": 1,
+      "processed_count": 1,
+      "count_matches": true,
+      "unique_stable_ids": 1,
+      "stable_ids_unique": true,
+      "id_mismatch_count": 0,
+      "mapped_identity_mismatch_count": 0,
+      "unmapped_identity_mismatch_count": 0,
+      "native_graph_identity_mismatch_count": 0,
+      "first_stable_id": "flower-full-endpoint:test:1",
+      "last_stable_id": "flower-full-endpoint:test:1"
+    }
+  ]
+}

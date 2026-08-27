@@ -1,0 +1,173 @@
+RetroBridge Error Log
+=====================
+
+Source
+------
+This file consolidates every RetroBridge-related error or warning recorded in
+the prior conversation. Timestamps were not present in the original messages.
+
+Summary
+-------
+RB-001  FATAL    Laplacian eigendecomposition failed during startup dimension inference.
+RB-002  WARNING  PyTorch Lightning inferred an incorrect/ambiguous batch size.
+RB-003  FATAL    Laplacian eigendecomposition failed during epoch 8 after a float64 retry.
+RB-004  STARTUP  The USPTO GPU waiter refused to start because its lock was already held.
+
+
+RB-001: Spectral decomposition failed during startup
+----------------------------------------------------
+Stage:
+  Model initialization -> dataset input/output dimension inference -> extra
+  spectral feature construction.
+
+Command:
+  MPLCONFIGDIR=/tmp/retrobridge-mpl \
+    .venv-retrobridge/bin/python train.py \
+      --config configs/mechet_retrobridge_flower_full.yaml \
+      --model RetroBridge
+
+Original traceback:
+  Traceback (most recent call last):
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/train.py", line 263, in <module>
+      main(args=parse_yaml_config(parser.parse_args()))
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/train.py", line 79, in main
+      dataset_infos.compute_input_output_dims(
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/src/data/retrobridge_dataset.py", line 475, in compute_input_output_dims
+      ex_extra_feat = extra_features(p_example_data)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/src/features/extra_features.py", line 45, in __call__
+      eigenfeatures = self.eigenfeatures(noisy_data)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/src/features/extra_features.py", line 100, in __call__
+      eigvals, eigvectors = torch.linalg.eigh(L)
+  torch._C._LinAlgError: linalg.eigh: (Batch element 4): The algorithm failed to converge because the input matrix is ill-conditioned or has too many repeated eigenvalues (error code: 5257).
+
+Interpretation:
+  torch.linalg.eigh failed while decomposing the complete Laplacian matrix. The
+  failure occurred before the code selected the first two nonzero eigenvectors.
+  The original implementation padded all graphs to a common node count and gave
+  every dummy node the same diagonal value, 2 * max_nodes. This introduced a
+  high-multiplicity artificial nonzero eigenvalue. Repeated eigenvalues are
+  mathematically valid, but a highly degenerate spectrum can trigger numerical
+  non-convergence in the CUDA symmetric eigensolver.
+
+
+RB-002: Ambiguous PyTorch Lightning batch-size inference
+--------------------------------------------------------
+Stage:
+  Metric logging during training.
+
+Original warning:
+  baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/utilities/data.py:78: Trying to infer the `batch_size` from an ambiguous collection. The batch size we found is 845. To avoid any miscalculations, use `self.log(..., batch_size=batch_size)`.
+
+Impact:
+  This warning did not terminate training. It can make epoch-level logged metrics
+  use incorrect weighting because Lightning inferred 845 from a nested graph
+  batch instead of receiving the actual batch size explicitly.
+
+
+RB-003: Spectral decomposition failed during epoch 8
+----------------------------------------------------
+Stage:
+  Epoch 8, training batch 66/3120 -> process_and_forward -> computation of
+  spectral extra features for the current noisy intermediate graph.
+
+Progress immediately before failure:
+  Epoch 8: 2%|...| 66/3120 [01:09<53:31, 0.95it/s, v_num=6_12]
+
+Original traceback:
+  Traceback (most recent call last):
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/train.py", line 263, in <module>
+      main(args=parse_yaml_config(parser.parse_args()))
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/train.py", line 254, in main
+      trainer.fit(model=model, datamodule=datamodule, ckpt_path=last_checkpoint)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 543, in fit
+      call._call_and_handle_interrupt(
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/trainer/call.py", line 44, in _call_and_handle_interrupt
+      return trainer_fn(*args, **kwargs)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 579, in _fit_impl
+      self._run(model, ckpt_path=ckpt_path)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 986, in _run
+      results = self._run_stage()
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/trainer/trainer.py", line 1030, in _run_stage
+      self.fit_loop.run()
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/loops/fit_loop.py", line 205, in run
+      self.advance()
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/loops/fit_loop.py", line 363, in advance
+      self.epoch_loop.run(self._data_fetcher)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/loops/training_epoch_loop.py", line 140, in run
+      self.advance(data_fetcher)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/loops/training_epoch_loop.py", line 250, in advance
+      batch_output = self.automatic_optimization.run(trainer.optimizers[0], batch_idx, kwargs)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 183, in run
+      closure()
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 144, in __call__
+      self._result = self.closure(*args, **kwargs)
+    File "/home/estar/anaconda3/envs/gnn/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+      return func(*args, **kwargs)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 129, in closure
+      step_output = self._step_fn()
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/loops/optimization/automatic.py", line 317, in _training_step
+      training_step_output = call._call_strategy_hook(trainer, "training_step", *kwargs.values())
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/trainer/call.py", line 311, in _call_strategy_hook
+      output = fn(*args, **kwargs)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/.venv-retrobridge/lib/python3.10/site-packages/pytorch_lightning/strategies/strategy.py", line 390, in training_step
+      return self.lightning_module.training_step(*args, **kwargs)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/src/frameworks/markov_bridge.py", line 177, in training_step
+      reactants, product, pred, node_mask, noisy_data, _ = self.process_and_forward(data)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/src/frameworks/markov_bridge.py", line 163, in process_and_forward
+      extra_data = self.compute_extra_data(noisy_data, context=context)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/src/frameworks/markov_bridge.py", line 849, in compute_extra_data
+      extra_features = self.extra_features(noisy_data)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/src/features/extra_features.py", line 45, in __call__
+      eigenfeatures = self.eigenfeatures(noisy_data)
+    File "/home/estar/pxy/mechet/baselines/RetroBridge-main/src/features/extra_features.py", line 102, in __call__
+      eigvals, eigvectors = torch.linalg.eigh(L.double())
+  torch._C._LinAlgError: linalg.eigh: (Batch element 0): The algorithm failed to converge because the input matrix is ill-conditioned or has too many repeated eigenvalues (error code: 1).
+
+Interpretation:
+  Converting L to float64 was an intermediate mitigation, but it did not remove
+  the degenerate dummy-node block and therefore did not eliminate the failure.
+  This incident also confirms that the problem can appear dynamically during
+  training as noise changes E_t and therefore changes the Laplacian at every
+  step; it is not limited to model startup.
+
+
+RB-004: USPTO waiter lock conflict
+----------------------------------
+Stage:
+  Launcher startup, before GPU polling and before training.
+
+Command:
+  nohup ./wait_for_gpu_and_train_uspto.sh \
+    > wait_for_gpu_and_train_uspto.log 2>&1 &
+
+Original output:
+  nohup: ignoring input
+  Another USPTO RetroBridge waiter or training process holds /tmp/retrobridge-mech-uspto-train.lock
+
+Interpretation:
+  This was not a model or CUDA failure. The launcher intentionally uses flock to
+  prevent duplicate waiter/training processes. Another process already held the
+  lock, so the new launcher exited with conflict status 75.
+
+
+Implemented eigendecomposition remediation
+-------------------------------------------
+The current src/features/extra_features.py contains the following remediation:
+
+1. It removes the original shared dummy-node diagonal block from the matrix sent
+   to the eigensolver.
+2. It extracts each graph's real-node Laplacian using node_mask.
+3. It decomposes graphs individually instead of calling a batched eigh on padded
+   matrices.
+4. It uses float64 and explicitly re-symmetrizes every real-node submatrix.
+5. It rejects empty graphs and non-finite Laplacian values with clearer errors.
+6. It retries a CUDA failure with CPU LAPACK.
+7. If CPU LAPACK also fails, it retries with a diagonal jitter up to 1e-10.
+8. It pads the resulting eigenvalues/eigenvectors back to the original batch
+   shape so the downstream feature dimensions remain unchanged.
+
+The graph definition and selected features were not changed: adjacency is still
+constructed from E_t[..., 1:], the Laplacian is still L = D - A, and the model
+still consumes the connected-component count, the first five nonzero
+eigenvalues, the non-largest-component indicator, and the first two nonzero
+eigenvectors.

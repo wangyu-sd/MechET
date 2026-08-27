@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "artifact_type": "external_baseline_full_reaction_pairs",
+  "dataset": "flower_full",
+  "benchmark_universe": "complete_reaction_level_split",
+  "executor_filtering": false,
+  "representations": [
+    "mapped",
+    "unmapped"
+  ],
+  "common_task": "product_to_precursor",
+  "split_id_overlap": {
+    "train_valid": 0,
+    "train_test": 0,
+    "valid_test": 0
+  },
+  "splits": {
+    "train": {
+      "rows": 257171,
+      "source": "/home/estar/pxy/mechet/MechET/data/flower_full_endpoint_sft/train.jsonl",
+      "source_sha256": "a1da52162d659d37bf9eea9cad9e0cc9cbff6c61578a92e40cb7725e13da0f33",
+      "output": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/train.jsonl",
+      "output_sha256": "1715128f32016f1fddeae2c221c339f1986008e7854b79768a4704b96c24c53b",
+      "stable_ids_sha256": "6d8c7cc4066750e205cfd72ef27b44bee63defee7d26ff4fb85e33bcc1f47312"
+    },
+    "valid": {
+      "rows": 2890,
+      "source": "/home/estar/pxy/mechet/MechET/data/flower_full_endpoint_sft/valid.jsonl",
+      "source_sha256": "6dc6ae05a73ae1e90eda78016db7063c722f4b1444fd1f311599d16d6f0cbdcd",
+      "output": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/valid.jsonl",
+      "output_sha256": "e182a97ad7afb1d8a71f7735abb9a773f066d141bb5307eb6d6eddaf40713818",
+      "stable_ids_sha256": "c5bd9e1549b410eb3dcd98eb763fef057de77206f570b3bcf9ed4e4834c0a093"
+    },
+    "test": {
+      "rows": 28971,
+      "source": "/home/estar/pxy/mechet/MechET/data/flower_full_endpoint_sft/test.jsonl",
+      "source_sha256": "a0700444e03cdc73ef041ac1b33251486529976246e469c27e15f2bf6f296048",
+      "output": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/test.jsonl",
+      "output_sha256": "113744e5307119c3008b8d90935dca0c758071baa8dde80ef95af9a2723ac8ac",
+      "stable_ids_sha256": "cc82eba0677002d21604e307538a341b1a9d4f442e3d31ac2da883e6b156af1a"
+    }
+  }
+}

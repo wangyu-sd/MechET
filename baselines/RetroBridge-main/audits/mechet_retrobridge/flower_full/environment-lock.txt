@@ -1,0 +1,12 @@
+Python==3.10.19
+torch==2.8.0+cu128
+torch-geometric==2.7.0
+pytorch-lightning==2.3.3
+torchmetrics==1.9.0
+rdkit==2025.09.1
+pandas==2.3.3
+numpy==1.26.4
+imageio==2.34.0
+wandb==0.16.3
+CUDA-runtime==12.8
+GPU==NVIDIA-GeForce-RTX-4090-48GB

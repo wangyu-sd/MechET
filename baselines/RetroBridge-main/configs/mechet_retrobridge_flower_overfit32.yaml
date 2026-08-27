@@ -1,0 +1,47 @@
+# Milestone-2 smoke test only; this is not the full benchmark configuration.
+experiment_name: mechet_retrobridge_flower_overfit32
+checkpoints: audits/mechet_retrobridge/flower_full/runs/checkpoints
+logs: audits/mechet_retrobridge/flower_full/runs/logs
+data: audits/mechet_retrobridge/flower_full/data
+swanlab_project: RetroBridge
+swanlab_workspace: null
+swanlab_mode: online
+seed: 42
+device: gpu
+
+sample_every_val: 1000
+log_every_steps: 1
+samples_to_generate: 32
+samples_to_save: 0
+samples_per_input: 3
+chains_to_save: 0
+number_chain_steps_to_save: 1
+enable_progress_bar: true
+
+dataset: overfit32
+batch_size: 4
+num_workers: 0
+shuffle: true
+extra_nodes: true
+swap: false
+
+# Reduced time grid for the smoke test; the Markov-bridge loss is unchanged.
+diffusion_steps: 100
+diffusion_noise_schedule: cosine
+transition: null
+fix_product_nodes: true
+
+use_context: true
+extra_features: null
+extra_molecular_features: false
+n_layers: 3
+hidden_mlp_dims: {'X': 128, 'E': 64, 'y': 64}
+hidden_dims: {'dx': 128, 'de': 32, 'dy': 32, 'n_head': 8, 'dim_ffX': 128, 'dim_ffE': 64, 'dim_ffy': 64}
+
+n_epochs: 30
+lambda_train: [5, 0]
+lr: 0.0002
+weight_decay: 0.000000000001
+loss_type: vlb
+
+resume:

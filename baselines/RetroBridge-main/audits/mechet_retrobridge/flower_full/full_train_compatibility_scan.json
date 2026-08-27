@@ -1,0 +1,60 @@
+{
+  "source": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/train.jsonl",
+  "count": 257171,
+  "elements": [
+    "Al", "As", "B", "Br", "C", "Cl", "Cu", "F", "Ge", "I", "Li", "Mg",
+    "N", "Na", "O", "P", "Pd", "Ru", "S", "Sc", "Se", "Si", "Sn"
+  ],
+  "max_precursor_minus_product_atoms": 59,
+  "max_precursor_minus_product_atoms_stable_id": "flower-full-endpoint:train:104257",
+  "max_precursor_atoms": 172,
+  "max_precursor_atoms_stable_id": "flower-full-endpoint:train:121543",
+  "rows_above_native_10_dummy_limit": 11439,
+  "mapping_issue_categories": {
+    "product_maps_not_subset_of_precursor": 9,
+    "mapped_element_mismatch": 7,
+    "product_has_more_atoms_than_precursor": 2,
+    "note": "Category counts can overlap. These rows require source-level adjudication before full training."
+  },
+  "unique_incompatible_train_rows": 16,
+  "incompatible_train_stable_ids": [
+    "flower-full-endpoint:train:45735",
+    "flower-full-endpoint:train:76574",
+    "flower-full-endpoint:train:79801",
+    "flower-full-endpoint:train:81142",
+    "flower-full-endpoint:train:88637",
+    "flower-full-endpoint:train:90240",
+    "flower-full-endpoint:train:105685",
+    "flower-full-endpoint:train:123133",
+    "flower-full-endpoint:train:173297",
+    "flower-full-endpoint:train:207863",
+    "flower-full-endpoint:train:215940",
+    "flower-full-endpoint:train:215971",
+    "flower-full-endpoint:train:RC",
+    "flower-full-endpoint:train:PC",
+    "flower-full-endpoint:train:PM",
+    "flower-full-endpoint:train:RS"
+  ],
+  "evaluation_scan": {
+    "valid": {
+      "count": 2890,
+      "max_precursor_minus_product_atoms": 39,
+      "unique_incompatible_rows": 0
+    },
+    "test": {
+      "count": 28971,
+      "max_precursor_minus_product_atoms": 57,
+      "train_unseen_elements": ["Ar", "K"],
+      "resolution_for_unseen_elements": "Use the published RetroBridge MIT fixed vocabulary; do not derive them from test.",
+      "unique_incompatible_rows": 5,
+      "incompatible_stable_ids": [
+        "flower-full-endpoint:test:2462",
+        "flower-full-endpoint:test:RC",
+        "flower-full-endpoint:test:PC",
+        "flower-full-endpoint:test:PM",
+        "flower-full-endpoint:test:RS"
+      ]
+    }
+  },
+  "conclusion": "The unmodified USPTO-50K vocabulary and 10-dummy-node limit cannot represent full FlowER train."
+}

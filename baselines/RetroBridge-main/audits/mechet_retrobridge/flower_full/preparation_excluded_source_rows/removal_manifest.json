@@ -1,0 +1,119 @@
+{
+  "source_dir": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full",
+  "purpose": "Exact source rows excluded only from generated RetroBridge data by --drop-incompatible.",
+  "source_files_modified": false,
+  "source_files_restored_to_original_hashes": true,
+  "excluded_total": 21,
+  "records": [
+    {
+      "split": "test",
+      "source_line_before_removal": 2397,
+      "stable_id": "flower-full-endpoint:test:2462"
+    },
+    {
+      "split": "test",
+      "source_line_before_removal": 28968,
+      "stable_id": "flower-full-endpoint:test:RC"
+    },
+    {
+      "split": "test",
+      "source_line_before_removal": 28969,
+      "stable_id": "flower-full-endpoint:test:PC"
+    },
+    {
+      "split": "test",
+      "source_line_before_removal": 28970,
+      "stable_id": "flower-full-endpoint:test:PM"
+    },
+    {
+      "split": "test",
+      "source_line_before_removal": 28971,
+      "stable_id": "flower-full-endpoint:test:RS"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 44811,
+      "stable_id": "flower-full-endpoint:train:45735"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 74959,
+      "stable_id": "flower-full-endpoint:train:76574"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 78126,
+      "stable_id": "flower-full-endpoint:train:79801"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 79462,
+      "stable_id": "flower-full-endpoint:train:81142"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 86788,
+      "stable_id": "flower-full-endpoint:train:88637"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 88368,
+      "stable_id": "flower-full-endpoint:train:90240"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 103449,
+      "stable_id": "flower-full-endpoint:train:105685"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 120480,
+      "stable_id": "flower-full-endpoint:train:123133"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 169534,
+      "stable_id": "flower-full-endpoint:train:173297"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 203313,
+      "stable_id": "flower-full-endpoint:train:207863"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 211220,
+      "stable_id": "flower-full-endpoint:train:215940"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 211254,
+      "stable_id": "flower-full-endpoint:train:215971"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 257168,
+      "stable_id": "flower-full-endpoint:train:RC"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 257169,
+      "stable_id": "flower-full-endpoint:train:PC"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 257170,
+      "stable_id": "flower-full-endpoint:train:PM"
+    },
+    {
+      "split": "train",
+      "source_line_before_removal": 257171,
+      "stable_id": "flower-full-endpoint:train:RS"
+    }
+  ],
+  "evidence_files": {
+    "original_manifest": "manifest.before_removal.json",
+    "excluded_train_rows": "train.excluded.jsonl",
+    "excluded_test_rows": "test.excluded.jsonl"
+  }
+}

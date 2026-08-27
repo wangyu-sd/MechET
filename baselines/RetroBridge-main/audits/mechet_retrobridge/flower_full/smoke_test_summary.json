@@ -1,0 +1,53 @@
+{
+  "status": "passed_milestone_1_and_milestone_2_smoke_checks",
+  "audit100": {
+    "source_train_rows": 100,
+    "support_valid_rows": 1,
+    "support_test_rows": 1,
+    "processed_counts": {
+      "train": 100,
+      "val": 1,
+      "test": 1
+    },
+    "stable_id_mismatches": 0,
+    "mapped_identity_mismatches": 0,
+    "unmapped_identity_mismatches": 0,
+    "native_element_bond_graph_mismatches": 0,
+    "train_only_atom_vocabulary": true,
+    "train_only_dummy_capacity": true,
+    "max_n_dummy_nodes": 38,
+    "unmodified_native_constraints_on_first_100": {
+      "rows_above_10_dummy_nodes": 8,
+      "rows_with_unsupported_element_Pd": 6
+    }
+  },
+  "overfit32": {
+    "rows": 32,
+    "diagnostic_train_rows_duplicated_into_val_and_test": true,
+    "objective": "RetroBridge Markov-bridge VLB",
+    "epochs": 30,
+    "batches_per_epoch": 8,
+    "model_parameters": 918000,
+    "diffusion_steps_during_training": 100,
+    "mean_train_batch_loss_epoch_0": 0.35367388650774956,
+    "mean_train_batch_loss_epoch_29": 0.030584412568714428,
+    "last_to_first_loss_ratio": 0.08647630977427076
+  },
+  "inference": {
+    "rows": 32,
+    "unique_stable_ids": 32,
+    "sampling_steps": 100,
+    "candidate_budget_per_input": 3,
+    "independent_stochastic_samples": true,
+    "use_one_hot": true,
+    "total_candidates": 96,
+    "syntactically_valid_candidates": 96,
+    "invalid_candidates": 0,
+    "unique_candidate_strings": 34,
+    "rows_with_any_exact_reference_candidate": 0,
+    "mean_runtime_ms_per_input": 746.5204214095138,
+    "ranking": "generation order; the native sample_batch score is 0 for every sample",
+    "likelihood_diagnostics": "null because the official one-hot sampling option produced non-finite nll/ell accumulators"
+  },
+  "interpretation": "The engineering and ID-preservation loop passes. The reduced 32-row model is not an accuracy result and did not memorize an exact precursor candidate."
+}
