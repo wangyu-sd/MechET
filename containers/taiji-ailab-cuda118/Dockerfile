@@ -6,7 +6,7 @@
 # 450.80 before the container can start.  MechET actually runs the Ceph-hosted
 # torch 2.6.0+cu118 environment, for which the CUDA 11.x compatibility floor is
 # sufficient on those hosts.
-ARG BASE_IMAGE=mirrors.tencent.com/whaleywang/metabo:taiji6
+ARG BASE_IMAGE=mirrors.tencent.com/whaleywang/metabo@sha256:48ffa174a1f1a4f2518ad4fc327b8bb0e20b1984fee71487dbe2e3fce04bb287
 FROM ${BASE_IMAGE}
 
 USER root

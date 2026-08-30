@@ -4,7 +4,7 @@ set -Eeuo pipefail
 repo_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 dockerfile="$repo_dir/containers/taiji-ailab-cuda118/Dockerfile"
 build_context="$repo_dir/containers/taiji-ailab-cuda118"
-base_image=${MECHET_AILAB_BASE_IMAGE:-mirrors.tencent.com/whaleywang/metabo:taiji6}
+base_image=${MECHET_AILAB_BASE_IMAGE:-mirrors.tencent.com/whaleywang/metabo@sha256:48ffa174a1f1a4f2518ad4fc327b8bb0e20b1984fee71487dbe2e3fce04bb287}
 target_image=${MECHET_AILAB_TARGET_IMAGE:-mirrors.tencent.com/whaleywang/metabo:taiji6-cuda118-compat-v1}
 
 case "$base_image" in

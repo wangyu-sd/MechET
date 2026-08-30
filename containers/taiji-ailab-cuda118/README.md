@@ -10,8 +10,9 @@ The NVIDIA OCI hook therefore rejects the container before it starts.  The
 AILab-provided Ubuntu 18.04 image starts, but its glibc 2.27 cannot load the
 project's `pyarrow` wheel, which requires glibc 2.28 or newer.
 
-The compatibility image inherits `taiji6` and changes only the NVIDIA
-admission requirement to CUDA 11.8.  MechET continues to use the frozen
+The compatibility image inherits the Tencent-registry `taiji6` manifest pinned
+at `sha256:48ffa174a1f1a4f2518ad4fc327b8bb0e20b1984fee71487dbe2e3fce04bb287`
+and changes only the NVIDIA admission requirement to CUDA 11.8. MechET continues to use the frozen
 Ceph-hosted `torch 2.6.0+cu118` Python environment.  A runtime preflight fails
 closed unless glibc, CUDA, PyTorch, PyArrow, scikit-learn, Transformers, PEFT,
 RDKit, and a CUDA matrix multiplication all work.
