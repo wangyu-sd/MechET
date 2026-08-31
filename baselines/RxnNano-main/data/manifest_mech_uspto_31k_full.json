@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "artifact_type": "rxnnano_dataset_export",
+  "dataset": "mech_uspto_31k_full",
+  "suffix": "_mech_uspto_31k_full",
+  "variants": [
+    "mapped"
+  ],
+  "benchmark_universe": "complete_reaction_level_split",
+  "splits": {
+    "mapped": {
+      "train": {
+        "rows": 24959,
+        "source_jsonl": "/home/estar/pxy/mechet/MechET/data/mech_uspto_31k_full_endpoint_rxnmapper/train.jsonl",
+        "source_jsonl_sha256": "2dca4ce8c35d7bc914261f35e7499577562eb85f60192e886af3b6d60a46afba",
+        "output_jsonl": "/home/estar/pxy/mechet/baselines/RxnNano-main/data/train_mech_uspto_31k_full.jsonl",
+        "output_jsonl_sha256": "aed254c519cb79ccdc11972fa725b0f7ee69a20481a5d4cdee4e3495bb201573",
+        "stable_ids_sha256": "16a6d789b7a509577607ce9bd8c783fcf3f349bb6d041d1e64dd3421577b6d50"
+      },
+      "valid": {
+        "rows": 3120,
+        "source_jsonl": "/home/estar/pxy/mechet/MechET/data/mech_uspto_31k_full_endpoint_rxnmapper/valid.jsonl",
+        "source_jsonl_sha256": "af23944d8263f708bcf76e113e1508885045174648ae4f202c796b01b8bb3ea7",
+        "output_jsonl": "/home/estar/pxy/mechet/baselines/RxnNano-main/data/validation_mech_uspto_31k_full.jsonl",
+        "output_jsonl_sha256": "0a1320514052fa568209bbe3fb539acd2c24a93233fcb9204e593c3769fadc89",
+        "stable_ids_sha256": "31f691ff432d48acf8dd131409bd11ad02de32c7b1201c1b4c38f9c40a1fdc3d"
+      },
+      "test": {
+        "rows": 3120,
+        "source_jsonl": "/home/estar/pxy/mechet/MechET/data/mech_uspto_31k_full_endpoint_rxnmapper/test.jsonl",
+        "source_jsonl_sha256": "619e49bd28e31eb5c111e6ec587722269fc207a312b6432042c5cabf8985540b",
+        "output_jsonl": "/home/estar/pxy/mechet/baselines/RxnNano-main/data/test_mech_uspto_31k_full.jsonl",
+        "output_jsonl_sha256": "f72f6262162d8752f0a67bd5a7cdad8dc015d5d21cc3f16b180647c20835483a",
+        "stable_ids_sha256": "1fb48958224ddfb3ad656b821e722fe8995f170d6cc8c2e5c275ab0b5a21dab1"
+      }
+    }
+  }
+}
