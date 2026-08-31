@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import hashlib
 import importlib.metadata
 import json
 from pathlib import Path
 import random
 import sys
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping, Sequence
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
@@ -103,7 +104,15 @@ def _resolve_revision(
 
 def _software_versions() -> dict[str, str]:
     output: dict[str, str] = {}
-    for name in ("torch", "transformers", "peft", "trl", "datasets", "rdkit"):
+    for name in (
+        "torch",
+        "transformers",
+        "peft",
+        "trl",
+        "datasets",
+        "rdkit",
+        "vllm",
+    ):
         try:
             output[name] = importlib.metadata.version(name)
         except importlib.metadata.PackageNotFoundError:
@@ -338,16 +347,18 @@ def _reference_prompt_contract(
     system_prompts = {
         str(_reference_trace_messages(row)[0].get("content") or "") for row in rows
     }
-    if len(budgets) != 1 or 0 in budgets:
-        raise ValueError(f"reference rows have inconsistent tool budgets: {sorted(budgets)}")
-    budget = next(iter(budgets))
-    if budget != int(env_config.max_tool_calls):
+    if 0 in budgets:
+        raise ValueError(f"reference rows have invalid tool budgets: {sorted(budgets)}")
+    max_budget = max(budgets)
+    if max_budget > int(env_config.max_tool_calls):
         raise ValueError(
-            f"reference max_tool_calls={budget} != runtime {env_config.max_tool_calls}"
+            f"reference max_tool_calls={max_budget} exceeds runtime cap "
+            f"{env_config.max_tool_calls}"
         )
-    if max_iterations != budget:
+    if max_budget > max_iterations:
         raise ValueError(
-            f"reference max_tool_calls={budget} != max_iterations={max_iterations}"
+            f"reference max_tool_calls={max_budget} exceeds max_iterations="
+            f"{max_iterations}"
         )
     if modes != {str(env_config.observation_mode)}:
         raise ValueError(
@@ -360,7 +371,13 @@ def _reference_prompt_contract(
     system_prompt = next(iter(system_prompts))
     value = {
         "source": "reference_training_messages_v1",
-        "max_tool_calls": budget,
+        "max_tool_calls": (
+            next(iter(budgets)) if len(budgets) == 1 else None
+        ),
+        "max_tool_calls_values": sorted(budgets),
+        "max_tool_calls_min": min(budgets),
+        "max_tool_calls_max": max_budget,
+        "runtime_max_tool_calls_cap": int(env_config.max_tool_calls),
         "max_iterations": max_iterations,
         "observation_mode": str(env_config.observation_mode),
         "system_prompt_sha256": hashlib.sha256(system_prompt.encode()).hexdigest(),
@@ -438,6 +455,145 @@ def _load_model(
     return model, tokenizer
 
 
+class _VllmBackend:
+    """Small compatibility wrapper around vLLM's offline batched engine.
+
+    Each logical candidate is submitted as its own request with its frozen
+    candidate/turn seed.  vLLM may schedule those requests together, but a
+    candidate therefore does not inherit an RNG stream from its batch
+    neighbours.  The wrapper deliberately exposes the same `(text, prefix)`
+    records consumed by the existing Qwen tool-call parser.
+    """
+
+    def __init__(self, engine: Any, tokenizer: Any, sampling_params: Any, lora_request: Any):
+        self.engine = engine
+        self.tokenizer = tokenizer
+        self.sampling_params = sampling_params
+        self.lora_request = lora_request
+
+    def generate(
+        self,
+        conversations: Sequence[list[dict[str, Any]]],
+        tools: list[dict[str, Any]],
+        *,
+        max_new_tokens: int,
+        temperature: float,
+        top_p: float,
+        seeds: Sequence[int],
+    ) -> list[tuple[str, Any]]:
+        if not conversations or len(conversations) != len(seeds):
+            raise ValueError("vLLM conversations and seeds must be non-empty and aligned")
+        prompts: list[str] = []
+        for messages in conversations:
+            kwargs: dict[str, Any] = {
+                "conversation": messages,
+                "tokenize": False,
+                "add_generation_prompt": True,
+            }
+            if tools:
+                kwargs["tools"] = tools
+            prompts.append(str(self.tokenizer.apply_chat_template(**kwargs)))
+
+        sampling = [
+            self.sampling_params(
+                max_tokens=max_new_tokens,
+                temperature=temperature if temperature > 0 else 0.0,
+                top_p=top_p,
+                seed=int(seed),
+                n=1,
+            )
+            for seed in seeds
+        ]
+        generate_kwargs: dict[str, Any] = {"use_tqdm": False}
+        if self.lora_request is not None:
+            generate_kwargs["lora_request"] = self.lora_request
+        outputs = self.engine.generate(prompts, sampling, **generate_kwargs)
+        if len(outputs) != len(prompts):
+            raise RuntimeError(
+                f"vLLM returned {len(outputs)} requests for {len(prompts)} prompts"
+            )
+
+        records: list[tuple[str, Any]] = []
+        for output in outputs:
+            candidates = list(getattr(output, "outputs", []) or [])
+            if len(candidates) != 1:
+                raise RuntimeError(
+                    f"vLLM request returned {len(candidates)} candidates; expected one"
+                )
+            prefix = list(getattr(output, "prompt_token_ids", []) or [])
+            records.append((str(candidates[0].text), prefix))
+        return records
+
+
+def _adapter_lora_rank(adapter: str) -> int:
+    if not adapter:
+        return 16
+    config = _load_json_object(Path(adapter) / "adapter_config.json")
+    return max(1, int(config.get("r") or 16))
+
+
+def _load_vllm_backend(
+    model_name: str,
+    adapter: str,
+    *,
+    revision: str,
+    tensor_parallel_size: int,
+    gpu_memory_utilization: float,
+    max_model_len: int,
+    max_num_seqs: int,
+    enable_prefix_caching: bool,
+) -> tuple[_VllmBackend, Any]:
+    try:
+        import torch
+        from vllm import LLM, SamplingParams
+    except ImportError as exc:
+        raise RuntimeError(
+            "--backend vllm requires a compatible vllm installation"
+        ) from exc
+
+    dtype = "float16"
+    if torch.cuda.is_available():
+        major, _ = torch.cuda.get_device_capability(0)
+        if major >= 8:
+            dtype = "bfloat16"
+
+    engine_kwargs: dict[str, Any] = {
+        "model": model_name,
+        "trust_remote_code": True,
+        "dtype": dtype,
+        "tensor_parallel_size": tensor_parallel_size,
+        "gpu_memory_utilization": gpu_memory_utilization,
+        "max_model_len": max_model_len,
+        "max_num_seqs": max_num_seqs,
+        "enable_prefix_caching": enable_prefix_caching,
+    }
+    if revision and not Path(model_name).exists():
+        engine_kwargs["revision"] = revision
+    if adapter:
+        engine_kwargs.update(
+            enable_lora=True,
+            max_lora_rank=_adapter_lora_rank(adapter),
+            max_loras=1,
+        )
+    engine = LLM(**engine_kwargs)
+    tokenizer = engine.get_tokenizer()
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    lora_request = None
+    if adapter:
+        try:
+            from vllm.lora.request import LoRARequest
+
+            lora_request = LoRARequest("mechet_adapter", 1, str(Path(adapter).resolve()))
+        except Exception as exc:
+            raise RuntimeError(
+                f"vLLM could not construct a LoRA request for {adapter}: {exc}"
+            ) from exc
+    backend = _VllmBackend(engine, tokenizer, SamplingParams, lora_request)
+    return backend, tokenizer
+
+
 def _generate_response(
     model,
     tokenizer,
@@ -462,6 +618,207 @@ def _generate_response(
     return texts[0], prefix
 
 
+@contextmanager
+def _independent_multinomial_streams(seeds: Sequence[int], device: Any) -> Iterator[None]:
+    """Give every row in a sampled batch its own deterministic RNG stream.
+
+    Transformers normally draws one batched multinomial from the global CUDA
+    generator.  That makes a candidate's samples depend on its neighbours and
+    prevents safe dynamic batching.  During one ``generate`` call, route each
+    row through a generator seeded by that candidate/iteration instead.
+    """
+
+    import torch
+
+    original = torch.multinomial
+    generators = [torch.Generator(device=device).manual_seed(int(seed)) for seed in seeds]
+
+    def independent(input: Any, num_samples: int, replacement: bool = False, *, out: Any = None, generator: Any = None):
+        if (
+            generator is None
+            and out is None
+            and getattr(input, "ndim", 0) == 2
+            and int(input.shape[0]) == len(generators)
+        ):
+            return torch.cat(
+                [
+                    original(
+                        input[index : index + 1],
+                        num_samples,
+                        replacement,
+                        generator=generators[index],
+                    )
+                    for index in range(len(generators))
+                ],
+                dim=0,
+            )
+        return original(
+            input,
+            num_samples,
+            replacement,
+            out=out,
+            generator=generator,
+        )
+
+    torch.multinomial = independent
+    try:
+        yield
+    finally:
+        torch.multinomial = original
+
+
+def _generate_trace_responses(
+    model: Any,
+    tokenizer: Any,
+    conversations: Sequence[list[dict[str, Any]]],
+    tools: list[dict[str, Any]],
+    *,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    seeds: Sequence[int],
+) -> list[tuple[str, Any]]:
+    """Generate one tool response for several independent active rollouts."""
+
+    if isinstance(model, _VllmBackend):
+        return model.generate(
+            conversations,
+            tools,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            seeds=seeds,
+        )
+
+    import torch
+
+    if not conversations or len(conversations) != len(seeds):
+        raise ValueError("trace conversations and seeds must be non-empty and aligned")
+    previous_padding_side = tokenizer.padding_side
+    tokenizer.padding_side = "left"
+    try:
+        kwargs: dict[str, Any] = {
+            "conversation": list(conversations),
+            "tokenize": True,
+            "add_generation_prompt": True,
+            "return_tensors": "pt",
+            "return_dict": True,
+            "padding": True,
+        }
+        if tools:
+            kwargs["tools"] = tools
+        encoded = tokenizer.apply_chat_template(**kwargs)
+    finally:
+        tokenizer.padding_side = previous_padding_side
+    if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
+        raise ValueError("batched chat template did not return model inputs")
+    device = next(model.parameters()).device
+    inputs = {
+        key: value.to(device) if hasattr(value, "to") else value
+        for key, value in encoded.items()
+        if key in {"input_ids", "attention_mask"}
+    }
+    input_length = int(inputs["input_ids"].shape[-1])
+    generate_kwargs: dict[str, Any] = {
+        "max_new_tokens": max_new_tokens,
+        "do_sample": temperature > 0,
+        "top_p": top_p,
+        "pad_token_id": tokenizer.pad_token_id,
+    }
+    if temperature > 0:
+        generate_kwargs["temperature"] = temperature
+    with torch.inference_mode(), _independent_multinomial_streams(seeds, device):
+        output = model.generate(**inputs, **generate_kwargs)
+    generated = output[:, input_length:]
+
+    eos_token_ids: set[int] = set()
+    configured_eos = getattr(getattr(model, "generation_config", None), "eos_token_id", None)
+    if isinstance(configured_eos, int):
+        eos_token_ids.add(configured_eos)
+    elif configured_eos is not None:
+        eos_token_ids.update(int(token_id) for token_id in configured_eos)
+    if tokenizer.eos_token_id is not None:
+        eos_token_ids.add(int(tokenizer.eos_token_id))
+
+    results: list[tuple[str, Any]] = []
+    for index, tokens in enumerate(generated):
+        token_values = [int(token_id) for token_id in tokens.tolist()]
+        stop = next(
+            (
+                position + 1
+                for position, token_id in enumerate(token_values)
+                if token_id in eos_token_ids
+            ),
+            len(token_values),
+        )
+        attention = inputs.get("attention_mask")
+        prefix = (
+            inputs["input_ids"][index][attention[index].bool()]
+            if attention is not None
+            else inputs["input_ids"][index]
+        )
+        results.append(
+            (tokenizer.decode(tokens[:stop], skip_special_tokens=False), prefix)
+        )
+    return results
+
+
+def _generate_trace_responses_resilient(
+    model: Any,
+    tokenizer: Any,
+    requests: Sequence[tuple[list[dict[str, Any]], int]],
+    tools: list[dict[str, Any]],
+    *,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+) -> list[tuple[str, Any, str]]:
+    """Run a trace microbatch and split it deterministically after CUDA OOM."""
+
+    if not requests:
+        return []
+    try:
+        generated = _generate_trace_responses(
+            model,
+            tokenizer,
+            [item[0] for item in requests],
+            tools,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            seeds=[item[1] for item in requests],
+        )
+        return [(raw, prefix, "") for raw, prefix in generated]
+    except Exception as exc:
+        if len(requests) > 1 and "out of memory" in str(exc).lower():
+            try:
+                import torch
+
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except ImportError:
+                pass
+            middle = len(requests) // 2
+            return _generate_trace_responses_resilient(
+                model,
+                tokenizer,
+                requests[:middle],
+                tools,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+            ) + _generate_trace_responses_resilient(
+                model,
+                tokenizer,
+                requests[middle:],
+                tools,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
+            )
+        return [("", None, f"{type(exc).__name__}: {exc}") for _ in requests]
+
+
 def _generate_responses(
     model,
     tokenizer,
@@ -481,6 +838,17 @@ def _generate_responses(
     candidate; every candidate still records its stable logical seed and the
     common batch seed in the output artifact.
     """
+    if isinstance(model, _VllmBackend):
+        generated = model.generate(
+            [messages for _ in seeds],
+            tools,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            seeds=seeds,
+        )
+        return [item[0] for item in generated], generated[0][1]
+
     import torch
 
     if not seeds:
@@ -566,7 +934,79 @@ def _rank_candidate(candidate: Mapping[str, Any]) -> tuple[float, ...]:
     )
 
 
-def _run_trace_candidate(
+class _TraceRollout:
+    def __init__(
+        self,
+        *,
+        env: Any,
+        messages: list[dict[str, Any]],
+        sample_index: int,
+        seed: int,
+        max_iterations: int,
+        exchanges: list[dict[str, Any]],
+    ) -> None:
+        self.env = env
+        self.messages = messages
+        self.sample_index = sample_index
+        self.seed = seed
+        self.max_iterations = max_iterations
+        self.exchanges = exchanges
+        self.iteration = 0
+        self.termination_reason = "max_iterations"
+        self.generation_error = ""
+        self.finished = False
+
+    def request(self) -> tuple[list[dict[str, Any]], int]:
+        return self.messages, self.seed + self.iteration
+
+    def advance(self, raw: str, prefix: Any, error: str, tokenizer: Any) -> None:
+        if self.finished:
+            raise RuntimeError("cannot advance a finished trace rollout")
+        if error:
+            self.generation_error = error
+            self.termination_reason = "generation_or_parse_error"
+            self.finished = True
+            return
+        try:
+            calls = parse_tool_calls(raw, tokenizer=tokenizer, prefix=prefix)
+        except Exception as exc:
+            self.generation_error = str(exc)
+            self.termination_reason = "generation_or_parse_error"
+            self.finished = True
+            return
+        self.iteration += 1
+        if not calls:
+            self.messages.append({"role": "assistant", "content": raw})
+            self.termination_reason = "no_tool_call"
+            self.finished = True
+            return
+        self.exchanges.extend(append_tool_exchange(self.messages, raw, calls, self.env))
+        state = self.env._snapshot()
+        if state.get("finalized"):
+            self.termination_reason = (
+                "abstained" if state.get("abstained") else "terminal_tool"
+            )
+            self.finished = True
+        elif self.iteration >= self.max_iterations:
+            self.termination_reason = "max_iterations"
+            self.finished = True
+
+    def record(self) -> dict[str, Any]:
+        return {
+            "sample_index": self.sample_index,
+            "seed": self.seed,
+            "messages": self.messages,
+            "exchanges": self.exchanges,
+            "rollout_state": self.env._snapshot(),
+            "termination_reason": self.termination_reason,
+            "candidate_status": (
+                "generation_error" if self.generation_error else self.termination_reason
+            ),
+            "generation_error": self.generation_error,
+        }
+
+
+def _create_trace_rollout(
     row: Mapping[str, Any],
     cfg: dict[str, Any],
     mode: str,
@@ -584,8 +1024,26 @@ def _run_trace_candidate(
     prompt_source: str,
     sample_index: int,
     seed: int,
-) -> dict[str, Any]:
-    env = _environment(cfg, mode, intervention=intervention, shuffled=shuffled)
+) -> _TraceRollout | dict[str, Any]:
+    rollout_cfg = cfg
+    rollout_iterations = max_iterations
+    if prompt_source == "reference":
+        reference_budget = int(
+            _reference_initial_observation(row).get("max_tool_calls") or 0
+        )
+        if reference_budget < 1 or reference_budget > max_iterations:
+            raise ValueError(
+                f"invalid per-row reference budget {reference_budget}; "
+                f"runtime max_iterations={max_iterations}"
+            )
+        rollout_cfg = dict(cfg)
+        rollout_environment = dict(cfg.get("environment") or {})
+        rollout_environment["max_tool_calls"] = reference_budget
+        rollout_cfg["environment"] = rollout_environment
+        rollout_iterations = reference_budget
+    env = _environment(
+        rollout_cfg, mode, intervention=intervention, shuffled=shuffled
+    )
     competitors, conditions = _condition_metadata(row)
     reset_kwargs: dict[str, Any] = {
         "target_smiles": str(row.get("target_smiles") or ""),
@@ -617,50 +1075,141 @@ def _run_trace_candidate(
             }
         )
         return result
+    return _TraceRollout(
+        env=env,
+        messages=messages,
+        sample_index=sample_index,
+        seed=seed,
+        max_iterations=rollout_iterations,
+        exchanges=[],
+    )
 
-    exchanges: list[dict[str, Any]] = []
-    termination_reason = "max_iterations"
-    generation_error = ""
-    for iteration in range(max_iterations):
+
+def _run_trace_candidate(
+    row: Mapping[str, Any],
+    cfg: dict[str, Any],
+    mode: str,
+    *,
+    intervention: str,
+    shuffled: dict[str, Any],
+    model: Any,
+    tokenizer: Any,
+    tools: list[dict[str, Any]],
+    max_iterations: int,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    scripted_actions: list[dict[str, Any]] | None,
+    prompt_source: str,
+    sample_index: int,
+    seed: int,
+) -> dict[str, Any]:
+    rollout = _create_trace_rollout(
+        row,
+        cfg,
+        mode,
+        intervention=intervention,
+        shuffled=shuffled,
+        model=model,
+        tokenizer=tokenizer,
+        tools=tools,
+        max_iterations=max_iterations,
+        max_new_tokens=max_new_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        scripted_actions=scripted_actions,
+        prompt_source=prompt_source,
+        sample_index=sample_index,
+        seed=seed,
+    )
+    if isinstance(rollout, dict):
+        return rollout
+    while not rollout.finished:
         try:
             raw, prefix = _generate_response(
                 model,
                 tokenizer,
-                messages,
+                rollout.messages,
                 tools,
                 max_new_tokens=max_new_tokens,
                 temperature=temperature,
                 top_p=top_p,
-                seed=seed + iteration,
+                seed=rollout.seed + rollout.iteration,
             )
-            calls = parse_tool_calls(raw, tokenizer=tokenizer, prefix=prefix)
+            error = ""
         except Exception as exc:
-            generation_error = str(exc)
-            termination_reason = "generation_or_parse_error"
+            raw, prefix, error = "", None, str(exc)
+        rollout.advance(raw, prefix, error, tokenizer)
+    return rollout.record()
+
+
+def _run_trace_candidates_batched(
+    row: Mapping[str, Any],
+    cfg: dict[str, Any],
+    mode: str,
+    *,
+    intervention: str,
+    shuffled: dict[str, Any],
+    model: Any,
+    tokenizer: Any,
+    tools: list[dict[str, Any]],
+    max_iterations: int,
+    max_new_tokens: int,
+    temperature: float,
+    top_p: float,
+    prompt_source: str,
+    sample_indices: Sequence[int],
+    seeds: Sequence[int],
+    microbatch_size: int,
+) -> list[dict[str, Any]]:
+    """Dynamically batch active candidates while retaining independent envs."""
+
+    if len(sample_indices) != len(seeds) or not seeds:
+        raise ValueError("trace candidate indices/seeds must be non-empty and aligned")
+    rollouts: list[_TraceRollout] = []
+    for sample_index, seed in zip(sample_indices, seeds, strict=True):
+        created = _create_trace_rollout(
+            row,
+            cfg,
+            mode,
+            intervention=intervention,
+            shuffled=shuffled,
+            model=model,
+            tokenizer=tokenizer,
+            tools=tools,
+            max_iterations=max_iterations,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            scripted_actions=None,
+            prompt_source=prompt_source,
+            sample_index=sample_index,
+            seed=seed,
+        )
+        if isinstance(created, dict):
+            raise RuntimeError("unexpected scripted record in batched trace inference")
+        rollouts.append(created)
+
+    while True:
+        active = [rollout for rollout in rollouts if not rollout.finished]
+        if not active:
             break
-        if not calls:
-            messages.append({"role": "assistant", "content": raw})
-            termination_reason = "no_tool_call"
-            break
-        exchanges.extend(append_tool_exchange(messages, raw, calls, env))
-        state = env._snapshot()
-        if state.get("finalized"):
-            termination_reason = (
-                "abstained" if state.get("abstained") else "terminal_tool"
+        # Similar-length candidates stay adjacent because every candidate for
+        # this target advances at most one turn per scheduler round.
+        for start in range(0, len(active), microbatch_size):
+            group = active[start : start + microbatch_size]
+            generated = _generate_trace_responses_resilient(
+                model,
+                tokenizer,
+                [rollout.request() for rollout in group],
+                tools,
+                max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                top_p=top_p,
             )
-            break
-    return {
-        "sample_index": sample_index,
-        "seed": seed,
-        "messages": messages,
-        "exchanges": exchanges,
-        "rollout_state": env._snapshot(),
-        "termination_reason": termination_reason,
-        "candidate_status": (
-            "generation_error" if generation_error else termination_reason
-        ),
-        "generation_error": generation_error,
-    }
+            for rollout, (raw, prefix, error) in zip(group, generated, strict=True):
+                rollout.advance(raw, prefix, error, tokenizer)
+    return [rollout.record() for rollout in rollouts]
 
 
 def _run_direct_candidate(
@@ -838,6 +1387,29 @@ def main() -> int:
     parser.add_argument("--adapter", default="")
     parser.add_argument("--model-revision", default="")
     parser.add_argument("--device-map", default="")
+    parser.add_argument(
+        "--backend",
+        choices=["transformers", "vllm"],
+        default="transformers",
+        help=(
+            "Generation backend. vllm preserves the same prompt, tool parser, "
+            "environment, and output contract while continuously batching requests."
+        ),
+    )
+    parser.add_argument("--vllm-tensor-parallel-size", type=int, default=1)
+    parser.add_argument("--vllm-gpu-memory-utilization", type=float, default=0.9)
+    parser.add_argument(
+        "--vllm-max-model-len",
+        type=int,
+        default=0,
+        help="vLLM context capacity; 0 inherits training.max_length or 16384.",
+    )
+    parser.add_argument("--vllm-max-num-seqs", type=int, default=128)
+    parser.add_argument(
+        "--vllm-disable-prefix-caching",
+        action="store_true",
+        help="Disable vLLM prefix caching (enabled by default).",
+    )
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument(
         "--intervention",
@@ -885,6 +1457,17 @@ def main() -> int:
             "model.generate call. OOM batches are bisected automatically."
         ),
     )
+    parser.add_argument(
+        "--trace-sample-batch-size",
+        type=int,
+        default=1,
+        help=(
+            "For interactive trace mode, dynamically batch this many active "
+            "candidate trajectories on one model replica. Each candidate keeps "
+            "an independent environment and RNG stream; CUDA OOM batches are "
+            "bisected automatically."
+        ),
+    )
     parser.add_argument("--max-iterations", type=int, default=12)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.7)
@@ -906,6 +1489,21 @@ def main() -> int:
     )
     parser.add_argument("--shard-count", type=int, default=1)
     parser.add_argument("--shard-index", type=int, default=0)
+    parser.add_argument(
+        "--prevalidated-data-sha256",
+        default="",
+        help=(
+            "Reuse a dataset digest already checked by the parent launcher. "
+            "This avoids every inference worker rereading a large shared file."
+        ),
+    )
+    parser.add_argument(
+        "--progress-file",
+        type=Path,
+        default=None,
+        help="Atomically updated small JSON progress record for this shard.",
+    )
+    parser.add_argument("--progress-every", type=int, default=10)
     parser.add_argument("--scripted-actions", type=Path)
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
@@ -913,8 +1511,20 @@ def main() -> int:
 
     if args.samples_per_target < 1:
         raise ValueError("samples-per-target must be >= 1")
+    if args.progress_every < 1:
+        raise ValueError("progress-every must be >= 1")
     if args.direct_sample_batch_size < 1:
         raise ValueError("direct-sample-batch-size must be >= 1")
+    if args.trace_sample_batch_size < 1:
+        raise ValueError("trace-sample-batch-size must be >= 1")
+    if args.vllm_tensor_parallel_size < 1:
+        raise ValueError("vllm-tensor-parallel-size must be >= 1")
+    if not 0 < args.vllm_gpu_memory_utilization <= 1:
+        raise ValueError("vllm-gpu-memory-utilization must be in (0, 1]")
+    if args.vllm_max_model_len < 0:
+        raise ValueError("vllm-max-model-len must be >= 0")
+    if args.vllm_max_num_seqs < 1:
+        raise ValueError("vllm-max-num-seqs must be >= 1")
     if (
         args.mode == "direct"
         and args.direct_sample_batch_size > 1
@@ -932,31 +1542,47 @@ def main() -> int:
                 "full_state" if args.mode == "legacy" else "action_delta",
             )
         cfg["environment"] = environment
-    rows = read_jsonl(args.data)
     if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
         raise ValueError("require shard_count >= 1 and 0 <= shard_index < shard_count")
-    if args.selected_sources:
-        requested_sources = set(args.selected_sources)
-        rows = [
-            row
-            for row in rows
-            if str((row.get("metadata") or {}).get("mixture_source") or "")
-            in requested_sources
-        ]
-    if args.selected_ids:
-        requested_ids = set(args.selected_ids)
-        rows = [row for row in rows if row_id(row) in requested_ids]
-        found_ids = {row_id(row) for row in rows}
+    requested_sources = set(args.selected_sources)
+    requested_ids = set(args.selected_ids)
+    found_ids: set[str] = set()
+    rows: list[dict[str, Any]] = []
+    filtered_index = 0
+    with args.data.open("r", encoding="utf-8") as data_handle:
+        for line in data_handle:
+            if not line.strip():
+                continue
+            # The headline launch has no source/ID filter. In that common case,
+            # decide the shard before JSON decoding so each worker materializes
+            # only 1/shard_count of the 727-MiB FlowER test artifact.
+            if not requested_sources and not requested_ids:
+                if args.limit and filtered_index >= args.limit:
+                    break
+                keep = filtered_index % args.shard_count == args.shard_index
+                filtered_index += 1
+                if keep:
+                    rows.append(json.loads(line))
+                continue
+
+            row = json.loads(line)
+            identifier = row_id(row)
+            if requested_sources and str(
+                (row.get("metadata") or {}).get("mixture_source") or ""
+            ) not in requested_sources:
+                continue
+            if requested_ids and identifier not in requested_ids:
+                continue
+            found_ids.add(identifier)
+            if args.limit and filtered_index >= args.limit:
+                break
+            if filtered_index % args.shard_count == args.shard_index:
+                rows.append(row)
+            filtered_index += 1
+    if requested_ids:
         missing_ids = sorted(requested_ids - found_ids)
         if missing_ids:
             raise ValueError(f"selected inference IDs were absent: {missing_ids}")
-    if args.limit:
-        rows = rows[: args.limit]
-    rows = [
-        row
-        for index, row in enumerate(rows)
-        if index % args.shard_count == args.shard_index
-    ]
     if not rows:
         raise ValueError("inference data is empty")
     condition_name = args.condition_name or args.mode
@@ -974,7 +1600,7 @@ def main() -> int:
         adapter_manifest.get("tokenizer_revision") or model_revision
     )
     adapter_hash = path_sha256(adapter) if adapter else ""
-    data_hash = path_sha256(args.data)
+    data_hash = args.prevalidated_data_sha256 or path_sha256(args.data)
     versions = _software_versions()
     env_config = _environment_config(cfg, args.mode) if args.mode != "direct" else None
     if env_config is not None:
@@ -1039,8 +1665,10 @@ def main() -> int:
         "data_sha256": data_hash,
         "seed": args.seed,
         "candidate_selector": CANDIDATE_SELECTOR,
+        "backend": args.backend,
         "prompt_contract": prompt_contract,
         "direct_sample_batch_size": args.direct_sample_batch_size,
+        "trace_sample_batch_size": args.trace_sample_batch_size,
         "selected_sources": list(args.selected_sources),
         "shard_count": args.shard_count,
         "shard_index": args.shard_index,
@@ -1059,12 +1687,30 @@ def main() -> int:
     if not scripts:
         if not model_name:
             raise ValueError("model name is required for non-scripted inference")
-        model, tokenizer = _load_model(
-            model_name,
-            adapter,
-            revision=model_revision,
-            device_map=args.device_map or None,
-        )
+        if args.backend == "vllm":
+            training = dict(cfg.get("training") or {})
+            vllm_max_model_len = int(
+                args.vllm_max_model_len
+                or training.get("max_length")
+                or 16384
+            )
+            model, tokenizer = _load_vllm_backend(
+                model_name,
+                adapter,
+                revision=model_revision,
+                tensor_parallel_size=args.vllm_tensor_parallel_size,
+                gpu_memory_utilization=args.vllm_gpu_memory_utilization,
+                max_model_len=vllm_max_model_len,
+                max_num_seqs=args.vllm_max_num_seqs,
+                enable_prefix_caching=not args.vllm_disable_prefix_caching,
+            )
+        else:
+            model, tokenizer = _load_model(
+                model_name,
+                adapter,
+                revision=model_revision,
+                device_map=args.device_map or None,
+            )
         # The tokenizer is loaded from the same frozen model revision. Preserve the
         # immutable commit in prediction metadata instead of replacing it with a
         # mutable repository/model name such as Qwen/Qwen3-0.6B.
@@ -1077,11 +1723,32 @@ def main() -> int:
     output_mode = "a" if args.resume else "w"
     n_written = 0
     n_skipped = 0
+
+    def write_progress(status: str) -> None:
+        if args.progress_file is None:
+            return
+        args.progress_file.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "status": status,
+            "shard_index": args.shard_index,
+            "shard_count": args.shard_count,
+            "completed_targets": n_written + n_skipped,
+            "written_targets": n_written,
+            "resumed_targets": n_skipped,
+            "assigned_targets": len(rows),
+        }
+        temporary = args.progress_file.with_suffix(args.progress_file.suffix + ".tmp")
+        temporary.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+        temporary.replace(args.progress_file)
+
+    write_progress("running")
     with args.output.open(output_mode, encoding="utf-8") as handle:
         for row in rows:
             identifier = row_id(row)
             if identifier in completed:
                 n_skipped += 1
+                if (n_written + n_skipped) % args.progress_every == 0:
+                    write_progress("running")
                 continue
             script = scripts.get(identifier, scripts.get("*"))
             candidates: list[dict[str, Any]] = []
@@ -1112,6 +1779,30 @@ def main() -> int:
                             seeds=seeds,
                         )
                     )
+            elif script is None and args.trace_sample_batch_size > 1:
+                sample_indices = list(range(args.samples_per_target))
+                seeds = [
+                    _candidate_seed(args.seed, identifier, sample_index)
+                    for sample_index in sample_indices
+                ]
+                candidates = _run_trace_candidates_batched(
+                    row,
+                    cfg,
+                    args.mode,
+                    intervention=args.intervention,
+                    shuffled=shuffled,
+                    model=model,
+                    tokenizer=tokenizer,
+                    tools=tools,
+                    max_iterations=args.max_iterations,
+                    max_new_tokens=args.max_new_tokens,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
+                    prompt_source=args.prompt_source,
+                    sample_indices=sample_indices,
+                    seeds=seeds,
+                    microbatch_size=args.trace_sample_batch_size,
+                )
             else:
                 for sample_index in range(args.samples_per_target):
                     seed = _candidate_seed(args.seed, identifier, sample_index)
@@ -1193,8 +1884,10 @@ def main() -> int:
                     "max_iterations": args.max_iterations,
                     "samples_per_target": args.samples_per_target,
                     "direct_sample_batch_size": args.direct_sample_batch_size,
+                    "trace_sample_batch_size": args.trace_sample_batch_size,
                     "seed": args.seed,
                     "candidate_selector": CANDIDATE_SELECTOR,
+                    "backend": args.backend,
                     "max_tool_calls": (
                         int(env_config.max_tool_calls)
                         if env_config is not None
@@ -1223,6 +1916,8 @@ def main() -> int:
             handle.write(json.dumps(prediction, ensure_ascii=False) + "\n")
             handle.flush()
             n_written += 1
+            if (n_written + n_skipped) % args.progress_every == 0:
+                write_progress("running")
 
     manifest = {
         "artifact_type": "prediction_manifest",
@@ -1246,7 +1941,9 @@ def main() -> int:
         "data_sha256": data_hash,
         "seed": args.seed,
         "candidate_selector": CANDIDATE_SELECTOR,
+        "backend": args.backend,
         "prompt_contract": prompt_contract,
+        "trace_sample_batch_size": args.trace_sample_batch_size,
         "selected_sources": list(args.selected_sources),
         "shard_count": args.shard_count,
         "shard_index": args.shard_index,
@@ -1255,6 +1952,7 @@ def main() -> int:
     args.output.with_suffix(args.output.suffix + ".manifest.json").write_text(
         json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8"
     )
+    write_progress("complete")
     print(json.dumps(manifest, indent=2, ensure_ascii=False))
     return 0
 

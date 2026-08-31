@@ -221,6 +221,7 @@ def test_reference_prompt_contract_reuses_training_preamble_and_budget():
     )
     assert contract["source"] == "reference_training_messages_v1"
     assert contract["max_tool_calls"] == contract["max_iterations"] == 12
+    assert contract["max_tool_calls_values"] == [12]
     runtime_observation = json.dumps(
         {
             **module._reference_initial_observation(row),
@@ -235,10 +236,28 @@ def test_reference_prompt_contract_reuses_training_preamble_and_budget():
     ) == row["messages"][:2]
 
 
-def test_reference_prompt_contract_rejects_budget_mismatch():
+def test_reference_prompt_contract_supports_per_row_dynamic_budgets():
     module = load_script("infer_mechet.py")
-    row = _reference_trace_row()
-    with pytest.raises(ValueError, match="reference max_tool_calls=12 != runtime 40"):
+    rows = [_reference_trace_row(12), _reference_trace_row(16)]
+    rows[1]["id"] = "matched-contract-longer"
+    contract = module._reference_prompt_contract(
+        rows,
+        tools=trace_tool_schemas(),
+        env_config=AgentEnvConfig(
+            max_tool_calls=40,
+            observation_mode="action_delta",
+        ),
+        max_iterations=40,
+    )
+    assert contract["max_tool_calls"] is None
+    assert contract["max_tool_calls_values"] == [12, 16]
+    assert contract["runtime_max_tool_calls_cap"] == 40
+
+
+def test_reference_prompt_contract_rejects_budget_above_runtime_cap():
+    module = load_script("infer_mechet.py")
+    row = _reference_trace_row(41)
+    with pytest.raises(ValueError, match="exceeds runtime cap 40"):
         module._reference_prompt_contract(
             [row],
             tools=trace_tool_schemas(),
@@ -246,7 +265,7 @@ def test_reference_prompt_contract_rejects_budget_mismatch():
                 max_tool_calls=40,
                 observation_mode="action_delta",
             ),
-            max_iterations=12,
+            max_iterations=41,
         )
 
 
@@ -377,6 +396,172 @@ def test_direct_inference_trims_only_padding_after_first_eos():
         seeds=[17, 18, 19],
     )
     assert texts == ["3,0", "4,5,9", "6,7,8,8"]
+
+
+def test_trace_batch_sampling_has_independent_per_candidate_rng_streams():
+    module = load_script("infer_mechet.py")
+    torch = pytest.importorskip("torch")
+    probabilities = torch.tensor([[0.1, 0.2, 0.7], [0.3, 0.3, 0.4]])
+
+    def draws(second_seed):
+        with module._independent_multinomial_streams(
+            [123, second_seed], probabilities.device
+        ):
+            return [torch.multinomial(probabilities, 1) for _ in range(12)]
+
+    left = draws(456)
+    right = draws(999)
+    assert [int(item[0, 0]) for item in left] == [
+        int(item[0, 0]) for item in right
+    ]
+    assert [int(item[1, 0]) for item in left] != [
+        int(item[1, 0]) for item in right
+    ]
+
+
+def test_trace_generation_batches_distinct_conversations_and_restores_padding():
+    module = load_script("infer_mechet.py")
+    torch = pytest.importorskip("torch")
+
+    class FakeTokenizer:
+        eos_token_id = 0
+        pad_token_id = 99
+        padding_side = "right"
+
+        def apply_chat_template(self, **kwargs):
+            assert self.padding_side == "left"
+            assert len(kwargs["conversation"]) == 2
+            return {
+                "input_ids": torch.tensor([[99, 1, 2], [3, 4, 5]]),
+                "attention_mask": torch.tensor([[0, 1, 1], [1, 1, 1]]),
+            }
+
+        def decode(self, tokens, skip_special_tokens=False):
+            assert skip_special_tokens is False
+            return ",".join(str(int(value)) for value in tokens)
+
+    class FakeModel:
+        generation_config = type("GenerationConfig", (), {"eos_token_id": 0})()
+        calls = 0
+
+        def parameters(self):
+            yield torch.nn.Parameter(torch.zeros(1))
+
+        def generate(self, **kwargs):
+            self.calls += 1
+            assert kwargs["input_ids"].shape == (2, 3)
+            return torch.tensor([[99, 1, 2, 7, 0], [3, 4, 5, 8, 0]])
+
+    tokenizer = FakeTokenizer()
+    model = FakeModel()
+    outputs = module._generate_trace_responses(
+        model,
+        tokenizer,
+        [[{"role": "user", "content": "a"}], [{"role": "user", "content": "b"}]],
+        [],
+        max_new_tokens=4,
+        temperature=0.7,
+        top_p=0.95,
+        seeds=[17, 18],
+    )
+    assert model.calls == 1
+    assert tokenizer.padding_side == "right"
+    assert [item[0] for item in outputs] == ["7,0", "8,0"]
+    assert outputs[0][1].tolist() == [1, 2]
+    assert outputs[1][1].tolist() == [3, 4, 5]
+
+
+def test_vllm_backend_preserves_per_candidate_seeds_and_prompt_order():
+    module = load_script("infer_mechet.py")
+
+    class FakeTokenizer:
+        pad_token = None
+        eos_token = "<eos>"
+
+        def apply_chat_template(self, **kwargs):
+            assert kwargs["tokenize"] is False
+            assert kwargs["add_generation_prompt"] is True
+            assert kwargs["tools"] == [{"type": "function"}]
+            return kwargs["conversation"][0]["content"]
+
+    class FakeSamplingParams:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeCandidate:
+        def __init__(self, text):
+            self.text = text
+
+    class FakeOutput:
+        def __init__(self, text, prompt_token_ids):
+            self.outputs = [FakeCandidate(text)]
+            self.prompt_token_ids = prompt_token_ids
+
+    class FakeEngine:
+        def generate(self, prompts, sampling, **kwargs):
+            assert prompts == ["first", "second"]
+            assert [item.kwargs["seed"] for item in sampling] == [17, 23]
+            assert kwargs == {"use_tqdm": False, "lora_request": "adapter"}
+            return [FakeOutput("one", [1, 2]), FakeOutput("two", [3, 4])]
+
+    backend = module._VllmBackend(
+        FakeEngine(), FakeTokenizer(), FakeSamplingParams, "adapter"
+    )
+    outputs = backend.generate(
+        [
+            [{"role": "user", "content": "first"}],
+            [{"role": "user", "content": "second"}],
+        ],
+        [{"type": "function"}],
+        max_new_tokens=64,
+        temperature=0.7,
+        top_p=0.95,
+        seeds=[17, 23],
+    )
+    assert outputs == [("one", [1, 2]), ("two", [3, 4])]
+
+
+def test_vllm_direct_generation_submits_one_seeded_request_per_candidate():
+    module = load_script("infer_mechet.py")
+
+    class FakeTokenizer:
+        def apply_chat_template(self, **kwargs):
+            return kwargs["conversation"][0]["content"]
+
+    class FakeSamplingParams:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    class FakeCandidate:
+        def __init__(self, text):
+            self.text = text
+
+    class FakeOutput:
+        def __init__(self, text):
+            self.outputs = [FakeCandidate(text)]
+            self.prompt_token_ids = [1]
+
+    class FakeEngine:
+        def generate(self, prompts, sampling, **_kwargs):
+            assert prompts == ["prompt", "prompt", "prompt"]
+            assert [item.kwargs["seed"] for item in sampling] == [11, 12, 13]
+            return [FakeOutput("a"), FakeOutput("b"), FakeOutput("c")]
+
+    backend = module._VllmBackend(
+        FakeEngine(), FakeTokenizer(), FakeSamplingParams, None
+    )
+    texts, prefix = module._generate_responses(
+        backend,
+        backend.tokenizer,
+        [{"role": "user", "content": "prompt"}],
+        [],
+        max_new_tokens=32,
+        temperature=0.7,
+        top_p=0.95,
+        seeds=[11, 12, 13],
+    )
+    assert texts == ["a", "b", "c"]
+    assert prefix == [1]
 
 
 def test_transformers5_length_grouping_uses_sampling_strategy():
