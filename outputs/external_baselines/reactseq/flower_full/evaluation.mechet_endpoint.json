@@ -1,0 +1,23 @@
+{
+  "artifact_type": "direct_endpoint_candidate_evaluation",
+  "reference": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/test.jsonl",
+  "reference_sha256": "113744e5307119c3008b8d90935dca0c758071baa8dde80ef95af9a2723ac8ac",
+  "predictions": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/reactseq/flower_full/predictions.jsonl",
+  "predictions_sha256": "09ae59aae1320d890576d2f2963b3e3ca8644f5de26a0eca667abedb70415f1a",
+  "n_reference_rows": 28971,
+  "n_prediction_rows_used": 28971,
+  "n_prediction_rows_ignored_as_superset": 0,
+  "candidates_per_target": 10,
+  "n_candidates": 289710,
+  "candidate_validity_rate": 0.997138517828173,
+  "generation_order": {
+    "semantics": "independent-sample Pass@K; not ranked Top-K",
+    "structural_pass_at_1": 0.69959614787201,
+    "structural_pass_at_3": 0.8662800731766249,
+    "structural_pass_at_5": 0.9023506264885576,
+    "structural_pass_at_10": 0.9264782023402713,
+    "top1_validity": 0.9999654827241035,
+    "neutralized_pass_at_1": 0.7054640847744296
+  },
+  "nll_ranked": null
+}

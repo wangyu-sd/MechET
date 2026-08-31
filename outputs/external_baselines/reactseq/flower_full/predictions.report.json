@@ -1,0 +1,20 @@
+{
+  "reference_rows": 28971,
+  "augmented_views": 579420,
+  "decoded_beams": 5794200,
+  "evaluation_denominator_rows": 28971,
+  "reference_ids_with_views": 28971,
+  "reference_ids_without_views": 0,
+  "rows_with_candidates": 28971,
+  "input_preprocessing_failures": 0,
+  "inverse_conversion_failures": 0,
+  "forced_error_rows": 0,
+  "failures_counted_as_errors": true,
+  "reference_ids_filtered_from_evaluation": false,
+  "n_best": 10,
+  "top_n": 10,
+  "output": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/reactseq/flower_full/predictions.jsonl",
+  "checkpoint": "checkpoints/mechet_reactseq/flower_full/model_step_1900000.pt",
+  "inference_runtime_ms_per_target": 0.0,
+  "postprocess_runtime_ms_total": 1663888.3907794952
+}

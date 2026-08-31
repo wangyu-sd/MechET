@@ -1,0 +1,23 @@
+{
+  "artifact_type": "direct_endpoint_candidate_evaluation",
+  "reference": "/home/estar/pxy/mechet/MechET/data/external_baselines/mech_uspto_31k_full/test.jsonl",
+  "reference_sha256": "9c63da6f729f815ae5dd2fe424d63fd464f6e8c930b6a3cb0f95ef0c754cdfc8",
+  "predictions": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/mech_uspto_31k_full/predictions.jsonl",
+  "predictions_sha256": "a0d2a64ebe89d5ea1c2c871e8b36fa19826658c2fcb36b8f5a802f8c42b2c1ce",
+  "n_reference_rows": 3120,
+  "n_prediction_rows_used": 3120,
+  "n_prediction_rows_ignored_as_superset": 0,
+  "candidates_per_target": 10,
+  "n_candidates": 31200,
+  "candidate_validity_rate": 0.9266987179487179,
+  "generation_order": {
+    "semantics": "independent-sample Pass@K; not ranked Top-K",
+    "structural_pass_at_1": 0.35160256410256413,
+    "structural_pass_at_3": 0.5028846153846154,
+    "structural_pass_at_5": 0.5602564102564103,
+    "structural_pass_at_10": 0.6131410256410257,
+    "top1_validity": 0.9461538461538461,
+    "neutralized_pass_at_1": 0.35224358974358977
+  },
+  "nll_ranked": null
+}

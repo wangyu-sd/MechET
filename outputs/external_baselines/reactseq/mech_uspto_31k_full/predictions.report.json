@@ -1,0 +1,20 @@
+{
+  "reference_rows": 3120,
+  "augmented_views": 62400,
+  "decoded_beams": 624000,
+  "evaluation_denominator_rows": 3120,
+  "reference_ids_with_views": 3120,
+  "reference_ids_without_views": 0,
+  "rows_with_candidates": 3120,
+  "input_preprocessing_failures": 0,
+  "inverse_conversion_failures": 0,
+  "forced_error_rows": 0,
+  "failures_counted_as_errors": true,
+  "reference_ids_filtered_from_evaluation": false,
+  "n_best": 10,
+  "top_n": 10,
+  "output": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/reactseq/mech_uspto_31k_full/predictions.jsonl",
+  "checkpoint": "checkpoints/mechet_reactseq/mech_uspto_31k_full/model_step_2000000.pt",
+  "inference_runtime_ms_per_target": 0.0,
+  "postprocess_runtime_ms_total": 1536762.5324726105
+}

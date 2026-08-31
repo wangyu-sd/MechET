@@ -1,0 +1,34 @@
+{
+  "artifact_type": "rxnnano_generation_order_prediction_export",
+  "reference": "/home/estar/pxy/mechet/MechET/data/external_baselines/mech_uspto_31k_full/test.jsonl",
+  "reference_sha256": "9c63da6f729f815ae5dd2fe424d63fd464f6e8c930b6a3cb0f95ef0c754cdfc8",
+  "native_predictions": [
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/mech_uspto_31k_full/predictions_multigpu.jsonl"
+  ],
+  "native_predictions_sha256": {
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/mech_uspto_31k_full/predictions_multigpu.jsonl": "eccb0ca3c0e9ce379dffc0e957bdef1fc1d9a93d9e86baec1a8d781d9d5c0396"
+  },
+  "output": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/mech_uspto_31k_full/predictions.jsonl",
+  "output_sha256": "a0d2a64ebe89d5ea1c2c871e8b36fa19826658c2fcb36b8f5a802f8c42b2c1ce",
+  "reference_rows": 3120,
+  "native_prediction_rows": 3120,
+  "evaluation_denominator_rows": 3120,
+  "candidate_budget": 10,
+  "candidate_semantics": "independent_stochastic_samples_pass_at_k",
+  "selection": "first_10_raw_generations_in_generation_order",
+  "deduplicated": false,
+  "reranked": false,
+  "raw_generation_count_distribution": {
+    "50": 3120
+  },
+  "status_counts": {
+    "invalid_answer_json": 3,
+    "invalid_smiles": 2265,
+    "ok": 28932
+  },
+  "rows_with_failed_samples": 860,
+  "failures_counted_as_errors": true,
+  "reference_ids_filtered_from_evaluation": false,
+  "checkpoint": "/data/pxy/models/RxnNano/mech_uspto_31k_full_qwen2.5_7b/merged",
+  "postprocess_runtime_ms_total": 8265.810515731573
+}

@@ -1,0 +1,6 @@
+outputs/external_baselines/localretro/**/*.jsonl filter=lfs diff=lfs merge=lfs -text
+outputs/external_baselines/reactseq/**/*.jsonl filter=lfs diff=lfs merge=lfs -text
+outputs/external_baselines/rxnnano/flower_full/evaluation.mechet_endpoint.rows.jsonl filter=lfs diff=lfs merge=lfs -text
+outputs/external_baselines/rxnnano/flower_full/predictions.jsonl filter=lfs diff=lfs merge=lfs -text
+outputs/external_baselines/rxnnano/mech_uspto_31k_full/predictions.jsonl filter=lfs diff=lfs merge=lfs -text
+outputs/external_baselines/rxnnano/mech_uspto_31k_full/evaluation.mechet_endpoint.rows.jsonl filter=lfs diff=lfs merge=lfs -text

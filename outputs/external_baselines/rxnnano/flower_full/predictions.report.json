@@ -1,0 +1,50 @@
+{
+  "artifact_type": "rxnnano_generation_order_prediction_export",
+  "reference": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/test.jsonl",
+  "reference_sha256": "113744e5307119c3008b8d90935dca0c758071baa8dde80ef95af9a2723ac8ac",
+  "native_predictions": [
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.rxnnano-eval-parts-9e599xlk/worker-1.predictions.jsonl",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.rxnnano-eval-parts-9e599xlk/worker-2.predictions.jsonl",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-0.predictions.jsonl",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-3.predictions.jsonl",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-6.predictions.jsonl",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-9.predictions.jsonl",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-12.predictions.jsonl",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-15.predictions.jsonl"
+  ],
+  "native_predictions_sha256": {
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.rxnnano-eval-parts-9e599xlk/worker-1.predictions.jsonl": "d0f8278b3eaedea086fda541f9266ed71a95eba7aef6838f2bd354209bd571d0",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.rxnnano-eval-parts-9e599xlk/worker-2.predictions.jsonl": "d176d46d3e5dfbece683950a7c06580f77f9f2a094e7f1ac5824aa43446e4721",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-0.predictions.jsonl": "0b06680e46d8c0c672a1d79d2e59900b0986296174429527a69540d7942976c9",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-3.predictions.jsonl": "19ff3f94e8b43c167ee02eb43d3a9d10738a2c040ffa23346cc2a37798539182",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-6.predictions.jsonl": "2245c235e4e8812a52b25a42b584aa8455255a2ed60ede323465edc231853fd1",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-9.predictions.jsonl": "86709044896f3cd25adb45ed75cb75f74d3230c8b506b445257dd717a2ed0be4",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-12.predictions.jsonl": "c75e6300db9d87a56b6375c6a86b5fd195d60c7a735ae244daeea8e6399b947f",
+    "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/.worker-0-subparts/rank-15.predictions.jsonl": "349d7ae1222aa6299c5e0787f60ddc97d0afb6566c041dae141b1850995539fb"
+  },
+  "output": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/rxnnano/flower_full/predictions.jsonl",
+  "output_sha256": "529ccdc89059133e497a251914d02c9cd4aedfe8a9563c6874dbe8100d959737",
+  "reference_rows": 28971,
+  "native_prediction_rows": 28971,
+  "evaluation_denominator_rows": 28971,
+  "candidate_budget": 10,
+  "candidate_semantics": "independent_stochastic_samples_pass_at_k",
+  "selection": "first_10_raw_generations_in_generation_order",
+  "deduplicated": false,
+  "reranked": false,
+  "raw_generation_count_distribution": {
+    "10": 9657,
+    "50": 19314
+  },
+  "status_counts": {
+    "invalid_answer_json": 31,
+    "invalid_smiles": 1907,
+    "missing_answer_tag": 5,
+    "ok": 287767
+  },
+  "rows_with_failed_samples": 839,
+  "failures_counted_as_errors": true,
+  "reference_ids_filtered_from_evaluation": false,
+  "checkpoint": "/data/pxy/models/RxnNano/flower_full_qwen2.5_7b/merged",
+  "postprocess_runtime_ms_total": 65592.45532006025
+}
