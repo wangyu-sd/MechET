@@ -31,6 +31,7 @@ echo >&2 "WARNING: PROGRAM-VIEW SUBSET: this evaluates ${expected_rows}/3,120 me
 output_dir=${MECHET_INFERENCE_OUTPUT:-$default_output}
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
 samples_per_target=${SAMPLES_PER_TARGET:-10}
+inference_backend=${MECHET_INFERENCE_BACKEND:-vllm}
 workers_per_gpu=${MECHET_GENERATION_WORKERS_PER_GPU:-1}
 max_iterations=${MECHET_MAX_ITERATIONS:-12}
 gpu_count=8
@@ -52,6 +53,14 @@ if [[ ! "$samples_per_target" =~ ^[1-9][0-9]*$ ]] || \
    [[ ! "$workers_per_gpu" =~ ^[1-9][0-9]*$ ]] || \
    [[ ! "$max_iterations" =~ ^[1-9][0-9]*$ ]]; then
   echo >&2 "samples, worker, and iteration counts must be positive integers"
+  exit 2
+fi
+if [[ "$inference_backend" != "vllm" && "$inference_backend" != "transformers" ]]; then
+  echo >&2 "MECHET_INFERENCE_BACKEND must be vllm or transformers"
+  exit 2
+fi
+if [[ "$inference_backend" == "vllm" && "$workers_per_gpu" -ne 1 ]]; then
+  echo >&2 "vLLM requires one engine per GPU; set MECHET_GENERATION_WORKERS_PER_GPU=1"
   exit 2
 fi
 if [[ "$data_version" == "v2" && "$workers_per_gpu" -ne 1 ]]; then
@@ -188,18 +197,38 @@ for worker in $(seq 0 $((generation_shards - 1))); do
     --observation-mode action_delta \
     --condition-name "mech_uspto31k_action_delta_${data_version}_k${samples_per_target}" \
     --adapter "$adapter" \
+    --backend "$inference_backend" \
     --prompt-source reference \
     --shard-count "$generation_shards" \
     --shard-index "$worker" \
     --samples-per-target "$samples_per_target" \
+    --trace-sample-batch-size "$samples_per_target" \
     --max-iterations "$max_iterations" \
     --max-new-tokens 512 \
+    --vllm-max-model-len "${MECHET_VLLM_MAX_MODEL_LEN:-16384}" \
+    --vllm-max-num-seqs "${MECHET_VLLM_MAX_NUM_SEQS:-64}" \
+    --vllm-gpu-memory-utilization "${MECHET_VLLM_GPU_MEMORY_UTILIZATION:-0.9}" \
     --temperature 0.7 \
     --top-p 0.95 \
     --seed 17 \
     --resume \
     >"$output_dir/generation/shard-${shard}.log" 2>&1 &
   pids+=("$!")
+done
+
+while :; do
+  live=0
+  for pid in "${pids[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      live=$((live + 1))
+    fi
+  done
+  completed=$(find "$output_dir/generation" -name 'predictions.shard-*.jsonl' -type f -print0 2>/dev/null | xargs -0 -r wc -l | awk '/ total$/{print $1; found=1} END{if(!found) print 0}')
+  echo "[meteor-progress] stage=mech-uspto31k-${data_version}-generation backend=${inference_backend} completed_targets=${completed}/${expected_rows} live_shards=${live}/${generation_shards} k=${samples_per_target} time=$(date --iso-8601=seconds)"
+  if (( live == 0 )); then
+    break
+  fi
+  sleep 60
 done
 
 status=0

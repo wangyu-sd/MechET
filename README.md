@@ -391,7 +391,7 @@ python scripts/run_h1_suite.py \
   --resume
 ```
 
-The canonical runner uses `scripts/infer_mechet.py`, streams `artifact_type=prediction` rows, and records model/tokenizer revisions, adapter hash, software versions, global seed, per-candidate seed, and selector version. It evaluates with `scripts/evaluate_faithfulness.py`.
+The canonical runner uses `scripts/infer_mechet.py`, streams `artifact_type=prediction` rows, and records model/tokenizer revisions, adapter hash, software versions, global seed, per-candidate seed, selector version, and generation backend. All direct and interactive tool modes support `--backend vllm`; interactive trajectories retain their independent executors and are dynamically rebatched after every tool turn. See [`docs/VLLM_INFERENCE.md`](docs/VLLM_INFERENCE.md). It evaluates with `scripts/evaluate_faithfulness.py`.
 
 ### 7. Build, retrain, and run H2
 
