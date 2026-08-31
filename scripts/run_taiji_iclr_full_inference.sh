@@ -3,9 +3,10 @@ set -Eeuo pipefail
 
 repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
-baseline=${MECHET_BASELINE:?set MECHET_BASELINE to outcome_only, state_cot, net_edit, or proof}
+baseline=${MECHET_BASELINE:?set MECHET_BASELINE to outcome_only, free_cot, state_cot, net_edit, proof, or open_flow}
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
 samples_per_target=${SAMPLES_PER_TARGET:-10}
+inference_backend=${MECHET_INFERENCE_BACKEND:-vllm}
 revision=b968826d9c46dd6066d109eabc6255188de91218
 
 case "$baseline" in
@@ -19,6 +20,21 @@ case "$baseline" in
     nll_max_length=4096
     direct_sample_batch_size=${MECHET_DIRECT_SAMPLE_BATCH_SIZE:-10}
     preferred_generation_workers_per_gpu=2
+    ;;
+  free_cot)
+    config=configs/iclr/a1_free_cot_sft.yaml
+    adapter=outputs/iclr/a1_free_cot_seed17
+    test_file=data/iclr_program_controls_v1/free_cot/test.jsonl
+    dataset_manifest=data/iclr_program_controls_v1/manifest.json
+    manifest_task=free_cot
+    expected_rows=28967
+    # The frozen validation audit has a 2,526-token maximum complete chat
+    # sequence.  A 4,096-token completion cap leaves headroom for stochastic
+    # reasoning without inheriting the prohibitively long State-CoT budget.
+    max_new_tokens=4096
+    nll_max_length=6144
+    direct_sample_batch_size=${MECHET_DIRECT_SAMPLE_BATCH_SIZE:-2}
+    preferred_generation_workers_per_gpu=1
     ;;
   state_cot)
     config=configs/iclr/full_state_cot_sft.yaml
@@ -53,11 +69,28 @@ case "$baseline" in
     direct_sample_batch_size=${MECHET_DIRECT_SAMPLE_BATCH_SIZE:-8}
     preferred_generation_workers_per_gpu=2
     ;;
+  open_flow)
+    config=configs/iclr/a4_open_flow_sft.yaml
+    adapter=outputs/iclr/a4_open_flow_seed17
+    test_file=data/iclr_program_controls_v1/open_flow/test.jsonl
+    dataset_manifest=data/iclr_program_controls_v1/manifest.json
+    manifest_task=open_flow
+    expected_rows=28967
+    # Frozen validation maximum is 2,032 total tokens; this leaves a
+    # conservative completion margin for the short inference preamble.
+    max_new_tokens=2304
+    nll_max_length=4096
+    direct_sample_batch_size=${MECHET_DIRECT_SAMPLE_BATCH_SIZE:-8}
+    preferred_generation_workers_per_gpu=2
+    ;;
   *)
     echo >&2 "unsupported MECHET_BASELINE=$baseline"
     exit 2
     ;;
 esac
+
+dataset_manifest=${dataset_manifest:-data/iclr_full_v4/manifest.json}
+manifest_task=${manifest_task:-$baseline}
 
 output_dir=${MECHET_INFERENCE_OUTPUT:-outputs/eval/iclr_full/${baseline}_seed17_k${samples_per_target}}
 gpu_count=8
@@ -79,6 +112,11 @@ if [[ ! "$gpu_memory_mib" =~ ^[0-9]+$ ]]; then
   exit 2
 fi
 generation_workers_per_gpu=${MECHET_GENERATION_WORKERS_PER_GPU:-$preferred_generation_workers_per_gpu}
+if [[ "$inference_backend" == "vllm" ]]; then
+  # vLLM owns continuous batching and reserves a KV cache. Run one engine per
+  # GPU instead of competing replicas on the same device.
+  generation_workers_per_gpu=${MECHET_GENERATION_WORKERS_PER_GPU:-1}
+fi
 if (( gpu_memory_mib < 70000 && generation_workers_per_gpu > 1 && direct_sample_batch_size > 2 )) && \
    [[ -z ${MECHET_DIRECT_SAMPLE_BATCH_SIZE:-} ]]; then
   direct_sample_batch_size=2
@@ -96,9 +134,13 @@ if [[ ! "$generation_workers_per_gpu" =~ ^[1-9][0-9]*$ ]] || \
   echo >&2 "worker counts must be positive integers"
   exit 2
 fi
+if [[ "$inference_backend" != "vllm" && "$inference_backend" != "transformers" ]]; then
+  echo >&2 "MECHET_INFERENCE_BACKEND must be vllm or transformers"
+  exit 2
+fi
 generation_shards=$((gpu_count * generation_workers_per_gpu))
 nll_shards=$((gpu_count * nll_workers_per_gpu))
-echo "inference_concurrency gpu_memory_mib=$gpu_memory_mib generation_workers_per_gpu=$generation_workers_per_gpu direct_sample_batch_size=$direct_sample_batch_size nll_workers_per_gpu=$nll_workers_per_gpu"
+echo "inference_concurrency backend=$inference_backend gpu_memory_mib=$gpu_memory_mib generation_workers_per_gpu=$generation_workers_per_gpu direct_sample_batch_size=$direct_sample_batch_size nll_workers_per_gpu=$nll_workers_per_gpu"
 
 export HF_HUB_CACHE="$shared_hf_cache"
 export HF_HUB_OFFLINE=1
@@ -107,7 +149,7 @@ export TOKENIZERS_PARALLELISM=false
 export PYTHONPATH="$repo_dir/src:$repo_dir${PYTHONPATH:+:$PYTHONPATH}"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-python - "$baseline" "$config" "$adapter" "$test_file" "$expected_rows" "$expected_gpu" "$revision" "$samples_per_target" <<'PY'
+python - "$baseline" "$manifest_task" "$dataset_manifest" "$config" "$adapter" "$test_file" "$expected_rows" "$expected_gpu" "$revision" "$samples_per_target" <<'PY'
 import hashlib
 import json
 from pathlib import Path
@@ -116,13 +158,13 @@ import sys
 import torch
 import yaml
 
-baseline, config_path, adapter_path, test_path, expected_rows, expected_gpu, revision, samples_per_target = sys.argv[1:]
+baseline, manifest_task, manifest_path, config_path, adapter_path, test_path, expected_rows, expected_gpu, revision, samples_per_target = sys.argv[1:]
 config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
 adapter = Path(adapter_path)
 test_file = Path(test_path)
 required = [
     test_file,
-    Path("data/iclr_full_v4/manifest.json"),
+    Path(manifest_path),
     adapter / "adapter_config.json",
     adapter / "adapter_model.safetensors",
     adapter / "adapter_manifest.json",
@@ -131,11 +173,11 @@ required = [
 missing = [str(path) for path in required if not path.is_file()]
 if missing:
     raise SystemExit(f"missing frozen inference artifacts: {missing}")
-manifest = json.loads(Path("data/iclr_full_v4/manifest.json").read_text(encoding="utf-8"))
-actual_rows = int(manifest["tasks"][baseline]["test"]["rows"])
+manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+actual_rows = int(manifest["tasks"][manifest_task]["test"]["rows"])
 if actual_rows != int(expected_rows):
     raise SystemExit(f"{baseline} test rows {actual_rows} != {expected_rows}")
-expected_hash = str(manifest["tasks"][baseline]["test"]["sha256"])
+expected_hash = str(manifest["tasks"][manifest_task]["test"]["sha256"])
 actual_hash = hashlib.sha256(test_file.read_bytes()).hexdigest()
 if actual_hash != expected_hash:
     raise SystemExit(f"{baseline} test hash mismatch")
@@ -144,7 +186,7 @@ if str(adapter_manifest.get("base_model_revision") or "") != revision:
     raise SystemExit("adapter/base revision mismatch")
 contract = json.loads((adapter / "data_contract.json").read_text())
 if str(contract.get("train_file_sha256") or "") != str(
-    manifest["tasks"][baseline]["train"]["sha256"]
+    manifest["tasks"][manifest_task]["train"]["sha256"]
 ):
     raise SystemExit("adapter train-data lineage mismatch")
 if torch.cuda.device_count() != 8:
@@ -174,10 +216,14 @@ for worker in $(seq 0 $((generation_shards - 1))); do
     --mode direct \
     --condition-name "iclr_full_${baseline}_seed17_k${samples_per_target}" \
     --adapter "$adapter" \
+    --backend "$inference_backend" \
     --shard-count "$generation_shards" \
     --shard-index "$worker" \
     --samples-per-target "$samples_per_target" \
     --direct-sample-batch-size "$direct_sample_batch_size" \
+    --vllm-max-model-len "$nll_max_length" \
+    --vllm-max-num-seqs "${MECHET_VLLM_MAX_NUM_SEQS:-64}" \
+    --vllm-gpu-memory-utilization "${MECHET_VLLM_GPU_MEMORY_UTILIZATION:-0.9}" \
     --max-new-tokens "$max_new_tokens" \
     --temperature 0.7 \
     --top-p 0.95 \
@@ -185,6 +231,20 @@ for worker in $(seq 0 $((generation_shards - 1))); do
     --resume \
     >"$output_dir/generation/shard-${shard}.log" 2>&1 &
   pids+=("$!")
+done
+while :; do
+  live=0
+  for pid in "${pids[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      live=$((live + 1))
+    fi
+  done
+  completed=$(find "$output_dir/generation" -name 'predictions.shard-*.jsonl' -type f -print0 2>/dev/null | xargs -0 -r wc -l | awk '/ total$/{print $1; found=1} END{if(!found) print 0}')
+  echo "[meteor-progress] stage=${baseline}-generation completed_targets=${completed}/${expected_rows} live_shards=${live}/${generation_shards} k=${samples_per_target} time=$(date --iso-8601=seconds)"
+  if (( live == 0 )); then
+    break
+  fi
+  sleep 60
 done
 status=0
 for pid in "${pids[@]}"; do
@@ -239,6 +299,32 @@ manifest = {
 print(json.dumps(manifest, indent=2))
 PY
 
+if [[ "$samples_per_target" -eq 1 ]]; then
+  echo "[meteor-progress] stage=${baseline}-evaluation reason=k1-needs-no-ranking time=$(date --iso-8601=seconds)"
+  if [[ "$baseline" == proof ]]; then
+    exec python scripts/evaluate_proof_candidates.py \
+      --reference "$test_file" \
+      --predictions "$output_dir/predictions.jsonl" \
+      --output "$output_dir/evaluation.json" \
+      --expected-rows "$expected_rows" \
+      --expected-candidates 1
+  fi
+  if [[ "$baseline" == open_flow ]]; then
+    exec python scripts/evaluate_open_flow_candidates.py \
+      --reference "$test_file" \
+      --predictions "$output_dir/predictions.jsonl" \
+      --output "$output_dir/evaluation.json" \
+      --expected-rows "$expected_rows" \
+      --expected-candidates 1
+  fi
+  exec python scripts/evaluate_endpoint_candidates.py \
+    --reference "$test_file" \
+    --predictions "$output_dir/predictions.jsonl" \
+    --output "$output_dir/evaluation.json" \
+    --expected-rows "$expected_rows" \
+    --expected-candidates 1
+fi
+
 pids=()
 for worker in $(seq 0 $((nll_shards - 1))); do
   gpu=$((worker % gpu_count))
@@ -255,6 +341,20 @@ for worker in $(seq 0 $((nll_shards - 1))); do
     >"$output_dir/nll_ranking/shard-${shard}.log" 2>&1 &
   pids+=("$!")
 done
+while :; do
+  live=0
+  for pid in "${pids[@]}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      live=$((live + 1))
+    fi
+  done
+  completed=$(find "$output_dir/nll_ranking" -name 'nll_scores.shard-*.jsonl' -type f -print0 2>/dev/null | xargs -0 -r wc -l | awk '/ total$/{print $1; found=1} END{if(!found) print 0}')
+  echo "[meteor-progress] stage=${baseline}-nll completed_targets=${completed}/${expected_rows} live_shards=${live}/${nll_shards} time=$(date --iso-8601=seconds)"
+  if (( live == 0 )); then
+    break
+  fi
+  sleep 60
+done
 status=0
 for pid in "${pids[@]}"; do
   wait "$pid" || status=1
@@ -266,6 +366,16 @@ fi
 
 if [[ "$baseline" == proof ]]; then
   exec python scripts/evaluate_proof_candidates.py \
+    --reference "$test_file" \
+    --predictions "$output_dir/predictions.jsonl" \
+    --ranking-dir "$output_dir/nll_ranking" \
+    --output "$output_dir/evaluation.json" \
+    --expected-rows "$expected_rows" \
+    --expected-candidates "$samples_per_target"
+fi
+
+if [[ "$baseline" == open_flow ]]; then
+  exec python scripts/evaluate_open_flow_candidates.py \
     --reference "$test_file" \
     --predictions "$output_dir/predictions.jsonl" \
     --ranking-dir "$output_dir/nll_ranking" \

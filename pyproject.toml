@@ -56,6 +56,13 @@ agent = [
   "accelerate>=1,<2",
   "pyyaml>=6.0",
 ]
+inference = [
+  # Qwen3 support starts at vLLM 0.8.4; 0.8.5 includes the first dense-model
+  # fixes. Keep this optional because CUDA-11/V100 images use the explicit
+  # Transformers fallback.
+  "vllm>=0.8.5,<1",
+  "pyyaml>=6.0",
+]
 knowledge = [
   "pyyaml>=6.0",
   "requests>=2.32",
