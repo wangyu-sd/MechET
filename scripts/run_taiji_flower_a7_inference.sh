@@ -21,8 +21,10 @@ task_shard_index=${MECHET_TASK_SHARD_INDEX:-0}
 revision=b968826d9c46dd6066d109eabc6255188de91218
 output_dir=${MECHET_INFERENCE_OUTPUT:-outputs/eval/iclr_full/a7_compact_full_state_seed17_k${samples_per_target}}
 
-source /root/miniconda3/etc/profile.d/conda.sh
-conda activate meteor
+if [[ "${MECHET_SKIP_CONDA_ACTIVATE:-0}" != "1" ]]; then
+  source /root/miniconda3/etc/profile.d/conda.sh
+  conda activate meteor
+fi
 cd "$repo_dir"
 
 export HF_HUB_CACHE="$shared_hf_cache"
@@ -197,7 +199,19 @@ for worker in $(seq 0 $((generation_shards - 1))); do
   gpu=$((worker % gpu_count))
   shard=$(printf '%03d' "$worker")
   worker_reference="$local_reference_dir/test.shard-${shard}.jsonl"
-  CUDA_VISIBLE_DEVICES="$gpu" python scripts/infer_mechet.py \
+  # Every data-parallel vLLM process sees its selected GPU as local rank zero.
+  # Without separate caches they all compile into rank_0_0 concurrently and
+  # can livelock during LoRA/Triton kernel generation.
+  worker_cache_root="/tmp/mechet_vllm_cache_worker_${worker}"
+  mkdir -p "$worker_cache_root"
+  CUDA_VISIBLE_DEVICES="$gpu" \
+  VLLM_CACHE_ROOT="$worker_cache_root/vllm" \
+  TORCHINDUCTOR_CACHE_DIR="$worker_cache_root/torchinductor" \
+  TRITON_CACHE_DIR="$worker_cache_root/triton" \
+  TORCHINDUCTOR_COMPILE_THREADS="${MECHET_TORCHINDUCTOR_COMPILE_THREADS:-2}" \
+  OMP_NUM_THREADS="${MECHET_OMP_NUM_THREADS_PER_WORKER:-4}" \
+  MKL_NUM_THREADS="${MECHET_OMP_NUM_THREADS_PER_WORKER:-4}" \
+  python scripts/infer_mechet.py \
     --config "$config" \
     --data "$worker_reference" \
     --output "$output_dir/generation/predictions.shard-${shard}.jsonl" \
