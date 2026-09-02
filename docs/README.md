@@ -186,7 +186,8 @@ A later level cannot rescue an earlier failure.
 - [`STATUS_MATRIX.md`](STATUS_MATRIX.md) — implementation status versus unestablished scientific results.
 - [`A7_STATE_TRACE_DESIGN.md`](A7_STATE_TRACE_DESIGN.md) — proposed state-visible, history-queryable A7 trajectory redesign and its adoption gates; it is not an approved main condition.
 - [`results/a7_historical_subset_long_horizon_audit_20260902.json`](results/a7_historical_subset_long_horizon_audit_20260902.json) — machine-readable comparison between the successful legacy 3,080-target A7 trace view and the current full-universe trajectory lengths; diagnostic, not headline-eligible.
-- [`A8_ETPG_DESIGN.md`](A8_ETPG_DESIGN.md) — proposed partial-order electron-transfer program, its relationship to prior OpenFlow/proof/GFR experiments, and its staged adoption gates.
+- [`A8_CAUSAL_MACRO_EVENT_DESIGN.md`](A8_CAUSAL_MACRO_EVENT_DESIGN.md) — current primary A8 proposal: compress multiple existing elementary mechanism steps into executor-grounded causal macro-events, with a separate batch-fragment control and no-training compression gate.
+- [`A8_ETPG_DESIGN.md`](A8_ETPG_DESIGN.md) — earlier exploratory partial-order electron-transfer graph proposal; retained as a secondary analysis/ablation rather than the preferred primary A8 algorithm.
 - [`FLOWER_BASELINE_FAIR_COMPARISON.md`](FLOWER_BASELINE_FAIR_COMPARISON.md) — evidence-level inventory of existing FlowER-derived baseline results, dataset denominators, comparability limits, and the matched-rerun table.
 - [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) — evidence-tool implementation details.
 - [`DATA_LEAKAGE_AND_ICLR_PLAN.md`](DATA_LEAKAGE_AND_ICLR_PLAN.md) — overlap audits and benchmark freezing.
