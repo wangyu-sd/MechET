@@ -28,6 +28,34 @@ A8 proposes to predict a **global partially ordered electron-transfer program**
 first, execute it under the chemistry environment, and invoke a bounded local
 repair policy only when execution reveals a conflict.
 
+## Relation to experiments already implemented or run
+
+A8 is not a clean-sheet replacement. It combines ideas that already exist in
+the repository, and its novelty must be stated relative to them rather than to
+endpoint prediction alone.
+
+| Earlier condition | What already exists | What A8 changes |
+|---|---|---|
+| independent complete-proof | one-shot executable `MECH_PROOF v1`; precursor derived by the executor | predicts source-to-sink electron-transfer nodes rather than compiled bond/lone-pair/charge deltas |
+| A4 OpenFlow | one-shot ordered electron-flow program executed after generation | removes one privileged total order and predicts explicit dependency structure |
+| partial-order proof equivalence ([PR #3](https://github.com/wangyu-sd/MechET/pull/3)) | recognizes state-ID/map permutations and commuting independent proof events during evaluation | makes the partial order itself the primary model output and executor scheduling contract |
+| MechET-GFR ([PR #6](https://github.com/wangyu-sd/MechET/pull/6)) | failure certificates, proof repair data, bounded generate-falsify-repair inference and proof-class deduplication | restricts repair to unresolved ET nodes, dependencies or fragments under the current authoritative state |
+| sequential A7 | source-to-sink actions executed online with state feedback | moves primary generation to a global program and reserves state-visible interaction for bounded repair |
+
+The exact `A8_ETPG_V1` condition has not been trained or evaluated. In
+particular, the repository has not yet run the combination of direct
+source-to-sink ET nodes, coupled atomic groups, an explicitly predicted
+dependency DAG, a gold-independent topological scheduler, and repair of an
+unresolved partial program.
+
+The irreducible A8 scientific variable is therefore not merely "generate a
+program and execute it" or "repair a failed proof"; both were already tested or
+implemented. It is **quotienting out unnecessary trajectory linearization in
+the model's prediction space while retaining electron-transfer semantics**.
+The minimum comparison must retain A4 and independent complete-proof as
+historical parents, with A8-set, A8-graph and A8-full isolating the new set,
+dependency and repair factors.
+
 ## A7 versus A8 factorization
 
 A7 models an ordered trajectory

@@ -34,8 +34,8 @@ paper results:
 
 | Artifact | Coverage at snapshot | Diagnostic observation |
 |---|---:|---:|
-| independent A7, K=10, vLLM/A100 | 15,815 / 28,967 generated | 7,692 rows had at least one formally executable candidate (48.64% provisional Execute-Pass@10) |
-| independent A7, K=1, V100 | 19,620 / 28,967 generated | 1,616 formally executable rows (8.24% provisional execute rate) |
+| independent A7, K=10, vLLM/A100 | 15,815 / 28,967 generated | 7,692 rows had at least one formally executable candidate (48.64% conditional on generation; Execute-Pass@10 = 26.56% over all 28,967 IDs, with missing rows counted as failures) |
+| independent A7, K=1, V100 | 19,620 / 28,967 generated | 1,616 formally executable rows (8.24% conditional on generation; Execute-Pass@1 = 5.58% over all 28,967 IDs, with missing rows counted as failures) |
 | A0 to A7 warm-start, K=1 | 28,967 / 28,967 | 247 formally executable rows (0.85%); 4 structural exact rows (0.014%) |
 | completed A0 direct baseline, K=10 | 28,971 / 28,971 | generation Pass@1 52.75%, Pass@10 74.17%, NLL-ranked structural Top-1 61.27%, neutralized Top-1 61.99% |
 
@@ -85,6 +85,32 @@ execution alone do not guarantee the correct chemical endpoint.
 | `action_delta_v1` | no full intermediate state | accepted action result and legal-action feedback | original paper A7; fallback/ablation under current status |
 | `compact_full_state_v1` | current full mapped state after accepted actions | accumulated raw assistant/tool transcript | current A7 candidate |
 | `state_trace_v1` | current full mapped state | canonical committed ledger plus on-demand access to any earlier full state | proposed replacement |
+
+### Relation to experiments already run
+
+`state_trace_v1` is not a wholly new scientific condition. Its central premise,
+conditioning the next electron-flow decision on an executor-produced full
+state, has already appeared in two A7 generations:
+
+- the legacy full-state Tool-SFT exposed complete intermediate states in the
+  growing tool transcript;
+- `compact_full_state_v1` retained one authoritative current-state SMILES while
+  removing duplicated proof and audit fields; and
+- both existing formats trained the same expert next-action targets at every
+  assistant turn.
+
+Consequently, materializing one row per decision in Stage 1 does not by itself
+create a new supervision signal. The new variable is the policy context:
+bounded canonical re-rendering instead of an append-only raw transcript.
+
+The parts not previously trained as one matched condition are stable
+state-addressed history, stale-state rejection, repeated-failure blocking, the
+fragment-ID interface, and recovery supervision from executor failures and
+accepted off-expert states. The historical full-state and
+`compact_full_state_v1` checkpoints therefore remain mandatory baselines for
+any `state_trace_v1` claim. This redesign must be presented as a state/history
+protocol repair unless those new components produce a separately measured
+closed-loop effect.
 
 `state_trace_v1` does not remove history. It separates three representations:
 
@@ -154,10 +180,11 @@ Long open-vocabulary mapped fragment strings are a major serialization failure
 surface. A compatible two-phase interface is proposed:
 
 ```text
-propose_fragments(unmapped or partially specified candidates)
+propose_fragments(state_id="s1", unmapped or partially specified candidates)
   -> environment canonicalizes, validates, maps, and returns F1 ... Fn
-import_fragment(fragment_id="F2")
-  -> executor commits the chosen canonical fragment
+import_fragment(state_id="s1", fragment_id="F2")
+  -> executor commits the chosen canonical fragment; failures echo the bound
+     state ID in canonical feedback
 ```
 
 The environment must not search the reference answer when canonicalizing or
@@ -204,9 +231,13 @@ test-time candidate selection.
 
 ## Required gates before a full run
 
-### Representation-equivalence gate
+### Representation-equivalence gates
 
-Build a frozen 2,048-row slice and require:
+Build a frozen 2,048-row slice. Keep two gates separate so the proposed
+fragment interface is not rejected merely because its syntax is intentionally
+different.
+
+For the representation-only `state_trace_v1` condition, require:
 
 - identical stable IDs and zero dropped or quarantined rows;
 - byte-identical expert assistant actions;
@@ -215,6 +246,12 @@ Build a frozen 2,048-row slice and require:
 - deterministic rendering and state hashes; and
 - token-length and estimated attention-cost comparison against
   `compact_full_state_v1`.
+
+For the separately named fragment-interface condition, replace byte identity
+with canonical semantic-action equivalence. Require identical proposed
+fragment graphs, imported mapped structures, authoritative states, executed
+endpoints and leakage audit, while recording the deliberate syntactic change
+from free-form `import_fragment` arguments to state-bound fragment IDs.
 
 ### Closed-loop pilot gate
 
@@ -265,7 +302,8 @@ This proposal:
 - [ ] Freeze the `state_trace_v1` observation and prediction-artifact schemas.
 - [ ] Add state IDs/hashes, canonical ledgers, stale-state rejection, and
       repeated-failure blocking to the runtime.
-- [ ] Add `inspect_state` and retain all authoritative states in artifacts.
+- [ ] Extend the existing current-state `inspect_state` tool to accept historical
+      state IDs and retain all authoritative states in artifacts.
 - [ ] Prototype the fragment proposal/ID interface without reference lookup.
 - [ ] Build and audit the 2,048-row equivalence slice.
 - [ ] Measure real tokenizer lengths and attention cost.

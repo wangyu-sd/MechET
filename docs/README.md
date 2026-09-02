@@ -185,6 +185,7 @@ A later level cannot rescue an earlier failure.
 
 - [`STATUS_MATRIX.md`](STATUS_MATRIX.md) — implementation status versus unestablished scientific results.
 - [`A7_STATE_TRACE_DESIGN.md`](A7_STATE_TRACE_DESIGN.md) — proposed state-visible, history-queryable A7 trajectory redesign and its adoption gates; it is not an approved main condition.
+- [`A8_ETPG_DESIGN.md`](A8_ETPG_DESIGN.md) — proposed partial-order electron-transfer program, its relationship to prior OpenFlow/proof/GFR experiments, and its staged adoption gates.
 - [`FLOWER_BASELINE_FAIR_COMPARISON.md`](FLOWER_BASELINE_FAIR_COMPARISON.md) — evidence-level inventory of existing FlowER-derived baseline results, dataset denominators, comparability limits, and the matched-rerun table.
 - [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) — evidence-tool implementation details.
 - [`DATA_LEAKAGE_AND_ICLR_PLAN.md`](DATA_LEAKAGE_AND_ICLR_PLAN.md) — overlap audits and benchmark freezing.
