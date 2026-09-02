@@ -1,0 +1,274 @@
+# A7 state-visible trajectory redesign
+
+> **Status: design proposal.** This document records the current A7 failure
+> analysis and a bounded replacement contract, `state_trace_v1`. It does not
+> change the frozen dataset universe, paper claims, or active experiment by
+> itself. Adoption requires the equivalence and validation gates below and an
+> explicit update to the paper protocol and `ACTIVE_ICLR_STATUS.md`.
+
+## Decision to make
+
+A7 should remain product-only executable retrosynthesis, but the model should
+not have to reconstruct the chemical state from a growing, noisy chat log.
+Each decision should expose the current executor state and the complete
+committed trajectory in a canonical representation. Earlier full states remain
+available for exact inspection and audit without being copied into every
+prompt.
+
+This preserves the scientific question: can a model synthesize an inverse
+electron-flow program whose accepted steps are executed by the environment and
+whose endpoint is a precursor prediction? It changes only how the executor's
+history is presented to the policy.
+
+## Evidence motivating the redesign
+
+The current independent A7 checkpoint was trained on the strict executable
+FlowER universe (257,167 train / 2,890 valid / 28,967 test) with the
+`compact_full_state_v1` observation format. That format already returns the
+complete mapped `current_state_smiles` after every accepted nonterminal action.
+However, inference still accumulates the raw assistant/tool transcript, so old
+actions, errors, and serialized states repeatedly consume context.
+
+The following values are an operational snapshot from 2026-09-02, not frozen
+paper results:
+
+| Artifact | Coverage at snapshot | Diagnostic observation |
+|---|---:|---:|
+| independent A7, K=10, vLLM/A100 | 15,815 / 28,967 generated | 7,692 rows had at least one formally executable candidate (48.64% provisional Execute-Pass@10) |
+| independent A7, K=1, V100 | 19,620 / 28,967 generated | 1,616 formally executable rows (8.24% provisional execute rate) |
+| A0 to A7 warm-start, K=1 | 28,967 / 28,967 | 247 formally executable rows (0.85%); 4 structural exact rows (0.014%) |
+| completed A0 direct baseline, K=10 | 28,971 / 28,971 | generation Pass@1 52.75%, Pass@10 74.17%, NLL-ranked structural Top-1 61.27%, neutralized Top-1 61.99% |
+
+Partial Execute-Pass is not retrosynthetic accuracy: an executable program can
+still produce the wrong precursors. The independent A7 result must not be
+reported as final until structural evaluation completes on the frozen
+denominator. A 17-example structural spot audit was non-random and too small to
+estimate accuracy.
+
+The completed warm-start artifact exposes the dominant control failures:
+
+| Terminal reason | Count | Share of 28,967 |
+|---|---:|---:|
+| maximum iterations | 21,118 | 72.9% |
+| generation or JSON error | 3,679 | 12.7% |
+| no valid tool call | 3,666 | 12.7% |
+| abstain | 246 | 0.8% |
+| terminal tool call | 258 | 0.9% |
+
+Its traces repeatedly contain `CHEMICAL_STATE_INVALID`, `STATE_CYCLE`, stale or
+uncommitted fragment operations, and tool JSON truncated by the 512-token
+generation limit. The warm-start result is auxiliary evidence, not the main A7
+condition: it continued the same rank-16 A0 LoRA and therefore also measures
+negative transfer from an endpoint-output policy to a tool policy.
+
+## Why the current interface is hard to learn
+
+The product-only policy is currently asked to solve several coupled problems in
+one autoregressive stream:
+
+1. infer missing precursor fragments and their exact atom mapping;
+2. choose valid electron-flow actions against the current graph;
+3. recover after a rejected action without entering a state cycle;
+4. decide when the trace is complete; and
+5. serialize long, exact tool arguments within a fixed generation budget.
+
+Teacher-forced SFT shows only expert histories, while rollout conditions the
+model on its own earlier calls and executor errors. Repeating complete mapped
+states in an ever-growing transcript increases attention cost and makes the
+closed-loop distribution shift worse. Token loss, JSON validity, and formal
+execution alone do not guarantee the correct chemical endpoint.
+
+## Existing and proposed contracts
+
+| Contract | State seen by the model | History seen by the model | Role |
+|---|---|---|---|
+| `action_delta_v1` | no full intermediate state | accepted action result and legal-action feedback | original paper A7; fallback/ablation under current status |
+| `compact_full_state_v1` | current full mapped state after accepted actions | accumulated raw assistant/tool transcript | current A7 candidate |
+| `state_trace_v1` | current full mapped state | canonical committed ledger plus on-demand access to any earlier full state | proposed replacement |
+
+`state_trace_v1` does not remove history. It separates three representations:
+
+- **authoritative state history:** the environment and prediction artifact keep
+  every full state `s0 ... st`;
+- **default policy observation:** the current full state plus a compact,
+  cumulative ledger of every accepted action and state delta;
+- **on-demand history:** the policy may request any previous authoritative full
+  state by stable state ID.
+
+Each decision is rendered from environment state rather than formed by
+appending an unbounded raw transcript. The target product appears once in the
+canonical observation. No compiled proof, expected precursor, endpoint digest,
+or reference answer is model-visible.
+
+## Proposed observation schema
+
+The exact JSON schema should be versioned, but the semantic minimum is:
+
+```json
+{
+  "observation_version": "state_trace_v1",
+  "target_product": "<mapped product SMILES>",
+  "current_state": {
+    "state_id": "s3",
+    "state_hash": "<sha256>",
+    "mapped_smiles": "<authoritative executor state>"
+  },
+  "committed_trace": [
+    {
+      "step": 1,
+      "from_state": "s0",
+      "to_state": "s1",
+      "action": "import_fragment",
+      "arguments": {"fragment_id": "F1"},
+      "affected_atom_maps": [7, 12],
+      "bond_charge_delta": ["<canonical delta>"],
+      "local_before": "<reaction-centre view>",
+      "local_after": "<reaction-centre view>"
+    }
+  ],
+  "last_feedback": {"status": "accepted", "code": "OK"},
+  "blocked_action_signatures": ["<canonical failed-call hash>"],
+  "pending_fragments": ["F2"],
+  "legal_action_summary": ["apply_electron_moves", "finish_trace"]
+}
+```
+
+All mutating calls bind to `state_id`; a call against an older state is rejected
+as stale. Failed calls record a canonical signature so identical retries can be
+blocked without changing the authoritative state.
+
+The history interface is explicit:
+
+```json
+inspect_state({"state_id": "s1", "view": "full"})
+```
+
+The environment returns the exact stored state and its hash. The same artifact
+must also retain all full historical states for deterministic replay,
+visualization, and post-hoc analysis even when the model never calls
+`inspect_state`.
+
+## Fragment proposal and execution
+
+Long open-vocabulary mapped fragment strings are a major serialization failure
+surface. A compatible two-phase interface is proposed:
+
+```text
+propose_fragments(unmapped or partially specified candidates)
+  -> environment canonicalizes, validates, maps, and returns F1 ... Fn
+import_fragment(fragment_id="F2")
+  -> executor commits the chosen canonical fragment
+```
+
+The environment must not search the reference answer when canonicalizing or
+mapping a proposed fragment. Fragment IDs are scoped to one rollout and their
+resolved structures are retained in the artifact. Integration of A0 proposals
+is optional and must be evaluated as a named condition rather than silently
+changing A7.
+
+## Training plan
+
+### Stage 1: next-action Tool-SFT
+
+Convert each replay-verified expert trajectory into decision examples:
+
+```text
+(target product, current state, committed ledger, feedback) -> next tool call
+```
+
+This creates several decision windows per reaction but no new reactions. Stable
+reaction IDs, split membership, authoritative states, actions, and endpoints
+must remain unchanged. Comparisons should match optimizer updates or supervised
+action tokens, not epochs alone. The bounded windows are also expected to lower
+attention cost relative to repeatedly encoding the full transcript.
+
+### Stage 2: failure-recovery SFT
+
+Construct controlled rejected-action observations, including invalid atom
+references, repeated/cyclic calls, malformed arguments, and pending fragment
+errors. When the executor state is unchanged, supervise the expert next action
+from the error observation. When a synthetic deviation changes state, supervise
+an explicit inspect/replan/abstain policy unless a replay-safe recovery operator
+has first been approved. Report synthetic recovery examples separately from the
+reaction count.
+
+### Stage 3: optional RLVR
+
+Only after the SFT validation gate passes, optimize a capped reward over JSON
+validity, legal committed non-cycle transitions, successful `finish_trace`,
+trace/proof replay, and structural endpoint correctness. Invalid, repeated, and
+cyclic calls receive penalties. Endpoint correctness must dominate the capped
+process reward so a long executable but chemically wrong trace cannot win by
+reward accumulation. Gold endpoints may supervise training rewards but never
+test-time candidate selection.
+
+## Required gates before a full run
+
+### Representation-equivalence gate
+
+Build a frozen 2,048-row slice and require:
+
+- identical stable IDs and zero dropped or quarantined rows;
+- byte-identical expert assistant actions;
+- identical authoritative state sequence and executed endpoint;
+- no model-visible answer, expected precursor, proof, or digest leakage;
+- deterministic rendering and state hashes; and
+- token-length and estimated attention-cost comparison against
+  `compact_full_state_v1`.
+
+### Closed-loop pilot gate
+
+Run a real 5,000--10,000-reaction training pilot followed by frozen validation.
+Report JSON-valid calls, committed-action rate, invalid-action rate,
+post-failure recovery, cycle rate, `finish_trace` rate, Execute@1/@K,
+TraceBound, structural Pass@1/@K, and structural accuracy conditional on formal
+execution. Do not launch the full train/test run unless validation improves over
+the independent compact-full-state A7 and the structural endpoint metric is
+nontrivial under a frozen selector.
+
+The final test denominator remains 28,967 for strict executable A7. Missing,
+failed, and OOM predictions stay in the denominator. Candidate ranking must be
+gold-independent and recorded in prediction metadata.
+
+## Faithfulness and hallucination reporting
+
+A **mechanistic hallucination** is a claimed electron-flow transition,
+intermediate, or proof step that cannot be deterministically replayed from the
+previous authoritative state. The executor makes unsupported transitions
+rejectable and accepted transitions auditable; it does not guarantee that a
+formally executable precursor is the chemically correct reference.
+
+Report these cases separately:
+
+- rejected invalid proposal: invalid-action rate;
+- accepted executable trace with wrong precursor: chemical prediction error;
+- alternative executable route not represented by a single ground truth:
+  unresolved alternative, not automatically a hallucination; and
+- abstention: coverage failure.
+
+Faithfulness must always be paired with coverage and endpoint accuracy so that
+abstaining on every example cannot appear to eliminate hallucination.
+
+## Scope and non-goals
+
+This proposal:
+
+- does not change FlowER train/valid/test membership or denominators;
+- does not make A0-to-A7 warm-start the main method;
+- does not add textbook retrieval, an independent proof channel, or a direct
+  answer bypass;
+- does not authorize a new full training job before the gates pass; and
+- does not establish a new headline result or scientific claim.
+
+## Implementation checklist
+
+- [ ] Freeze the `state_trace_v1` observation and prediction-artifact schemas.
+- [ ] Add state IDs/hashes, canonical ledgers, stale-state rejection, and
+      repeated-failure blocking to the runtime.
+- [ ] Add `inspect_state` and retain all authoritative states in artifacts.
+- [ ] Prototype the fragment proposal/ID interface without reference lookup.
+- [ ] Build and audit the 2,048-row equivalence slice.
+- [ ] Measure real tokenizer lengths and attention cost.
+- [ ] Train the closed-loop pilot and evaluate frozen validation.
+- [ ] Approve or reject adoption; only then update the active status and paper
+      protocol and schedule a full run.
