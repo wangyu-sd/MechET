@@ -1,0 +1,61 @@
+{
+  "artifact_type": "a7_historical_subset_long_horizon_audit",
+  "status": "diagnostic_hypothesis_not_causal_conclusion",
+  "headline_eligible": false,
+  "comparison_date": "2026-09-02",
+  "legacy_condition": {
+    "name": "legacy_full_state_tool_sft",
+    "observation": "full current state visible in accumulated tool results",
+    "train_reactions": 27640,
+    "valid_reactions": 333,
+    "test_reactions": 3080,
+    "training_epochs": 3,
+    "test_reference_sha256": "047e8bcb9b0abc57e44adad2f6406d69f1521d4d86fba21cc9a550d9c8b0b57b",
+    "mean_mechanism_steps": 1.927922077922078,
+    "mean_electron_moves": 3.859090909090909,
+    "mean_fragment_imports": 4.183116883116883,
+    "input_tokens_per_dataset_pass": 167160969,
+    "input_token_presentations_over_training": 501482907,
+    "metrics": {
+      "structural_endpoint_pass_at_1": 0.75,
+      "structural_endpoint_pass_at_10": 0.9211038961038961,
+      "execute_pass_at_1": 0.9402597402597402,
+      "execute_pass_at_10": 0.9974025974025974
+    },
+    "scope_warning": "Incomplete compiler-selected trace-view subset; not a full FlowER headline result"
+  },
+  "current_condition": {
+    "name": "compact_full_state_v1",
+    "observation": "current_state_smiles visible after each accepted action while the raw transcript accumulates",
+    "train_reactions": 257167,
+    "valid_reactions": 2890,
+    "test_reactions": 28967,
+    "training_epochs": 1,
+    "test_reference_sha256": "ae51e40fff023a09660491b5eaf8c8fabc65080814fd91faa054c0f8f82c5439",
+    "mean_mechanism_steps": 4.051679497359064,
+    "mean_electron_moves": 8.157903821590085,
+    "mean_fragment_imports": 5.220043497773328,
+    "input_token_presentations_over_training": 1619073582,
+    "result_status": "structural evaluation incomplete; only partial operational snapshots are available"
+  },
+  "measured_ratios": {
+    "legacy_test_size_over_current_test_size": 0.10632789035799357,
+    "current_over_legacy_mean_mechanism_steps": 2.101578452655089,
+    "current_over_legacy_mean_electron_moves": 2.113944453179999,
+    "current_over_legacy_mean_fragment_imports": 1.2478837296757104,
+    "current_one_epoch_over_legacy_three_epoch_input_token_presentations": 3.2285718204947713
+  },
+  "primary_hypothesis": "Closed-loop success compounds across actions, and an accepted early error moves the executor off the expert state distribution; the approximately twofold increase in trajectory length therefore materially lowers whole-trace success.",
+  "claim_limit": "The comparison supports but does not isolate trajectory length as the sole cause.",
+  "confounders": [
+    "legacy compiler selection and easier reaction scope",
+    "three legacy passes per reaction versus one current pass",
+    "different observation serialization",
+    "different fragment-import burden"
+  ],
+  "required_no_retraining_tests": [
+    "evaluate the current compact-full-state checkpoint on the exact 3080 legacy test IDs",
+    "stratify full-test Execute-Pass and structural Pass by expert mechanism-step and electron-move count",
+    "estimate success-versus-length while controlling for product size and fragment-import count"
+  ]
+}

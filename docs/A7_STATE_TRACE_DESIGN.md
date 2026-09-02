@@ -103,6 +103,55 @@ Consequently, materializing one row per decision in Stage 1 does not by itself
 create a new supervision signal. The new variable is the policy context:
 bounded canonical re-rendering instead of an append-only raw transcript.
 
+### Historical small-subset result and the long-horizon hypothesis
+
+The earlier full-state checkpoint is an important positive control. It used the
+same product-only, executor-mediated next-action formulation and exposed the
+complete current state through tool results, but it was trained and evaluated
+on the legacy MECH_PROOF-compilable subset rather than the frozen full FlowER
+universe.
+
+| Condition | Train / test reactions | Training | Mean mechanism steps | Mean electron moves | Mean fragment imports | Structural Pass@1 / Pass@10 | Execute-Pass@1 / Pass@10 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| legacy full-state Tool-SFT | 27,640 / 3,080 | 3 epochs | 1.93 | 3.86 | 4.18 | 75.00% / 92.11% | 94.03% / 99.74% |
+| current `compact_full_state_v1` | 257,167 / 28,967 | 1 epoch | 4.05 | 8.16 | 5.22 | pending complete structural evaluation | partial operational snapshot above |
+
+The legacy test contains only 10.63% as many targets as the strict current
+test and is an incomplete, compiler-selected trace view. Its accuracy is
+therefore evidence that the formulation can work on shorter executable
+trajectories, not a headline estimate for full FlowER.
+
+The central diagnosis is **closed-loop long-horizon error accumulation**. If a
+trace of length $T$ requires actions $a_1,\ldots,a_T$, then its success
+probability can be decomposed as
+
+\[
+P(\mathrm{success}\mid T)
+= \prod_{t=1}^{T} P(a_t\ \mathrm{correct}\mid x,s_t,h_t).
+\]
+
+An accepted wrong action also changes the next executor state, so later
+decisions are made off the expert trajectory. The current full test has 2.10
+times as many mechanism steps and 2.11 times as many electron moves per target
+as the legacy subset. That doubling gives the accumulation hypothesis direct
+empirical support and is consistent with the large gap between teacher-forced
+loss and rollout success.
+
+This comparison does not identify trajectory length as the sole cause. The
+legacy subset also differs in compiler selection, per-reaction repetition
+(three epochs versus one), observation serialization, and reaction scope. In
+aggregate token presentations, however, the current one-epoch run processed
+3.23 times as many input tokens as all three legacy epochs, so the epoch count
+alone is not a sufficient explanation.
+
+The decisive no-retraining audit is to (1) evaluate the current checkpoint on
+the exact 3,080 legacy IDs and (2) report full-test success stratified by expert
+step and move count. Recovery on the legacy IDs together with monotonically
+falling success as trajectory length grows would strongly support the
+long-horizon diagnosis. The machine-readable measurements and claim limits are
+frozen in
+[`results/a7_historical_subset_long_horizon_audit_20260902.json`](results/a7_historical_subset_long_horizon_audit_20260902.json).
+
 The parts not previously trained as one matched condition are stable
 state-addressed history, stale-state rejection, repeated-failure blocking, the
 fragment-ID interface, and recovery supervision from executor failures and
