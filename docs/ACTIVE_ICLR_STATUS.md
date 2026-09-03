@@ -7,6 +7,30 @@
 
 Last updated: 2026-08-26.
 
+## A8-Lite targeted continuation pilot (2026-09-03)
+
+The first low-cost A8 learning pilot is initialized from the completed
+compact-full-state A7 adapter at
+`outputs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a100_20260826`.
+It trains one targeted epoch on 30,000 deterministic late-state reset
+continuations plus 10,000 disjoint complete expert anchors sampled only from
+the frozen FlowER train split.  This is a history-robust continuation pilot;
+it is not off-policy recovery from arbitrary erroneous chemical states.
+
+The active ordinary Qingyuan 8xA100 task is
+`meteor_mechet_a8_lite_state_reset_qwen3_8b_1ep_8a100_qy_20260903_02`
+(instance `8b1d80eba065f55b01a06652c10b00e8`).  It obtained a real POD, completed
+distributed pretokenization, launched eight `train_tool_sft.py` ranks, and all
+eight A100-SXM4-40GB GPUs were observed at 100% utilization.  The `_01` task
+ended during startup because its isolated implementation worktree did not
+contain the local wheel artifacts; `_02` resolves wheels from the established
+main Ceph artifact directory.
+
+Validation uses all 2,890 strict validation reactions.  Any eventual test
+result must use all 28,967 strict executable test reactions with missing
+predictions counted as failures.  Looped-layer execution, value learning and
+off-policy recovery remain gated on this pilot and are not part of `_02`.
+
 ## What is already on `main`
 
 - PR #35 (`b7e26027`) merged the full-data protocol/runtime update.
