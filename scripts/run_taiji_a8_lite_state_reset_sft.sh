@@ -16,9 +16,9 @@ conda activate meteor
 
 runtime_target=$(mktemp -d /tmp/mechet_a8_lite_runtime.XXXXXX)
 python -m pip install --quiet --no-deps --target "$runtime_target" \
-  artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl \
-  artifacts/wheels/xformers-0.0.29.post3-cp311-cp311-manylinux_2_28_x86_64.whl \
-  artifacts/wheels/bitsandbytes-0.49.2-py3-none-manylinux_2_24_x86_64.whl
+  "$artifact_root/artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl" \
+  "$artifact_root/artifacts/wheels/xformers-0.0.29.post3-cp311-cp311-manylinux_2_28_x86_64.whl" \
+  "$artifact_root/artifacts/wheels/bitsandbytes-0.49.2-py3-none-manylinux_2_24_x86_64.whl"
 
 export HF_HUB_CACHE="$shared_hf_cache"
 export HF_HUB_OFFLINE=1

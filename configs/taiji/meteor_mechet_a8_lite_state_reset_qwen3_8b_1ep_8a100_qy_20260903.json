@@ -3,7 +3,7 @@
   "readable_name": "meteor MechET A8-Lite state-reset continuation from A7 (8xA100 QY)",
   "template_flag": "kubeflow_job_learning",
   "task_type": "general_gpu_type",
-  "task_flag": "meteor_mechet_a8_lite_state_reset_qwen3_8b_1ep_8a100_qy_20260903_01",
+  "task_flag": "meteor_mechet_a8_lite_state_reset_qwen3_8b_1ep_8a100_qy_20260903_02",
   "dataset_id": "F06A5CC1127144DE9CF3FF9BDBE77A1A",
   "model_id": "152FF65EEDD84C6AA76D7F4C1A5B3BAB",
   "host_num": 1,
