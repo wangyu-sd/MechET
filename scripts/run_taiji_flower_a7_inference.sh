@@ -12,6 +12,7 @@ expected_rows=28967
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
 samples_per_target=${SAMPLES_PER_TARGET:-1}
 inference_backend=${MECHET_INFERENCE_BACKEND:-vllm}
+inference_script=${MECHET_INFERENCE_SCRIPT:-scripts/infer_mechet.py}
 paper_condition=${MECHET_PAPER_CONDITION:-A7}
 evaluation_condition=${MECHET_EVALUATION_CONDITION:-flower_a7_compact_full_state_seed17_k${samples_per_target}}
 inference_protocol=${MECHET_INFERENCE_PROTOCOL:-trace_owned_compact_full_state_v1}
@@ -237,7 +238,7 @@ for worker in $(seq 0 $((generation_shards - 1))); do
   TORCHINDUCTOR_COMPILE_THREADS="${MECHET_TORCHINDUCTOR_COMPILE_THREADS:-2}" \
   OMP_NUM_THREADS="${MECHET_OMP_NUM_THREADS_PER_WORKER:-4}" \
   MKL_NUM_THREADS="${MECHET_OMP_NUM_THREADS_PER_WORKER:-4}" \
-  python scripts/infer_mechet.py \
+  python "$inference_script" \
     --config "$config" \
     --data "$worker_reference" \
     --output "$output_dir/generation/predictions.shard-${shard}.jsonl" \
