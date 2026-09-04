@@ -4,6 +4,8 @@ set -Eeuo pipefail
 repo_dir=${MECHET_REPO_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET-controls}
 artifact_root=${MECHET_ARTIFACT_ROOT:-/aaa/fionafyang/buddy1/whaleywang/MechET}
 control=${MECHET_CONTROL_PIPELINE:?set MECHET_CONTROL_PIPELINE}
+source /root/miniconda3/etc/profile.d/conda.sh
+conda activate meteor
 cd "$repo_dir"
 export PYTHONUNBUFFERED=1
 
