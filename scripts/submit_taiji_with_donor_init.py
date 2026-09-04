@@ -20,6 +20,24 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CLIENT = REPO_ROOT / "artifacts/taiji_mount_bootstrap/taiji_client"
 DEFAULT_RENDER_DIR = Path.home() / ".taiji/rendered_configs"
 PLACEHOLDER = "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK"
+REQUIRED_TASK_PREFIX = "meteor"
+REQUIRED_LOG_WRAPPER = "scripts/taiji_run_with_heartbeat.sh"
+
+
+def validate_submission_policy(config: dict[str, object], config_path: Path) -> None:
+    """Enforce the permanent Taiji naming and live-log policy."""
+
+    task_flag = str(config.get("task_flag") or "")
+    readable_name = str(config.get("readable_name") or "")
+    start_cmd = str(config.get("start_cmd") or "")
+    if not task_flag.startswith(REQUIRED_TASK_PREFIX):
+        raise ValueError(f"Taiji task_flag must start with 'meteor': {config_path}")
+    if not readable_name.lower().startswith(REQUIRED_TASK_PREFIX):
+        raise ValueError(f"Taiji readable_name must start with 'meteor': {config_path}")
+    if REQUIRED_LOG_WRAPPER not in start_cmd:
+        raise ValueError(f"Taiji start_cmd must use the heartbeat wrapper: {config_path}")
+    if re.search(r"(?:^|[;&|\s])(?:[12]?>>?|&>)", start_cmd):
+        raise ValueError(f"Taiji start_cmd must not redirect stdout/stderr: {config_path}")
 
 
 def run(client: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -62,6 +80,7 @@ def recover_init_cmd(client: Path, donor_task: str) -> str:
 
 def render(config_path: Path, client: Path, donor_task: str) -> tuple[str, Path]:
     config = json.loads(config_path.read_text(encoding="utf-8"))
+    validate_submission_policy(config, config_path)
     if config.get("init_cmd") != PLACEHOLDER:
         raise ValueError(
             f"committed config must use the private-init placeholder: {config_path}"

@@ -65,4 +65,6 @@ print(
 )
 PY
 
-exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/run_taiji_flower_a7_inference.sh
+repo_dir=${MECHET_REPO_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET}
+inference_runner=${MECHET_INFERENCE_RUNNER:-$repo_dir/scripts/run_taiji_flower_a7_inference.sh}
+exec bash "$inference_runner"

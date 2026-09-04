@@ -235,9 +235,17 @@ def _environment(
     raise ValueError(f"mode has no environment: {mode}")
 
 
-def _tools(mode: str) -> list[dict[str, Any]]:
+def _tools(mode: str, *, intervention: str = "none") -> list[dict[str, Any]]:
     if mode == "trace":
-        return trace_tool_schemas()
+        tools = trace_tool_schemas()
+        if intervention == "disable_inspect_state":
+            tools = [
+                item
+                for item in tools
+                if str((item.get("function") or {}).get("name") or "")
+                != "inspect_state"
+            ]
+        return tools
     if mode in {"textbook", "irrelevant"}:
         return trace_tool_schemas(textbook=True)
     if mode == "anchors":
@@ -944,6 +952,7 @@ class _TraceRollout:
         seed: int,
         max_iterations: int,
         exchanges: list[dict[str, Any]],
+        allow_independent_answer: bool = False,
     ) -> None:
         self.env = env
         self.messages = messages
@@ -951,6 +960,9 @@ class _TraceRollout:
         self.seed = seed
         self.max_iterations = max_iterations
         self.exchanges = exchanges
+        self.allow_independent_answer = bool(allow_independent_answer)
+        self.awaiting_independent_answer = False
+        self.prediction = ""
         self.iteration = 0
         self.termination_reason = "max_iterations"
         self.generation_error = ""
@@ -977,16 +989,31 @@ class _TraceRollout:
         self.iteration += 1
         if not calls:
             self.messages.append({"role": "assistant", "content": raw})
-            self.termination_reason = "no_tool_call"
+            if self.allow_independent_answer and self.awaiting_independent_answer:
+                self.prediction = raw
+                self.termination_reason = "independent_answer"
+            else:
+                self.termination_reason = "no_tool_call"
+            self.finished = True
+            return
+        if self.awaiting_independent_answer:
+            self.generation_error = "expected independent answer after terminal tool"
+            self.termination_reason = "invalid_independent_answer"
             self.finished = True
             return
         self.exchanges.extend(append_tool_exchange(self.messages, raw, calls, self.env))
         state = self.env._snapshot()
         if state.get("finalized"):
-            self.termination_reason = (
-                "abstained" if state.get("abstained") else "terminal_tool"
-            )
-            self.finished = True
+            if self.allow_independent_answer and not state.get("abstained"):
+                # A5/B4 is trained with one answer-bearing assistant turn after
+                # the terminal tool result.  Preserve the executed trace, then
+                # allow exactly that one extra, non-tool generation.
+                self.awaiting_independent_answer = True
+            else:
+                self.termination_reason = (
+                    "abstained" if state.get("abstained") else "terminal_tool"
+                )
+                self.finished = True
         elif self.iteration >= self.max_iterations:
             self.termination_reason = "max_iterations"
             self.finished = True
@@ -998,6 +1025,7 @@ class _TraceRollout:
             "messages": self.messages,
             "exchanges": self.exchanges,
             "rollout_state": self.env._snapshot(),
+            "prediction": self.prediction,
             "termination_reason": self.termination_reason,
             "candidate_status": (
                 "generation_error" if self.generation_error else self.termination_reason
@@ -1024,6 +1052,7 @@ def _create_trace_rollout(
     prompt_source: str,
     sample_index: int,
     seed: int,
+    allow_independent_answer: bool = False,
 ) -> _TraceRollout | dict[str, Any]:
     rollout_cfg = cfg
     rollout_iterations = max_iterations
@@ -1082,6 +1111,7 @@ def _create_trace_rollout(
         seed=seed,
         max_iterations=rollout_iterations,
         exchanges=[],
+        allow_independent_answer=allow_independent_answer,
     )
 
 
@@ -1103,6 +1133,7 @@ def _run_trace_candidate(
     prompt_source: str,
     sample_index: int,
     seed: int,
+    allow_independent_answer: bool = False,
 ) -> dict[str, Any]:
     rollout = _create_trace_rollout(
         row,
@@ -1121,6 +1152,7 @@ def _run_trace_candidate(
         prompt_source=prompt_source,
         sample_index=sample_index,
         seed=seed,
+        allow_independent_answer=allow_independent_answer,
     )
     if isinstance(rollout, dict):
         return rollout
@@ -1161,6 +1193,7 @@ def _run_trace_candidates_batched(
     sample_indices: Sequence[int],
     seeds: Sequence[int],
     microbatch_size: int,
+    allow_independent_answer: bool = False,
 ) -> list[dict[str, Any]]:
     """Dynamically batch active candidates while retaining independent envs."""
 
@@ -1185,6 +1218,7 @@ def _run_trace_candidates_batched(
             prompt_source=prompt_source,
             sample_index=sample_index,
             seed=seed,
+            allow_independent_answer=allow_independent_answer,
         )
         if isinstance(created, dict):
             raise RuntimeError("unexpected scripted record in batched trace inference")
@@ -1505,6 +1539,14 @@ def main() -> int:
     )
     parser.add_argument("--progress-every", type=int, default=10)
     parser.add_argument("--scripted-actions", type=Path)
+    parser.add_argument(
+        "--allow-independent-answer",
+        action="store_true",
+        help=(
+            "After a terminal trace tool, generate exactly one non-tool answer turn. "
+            "This is the A5/B4 independent-answer control and is disabled otherwise."
+        ),
+    )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -1590,7 +1632,7 @@ def main() -> int:
     adapter = args.adapter or str(
         cfg.get("output_dir") or cfg.get("initial_adapter_path") or ""
     )
-    tools = _tools(args.mode)
+    tools = _tools(args.mode, intervention=args.intervention)
     scripts = _script_map(args.scripted_actions)
     adapter_manifest = _adapter_manifest(adapter)
     model_revision = _resolve_revision(
@@ -1669,6 +1711,7 @@ def main() -> int:
         "prompt_contract": prompt_contract,
         "direct_sample_batch_size": args.direct_sample_batch_size,
         "trace_sample_batch_size": args.trace_sample_batch_size,
+        "allow_independent_answer": args.allow_independent_answer,
         "selected_sources": list(args.selected_sources),
         "shard_count": args.shard_count,
         "shard_index": args.shard_index,
@@ -1802,6 +1845,7 @@ def main() -> int:
                     sample_indices=sample_indices,
                     seeds=seeds,
                     microbatch_size=args.trace_sample_batch_size,
+                    allow_independent_answer=args.allow_independent_answer,
                 )
             else:
                 for sample_index in range(args.samples_per_target):
@@ -1848,6 +1892,7 @@ def main() -> int:
                             prompt_source=args.prompt_source,
                             sample_index=sample_index,
                             seed=seed,
+                            allow_independent_answer=args.allow_independent_answer,
                         )
                     candidates.append(candidate)
             selected = (
@@ -1894,6 +1939,7 @@ def main() -> int:
                         else None
                     ),
                     "prompt_source": args.prompt_source,
+                    "allow_independent_answer": args.allow_independent_answer,
                     "prompt_contract_sha256": prompt_contract["contract_sha256"],
                     "tool_schema_sha256": prompt_contract["tool_schema_sha256"],
                     "config_sha256": config_hash or None,
@@ -1944,6 +1990,7 @@ def main() -> int:
         "backend": args.backend,
         "prompt_contract": prompt_contract,
         "trace_sample_batch_size": args.trace_sample_batch_size,
+        "allow_independent_answer": args.allow_independent_answer,
         "selected_sources": list(args.selected_sources),
         "shard_count": args.shard_count,
         "shard_index": args.shard_index,

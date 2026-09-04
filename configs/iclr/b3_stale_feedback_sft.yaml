@@ -1,0 +1,67 @@
+condition_name: flower_b3_stale_feedback_qwen3_8b_seed17
+scientific_hypothesis: trace_agent_without_fresh_action_outcome_feedback
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/iclr_feedback_controls_v1/b3_stale_feedback/train.jsonl
+validation_file: data/iclr_feedback_controls_v1/b3_stale_feedback/valid.jsonl
+test_file: data/iclr_feedback_controls_v1/b3_stale_feedback/test.jsonl
+pretokenized_cache_dir: data/iclr_feedback_controls_v1/b3_stale_feedback/qwen3_8b_tokens_16384
+pretokenization_world_size: 8
+output_dir: outputs/iclr/b3_stale_feedback_seed17
+limit_examples: 0
+
+environment:
+  max_tool_calls: 40
+  observation_mode: compact_full_state
+
+training: &training
+  qlora: true
+  attention_implementation: sdpa
+  require_flash_sdp: true
+  bf16: true
+  fp16: false
+  tf32: true
+  learning_rate: 2.0e-5
+  num_train_epochs: 1.0
+  max_steps: -1
+  per_device_train_batch_size: 1
+  per_device_eval_batch_size: 1
+  gradient_accumulation_steps: 8
+  eval_accumulation_steps: 8
+  eval_strategy: epoch
+  max_length: 16384
+  window_context_tokens: 8192
+  packing: false
+  assistant_only_loss: true
+  group_by_length: false
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config: {rope: true, rms_norm: true, swiglu: true, cross_entropy: false, fused_linear_cross_entropy: true}
+  dataloader_num_workers: 2
+  logging_steps: 10
+  save_steps: 250
+  save_total_limit: 3
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora: &lora
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  paper_baseline_id: B3
+  paper_method_name: stale_action_feedback
+  paper_run_role: matched_internal_control
+  baseline_task: b3_stale_feedback
+  stable_id_manifest: data/iclr_feedback_controls_v1/b3_stale_feedback/manifest.json
+  expected_train_rows: 257167
+  expected_validation_rows: 2890
+  expected_test_rows: 28967
+  require_trace_owned: true
+  corpus_used: false
+  source_dataset: flower_strict_program_universe
+  intervention: stale_tool_observations

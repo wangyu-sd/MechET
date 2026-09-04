@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
+repo_dir=${MECHET_REPO_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET}
+artifact_root=${MECHET_ARTIFACT_ROOT:-/aaa/fionafyang/buddy1/whaleywang/MechET}
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
-liger_wheel="$repo_dir/artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl"
-xformers_wheel="$repo_dir/artifacts/wheels/xformers-0.0.29.post3-cp311-cp311-manylinux_2_28_x86_64.whl"
-bitsandbytes_wheel="$repo_dir/artifacts/wheels/bitsandbytes-0.49.2-py3-none-manylinux_2_24_x86_64.whl"
+liger_wheel="$artifact_root/artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl"
+xformers_wheel="$artifact_root/artifacts/wheels/xformers-0.0.29.post3-cp311-cp311-manylinux_2_28_x86_64.whl"
+bitsandbytes_wheel="$artifact_root/artifacts/wheels/bitsandbytes-0.49.2-py3-none-manylinux_2_24_x86_64.whl"
 training_config=${MECHET_TRAINING_CONFIG:?set MECHET_TRAINING_CONFIG}
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
 

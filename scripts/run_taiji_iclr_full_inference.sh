@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
+repo_dir=${MECHET_REPO_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET}
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
-baseline=${MECHET_BASELINE:?set MECHET_BASELINE to outcome_only, free_cot, state_cot, net_edit, proof, or open_flow}
+baseline=${MECHET_BASELINE:?set MECHET_BASELINE to outcome_only, free_cot, state_cot, net_edit, proof, open_flow, or direct_legal_actions}
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
 samples_per_target=${SAMPLES_PER_TARGET:-10}
 inference_backend=${MECHET_INFERENCE_BACKEND:-vllm}
@@ -83,6 +83,18 @@ case "$baseline" in
     direct_sample_batch_size=${MECHET_DIRECT_SAMPLE_BATCH_SIZE:-8}
     preferred_generation_workers_per_gpu=2
     ;;
+  direct_legal_actions)
+    config=configs/iclr/b5_direct_legal_actions_sft.yaml
+    adapter=outputs/iclr/b5_direct_legal_actions_seed17
+    test_file=data/iclr_feedback_controls_v1/b5_direct_legal_actions/test.jsonl
+    dataset_manifest=data/iclr_feedback_controls_v1/b5_direct_legal_actions/manifest.json
+    manifest_task=b5_direct_legal_actions
+    expected_rows=28967
+    max_new_tokens=1024
+    nll_max_length=20480
+    direct_sample_batch_size=${MECHET_DIRECT_SAMPLE_BATCH_SIZE:-10}
+    preferred_generation_workers_per_gpu=1
+    ;;
   *)
     echo >&2 "unsupported MECHET_BASELINE=$baseline"
     exit 2
@@ -95,8 +107,10 @@ manifest_task=${manifest_task:-$baseline}
 output_dir=${MECHET_INFERENCE_OUTPUT:-outputs/eval/iclr_full/${baseline}_seed17_k${samples_per_target}}
 gpu_count=8
 
-source /root/miniconda3/etc/profile.d/conda.sh
-conda activate meteor
+if [[ "${MECHET_SKIP_CONDA_ACTIVATE:-0}" != "1" ]]; then
+  source /root/miniconda3/etc/profile.d/conda.sh
+  conda activate meteor
+fi
 cd "$repo_dir"
 
 # Loading one BF16 Qwen3-8B copy consumes roughly 16 GiB before KV-cache

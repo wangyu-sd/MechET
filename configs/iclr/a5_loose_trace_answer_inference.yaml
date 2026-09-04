@@ -1,0 +1,8 @@
+condition_name: flower_a5_loose_trace_answer_qwen3_8b_seed17
+model_name_or_path: Qwen/Qwen3-8B
+environment:
+  max_tool_calls: 40
+  observation_mode: action_delta
+training:
+  max_length: 16384
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
