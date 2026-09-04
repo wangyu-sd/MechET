@@ -497,6 +497,8 @@ class _VllmBackend:
                 "conversation": messages,
                 "tokenize": False,
                 "add_generation_prompt": True,
+                # Match the non-thinking Qwen template used by Tool-SFT.
+                "enable_thinking": False,
             }
             if tools:
                 kwargs["tools"] = tools
@@ -709,6 +711,7 @@ def _generate_trace_responses(
             "conversation": list(conversations),
             "tokenize": True,
             "add_generation_prompt": True,
+            "enable_thinking": False,
             "return_tensors": "pt",
             "return_dict": True,
             "padding": True,
@@ -868,6 +871,7 @@ def _generate_responses(
         "conversation": messages,
         "tokenize": True,
         "add_generation_prompt": True,
+        "enable_thinking": False,
         "return_tensors": "pt",
         "return_dict": True,
     }
@@ -1926,6 +1930,7 @@ def main() -> int:
                     "temperature": args.temperature,
                     "top_p": args.top_p,
                     "max_new_tokens": args.max_new_tokens,
+                    "enable_thinking": False,
                     "max_iterations": args.max_iterations,
                     "samples_per_target": args.samples_per_target,
                     "direct_sample_batch_size": args.direct_sample_batch_size,
