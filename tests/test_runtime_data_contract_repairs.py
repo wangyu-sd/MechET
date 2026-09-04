@@ -277,6 +277,7 @@ def test_inference_accepts_mapping_model_inputs(monkeypatch):
         eos_token_id = 0
 
         def apply_chat_template(self, **_kwargs):
+            assert _kwargs["enable_thinking"] is False
             return UserDict(
                 {
                     "input_ids": torch.tensor([[1, 2]]),
@@ -431,6 +432,7 @@ def test_trace_generation_batches_distinct_conversations_and_restores_padding():
         def apply_chat_template(self, **kwargs):
             assert self.padding_side == "left"
             assert len(kwargs["conversation"]) == 2
+            assert kwargs["enable_thinking"] is False
             return {
                 "input_ids": torch.tensor([[99, 1, 2], [3, 4, 5]]),
                 "attention_mask": torch.tensor([[0, 1, 1], [1, 1, 1]]),
@@ -481,6 +483,7 @@ def test_vllm_backend_preserves_per_candidate_seeds_and_prompt_order():
         def apply_chat_template(self, **kwargs):
             assert kwargs["tokenize"] is False
             assert kwargs["add_generation_prompt"] is True
+            assert kwargs["enable_thinking"] is False
             assert kwargs["tools"] == [{"type": "function"}]
             return kwargs["conversation"][0]["content"]
 
