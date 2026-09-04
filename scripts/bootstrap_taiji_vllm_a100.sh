@@ -65,4 +65,9 @@ print(
 )
 PY
 
-exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/run_taiji_flower_a7_inference.sh
+inference_runner=${MECHET_INFERENCE_RUNNER:-/aaa/fionafyang/buddy1/whaleywang/MechET/scripts/run_taiji_flower_a7_inference.sh}
+if [[ ! -f "$inference_runner" ]]; then
+  echo >&2 "missing inference runner: $inference_runner"
+  exit 2
+fi
+exec bash "$inference_runner"
