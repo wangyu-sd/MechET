@@ -7,11 +7,19 @@ shared_model_snapshot=$shared_hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d
 config=configs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a100.yaml
 reference=data/flower_inverse_tool_sft_compact_full_state_v1/test.jsonl
 dataset_manifest=data/flower_inverse_tool_sft_compact_full_state_v1/training_manifest.json
-adapter=${MECHET_A7_ADAPTER:-outputs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a100_20260826}
+adapter=${MECHET_TRACE_ADAPTER:-${MECHET_A7_ADAPTER:-outputs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a100_20260826}}
 expected_rows=28967
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
 samples_per_target=${SAMPLES_PER_TARGET:-1}
 inference_backend=${MECHET_INFERENCE_BACKEND:-vllm}
+inference_script=${MECHET_INFERENCE_SCRIPT:-scripts/infer_mechet.py}
+paper_condition=${MECHET_PAPER_CONDITION:-A7}
+evaluation_condition=${MECHET_EVALUATION_CONDITION:-flower_a7_compact_full_state_seed17_k${samples_per_target}}
+inference_protocol=${MECHET_INFERENCE_PROTOCOL:-trace_owned_compact_full_state_v1}
+expected_adapter_condition=${MECHET_EXPECTED_ADAPTER_CONDITION:-}
+expected_adapter_sha256=${MECHET_EXPECTED_ADAPTER_SHA256:-}
+expected_adapter_train_sha256=${MECHET_EXPECTED_ADAPTER_TRAIN_SHA256:-}
+headline_eligible=${MECHET_HEADLINE_ELIGIBLE:-1}
 max_iterations=40
 gpu_count=8
 generation_workers_per_gpu=${MECHET_GENERATION_WORKERS_PER_GPU:-1}
@@ -64,7 +72,7 @@ fi
 generation_shards=$((gpu_count * generation_workers_per_gpu))
 task_expected_rows=$(( (expected_rows + task_shard_count - 1 - task_shard_index) / task_shard_count ))
 
-python - "$config" "$reference" "$dataset_manifest" "$adapter" "$expected_gpu" "$revision" "$expected_rows" "$max_iterations" <<'PY'
+python - "$config" "$reference" "$dataset_manifest" "$adapter" "$expected_gpu" "$revision" "$expected_rows" "$max_iterations" "$paper_condition" "$inference_protocol" "$expected_adapter_condition" "$expected_adapter_sha256" "$expected_adapter_train_sha256" <<'PY'
 import hashlib
 import json
 from pathlib import Path
@@ -73,7 +81,21 @@ import sys
 import torch
 import yaml
 
-config_path, reference_path, manifest_path, adapter_path, expected_gpu, revision, expected_rows, max_iterations = sys.argv[1:]
+(
+    config_path,
+    reference_path,
+    manifest_path,
+    adapter_path,
+    expected_gpu,
+    revision,
+    expected_rows,
+    max_iterations,
+    paper_condition,
+    inference_protocol,
+    expected_adapter_condition,
+    expected_adapter_sha256,
+    expected_adapter_train_sha256,
+) = sys.argv[1:]
 config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
 manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
 adapter = Path(adapter_path)
@@ -100,8 +122,13 @@ adapter_manifest = json.loads((adapter / "adapter_manifest.json").read_text())
 contract = json.loads((adapter / "data_contract.json").read_text())
 if str(adapter_manifest.get("base_model_revision") or "") != revision:
     raise SystemExit("adapter/base revision mismatch")
-if str(adapter_manifest.get("train_file_sha256") or "") != str(manifest["splits"]["train"]["sha256"]):
+expected_train_sha256 = expected_adapter_train_sha256 or str(manifest["splits"]["train"]["sha256"])
+if str(adapter_manifest.get("train_file_sha256") or "") != expected_train_sha256:
     raise SystemExit("adapter train-data lineage mismatch")
+if expected_adapter_condition and str(adapter_manifest.get("condition_name") or "") != expected_adapter_condition:
+    raise SystemExit("adapter condition mismatch")
+if expected_adapter_sha256 and str(adapter_manifest.get("adapter_sha256") or "") != expected_adapter_sha256:
+    raise SystemExit("adapter artifact hash mismatch")
 if str(contract.get("environment_revision") or "") != "trace_owned_compact_full_state_v1":
     raise SystemExit("adapter is not the frozen compact-full-state A7 artifact")
 if int(config["environment"]["max_tool_calls"]) != int(max_iterations):
@@ -112,8 +139,8 @@ names = [torch.cuda.get_device_name(index) for index in range(8)]
 if not all(expected_gpu.upper() in name.upper() for name in names):
     raise SystemExit(f"expected {expected_gpu}, got {names}")
 print({
-    "paper_condition": "A7",
-    "protocol": "trace_owned_compact_full_state_v1",
+    "paper_condition": paper_condition,
+    "protocol": inference_protocol,
     "test_rows": int(split["rows"]),
     "adapter": str(adapter.resolve()),
     "adapter_condition": str(adapter_manifest.get("condition_name") or ""),
@@ -211,13 +238,13 @@ for worker in $(seq 0 $((generation_shards - 1))); do
   TORCHINDUCTOR_COMPILE_THREADS="${MECHET_TORCHINDUCTOR_COMPILE_THREADS:-2}" \
   OMP_NUM_THREADS="${MECHET_OMP_NUM_THREADS_PER_WORKER:-4}" \
   MKL_NUM_THREADS="${MECHET_OMP_NUM_THREADS_PER_WORKER:-4}" \
-  python scripts/infer_mechet.py \
+  python "$inference_script" \
     --config "$config" \
     --data "$worker_reference" \
     --output "$output_dir/generation/predictions.shard-${shard}.jsonl" \
     --mode trace \
     --observation-mode compact_full_state \
-    --condition-name "flower_a7_compact_full_state_seed17_k${samples_per_target}" \
+    --condition-name "$evaluation_condition" \
     --model-name "$local_model_dir" \
     --adapter "$adapter" \
     --backend "$inference_backend" \
@@ -262,7 +289,7 @@ for path in Path(sys.argv[1]).glob("progress.shard-*.json"):
 print(total)
 PY
 )
-  echo "[meteor-progress] stage=a7-generation completed_targets=${completed}/${task_expected_rows} live_shards=${live}/${generation_shards} k=${samples_per_target} task_shard=${task_shard_index}/${task_shard_count} time=$(date --iso-8601=seconds)"
+  echo "[meteor-progress] stage=${paper_condition}-generation completed_targets=${completed}/${task_expected_rows} live_shards=${live}/${generation_shards} k=${samples_per_target} task_shard=${task_shard_index}/${task_shard_count} time=$(date --iso-8601=seconds)"
   if (( live == 0 )); then
     break
   fi
@@ -278,7 +305,7 @@ if [[ "$status" -ne 0 ]]; then
   exit "$status"
 fi
 
-python - "$samples_per_target" "$task_expected_rows" "$generation_shards" "$output_dir" "$task_shard_count" "$task_shard_index" <<'PY'
+python - "$samples_per_target" "$task_expected_rows" "$generation_shards" "$output_dir" "$task_shard_count" "$task_shard_index" "$paper_condition" "$headline_eligible" "$evaluation_condition" "$inference_protocol" <<'PY'
 import hashlib
 import json
 from pathlib import Path
@@ -287,6 +314,7 @@ import sys
 k, expected, expected_shards = map(int, sys.argv[1:4])
 root = Path(sys.argv[4])
 task_shards, task_index = map(int, sys.argv[5:7])
+paper_condition, headline_eligible, condition_name, protocol = sys.argv[7:11]
 shards = sorted((root / "generation").glob("predictions.shard-*.jsonl"))
 if len(shards) != expected_shards:
     raise SystemExit(f"expected {expected_shards} shards, got {len(shards)}")
@@ -304,9 +332,11 @@ with output.open("w", encoding="utf-8") as handle:
     for row in rows:
         handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 manifest = {
-    "artifact_type": "flower_a7_compact_full_state_sampled_test_manifest",
-    "paper_condition": "A7",
-    "headline_eligible": True,
+    "artifact_type": "flower_trace_owned_compact_full_state_sampled_test_manifest",
+    "paper_condition": paper_condition,
+    "headline_eligible": headline_eligible == "1",
+    "condition_name": condition_name,
+    "protocol": protocol,
     "n_targets": len(rows),
     "samples_per_target": k,
     "n_candidates": len(rows) * k,
@@ -324,6 +354,6 @@ exec python scripts/evaluate_prediction_set.py \
   --reference "$selected_reference" \
   --predictions "$output_dir/predictions.jsonl" \
   --output "$output_dir/evaluation.json" \
-  --condition-name "flower_a7_compact_full_state_seed17_k${samples_per_target}" \
+  --condition-name "$evaluation_condition" \
   --expected-rows "$task_expected_rows" \
   --expected-candidates "$samples_per_target"

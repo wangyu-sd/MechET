@@ -83,6 +83,63 @@ def selected_directory_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def resolve_initial_adapter(
+    cfg: dict[str, Any],
+) -> tuple[Path | None, dict[str, Any] | None]:
+    """Resolve and validate an optional trainable PEFT warm start.
+
+    ``resume_from_checkpoint`` restores one interrupted run, whereas
+    ``initial_adapter_path`` starts a new run from a previously trained LoRA.
+    Keeping these two operations explicit prevents continuation experiments
+    from silently training a fresh adapter on the base model.
+    """
+
+    configured = str(cfg.get("initial_adapter_path") or "").strip()
+    overridden = os.environ.get("MECHET_INITIAL_ADAPTER_PATH", "").strip()
+    required = bool(cfg.get("require_initial_adapter", False))
+    selected = overridden or configured
+    if not selected:
+        if required:
+            raise ValueError(
+                "require_initial_adapter=true but initial_adapter_path is empty"
+            )
+        return None, None
+
+    path = Path(selected).expanduser()
+    required_files = ("adapter_config.json", "adapter_model.safetensors")
+    missing = [name for name in required_files if not (path / name).is_file()]
+    if missing:
+        raise FileNotFoundError(
+            f"initial adapter is incomplete at {path}: missing {missing}"
+        )
+
+    explicit_manifest = str(cfg.get("initial_adapter_manifest") or "").strip()
+    staged_manifest = path / "adapter_manifest.json"
+    manifest_path = (
+        staged_manifest
+        if staged_manifest.is_file()
+        else Path(explicit_manifest).expanduser()
+        if explicit_manifest
+        else None
+    )
+    if manifest_path is None or not manifest_path.is_file():
+        raise FileNotFoundError(
+            f"initial adapter manifest does not exist for {path}"
+        )
+    manifest = dict(json.loads(manifest_path.read_text(encoding="utf-8")))
+    if manifest.get("artifact_type") != "trainable_peft_adapter":
+        raise ValueError(f"invalid initial adapter manifest: {manifest_path}")
+
+    expected_hash = str(cfg.get("initial_adapter_sha256") or "").strip()
+    declared_hash = str(manifest.get("adapter_sha256") or "").strip()
+    if expected_hash and declared_hash != expected_hash:
+        raise ValueError(
+            "initial adapter hash mismatch: "
+            f"manifest={declared_hash or '<missing>'} expected={expected_hash}"
+        )
+    return path, {**manifest, "manifest_path": str(manifest_path)}
+
+
 def resolve_cached_arrow_files(
     cache_dir: Path, manifest_paths: list[str]
 ) -> list[str]:
@@ -633,6 +690,17 @@ def main() -> int:
             contract.get("real_overfit_smoke_test_required", False)
         ),
     }
+    initial_adapter_path, initial_adapter_manifest = resolve_initial_adapter(cfg)
+    report["initial_adapter"] = (
+        {
+            "path": str(initial_adapter_path),
+            "adapter_sha256": initial_adapter_manifest.get("adapter_sha256"),
+            "condition_name": initial_adapter_manifest.get("condition_name"),
+            "manifest_path": initial_adapter_manifest.get("manifest_path"),
+        }
+        if initial_adapter_path is not None and initial_adapter_manifest is not None
+        else None
+    )
     if report["upstream_endpoint_fallback_rows"] != expected_fallback_rows:
         raise ValueError(
             "upstream endpoint fallback count mismatch: "
@@ -647,6 +715,7 @@ def main() -> int:
         from datasets import Dataset, concatenate_datasets
         from peft import (
             LoraConfig,
+            PeftModel,
             get_peft_model,
             prepare_model_for_kbit_training,
         )
@@ -818,7 +887,16 @@ def main() -> int:
             use_gradient_checkpointing=gradient_checkpointing,
             gradient_checkpointing_kwargs={"use_reentrant": False},
         )
-    model = get_peft_model(model, peft_config)
+    if initial_adapter_path is not None:
+        model = PeftModel.from_pretrained(
+            model,
+            str(initial_adapter_path),
+            is_trainable=True,
+        )
+        report["initialization_mode"] = "trainable_peft_warm_start"
+    else:
+        model = get_peft_model(model, peft_config)
+        report["initialization_mode"] = "fresh_peft_adapter"
     if gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
@@ -907,6 +985,8 @@ def main() -> int:
         "use_liger_kernel": bool(training.get("use_liger_kernel", False)),
         "liger_kernel_config": dict(training.get("liger_kernel_config") or {}),
         "length_grouping": grouping,
+        "initialization_mode": report["initialization_mode"],
+        "initial_adapter": report["initial_adapter"],
     }
     (output / "data_contract.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
@@ -928,6 +1008,17 @@ def main() -> int:
         "executor_revision": report.get("executor_revision"),
         "seed": seed,
         "data_seed": data_seed,
+        "initialization_mode": report["initialization_mode"],
+        "initial_adapter_sha256": (
+            initial_adapter_manifest.get("adapter_sha256")
+            if initial_adapter_manifest is not None
+            else None
+        ),
+        "initial_adapter_condition": (
+            initial_adapter_manifest.get("condition_name")
+            if initial_adapter_manifest is not None
+            else None
+        ),
     }
     (output / "adapter_manifest.json").write_text(
         json.dumps(adapter_manifest, indent=2, ensure_ascii=False),
