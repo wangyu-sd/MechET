@@ -1,4 +1,4 @@
-condition_name: flower_a8_lite_state_reset_v1_qwen3_8b
+condition_name: flower_a8_lite_state_reset_v2_warm_start_qwen3_8b
 scientific_hypothesis: targeted_state_reset_continuation_reduces_long_horizon_history_drift
 model_name_or_path: Qwen/Qwen3-8B
 initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a100_20260826
@@ -10,7 +10,7 @@ validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_to
 test_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_compact_full_state_v1/test.jsonl
 pretokenized_cache_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_a8_lite_state_reset_v1/qwen3_8b_tokens_16384
 pretokenization_world_size: 8
-output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/tool_sft_flower_a8_lite_state_reset_qwen3_8b_a100_20260903
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/tool_sft_flower_a8_lite_state_reset_warm_start_qwen3_8b_a100_20260905
 limit_examples: 0
 
 environment:
@@ -67,7 +67,7 @@ lora:
 contract:
   paper_baseline_id: A8-Lite
   paper_method_name: mechet_state_reset_continuation
-  paper_run_role: targeted_A7_continuation_pilot
+  paper_run_role: targeted_A7_continuation_pilot_warm_start_fixed
   credited_main_method: false
   initialization_condition: flower_strict_compact_full_state_v1_qwen3_8b
   observation_contract: compact_full_state_v1

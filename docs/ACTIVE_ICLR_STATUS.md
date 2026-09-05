@@ -5,9 +5,18 @@
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-08-26.
+Last updated: 2026-09-05.
 
 ## A8-Lite targeted continuation pilot (2026-09-03)
+
+Correction on 2026-09-05: the `_02` launcher staged the A7 adapter, but the
+training entry point ignored `initial_adapter_path` and created a fresh LoRA on
+the base model. Consequently its adapter and both K=1 evaluations are
+**protocol-invalid** and must not be reported as A8. The entry point now loads
+the pinned A7 PEFT adapter as trainable weights and records initialization
+lineage in both `data_contract.json` and `adapter_manifest.json`. The corrected
+run uses a new output directory and task suffix `_03`; it must never resume an
+old `_02` checkpoint.
 
 The first low-cost A8 learning pilot is initialized from the completed
 compact-full-state A7 adapter at
@@ -17,7 +26,7 @@ continuations plus 10,000 disjoint complete expert anchors sampled only from
 the frozen FlowER train split.  This is a history-robust continuation pilot;
 it is not off-policy recovery from arbitrary erroneous chemical states.
 
-The active ordinary Qingyuan 8xA100 task is
+The old ordinary Qingyuan 8xA100 task was
 `meteor_mechet_a8_lite_state_reset_qwen3_8b_1ep_8a100_qy_20260903_02`
 (instance `8b1d80eba065f55b01a06652c10b00e8`).  It obtained a real POD, completed
 distributed pretokenization, launched eight `train_tool_sft.py` ranks, and all
@@ -29,7 +38,8 @@ main Ceph artifact directory.
 Validation uses all 2,890 strict validation reactions.  Any eventual test
 result must use all 28,967 strict executable test reactions with missing
 predictions counted as failures.  Looped-layer execution, value learning and
-off-policy recovery remain gated on this pilot and are not part of `_02`.
+off-policy recovery remain gated on the corrected warm-start pilot and are not
+part of it.
 
 ## What is already on `main`
 
