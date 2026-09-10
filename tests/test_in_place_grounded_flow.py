@@ -10,6 +10,7 @@ from mechet.in_place_grounded_flow import (
     convert_trace_row,
     deterministic_unmapped_state,
     encode_grounded_event,
+    mapped_state_signature,
 )
 
 
@@ -78,6 +79,16 @@ def test_marker_must_be_an_insertion_at_an_atom_boundary():
             marked_state=event.marked_state.replace("Br", "Cl"),
             flow=event.flow,
         )
+
+
+def test_mapped_state_signature_is_independent_of_serialization_and_component_order():
+    left = "[Cl-:3].[CH3:1][OH:2]"
+    right = "[OH:2][CH3:1].[Cl-:3]"
+    assert canonical_mapped_state(left) != canonical_mapped_state(right) or left != right
+    assert mapped_state_signature(left) == mapped_state_signature(right)
+    assert mapped_state_signature(left) != mapped_state_signature(
+        "[Cl:3].[CH3:1][O-:2]"
+    )
 
 
 def test_complete_trace_conversion_hides_maps_and_finishes_from_executor():
