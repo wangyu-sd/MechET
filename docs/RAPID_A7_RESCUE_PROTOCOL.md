@@ -102,6 +102,59 @@ when available and otherwise loads Qwen3-8B in native BF16 on A100. This keeps
 the frozen Taiji `meteor` environment runnable without installing packages at
 job startup or changing the evaluated adapter.
 
+### Observed checkpoint-lineage correction and first-use diagnostic
+
+The completed 1,019-event gold-prefix run used the legacy 2026-08-26
+`tool_sft_flower_compact_full_state_qwen3_8b_a100_20260826` adapter. That
+checkpoint was trained before first-use fragment scheduling and must not be
+used to judge the later interleaved-import representation. Its unconstrained
+greedy result was 455/1,019 exact events and 688/1,019 formally executable
+events. At depth one, 241/256 generations selected another `import_fragment`;
+this is a legacy stage-routing result, not evidence that the corrected
+first-use scheduler failed. This run also did not compute the required
+candidate Rank@1/2/4/8 and is therefore not the final Smoke-1 decision metric.
+
+A separate diagnostic used the corrected final first-use checkpoint at step
+4,019 (one epoch), trained on 257,167 rows with imports scheduled immediately
+before first electron use. It used the exact same seed-17 validation IDs as
+this protocol and product-only input. The user stopped the run at 225/256, so
+the retained artifact is explicitly partial and is not a benchmark result.
+The frozen partial counts were:
+
+- syntax valid: 225/225;
+- `finish()` present with EOS: 225/225;
+- more than 20 imports: 0/225; maximum imports: 11;
+- formal execution: 19/225 (8.44%);
+- full and neutralized endpoint exact: 0/225;
+- failure stage: 123 `locate`, 78 program/proof, 5 fragment import, 19
+  formally executable but endpoint-wrong;
+- dominant errors: 76 `MISSING_SITE`, 47 non-equivalent SMARTS ambiguities,
+  69 `STATE_ASSERTION_MISMATCH`, and 14 `INVALID_SMILES`.
+
+This separates two conclusions. First-use scheduling and termination are
+working at generation time: the previous runaway/import-stage behavior is not
+present. The remaining bottleneck is chemical grounding. The model authors a
+complete SMARTS query in a single uninterrupted program; a too-specific query
+misses the site, a broad query binds non-equivalent sites, and neither error is
+returned to the model before the rest of the program is generated. Predicted
+`state(...)` statements are assertions evaluated only after generation, not
+environment feedback, so one wrong binding or electron move invalidates the
+remaining suffix.
+
+The selected reference set itself has two retained runtime-sensitive state
+assertion failures (`flower_mech_proof_val_2377` and
+`flower_mech_proof_val_713`). They are not filtered and cap the local reference
+replay at 254/256 until symmetry/binding portability is repaired. This 0.78%
+reference issue is recorded separately and cannot explain the observed model
+failure rate.
+
+The next intervention must therefore isolate `locate`: compare the current
+free-form SMARTS authoring contract with executor-enumerated local site
+candidates while keeping the same product inputs, electron-event targets,
+checkpoint family and denominators. Do not attribute a gain from candidate
+enumeration to horizon rescue, and do not launch a full retraining run before
+the fixed validation smoke shows that local site coverage improves.
+
 ### Evaluation unit
 
 Evaluate every expert decision state `(X, S_t, a_t*)` from those 256 reactions.
