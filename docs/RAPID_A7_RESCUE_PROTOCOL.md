@@ -97,6 +97,11 @@ representation/runtime edge cases (0.59%) from blocking diagnosis of the much
 larger policy failure; it does not relabel those events as correct or remove
 them from later metrics.
 
+The evaluator treats NF4 as an optional acceleration: it uses bitsandbytes
+when available and otherwise loads Qwen3-8B in native BF16 on A100. This keeps
+the frozen Taiji `meteor` environment runnable without installing packages at
+job startup or changing the evaluated adapter.
+
 ### Evaluation unit
 
 Evaluate every expert decision state `(X, S_t, a_t*)` from those 256 reactions.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter, defaultdict
 import hashlib
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -46,6 +47,15 @@ def distributed_coordinates() -> tuple[int, int, int]:
     if not 0 <= rank < world:
         raise ValueError("invalid rank/world-size")
     return rank, world, local_rank
+
+
+def nf4_available() -> tuple[bool, str]:
+    """Return whether the optional bitsandbytes NF4 backend is installed."""
+    try:
+        version = importlib.metadata.version("bitsandbytes")
+    except importlib.metadata.PackageNotFoundError:
+        return False, "bitsandbytes-not-installed"
+    return True, f"bitsandbytes-{version}"
 
 
 def collect_tasks(rows: list[dict]) -> list[dict]:
@@ -107,19 +117,27 @@ def run(args: argparse.Namespace) -> int:
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
     dtype = torch.bfloat16 if torch.cuda.get_device_capability(local_rank)[0] >= 8 else torch.float16
-    base = AutoModelForCausalLM.from_pretrained(
-        args.model,
-        trust_remote_code=True,
-        torch_dtype=dtype,
-        device_map={"": local_rank},
-        attn_implementation="sdpa",
-        quantization_config=BitsAndBytesConfig(
+    has_nf4, load_backend = nf4_available()
+    model_kwargs = {
+        "trust_remote_code": True,
+        "torch_dtype": dtype,
+        "device_map": {"": local_rank},
+        "attn_implementation": "sdpa",
+    }
+    if has_nf4:
+        model_kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
             bnb_4bit_compute_dtype=dtype,
-        ),
+        )
+    else:
+        load_backend = f"{str(dtype).removeprefix('torch.')}-unquantized ({load_backend})"
+    print(
+        f"[meteor-a7-local] rank={rank}/{world} model_load={load_backend}",
+        flush=True,
     )
+    base = AutoModelForCausalLM.from_pretrained(args.model, **model_kwargs)
     model = PeftModel.from_pretrained(base, args.adapter, is_trainable=False).eval()
     device = next(model.parameters()).device
     print(
