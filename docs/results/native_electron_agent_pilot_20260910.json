@@ -1,0 +1,88 @@
+{
+  "artifact_type": "development_diagnostic_summary",
+  "created_at": "2026-09-10",
+  "claim_boundary": "Previously inspected validation samples; not a held-out benchmark result.",
+  "conditions": [
+    {
+      "name": "counted_state_sft_checkpoint2500_one_shot",
+      "artifact": "outputs/eval/first_use_valid16_ckpt2500_k1_nf4_v100_20260910/evaluation.json",
+      "artifact_sha256": "e6cf0325168aad43e2fb1da1881e62c50fbe902a41912f18bbfe75e3fba59700",
+      "n": 16,
+      "k": 1,
+      "checkpoint_step": 2500,
+      "checkpoint_epoch": 0.6221613887,
+      "syntax_valid": 16,
+      "finish_present": 16,
+      "length_capped": 0,
+      "formal_execute": 1,
+      "full_exact": 0,
+      "neutralized_exact": 0,
+      "failure_counts": {
+        "MISSING_SITE": 5,
+        "STATE_ASSERTION_MISMATCH": 5
+      },
+      "diagnostic": {
+        "state_assertions_ignored": 5,
+        "rescued": 0,
+        "failed_before_first_electron_step": 8,
+        "failed_after_first_electron_step": 7,
+        "executed_wrong_endpoint": 1
+      }
+    },
+    {
+      "name": "original_qwen_native_tools_thinking_v2",
+      "artifact": "outputs/eval/native_qwen_electron_agent_valid4_20260910_v2",
+      "prediction_sha256": "63889cd8c6ecef2daf416d31508efa6276788d449f162caf32927152b7752846",
+      "planned": 4,
+      "completed": 3,
+      "submitted": 1,
+      "accepted_step_episodes": 1,
+      "full_exact_observed": 0,
+      "status": "stopped_before_completion"
+    },
+    {
+      "name": "original_qwen_native_tools_nonthinking_v3",
+      "artifact": "outputs/eval/native_qwen_electron_agent_valid4_20260910_v3_nonthinking/evaluation.json",
+      "artifact_sha256": "429ed7ba6d527c012cc1a93d567f25bcc408c72d05c6924fad41f6649eb93778",
+      "planned": 4,
+      "completed": 4,
+      "submitted": 0,
+      "accepted_step_episodes": 0,
+      "full_exact": 0,
+      "neutralized_exact": 0,
+      "generated_tokens": 3661,
+      "turns": 96,
+      "tool_calls": {
+        "inspect": 44,
+        "apply_step": 32,
+        "undo_step": 10,
+        "import_fragment": 8,
+        "finish": 2
+      },
+      "failed_tool_calls": 39,
+      "dominant_error": {
+        "code": "SOURCE_HAS_NO_ELECTRON_PAIR",
+        "count": 16
+      },
+      "stop_reasons": {
+        "turn_budget": 4
+      }
+    }
+  ],
+  "active_training_snapshot": {
+    "task": "meteor_mechet_first_use_state_sft_1ep_8v100_cuda11_cq_20260909_01",
+    "status_at_capture": "running",
+    "step": 3500,
+    "total_steps": 4019,
+    "epoch": 0.8710259441,
+    "recent_loss": 0.077,
+    "train_tokens_per_second": 4109.243,
+    "data_universe": {
+      "name": "current_executable_universe",
+      "train": 257167,
+      "valid": 2890,
+      "test": 28967,
+      "warning": "This is not unqualified FlowER full. FlowER full is 257171/2890/28971."
+    }
+  }
+}

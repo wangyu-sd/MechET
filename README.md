@@ -498,4 +498,5 @@ data, compute, inference, multi-seed and frozen-evaluation contracts pass.
 | [`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md) | mech-USPTO source identity, inverse v2 protocol, coverage, validation, and reproduction commands |
 | [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) | H2 execution-primitive signatures and composition splits |
 | [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) | Future textbook/RAG evidence conditions and interventions |
+| [`docs/NATIVE_ELECTRON_AGENT.md`](docs/NATIVE_ELECTRON_AGENT.md) | Gold-free native tool-loop pilot, reproduction, and development diagnostics |
 | [`docs/README.md`](docs/README.md) | Documentation authority map and reading paths |
