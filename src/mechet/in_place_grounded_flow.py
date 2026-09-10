@@ -60,6 +60,53 @@ def mapped_atom_numbers(smiles: str) -> set[int]:
     return {int(atom.GetAtomMapNum()) for atom in _mapped_mol(smiles).GetAtoms()}
 
 
+def mapped_state_signature(smiles: str) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
+    """Return an atom-map-indexed chemical graph signature.
+
+    Canonical mapped SMILES are a serialization, not an equality predicate:
+    equivalent mapped graphs can serialize differently across RDKit releases or
+    after fragments are combined in a different order.  The in-place compiler
+    deliberately reschedules imports, so its endpoint gate compares the actual
+    mapped atom/bond state instead of comparing two serializer outputs.
+    """
+
+    mol = _mapped_mol(smiles)
+    atoms = tuple(
+        sorted(
+            (
+                int(atom.GetAtomMapNum()),
+                int(atom.GetAtomicNum()),
+                int(atom.GetIsotope()),
+                int(atom.GetFormalCharge()),
+                int(atom.GetNumRadicalElectrons()),
+                int(atom.GetTotalNumHs(includeNeighbors=False)),
+                bool(atom.GetIsAromatic()),
+                int(atom.GetChiralTag()),
+            )
+            for atom in mol.GetAtoms()
+        )
+    )
+    bonds = tuple(
+        sorted(
+            (
+                min(
+                    int(bond.GetBeginAtom().GetAtomMapNum()),
+                    int(bond.GetEndAtom().GetAtomMapNum()),
+                ),
+                max(
+                    int(bond.GetBeginAtom().GetAtomMapNum()),
+                    int(bond.GetEndAtom().GetAtomMapNum()),
+                ),
+                str(bond.GetBondType()),
+                bool(bond.GetIsAromatic()),
+                int(bond.GetStereo()),
+            )
+            for bond in mol.GetBonds()
+        )
+    )
+    return atoms, bonds
+
+
 def atom_token_spans(smiles: str) -> tuple[tuple[int, int], ...]:
     """Return atom-token spans without treating bracket contents as atoms."""
 
@@ -509,7 +556,7 @@ def convert_trace_row(row: Mapping[str, Any]) -> dict[str, Any]:
         )
         current = successor
 
-    if canonical_mapped_state(current) != canonical_mapped_state(expected):
+    if mapped_state_signature(current) != mapped_state_signature(expected):
         raise ValueError(f"{identifier}: final endpoint mismatch after rescheduled replay")
     finish_id = "finish_trace"
     messages.extend(

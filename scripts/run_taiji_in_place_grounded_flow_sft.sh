@@ -36,13 +36,14 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export TORCHINDUCTOR_COMPILE_THREADS=1
 
 python - <<'PY'
+import rdkit
 import torch
 if torch.cuda.device_count() != 8:
     raise SystemExit(f"expected 8 GPUs, got {torch.cuda.device_count()}")
 names=[torch.cuda.get_device_name(i) for i in range(8)]
 if not all('A100' in name.upper() for name in names):
     raise SystemExit(f"expected A100 GPUs, got {names}")
-print({'gpus': names}, flush=True)
+print({'gpus': names, 'rdkit_version': rdkit.__version__}, flush=True)
 PY
 
 python - "$source_dir" <<'PY'
