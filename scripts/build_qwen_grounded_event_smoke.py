@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 import json
 from pathlib import Path
 import sys
@@ -18,6 +19,19 @@ def read_jsonl(path: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
+def build_one(payload: tuple[dict, int, int, int]) -> tuple[dict | None, str | None]:
+    row, event_index, seed, max_candidates = payload
+    try:
+        return grounded_event_task(
+            row,
+            event_index,
+            seed=seed,
+            max_candidates=max_candidates,
+        ), None
+    except Exception as exc:
+        return None, type(exc).__name__ + ":" + str(exc)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", type=Path, required=True)
@@ -26,34 +40,47 @@ def main() -> int:
     parser.add_argument("--max-candidates", type=int, default=8)
     parser.add_argument("--minimum-candidates", type=int, default=2)
     parser.add_argument("--limit-events", type=int, default=0)
+    parser.add_argument("--workers", type=int, default=1)
     args = parser.parse_args()
 
     rows = read_jsonl(args.data)
-    tasks: list[dict] = []
-    excluded: Counter[str] = Counter()
-    attempted = 0
+    payloads: list[tuple[dict, int, int, int]] = []
     for row in rows:
         steps = list(((row.get("metadata") or {}).get("trace_plan") or {}).get("steps") or [])
         for event_index in range(len(steps)):
-            if args.limit_events and attempted >= args.limit_events:
+            if args.limit_events and len(payloads) >= args.limit_events:
                 break
-            attempted += 1
-            try:
-                task = grounded_event_task(
-                    row,
-                    event_index,
-                    seed=args.seed,
-                    max_candidates=args.max_candidates,
-                )
-            except Exception as exc:
-                excluded[type(exc).__name__ + ":" + str(exc)] += 1
-                continue
-            if int(task["candidate_count"]) < args.minimum_candidates:
-                excluded["INSUFFICIENT_EXECUTABLE_NEGATIVES"] += 1
-                continue
-            tasks.append(task)
-        if args.limit_events and attempted >= args.limit_events:
+            payloads.append((row, event_index, args.seed, args.max_candidates))
+        if args.limit_events and len(payloads) >= args.limit_events:
             break
+
+    tasks: list[dict] = []
+    excluded: Counter[str] = Counter()
+    attempted = len(payloads)
+    if args.workers < 1:
+        raise ValueError("workers must be positive")
+    if args.workers == 1:
+        results = map(build_one, payloads)
+        executor = None
+    else:
+        executor = ProcessPoolExecutor(max_workers=args.workers)
+        results = executor.map(build_one, payloads, chunksize=1)
+    try:
+        for index, (task, error) in enumerate(results, 1):
+            if error:
+                excluded[error] += 1
+            elif task is not None and int(task["candidate_count"]) >= args.minimum_candidates:
+                tasks.append(task)
+            else:
+                excluded["INSUFFICIENT_EXECUTABLE_NEGATIVES"] += 1
+            if index % 25 == 0 or index == attempted:
+                print(
+                    f"[grounded-event-build] completed={index}/{attempted} eligible={len(tasks)}",
+                    flush=True,
+                )
+    finally:
+        if executor is not None:
+            executor.shutdown()
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

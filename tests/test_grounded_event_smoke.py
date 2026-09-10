@@ -1,4 +1,5 @@
 from mechet.grounded_event_smoke import (
+    executable_event_candidates,
     event_descriptor,
     render_grounded_event_prompt,
     state_with_imports,
@@ -43,6 +44,17 @@ def test_event_description_preserves_directed_electron_flow_without_map_ids() ->
     assert "LP on Br" in text
     assert "BOND pair" in text
     assert ":1]" not in text and ":2]" not in text and ":3]" not in text
+
+
+def test_candidate_generation_handles_containers_on_the_gold_center() -> None:
+    state = "[Br-:3].[CH3:1][OH:2]"
+    candidates, gold_successor = executable_event_candidates(
+        state=state,
+        gold_moves=invert_moves(_sn2_forward_moves()),
+        max_candidates=4,
+    )
+    assert candidates[0]["is_gold"]
+    assert candidates[0]["successor"] == gold_successor
 
 
 def test_prompt_contains_only_randomized_event_labels_not_private_moves() -> None:

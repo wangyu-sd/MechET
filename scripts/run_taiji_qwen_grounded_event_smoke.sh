@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
+artifact_root=${MECHET_GROUNDED_ARTIFACT_ROOT:-/aaa/fionafyang/buddy1/whaleywang/MechET}
+repo_dir=${MECHET_GROUNDED_RUNTIME_DIR:-$artifact_root}
 model_source=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
-selected_rows=${MECHET_SMOKE_ROWS:-$repo_dir/outputs/gates/rapid_a7_rescue_20260910/selected_rows.jsonl}
-run_dir=${MECHET_GROUNDED_EVENT_RUN_DIR:-$repo_dir/outputs/eval/qwen3_8b_grounded_event_smoke_20260910}
+selected_rows=${MECHET_SMOKE_ROWS:-$artifact_root/outputs/gates/rapid_a7_rescue_20260910/selected_rows.jsonl}
+run_dir=${MECHET_GROUNDED_EVENT_RUN_DIR:-$artifact_root/outputs/eval/qwen3_8b_grounded_event_smoke_20260910}
 tasks=$run_dir/tasks.jsonl
 predictions=$run_dir/predictions
 
@@ -33,7 +34,8 @@ python scripts/build_qwen_grounded_event_smoke.py \
   --output "$tasks" \
   --seed 17 \
   --max-candidates 8 \
-  --minimum-candidates 2
+  --minimum-candidates 2 \
+  --workers "${MECHET_GROUNDED_BUILD_WORKERS:-16}"
 
 # Pure-Qwen means exactly the frozen base checkpoint: no LoRA/PEFT adapter is
 # loaded anywhere in this launcher or evaluator.

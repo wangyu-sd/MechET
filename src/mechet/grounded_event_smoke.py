@@ -95,8 +95,10 @@ def _bond_name(bond: Chem.Bond | None) -> str:
     return str(bond.GetBondType())
 
 
-def _atom_descriptor(mol: Chem.Mol, atom_map: int) -> str:
-    indices = _map_index(mol)
+def _atom_descriptor(
+    mol: Chem.Mol, atom_map: int, indices: Mapping[int, int] | None = None
+) -> str:
+    indices = dict(indices) if indices is not None else _map_index(mol)
     if atom_map not in indices:
         return "missing-atom"
     atom = mol.GetAtomWithIdx(indices[atom_map])
@@ -123,15 +125,17 @@ def _atom_descriptor(mol: Chem.Mol, atom_map: int) -> str:
     )
 
 
-def container_descriptor(smiles: str, container: ElectronContainer) -> str:
-    mol = _mol(smiles)
+def _container_descriptor(
+    mol: Chem.Mol,
+    indices: Mapping[int, int],
+    container: ElectronContainer,
+) -> str:
     if len(container.atoms) == 1:
-        atom = _atom_descriptor(mol, int(container.atoms[0]))
+        atom = _atom_descriptor(mol, int(container.atoms[0]), indices)
         return f"{container.kind} on {atom}"
     left, right = (int(container.atoms[0]), int(container.atoms[1]))
-    indices = _map_index(mol)
-    left_desc = _atom_descriptor(mol, left)
-    right_desc = _atom_descriptor(mol, right)
+    left_desc = _atom_descriptor(mol, left, indices)
+    right_desc = _atom_descriptor(mol, right, indices)
     bond = None
     if left in indices and right in indices:
         bond = mol.GetBondBetweenAtoms(indices[left], indices[right])
@@ -141,14 +145,21 @@ def container_descriptor(smiles: str, container: ElectronContainer) -> str:
     )
 
 
+def container_descriptor(smiles: str, container: ElectronContainer) -> str:
+    mol = _mol(smiles)
+    return _container_descriptor(mol, _map_index(mol), container)
+
+
 def event_descriptor(smiles: str, moves: Sequence[Mapping[str, Any]]) -> str:
+    mol = _mol(smiles)
+    indices = _map_index(mol)
     lines = []
     for index, raw in enumerate(moves, 1):
         if raw.get("mode") == "BE_DELTA":
             raise ValueError("BE_DELTA is outside the grounded-event smoke")
         move = ElectronMove.parse(raw)
-        source = container_descriptor(smiles, move.source)
-        sink = container_descriptor(smiles, move.sink)
+        source = _container_descriptor(mol, indices, move.source)
+        sink = _container_descriptor(mol, indices, move.sink)
         lines.append(f"move {index}: {source}  ->  {sink}")
     return "\n".join(lines)
 
@@ -158,15 +169,21 @@ def _signature(container: ElectronContainer) -> tuple[str, int]:
 
 
 def _distance_to_center(
-    mol: Chem.Mol, container: ElectronContainer, center_maps: set[int]
+    mol: Chem.Mol,
+    container: ElectronContainer,
+    center_maps: set[int],
+    indices: Mapping[int, int] | None = None,
 ) -> int:
-    indices = _map_index(mol)
+    indices = dict(indices) if indices is not None else _map_index(mol)
     best = 10**6
     for atom_map in container.atoms:
         if atom_map not in indices:
             continue
         for center in center_maps:
             if center not in indices:
+                continue
+            if int(atom_map) == int(center):
+                best = 0
                 continue
             path = Chem.GetShortestPath(mol, indices[int(atom_map)], indices[int(center)])
             if path:
@@ -218,6 +235,11 @@ def executable_event_candidates(
 
     sources, sinks = executor_candidate_containers(state)
     mol = _mol(state)
+    indices = _map_index(mol)
+    descriptions = {
+        item: _container_descriptor(mol, indices, item)
+        for item in set(sources) | set(sinks)
+    }
     center_maps = {
         int(atom_map)
         for move in parsed
@@ -230,8 +252,8 @@ def executable_event_candidates(
             sorted(
                 [item for item in sources if _signature(item) == _signature(move.source)],
                 key=lambda item: (
-                    _distance_to_center(mol, item, center_maps),
-                    container_descriptor(state, item),
+                    _distance_to_center(mol, item, center_maps, indices),
+                    descriptions[item],
                 ),
             )
         )
@@ -239,8 +261,8 @@ def executable_event_candidates(
             sorted(
                 [item for item in sinks if _signature(item) == _signature(move.sink)],
                 key=lambda item: (
-                    _distance_to_center(mol, item, center_maps),
-                    container_descriptor(state, item),
+                    _distance_to_center(mol, item, center_maps, indices),
+                    descriptions[item],
                 ),
             )
         )
