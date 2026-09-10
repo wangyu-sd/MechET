@@ -10,6 +10,7 @@ output_dir=$shared_repo/data/flower_in_place_grounded_flow_v1
 liger_wheel=$shared_repo/artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl
 xformers_wheel=$shared_repo/artifacts/wheels/xformers-0.0.29.post3-cp311-cp311-manylinux_2_28_x86_64.whl
 bitsandbytes_wheel=$shared_repo/artifacts/wheels/bitsandbytes-0.49.2-py3-none-manylinux_2_24_x86_64.whl
+rdkit_wheel=$shared_repo/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl
 
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -21,10 +22,11 @@ test -f "$source_dir/train.jsonl"
 echo "303b9bbf5c10f9289c3139afb41e4d989e8c809516624a106b89b064163d971d  $liger_wheel" | sha256sum --check --strict
 echo "bbf2f500dfdbcf4649bf568cc2c9f434399f704dc4064fd1fbdbef2b524a8139  $xformers_wheel" | sha256sum --check --strict
 echo "54b771f06e1a3c73af5c7f16ccf0fc23a846052813d4b008d10cb6e017dd1c8c  $bitsandbytes_wheel" | sha256sum --check --strict
+echo "a41dde42ecb24e7d93d62b89e8e5d267b02bbac764f965f3968296c99234c685  $rdkit_wheel" | sha256sum --check --strict
 
 runtime_target=$(mktemp -d /tmp/mechet_in_place_runtime.XXXXXX)
 python -m pip install --quiet --no-deps --target "$runtime_target" \
-  "$liger_wheel" "$xformers_wheel" "$bitsandbytes_wheel"
+  "$liger_wheel" "$xformers_wheel" "$bitsandbytes_wheel" "$rdkit_wheel"
 
 export HF_HUB_CACHE=$shared_hf_cache
 export HF_HUB_OFFLINE=1
