@@ -231,3 +231,33 @@ The first-order success criterion is therefore not model accuracy but representa
 \]
 
 Only after that contract is established should this representation replace the current SMARTS/address-based interface in a learned MechET condition.
+
+## 13. Implementation and launch gate
+
+The first implementation keeps the representation exploratory and does not
+retroactively rename the frozen A7 condition:
+
+- `src/mechet/in_place_grounded_flow.py` implements deterministic unmapped
+  serialization, insertion-only role binding, compact FLOW/DELTA compilation,
+  first-use import scheduling and exact executor round trips;
+- `scripts/build_in_place_grounded_flow_sft.py` converts the complete strict
+  executable universe and fails closed on any row, source-hash, split-overlap,
+  move, successor, endpoint or map-visibility mismatch;
+- `configs/agent/in_place_grounded_flow_qwen3_8b_a100.yaml` defines a one-epoch
+  Qwen3-8B assistant-only QLoRA pilot;
+- `scripts/run_taiji_in_place_grounded_flow_sft.sh` builds, audits and tokenizes
+  before starting the optimizer. A failed representation or denominator gate
+  terminates the task rather than training a filtered subset.
+
+The fixed 256-row-per-split implementation smoke converted 768 reactions and
+3,003 elementary events, including nine executor-native `BE_DELTA` events, with
+zero round-trip, successor, endpoint or map-visibility failures. Compact FLOW
+text used 6.19% as many characters as the corresponding legacy move JSON in
+this smoke; marked-state cost is reported separately rather than hidden in that
+ratio. The maximum Qwen chat-template length in the 256-row training slice was
+3,381 tokens, and no row lacked supervised assistant tokens.
+
+A real one-step Qwen3-8B QLoRA optimizer smoke completed on a local T4 with
+finite loss (`1.6141`) and 4,549 input tokens seen. The submitted A100 job must
+still pass the complete **257,167 / 2,890 / 28,967** build and token audit before
+the one-epoch training phase is allowed to start.
