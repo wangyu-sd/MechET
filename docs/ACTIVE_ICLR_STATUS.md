@@ -5,7 +5,26 @@
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-08-26.
+Last updated: 2026-09-11.
+
+## 2026-09-11: grounded-event stage decision
+
+PR #51 is merged. The first-use partial validation removed repeated-import and
+termination failures but reached only 19/225 strict executions and 0/225 endpoint
+exact matches; site grounding is the remaining bottleneck. The pure-Qwen A--H
+gold-derived candidate smoke retained 982/1,019 events and achieved 24.03%
+Top-1 versus a 23.47% random reference, with a severe `A` label prior. It is a
+representation diagnostic, not product-only inference or endpoint evidence.
+
+The next preferred hypothesis is an address-free lifted electron-flow program
+grounded by a deterministic graph/CSP solver. No new full training follows from
+this note. First run the model-free coverage, grounding-recall, ambiguity,
+symmetry, length and runtime gate on the strict executable
+257,167/2,890/28,967 condition without replacing the FlowER-full denominator.
+See [`GROUNDED_EVENT_STAGE_RESULTS_AND_IDEAS.md`](GROUNDED_EVENT_STAGE_RESULTS_AND_IDEAS.md).
+This is a new research gate, not a retroactive relabeling of A7; the paper's
+current A7 observation choice remains `compact_full_state` unless its frozen
+protocol is separately revised.
 
 ## What is already on `main`
 

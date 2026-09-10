@@ -499,4 +499,5 @@ data, compute, inference, multi-seed and frozen-evaluation contracts pass.
 | [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) | H2 execution-primitive signatures and composition splits |
 | [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) | Future textbook/RAG evidence conditions and interventions |
 | [`docs/NATIVE_ELECTRON_AGENT.md`](docs/NATIVE_ELECTRON_AGENT.md) | Gold-free native tool-loop pilot, reproduction, and development diagnostics |
+| [`docs/GROUNDED_EVENT_STAGE_RESULTS_AND_IDEAS.md`](docs/GROUNDED_EVENT_STAGE_RESULTS_AND_IDEAS.md) | Grounding-stage evidence, rejected directions, lifted-program hypothesis, and the next model-free gate |
 | [`docs/README.md`](docs/README.md) | Documentation authority map and reading paths |
