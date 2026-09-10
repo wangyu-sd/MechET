@@ -72,6 +72,31 @@ Use **256 validation reactions**, selected deterministically and stratified by e
 
 Do not use test reactions.
 
+### Frozen execution snapshot (2026-09-10)
+
+The model-free gate has started on the compact-full-state validation lineage.
+The seed-17 selection contains 86 short, 85 medium and 85 long reactions: 256
+reactions, 1,019 mechanism events and 2,078 electron moves. The selected-ID
+manifest SHA-256 is
+`599bcc59d819f53ca3d863cffb0ecbf139291acfe1b985b97910c1167527df63`;
+the complete selected-row file SHA-256 is
+`d16405259dd60bc6ef6f73fd5a3551827ef2b2ec672380887a09b0e6957d9f8a`.
+
+All 256 supervised conversations align with their authoritative trace events.
+The historical model-visible `inspect_state` inventory covers 959/1,019 gold
+events. A rescue-only executor-aligned inventory covers all 1,019, exposing a
+previously hidden observation mismatch rather than silently changing old
+checkpoint inputs. Exact executor replay plus authoritative-successor equality
+passes for 1,013/1,019 events (99.41%). The six retained failures are three
+BE-DELTA events with missing explicit-H maps and three aromatic successor
+mismatches. They remain in every denominator and count as misses.
+
+The preregistered model-free promotion threshold is 99.0% event coverage, so
+the K=1 F-oracle model diagnostic proceeds. This tolerance prevents six known
+representation/runtime edge cases (0.59%) from blocking diagnosis of the much
+larger policy failure; it does not relabel those events as correct or remove
+them from later metrics.
+
 ### Evaluation unit
 
 Evaluate every expert decision state `(X, S_t, a_t*)` from those 256 reactions.
@@ -84,13 +109,16 @@ For each state:
 4. score each legal action using the **current checkpoint** without changing model weights;
 5. report the rank of the gold action.
 
-The first invariant is:
+The executor/data-contract invariant is evaluated under **F-oracle**:
 
 \[
-\text{GoldLegalCoverage} \approx 100\%.
+\text{GoldLegalCoverage}_{F\text{-oracle}} \approx 100\%.
 \]
 
-If this fails, stop: the executor/data contract is still wrong and no new training should be launched.
+If this fails, stop: the executor/data contract is still wrong and no new
+training should be launched. Under **F-current**, report gold-action coverage
+separately as the fragment-selection diagnostic; do not treat missing
+expert-required fragments there as an executor/data-contract failure.
 
 ### Required metrics
 
@@ -127,7 +155,9 @@ Do not interpret F-oracle as a model result. It is only a diagnostic.
 
 ### Decision rule
 
-The useful quantity for long-horizon rescue is Rank@4. With an average mechanism-level horizon near four, a per-event retention probability around 0.84 is needed for an idealized 50% whole-trajectory survival rate:
+The useful quantity for greedy long-horizon survival is **Rank@1**. With an
+average mechanism-level horizon near four, a per-event top-1 probability around
+0.84 is needed for an idealized 50% whole-trajectory survival rate:
 
 \[
 0.5^{1/4.05}\approx0.84.
@@ -135,9 +165,17 @@ The useful quantity for long-horizon rescue is Rank@4. With an average mechanism
 
 Therefore:
 
-- **Rank@4 >= 85% on F-oracle**: local chemistry is sufficiently present; prioritize search/horizon rescue.
-- **Rank@4 < 85% on F-oracle**: local policy itself is inadequate; train a structured event/action policy before doing search.
-- **F-oracle high but F-current drops >10 percentage points**: fragment prediction is a major bottleneck and must be separated from electron-action prediction.
+- **Rank@1 >= 85% on F-oracle**: the greedy local policy is sufficiently strong;
+  prioritize horizon rescue.
+- **Rank@1 < 85% but Rank@4 >= 85% on F-oracle**: candidate coverage is
+  strong but ordering is weak. A `B=4` beam is a useful diagnostic, but this is
+  not evidence that the greedy policy is locally strong; structured ranking
+  remains the training route unless beam improves the closed-loop endpoint.
+- **Rank@4 < 85% on F-oracle**: local candidate scoring itself is inadequate;
+  train a structured event/action policy before doing search.
+- **F-oracle high but F-current drops >10 percentage points at the same K**:
+  fragment prediction is a major bottleneck and must be separated from
+  electron-action prediction.
 
 This one smoke decides the next experiment. Do not launch several alternatives in parallel.
 
@@ -169,15 +207,20 @@ If `p_t` is strong at every gold state but closed-loop success collapses, exposu
 
 ### B. Gold-prefix / free-suffix intervention
 
-For each trajectory, force the first `k` expert mechanism events through the executor, then let the model continue freely.
+For each trajectory, let `T_event` be its number of expert mechanism events.
+Force the first `k_event` expert events through the executor, then let the model
+continue freely. `T_move`, the number of individual electron moves, is recorded
+separately and is never used to choose an event prefix.
 
 Use:
 
-- `k=0`;
-- `k=1`;
-- `k=2`;
-- `k=floor(T/2)`;
-- `k=T-1`.
+- `k_event=0`;
+- `k_event=1`;
+- `k_event=2` when `T_event >= 3`;
+- `k_event=floor(T_event/2)`;
+- `k_event=T_event-1`.
+
+Deduplicate repeated values for short trajectories.
 
 Report final structural endpoint success after each intervention.
 
@@ -185,8 +228,10 @@ Interpretation:
 
 - a large jump from `k=0` to `k=1` means early irreversible commitment dominates;
 - gradual improvement with larger `k` means errors are distributed across the whole trajectory;
-- high `k=T-1` but poor free rollout means the final local decision is learnable but compounding is severe;
-- poor `k=T-1` means local action prediction remains weak even without long history.
+- high `k_event=T_event-1` but poor free rollout means the final local decision
+  is learnable but compounding is severe;
+- poor `k_event=T_event-1` means local action prediction remains weak even
+  without long history.
 
 This is the cleanest causal smoke for the long-horizon hypothesis and requires no new training.
 
@@ -230,7 +275,9 @@ If this gate passes, use mechanism events as the next A7 action unit. This prese
 
 ## 5. Rescue route A — if local Rank@4 is already high
 
-If Smoke 1 gives F-oracle Rank@4 >=85%, do **not** retrain immediately.
+If Smoke 1 gives F-oracle Rank@1 >=85%, or Rank@4 >=85% with a material
+Rank@1--Rank@4 gap, do **not** retrain immediately. In the second case the beam
+is explicitly an ordering diagnostic, not evidence of a strong greedy policy.
 
 Run a minimal executor-guided state beam on validation:
 
@@ -378,7 +425,7 @@ Current checkpoint
     v
 Smoke 1: gold-state legal-action/event ranking
     |
-    +-- GoldLegalCoverage < ~100%
+    +-- GoldLegalCoverage_F-oracle < ~100%
     |       -> data/executor bug; stop training
     |
     +-- F-oracle Rank@4 < 85%
@@ -390,7 +437,11 @@ Smoke 1: gold-state legal-action/event ranking
             +-- F-current drops >10 pp
             |       -> fix/separate fragment selection first
             |
-            +-- otherwise
+            +-- Rank@1 < 85%
+            |       -> B=4 ordering diagnostic
+            |       -> structured ranking unless endpoints improve
+            |
+            +-- Rank@1 >= 85%
                     -> Smoke 2 horizon intervention
                     -> event-level horizon compression
                     -> B=2/4 executor-guided beam
@@ -403,7 +454,9 @@ Then:
     -> 256 smoke improves
     -> full 2,890 validation improves
     -> one full FlowER training epoch
-    -> full 28,971 endpoint evaluation
+    -> strict A7 headline evaluation on all 28,967 eligible test rows
+    -> separate 28,971 full-endpoint coverage report, counting the four
+       non-eligible upstream-corrupt rows as missing/failures
     -> only then port the identical protocol to mech-USPTO
 ```
 
