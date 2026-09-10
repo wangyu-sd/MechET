@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import argparse
-from collections import Counter, defaultdict
 import json
-import math
 import os
 from pathlib import Path
 import sys
@@ -35,10 +33,7 @@ def render_chat(tokenizer, system: str, user: str) -> str:
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
-    kwargs = {
-        "tokenize": False,
-        "add_generation_prompt": True,
-    }
+    kwargs = {"tokenize": False, "add_generation_prompt": True}
     try:
         return tokenizer.apply_chat_template(
             messages,
@@ -51,7 +46,6 @@ def render_chat(tokenizer, system: str, user: str) -> str:
 
 def score_labels(model, tokenizer, prompt: str, labels: list[str], device) -> dict[str, float]:
     """Return conditional log probability for each randomized option label."""
-
     import torch
 
     prompt_ids = tokenizer(prompt, add_special_tokens=False, return_tensors="pt")[
@@ -62,8 +56,6 @@ def score_labels(model, tokenizer, prompt: str, labels: list[str], device) -> di
     }
     scores: dict[str, float] = {}
 
-    # Qwen tokenizes A--H as single tokens in the intended runtime. Keep a
-    # sequence fallback so the evaluation remains tokenizer-correct.
     if all(len(ids) == 1 for ids in label_ids.values()):
         ids = prompt_ids.unsqueeze(0).to(device)
         with torch.inference_mode():
