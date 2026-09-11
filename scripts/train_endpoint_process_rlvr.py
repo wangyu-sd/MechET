@@ -48,6 +48,16 @@ def read_jsonl(path: Path, *, limit: int = 0) -> list[dict[str, Any]]:
     return rows
 
 
+def rank_shard_path(pattern: str, *, rank: int, world_size: int) -> Path:
+    """Resolve an explicit rank-local shard without silently sharing rows."""
+
+    if "{rank" not in pattern:
+        raise ValueError("train_file_pattern must contain a {rank} placeholder")
+    rendered = pattern.format(rank=rank, world_size=world_size)
+    value = Path(rendered)
+    return value if value.is_absolute() else REPO / value
+
+
 def unwrap(model: Any) -> Any:
     return model.module if hasattr(model, "module") else model
 
@@ -332,6 +342,44 @@ def save_actor(model: Any, tokenizer: Any, directory: Path) -> None:
     tokenizer.save_pretrained(directory)
 
 
+def latest_resumable_checkpoint(output_dir: Path) -> tuple[int, Path] | None:
+    candidates: list[tuple[int, Path]] = []
+    if not output_dir.is_dir():
+        return None
+    for path in output_dir.glob("checkpoint-*"):
+        try:
+            update = int(path.name.rsplit("-", 1)[1])
+        except (IndexError, ValueError):
+            continue
+        if (path / "adapter_model.safetensors").is_file() and (
+            path / "trainer_state.pt"
+        ).is_file():
+            candidates.append((update, path))
+    return max(candidates, default=None)
+
+
+def save_training_checkpoint(
+    model: Any,
+    tokenizer: Any,
+    optimizer: Any,
+    directory: Path,
+    *,
+    update: int,
+    curriculum_phase: str,
+) -> None:
+    import torch
+
+    save_actor(model, tokenizer, directory)
+    torch.save(
+        {
+            "update": int(update),
+            "curriculum_phase": str(curriculum_phase),
+            "optimizer": optimizer.state_dict(),
+        },
+        directory / "trainer_state.pt",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -345,6 +393,7 @@ def main() -> int:
     parser.add_argument("--max-seq-length", type=int, default=None)
     parser.add_argument("--event-microbatch-size", type=int, default=None)
     parser.add_argument("--train-file", type=Path, default=None)
+    parser.add_argument("--train-file-pattern", default=None)
     parser.add_argument("--monitor-file", type=Path, default=None)
     parser.add_argument("--parent-adapter", type=Path, default=None)
     parser.add_argument("--base-model", default=None)
@@ -375,15 +424,30 @@ def main() -> int:
         value = Path(str(cfg[key]))
         return value if value.is_absolute() else REPO / value
 
-    train_file = args.train_file or path_value("train_file")
+    train_pattern = args.train_file_pattern or cfg.get("train_file_pattern")
+    if args.train_file is not None and train_pattern:
+        raise ValueError("use only one of train-file and train-file-pattern")
+    train_file = (
+        rank_shard_path(str(train_pattern), rank=rank, world_size=world_size)
+        if train_pattern
+        else (args.train_file or path_value("train_file"))
+    )
     monitor_file = args.monitor_file or path_value("monitor_file")
     train_rows = read_jsonl(train_file, limit=args.limit_reactions)
     monitor_rows = read_jsonl(monitor_file)
     if not train_rows or not monitor_rows:
         raise ValueError("train and monitor pilot files must be nonempty")
     seed = int(cfg.get("seed", 17))
-    random.Random(seed).shuffle(train_rows)
+    random.Random(seed + rank).shuffle(train_rows)
     parent_adapter = args.parent_adapter or path_value("parent_adapter")
+    output_dir = args.output_dir or path_value("output_dir")
+    if not output_dir.is_absolute():
+        output_dir = REPO / output_dir
+    resume = (
+        latest_resumable_checkpoint(output_dir)
+        if bool(cfg.get("auto_resume", False))
+        else None
+    )
     base_model = str(
         args.base_model or cfg.get("base_model") or resolve_qwen_model_path() or ""
     )
@@ -392,6 +456,7 @@ def main() -> int:
     model, tokenizer, base_revision = load_actor(
         base_model=base_model,
         parent_adapter=parent_adapter,
+        actor_adapter=resume[1] if resume is not None else None,
         local_rank=local_rank,
         use_4bit=bool(cfg.get("use_4bit", True)),
     )
@@ -412,6 +477,33 @@ def main() -> int:
         lr=float(cfg.get("learning_rate", 5e-6)),
         weight_decay=float(cfg.get("weight_decay", 0.0)),
     )
+    start_update = 0
+    resumed_phase: str | None = None
+    if resume is not None:
+        state = torch.load(
+            resume[1] / "trainer_state.pt",
+            map_location=torch.device("cuda", local_rank)
+            if torch.cuda.is_available()
+            else torch.device("cpu"),
+            weights_only=False,
+        )
+        optimizer.load_state_dict(state["optimizer"])
+        start_update = int(state["update"])
+        resumed_phase = str(state.get("curriculum_phase") or "A")
+        if start_update != resume[0]:
+            raise ValueError("checkpoint directory and trainer update disagree")
+        if rank == 0:
+            print(
+                json.dumps(
+                    {
+                        "type": "resume",
+                        "checkpoint": str(resume[1]),
+                        "start_update": start_update,
+                        "curriculum_phase": resumed_phase,
+                    }
+                ),
+                flush=True,
+            )
     reward_config = ProcessRewardConfig(
         exact_endpoint=float(cfg.get("exact_endpoint_reward", 4.0)),
         wrong_finish=float(cfg.get("wrong_finish_reward", -1.0)),
@@ -447,9 +539,6 @@ def main() -> int:
     )
     monitor_interval = int(cfg.get("monitor_interval", 16))
     save_interval = int(cfg.get("save_interval", 16))
-    output_dir = args.output_dir or path_value("output_dir")
-    if not output_dir.is_absolute():
-        output_dir = REPO / output_dir
     if rank == 0:
         output_dir.mkdir(parents=True, exist_ok=True)
     if world_size > 1:
@@ -459,11 +548,17 @@ def main() -> int:
         near_end_threshold=float(cfg.get("near_end_promotion_threshold", 0.60)),
         stable_product_checks=int(cfg.get("stable_product_monitor_checks", 2)),
     )
+    if resumed_phase is not None:
+        controller.phase = resumed_phase
     sampler = MixedHorizonSampler(seed=seed, phase=controller.phase)
     near_end_window: deque[float] = deque(maxlen=int(cfg.get("near_end_window", 64)))
     monitor_history: list[dict[str, Any]] = []
 
-    if not args.skip_monitor and bool(cfg.get("monitor_at_start", True)):
+    if (
+        start_update == 0
+        and not args.skip_monitor
+        and bool(cfg.get("monitor_at_start", True))
+    ):
         activate_adapter(model, "reference", trainable=False)
         parent_monitor = evaluate_monitor(
             model,
@@ -482,17 +577,63 @@ def main() -> int:
             monitor_history.append({"update": 0, "adapter": "parent", **parent_monitor})
             print(json.dumps({"type": "monitor", **monitor_history[-1]}), flush=True)
 
-    for update in range(max_updates):
+    local_train_rows = len(train_rows)
+    count_values = all_reduce_values(
+        {"train_rows": float(local_train_rows)}, world_size=world_size
+    )
+    global_train_rows = int(count_values["train_rows"])
+    expected_train_rows = int(cfg.get("expected_train_rows", 0) or 0)
+    if expected_train_rows and global_train_rows != expected_train_rows:
+        raise ValueError(
+            f"distributed train denominator mismatch: {global_train_rows} != {expected_train_rows}"
+        )
+    exact_single_coverage = bool(cfg.get("exact_single_coverage", False))
+    required_updates = max(
+        (local_train_rows + groups_per_update - 1) // groups_per_update,
+        1,
+    )
+    if world_size > 1:
+        required_tensor = torch.tensor(
+            [required_updates], dtype=torch.int64, device=torch.device("cuda", local_rank)
+        )
+        torch.distributed.all_reduce(required_tensor, op=torch.distributed.ReduceOp.MAX)
+        required_updates = int(required_tensor.item())
+    if exact_single_coverage and max_updates != required_updates:
+        raise ValueError(
+            f"exact coverage requires max_updates={required_updates}, got {max_updates}"
+        )
+    if rank == 0:
+        print(
+            json.dumps(
+                {
+                    "type": "train_contract",
+                    "global_train_rows": global_train_rows,
+                    "rank_local_rows": local_train_rows,
+                    "exact_single_coverage": exact_single_coverage,
+                    "max_updates": max_updates,
+                }
+            ),
+            flush=True,
+        )
+
+    for update in range(start_update, max_updates):
         sampled_rollouts: list[EpisodeRollout] = []
         group_nonzero = 0
         raw_samples: list[EventPolicySample] = []
+        local_groups = 0
         for group_index in range(groups_per_update):
-            row_index = (
-                update * world_size * groups_per_update
-                + rank * groups_per_update
-                + group_index
-            ) % len(train_rows)
+            if train_pattern:
+                row_index = update * groups_per_update + group_index
+                if row_index >= len(train_rows):
+                    continue
+            else:
+                row_index = (
+                    update * world_size * groups_per_update
+                    + rank * groups_per_update
+                    + group_index
+                ) % len(train_rows)
             row = train_rows[row_index]
+            local_groups += 1
             n_events = int((row.get("metadata") or {}).get("n_events") or 0)
             horizon = sampler.sample(
                 identifier=str(row["id"]),
@@ -611,7 +752,7 @@ def main() -> int:
                 # Exclude DDP-only zero-advantage padding from rollout metrics.
                 "event_terms": float(local_count),
                 "rejected_event_terms": float(local_rejected_count),
-                "groups": float(groups_per_update),
+                "groups": float(local_groups),
                 "effective_groups": float(group_nonzero),
             }
         )
@@ -714,7 +855,14 @@ def main() -> int:
             if world_size > 1:
                 torch.distributed.barrier()
             if rank == 0:
-                save_actor(model, tokenizer, output_dir / f"checkpoint-{update + 1}")
+                save_training_checkpoint(
+                    model,
+                    tokenizer,
+                    optimizer,
+                    output_dir / f"checkpoint-{update + 1}",
+                    update=update + 1,
+                    curriculum_phase=controller.phase,
+                )
             if world_size > 1:
                 torch.distributed.barrier()
 
@@ -728,7 +876,8 @@ def main() -> int:
             "finished_at": datetime.now(timezone.utc).isoformat(),
             "parent_adapter": str(parent_adapter),
             "base_model_revision": base_revision,
-            "train_rows": len(train_rows),
+            "train_rows": global_train_rows,
+            "rank_local_train_rows": local_train_rows,
             "monitor_rows": len(monitor_rows),
             "world_size": world_size,
             "max_updates": max_updates,
