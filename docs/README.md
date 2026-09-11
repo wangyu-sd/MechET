@@ -37,6 +37,10 @@ inherit these contracts and do not override the authority order above.
 
 [`STATUS_MATRIX.md`](STATUS_MATRIX.md) is a living implementation/evidence status page, not a competing scientific source of truth.
 
+[`GROUNDED_EVENT_STAGE_RESULTS_AND_IDEAS.md`](GROUNDED_EVENT_STAGE_RESULTS_AND_IDEAS.md)
+is the dated decision record for the current localization diagnostics and the
+lifted-program research gate. It does not override the frozen paper protocol.
+
 When documents disagree, update the lower-authority document. Do not create a parallel source of truth.
 
 ## Scientific architecture
