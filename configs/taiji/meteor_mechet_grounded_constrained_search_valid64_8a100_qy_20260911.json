@@ -23,5 +23,5 @@
   "task_category": "fine_tuning",
   "task_description": "No-training PR55 gate on 64 frozen FlowER validation reactions. Compare four independent stochastic in-place grounded FLOW rollouts with executor-constrained event search (beam 2, branch 2) under the same 48-response by 384-token ceiling. Product-only model input; private mapped states are executor-only; gold is evaluation-only.",
   "init_cmd": "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK",
-  "start_cmd": "bash -lc 'TAIJI_HEARTBEAT_LABEL=meteor-mechet-grounded-search-valid64 TAIJI_HEARTBEAT_SECONDS=60 TAIJI_MIRROR_PID1_STDOUT=1 MECHET_SEARCH_RUNTIME_DIR=/aaa/fionafyang/buddy1/whaleywang/MechET-pr55-search-runtime exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/taiji_run_with_heartbeat.sh bash /aaa/fionafyang/buddy1/whaleywang/MechET-pr55-search-runtime/scripts/run_taiji_grounded_constrained_search_audit.sh'"
+  "start_cmd": "bash -lc 'TAIJI_HEARTBEAT_LABEL=meteor-mechet-grounded-search-valid64 TAIJI_HEARTBEAT_SECONDS=60 TAIJI_MIRROR_PID1_STDOUT=1 MECHET_SEARCH_RUNTIME_DIR=/aaa/fionafyang/buddy1/whaleywang/MechET-pr55-search-runtime-v2 exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/taiji_run_with_heartbeat.sh bash /aaa/fionafyang/buddy1/whaleywang/MechET-pr55-search-runtime-v2/scripts/run_taiji_grounded_constrained_search_audit.sh'"
 }
