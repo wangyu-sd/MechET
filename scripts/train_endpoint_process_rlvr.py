@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 from collections import defaultdict, deque
 from contextlib import nullcontext
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 import os
 from pathlib import Path
@@ -144,16 +144,23 @@ def load_actor(
     return model, tokenizer, revision
 
 
-def distributed_context() -> tuple[int, int, int]:
+def distributed_context(*, timeout_seconds: int = 10_800) -> tuple[int, int, int]:
     import torch
 
+    if timeout_seconds < 1:
+        raise ValueError("distributed timeout must be positive")
     world_size = int(os.environ.get("WORLD_SIZE", "1"))
     rank = int(os.environ.get("RANK", "0"))
     local_rank = int(os.environ.get("LOCAL_RANK", str(rank)))
     if torch.cuda.is_available():
         torch.cuda.set_device(local_rank)
     if world_size > 1 and not torch.distributed.is_initialized():
-        torch.distributed.init_process_group(backend="nccl")
+        # Executor-driven rollouts have data-dependent latency. Fast ranks can
+        # reach a metric reduction long before the rank with the longest trace,
+        # so the default ten-minute watchdog is not a correctness bound.
+        torch.distributed.init_process_group(
+            backend="nccl", timeout=timedelta(seconds=timeout_seconds)
+        )
     return rank, world_size, local_rank
 
 
@@ -268,6 +275,8 @@ def evaluate_monitor(
     seed: int,
 ) -> dict[str, float]:
     local: list[EpisodeRollout] = []
+    assigned = sum(index % world_size == rank for index in range(len(rows)))
+    completed = 0
     for index, row in enumerate(rows):
         if index % world_size != rank:
             continue
@@ -286,6 +295,19 @@ def evaluate_monitor(
                 top_p=1.0,
                 seed=seed + index,
             )
+        )
+        completed += 1
+        print(
+            json.dumps(
+                {
+                    "type": "monitor_progress",
+                    "rank": rank,
+                    "completed": completed,
+                    "assigned": assigned,
+                    "id": str(row.get("id", index)),
+                }
+            ),
+            flush=True,
         )
     totals = all_reduce_values(rollout_metrics(local), world_size=world_size)
     n = max(totals.get("episodes", 0.0), 1.0)
@@ -331,9 +353,23 @@ def main() -> int:
     args = parser.parse_args()
     runtime_version = require_endpoint_process_rdkit()
     cfg = load_yaml(args.config)
-    rank, world_size, local_rank = distributed_context()
+    distributed_timeout_seconds = int(
+        cfg.get("distributed_timeout_seconds", 10_800)
+    )
+    rank, world_size, local_rank = distributed_context(
+        timeout_seconds=distributed_timeout_seconds
+    )
     if rank == 0:
-        print(json.dumps({"type": "runtime", "rdkit": runtime_version}), flush=True)
+        print(
+            json.dumps(
+                {
+                    "type": "runtime",
+                    "rdkit": runtime_version,
+                    "distributed_timeout_seconds": distributed_timeout_seconds,
+                }
+            ),
+            flush=True,
+        )
 
     def path_value(key: str) -> Path:
         value = Path(str(cfg[key]))

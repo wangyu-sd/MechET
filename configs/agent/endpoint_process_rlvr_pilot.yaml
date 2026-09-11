@@ -17,6 +17,7 @@ max_grad_norm: 1.0
 gamma: 0.95
 beta_kl: 0.01
 use_4bit: true
+distributed_timeout_seconds: 10800
 
 max_committed_events: 8
 same_state_retry_limit: 2

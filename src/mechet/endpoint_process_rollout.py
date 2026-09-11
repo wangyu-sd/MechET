@@ -1,6 +1,7 @@
 """Interactive model rollouts for endpoint-grounded process RLVR."""
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 import json
 from typing import Any, Sequence
@@ -79,14 +80,22 @@ def _generate_active(
     device = _model_device(model)
     inputs = {key: value.to(device) for key, value in encoded.items()}
     input_width = int(inputs["input_ids"].shape[1])
+    generation_config = copy.deepcopy(actor.generation_config)
+    generation_config.do_sample = temperature > 0
     generation_kwargs: dict[str, Any] = {
         "max_new_tokens": max_new_tokens,
-        "do_sample": temperature > 0,
-        "top_p": top_p,
+        "generation_config": generation_config,
         "pad_token_id": tokenizer.pad_token_id,
     }
     if temperature > 0:
-        generation_kwargs["temperature"] = temperature
+        generation_config.temperature = temperature
+        generation_config.top_p = top_p
+    else:
+        # Qwen's saved defaults contain sampling-only parameters. Clear them
+        # for the greedy monitor without changing stochastic train rollouts.
+        generation_config.temperature = None
+        generation_config.top_p = None
+        generation_config.top_k = None
     with torch.inference_mode():
         output = actor.generate(**inputs, **generation_kwargs)
     generated = output[:, input_width:]
