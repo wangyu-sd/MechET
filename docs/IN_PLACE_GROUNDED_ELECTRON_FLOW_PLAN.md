@@ -261,3 +261,8 @@ A real one-step Qwen3-8B QLoRA optimizer smoke completed on a local T4 with
 finite loss (`1.6141`) and 4,549 input tokens seen. The submitted A100 job must
 still pass the complete **257,167 / 2,890 / 28,967** build and token audit before
 the one-epoch training phase is allowed to start.
+
+The complete build and token gates subsequently passed. The dated model-free
+audit, two-case product-only inference smoke, and graph-aligned transactional
+filter are recorded in
+[`IN_PLACE_GROUNDED_FLOW_SMOKE_20260911.md`](IN_PLACE_GROUNDED_FLOW_SMOKE_20260911.md).
