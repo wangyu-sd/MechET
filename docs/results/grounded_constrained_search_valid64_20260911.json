@@ -1,0 +1,154 @@
+{
+  "artifact_type": "grounded_executor_constrained_search_audit_v1_remote_record",
+  "status": "complete_no_go",
+  "date": "2026-09-11",
+  "pull_request": "https://github.com/wangyu-sd/MechET/pull/55",
+  "taiji": {
+    "task_flag": "meteor_mechet_grounded_constrained_search_valid64_8a100_qy_20260911_01",
+    "readable_name": "meteor MechET grounded constrained search valid64 (8xA100 QY)",
+    "instance_id": "8b1d818da08afca801a08fc1f79b0984",
+    "instance_url": "http://taiji.woa.com/#/project-list/jizhi/task-inst-detail/8b1d818da08afca801a08fc1f79b0984",
+    "business_flag": "AI4LSLab_KEMO_QY_A100",
+    "resource": "1 host, 8x NVIDIA A100-SXM4-40GB",
+    "state": "END",
+    "is_succeed": true,
+    "running_seconds": 3626,
+    "created_at": "2026-09-11 17:17:29 +08:00",
+    "ended_at": "2026-09-11 18:18:24 +08:00"
+  },
+  "runtime_commit": "1447576d28eb2b7a7e97e61d1add61a340184017",
+  "checkpoint": {
+    "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/in_place_grounded_flow_qwen3_8b_a100_seed17_20260911/checkpoint-8037",
+    "adapter_model_sha256": "8446e15d8c9933c715f17bebc1055925ff379b0ca1119d9c01614f6fa3ac3f21",
+    "base_model_revision": "b968826d9c46dd6066d109eabc6255188de91218"
+  },
+  "evaluation": {
+    "split": "validation",
+    "selection_seed": 17,
+    "n": 64,
+    "subset_id_sha256": "b1512abd6695174b872ba70427b2ff156468b0bb44aea981a90afab2618cca8d",
+    "product_only_model_input": true,
+    "gold_used_for_generation_pruning_or_ranking": false,
+    "max_responses_per_target": 48,
+    "max_new_tokens_per_response": 384,
+    "independent_candidates": 4,
+    "beam_width": 2,
+    "branch_factor": 2,
+    "max_depth": 12
+  },
+  "metrics": {
+    "independent_rollouts": {
+      "endpoint_pass_at_1": 0.0,
+      "endpoint_pass_oracle_at_budget": 0.0,
+      "explicit_finish_rate": 0.8125,
+      "formal_terminal_count": 91,
+      "mean_generated_tokens": 4625.671875,
+      "mean_responses": 42.40625,
+      "mean_latency_seconds": 266.2955916736246
+    },
+    "executor_constrained_search": {
+      "endpoint_pass_at_1": 0.0,
+      "endpoint_pass_oracle_at_budget": 0.0,
+      "explicit_finish_rate": 0.03125,
+      "formal_terminal_count": 3,
+      "empty_final_frontier_count": 62,
+      "mean_generated_tokens": 2236.578125,
+      "mean_responses": 18.375,
+      "mean_latency_seconds": 110.68435492621938
+    }
+  },
+  "aggregate_diagnostics": {
+    "independent_failure_counts": {
+      "EVENT_REJECTED": 891,
+      "GROUNDING_GRAPH_MISMATCH": 224,
+      "TOO_MANY_IMPORTS": 85,
+      "FLOW_PARSE_INVALID": 46,
+      "GROUNDING_MARKER_INVALID": 39,
+      "STATE_CYCLE": 37,
+      "IMPORT_SMILES_INVALID": 16,
+      "PARSE_FAILED": 7,
+      "IMPORT_FRAGMENT_TOO_LARGE": 6
+    },
+    "search_prune_counts": {
+      "EVENT_REJECTED": 308,
+      "BEAM_CAPACITY": 87,
+      "TOO_MANY_IMPORTS": 74,
+      "DUPLICATE_SUCCESSOR": 73,
+      "GROUNDING_GRAPH_MISMATCH": 63,
+      "STATE_CYCLE": 24,
+      "IMPORT_SMILES_INVALID": 6,
+      "FLOW_PARSE_INVALID": 4,
+      "IMPORT_FRAGMENT_TOO_LARGE": 3,
+      "GROUNDING_MARKER_INVALID": 2,
+      "PARSE_FAILED": 2
+    }
+  },
+  "representative_cases": [
+    {
+      "id": "textbook-tool-sft:flower_mech_proof_val_1187",
+      "role": "typical executable-but-wrong independent terminals and search frontier collapse",
+      "product": "[H]Oc1cccnc1Nc1ccccc1",
+      "reference_precursor": "COc1cccnc1Nc1ccccc1.[Cl-].[H]Cl.c1cc[nH+]cc1",
+      "independent": {
+        "responses": 43,
+        "terminal_count": 2,
+        "endpoint_exact": false,
+        "top_terminal_unmapped": "CC(=O)O.CC(=O)[O-].O.[H][O+]([Li])c1cccnc1Nc1ccccc1"
+      },
+      "search": {
+        "responses": 6,
+        "terminal_count": 0,
+        "surviving_states_by_depth": [1, 1, 0],
+        "prune_counts": {
+          "DUPLICATE_SUCCESSOR": 2,
+          "EVENT_REJECTED": 2
+        }
+      }
+    },
+    {
+      "id": "textbook-tool-sft:flower_mech_proof_val_2009",
+      "role": "both first-layer search proposals rejected",
+      "product": "[CH2]=[Ru]([Cl])([Cl])([P](C1CCCCC1)(C1CCCCC1)C1CCCCC1)[P](C1CCCCC1)(C1CCCCC1)C1CCCCC1",
+      "reference_precursor": "C=CCC(C(=O)N(CCOC)C(C=C)c1ccccc1)N1C(=O)c2ccccc2C1=O.CS(C)=O.Cc1ccccc1.[Cl][Ru]([Cl])(=[CH]c1ccccc1)([P](C1CCCCC1)(C1CCCCC1)C1CCCCC1)[P](C1CCCCC1)(C1CCCCC1)C1CCCCC1",
+      "independent": {
+        "responses": 37,
+        "terminal_count": 2,
+        "endpoint_exact": false,
+        "top_terminal_unmapped": "CCOC(C)(C)C.[CH2].[Cl+].[H][Ru](Cl)([P](C1CCCCC1)(C1CCCCC1)C1CCCCC1)[P](C1CCCCC1)(C1CCCCC1)C1CCCCC1.[Pd+].c1ccc([P-](c2ccccc2)[c-]2cccc2)cc1"
+      },
+      "search": {
+        "responses": 2,
+        "terminal_count": 0,
+        "surviving_states_by_depth": [0],
+        "prune_counts": {
+          "IMPORT_SMILES_INVALID": 1,
+          "EVENT_REJECTED": 1
+        }
+      }
+    },
+    {
+      "id": "textbook-tool-sft:flower_mech_proof_val_972",
+      "role": "search reaches a formally executable but chemically wrong endpoint",
+      "product": "CCOC(=O)c1c(NC(=O)C(C)(C)C)c(F)c(CO[Si](C)(C)C(C)(C)C)c(F)c1OC1CCCCO1",
+      "reference_precursor": "CC(C)(C)[Si](C)(C)Cl.ClCCl.O.[H]OCc1c(F)c(NC(=O)C(C)(C)C)c(C(=O)OCC)c(OC2CCCCO2)c1F.c1c[nH]cn1",
+      "independent": {
+        "responses": 48,
+        "terminal_count": 0
+      },
+      "search": {
+        "responses": 18,
+        "terminal_count": 2,
+        "endpoint_exact": false,
+        "top_terminal_unmapped": "CCN(C(C)C)C(C)C.O=C([O-])[O-].O=S(=O)(OC1CCCCO1)C(F)(F)F.[H][O+2]([H])([Cl-2])c1c(F)c(CO[Si](C)(C)C(C)(C)C)c(F)c(NC(=O)C(C)(C)C)c1C(=O)OCC.[Na+]",
+        "surviving_states_by_depth": [2, 2, 2, 2, 0],
+        "prune_counts": {
+          "DUPLICATE_SUCCESSOR": 1,
+          "BEAM_CAPACITY": 4,
+          "EVENT_REJECTED": 3
+        }
+      }
+    }
+  ],
+  "decision": "Do not promote this hard-prune-only search or start RLVR from it. First add same-state repair or executor-guided reproposal under a matched budget, then repeat the frozen-checkpoint gate.",
+  "ceph_output": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/grounded_constrained_search_valid64_ckpt8037_20260911"
+}

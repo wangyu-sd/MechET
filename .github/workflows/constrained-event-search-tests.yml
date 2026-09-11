@@ -1,0 +1,92 @@
+name: Constrained event search tests
+
+on:
+  pull_request:
+    paths:
+      - "src/mechet/constrained_event_search.py"
+      - "src/mechet/forward_expert.py"
+      - "src/mechet/chemical_runtime.py"
+      - "src/mechet/grounded_event_search.py"
+      - "src/mechet/in_place_grounded_flow.py"
+      - "src/mechet/endpoint_progress.py"
+      - "src/mechet/endpoint_process_rl_env.py"
+      - "src/mechet/endpoint_process_rollout.py"
+      - "src/mechet/mixed_horizon.py"
+      - "src/mechet/rlvr.py"
+      - "scripts/smoke_constrained_event_search.py"
+      - "scripts/build_endpoint_rlvr_pilot.py"
+      - "scripts/train_endpoint_process_rlvr.py"
+      - "scripts/eval_endpoint_process_rlvr.py"
+      - "scripts/smoke_endpoint_process_optimizer.py"
+      - "pyproject.toml"
+      - "tests/test_constrained_event_search.py"
+      - "tests/test_endpoint_*.py"
+      - "docs/EXECUTOR_CONSTRAINED_EVENT_SEARCH.md"
+      - "docs/ENDPOINT_GROUNDED_PROCESS_RLVR.md"
+      - ".github/workflows/constrained-event-search-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/mechet/constrained_event_search.py"
+      - "src/mechet/forward_expert.py"
+      - "src/mechet/chemical_runtime.py"
+      - "src/mechet/grounded_event_search.py"
+      - "src/mechet/in_place_grounded_flow.py"
+      - "src/mechet/endpoint_progress.py"
+      - "src/mechet/endpoint_process_rl_env.py"
+      - "src/mechet/endpoint_process_rollout.py"
+      - "src/mechet/mixed_horizon.py"
+      - "src/mechet/rlvr.py"
+      - "scripts/smoke_constrained_event_search.py"
+      - "scripts/build_endpoint_rlvr_pilot.py"
+      - "scripts/train_endpoint_process_rlvr.py"
+      - "scripts/eval_endpoint_process_rlvr.py"
+      - "scripts/smoke_endpoint_process_optimizer.py"
+      - "pyproject.toml"
+      - "tests/test_constrained_event_search.py"
+      - "tests/test_endpoint_*.py"
+      - ".github/workflows/constrained-event-search-tests.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[forward]" pytest
+      - name: Compile search code
+        run: |
+          python -m py_compile \
+            src/mechet/constrained_event_search.py \
+            src/mechet/chemical_runtime.py \
+            src/mechet/grounded_event_search.py \
+            src/mechet/in_place_grounded_flow.py \
+            src/mechet/endpoint_progress.py \
+            src/mechet/endpoint_process_rl_env.py \
+            src/mechet/endpoint_process_rollout.py \
+            src/mechet/mixed_horizon.py \
+            src/mechet/rlvr.py \
+            scripts/smoke_constrained_event_search.py \
+            scripts/build_endpoint_rlvr_pilot.py \
+            scripts/train_endpoint_process_rlvr.py \
+            scripts/eval_endpoint_process_rlvr.py \
+            scripts/smoke_endpoint_process_optimizer.py
+      - name: Run focused tests
+        run: |
+          pytest -q \
+            tests/test_constrained_event_search.py \
+            tests/test_chemical_runtime.py \
+            tests/test_endpoint_progress.py \
+            tests/test_endpoint_process_rl_env.py \
+            tests/test_endpoint_process_objective.py \
+            tests/test_endpoint_process_evaluator.py \
+            tests/test_build_endpoint_rlvr_pilot.py \
+            tests/test_mixed_horizon.py
+      - name: Run deterministic chemistry smoke
+        run: python scripts/smoke_constrained_event_search.py

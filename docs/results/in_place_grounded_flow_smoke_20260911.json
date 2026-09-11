@@ -1,0 +1,58 @@
+{
+  "artifact_type": "in_place_grounded_flow_diagnostic_smoke",
+  "created_at": "2026-09-11",
+  "status": "two_fixed_validation_cases_incomplete_checkpoint",
+  "headline_eligible": false,
+  "input_contract": "unmapped_product_only_plus_executor_owned_current_state",
+  "gold_remaining_events_exposed": false,
+  "runs": [
+    {
+      "name": "exact_string",
+      "checkpoint_step": 5500,
+      "n": 2,
+      "k": 1,
+      "parsed_first_tool": 2,
+      "accepted_events": 4,
+      "rejected_events": 17,
+      "finish_trace": 1,
+      "strict_endpoint_exact": 0,
+      "prediction_path": "outputs/eval/in_place_grounded_valid8_ckpt5500_k1_t4_20260911/predictions.jsonl",
+      "prediction_sha256": "ce7a200f490e10ec34d09591e5f0acb5a060ae533fea9259551bd150d4c12a86"
+    },
+    {
+      "name": "graph_aligned_transactional_filter",
+      "checkpoint_step": 6000,
+      "n": 2,
+      "k": 1,
+      "parsed_first_tool": 2,
+      "accepted_events": 17,
+      "rejected_events": 5,
+      "finish_trace": 1,
+      "strict_endpoint_exact": 0,
+      "prediction_path": "outputs/eval/in_place_grounded_flexible_cases2_ckpt6000_k1_retry2_t4_20260911/predictions.jsonl",
+      "prediction_sha256": "7c292e856cabc9e734b1d839f5935390e5e81417c11edd232f00990d0acf36e0",
+      "summary_path": "outputs/eval/in_place_grounded_flexible_cases2_ckpt6000_k1_retry2_t4_20260911/summary.json",
+      "summary_sha256": "bbe3904cf2619c0aa4beb8dd1b601cb59122c4bfe3ac498defed2813627a8c16",
+      "cases": [
+        {
+          "stable_id": "textbook-tool-sft:flower_mech_proof_val_1256",
+          "accepted_events": 9,
+          "rejected_events": 3,
+          "finish_trace": false,
+          "strict_endpoint_exact": false,
+          "stop_reason": "TURN_LIMIT"
+        },
+        {
+          "stable_id": "textbook-tool-sft:flower_mech_proof_val_2533",
+          "accepted_events": 8,
+          "rejected_events": 2,
+          "finish_trace": true,
+          "strict_endpoint_exact": false,
+          "stop_reason": "FINISH_TRACE"
+        }
+      ]
+    }
+  ],
+  "comparison_limit": "The executor protocol and checkpoint step both changed, so the rejection-count difference is diagnostic rather than a controlled effect size.",
+  "conclusion": "Graph alignment and transactional rollback reduce representation-induced cascades; wrong but locally executable fragment and route selection remains the dominant observed endpoint failure."
+}
