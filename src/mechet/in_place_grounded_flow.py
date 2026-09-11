@@ -333,6 +333,189 @@ def compile_flow(
     return moves
 
 
+def compile_flow_graph_aligned(
+    *,
+    mapped_state: str,
+    marked_state: str,
+    flow: str,
+) -> list[dict[str, Any]]:
+    """Compile markers after exact molecular-graph alignment.
+
+    This inference-only adapter accepts alternative valid SMILES traversals and
+    disconnected-component orderings.  It does not relax molecular identity:
+    after markers are removed, the candidate must be a full graph isomorph of
+    the executor-owned state, including bond, charge, aromatic and stereo
+    constraints.  Explicit hydrogens are retained.  Symmetric matches may bind
+    to any equivalent atom, which is the intended address contract.
+    """
+
+    clean = MARKER_RE.sub("", str(marked_state or ""))
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    candidate = Chem.MolFromSmiles(clean, params)
+    authoritative = _mapped_mol(mapped_state)
+    if candidate is None or candidate.GetNumAtoms() != authoritative.GetNumAtoms():
+        raise ValueError("marked state is not graph-equivalent to authoritative state")
+    if any(int(atom.GetAtomMapNum()) for atom in candidate.GetAtoms()):
+        raise ValueError("model-visible marked state must not contain atom maps")
+
+    private_maps = tuple(
+        int(atom.GetAtomMapNum()) for atom in authoritative.GetAtoms()
+    )
+    query = Chem.Mol(candidate)
+    target = Chem.Mol(authoritative)
+    for atom in query.GetAtoms():
+        atom.SetAtomMapNum(0)
+    for atom in target.GetAtoms():
+        atom.SetAtomMapNum(0)
+    matches = target.GetSubstructMatches(
+        query,
+        uniquify=False,
+        useChirality=True,
+        maxMatches=256,
+    )
+    match = next(
+        (value for value in matches if len(value) == target.GetNumAtoms()),
+        None,
+    )
+    if match is None:
+        raise ValueError("marked state is not graph-equivalent to authoritative state")
+
+    spans = atom_token_spans(clean)
+    if len(spans) != candidate.GetNumAtoms():
+        raise ValueError("marked-state atom occurrence count mismatch")
+    start_to_atom = {start: index for index, (start, _) in enumerate(spans)}
+    roles: dict[str, int] = {}
+    removed_characters = 0
+    for marker in MARKER_RE.finditer(str(marked_state or "")):
+        clean_position = marker.start() - removed_characters
+        removed_characters += len(marker.group(0))
+        if clean_position not in start_to_atom:
+            raise ValueError("a marker is not immediately before an atom occurrence")
+        role = marker.group(1)
+        if role in roles:
+            raise ValueError(f"duplicate event role marker: {role}")
+        roles[role] = start_to_atom[clean_position]
+    if not roles:
+        raise ValueError("marked state has no event roles")
+
+    role_to_map = {
+        role: private_maps[match[candidate_index]]
+        for role, candidate_index in roles.items()
+    }
+    authoritative_serialization = deterministic_unmapped_state(mapped_state)
+    return compile_flow(
+        mapped_state=mapped_state,
+        marked_state=_insert_markers(authoritative_serialization, role_to_map),
+        flow=flow,
+    )
+
+
+def map_unmapped_fragment(fragment: str, *, first_map: int) -> tuple[str, int]:
+    """Assign executor-private maps to one model-authored unmapped fragment."""
+
+    if first_map <= 0:
+        raise ValueError("first private atom map must be positive")
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(str(fragment or ""), params)
+    if mol is None or not mol.GetNumAtoms():
+        raise ValueError("import fragment is not a nonempty molecule")
+    if any(int(atom.GetAtomMapNum()) for atom in mol.GetAtoms()):
+        raise ValueError("model-authored imports must not contain atom maps")
+    next_map = first_map
+    for atom in mol.GetAtoms():
+        atom.SetAtomMapNum(next_map)
+        next_map += 1
+    return (
+        Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True),
+        next_map,
+    )
+
+
+def execute_grounded_event_transactionally(
+    *,
+    current_mapped_state: str,
+    imports: Sequence[str],
+    marked_state: str,
+    flow: str,
+    next_private_map: int,
+    seen_visible_states: set[str] | None = None,
+    max_import_fragments: int = 4,
+    max_import_atoms: int = 64,
+    max_fragment_heavy_atoms: int = 24,
+) -> dict[str, Any]:
+    """Filter and execute a candidate without committing rejected mutations."""
+
+    current_visible = deterministic_unmapped_state(current_mapped_state).text
+    failure = {
+        "ok": False,
+        "code": "EVENT_REJECTED",
+        "current_mapped_state": current_mapped_state,
+        "next_private_map": next_private_map,
+        "observation": {
+            "ok": False,
+            "code": "EVENT_REJECTED",
+            "current_state": current_visible,
+            "imports_committed": False,
+        },
+    }
+    try:
+        if not isinstance(imports, Sequence) or isinstance(imports, (str, bytes)):
+            raise ValueError("imports must be a sequence of unmapped SMILES")
+        if len(imports) > max_import_fragments:
+            raise ValueError("too many import fragments")
+        mapped_imports: list[str] = []
+        private_map = next_private_map
+        imported_atoms = 0
+        for fragment in imports:
+            params = Chem.SmilesParserParams()
+            params.removeHs = False
+            mol = Chem.MolFromSmiles(str(fragment or ""), params)
+            if mol is None:
+                raise ValueError("unparseable import fragment")
+            imported_atoms += int(mol.GetNumAtoms())
+            if mol.GetNumHeavyAtoms() > max_fragment_heavy_atoms:
+                raise ValueError("import fragment exceeds heavy-atom limit")
+            mapped, private_map = map_unmapped_fragment(
+                str(fragment), first_map=private_map
+            )
+            mapped_imports.append(mapped)
+        if imported_atoms > max_import_atoms:
+            raise ValueError("event imports exceed atom-count limit")
+
+        event_state = merge_mapped_fragments(current_mapped_state, mapped_imports)
+        compiled = compile_flow_graph_aligned(
+            mapped_state=event_state,
+            marked_state=marked_state,
+            flow=flow,
+        )
+        replay = verify_electron_step(event_state, compiled)
+        if not replay.get("ok"):
+            raise ValueError(str(replay.get("code") or "electron replay failed"))
+        successor = canonical_mapped_state(str(replay["state_smiles"]))
+        successor_visible = deterministic_unmapped_state(successor).text
+        if seen_visible_states is not None and successor_visible in seen_visible_states:
+            raise ValueError("candidate repeats an existing state")
+        return {
+            "ok": True,
+            "code": "PASS",
+            "current_mapped_state": successor,
+            "next_private_map": private_map,
+            "compiled_moves": compiled,
+            "observation": {
+                "ok": True,
+                "code": "PASS",
+                "current_state": successor_visible,
+                "imports_committed": bool(imports),
+            },
+        }
+    except Exception as exc:
+        failure["message"] = str(exc)
+        failure["observation"]["message"] = str(exc)
+        return failure
+
+
 def encode_grounded_event(
     mapped_state: str, moves: Sequence[Mapping[str, Any]]
 ) -> GroundedEvent:

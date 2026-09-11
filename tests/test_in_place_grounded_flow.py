@@ -7,9 +7,11 @@ from mechet.a7_rescue import canonical_event, canonical_mapped_state
 from mechet.forward_expert import verify_electron_step
 from mechet.in_place_grounded_flow import (
     compile_flow,
+    compile_flow_graph_aligned,
     convert_trace_row,
     deterministic_unmapped_state,
     encode_grounded_event,
+    execute_grounded_event_transactionally,
     mapped_state_signature,
 )
 
@@ -89,6 +91,52 @@ def test_mapped_state_signature_is_independent_of_serialization_and_component_or
     assert mapped_state_signature(left) != mapped_state_signature(
         "[Cl:3].[CH3:1][O-:2]"
     )
+
+
+def test_graph_aligned_compile_accepts_equivalent_component_order():
+    state = "[O-:1].[CH3:2][Br:3]"
+    compiled = compile_flow_graph_aligned(
+        mapped_state=state,
+        marked_state="<A>[O-].<B>C<C>Br",
+        flow="A>AB ; BC>C",
+    )
+    assert canonical_event(compiled) == canonical_event(substitution_moves())
+
+
+def test_graph_aligned_compile_preserves_explicit_hydrogen_occurrence():
+    state = "[H:1][O:2][CH3:3]"
+    compiled = compile_flow_graph_aligned(
+        mapped_state=state,
+        marked_state="C<B>O<A>[H]",
+        flow="AB>B",
+    )
+    assert canonical_event(compiled) == canonical_event(
+        [
+            {
+                "source": {"kind": "BOND", "atoms": [1, 2]},
+                "sink": {"kind": "ATOM", "atoms": [2]},
+                "electrons": 2,
+            }
+        ]
+    )
+
+
+def test_transactional_rejection_rolls_back_import_and_private_map_counter():
+    state = "[O-:1].[CH3:2][Br:3]"
+    result = execute_grounded_event_transactionally(
+        current_mapped_state=state,
+        imports=["[Na+]"],
+        marked_state="this is not a molecular graph",
+        flow="A>AB",
+        next_private_map=4,
+    )
+    assert result["ok"] is False
+    assert result["current_mapped_state"] == state
+    assert result["next_private_map"] == 4
+    assert result["observation"]["imports_committed"] is False
+    assert result["observation"]["current_state"] == deterministic_unmapped_state(
+        state
+    ).text
 
 
 def test_complete_trace_conversion_hides_maps_and_finishes_from_executor():
