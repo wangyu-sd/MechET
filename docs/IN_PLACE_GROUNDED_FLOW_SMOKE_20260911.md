@@ -140,6 +140,17 @@ chemical implausibility. The flexible executor prevents later serialization
 and loop failures from corrupting state, but this smoke does not contain the
 forward validation needed to accept the alternative route as chemically valid.
 
+Case verdict:
+
+- strict reference endpoint: **incorrect**;
+- core retrosynthetic proposal: **chemically plausible alternative** — the
+  inverse trace exposes a benzoyl/HOBt active ester and the required hydrazine
+  fragment, whose forward nucleophilic acyl substitution can form the target;
+- complete generated trace: **not yet acceptable as a clean mechanism** — two
+  acid/base event pairs undo one another, and DCU-, DMF-, water-, THF-,
+  carbonate-, dichloromethane-, and sodium-acetate-like components are appended
+  without being required by the core bond construction.
+
 ### `flower_mech_proof_val_1256`
 
 The gold first import is `COB(Br)Br`. The model starts with ethoxide and follows
@@ -149,6 +160,25 @@ the reference endpoint. Some early transformations can be interpreted as
 alternative forward deprotection chemistry after reversing the trajectory;
 later reagent accumulation and unusual charge states prevent a positive
 chemical-plausibility conclusion from this smoke alone.
+
+Case verdict:
+
+- strict reference endpoint: **incorrect**, and the model never calls
+  `finish_trace`;
+- core proposal through accepted event 4: **plausible alternative motif** — it
+  reaches an aryl trifluoroacetate, whose forward hydrolysis/deprotection can
+  return the target phenol;
+- complete generated trace: **chemically unacceptable** — after that useful
+  intermediate the model continues, creates isolated `[O-2]`, then oxygen atoms
+  with formal charges `-4` and `-3`, and accumulates unrelated salts/solvents
+  until the turn limit. These states reveal that the current executor validity
+  gate is weaker than a chemical-plausibility gate.
+
+As a formal consistency check, swapping source/sink electron containers and
+replaying every accepted event in reverse order succeeds for both cases and
+recovers the target component together with imported spectators/byproducts.
+This confirms executor reversibility, but it is algebraic evidence rather than
+evidence of laboratory feasibility.
 
 These examples separate three notions that must be reported independently:
 
