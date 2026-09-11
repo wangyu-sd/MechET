@@ -350,6 +350,51 @@ A one-reaction, two-response local GPU integration smoke exercised both live
 paths and produced finite token likelihoods. It is an interface check, not an
 endpoint result. The 64-case run is the first decision-bearing gate.
 
+### Completed 64-case gate
+
+The gate completed successfully on 2026-09-11. It used Taiji instance
+`8b1d818da08afca801a08fc1f79b0984` on one Qingyuan host with eight A100 GPUs.
+The task ran for 3,626 seconds and produced all 64 expected records.
+
+| Method | EndpointPass@1 | Oracle EndpointPass | Explicit finish | Mean responses | Mean tokens | Mean latency |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Four independent interactive rollouts | 0/64 | 0/64 | 52/64 (81.25%) | 42.41 | 4,625.67 | 266.30 s |
+| Executor-constrained beam search | 0/64 | 0/64 | 2/64 (3.125%) | 18.38 | 2,236.58 | 110.68 s |
+
+The independent condition produced 91 formally executable terminal traces, but
+none reached the reference endpoint. Search produced three terminal traces on
+two targets; 62 of 64 frontiers became empty before an explicit terminal. The
+lower search cost is therefore early branch death rather than more efficient
+endpoint recovery.
+
+Three concrete cases make the failure mode explicit:
+
+- `flower_mech_proof_val_1187`: independent rollouts reached two formally
+  executable but wrong endpoints after 43 responses. Search retained one state
+  at each of its first two depths, then lost the frontier after two duplicate
+  successors and two rejected events.
+- `flower_mech_proof_val_2009`: both first-layer search proposals failed, one
+  because the imported SMILES was invalid and one because the event was
+  rejected. Search stopped after two responses. Independent repair-and-retry
+  continued to two formally executable terminals, although both endpoints were
+  wrong.
+- `flower_mech_proof_val_972`: search preserved two states for four depths and
+  reached two formally executable terminals, but both copies represented the
+  same wrong endpoint. This is direct evidence that formal execution alone is
+  not an endpoint score.
+
+The versioned metrics, Taiji identifiers, hashes, aggregate failure counts, and
+readable product/reference/prediction SMILES for these cases are stored in
+`docs/results/grounded_constrained_search_valid64_20260911.json`. Full
+per-candidate records remain in the Ceph output directory recorded there.
+
+This gate does **not** promote the current search. Hard rejection removes a
+branch without giving the policy a chance to repair it, whereas the independent
+interactive comparator can consume executor feedback and retry from the same
+state. The next no-training test should add same-state repair/reproposal (or
+executor-supplied admissible alternatives) under the same response/token
+ceiling before any endpoint-oriented RLVR run.
+
 ---
 
 ## 13. Relationship to PR #54 / future RLVR
