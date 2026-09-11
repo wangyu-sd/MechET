@@ -60,6 +60,42 @@ def mapped_atom_numbers(smiles: str) -> set[int]:
     return {int(atom.GetAtomMapNum()) for atom in _mapped_mol(smiles).GetAtoms()}
 
 
+def retain_mapped_components(smiles: str, allowed_maps: set[int]) -> str:
+    """Keep source components that intersect ``allowed_maps`` verbatim.
+
+    The strict trace stores executor-authoritative kekulized states.  Parsing
+    and reserializing an aromatic component before an electron move can change
+    the bond representation and therefore the result of a later coupled move.
+    Component selection consequently preserves the original component strings
+    instead of round-tripping them through RDKit.
+    """
+
+    kept: list[str] = []
+    for component in str(smiles or "").split("."):
+        if component and mapped_atom_numbers(component) & allowed_maps:
+            kept.append(component)
+    if not kept:
+        raise ValueError("no mapped components remain after first-use selection")
+    return ".".join(kept)
+
+
+def append_mapped_fragments_verbatim(
+    state: str, fragments: Sequence[str]
+) -> str:
+    """Append first-use fragments without reserializing the existing state."""
+
+    pieces = [str(state)]
+    present = mapped_atom_numbers(state)
+    for fragment in fragments:
+        incoming = mapped_atom_numbers(fragment)
+        overlap = present & incoming
+        if overlap:
+            raise ValueError(f"fragment map overlap: {sorted(overlap)}")
+        pieces.append(str(fragment))
+        present.update(incoming)
+    return ".".join(pieces)
+
+
 def mapped_state_signature(smiles: str) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
     """Return an atom-map-indexed chemical graph signature.
 
@@ -673,7 +709,13 @@ def convert_trace_row(row: Mapping[str, Any]) -> dict[str, Any]:
             f"extra={sorted(observed_import_maps - expected_import_maps)}"
         )
     scheduled = schedule_imports(fragments, steps)
-    current = canonical_mapped_state(target)
+    # Start from the executor-authoritative source serialization.  This is
+    # graph-equivalent to TARGET but retains the exact aromatic/kekule form on
+    # which the frozen moves were verified.
+    present_maps = set(target_maps)
+    current = retain_mapped_components(
+        str(steps[0].get("state_before") or target), present_maps
+    )
     target_visible = deterministic_unmapped_state(current).text
     messages: list[dict[str, Any]] = [
         {
@@ -697,7 +739,18 @@ def convert_trace_row(row: Mapping[str, Any]) -> dict[str, Any]:
 
     event_audits: list[dict[str, Any]] = []
     for event_index, (step, event_imports) in enumerate(zip(steps, scheduled)):
-        current = merge_mapped_fragments(current, event_imports)
+        authoritative_prefix = retain_mapped_components(
+            str(step.get("state_before") or ""), present_maps
+        )
+        if mapped_state_signature(current) != mapped_state_signature(
+            authoritative_prefix
+        ):
+            raise ValueError(
+                f"{identifier}: authoritative prefix mismatch before event {event_index}"
+            )
+        current = append_mapped_fragments_verbatim(current, event_imports)
+        for fragment in event_imports:
+            present_maps.update(mapped_atom_numbers(fragment))
         moves = [dict(item) for item in step.get("moves") or []]
         grounded = encode_grounded_event(current, moves)
         replay = verify_electron_step(current, list(grounded.compiled_moves))
@@ -705,7 +758,15 @@ def convert_trace_row(row: Mapping[str, Any]) -> dict[str, Any]:
             raise ValueError(
                 f"{identifier}: event {event_index} replay failed: {replay}"
             )
-        successor = canonical_mapped_state(str(replay["state_smiles"]))
+        successor = retain_mapped_components(
+            str(step.get("state_after") or replay["state_smiles"]), present_maps
+        )
+        if mapped_state_signature(str(replay["state_smiles"])) != mapped_state_signature(
+            successor
+        ):
+            raise ValueError(
+                f"{identifier}: event {event_index} successor differs from strict trace"
+            )
         call_id = f"event_{event_index:03d}"
         messages.append(
             {

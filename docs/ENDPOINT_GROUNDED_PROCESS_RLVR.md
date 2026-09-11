@@ -575,3 +575,59 @@ It is:
 The pilot promotion threshold is >5% on the frozen 128-case product-start monitor, together with strong near-end success and no reward leakage.
 
 Only after that result should constrained search be reintroduced as a test-time amplifier.
+
+---
+
+## 18. Implementation status (2026-09-11)
+
+The endpoint-grounded process-RLVR path is implemented on this PR branch. It
+extends the existing grounded executor; it does not introduce search, an
+endpoint reranker, or another molecular representation.
+
+Implemented artifacts:
+
+- deterministic private endpoint distance and capped potential shaping;
+- product/middle/near-end environment with same-state retry and event ledger;
+- exact sampled event-token spans, discounted event returns, within-start RLOO,
+  rejected-span learning, and frozen-parent KL;
+- deterministic mixed-horizon curriculum;
+- frozen pilot builder and product-start K=1 parent/actor evaluator;
+- QLoRA trainer using one base model with actor and frozen-reference adapters;
+- 8xA100 non-elastic Taiji launcher with Ceph paths and terminal heartbeat;
+- focused CI and a deterministic one-step optimizer smoke.
+
+Frozen pilot manifest:
+
+| split | rows | ID SHA-256 | file SHA-256 | length strata |
+|---|---:|---|---|---|
+| train | 512 | `1c8668e184ebfb9283732c313d219595b5eabd3f442502e1e20d34307856f197` | `46b7e7a0c7dd31621b0f3701786597217ca31327284080a2ab4c9d13899b7bff` | 171 / 171 / 170 |
+| monitor | 128 | `c357dbb029db29f5e7a236bec04b99984b6de046e81c4567fa28c97df4e15cf7` | `f3918f960a5315f941327768174067c11b738b5c8987ec5edae887c85f845e7f` | 43 / 43 / 42 |
+
+The train source hash is
+`edc80c5c5eb13d50753c5566c5d6ac1b90b955b1a8dfece915241b2da4a40a75`;
+the monitor source hash is
+`7303a6018850db61594af5854df936778c21a6668e61151f95e2c74c32d22d2a`.
+The parent adapter hash remains
+`8446e15d8c9933c715f17bebc1055925ff379b0ca1119d9c01614f6fa3ac3f21`.
+There is no train/monitor ID overlap and all 640 rows pass private replay and
+model-visible leakage checks.
+
+Chemical runtime note: RDKit 2024.09.6 changes the result of some frozen
+aromatic/Kekulé coupled moves. The validated full artifact and this pilot agree
+under RDKit 2026.03.4, so the endpoint-process build/train/evaluation entry
+points now fail closed below that version and the Taiji launcher installs the
+hashed 2026.03.4 wheel.
+
+The reproducible optimizer smoke is recorded in
+`docs/results/endpoint_process_optimizer_smoke_20260911.json`: 8 fixture rows,
+4 same-start groups, 8 episodes, 16 event terms (8 rejected), finite loss/KL,
+16 nonzero-advantage terms, nonzero gradient, and a confirmed parameter update.
+A separate Qwen3-8B/T4 integration smoke also completed one QLoRA update and
+saved a reloadable 61 MB actor adapter after gradient checkpointing was enabled.
+Its all-invalid, zero-advantage rollouts were caused by the deliberately
+truncated 768-token T4 context; this is an integration check, not a performance
+result and is not used for promotion.
+
+The 512-reaction Taiji pilot is prepared but has not been submitted from this
+commit. Promotion still requires the frozen 128-case product-start comparison
+specified above; no model result is claimed yet.

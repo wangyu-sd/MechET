@@ -1,0 +1,48 @@
+algorithm: endpoint_grounded_process_rlvr_v1
+seed: 17
+
+train_file: data/endpoint_process_rlvr_pilot_v1/train.jsonl
+monitor_file: data/endpoint_process_rlvr_pilot_v1/monitor.jsonl
+parent_adapter: outputs/agent/in_place_grounded_flow_qwen3_8b_a100_seed17_20260911/checkpoint-8037
+base_model: /aaa/fionafyang/buddy1/whaleywang/models/orbit_qwen_base
+output_dir: outputs/agent/endpoint_process_rlvr_pilot_qwen3_8b_seed17_20260911
+
+# Eight ranks x one distinct start-state group x 64 updates = 512 train starts.
+max_updates: 64
+groups_per_update_per_rank: 1
+group_size: 8
+learning_rate: 5.0e-6
+weight_decay: 0.0
+max_grad_norm: 1.0
+gamma: 0.95
+beta_kl: 0.01
+use_4bit: true
+
+max_committed_events: 8
+same_state_retry_limit: 2
+max_import_fragments: 12
+max_import_atoms: 96
+max_fragment_heavy_atoms: 48
+max_proposals: 24
+max_input_tokens: 8192
+max_new_tokens: 384
+max_seq_length: 12288
+temperature: 0.7
+top_p: 0.95
+event_microbatch_size: 1
+
+exact_endpoint_reward: 4.0
+wrong_finish_reward: -1.0
+invalid_action_reward: -0.25
+cycle_reward: -0.50
+retry_exhausted_reward: -0.75
+unfinished_reward: -1.0
+progress_event_cap: 0.25
+progress_total_cap: 1.0
+
+near_end_promotion_threshold: 0.60
+near_end_window: 64
+stable_product_monitor_checks: 2
+monitor_at_start: true
+monitor_interval: 16
+save_interval: 16

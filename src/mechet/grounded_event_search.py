@@ -223,6 +223,10 @@ def _finish(
 def _apply_event(
     node: GroundedSearchNode,
     proposal: GroundedProposal,
+    *,
+    max_import_fragments: int = 4,
+    max_import_atoms: int = 64,
+    max_fragment_heavy_atoms: int = 24,
 ) -> tuple[GroundedSearchNode | None, GroundedRejected | None]:
     args = dict(proposal.arguments)
     required = {"imports", "marked_state", "flow"}
@@ -240,6 +244,9 @@ def _apply_event(
         flow=str(args["flow"]),
         next_private_map=node.next_private_map,
         seen_visible_states=set(node.visited_visible_states),
+        max_import_fragments=max_import_fragments,
+        max_import_atoms=max_import_atoms,
+        max_fragment_heavy_atoms=max_fragment_heavy_atoms,
     )
     if not outcome.get("ok"):
         message = str(outcome.get("message") or "executor rejected event")
@@ -278,6 +285,9 @@ def advance_grounded_beam(
     *,
     beam_width: int,
     expected_precursor: str = "",
+    max_import_fragments: int = 4,
+    max_import_atoms: int = 64,
+    max_fragment_heavy_atoms: int = 24,
 ) -> GroundedBeamResult:
     """Execute one layer and return terminal, rejected, and surviving branches."""
 
@@ -302,7 +312,13 @@ def advance_grounded_beam(
                     _reject(node, proposal, "TOOL_NOT_AVAILABLE", proposal.name)
                 )
                 continue
-            child, failure = _apply_event(node, proposal)
+            child, failure = _apply_event(
+                node,
+                proposal,
+                max_import_fragments=max_import_fragments,
+                max_import_atoms=max_import_atoms,
+                max_fragment_heavy_atoms=max_fragment_heavy_atoms,
+            )
             if child is not None:
                 children.append(child)
             if failure is not None:
