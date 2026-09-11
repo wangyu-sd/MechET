@@ -187,6 +187,7 @@ A later level cannot rescue an earlier failure.
 - [`A7_STATE_TRACE_DESIGN.md`](A7_STATE_TRACE_DESIGN.md) — proposed state-visible, history-queryable A7 trajectory redesign and its adoption gates; it is not an approved main condition.
 - [`results/a7_historical_subset_long_horizon_audit_20260902.json`](results/a7_historical_subset_long_horizon_audit_20260902.json) — machine-readable comparison between the successful legacy 3,080-target A7 trace view and the current full-universe trajectory lengths; diagnostic, not headline-eligible.
 - [`A8_ETPG_DESIGN.md`](A8_ETPG_DESIGN.md) — proposed partial-order electron-transfer program, its relationship to prior OpenFlow/proof/GFR experiments, and its staged adoption gates.
+- [`A8_LITE_STATE_RESET.md`](A8_LITE_STATE_RESET.md) — targeted continuation from the frozen A7 checkpoint using late authoritative-state resets and disjoint expert anchors; a low-cost history-drift pilot, not off-policy recovery.
 - [`FLOWER_BASELINE_FAIR_COMPARISON.md`](FLOWER_BASELINE_FAIR_COMPARISON.md) — evidence-level inventory of existing FlowER-derived baseline results, dataset denominators, comparability limits, and the matched-rerun table.
 - [`KNOWLEDGE_AUGMENTED_AGENT.md`](KNOWLEDGE_AUGMENTED_AGENT.md) — evidence-tool implementation details.
 - [`DATA_LEAKAGE_AND_ICLR_PLAN.md`](DATA_LEAKAGE_AND_ICLR_PLAN.md) — overlap audits and benchmark freezing.

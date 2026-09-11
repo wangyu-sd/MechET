@@ -277,6 +277,7 @@ def test_inference_accepts_mapping_model_inputs(monkeypatch):
         eos_token_id = 0
 
         def apply_chat_template(self, **_kwargs):
+            assert _kwargs["enable_thinking"] is False
             return UserDict(
                 {
                     "input_ids": torch.tensor([[1, 2]]),
@@ -431,6 +432,7 @@ def test_trace_generation_batches_distinct_conversations_and_restores_padding():
         def apply_chat_template(self, **kwargs):
             assert self.padding_side == "left"
             assert len(kwargs["conversation"]) == 2
+            assert kwargs["enable_thinking"] is False
             return {
                 "input_ids": torch.tensor([[99, 1, 2], [3, 4, 5]]),
                 "attention_mask": torch.tensor([[0, 1, 1], [1, 1, 1]]),
@@ -481,6 +483,7 @@ def test_vllm_backend_preserves_per_candidate_seeds_and_prompt_order():
         def apply_chat_template(self, **kwargs):
             assert kwargs["tokenize"] is False
             assert kwargs["add_generation_prompt"] is True
+            assert kwargs["enable_thinking"] is False
             assert kwargs["tools"] == [{"type": "function"}]
             return kwargs["conversation"][0]["content"]
 
@@ -731,6 +734,47 @@ def test_resume_checkpoint_is_explicit_and_selects_latest(tmp_path):
     assert module.resolve_resume_checkpoint(
         str(tmp_path / "checkpoint-10"), tmp_path
     ) == (tmp_path / "checkpoint-10")
+
+
+def test_initial_adapter_warm_start_is_resolved_and_hash_pinned(tmp_path, monkeypatch):
+    module = load_script("train_tool_sft.py")
+    adapter = tmp_path / "adapter"
+    adapter.mkdir()
+    (adapter / "adapter_config.json").write_text("{}", encoding="utf-8")
+    (adapter / "adapter_model.safetensors").write_bytes(b"weights")
+    (adapter / "adapter_manifest.json").write_text(
+        json.dumps(
+            {
+                "artifact_type": "trainable_peft_adapter",
+                "adapter_sha256": "frozen-a7-hash",
+                "condition_name": "A7",
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MECHET_INITIAL_ADAPTER_PATH", str(adapter))
+
+    path, manifest = module.resolve_initial_adapter(
+        {
+            "require_initial_adapter": True,
+            "initial_adapter_path": "/ignored/staged/by/launcher",
+            "initial_adapter_sha256": "frozen-a7-hash",
+        }
+    )
+
+    assert path == adapter
+    assert manifest["condition_name"] == "A7"
+    assert manifest["adapter_sha256"] == "frozen-a7-hash"
+
+
+def test_required_initial_adapter_cannot_silently_fall_back_to_fresh_lora(
+    monkeypatch,
+):
+    module = load_script("train_tool_sft.py")
+    monkeypatch.delenv("MECHET_INITIAL_ADAPTER_PATH", raising=False)
+
+    with pytest.raises(ValueError, match="initial_adapter_path is empty"):
+        module.resolve_initial_adapter({"require_initial_adapter": True})
 
 
 def _h1_row(identifier="h1", calls=1):

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+export MECHET_TRACE_ADAPTER=/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/tool_sft_flower_a8_lite_state_reset_warm_start_qwen3_8b_a100_20260905
+export MECHET_PAPER_CONDITION=A8-Lite
+export MECHET_EVALUATION_CONDITION="flower_a8_lite_state_reset_seed17_k${SAMPLES_PER_TARGET:-1}"
+export MECHET_INFERENCE_PROTOCOL=trace_owned_compact_full_state_v1_state_reset_continuation
+export MECHET_EXPECTED_ADAPTER_CONDITION=flower_a8_lite_state_reset_v2_warm_start_qwen3_8b
+# The corrected adapter hash is written after training; callers may pin it via
+# MECHET_EXPECTED_ADAPTER_SHA256 when launching the frozen evaluation.
+export MECHET_EXPECTED_ADAPTER_TRAIN_SHA256=62f9848751fee83f8d4b66861a207f1feceb6e06a83bc147e00cc3fc40749ee0
+export MECHET_HEADLINE_ELIGIBLE=0
+export MECHET_INFERENCE_OUTPUT=${MECHET_INFERENCE_OUTPUT:-outputs/eval/iclr_full/a8_lite_state_reset_seed17_k${SAMPLES_PER_TARGET:-1}_vllm_a100_20260904}
+
+exec bash /aaa/fionafyang/buddy1/whaleywang/MechET-a8-lite/scripts/run_taiji_flower_a7_inference.sh
