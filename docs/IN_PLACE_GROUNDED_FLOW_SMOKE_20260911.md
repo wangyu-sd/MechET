@@ -119,21 +119,36 @@ aromatic, and stereochemical constraints. Endpoint accuracy remains strict.
 
 ## 5. What the two cases show
 
+The rollout direction is product to precursors: every committed FLOW event is
+an **inverse** electron-flow transition. Consequently, an inverse event must not
+be judged as though it were a forward reaction that should occur spontaneously
+under laboratory conditions. Chemical plausibility has to be assessed after
+reversing the complete predicted trajectory and asking whether the resulting
+precursors can reach the target through a credible forward mechanism. The
+current executor checks graph/electron bookkeeping and state validity; it is
+not a forward kinetic, thermodynamic, or condition-aware oracle.
+
 ### `flower_mech_proof_val_2533`
 
 The gold first import is hydroxide (`[H]O`). The model instead imports an
 HOBt-like fragment (`[H]On1nnc2ccccc21`). Its first proton transfer and the
-following O-acyl addition are formally executable, but they enter a different
-retrosynthetic branch. The flexible executor prevents later serialization and
-loop failures from corrupting state, yet the model eventually finishes at the
-wrong precursor mixture.
+following inverse acyl-transfer events are formally executable and terminate at
+a non-reference precursor mixture. Read in the forward direction, an activated
+benzoyl/HOBt species plus the hydrazine fragment could describe an alternative
+acylation route; the exact-match failure alone therefore does not establish
+chemical implausibility. The flexible executor prevents later serialization
+and loop failures from corrupting state, but this smoke does not contain the
+forward validation needed to accept the alternative route as chemically valid.
 
 ### `flower_mech_proof_val_1256`
 
 The gold first import is `COB(Br)Br`. The model starts with ethoxide and follows
 with lithium, acid/base, acylation, solvent, and salt fragments. Several local
-electron moves execute, but they do not implement the required O-demethylation
-route. The trace reaches the event limit without a correct endpoint.
+inverse electron moves execute, but the trace reaches the event limit without
+the reference endpoint. Some early transformations can be interpreted as
+alternative forward deprotection chemistry after reversing the trajectory;
+later reagent accumulation and unusual charge states prevent a positive
+chemical-plausibility conclusion from this smoke alone.
 
 These examples separate three notions that must be reported independently:
 
@@ -143,8 +158,9 @@ These examples separate three notions that must be reported independently:
 - **reaction-level correctness**: the executed trajectory reaches an accepted
   precursor endpoint.
 
-A formally executable local move is not, by itself, evidence that the selected
-fragment or complete route is chemically appropriate for the target.
+A formally executable inverse move is not, by itself, evidence either for or
+against the laboratory plausibility of the corresponding full forward route.
+That requires forward reversal/replay plus reaction-level chemical assessment.
 
 ## 6. Current conclusions and next measurement
 
@@ -152,11 +168,15 @@ The checkpoint has learned the basic interaction grammar: both cases produced
 a parsed first tool call and at least one executable electron-flow event. The
 flexible adapter fixes representation-only rejection and prevents rejected
 imports from contaminating later turns. The remaining smoke failures are
-dominated by wrong-but-locally-executable fragment/path selection and by trace
-termination, not by atom-map visibility or compiler coverage.
+non-reference but locally executable fragment/path selection and trace
+termination, not atom-map visibility or compiler coverage. Whether a
+non-reference endpoint is a valid alternative synthesis is unresolved by the
+present strict-reference metric.
 
 The next result should therefore be a frozen product-only validation evaluation
 with multiple candidates and model-likelihood ranking, reporting parse rate,
 event executability, finish rate, strict endpoint accuracy, and failure counts
-over the same denominator. The present two-case smoke must not be promoted to a
-paper accuracy number.
+over the same denominator. A separate forward-reversal validity analysis is
+needed to distinguish invalid routes from chemically credible alternative
+precursors. The present two-case smoke must not be promoted to a paper accuracy
+number.

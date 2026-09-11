@@ -54,5 +54,6 @@
     }
   ],
   "comparison_limit": "The executor protocol and checkpoint step both changed, so the rejection-count difference is diagnostic rather than a controlled effect size.",
-  "conclusion": "Graph alignment and transactional rollback reduce representation-induced cascades; wrong but locally executable fragment and route selection remains the dominant observed endpoint failure."
+  "directionality": "The model executes inverse electron-flow transitions from product to precursors. Chemical plausibility must be assessed by reversing the complete trace and validating the corresponding forward route.",
+  "conclusion": "Graph alignment and transactional rollback reduce representation-induced cascades. The remaining observations are non-reference but locally executable inverse paths and termination failures; strict endpoint mismatch alone does not determine whether a non-reference endpoint is a chemically valid alternative synthesis."
 }
