@@ -320,6 +320,36 @@ Promote constrained search to the main inference path only if, under matched or 
 
 If it improves ExecutePass but not endpoint recovery, do not promote it as a solution to the scientific problem.
 
+### Implemented frozen-checkpoint integration
+
+The integration uses the completed one-epoch in-place-grounded Qwen3-8B
+adapter at checkpoint 8,037. This is an existing frozen checkpoint; the search
+experiment performs no optimization. Its action surface packages optional
+first-use imports and one coupled FLOW program into a single transaction, so
+the operational branch is the elementary event defined in Section 2.
+
+The runtime includes:
+
+- an explicit JSON-serializable episode fork containing private executor state,
+  committed transitions, transcript, import map counter, and ancestor states;
+- actual generated-token log-probability extraction from sampled Qwen tokens;
+- transactional rollback for rejected imports or FLOW programs;
+- an explicit `finish_trace` terminal pool backed by full trace replay and
+  proof compilation;
+- deterministic 64-case validation selection and eight inference shards;
+- an independent-rollout comparator with executor-visible repair feedback;
+- a shared ceiling of 48 responses and 384 tokens per response per target for
+  both methods.
+
+The model prompt contains only the unmapped product and prior public executor
+observations. Mapped target states, reference endpoints, and reference prefix
+states are joined by stable ID only inside the executor/evaluator; they are not
+passed to generation, pruning, or likelihood ranking.
+
+A one-reaction, two-response local GPU integration smoke exercised both live
+paths and produced finite token likelihoods. It is an interface check, not an
+endpoint result. The 64-case run is the first decision-bearing gate.
+
 ---
 
 ## 13. Relationship to PR #54 / future RLVR

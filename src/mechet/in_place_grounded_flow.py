@@ -502,6 +502,7 @@ def execute_grounded_event_transactionally(
             "code": "PASS",
             "current_mapped_state": successor,
             "next_private_map": private_map,
+            "mapped_imports": mapped_imports,
             "compiled_moves": compiled,
             "observation": {
                 "ok": True,
@@ -511,8 +512,27 @@ def execute_grounded_event_transactionally(
             },
         }
     except Exception as exc:
-        failure["message"] = str(exc)
-        failure["observation"]["message"] = str(exc)
+        message = str(exc)
+        code = "EVENT_REJECTED"
+        for pattern, stable_code in (
+            ("too many import fragments", "TOO_MANY_IMPORTS"),
+            ("unparseable import fragment", "IMPORT_SMILES_INVALID"),
+            ("model-authored imports must not contain atom maps", "IMPORT_CONTAINS_MAPS"),
+            ("heavy-atom limit", "IMPORT_FRAGMENT_TOO_LARGE"),
+            ("atom-count limit", "IMPORT_ATOM_BUDGET_EXCEEDED"),
+            ("graph-equivalent", "GROUNDING_GRAPH_MISMATCH"),
+            ("marker", "GROUNDING_MARKER_INVALID"),
+            ("FLOW", "FLOW_PARSE_INVALID"),
+            ("electron replay failed", "CHEMICAL_STATE_INVALID"),
+            ("repeats an existing state", "STATE_CYCLE"),
+        ):
+            if pattern in message:
+                code = stable_code
+                break
+        failure["code"] = code
+        failure["observation"]["code"] = code
+        failure["message"] = message
+        failure["observation"]["message"] = message
         return failure
 
 
