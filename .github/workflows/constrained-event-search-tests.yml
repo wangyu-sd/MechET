@@ -1,0 +1,42 @@
+name: Constrained event search tests
+
+on:
+  pull_request:
+    paths:
+      - "src/mechet/constrained_event_search.py"
+      - "src/mechet/forward_expert.py"
+      - "scripts/smoke_constrained_event_search.py"
+      - "tests/test_constrained_event_search.py"
+      - "docs/EXECUTOR_CONSTRAINED_EVENT_SEARCH.md"
+      - ".github/workflows/constrained-event-search-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/mechet/constrained_event_search.py"
+      - "src/mechet/forward_expert.py"
+      - "scripts/smoke_constrained_event_search.py"
+      - "tests/test_constrained_event_search.py"
+      - ".github/workflows/constrained-event-search-tests.yml"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[forward]" pytest
+      - name: Compile search code
+        run: |
+          python -m py_compile \
+            src/mechet/constrained_event_search.py \
+            scripts/smoke_constrained_event_search.py
+      - name: Run focused tests
+        run: pytest -q tests/test_constrained_event_search.py
+      - name: Run deterministic chemistry smoke
+        run: python scripts/smoke_constrained_event_search.py
