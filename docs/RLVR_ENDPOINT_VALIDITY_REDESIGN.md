@@ -69,7 +69,9 @@ post-hoc answer generation.
 Use hard feasibility before scalar optimization:
 
 ```text
-C_exec(tau) = trace parses, executes, explicitly finishes, and replays exactly
+C_exec(tau) = every attempted action consumes budget; the trace parses and
+              executes; exactly one finish_trace is attempted and succeeds;
+              no action follows it; replay reproduces the same endpoint exactly
 C_state(tau) = every intermediate passes the frozen chemistry-support contract
 ```
 
@@ -95,9 +97,15 @@ Definitions:
   completion by the evaluator;
 - `c_core_cycle`: recurrence of the product-descended reactive-core state even
   if new spectator fragments were appended;
-- `c_noncausal_tail`: accepted steps after a higher-scoring terminal prefix;
+- `c_noncausal_tail`: accepted continuation after the best *hypothetical
+  terminal prefix* identified by the frozen gold-independent terminal scorer.
+  It is a diagnostic/training penalty over nonterminal continuations, not an
+  impossible suffix after an actual successful `finish_trace`;
 - `c_unnecessary_auxiliary`: added components that do not participate in the
-  net reactive-core transformation.
+  net reactive-core transformation and are not required by the frozen
+  necessity contract. The contract must explicitly protect catalysts,
+  counterions, proton shuttles, and solvents that are necessary for a supported
+  event even when they do not contribute atoms to the product.
 
 The weights are intentionally not fixed in this proposal. Reward separability
 must be measured before policy optimization.

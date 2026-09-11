@@ -75,7 +75,8 @@ The following conditions remove a branch **before likelihood ranking**:
 6. no-op successor;
 7. return to an ancestor molecular state;
 8. failure of an explicitly frozen chemistry-support validator, if enabled;
-9. exact duplicate authoritative successor after another higher-likelihood branch has already reached it.
+9. exact duplicate authoritative successor reached with the same ancestor-state
+   set after another higher-likelihood branch has already reached it.
 
 The current small-case implementation includes executor rejection, no-op rejection, ancestor-state cycle detection, optional support validation, and exact canonical successor deduplication.
 
@@ -117,7 +118,13 @@ Search budget must be allocated to distinct chemical states rather than distinct
 
 The first implementation deduplicates using deterministic canonical mapped SMILES. This safely removes differences such as component or traversal order while preserving atom identity, charge, stereochemistry and bond structure.
 
-If two proposed events produce the same canonical authoritative successor, retain only the branch with the higher cumulative normalized model log-probability.
+If two proposed events produce the same canonical authoritative successor **and
+the same ancestor-state set**, retain only the branch with the higher cumulative
+normalized model log-probability. Paths that converge on the same state through
+different ancestor sets are not duplicates: a later transition can be a cycle
+for one history but valid for the other. Keeping those histories distinct makes
+cycle pruning correct; ordinary beam ranking may still remove one later as an
+explicit capacity trade-off.
 
 A later full search implementation may add a separately audited graph/symmetry equivalence key. That extension must not be mixed into this initial case test.
 

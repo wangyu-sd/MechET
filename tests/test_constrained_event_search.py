@@ -3,6 +3,7 @@ from mechet.constrained_event_search import (
     SearchNode,
     advance_event_beam,
 )
+import mechet.constrained_event_search as constrained_search
 
 
 INITIAL = "[O-:1].[CH3:2][Br:3]"
@@ -208,3 +209,51 @@ def test_optional_support_contract_is_a_hard_gate():
     )
     assert not result.selected
     assert result.executor_rejected[0].code == "CHEMISTRY_SUPPORT_REJECTED"
+
+
+def test_converged_state_keeps_materially_different_ancestor_histories(monkeypatch):
+    """Converged states are not interchangeable when cycle histories differ."""
+
+    successors = {
+        "route_a_to_o": "O",
+        "route_b_to_o": "O",
+        "continue_to_c": "C",
+    }
+
+    def fake_verify(_state_smiles, moves):
+        return {"ok": True, "state_smiles": successors[moves[0]["tag"]]}
+
+    monkeypatch.setattr(constrained_search, "verify_electron_step", fake_verify)
+    parent_a = SearchNode("C", trace_labels=("route_a",), logprob_sum=-0.1, token_count=1)
+    parent_b = SearchNode("N", trace_labels=("route_b",), logprob_sum=-0.2, token_count=1)
+    converged = advance_event_beam(
+        [
+            (
+                parent_a,
+                [EventProposal("route_a_to_o", ({"tag": "route_a_to_o"},), -0.1)],
+            ),
+            (
+                parent_b,
+                [EventProposal("route_b_to_o", ({"tag": "route_b_to_o"},), -0.2)],
+            ),
+        ],
+        beam_width=2,
+    )
+
+    assert len(converged.selected) == 2
+    assert not converged.duplicate_pruned
+
+    continued = advance_event_beam(
+        [
+            (
+                node,
+                [EventProposal("continue_to_c", ({"tag": "continue_to_c"},), -0.1)],
+            )
+            for node in converged.selected
+        ],
+        beam_width=2,
+    )
+
+    assert len(continued.selected) == 1
+    assert continued.selected[0].trace_labels[:1] == ("route_b",)
+    assert [item.code for item in continued.executor_rejected] == ["STATE_CYCLE"]

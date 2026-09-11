@@ -211,9 +211,12 @@ def advance_event_beam(
 
     Every proposal is executed immediately against its parent state.  Invalid,
     cyclic and optional chemistry-support failures are removed before ranking.
-    Formally accepted children are deduplicated by canonical authoritative state,
-    keeping the child with the higher cumulative normalized model log-probability.
-    Only then is the beam-width limit applied.
+    Formally accepted children are deduplicated by canonical authoritative state
+    *and ancestor-state set*, keeping the child with the higher cumulative
+    normalized model log-probability.  Two paths that converge on the same
+    molecular state but have different ancestor sets remain distinct search
+    nodes: a future transition may be a cycle for only one of them.  Only then
+    is the beam-width limit applied.
     """
 
     if beam_width < 1:
@@ -235,10 +238,13 @@ def advance_event_beam(
             elif child is not None:
                 children.append(child)
 
-    unique: dict[str, SearchNode] = {}
+    unique: dict[tuple[str, frozenset[str]], SearchNode] = {}
     duplicate_pruned: list[RejectedBranch] = []
     for child in children:
-        key = canonical_state_key(child.state_smiles)
+        key = (
+            canonical_state_key(child.state_smiles),
+            frozenset(child.visited_state_keys),
+        )
         incumbent = unique.get(key)
         if incumbent is None:
             unique[key] = child
