@@ -99,6 +99,12 @@ assert int(m['splits']['train'].get('truncation_count',0)) == 0
 print({'token_gate':'passed','train':m['splits']['train']},flush=True)
 PY
 
+local_cache=$(mktemp -d /tmp/mechet_markov_tokens_3072.XXXXXX)
+echo "[markov-sft] staging token cache to node-local storage: $local_cache"
+cp -a "$output_dir/qwen3_8b_tokens_3072/." "$local_cache/"
+export MECHET_PRETOKENIZED_CACHE_DIR=$local_cache
+echo "[markov-sft] local token cache ready bytes=$(du -sb "$local_cache" | cut -f1)"
+
 echo "[markov-sft] one-epoch Qwen3-8B H20 training starts"
 exec torchrun --standalone --nproc_per_node=8 \
   "$runtime_repo/scripts/train_tool_sft.py" --config "$training_config"
