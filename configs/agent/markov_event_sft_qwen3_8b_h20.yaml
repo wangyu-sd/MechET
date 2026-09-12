@@ -1,0 +1,90 @@
+condition_name: flower_markov_grounded_event_v2_qwen3_8b
+scientific_hypothesis: runtime_matched_one_step_supervision_reduces_long_horizon_drift
+model_name_or_path: Qwen/Qwen3-8B
+train_file: data/flower_markov_event_sft_v2/train.jsonl
+validation_file: data/flower_markov_event_sft_v2/valid.jsonl
+test_file: data/flower_markov_event_sft_v2/test.jsonl
+pretokenized_cache_dir: data/flower_markov_event_sft_v2/qwen3_8b_tokens_3072
+pretokenization_world_size: 8
+output_dir: outputs/agent/markov_event_sft_qwen3_8b_h20_seed17_20260912
+limit_examples: 0
+
+environment:
+  max_tool_calls: 40
+  observation_mode: target_plus_executor_current_state_v1
+
+training:
+  qlora: true
+  attention_implementation: sdpa
+  require_flash_sdp: true
+  bf16: true
+  fp16: false
+  tf32: true
+  learning_rate: 2.0e-5
+  num_train_epochs: 1.0
+  max_steps: -1
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 2
+  eval_accumulation_steps: 8
+  eval_strategy: "no"
+  max_length: 3072
+  window_context_tokens: 2048
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config:
+    rope: true
+    rms_norm: true
+    swiglu: true
+    cross_entropy: false
+    fused_linear_cross_entropy: true
+  torch_compile: false
+  include_tokens_per_second: true
+  include_num_input_tokens_seen: true
+  dataloader_num_workers: 4
+  logging_steps: 10
+  save_steps: 1000
+  save_total_limit: 3
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  paper_baseline_id: A7-runtime-matched-SFT
+  paper_method_name: markov_grounded_electron_flow
+  paper_run_role: corrected_state_conditioned_sft
+  observation_contract: target_plus_executor_current_state_v1
+  stable_id_manifest: data/flower_markov_event_sft_v2/manifest.json
+  validation_report: data/flower_markov_event_sft_v2/manifest.json
+  expected_train_rows: 1300519
+  expected_validation_rows: 14422
+  expected_test_rows: 146332
+  expected_upstream_endpoint_fallback_rows: 0
+  require_strict_trace_universe_complete: true
+  require_trace_owned: false
+  require_tool_decision: true
+  terminal_tool: finish_trace
+  free_form_proof_submission: false
+  knowledge_direct_reward: false
+  corpus_used: false
+  source_dataset: flower_new_dataset_strict_proof_universe_v4
+  source_artifact: data/flower_in_place_grounded_flow_v1
+  reaction_denominator:
+    train: 257167
+    valid: 2890
+    test: 28967
+  environment_revision: in_place_grounded_flow_v1
+  executor_revision: MECH_PROOF_v1_full_coverage_v4
+  gold_horizon_model_visible: false
+  one_epoch_first: true

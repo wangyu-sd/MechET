@@ -155,6 +155,7 @@ def tokenize_shard(
     max_length: int,
     context_tokens: int,
     require_trace_owned: bool,
+    require_tool_decision: bool,
     allow_fallback: bool,
 ) -> dict[str, Any]:
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -178,6 +179,7 @@ def tokenize_shard(
                 counts = validate_conversation(
                     row,
                     require_trace_owned=require_trace_owned,
+                    require_tool_decision=require_tool_decision,
                     allow_upstream_endpoint_fallback=allow_fallback,
                 )
                 encoded, audit = encode_assistant_only_conversation(
@@ -360,6 +362,7 @@ def main() -> int:
             max_length=max_length,
             context_tokens=context_tokens,
             require_trace_owned=bool(contract.get("require_trace_owned", True)),
+            require_tool_decision=bool(contract.get("require_tool_decision", False)),
             allow_fallback=int(
                 contract.get("expected_upstream_endpoint_fallback_rows", 0) or 0
             )
