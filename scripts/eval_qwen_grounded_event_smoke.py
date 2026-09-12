@@ -12,7 +12,10 @@ import time
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src"))
 
-from mechet.grounded_event_smoke import render_grounded_event_prompt
+from mechet.grounded_event_smoke import (
+    render_forward_event_prompt,
+    render_grounded_event_prompt,
+)
 
 
 def read_jsonl(path: Path) -> list[dict]:
@@ -84,7 +87,7 @@ def score_labels(model, tokenizer, prompt: str, labels: list[str], device) -> di
 
 def run(args: argparse.Namespace) -> int:
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
     rank, world, local_rank = coordinates()
     if torch.cuda.is_available():
@@ -104,13 +107,22 @@ def run(args: argparse.Namespace) -> int:
         and torch.cuda.get_device_capability(local_rank)[0] >= 8
         else torch.float16
     )
-    model = AutoModelForCausalLM.from_pretrained(
-        args.model,
-        trust_remote_code=True,
-        torch_dtype=dtype,
-        device_map={"": local_rank} if torch.cuda.is_available() else None,
-        attn_implementation="sdpa",
-    ).eval()
+    model_kwargs = {
+        "trust_remote_code": True,
+        "torch_dtype": dtype,
+        "device_map": {"": local_rank} if torch.cuda.is_available() else None,
+        "attn_implementation": "sdpa",
+    }
+    if args.load_in_4bit:
+        if not torch.cuda.is_available():
+            raise RuntimeError("--load-in-4bit requires CUDA")
+        model_kwargs["quantization_config"] = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=dtype,
+        )
+    model = AutoModelForCausalLM.from_pretrained(args.model, **model_kwargs).eval()
     device = next(model.parameters()).device
 
     with shard.open("a", encoding="utf-8") as sink:
@@ -118,7 +130,12 @@ def run(args: argparse.Namespace) -> int:
             if task["key"] in completed:
                 continue
             started = time.time()
-            system, user = render_grounded_event_prompt(task)
+            renderer = (
+                render_forward_event_prompt
+                if args.direction == "forward"
+                else render_grounded_event_prompt
+            )
+            system, user = renderer(task)
             prompt = render_chat(tokenizer, system, user)
             labels = [str(item["label"]) for item in task["options"]]
             scores = score_labels(model, tokenizer, prompt, labels, device)
@@ -141,6 +158,7 @@ def run(args: argparse.Namespace) -> int:
                 "recall_at_4": rank_index <= min(4, len(ranked)),
                 "recall_at_8": rank_index <= min(8, len(ranked)),
                 "random_top1": 1.0 / len(ranked),
+                "direction": args.direction,
                 "seconds": time.time() - started,
                 "claim_boundary": task.get("claim_boundary"),
             }
@@ -192,7 +210,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "artifact_type": "pure_qwen_grounded_event_ranking_v1",
         "model": str(args.model),
         "adapter": None,
-        "condition": "Qwen3-8B_zero_shot_F-oracle_grounded_event_ranking",
+        "condition": f"Qwen3-8B_zero_shot_F-oracle_{args.direction}_event_ranking",
         "planned_events": len(expected),
         "completed_events": len(rows),
         "missing_events": len(missing),
@@ -204,7 +222,8 @@ def aggregate(args: argparse.Namespace) -> int:
         "claim_boundary": (
             "Validation-only pure-Qwen capability diagnostic on gold executor states. "
             "No adapter is loaded; candidates include a gold-derived reference event "
-            "and formally executable hard negatives. This is not endpoint accuracy."
+            f"and formally executable hard negatives scored in the {args.direction} "
+            "direction. This is not endpoint accuracy or deployable enumeration."
         ),
     }
     (args.output / "evaluation.json").write_text(
@@ -221,6 +240,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--limit-events", type=int, default=0)
+    parser.add_argument("--direction", choices=("inverse", "forward"), default="inverse")
+    parser.add_argument("--load-in-4bit", action="store_true")
     args = parser.parse_args()
     return run(args) if args.command == "run" else aggregate(args)
 

@@ -1,10 +1,13 @@
 from mechet.grounded_event_smoke import (
     executable_event_candidates,
     event_descriptor,
+    render_forward_event_prompt,
     render_grounded_event_prompt,
+    reverse_event_moves,
     state_with_imports,
     unmap_state,
 )
+from mechet.forward_expert import verify_electron_step
 from mechet.inverse_trace_data import invert_moves
 
 
@@ -72,3 +75,26 @@ def test_prompt_contains_only_randomized_event_labels_not_private_moves() -> Non
     assert "[A]" in user and "[B]" in user
     assert "atom-map numbers" in system
     assert ":137]" not in user
+
+
+def test_reverse_event_round_trips_and_renders_forward_choice() -> None:
+    state = "[Br-:3].[CH3:1][OH:2]"
+    inverse = invert_moves(_sn2_forward_moves())
+    result = verify_electron_step(state, inverse)
+    assert result["ok"]
+    successor = result["state_smiles"]
+    round_trip = verify_electron_step(successor, reverse_event_moves(inverse))
+    assert round_trip["ok"]
+    assert unmap_state(round_trip["state_smiles"]) == unmap_state(state)
+
+    task = {
+        "target_product": "CO",
+        "current_state": unmap_state(state),
+        "options": [
+            {"label": "A", "moves": inverse, "successor": successor},
+        ],
+    }
+    system, user = render_forward_event_prompt(task)
+    assert "forward chemistry" in system
+    assert "CANDIDATE STARTING STATE" in user
+    assert "[A]" in user
