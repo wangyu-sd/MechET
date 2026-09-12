@@ -26,9 +26,13 @@ Last updated: 2026-09-13.
   `28,967 / 28,967` with zero unresolved reactions before starting train data
   conversion.
 - Active Taiji task:
-  `meteor_mechet_natural_language_event_sft_1ep_8a100_qy_20260913_02`, instance
-  `8b1d81f5a08afd1e01a096a6db02139d`, normal non-elastic `8 x A100` in Qingyuan.
-  It converts and gates all three splits before one-epoch Qwen3-8B QLoRA SFT.
+  `meteor_mechet_natural_language_event_sft_1ep_8a100_qy_20260913_03`, instance
+  `8b1d8228a08afcb601a096e8cdb913e6`, normal non-elastic `8 x A100` in Qingyuan.
+  Full conversion and distributed tokenization are complete; eight training
+  ranks are running the one-epoch Qwen3-8B QLoRA SFT. The `_02` instance ended
+  before optimization because duplicating both the 20.4-GB token cache and the
+  model cache exhausted node-local temporary storage; `_03` keeps only tokens
+  local and loads the pinned model from the shared read-only cache.
 
 This is a candidate representation experiment. It does not supersede the
 paper's current A7 choice until its frozen validation evaluation is available.
