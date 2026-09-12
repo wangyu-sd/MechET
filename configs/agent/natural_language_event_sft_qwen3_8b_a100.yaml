@@ -1,10 +1,10 @@
-condition_name: flower_natural_language_electron_event_v1_qwen3_8b
+condition_name: flower_natural_language_electron_event_v1_rdkit2026_qwen3_8b
 scientific_hypothesis: natural_language_electron_roles_with_executor_grounding_reduce_address_errors
 model_name_or_path: Qwen/Qwen3-8B
-train_file: data/flower_natural_language_event_sft_v1/train.jsonl
-validation_file: data/flower_natural_language_event_sft_v1/valid.jsonl
-test_file: data/flower_natural_language_event_sft_v1/test.jsonl
-pretokenized_cache_dir: data/flower_natural_language_event_sft_v1/qwen3_8b_tokens_4096
+train_file: data/flower_natural_language_event_sft_v1_rdkit2026/train.jsonl
+validation_file: data/flower_natural_language_event_sft_v1_rdkit2026/valid.jsonl
+test_file: data/flower_natural_language_event_sft_v1_rdkit2026/test.jsonl
+pretokenized_cache_dir: data/flower_natural_language_event_sft_v1_rdkit2026/qwen3_8b_tokens_4096
 pretokenization_world_size: 8
 output_dir: outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913
 limit_examples: 0
@@ -65,8 +65,8 @@ contract:
   paper_method_name: mechet_natural_language_event
   paper_run_role: candidate_mechanism_first_method
   observation_contract: target_current_state_plus_annotated_smiles_v1
-  stable_id_manifest: data/flower_natural_language_event_sft_v1/manifest.json
-  validation_report: data/flower_natural_language_event_sft_v1/manifest.json
+  stable_id_manifest: data/flower_natural_language_event_sft_v1_rdkit2026/manifest.json
+  validation_report: data/flower_natural_language_event_sft_v1_rdkit2026/manifest.json
   # Filled from the fully replayed manifest by the Taiji runner before tokenization.
   expected_train_rows: -1
   expected_validation_rows: -1
@@ -87,6 +87,7 @@ contract:
     test: 28967
   environment_revision: natural_language_electron_event_v1
   executor_revision: MECH_PROOF_v1_full_coverage_v4
+  rdkit_revision: 2026.03.4
   model_visible_atom_maps: false
   model_predicts_state: false
   electron_flow_model_generated: true

@@ -5,11 +5,12 @@ shared_repo=/aaa/fionafyang/buddy1/whaleywang/MechET
 runtime_repo=${MECHET_NL_EVENT_RUNTIME_DIR:?set MECHET_NL_EVENT_RUNTIME_DIR}
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 source_dir=$shared_repo/data/flower_inverse_tool_sft_action_delta_v1
-output_dir=$shared_repo/data/flower_natural_language_event_sft_v1
+output_dir=$shared_repo/data/flower_natural_language_event_sft_v1_rdkit2026
 base_config=$runtime_repo/configs/agent/natural_language_event_sft_qwen3_8b_a100.yaml
 liger_wheel=$shared_repo/artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl
 xformers_wheel=$shared_repo/artifacts/wheels/xformers-0.0.29.post3-cp311-cp311-manylinux_2_28_x86_64.whl
 bitsandbytes_wheel=$shared_repo/artifacts/wheels/bitsandbytes-0.49.2-py3-none-manylinux_2_24_x86_64.whl
+rdkit_wheel=$shared_repo/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl
 
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -21,10 +22,11 @@ test -f "$source_dir/train.jsonl"
 echo "303b9bbf5c10f9289c3139afb41e4d989e8c809516624a106b89b064163d971d  $liger_wheel" | sha256sum --check --strict
 echo "bbf2f500dfdbcf4649bf568cc2c9f434399f704dc4064fd1fbdbef2b524a8139  $xformers_wheel" | sha256sum --check --strict
 echo "54b771f06e1a3c73af5c7f16ccf0fc23a846052813d4b008d10cb6e017dd1c8c  $bitsandbytes_wheel" | sha256sum --check --strict
+echo "a41dde42ecb24e7d93d62b89e8e5d267b02bbac764f965f3968296c99234c685  $rdkit_wheel" | sha256sum --check --strict
 
 runtime_target=$(mktemp -d /tmp/mechet_nl_event_runtime.XXXXXX)
 python -m pip install --quiet --no-deps --target "$runtime_target" \
-  "$liger_wheel" "$xformers_wheel" "$bitsandbytes_wheel"
+  "$liger_wheel" "$xformers_wheel" "$bitsandbytes_wheel" "$rdkit_wheel"
 
 export HF_HUB_CACHE=$shared_hf_cache
 export HF_HUB_OFFLINE=1
@@ -37,13 +39,16 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export TORCHINDUCTOR_COMPILE_THREADS=1
 
 python - <<'PY'
-import os, torch
+import os, rdkit, torch
 if torch.cuda.device_count() != 8:
     raise SystemExit(f"expected 8 GPUs, got {torch.cuda.device_count()}")
 names=[torch.cuda.get_device_name(i) for i in range(8)]
 if not all("A100" in name.upper() for name in names):
     raise SystemExit(f"expected A100 GPUs, got {names}")
-print({'gpus':names,'cpu_affinity':len(os.sched_getaffinity(0))},flush=True)
+if rdkit.__version__ != "2026.03.4":
+    raise SystemExit(f"expected RDKit 2026.03.4, got {rdkit.__version__}")
+print({'gpus':names,'cpu_affinity':len(os.sched_getaffinity(0)),
+       'rdkit_version':rdkit.__version__},flush=True)
 PY
 
 manifest=$output_dir/manifest.json
