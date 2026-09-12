@@ -105,6 +105,12 @@ cp -a "$output_dir/qwen3_8b_tokens_3072/." "$local_cache/"
 export MECHET_PRETOKENIZED_CACHE_DIR=$local_cache
 echo "[markov-sft] local token cache ready bytes=$(du -sb "$local_cache" | cut -f1)"
 
+local_hf_cache=$(mktemp -d /tmp/mechet_hf_cache.XXXXXX)
+echo "[markov-sft] staging pinned Qwen3-8B cache to node-local storage: $local_hf_cache"
+cp -a "$shared_hf_cache/models--Qwen--Qwen3-8B" "$local_hf_cache/"
+export HF_HUB_CACHE=$local_hf_cache
+echo "[markov-sft] local model cache ready bytes=$(du -sb "$local_hf_cache" | cut -f1)"
+
 echo "[markov-sft] one-epoch Qwen3-8B H20 training starts"
 exec torchrun --standalone --nproc_per_node=8 \
   "$runtime_repo/scripts/train_tool_sft.py" --config "$training_config"
