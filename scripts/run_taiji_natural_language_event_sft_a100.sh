@@ -116,10 +116,7 @@ echo "[natural-language-sft] staging token cache: $local_cache"
 cp -a "$output_dir/qwen3_8b_tokens_4096/." "$local_cache/"
 export MECHET_PRETOKENIZED_CACHE_DIR=$local_cache
 
-local_hf_cache=$(mktemp -d /tmp/mechet_nl_event_hf.XXXXXX)
-echo "[natural-language-sft] staging pinned model cache: $local_hf_cache"
-cp -a "$shared_hf_cache/models--Qwen--Qwen3-8B" "$local_hf_cache/"
-export HF_HUB_CACHE=$local_hf_cache
+echo "[natural-language-sft] loading pinned model from shared read-only cache: $HF_HUB_CACHE"
 
 echo "[natural-language-sft] one-epoch Qwen3-8B training starts"
 exec torchrun --standalone --nproc_per_node=8 \
