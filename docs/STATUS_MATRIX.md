@@ -27,7 +27,7 @@ the paper-authoritative A0--A7, B1--B5 and R1--R7 protocol.
 | H2 compositional generalization result | Not established | Split and overlap infrastructure only | Complete non-empty C1/C2/C3 evaluation |
 | H3 evidence benefit result | Not established | Future-study matched evidence infrastructure only | Excluded from current ICLR; run separately if resumed |
 | Textbook/RAG/H3 | Future study | Matched evidence infrastructure exists | Excluded from current ICLR result matrix |
-| RL and downstream planning | Optional extension | Configuration/adapter paths exist | Only after matched SFT, R3 and C2 are frozen |
+| RL and downstream planning | Full-pool endpoint-process diagnostic active; no improvement through update 422 | 39/27,008 cumulative endpoint success; recent-100 endpoint rate 0.016%, retry exhaustion 81.3%; no new checkpoint at capture | Revise rollout batching and credit assignment before another exact full-pool pass; see [`ENDPOINT_PROCESS_RLVR_FULL_STATUS_20260912.md`](ENDPOINT_PROCESS_RLVR_FULL_STATUS_20260912.md) |
 | Experimental feasibility | Out of current scope | None | Independent experimental or trusted external evidence |
 
 The authoritative run mapping is
