@@ -35,6 +35,28 @@ FEATURES = Features(
 )
 
 
+def iter_jsonl_byte_shard(source: Path, rank: int, world_size: int):
+    """Yield complete UTF-8 JSONL lines from one non-overlapping byte shard."""
+
+    if not 0 <= rank < world_size:
+        raise ValueError(f"invalid rank/world_size: {rank}/{world_size}")
+    size = source.stat().st_size
+    start = size * rank // world_size
+    end = size * (rank + 1) // world_size
+    with source.open("rb") as handle:
+        handle.seek(start)
+        if start:
+            handle.readline()
+        while True:
+            position = handle.tell()
+            if rank + 1 < world_size and position >= end:
+                break
+            raw_line = handle.readline()
+            if not raw_line:
+                break
+            yield raw_line.decode("utf-8")
+
+
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -171,54 +193,57 @@ def tokenize_shard(
     max_assistant_turns = 0
     writer = ArrowWriter(features=FEATURES, path=str(target), writer_batch_size=64)
     try:
-        with source.open(encoding="utf-8") as handle:
-            for index, line in enumerate(handle):
-                if index % world_size != rank or not line.strip():
-                    continue
-                row = dict(json.loads(line))
-                counts = validate_conversation(
-                    row,
-                    require_trace_owned=require_trace_owned,
-                    require_tool_decision=require_tool_decision,
-                    allow_upstream_endpoint_fallback=allow_fallback,
+        # Divide the JSONL by byte offsets instead of making every rank scan the
+        # full Ceph file.  Boundaries are advanced to the next newline, so each
+        # complete row is owned by exactly one rank while aggregate row counts
+        # remain invariant.
+        for line in iter_jsonl_byte_shard(source, rank, world_size):
+            if not line.strip():
+                continue
+            row = dict(json.loads(line))
+            counts = validate_conversation(
+                row,
+                require_trace_owned=require_trace_owned,
+                require_tool_decision=require_tool_decision,
+                allow_upstream_endpoint_fallback=allow_fallback,
+            )
+            encoded, audit = encode_assistant_only_conversation(
+                tokenizer, row, max_length=max_length
+            )
+            windows = lossless_assistant_span_windows(
+                encoded,
+                audit,
+                max_length=max_length,
+                context_tokens=context_tokens,
+            )
+            for window in windows:
+                writer.write(window)
+                window_lengths[len(window["input_ids"])] += 1
+            n_windows += len(windows)
+            windowed_rows += int(len(windows) > 1)
+            n_rows += 1
+            fallback_rows += int(
+                (row.get("metadata") or {}).get("upstream_endpoint_fallback")
+                is True
+            )
+            tool_calls += int(counts["tool_calls"])
+            tool_results += int(counts["tool_results"])
+            max_tool_calls = max(max_tool_calls, int(counts["tool_calls"]))
+            assistant_messages += sum(
+                message.get("role") == "assistant"
+                for message in row.get("messages") or []
+            )
+            finish_rows += int(counts["finish_trace"] == 1)
+            raw_lengths[int(audit["raw_length"])] += 1
+            supervised[int(audit["supervised_tokens"])] += 1
+            mask_methods[str(audit["mask_method"])] += 1
+            max_assistant_turns = max(
+                max_assistant_turns, int(audit["assistant_turns"])
+            )
+            if n_rows % 2000 == 0:
+                print(
+                    f"rank={rank} source={source.name} rows={n_rows}", flush=True
                 )
-                encoded, audit = encode_assistant_only_conversation(
-                    tokenizer, row, max_length=max_length
-                )
-                windows = lossless_assistant_span_windows(
-                    encoded,
-                    audit,
-                    max_length=max_length,
-                    context_tokens=context_tokens,
-                )
-                for window in windows:
-                    writer.write(window)
-                    window_lengths[len(window["input_ids"])] += 1
-                n_windows += len(windows)
-                windowed_rows += int(len(windows) > 1)
-                n_rows += 1
-                fallback_rows += int(
-                    (row.get("metadata") or {}).get("upstream_endpoint_fallback")
-                    is True
-                )
-                tool_calls += int(counts["tool_calls"])
-                tool_results += int(counts["tool_results"])
-                max_tool_calls = max(max_tool_calls, int(counts["tool_calls"]))
-                assistant_messages += sum(
-                    message.get("role") == "assistant"
-                    for message in row.get("messages") or []
-                )
-                finish_rows += int(counts["finish_trace"] == 1)
-                raw_lengths[int(audit["raw_length"])] += 1
-                supervised[int(audit["supervised_tokens"])] += 1
-                mask_methods[str(audit["mask_method"])] += 1
-                max_assistant_turns = max(
-                    max_assistant_turns, int(audit["assistant_turns"])
-                )
-                if n_rows % 2000 == 0:
-                    print(
-                        f"rank={rank} source={source.name} rows={n_rows}", flush=True
-                    )
     finally:
         writer.finalize()
     return {

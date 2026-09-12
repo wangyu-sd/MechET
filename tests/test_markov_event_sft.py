@@ -7,6 +7,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from scripts.build_markov_event_sft import decision_rows
+from scripts.prepare_tool_sft_arrow import iter_jsonl_byte_shard
 from scripts.train_tool_sft import validate_rows
 
 
@@ -69,3 +70,16 @@ def test_decision_rows_remove_gold_horizon_and_cover_finish() -> None:
     )
     assert audit["tool_calls"] == 2
     assert audit["finish_trace_rows"] == 1
+
+
+def test_byte_shards_cover_each_jsonl_row_once(tmp_path: Path) -> None:
+    source = tmp_path / "rows.jsonl"
+    expected = [json.dumps({"id": index, "text": "碳" * (index + 1)}) for index in range(31)]
+    source.write_text("\n".join(expected) + "\n", encoding="utf-8")
+    actual = [
+        line.rstrip("\n")
+        for rank in range(8)
+        for line in iter_jsonl_byte_shard(source, rank, 8)
+    ]
+    assert sorted(actual) == sorted(expected)
+    assert len(actual) == len(set(actual)) == len(expected)
