@@ -5,7 +5,33 @@
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-08-26.
+Last updated: 2026-09-13.
+
+## Natural-language electron-event candidate (active)
+
+- Branch/implementation: `feature/natural-language-electron-sft-20260913`
+  (`34074c7`).
+- Source denominator: the complete strict-executable FlowER universe,
+  `257,167 / 2,890 / 28,967`; this is not the 32k proof subset and must not be
+  called unqualified “FlowER full”.
+- Observation: target plus the executor's current unmapped SMILES. The
+  environment annotates each current atom with a temporary per-step `Axx`
+  alias; private atom maps and the next state are not model-visible.
+- Prediction: one import, one natural-language retrosynthetic electron-flow
+  event, or finish decision. The executor resolves aliases, applies the event,
+  and returns the authoritative next state.
+- Reproducibility: conversion and replay are pinned to RDKit `2026.03.4`.
+  The 256-reaction smoke and complete validation split replayed with zero
+  unresolved reactions. Taiji additionally completed the full test split at
+  `28,967 / 28,967` with zero unresolved reactions before starting train data
+  conversion.
+- Active Taiji task:
+  `meteor_mechet_natural_language_event_sft_1ep_8a100_qy_20260913_02`, instance
+  `8b1d81f5a08afd1e01a096a6db02139d`, normal non-elastic `8 x A100` in Qingyuan.
+  It converts and gates all three splits before one-epoch Qwen3-8B QLoRA SFT.
+
+This is a candidate representation experiment. It does not supersede the
+paper's current A7 choice until its frozen validation evaluation is available.
 
 ## What is already on `main`
 
