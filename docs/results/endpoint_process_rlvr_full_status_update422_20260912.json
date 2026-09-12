@@ -1,0 +1,119 @@
+{
+  "artifact_type": "training_telemetry_snapshot",
+  "created_at": "2026-09-12T14:48:35+08:00",
+  "claim_boundary": "Online training telemetry through update 422; not a held-out evaluation result and not a completed checkpoint result.",
+  "implementation": {
+    "pull_request": 55,
+    "commit": "5050050302bb3f0c71ec114342188a285cd97c8a",
+    "reward_contract": "endpoint_grounded_process_rlvr_v1"
+  },
+  "task": {
+    "task_flag": "meteor_mechet_endpoint_process_rlvr_full_strict_8a100_qy_20260911_01",
+    "instance_id": "8b1d81f5a08afd1e01a0910cbba90c89",
+    "state_at_capture": "TRAINING_RUNNING",
+    "hardware": "8x NVIDIA A100-SXM4-40GB",
+    "started_at": "2026-09-11T23:24:40+08:00"
+  },
+  "data_contract": {
+    "name": "FlowER strict-executable train universe",
+    "official_flower_train_rows": 257171,
+    "strict_executable_train_rows": 257167,
+    "excluded_corrupt_endpoint_rows": 4,
+    "additional_filtering": false,
+    "rank_shards": 8,
+    "exact_single_coverage_updates": 32146,
+    "group_size": 8,
+    "global_episodes_per_update": 64
+  },
+  "progress": {
+    "completed_updates": 422,
+    "planned_updates": 32146,
+    "fraction_complete": 0.0131276053,
+    "sampled_episodes": 27008,
+    "elapsed_hours": 15.3986,
+    "updates_per_hour": 27.4051,
+    "seconds_per_update": 131.3626,
+    "projected_total_days_at_observed_rate": 48.8728,
+    "checkpoint_interval_updates": 512,
+    "new_checkpoint_available": false
+  },
+  "aggregate": {
+    "endpoint_exact_episodes": 39,
+    "endpoint_exact_rate": 0.0014440166,
+    "updates_with_any_endpoint_success": 19,
+    "formal_terminal_rate": 0.354894846,
+    "retry_exhaustion_rate": 0.6325533175,
+    "mean_committed_events": 0.632257109,
+    "mean_rejected_proposals": 1.5065165877,
+    "mean_progress": 0.0221193321,
+    "mean_reward": -1.180237377,
+    "effective_group_rate": 0.6913507109,
+    "mean_kl": 0.1446469583
+  },
+  "trend_windows": {
+    "first_50": {
+      "episodes": 3200,
+      "endpoint_exact_episodes": 12,
+      "endpoint_exact_rate": 0.00375,
+      "formal_terminal_rate": 0.649375,
+      "retry_exhaustion_rate": 0.3165625,
+      "mean_committed_events": 1.2309375,
+      "effective_group_rate": 0.9775,
+      "mean_kl": 0.0918105285
+    },
+    "last_100": {
+      "episodes": 6400,
+      "endpoint_exact_episodes": 1,
+      "endpoint_exact_rate": 0.00015625,
+      "formal_terminal_rate": 0.18734375,
+      "retry_exhaustion_rate": 0.81265625,
+      "mean_committed_events": 0.20375,
+      "effective_group_rate": 0.425,
+      "mean_kl": 0.201345263
+    },
+    "last_50": {
+      "episodes": 3200,
+      "endpoint_exact_episodes": 1,
+      "endpoint_exact_rate": 0.0003125,
+      "formal_terminal_rate": 0.1490625,
+      "retry_exhaustion_rate": 0.8509375,
+      "mean_committed_events": 0.1734375,
+      "effective_group_rate": 0.405,
+      "mean_kl": 0.2462994815
+    }
+  },
+  "latest_update": {
+    "update": 422,
+    "phase": "A",
+    "endpoint_rate": 0.0,
+    "formal_terminal_rate": 0.046875,
+    "retry_exhaustion_rate": 0.953125,
+    "mean_committed_events": 0.046875,
+    "mean_rejected_proposals": 1.953125,
+    "mean_progress": -0.0026988636,
+    "mean_reward": -1.2526988636,
+    "effective_group_rate": 0.375,
+    "event_terms": 131,
+    "rejected_event_terms": 125,
+    "mean_kl": 0.5167755914
+  },
+  "diagnosis": {
+    "improvement_observed": false,
+    "primary_optimization_failure": "Endpoint reward is too sparse for group-relative credit: most recent groups contain no successful endpoint and therefore provide no positive endpoint contrast.",
+    "observed_policy_shift": "Formal termination and committed-event rates fell while retry exhaustion and KL divergence increased.",
+    "primary_runtime_bottlenecks": [
+      "64 interactive episodes per optimizer update",
+      "autoregressive generation followed by synchronous executor feedback",
+      "reference-policy scoring plus actor backward pass for event spans",
+      "event_microbatch_size=1",
+      "DDP straggler waits across variable-length trajectories"
+    ],
+    "continuation_assessment": "The current trajectory does not justify treating checkpoint-512 as an improved model; revise the rollout and credit-assignment protocol before a full one-pass run."
+  },
+  "source_evidence": {
+    "path": "outputs/agent/endpoint_process_rlvr_full_strict_qwen3_8b_seed17_20260911/updates.jsonl",
+    "captured_prefix_rows": 422,
+    "captured_prefix_size_bytes": 260926,
+    "captured_prefix_sha256": "0a3dd54b464cc5b15496fab864bf81dbe9f4c7e9747b1723d13ead969ea4afb2"
+  }
+}
