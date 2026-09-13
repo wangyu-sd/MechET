@@ -37,6 +37,20 @@ Last updated: 2026-09-13.
 This is a candidate representation experiment. It does not supersede the
 paper's current A7 choice until its frozen validation evaluation is available.
 
+### Frozen checkpoint-14000 local diagnostic
+
+- Frozen adapter SHA256:
+  `3adfa321f1cc06c257dd96cc5dde1bd2e7b0c9608dc7cd11b54b3749e5b79f10`.
+- Fixed seed-17 stratified validation sample: 256 reactions, 1,979 decisions
+  (704 import, 1,019 electron event, 256 finish).
+- Active normal non-elastic task:
+  `meteor_mechet_nl_event_valid256_ckpt14000_k1_8v100_cq_20260913_01`, instance
+  `8b1d81f5a08afd1e01a09aa1993619a8`, `8 x V100` in Chongqing.
+- This is greedy K=1 at authoritative current states. It reports tool choice,
+  import matching, electron source/destination, strict execution, and mapped
+  plus map-invariant chemical successor accuracy. It is explicitly not a
+  product-only closed-loop or test-set endpoint result.
+
 ## What is already on `main`
 
 - PR #35 (`b7e26027`) merged the full-data protocol/runtime update.
