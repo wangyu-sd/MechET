@@ -1,0 +1,60 @@
+data:
+  corpus_1:
+    path_src: datasets/mechet_reactseq_audit/mech_uspto_31k_full/overfit_128/train/src.txt
+    path_tgt: datasets/mechet_reactseq_audit/mech_uspto_31k_full/overfit_128/train/tgt.txt
+  valid:
+    path_src: datasets/mechet_reactseq_audit/mech_uspto_31k_full/overfit_128/valid/src.txt
+    path_tgt: datasets/mechet_reactseq_audit/mech_uspto_31k_full/overfit_128/valid/tgt.txt
+
+n_sample: 0
+save_data: audits/mechet_reactseq/mech_uspto_31k_full/overfit_128/vocab
+src_vocab: datasets/vocabs/whole_vocabs.src
+tgt_vocab: datasets/vocabs/whole_vocabs.src
+share_vocab: true
+src_seq_length: 500
+tgt_seq_length: 500
+overwrite: true
+
+tensorboard: false
+log_file: audits/mechet_reactseq/mech_uspto_31k_full/overfit_128/train.log
+save_model: audits/mechet_reactseq/mech_uspto_31k_full/overfit_128/model
+save_checkpoint_steps: 100
+keep_checkpoint: 1
+seed: 3435
+train_steps: 100
+valid_steps: 20
+warmup_steps: 10
+report_every: 10
+
+decoder_type: transformer
+encoder_type: transformer
+word_vec_size: 256
+hidden_size: 256
+layers: 6
+transformer_ff: 2048
+heads: 8
+
+accum_count: 1
+num_workers: 0
+bucket_size: 128
+optim: adam
+adam_beta1: 0.9
+adam_beta2: 0.998
+decay_method: noam
+learning_rate: 1.0
+max_grad_norm: 0.0
+
+batch_size: 128
+valid_batch_size: 128
+batch_type: sents
+normalization: sents
+dropout: 0.3
+attention_dropout: 0.3
+label_smoothing: 0.0
+max_generator_batches: 0
+
+param_init: 0.0
+param_init_glorot: true
+position_encoding: true
+world_size: 1
+gpu_ranks: []

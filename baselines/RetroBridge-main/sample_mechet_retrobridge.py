@@ -9,6 +9,7 @@ from pathlib import Path
 
 import torch
 from rdkit import Chem
+from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 from src.analysis.rdkit_functions import build_molecule
@@ -57,6 +58,8 @@ def parse_args():
     parser.add_argument("--n-steps", type=int, default=20)
     parser.add_argument("--sampling-seed", type=int, default=42)
     parser.add_argument("--limit", type=int)
+    parser.add_argument("--start-index", type=int, default=0)
+    parser.add_argument("--end-index", type=int)
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--use-one-hot", action="store_true")
     return parser.parse_args()
@@ -68,6 +71,10 @@ def main():
         raise ValueError("--n-steps must be at least 2")
     if args.limit is not None and args.limit % args.batch_size:
         raise ValueError("For deterministic batching, --limit must be divisible by --batch-size")
+    if args.start_index < 0:
+        raise ValueError("--start-index must be non-negative")
+    if args.end_index is not None and args.end_index <= args.start_index:
+        raise ValueError("--end-index must be greater than --start-index")
 
     set_deterministic(args.sampling_seed)
     datamodule = RetroBridgeDataModule(
@@ -92,9 +99,25 @@ def main():
     model.visualization_tools = None
     model.T = args.n_steps
     model.eval().to(args.device)
-    dataloader = (
+    base_dataloader = (
         datamodule.test_dataloader() if args.mode == "test" else datamodule.val_dataloader()
     )
+    dataset = base_dataloader.dataset
+    end_index = len(dataset) if args.end_index is None else args.end_index
+    if end_index > len(dataset):
+        raise ValueError(f"--end-index {end_index} exceeds dataset size {len(dataset)}")
+    if args.start_index or end_index != len(dataset):
+        dataset = dataset[args.start_index:end_index]
+        dataloader = DataLoader(
+            dataset=dataset,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            shuffle=False,
+            pin_memory=torch.cuda.is_available(),
+            persistent_workers=args.num_workers > 0,
+        )
+    else:
+        dataloader = base_dataloader
 
     common_rows = []
     trace_rows = []
@@ -124,7 +147,9 @@ def main():
                 smiles, valid, error = decode_prediction(prediction, dataset_infos.atom_decoder)
                 grouped_predictions[row_index].append({
                     "rank": sample_index + 1,
+                    "sample_index": sample_index,
                     "precursors": smiles,
+                    "prediction": smiles,
                     "score": scalar(scores[row_index]),
                     "valid": valid,
                     "nll": scalar(nlls[row_index]),
@@ -136,14 +161,20 @@ def main():
         for row_index, stable_id in enumerate(stable_ids):
             graph = data.get_example(row_index)
             detailed_candidates = grouped_predictions[row_index]
+            source_index = args.start_index + processed + row_index
+            valid_candidate_count = sum(candidate["valid"] for candidate in detailed_candidates)
             common_rows.append({
+                "id": stable_id,
                 "stable_id": stable_id,
+                "source_index": source_index,
                 "product": unmapped_canonical(graph.p_smiles),
                 "reference_precursors": unmapped_canonical(graph.r_smiles),
                 "candidates": [
                     {
                         "rank": candidate["rank"],
+                        "sample_index": candidate["sample_index"],
                         "precursors": candidate["precursors"],
+                        "prediction": candidate["prediction"],
                         "score": candidate["score"],
                     }
                     for candidate in detailed_candidates
@@ -151,6 +182,12 @@ def main():
                 "runtime_ms": runtime_ms,
                 "source_method": "RetroBridge",
                 "checkpoint": str(args.checkpoint.resolve()),
+                "candidate_budget": args.n_samples,
+                "generated_candidate_count": len(detailed_candidates),
+                "valid_candidate_count": valid_candidate_count,
+                "candidate_semantics": "independent_stochastic_samples",
+                "ranking": "generation_order",
+                "score_type": "retrobridge_native_score",
             })
             trace_rows.append({
                 "stable_id": stable_id,

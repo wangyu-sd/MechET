@@ -3,7 +3,26 @@ from unittest.mock import patch
 
 import torch
 
-from src.features.extra_features import EigenFeatures, eigh_real_nodes
+from src.features.extra_features import EigenFeatures, KNodeCycles, eigh_real_nodes
+
+
+class CycleFeaturesTest(unittest.TestCase):
+    def test_cycle_counts_stay_exact_inside_bfloat16_autocast(self):
+        # A length-40 path has no cycles, but BF16 matrix powers used to report
+        # a k6 count of -1/3 because of cancellation error.
+        n = 40
+        adjacency = torch.zeros((1, n, n), dtype=torch.float32)
+        nodes = torch.arange(n - 1)
+        adjacency[:, nodes, nodes + 1] = 1
+        adjacency[:, nodes + 1, nodes] = 1
+
+        with torch.autocast(device_type='cpu', dtype=torch.bfloat16):
+            node_cycles, graph_cycles = KNodeCycles().k_cycles(adjacency)
+
+        self.assertEqual(node_cycles.dtype, torch.float32)
+        self.assertEqual(graph_cycles.dtype, torch.float32)
+        self.assertTrue(torch.equal(node_cycles, torch.zeros_like(node_cycles)))
+        self.assertTrue(torch.equal(graph_cycles, torch.zeros_like(graph_cycles)))
 
 
 class EigenFeaturesTest(unittest.TestCase):

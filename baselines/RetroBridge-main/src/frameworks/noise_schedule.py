@@ -64,13 +64,21 @@ class PredefinedNoiseScheduleDiscrete(torch.nn.Module):
 
         self.register_buffer('betas', torch.from_numpy(betas).float())
 
-        self.alphas = 1 - torch.clamp(self.betas, min=0, max=0.9999)
+        self.register_buffer(
+            'alphas',
+            1 - torch.clamp(self.betas, min=0, max=0.9999),
+            persistent=False,
+        )
 
         log_alpha = torch.log(self.alphas)
         log_alpha_bar = torch.cumsum(log_alpha, dim=0)
-        self.alphas_bar = torch.exp(log_alpha_bar)
-        if torch.cuda.is_available():
-            self.alphas_bar = self.alphas_bar.to('cuda:0')
+        # Non-persistent buffers move to each DDP rank's local device without
+        # changing compatibility with checkpoints that only stored ``betas``.
+        self.register_buffer(
+            'alphas_bar',
+            torch.exp(log_alpha_bar),
+            persistent=False,
+        )
 
         # print(f"[Noise schedule: {noise_schedule}] alpha_bar:", self.alphas_bar)
 

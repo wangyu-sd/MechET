@@ -455,21 +455,25 @@ class KNodeCycles:
         return None, (c6_t / 12).unsqueeze(-1).float()
 
     def k_cycles(self, adj_matrix, verbose=False):
-        self.adj_matrix = adj_matrix
-        self.calculate_kpowers()
+        # Matrix-power cycle formulas rely on cancellation between large integer
+        # terms. BF16 autocast can therefore turn a valid zero count negative.
+        with torch.autocast(device_type=adj_matrix.device.type, enabled=False):
+            self.adj_matrix = adj_matrix.float()
+            self.calculate_kpowers()
 
-        k3x, k3y = self.k3_cycle()
-        assert (k3x >= -0.1).all()
+            k3x, k3y = self.k3_cycle()
+            assert (k3x >= -0.1).all()
 
-        k4x, k4y = self.k4_cycle()
-        assert (k4x >= -0.1).all()
+            k4x, k4y = self.k4_cycle()
+            assert (k4x >= -0.1).all()
 
-        k5x, k5y = self.k5_cycle()
-        assert (k5x >= -0.1).all(), k5x
+            k5x, k5y = self.k5_cycle()
+            assert (k5x >= -0.1).all(), k5x
 
-        _, k6y = self.k6_cycle()
-        assert (k6y >= -0.1).all()
+            _, k6y = self.k6_cycle()
+            assert (k6y >= -0.1).all(), k6y
+            k6y = k6y.clamp_min(0)
 
-        kcyclesx = torch.cat([k3x, k4x, k5x], dim=-1)
-        kcyclesy = torch.cat([k3y, k4y, k5y, k6y], dim=-1)
+            kcyclesx = torch.cat([k3x, k4x, k5x], dim=-1)
+            kcyclesy = torch.cat([k3y, k4y, k5y, k6y], dim=-1)
         return kcyclesx, kcyclesy

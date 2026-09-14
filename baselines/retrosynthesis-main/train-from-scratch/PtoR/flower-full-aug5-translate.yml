@@ -1,0 +1,10 @@
+model: /data/pxy/models/R-SMILES/flower_full/full/official_full_seed3435/checkpoints/average_model_final5.pt
+src: dataset/flower_full_PtoR_aug5/test/src-test.txt
+output: /data/pxy/models/R-SMILES/flower_full/full/official_full_seed3435/inference/test_predictions_beam10.txt
+gpu: 0
+beam_size: 10
+n_best: 10
+batch_size: 2048
+batch_type: tokens
+max_length: 1000
+seed: 0

@@ -37,3 +37,66 @@ wandb/
 .DS_Store
 *.log
 /tmp/
+
+# External baseline source snapshots
+#
+# Keep the runnable source/configuration trees in baselines/, but never add
+# local datasets, generated preprocessing artifacts, environments, run output,
+# or model weights.  Small, explicitly tracked support files (for example the
+# ReactSeq vocabulary) remain available even when they match a broad suffix.
+baselines/**/.venv*/
+baselines/**/.conda-envs/
+baselines/**/.cache/
+baselines/**/.deps/
+baselines/**/.runtime/
+baselines/**/audits/
+baselines/*/checkpoints/
+baselines/*/models/
+baselines/*/trained_models/
+baselines/*/outputs/
+baselines/*/output/
+baselines/*/results/
+baselines/*/runs/
+baselines/*/logs/
+baselines/*/exp/
+baselines/*/runtime/
+baselines/**/build/
+baselines/**/wandb/
+baselines/**/*.csv
+baselines/**/*.jsonl
+baselines/**/*.parquet
+baselines/**/*.arrow
+baselines/**/*.feather
+baselines/**/*.pt
+baselines/**/*.pth
+baselines/**/*.ckpt
+baselines/**/*.safetensors
+baselines/**/*.bin
+baselines/**/*.idx
+baselines/**/*.pkl
+baselines/**/*.pickle
+baselines/**/*.npy
+baselines/**/*.npz
+baselines/**/*.so
+baselines/**/*.o
+baselines/**/*.log
+baselines/**/*.pid
+baselines/**/errorlog.txt
+baselines/LocalRetro-main/data/*/
+!baselines/LocalRetro-main/data/configs/
+!baselines/LocalRetro-main/data/configs/default_config.json
+baselines/ReactSeq-main/datasets/*
+!baselines/ReactSeq-main/datasets/vocabs/
+!baselines/ReactSeq-main/datasets/vocabs/whole_vocabs.src
+baselines/Retro-MTGR-main/data/*
+!baselines/Retro-MTGR-main/data/USPT-50K/
+baselines/Retro-MTGR-main/data/USPT-50K/*
+!baselines/Retro-MTGR-main/data/USPT-50K/other_data/
+!baselines/Retro-MTGR-main/data/USPT-50K/other_data/*.txt
+baselines/Retro-MTGR-main/original Data/output-50k.txt
+baselines/RetroBridge-main/datasets/
+baselines/RetroDFM-R-main/data/
+baselines/RetroSynFlow-main/data/
+baselines/RxnNano-main/data/*.jsonl
+baselines/editretro-master/datasets/
+baselines/retrosynthesis-main/dataset/

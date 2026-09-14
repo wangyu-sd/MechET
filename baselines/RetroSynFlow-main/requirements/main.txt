@@ -1,0 +1,7 @@
+matplotlib==3.7.2
+numpy==1.25.2
+pandas==2.1.1
+scipy==1.11.2
+wandb==0.16.0
+git+https://github.com/OpenNMT/OpenNMT-py.git@0.4.1
+opencv-python==4.10.0.84

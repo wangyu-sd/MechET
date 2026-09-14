@@ -46,6 +46,10 @@ def main(args):
     start_time = datetime.now().strftime('%d_%m_%H_%M_%S')
     run_name = f'{args.experiment_name}_{start_time}'
     experiment = run_name if args.resume is None else args.resume
+    if args.resume is not None:
+        # PyTorch 2.6 defaults torch.load to weights_only=True, while Lightning
+        # checkpoints contain trusted project metadata in addition to tensors.
+        os.environ.setdefault('TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD', '1')
     print(f'EXPERIMENT: {experiment}')
 
     data_root = os.path.join(args.data, args.dataset)
@@ -237,7 +241,15 @@ def main(args):
         )
     ])
 
-    csv_logger = loggers.CSVLogger(save_dir=args.logs, name='csv', version=experiment)
+    csv_version = experiment
+    if args.resume is not None:
+        # CSVLogger deletes an existing version directory when Trainer starts.
+        # Set this once in rank zero so spawned DDP workers inherit the same path.
+        csv_version = os.environ.setdefault(
+            'RETROBRIDGE_CSV_VERSION',
+            f'{experiment}_resume_{start_time}',
+        )
+    csv_logger = loggers.CSVLogger(save_dir=args.logs, name='csv', version=csv_version)
     if args.disable_swanlab:
         run_logger = csv_logger
     else:
@@ -285,5 +297,23 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=argparse.FileType(mode='r'), required=True)
     parser.add_argument('--model', type=str, required=True)
+    parser.add_argument('--resume', dest='resume_override', type=str)
+    parser.add_argument('--devices', dest='devices_override', type=int)
+    parser.add_argument('--strategy', dest='strategy_override', type=str)
+    parser.add_argument(
+        '--accumulate-grad-batches',
+        '--accumulate_grad_batches',
+        dest='accumulate_grad_batches_override',
+        type=int,
+    )
     parser.add_argument('--disable_swanlab', action='store_true', required=False, default=False)
-    main(args=parse_yaml_config(parser.parse_args()))
+    args = parse_yaml_config(parser.parse_args())
+    if args.resume_override is not None:
+        args.resume = args.resume_override
+    if args.devices_override is not None:
+        args.devices = args.devices_override
+    if args.strategy_override is not None:
+        args.strategy = args.strategy_override
+    if args.accumulate_grad_batches_override is not None:
+        args.accumulate_grad_batches = args.accumulate_grad_batches_override
+    main(args=args)

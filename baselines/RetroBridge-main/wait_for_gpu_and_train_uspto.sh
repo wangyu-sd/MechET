@@ -9,10 +9,28 @@ AUDIT_REPORT="$DATA_ROOT/full_preprocess_report.json"
 MPL_CONFIG_DIR="${MPLCONFIGDIR:-/tmp/retrobridge-mpl}"
 POLL_INTERVAL_SECONDS="${POLL_INTERVAL_SECONDS:-60}"
 LOCK_FILE="${LOCK_FILE:-/tmp/retrobridge-mech-uspto-train.lock}"
+RESUME_RUN="${RESUME_RUN:-}"
+GPU_COUNT="${GPU_COUNT:-8}"
+ACCUMULATE_GRAD_BATCHES="${ACCUMULATE_GRAD_BATCHES:-1}"
+DDP_STRATEGY="${DDP_STRATEGY:-ddp}"
 MONITORED_GPU_IDS=(0 1 2 3 4 5 6 7)
+resume_args=()
+
+if [[ -n "$RESUME_RUN" ]]; then
+  resume_args=(--resume "$RESUME_RUN")
+fi
 
 if [[ ! "$POLL_INTERVAL_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
-  echo "POLL_INTERVAL_SECONDS must be a positive integer" >&2
+    echo "POLL_INTERVAL_SECONDS must be a positive integer" >&2
+    exit 2
+fi
+if [[ ! "$GPU_COUNT" =~ ^[1-9][0-9]*$ \
+  || "$GPU_COUNT" -gt "${#MONITORED_GPU_IDS[@]}" ]]; then
+  echo "GPU_COUNT must be between 1 and ${#MONITORED_GPU_IDS[@]}" >&2
+  exit 2
+fi
+if [[ ! "$ACCUMULATE_GRAD_BATCHES" =~ ^[1-9][0-9]*$ ]]; then
+  echo "ACCUMULATE_GRAD_BATCHES must be a positive integer" >&2
   exit 2
 fi
 
@@ -60,8 +78,10 @@ is_monitored_gpu() {
   return 1
 }
 
-find_available_gpu() {
+find_available_gpus() {
   local stats gpu_index memory_used memory_total
+  local available_gpu_ids=()
+  local seen_gpu_count=0
 
   if ! stats="$(nvidia-smi \
     --query-gpu=index,memory.used,memory.total \
@@ -82,35 +102,48 @@ find_available_gpu() {
     if ! is_monitored_gpu "$gpu_index"; then
       continue
     fi
+    seen_gpu_count=$((seen_gpu_count + 1))
     if [[ $((memory_used * 100)) -lt "$memory_total" ]]; then
-      printf '%s\n' "$gpu_index"
-      return 0
+      available_gpu_ids+=("$gpu_index")
     fi
   done <<< "$stats"
 
-  return 1
+  if [[ "$seen_gpu_count" -ne "${#MONITORED_GPU_IDS[@]}" ]]; then
+    return 2
+  fi
+  if [[ "${#available_gpu_ids[@]}" -lt "$GPU_COUNT" ]]; then
+    return 1
+  fi
+
+  local selected_gpu_ids=("${available_gpu_ids[@]:0:GPU_COUNT}")
+  local IFS=,
+  printf '%s\n' "${selected_gpu_ids[*]}"
 }
 
-echo "Monitoring GPUs ${MONITORED_GPU_IDS[*]} for memory usage below 1% (poll every ${POLL_INTERVAL_SECONDS}s)."
+echo "Waiting for $GPU_COUNT of GPUs ${MONITORED_GPU_IDS[*]} to fall below 1% memory usage (poll every ${POLL_INTERVAL_SECONDS}s)."
 
 while true; do
-  if gpu_index="$(find_available_gpu)"; then
-    echo "[$(date '+%F %T')] GPU $gpu_index is below 1% memory usage; starting training."
+  if gpu_ids="$(find_available_gpus)"; then
+    echo "[$(date '+%F %T')] GPUs $gpu_ids are below 1% memory usage; starting training."
     mkdir -p "$MPL_CONFIG_DIR"
     cd "$PROJECT_DIR"
     exec env \
-      CUDA_VISIBLE_DEVICES="$gpu_index" \
+      CUDA_VISIBLE_DEVICES="$gpu_ids" \
       MPLCONFIGDIR="$MPL_CONFIG_DIR" \
       "$PYTHON" -u train.py \
         --config "$CONFIG" \
         --model RetroBridge \
-        --disable_swanlab
+        --devices "$GPU_COUNT" \
+        --strategy "$DDP_STRATEGY" \
+        --accumulate-grad-batches "$ACCUMULATE_GRAD_BATCHES" \
+        --disable_swanlab \
+        "${resume_args[@]}"
   else
     status=$?
     if [[ "$status" -eq 2 ]]; then
       echo "[$(date '+%F %T')] nvidia-smi query failed; retrying." >&2
     else
-      echo "[$(date '+%F %T')] No GPU is below 1% memory usage; waiting."
+      echo "[$(date '+%F %T')] Fewer than $GPU_COUNT monitored GPUs are below 1% memory usage; waiting."
     fi
   fi
 
