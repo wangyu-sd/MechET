@@ -1,0 +1,23 @@
+{
+  "artifact_type": "direct_endpoint_candidate_evaluation",
+  "reference": "/home/estar/pxy/mechet/MechET/data/external_baselines/mech_uspto_31k_full/test.jsonl",
+  "reference_sha256": "9c63da6f729f815ae5dd2fe424d63fd464f6e8c930b6a3cb0f95ef0c754cdfc8",
+  "predictions": "/home/estar/pxy/mechet/baselines/Retro-MTGR-main/runs/mech_uspto_31k_full/test_evaluation.predictions.jsonl",
+  "predictions_sha256": "db2bd7d49bd457f2b0c2635023634a3f8beaaf768bc85d59a1b4569ec73e1a8e",
+  "n_reference_rows": 3120,
+  "n_prediction_rows_used": 3120,
+  "n_prediction_rows_ignored_as_superset": 0,
+  "candidates_per_target": 10,
+  "n_candidates": 31200,
+  "candidate_validity_rate": 0.503525641025641,
+  "generation_order": {
+    "semantics": "independent-sample Pass@K; not ranked Top-K",
+    "structural_pass_at_1": 0.3471153846153846,
+    "structural_pass_at_3": 0.46602564102564104,
+    "structural_pass_at_5": 0.48493589743589743,
+    "structural_pass_at_10": 0.49775641025641026,
+    "top1_validity": 0.503525641025641,
+    "neutralized_pass_at_1": 0.3471153846153846
+  },
+  "nll_ranked": null
+}

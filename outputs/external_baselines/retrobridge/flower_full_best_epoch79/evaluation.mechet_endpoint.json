@@ -1,0 +1,23 @@
+{
+  "artifact_type": "direct_endpoint_candidate_evaluation",
+  "reference": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/test.jsonl",
+  "reference_sha256": "113744e5307119c3008b8d90935dca0c758071baa8dde80ef95af9a2723ac8ac",
+  "predictions": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/retrobridge/flower_full_best_epoch79/predictions.jsonl",
+  "predictions_sha256": "dc201c2ffbebacab88fca89561823139a7a9b19cadea29e67baa822b81f71ebc",
+  "n_reference_rows": 28971,
+  "n_prediction_rows_used": 28971,
+  "n_prediction_rows_ignored_as_superset": 0,
+  "candidates_per_target": 10,
+  "n_candidates": 289710,
+  "candidate_validity_rate": 0.732073452763108,
+  "generation_order": {
+    "semantics": "independent-sample Pass@K; not ranked Top-K",
+    "structural_pass_at_1": 0.2214628421524973,
+    "structural_pass_at_3": 0.37199268233750993,
+    "structural_pass_at_5": 0.431465948707328,
+    "structural_pass_at_10": 0.4943219081150116,
+    "top1_validity": 0.732870801836319,
+    "neutralized_pass_at_1": 0.2606744675710193
+  },
+  "nll_ranked": null
+}

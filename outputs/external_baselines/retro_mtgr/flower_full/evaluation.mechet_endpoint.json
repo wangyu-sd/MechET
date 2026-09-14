@@ -1,0 +1,23 @@
+{
+  "artifact_type": "direct_endpoint_candidate_evaluation",
+  "reference": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/retro_mtgr/flower_full/evaluation_reference.jsonl",
+  "reference_sha256": "968a14c9046d27f47ebce3228378f2a0ad14f66539bbce5ae31168aebae3d6e1",
+  "predictions": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/retro_mtgr/flower_full/test_evaluation.predictions.jsonl",
+  "predictions_sha256": "fe540aba9fcac03981633d26404e1e53b4744d5e0ca1ae51b9544a40e4426a4d",
+  "n_reference_rows": 28971,
+  "n_prediction_rows_used": 28971,
+  "n_prediction_rows_ignored_as_superset": 0,
+  "candidates_per_target": 10,
+  "n_candidates": 289710,
+  "candidate_validity_rate": 0.7352870111490801,
+  "generation_order": {
+    "semantics": "independent-sample Pass@K; not ranked Top-K",
+    "structural_pass_at_1": 0.4279451865658762,
+    "structural_pass_at_3": 0.6247281764523144,
+    "structural_pass_at_5": 0.6728452590521556,
+    "structural_pass_at_10": 0.7067757412584998,
+    "top1_validity": 0.7352870111490801,
+    "neutralized_pass_at_1": 0.43087915501708607
+  },
+  "nll_ranked": null
+}
