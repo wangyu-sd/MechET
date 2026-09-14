@@ -5,7 +5,7 @@
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-09-13.
+Last updated: 2026-09-14.
 
 ## Natural-language electron-event candidate (active)
 
@@ -43,13 +43,23 @@ paper's current A7 choice until its frozen validation evaluation is available.
   `3adfa321f1cc06c257dd96cc5dde1bd2e7b0c9608dc7cd11b54b3749e5b79f10`.
 - Fixed seed-17 stratified validation sample: 256 reactions, 1,979 decisions
   (704 import, 1,019 electron event, 256 finish).
-- Active normal non-elastic task:
+- Completed normal non-elastic task:
   `meteor_mechet_nl_event_valid256_ckpt14000_k1_8v100_cq_20260913_01`, instance
   `8b1d81f5a08afd1e01a09aa1993619a8`, `8 x V100` in Chongqing.
 - This is greedy K=1 at authoritative current states. It reports tool choice,
   import matching, electron source/destination, strict execution, and mapped
   plus map-invariant chemical successor accuracy. It is explicitly not a
   product-only closed-loop or test-set endpoint result.
+- All 1,979 planned decisions completed with zero missing or extra rows. Tool
+  selection is 99.34%, argument compilation 98.23%, electron-event formal
+  execution 96.57%, strict event match 68.01%, and map-invariant chemical
+  successor match 73.31%. Reactive-fragment exact match is 41.21%, versus
+  8.02% for endpoint-only context. Event exact match is 86.8%, 71.2%, 31.0%
+  and 0/23 for one through four coupled flows; six four-flow predictions reach
+  the same chemical successor via a shorter representation. These are fixed
+  local diagnostics, not autonomous endpoint results.
+- Scientific framing and evidence boundaries are consolidated in
+  `docs/EXECUTABLE_INVERSE_DYNAMICS.md`.
 
 ## What is already on `main`
 
