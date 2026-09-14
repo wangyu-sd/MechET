@@ -254,7 +254,11 @@ def run(args: argparse.Namespace) -> int:
         for number, (horizon_name, episode) in enumerate(episodes, 1):
             started = time.time()
             current = str(episode["start_state"])
-            history_groups = list(episode["prefix_groups"])
+            history_groups = (
+                list(episode["prefix_groups"])
+                if args.history_mode == "transcript"
+                else []
+            )
             event_records: list[dict[str, Any]] = []
             failure = ""
             for local_step, reference in enumerate(episode["events"]):
@@ -265,18 +269,19 @@ def run(args: argparse.Namespace) -> int:
                     content = _prompt(
                         str(episode["target"]), current, include_inventory=True
                     )
-                    content += (
-                        "\n\nDIAGNOSTIC CONTRACT: predict apply_electron_flow only; "
-                        "the environment controls exogenous fragments and the remaining horizon."
-                    )
-                    if imported:
-                        content += "\nEXOGENOUS FRAGMENTS SUPPLIED NOW: " + json.dumps(
-                            imported, ensure_ascii=False
+                    if args.history_mode == "transcript":
+                        content += (
+                            "\n\nDIAGNOSTIC CONTRACT: predict apply_electron_flow only; "
+                            "the environment controls exogenous fragments and the remaining horizon."
                         )
+                        if imported:
+                            content += "\nEXOGENOUS FRAGMENTS SUPPLIED NOW: " + json.dumps(
+                                imported, ensure_ascii=False
+                            )
                     user = {"role": "user", "content": content}
                     prompt, kept_history, input_tokens = _render_fitting_prompt(
                         tokenizer,
-                        history_groups,
+                        history_groups if args.history_mode == "transcript" else [],
                         user,
                         history_window=args.history_window,
                         max_prompt_tokens=args.max_context - args.max_new_tokens,
@@ -331,22 +336,23 @@ def run(args: argparse.Namespace) -> int:
                         "code": "PASS",
                         "current_state": deterministic_unmapped_state(predicted_successor).text,
                     }
-                    history_groups.append(
-                        [
-                            user,
-                            {
-                                "role": "assistant",
-                                "content": "",
-                                "tool_calls": [_tool_call(name, arguments, call_id)],
-                            },
-                            {
-                                "role": "tool",
-                                "tool_call_id": call_id,
-                                "name": name,
-                                "content": json.dumps(tool_result, separators=(",", ":")),
-                            },
-                        ]
-                    )
+                    if args.history_mode == "transcript":
+                        history_groups.append(
+                            [
+                                user,
+                                {
+                                    "role": "assistant",
+                                    "content": "",
+                                    "tool_calls": [_tool_call(name, arguments, call_id)],
+                                },
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": call_id,
+                                    "name": name,
+                                    "content": json.dumps(tool_result, separators=(",", ":")),
+                                },
+                            ]
+                        )
                     event_records.append(
                         {
                             "local_step": local_step + 1,
@@ -441,7 +447,7 @@ def aggregate(args: argparse.Namespace) -> int:
         raise ValueError("duplicate suffix episode keys")
     missing = sorted(expected - set(observed))
     report = {
-        "artifact_type": "natural_language_event_oracle_prefix_suffix_k1_v1",
+        "artifact_type": "natural_language_event_oracle_prefix_suffix_k1_v2",
         "claim_boundary": (
             "Fixed validation diagnostic with trusted reference prefix, oracle exogenous "
             "fragment schedule, fixed event horizon, and no reference state feedback after "
@@ -450,6 +456,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "seed": args.seed,
         "sample_reactions": args.sample_reactions,
         "horizons": args.horizons,
+        "history_mode": args.history_mode,
         "planned_episodes": len(expected),
         "completed_episodes": len(rows),
         "missing_episodes": len(missing),
@@ -494,6 +501,15 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--horizons", nargs="+", default=["1", "2", "3", "full"])
     parser.add_argument("--history-window", type=int, default=6)
+    parser.add_argument(
+        "--history-mode",
+        choices=("state_only", "transcript"),
+        default="state_only",
+        help=(
+            "state_only exactly matches Markov SFT prompts; transcript additionally "
+            "exposes recent tool turns and is an out-of-distribution diagnostic"
+        ),
+    )
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)
     args = parser.parse_args()
