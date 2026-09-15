@@ -219,7 +219,9 @@ class Runtime:
             )
         return actions
 
-    def values(self, target: str, states: list[str], batch_size: int = 16) -> list[float]:
+    def values(
+        self, target: str, states: list[str], *, terminal: bool = False, batch_size: int = 16
+    ) -> list[float]:
         torch = self.torch
         self.model.set_adapter("value")
         output_values: list[float] = []
@@ -244,7 +246,11 @@ class Runtime:
             with torch.inference_mode():
                 logits = self.model(**encoded).logits[:, -1, label_tokens].float()
                 logp = torch.log_softmax(logits, dim=-1)
-                useful = torch.logsumexp(logp[:, :2], dim=-1) - logp[:, 2]
+                useful = (
+                    logp[:, 1] - torch.logsumexp(logp[:, [0, 2]], dim=-1)
+                    if terminal
+                    else torch.logsumexp(logp[:, :2], dim=-1) - logp[:, 2]
+                )
             output_values.extend(float(value) for value in useful.cpu().tolist())
         return output_values
 
@@ -271,6 +277,9 @@ def execute(node: Node, action: Action, *, max_imports: int) -> tuple[Node | Non
                 expanded.extend([normal_smiles(str(item.get("smiles") or ""))] * count)
             if sum(imported.values()) + len(expanded) > max_imports:
                 raise ValueError("IMPORT_BUDGET_EXCEEDED")
+            repeated = sorted({fragment for fragment in expanded if imported.get(fragment, 0)})
+            if repeated:
+                raise ValueError(f"REPEATED_IMPORT:{repeated}")
             mapped: list[str] = []
             for fragment in expanded:
                 # Repeated stoichiometric imports are allowed only when explicitly counted.
@@ -331,6 +340,7 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
     rejected: dict[str, int] = {}
     for depth in range(args.max_decisions):
         children: list[Node] = []
+        new_terminals: list[Node] = []
         for node in beam:
             for action in runtime.proposals(
                 target, node.state, candidates=args.branching, max_new_tokens=args.max_new_tokens
@@ -339,9 +349,16 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
                 if child is None:
                     rejected[error] = rejected.get(error, 0) + 1
                 elif child.terminal:
-                    terminals.append(child)
+                    new_terminals.append(child)
                 else:
                     children.append(child)
+        if new_terminals:
+            terminal_values = runtime.values(
+                target, [child.state for child in new_terminals], terminal=True
+            )
+            for child, value in zip(new_terminals, terminal_values, strict=True):
+                child.value = value
+            terminals.extend(new_terminals)
         if not children:
             break
         # Collapse graph-equivalent visible states before paying for critic scores.
