@@ -665,6 +665,7 @@ def main() -> int:
         from datasets import Dataset, concatenate_datasets
         from peft import (
             LoraConfig,
+            PeftModel,
             get_peft_model,
             prepare_model_for_kbit_training,
         )
@@ -820,23 +821,39 @@ def main() -> int:
         model.config.use_cache = False
 
     lora = dict(cfg.get("lora") or {})
-    peft_config = LoraConfig(
-        r=int(lora.get("r", 16)),
-        lora_alpha=int(lora.get("alpha", 32)),
-        lora_dropout=float(lora.get("dropout", 0.05)),
-        target_modules=list(
-            lora.get("target_modules")
-            or ["q_proj", "k_proj", "v_proj", "o_proj"]
-        ),
-        task_type="CAUSAL_LM",
-    )
+    initial_adapter_value = str(cfg.get("initial_adapter_path") or "").strip()
+    initial_adapter = Path(initial_adapter_value) if initial_adapter_value else None
+    if initial_adapter is not None:
+        if not (initial_adapter / "adapter_config.json").is_file():
+            raise FileNotFoundError(
+                f"initial_adapter_path is not a PEFT adapter: {initial_adapter}"
+            )
+        report["initial_adapter_path"] = str(initial_adapter)
+        report["initial_adapter_model_sha256"] = file_sha256(
+            initial_adapter / "adapter_model.safetensors"
+        )
     if use_qlora:
         model = prepare_model_for_kbit_training(
             model,
             use_gradient_checkpointing=gradient_checkpointing,
             gradient_checkpointing_kwargs={"use_reentrant": False},
         )
-    model = get_peft_model(model, peft_config)
+    if initial_adapter is not None:
+        model = PeftModel.from_pretrained(
+            model, str(initial_adapter), is_trainable=True
+        )
+    else:
+        peft_config = LoraConfig(
+            r=int(lora.get("r", 16)),
+            lora_alpha=int(lora.get("alpha", 32)),
+            lora_dropout=float(lora.get("dropout", 0.05)),
+            target_modules=list(
+                lora.get("target_modules")
+                or ["q_proj", "k_proj", "v_proj", "o_proj"]
+            ),
+            task_type="CAUSAL_LM",
+        )
+        model = get_peft_model(model, peft_config)
     if gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
