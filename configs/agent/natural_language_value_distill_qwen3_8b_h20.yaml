@@ -1,12 +1,12 @@
-condition_name: natural_language_value_search_distill_v1_qwen3_8b_h20
+condition_name: natural_language_value_search_distill_v2_qwen3_8b_h20
 scientific_hypothesis: endpoint_verified_search_successes_improve_closed_loop_electron_policy
 model_name_or_path: Qwen/Qwen3-8B
 initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913
-train_file: data/flower_natural_language_value_distill_v1/train.jsonl
-validation_file: data/flower_natural_language_value_distill_v1/valid.jsonl
-pretokenized_cache_dir: data/flower_natural_language_value_distill_v1/qwen3_8b_tokens_4096
+train_file: data/flower_natural_language_value_distill_v2/train.jsonl
+validation_file: data/flower_natural_language_value_distill_v2/valid.jsonl
+pretokenized_cache_dir: data/flower_natural_language_value_distill_v2/qwen3_8b_tokens_4096
 pretokenization_world_size: 8
-output_dir: outputs/agent/natural_language_value_distill_qwen3_8b_h20_seed17_20260915
+output_dir: outputs/agent/natural_language_value_distill_v2_qwen3_8b_h20_seed17_20260915
 limit_examples: 0
 
 training:
@@ -47,8 +47,8 @@ training:
   model_revision: b968826d9c46dd6066d109eabc6255188de91218
 
 contract:
-  paper_baseline_id: natural-language-value-search-distill-v1
-  paper_method_name: mechet_value_guided_search_distilled
+  paper_baseline_id: natural-language-value-search-distill-v2
+  paper_method_name: mechet_value_guided_search_distilled_v2
   paper_run_role: bounded_value_policy_improvement
   stable_id_manifest: data/flower_natural_language_value_distill_v1/manifest.json
   validation_report: data/flower_natural_language_value_distill_v1/manifest.json
@@ -62,7 +62,7 @@ contract:
   free_form_proof_submission: false
   corpus_used: false
   source_dataset: flower_new_dataset_strict_proof_universe_v4
-  source_artifact: product_only_value_search_successes_v1
+  source_artifact: product_only_value_search_successes_v2
   reaction_denominator:
     train: 257167
     valid: 2890

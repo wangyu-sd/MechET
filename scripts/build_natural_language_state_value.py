@@ -5,8 +5,10 @@ Labels are deliberately one-token decisions:
 
 * ``A`` -- a reference-prefix state that should continue;
 * ``B`` -- the reference precursor endpoint, where the policy should finish;
-* ``C`` -- an executable counterfactual state whose reference continuation no
-  longer reaches the precursor endpoint.
+* ``C`` -- an executable counterfactual state whose frozen reference
+  continuation no longer reaches the precursor endpoint.  This is a
+  lower-value/off-reference label, not a proof that no alternative mechanism
+  can ever reach the endpoint.
 
 The counterfactuals change one public temporary atom choice in a reference
 electron event, execute it, and replay the untouched reference suffix.  They
@@ -48,13 +50,14 @@ from mechet.natural_language_electron_flow import build_inventory, compile_event
 from scripts.build_natural_language_event_sft import convert_row
 
 
-VERSION = "natural_language_state_value_v1"
+VERSION = "natural_language_state_value_v2"
 VALUE_SYSTEM = (
     "You are the MechET state-value critic. Judge a retrosynthetic electronic "
     "state relative to its target product. Reply with exactly one label: A if "
     "the state is a productive nonterminal state and electron reasoning should "
     "continue; B if it is a complete precursor endpoint and should finish; C if "
-    "it is a dead or chemically misdirected state. Do not explain the label."
+    "it is an executable but lower-value or off-reference state. Do not explain "
+    "the label."
 )
 ALIAS_RE = re.compile(r"\bA\d{2,}\b")
 
@@ -145,6 +148,7 @@ def counterfactual_state(
     scheduled: Sequence[Sequence[str]],
     expected: str,
     seed_key: str,
+    forbidden_visible_states: set[str],
 ) -> str | None:
     aliases = sorted(build_inventory(event_state).atom_to_map)
     used = sorted(set(ALIAS_RE.findall(json.dumps(gold_arguments, sort_keys=True))))
@@ -163,6 +167,10 @@ def counterfactual_state(
             if not replay.get("ok"):
                 continue
             candidate = str(replay["state_smiles"])
+            # The model never sees private atom maps.  A symmetry-related map
+            # permutation is therefore the *same input*, not a negative.
+            if _visible(candidate) in forbidden_visible_states:
+                continue
             if mapped_state_signature(candidate) == mapped_state_signature(
                 reference_successor
             ):
@@ -199,6 +207,20 @@ def convert_reaction(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     current = retain_mapped_components(str(steps[0]["state_before"]), present_maps)
     target = _visible(current)
     expected = str(row.get("full_precursor_state") or row["expected_precursor"])
+    # Build the complete set of model-visible successful-prefix states before
+    # mining negatives.  This excludes symmetry-equivalent states as well as a
+    # counterfactual that happens to coincide with any later successful state.
+    positive_visible_states = {_visible(current)}
+    probe = current
+    probe_maps = set(target_maps)
+    for step, imports in zip(steps, scheduled, strict=True):
+        event_state = append_mapped_fragments_verbatim(probe, imports)
+        if imports:
+            positive_visible_states.add(_visible(event_state))
+        for fragment in imports:
+            probe_maps.update(mapped_atom_numbers(fragment))
+        probe = retain_mapped_components(str(step["state_after"]), probe_maps)
+        positive_visible_states.add(_visible(probe))
     output = [
         value_row(
             reaction_id=reaction_id,
@@ -247,6 +269,7 @@ def convert_reaction(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             scheduled=scheduled,
             expected=expected,
             seed_key=f"{reaction_id}:{index}",
+            forbidden_visible_states=positive_visible_states,
         )
         if negative is not None:
             output.append(
@@ -261,6 +284,64 @@ def convert_reaction(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             )
         current = successor
     return output
+
+
+def remove_model_visible_label_conflicts(path: Path) -> dict[str, int]:
+    """Drop only C rows that contradict A/B for exactly the same model input.
+
+    A/B conflicts are never resolved heuristically because they indicate a
+    broken reference trace.  The second pass is global across reaction IDs so
+    duplicated chemistry cannot reintroduce contradictory supervision.
+    """
+
+    labels_by_prompt: dict[str, set[str]] = {}
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            prompt = json.dumps(row["messages"][:2], sort_keys=True, ensure_ascii=False)
+            key = hashlib.sha256(prompt.encode()).hexdigest()
+            labels_by_prompt.setdefault(key, set()).add(str(row["metadata"]["label"]))
+    conflicts = {key: labels for key, labels in labels_by_prompt.items() if len(labels) > 1}
+    hard = {key: labels for key, labels in conflicts.items() if {"A", "B"} <= labels}
+    if hard:
+        raise ValueError(f"A/B model-visible label conflicts: {len(hard)}")
+
+    temporary = path.with_suffix(path.suffix + ".conflict-filter.tmp")
+    counts: Counter[str] = Counter()
+    with path.open(encoding="utf-8") as source, temporary.open("w", encoding="utf-8") as sink:
+        for line in source:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            label = str(row["metadata"]["label"])
+            prompt = json.dumps(row["messages"][:2], sort_keys=True, ensure_ascii=False)
+            key = hashlib.sha256(prompt.encode()).hexdigest()
+            if key in conflicts and label == "C":
+                counts["dropped_conflicting_counterfactuals"] += 1
+                continue
+            sink.write(line)
+            counts[f"label_{label}"] += 1
+            counts["rows"] += 1
+    temporary.replace(path)
+
+    # Fail closed if the cleanup did not achieve the actual model contract.
+    final_labels: dict[str, set[str]] = {}
+    with path.open(encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            prompt = json.dumps(row["messages"][:2], sort_keys=True, ensure_ascii=False)
+            key = hashlib.sha256(prompt.encode()).hexdigest()
+            final_labels.setdefault(key, set()).add(str(row["metadata"]["label"]))
+    counts["model_visible_conflicts_after"] = sum(
+        len(labels) > 1 for labels in final_labels.values()
+    )
+    if counts["model_visible_conflicts_after"]:
+        raise ValueError("model-visible label conflicts remain after cleanup")
+    return dict(counts)
 
 
 def _worker_init() -> None:
@@ -349,12 +430,13 @@ def build_split(
                     ),
                     flush=True,
                 )
+    visible_audit = remove_model_visible_label_conflicts(target)
     return {
         "source": str(source),
         "source_sha256": sha256(source),
         "selected_reactions": len(lines),
-        "rows": sum(counts[f"label_{x}"] for x in "ABC"),
         **dict(counts),
+        **visible_audit,
         "output_sha256": sha256(target),
         "unresolved_sha256": sha256(unresolved),
     }
@@ -386,15 +468,23 @@ def main() -> int:
         ),
     }
     unresolved = sum(int(value.get("unresolved_reactions", 0)) for value in reports.values())
+    visible_conflicts = sum(
+        int(value.get("model_visible_conflicts_after", 0)) for value in reports.values()
+    )
     manifest = {
         "artifact_type": VERSION,
-        "status": "validated_pilot" if unresolved == 0 else "invalid",
-        "training_allowed": unresolved == 0,
+        "status": "validated_pilot" if unresolved == 0 and visible_conflicts == 0 else "invalid",
+        "training_allowed": unresolved == 0 and visible_conflicts == 0,
         "source_artifact": str(args.source_dir),
         "seed": args.seed,
         "reports": reports,
-        "labels": {"A": "continue", "B": "finish", "C": "dead"},
-        "counterfactual_contract": "executable_alias_corruption_then_reference_suffix_replay",
+        "labels": {
+            "A": "reference_consistent_continue",
+            "B": "reference_endpoint_finish",
+            "C": "lower_value_off_reference_counterfactual",
+        },
+        "counterfactual_contract": "model-visible-novel executable alias corruption then frozen reference suffix replay",
+        "counterfactual_semantics": "lower_value_off_reference_not_proven_globally_dead",
         "model_visible_atom_maps": False,
         "reference_endpoint_model_visible": False,
     }

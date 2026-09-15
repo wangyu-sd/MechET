@@ -5,12 +5,12 @@ shared_repo=/aaa/fionafyang/buddy1/whaleywang/MechET
 runtime_repo=${MECHET_VALUE_RUNTIME_DIR:?set MECHET_VALUE_RUNTIME_DIR}
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 source_dir=$shared_repo/data/flower_inverse_tool_sft_action_delta_v1
-value_data=$shared_repo/data/flower_natural_language_state_value_v1
-distill_data=$shared_repo/data/flower_natural_language_value_distill_v1
+value_data=$shared_repo/data/flower_natural_language_state_value_v2
+distill_data=$shared_repo/data/flower_natural_language_value_distill_v2
 policy_adapter=$shared_repo/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913
-value_adapter=$shared_repo/outputs/agent/natural_language_state_value_qwen3_8b_h20_seed17_20260915
-distill_adapter=$shared_repo/outputs/agent/natural_language_value_distill_qwen3_8b_h20_seed17_20260915
-search_root=$shared_repo/outputs/eval/natural_language_value_pipeline_20260915
+value_adapter=$shared_repo/outputs/agent/natural_language_state_value_v2_qwen3_8b_h20_seed17_20260915
+distill_adapter=$shared_repo/outputs/agent/natural_language_value_distill_v2_qwen3_8b_h20_seed17_20260915
+search_root=$shared_repo/outputs/eval/natural_language_value_pipeline_v2_20260915
 value_base_config=$runtime_repo/configs/agent/natural_language_state_value_qwen3_8b_h20.yaml
 distill_base_config=$runtime_repo/configs/agent/natural_language_value_distill_qwen3_8b_h20.yaml
 liger_wheel=$shared_repo/artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl
@@ -68,9 +68,13 @@ p=Path(sys.argv[1])
 if not p.is_file(): raise SystemExit(1)
 m=json.loads(p.read_text())
 ok=m.get('training_allowed') is True
+ok &= m.get('artifact_type')=='natural_language_state_value_v2'
+ok &= m.get('counterfactual_semantics')=='lower_value_off_reference_not_proven_globally_dead'
 ok &= m.get('reports',{}).get('train',{}).get('selected_reactions')==20000
 ok &= m.get('reports',{}).get('valid',{}).get('selected_reactions')==512
 ok &= m.get('reports',{}).get('train',{}).get('label_C',0)>0
+ok &= m.get('reports',{}).get('train',{}).get('model_visible_conflicts_after')==0
+ok &= m.get('reports',{}).get('valid',{}).get('model_visible_conflicts_after')==0
 raise SystemExit(0 if ok else 1)
 PY
 then
@@ -174,7 +178,7 @@ from pathlib import Path
 root=Path(sys.argv[1])
 pre=json.loads((root/'pre_distill_valid128/evaluation.json').read_text())
 post=json.loads((root/'post_distill_valid128/evaluation.json').read_text())
-report={'status':'complete','protocol':'product_only_value_guided_search_v1',
+report={'status':'complete','protocol':'product_only_value_guided_search_v2',
         'reference_endpoint_model_visible':False,'pre_distill':pre,'post_distill':post,
         'delta_top1':post['top1_accuracy']-pre['top1_accuracy'],
         'delta_pass_at_beam':post['pass_at_beam_accuracy']-pre['pass_at_beam_accuracy']}

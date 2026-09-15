@@ -80,7 +80,7 @@ def main() -> int:
         (args.distill_dir / "valid.jsonl").write_text(encode(validation_rows), encoding="utf-8")
         target.write_text(encode(train_rows), encoding="utf-8")
         manifest = {
-            "artifact_type": "natural_language_value_search_distillation_v1",
+            "artifact_type": "natural_language_value_search_distillation_v2",
             "status": "validated_pilot",
             "training_allowed": True,
             "selection_uses_endpoint_only_after_product_only_search": True,
