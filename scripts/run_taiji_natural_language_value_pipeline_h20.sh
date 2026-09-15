@@ -11,8 +11,8 @@ policy_adapter=$shared_repo/outputs/agent/natural_language_event_sft_qwen3_8b_a1
 value_adapter=$shared_repo/outputs/agent/natural_language_state_value_qwen3_8b_h20_seed17_20260915
 distill_adapter=$shared_repo/outputs/agent/natural_language_value_distill_qwen3_8b_h20_seed17_20260915
 search_root=$shared_repo/outputs/eval/natural_language_value_pipeline_20260915
-value_config=$runtime_repo/configs/agent/natural_language_state_value_qwen3_8b_h20.yaml
-distill_config=$runtime_repo/configs/agent/natural_language_value_distill_qwen3_8b_h20.yaml
+value_base_config=$runtime_repo/configs/agent/natural_language_state_value_qwen3_8b_h20.yaml
+distill_base_config=$runtime_repo/configs/agent/natural_language_value_distill_qwen3_8b_h20.yaml
 liger_wheel=$shared_repo/artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl
 xformers_wheel=$shared_repo/artifacts/wheels/xformers-0.0.29.post3-cp311-cp311-manylinux_2_28_x86_64.whl
 bitsandbytes_wheel=$shared_repo/artifacts/wheels/bitsandbytes-0.49.2-py3-none-manylinux_2_24_x86_64.whl
@@ -26,8 +26,8 @@ echo "[meteor-value-pipeline] runtime=$runtime_repo"
 echo "[meteor-value-pipeline] stages=data,value-SFT,product-only-search,distill-SFT,product-only-eval"
 test -f "$source_dir/train.jsonl"
 test -f "$policy_adapter/adapter_config.json"
-test -f "$value_config"
-test -f "$distill_config"
+test -f "$value_base_config"
+test -f "$distill_base_config"
 echo "303b9bbf5c10f9289c3139afb41e4d989e8c809516624a106b89b064163d971d  $liger_wheel" | sha256sum --check --strict
 echo "bbf2f500dfdbcf4649bf568cc2c9f434399f704dc4064fd1fbdbef2b524a8139  $xformers_wheel" | sha256sum --check --strict
 echo "54b771f06e1a3c73af5c7f16ccf0fc23a846052813d4b008d10cb6e017dd1c8c  $bitsandbytes_wheel" | sha256sum --check --strict
@@ -86,6 +86,20 @@ PY
     --train-reactions 20000 --valid-reactions 512 --workers "$workers"
 fi
 
+value_config=$(mktemp /tmp/mechet_value_config.XXXXXX.yaml)
+python - "$value_base_config" "$value_data/manifest.json" "$value_config" <<'PY'
+import json,sys,yaml
+from pathlib import Path
+cfg=yaml.safe_load(Path(sys.argv[1]).read_text())
+manifest=json.loads(Path(sys.argv[2]).read_text())
+assert manifest['training_allowed'] is True
+cfg['contract']['expected_train_rows']=manifest['reports']['train']['rows']
+cfg['contract']['expected_validation_rows']=manifest['reports']['valid']['rows']
+Path(sys.argv[3]).write_text(yaml.safe_dump(cfg,sort_keys=False))
+print({'stage':'value-config','train_rows':cfg['contract']['expected_train_rows'],
+       'validation_rows':cfg['contract']['expected_validation_rows']},flush=True)
+PY
+
 if [[ ! -f "$value_adapter/adapter_model.safetensors" ]]; then
   echo "[meteor-value-pipeline] stage 2/6 tokenize and train state-value critic"
   rm -rf "$value_data/qwen3_8b_tokens_1024"
@@ -121,6 +135,19 @@ if [[ ! -f "$distill_adapter/adapter_model.safetensors" ]]; then
     --minimum-successes 16
 
   echo "[meteor-value-pipeline] stage 5/6 distill successful executable paths"
+  distill_config=$(mktemp /tmp/mechet_distill_config.XXXXXX.yaml)
+  python - "$distill_base_config" "$distill_data/manifest.json" "$distill_config" <<'PY'
+import json,sys,yaml
+from pathlib import Path
+cfg=yaml.safe_load(Path(sys.argv[1]).read_text())
+manifest=json.loads(Path(sys.argv[2]).read_text())
+assert manifest['training_allowed'] is True
+cfg['contract']['expected_train_rows']=manifest['train_rows']
+cfg['contract']['expected_validation_rows']=manifest['validation_rows']
+Path(sys.argv[3]).write_text(yaml.safe_dump(cfg,sort_keys=False))
+print({'stage':'distill-config','train_rows':cfg['contract']['expected_train_rows'],
+       'validation_rows':cfg['contract']['expected_validation_rows']},flush=True)
+PY
   rm -rf "$distill_data/qwen3_8b_tokens_4096"
   torchrun --standalone --nproc_per_node=8 \
     "$runtime_repo/scripts/prepare_tool_sft_arrow.py" --config "$distill_config"
