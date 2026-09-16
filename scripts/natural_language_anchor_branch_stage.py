@@ -20,6 +20,7 @@ from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
     endpoint_shaped_reward,
+    state_value_margin,
     stable_rng,
     successor_fingerprint,
     task_from_episode,
@@ -27,6 +28,7 @@ from mechet.natural_language_anchor_branch_rl import (
 )
 from mechet.anchor_branch_rl import choose_horizon
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS, _prompt
+from scripts.build_natural_language_state_value import VALUE_SYSTEM, value_prompt
 from scripts.eval_natural_language_event_local import prediction_call
 from scripts.eval_natural_language_event_suffix import reference_episode
 from scripts.run_natural_language_value_search import Action, Node, execute, visible
@@ -125,8 +127,56 @@ def _advance(node: Node, decoded: Mapping[str, Any], max_imports: int):
     return execute(node, action, max_imports=max_imports)
 
 
-def _greedy_continue(llm, tokenizer, lora, parameters, eos_ids, task, node, args):
-    """Gold-free continuation: select the highest-likelihood executable proposal."""
+def _critic_scores(llm, tokenizer, value_lora, parameters, task, nodes):
+    if value_lora is None:
+        return [0.0] * len(nodes)
+    prompts = [
+        render_chat(
+            tokenizer,
+            [
+                {"role": "system", "content": VALUE_SYSTEM},
+                {"role": "user", "content": value_prompt(task.target, node.state)},
+            ],
+            tools=[],
+            add_generation_prompt=True,
+        )
+        for node in nodes
+    ]
+    generated = llm.generate(
+        prompts, parameters, lora_request=value_lora, use_tqdm=False
+    )
+    label_ids = {
+        label: tokenizer(label, add_special_tokens=False)["input_ids"][0]
+        for label in "ABC"
+    }
+    output = []
+    for node, generation in zip(nodes, generated, strict=True):
+        distribution = generation.outputs[0].logprobs[0]
+        label_logps = {}
+        for label, token_id in label_ids.items():
+            value = distribution.get(token_id)
+            if value is None:
+                raise ValueError(f"critic omitted allowed label {label}")
+            label_logps[label] = float(
+                value.logprob if hasattr(value, "logprob") else value
+            )
+        output.append(state_value_margin(label_logps, terminal=node.terminal))
+    return output
+
+
+def _greedy_continue(
+    llm,
+    tokenizer,
+    lora,
+    parameters,
+    value_lora,
+    value_parameters,
+    eos_ids,
+    task,
+    node,
+    args,
+):
+    """Gold-free continuation ranked by a frozen state-value critic."""
 
     candidates = []
     prompts = []
@@ -141,14 +191,41 @@ def _greedy_continue(llm, tokenizer, lora, parameters, eos_ids, task, node, args
         prompts, parameters, lora_request=lora, use_tqdm=False
     )
     for mode, output in zip(modes, generated, strict=True):
-        decoded = _decode_action(tokenizer, output.outputs[0], eos_ids, mode)
-        child, error = _advance(node, decoded, args.max_imports)
-        if child is not None:
-            candidates.append((float(decoded["mean_logprob"]), child))
+        for generated_value in output.outputs:
+            decoded = _decode_action(tokenizer, generated_value, eos_ids, mode)
+            child, error = _advance(node, decoded, args.max_imports)
+            if child is not None:
+                candidates.append((float(decoded["mean_logprob"]), child))
     if not candidates:
         return None, "NO_EXECUTABLE_CONTINUATION"
-    candidates.sort(key=lambda item: item[0], reverse=True)
-    return candidates[0][1], ""
+    # Different surface actions may execute to the same chemical successor.
+    # Keep the strongest policy realization before spending critic compute.
+    unique = {}
+    for policy_score, child in candidates:
+        key = (visible(child.state), bool(child.terminal))
+        if key not in unique or policy_score > unique[key][0]:
+            unique[key] = (policy_score, child)
+    candidates = list(unique.values())
+    critic_scores = _critic_scores(
+        llm,
+        tokenizer,
+        value_lora,
+        value_parameters,
+        task,
+        [child for _, child in candidates],
+    )
+    ranked = [
+        (
+            float(args.value_score_weight) * critic_score
+            + float(args.policy_score_weight) * policy_score,
+            child,
+        )
+        for (policy_score, child), critic_score in zip(
+            candidates, critic_scores, strict=True
+        )
+    ]
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return ranked[0][1], ""
 
 
 def _score_rollout(
@@ -216,12 +293,19 @@ def collect(args):
         enable_prefix_caching=True,
         enable_lora=True,
         max_lora_rank=16,
+        max_loras=2 if args.value_adapter else 1,
+        max_cpu_loras=2 if args.value_adapter else 1,
         enforce_eager=True,
         seed=(args.seed + args.rank) % (2**32),
         trust_remote_code=True,
     )
     tokenizer = llm.get_tokenizer()
     lora = LoRARequest("nl_anchor_actor", 1, str(Path(args.adapter).resolve()))
+    value_lora = (
+        LoRARequest("nl_anchor_value", 2, str(Path(args.value_adapter).resolve()))
+        if args.value_adapter
+        else None
+    )
     eos_ids = sorted(
         {
             value
@@ -244,14 +328,31 @@ def collect(args):
         logprobs=0,
     )
     continuation_parameters = SamplingParams(
-        n=1,
-        temperature=0.0,
+        n=args.continuation_candidates_per_mode,
+        temperature=(
+            args.continuation_temperature
+            if args.continuation_candidates_per_mode > 1
+            else 0.0
+        ),
         top_p=1.0,
         top_k=-1,
         repetition_penalty=1.0,
         max_tokens=args.max_new_tokens,
         stop_token_ids=eos_ids,
         logprobs=0,
+    )
+    label_ids = []
+    for label in "ABC":
+        ids = tokenizer(label, add_special_tokens=False)["input_ids"]
+        if len(ids) != 1:
+            raise ValueError(f"critic label is not one token: {label}={ids}")
+        label_ids.append(ids[0])
+    value_parameters = SamplingParams(
+        n=1,
+        temperature=0.0,
+        max_tokens=1,
+        logprobs=3,
+        allowed_token_ids=label_ids,
     )
 
     with output.open("x", encoding="utf-8") as handle:
@@ -309,6 +410,8 @@ def collect(args):
                             tokenizer,
                             lora,
                             continuation_parameters,
+                            value_lora,
+                            value_parameters,
                             eos_ids,
                             task,
                             node,
@@ -395,6 +498,11 @@ def main():
     parser.add_argument("--endpoint-similarity-weight", type=float, default=0.45)
     parser.add_argument("--first-successor-progress-weight", type=float, default=0.25)
     parser.add_argument("--nonexact-reward-ceiling", type=float, default=0.01)
+    parser.add_argument("--value-adapter")
+    parser.add_argument("--continuation-candidates-per-mode", type=int, default=1)
+    parser.add_argument("--continuation-temperature", type=float, default=0.7)
+    parser.add_argument("--value-score-weight", type=float, default=1.0)
+    parser.add_argument("--policy-score-weight", type=float, default=0.1)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)

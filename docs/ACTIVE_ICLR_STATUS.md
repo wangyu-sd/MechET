@@ -25,9 +25,11 @@ exact endpoint, while 256 wrong terminals all received zero and 255 invalid or
 incomplete candidates received -0.1. The prepared v2 repair retains exactness as
 the only positive outcome and adds map-invariant, heavy-atom-weighted endpoint
 similarity plus first-successor progress to rank non-exact branches. All wrong
-terminal and invalid outcomes remain negative. Fifteen relevant tests pass, and
+terminal and invalid outcomes remain negative. Twenty-five relevant tests pass, and
 offline rescoring yields 218 reward values with contrast in 96/128 prompt-mode
-groups. Config and Taiji descriptor are prepared but **no v2 task has been
+groups. Continuation ranking now uses the frozen state-value-v2 adapter over
+executor-valid unique successors instead of comparing raw NLL across the action
+and event prompt formats. Config and Taiji descriptor are prepared but **no v2 task has been
 submitted**. See `docs/NATURAL_LANGUAGE_ANCHOR_BRANCH_RL.md`.
 
 ## Natural-language electron-event candidate (active)

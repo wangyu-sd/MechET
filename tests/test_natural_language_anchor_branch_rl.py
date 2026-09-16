@@ -2,6 +2,7 @@ from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
     endpoint_potential,
     endpoint_shaped_reward,
+    state_value_margin,
     successor_fingerprint,
     task_from_episode,
 )
@@ -114,3 +115,13 @@ def test_historical_sparse_reward_contract_remains_replayable():
         nonexact_reward_ceiling=0.0,
     )
     assert result["reward"] == 0.0
+
+
+def test_state_value_margin_distinguishes_continue_finish_and_off_path():
+    continue_scores = {"A": -0.1, "B": -3.0, "C": -2.0}
+    finish_scores = {"A": -3.0, "B": -0.1, "C": -2.0}
+    off_path_scores = {"A": -3.0, "B": -2.0, "C": -0.1}
+    assert state_value_margin(continue_scores, terminal=False) > 0
+    assert state_value_margin(finish_scores, terminal=True) > 0
+    assert state_value_margin(off_path_scores, terminal=False) < 0
+    assert state_value_margin(off_path_scores, terminal=True) < 0

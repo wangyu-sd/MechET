@@ -81,6 +81,14 @@ def validate_contract(cfg: dict) -> None:
         raise ValueError("base model revision mismatch")
     if "test_file" in cfg:
         raise ValueError("post-training config must not load test data")
+    if cfg.get("value_adapter_path"):
+        value_adapter = Path(cfg["value_adapter_path"])
+        value_weights = value_adapter / "adapter_model.safetensors"
+        if _sha256(value_weights) != str(cfg["value_adapter_model_sha256"]):
+            raise ValueError("state-value adapter weights changed")
+        value_manifest = json.loads(Path(cfg["value_adapter_manifest"]).read_text())
+        if value_manifest.get("base_model_revision") != cfg["model_revision"]:
+            raise ValueError("state-value adapter base revision mismatch")
 
 
 def prepare(cfg: dict, output: Path) -> None:
@@ -101,17 +109,29 @@ def prepare(cfg: dict, output: Path) -> None:
     monitor = validation[: int(cfg["validation_monitor_rows"])]
     write_rows(output / "validation_monitor.jsonl", monitor)
     ids = [str(row["id"]) for row in selected]
+    repaired = bool(cfg.get("reward") or cfg.get("value_adapter_path"))
     write_json(
         output / "plan.json",
         {
-            "artifact_type": "natural_language_verified_anchor_branch_rl_plan_v1",
-            "algorithm": "executor_reset_same_state_successor_pooled_endpoint_reward_first_tool_call_credit",
+            "artifact_type": (
+                "natural_language_verified_anchor_branch_rl_plan_v2"
+                if repaired
+                else "natural_language_verified_anchor_branch_rl_plan_v1"
+            ),
+            "algorithm": (
+                "executor_reset_successor_pooled_endpoint_shaping_value_ranked_first_tool_credit"
+                if repaired
+                else "executor_reset_same_state_successor_pooled_endpoint_reward_first_tool_call_credit"
+            ),
             "source_rows": len(source),
             "selected_rows": len(selected),
             "selected_id_sha256": hashlib.sha256("\n".join(ids).encode()).hexdigest(),
             "parent_adapter_model_sha256": cfg["initial_adapter_model_sha256"],
             "reference_suffix_visible_to_policy": False,
             "expected_precursor_visible_to_policy": False,
+            "continuation_ranker": (
+                "frozen_state_value_v2" if cfg.get("value_adapter_path") else "policy_nll"
+            ),
             "test_used": False,
             "config": cfg,
         },
@@ -156,6 +176,20 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     ]
     if evaluation:
         command.extend(["--evaluation", "--full-only"])
+    if cfg.get("value_adapter_path"):
+        command.extend(["--value-adapter", str(cfg["value_adapter_path"])])
+    command.extend(
+        [
+            "--continuation-candidates-per-mode",
+            str(rollout.get("continuation_candidates_per_mode", 1)),
+            "--continuation-temperature",
+            str(rollout.get("continuation_temperature", 0.7)),
+            "--value-score-weight",
+            str(rollout.get("value_score_weight", 1.0)),
+            "--policy-score-weight",
+            str(rollout.get("policy_score_weight", 0.1)),
+        ]
+    )
     return command
 
 

@@ -287,3 +287,21 @@ def endpoint_shaped_reward(
         "final_potential": float(final),
         "first_successor_progress": float(progress),
     }
+
+
+def state_value_margin(label_logps: Mapping[str, float], *, terminal: bool) -> float:
+    """Return the calibrated A/B/C critic margin used to rank successors.
+
+    A is productive/continue, B is endpoint/finish, and C is off-reference.
+    Terminal nodes prefer B over A/C; nonterminal nodes prefer A/B over C.
+    """
+
+    if set(label_logps) != {"A", "B", "C"}:
+        raise ValueError("state value requires exactly A/B/C log probabilities")
+
+    def logsumexp(values: Sequence[float]) -> float:
+        maximum = max(values)
+        return maximum + math.log(sum(math.exp(value - maximum) for value in values))
+
+    a, b, c = (float(label_logps[label]) for label in "ABC")
+    return b - logsumexp((a, c)) if terminal else logsumexp((a, b)) - c

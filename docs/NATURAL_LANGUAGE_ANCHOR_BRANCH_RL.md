@@ -63,3 +63,12 @@ instead of three. Wrong terminal endpoints span `[-0.473, -0.0602]`, and 96/128
 prompt-mode groups contain usable within-group reward contrast. This is a reward
 audit, not evidence of improved model accuracy; a new optimizer/evaluation run
 is required.
+
+The repair also removes cross-prompt raw-NLL ranking during continuation. Each
+action and event prompt now proposes two candidates, executor-invalid and
+duplicate-successor candidates are removed, and the frozen
+`natural_language_state_value_v2` adapter ranks the surviving states as
+productive (`A`), endpoint (`B`), or off-reference (`C`). Actor likelihood is a
+small tie-breaker only. The critic receives the product and public current state,
+never the expected precursor. Disabling the value adapter and setting one
+continuation candidate exactly restores the historical v1 search contract.

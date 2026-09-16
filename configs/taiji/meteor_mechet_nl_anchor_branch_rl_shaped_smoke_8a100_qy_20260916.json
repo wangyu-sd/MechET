@@ -21,7 +21,7 @@
   "task_queuing_priority": "P2",
   "keep_running_after_trainer_finish": false,
   "task_category": "fine_tuning",
-  "task_description": "Bounded repair smoke from the frozen natural-language electron-event Qwen3-8B SFT. Exact endpoint remains the only positive reward; map-invariant heavy-atom-weighted endpoint similarity and first-successor progress rank non-exact branches, while wrong terminal and invalid outcomes remain negative. Uses 64 named FlowER strict-proof train reactions and 16 disjoint validation reactions; test is never loaded. Default POD stdout and 60-second heartbeat are retained.",
+  "task_description": "Bounded repair smoke from the frozen natural-language electron-event Qwen3-8B SFT. Exact endpoint remains the only positive reward; map-invariant endpoint shaping ranks non-exact branches. Continuations generate two candidates per action/event mode, reject invalid and duplicate successors, and use the frozen state-value-v2 adapter instead of cross-prompt raw-NLL ranking. Uses 64 named FlowER strict-proof train reactions and 16 disjoint validation reactions; test is never loaded. Default POD stdout and 60-second heartbeat are retained.",
   "resource_usage": "experiment",
   "base_model": "Qwen/Qwen3-8B@b968826d9c46dd6066d109eabc6255188de91218 + natural-language-event-SFT",
   "output_base_model": "meteor-MechET-natural-language-anchor-branch-RL-shaped-smoke",
