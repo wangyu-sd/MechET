@@ -1,0 +1,25 @@
+{
+  "artifact_type": "direct_endpoint_candidate_evaluation",
+  "reference": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/test.jsonl",
+  "reference_sha256": "113744e5307119c3008b8d90935dca0c758071baa8dde80ef95af9a2723ac8ac",
+  "predictions": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/retrosynflow/flower_full/merge_at36_20260915/predictions.jsonl",
+  "predictions_sha256": "b8c0302480d9789e1e55a6131d4730062bc74ca5862c31a8d86230c2191d878a",
+  "n_reference_rows": 28971,
+  "n_prediction_rows_used": 28971,
+  "n_prediction_rows_ignored_as_superset": 0,
+  "reference_limit": 0,
+  "candidates_per_target": 10,
+  "n_candidates": 289710,
+  "candidate_validity_rate": 0.46241413827620725,
+  "generation_order": {
+    "semantics": "gold-independent native model ranking; Success@K",
+    "structural_success_at_1": 0.40381761071416244,
+    "structural_success_at_3": 0.5272513893203549,
+    "structural_success_at_5": 0.5466846156501329,
+    "structural_success_at_10": 0.5541058299678989,
+    "top1_validity": 0.7502675088881986,
+    "neutralized_success_at_1": 0.46298022160091123,
+    "selection_uses_ground_truth": false
+  },
+  "nll_ranked": null
+}

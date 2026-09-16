@@ -1,0 +1,25 @@
+{
+  "artifact_type": "direct_endpoint_candidate_evaluation",
+  "reference": "/home/estar/pxy/mechet/MechET/data/external_baselines/flower_full/test.jsonl",
+  "reference_sha256": "113744e5307119c3008b8d90935dca0c758071baa8dde80ef95af9a2723ac8ac",
+  "predictions": "/home/estar/pxy/mechet/MechET/outputs/external_baselines/r_smiles/flower_full/predictions.jsonl",
+  "predictions_sha256": "5a462b9c3fdd97460b6e3f01558a7bb2bdf6d3d3128a87304855784516be62d5",
+  "n_reference_rows": 28971,
+  "n_prediction_rows_used": 28971,
+  "n_prediction_rows_ignored_as_superset": 0,
+  "reference_limit": 0,
+  "candidates_per_target": 10,
+  "n_candidates": 289710,
+  "candidate_validity_rate": 0.998443270857064,
+  "generation_order": {
+    "semantics": "gold-independent native model ranking; Success@K",
+    "structural_success_at_1": 0.7155431293362328,
+    "structural_success_at_3": 0.8709399054226641,
+    "structural_success_at_5": 0.9011080045562804,
+    "structural_success_at_10": 0.9222325774049912,
+    "top1_validity": 1.0,
+    "neutralized_success_at_1": 0.7213765489627558,
+    "selection_uses_ground_truth": false
+  },
+  "nll_ranked": null
+}
