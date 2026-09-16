@@ -19,6 +19,7 @@ from mechet.assistant_masking import render_chat
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
+    endpoint_shaped_reward,
     stable_rng,
     successor_fingerprint,
     task_from_episode,
@@ -150,21 +151,41 @@ def _greedy_continue(llm, tokenizer, lora, parameters, eos_ids, task, node, args
     return candidates[0][1], ""
 
 
-def _score_rollout(task, node, error: str, steps: int, invalid_penalty: float):
+def _score_rollout(
+    task,
+    node,
+    error: str,
+    steps: int,
+    *,
+    first_successor_state: str,
+    invalid_penalty: float,
+    wrong_terminal_penalty: float,
+    endpoint_similarity_weight: float,
+    first_successor_progress_weight: float,
+    nonexact_reward_ceiling: float,
+):
     terminal = bool(node is not None and node.terminal)
     precursor = visible(node.state) if node is not None else ""
     correct = bool(terminal and precursor == task.expected_precursor)
-    if correct:
-        reward = 1.0
-    elif terminal:
-        reward = 0.0
-    else:
-        reward = -abs(float(invalid_penalty))
+    shaped = endpoint_shaped_reward(
+        correct=correct,
+        terminal=terminal,
+        anchor_state=task.anchor_state,
+        first_successor_state=first_successor_state,
+        final_state=node.state if node is not None else "",
+        expected_precursor=task.expected_precursor,
+        invalid_penalty=invalid_penalty,
+        wrong_terminal_penalty=wrong_terminal_penalty,
+        endpoint_similarity_weight=endpoint_similarity_weight,
+        first_successor_progress_weight=first_successor_progress_weight,
+        nonexact_reward_ceiling=nonexact_reward_ceiling,
+    )
     return {
         "formal_execute": terminal,
         "correct": correct,
         "precursor_smiles": precursor,
-        "reward": reward,
+        "reward": float(shaped["reward"]),
+        "reward_terms": shaped,
         "failure": error,
         "decisions": steps,
     }
@@ -300,7 +321,16 @@ def collect(args):
                     if node is not None and not node.terminal and not error:
                         error = "DECISION_BUDGET"
                     score = _score_rollout(
-                        task, node, error, decisions, args.invalid_penalty
+                        task,
+                        node,
+                        error,
+                        decisions,
+                        first_successor_state=first_state,
+                        invalid_penalty=args.invalid_penalty,
+                        wrong_terminal_penalty=args.wrong_terminal_penalty,
+                        endpoint_similarity_weight=args.endpoint_similarity_weight,
+                        first_successor_progress_weight=args.first_successor_progress_weight,
+                        nonexact_reward_ceiling=args.nonexact_reward_ceiling,
                     )
                     ids = list(decoded["ids"])
                     logps = list(decoded["logps"])
@@ -361,6 +391,10 @@ def main():
     parser.add_argument("--frontier", type=int, default=1)
     parser.add_argument("--full-episode-fraction", type=float, default=0.2)
     parser.add_argument("--invalid-penalty", type=float, default=0.1)
+    parser.add_argument("--wrong-terminal-penalty", type=float, default=0.5)
+    parser.add_argument("--endpoint-similarity-weight", type=float, default=0.45)
+    parser.add_argument("--first-successor-progress-weight", type=float, default=0.25)
+    parser.add_argument("--nonexact-reward-ceiling", type=float, default=0.01)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)

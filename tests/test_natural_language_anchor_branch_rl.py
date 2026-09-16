@@ -1,5 +1,7 @@
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
+    endpoint_potential,
+    endpoint_shaped_reward,
     successor_fingerprint,
     task_from_episode,
 )
@@ -55,3 +57,60 @@ def test_advantages_are_local_to_prompt_mode():
     assert summary["effective"]
     assert records[0]["advantage"] > 0 > records[1]["advantage"]
     assert records[2]["advantage"] > 0 > records[3]["advantage"]
+
+
+def test_endpoint_potential_rewards_closer_structure_and_penalizes_extras():
+    expected = "CC(=O)O.CN"
+    exact = endpoint_potential(expected, expected)["combined"]
+    close = endpoint_potential("CC(=O)O.C", expected)["combined"]
+    remote = endpoint_potential("c1ccccc1.[Na+]", expected)["combined"]
+    extra = endpoint_potential(expected + ".CCCCCCCC", expected)["combined"]
+    assert exact == 1.0
+    assert exact > close > remote
+    assert exact > extra
+    assert endpoint_potential("[CH3:1][OH:2]", "CO")["combined"] == 1.0
+
+
+def test_shaped_reward_keeps_exact_unique_and_ranks_wrong_endpoints():
+    common = {
+        "anchor_state": "CCOC",
+        "first_successor_state": "CC(=O)O",
+        "expected_precursor": "CC(=O)O.CN",
+        "invalid_penalty": 0.1,
+        "wrong_terminal_penalty": 0.5,
+        "endpoint_similarity_weight": 0.45,
+        "first_successor_progress_weight": 0.25,
+        "nonexact_reward_ceiling": 0.01,
+    }
+    exact = endpoint_shaped_reward(
+        correct=True, terminal=True, final_state="CC(=O)O.CN", **common
+    )
+    close = endpoint_shaped_reward(
+        correct=False, terminal=True, final_state="CC(=O)O.C", **common
+    )
+    remote = endpoint_shaped_reward(
+        correct=False, terminal=True, final_state="c1ccccc1.[Na+]", **common
+    )
+    invalid = endpoint_shaped_reward(
+        correct=False, terminal=False, final_state="", **common
+    )
+    assert exact["reward"] == 1.0
+    assert 0.0 > close["reward"] > remote["reward"]
+    assert invalid["reward"] < 0.0
+
+
+def test_historical_sparse_reward_contract_remains_replayable():
+    result = endpoint_shaped_reward(
+        correct=False,
+        terminal=True,
+        anchor_state="CCOC",
+        first_successor_state="CC(=O)O",
+        final_state="CC(=O)O.C",
+        expected_precursor="CC(=O)O.CN",
+        invalid_penalty=0.1,
+        wrong_terminal_penalty=0.0,
+        endpoint_similarity_weight=0.0,
+        first_successor_progress_weight=0.0,
+        nonexact_reward_ceiling=0.0,
+    )
+    assert result["reward"] == 0.0

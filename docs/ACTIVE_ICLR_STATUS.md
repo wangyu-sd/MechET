@@ -7,22 +7,28 @@
 
 Last updated: 2026-09-16.
 
-## Natural-language anchor-branch post-training (active)
+## Natural-language anchor-branch post-training (completed smoke; repair ready)
 
 The current post-training actor is the completed natural-language electron-
 event SFT, not the historical Python-template checkpoint. PR #59 implements
 executor reset states, K=8 same-state first-tool branches, successor-state
 equivalence pooling, endpoint-primary reward and first-tool-only local credit.
-The bounded 8xA100 task is
+The bounded 8xA100 task was
 `meteor_mechet_nl_anchor_branch_rl_smoke_8a100_qy_20260916`, instance
-`8b1d813ea0a4c8ab01a0a9893c1f075d`. It uses 64 train reactions and 16 disjoint
-validation reactions; test is unused. Live inspection confirmed the Pod, Ceph,
-eight collector processes and all eight A100s actively sampling at about
-33.8 GiB/device. The 16-reaction baseline completed; the first K=8 training
-group was written with nonzero local advantages. No optimizer completion is yet
-claimed. Taiji's CLI log endpoint still shows only launcher output although the
-worker and heartbeat share PID 1's default stdout pipe, so inspect both artifacts
-and the live Pod before reporting later stages.
+`8b1d813ea0a4c8ab01a0a9893c1f075d`. It ended successfully after 16 optimizer
+updates. Validation execution improved from 16/32 to 20/32 candidates, but exact
+endpoint success remained 0/32; the original SFT therefore remains the selected
+adapter. Test was unused.
+
+The failure is traced to sparse reward: only 1/512 training candidates was an
+exact endpoint, while 256 wrong terminals all received zero and 255 invalid or
+incomplete candidates received -0.1. The prepared v2 repair retains exactness as
+the only positive outcome and adds map-invariant, heavy-atom-weighted endpoint
+similarity plus first-successor progress to rank non-exact branches. All wrong
+terminal and invalid outcomes remain negative. Fifteen relevant tests pass, and
+offline rescoring yields 218 reward values with contrast in 96/128 prompt-mode
+groups. Config and Taiji descriptor are prepared but **no v2 task has been
+submitted**. See `docs/NATURAL_LANGUAGE_ANCHOR_BRANCH_RL.md`.
 
 ## Natural-language electron-event candidate (active)
 

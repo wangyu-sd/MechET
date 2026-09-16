@@ -121,6 +121,13 @@ def prepare(cfg: dict, output: Path) -> None:
 
 def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, evaluation):
     rollout = cfg["rollout"]
+    reward = cfg.get("reward") or {
+        # Historical v1 contract: exact=1, wrong terminal=0, invalid=-penalty.
+        "wrong_terminal_penalty": 0.0,
+        "endpoint_similarity_weight": 0.0,
+        "first_successor_progress_weight": 0.0,
+        "nonexact_reward_ceiling": 0.0,
+    }
     command = [
         sys.executable,
         "scripts/natural_language_anchor_branch_stage.py",
@@ -137,6 +144,10 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "--frontier", str(frontier),
         "--full-episode-fraction", "1.0" if evaluation else str(cfg["curriculum"]["full_episode_fraction"]),
         "--invalid-penalty", str(cfg["invalid_penalty"]),
+        "--wrong-terminal-penalty", str(reward["wrong_terminal_penalty"]),
+        "--endpoint-similarity-weight", str(reward["endpoint_similarity_weight"]),
+        "--first-successor-progress-weight", str(reward["first_successor_progress_weight"]),
+        "--nonexact-reward-ceiling", str(reward["nonexact_reward_ceiling"]),
         "--temperature", str(rollout["temperature"]),
         "--max-new-tokens", str(rollout["max_new_tokens"]),
         "--max-context", str(rollout["max_context"]),
