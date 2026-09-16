@@ -6,7 +6,7 @@ runtime_repo=${MECHET_NL_EVENT_RUNTIME_DIR:?set MECHET_NL_EVENT_RUNTIME_DIR}
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 data=$shared_repo/data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl
 adapter=$shared_repo/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913
-output=$shared_repo/outputs/eval/natural_language_event_suffix_state_only_valid32_final_k1_a100_20260914
+output=${MECHET_NL_SUFFIX_OUTPUT:-$shared_repo/outputs/eval/natural_language_event_suffix_state_only_valid32_final_k1_a100_20260914}
 rdkit_wheel=$shared_repo/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl
 bitsandbytes_wheel=$shared_repo/artifacts/wheels/bitsandbytes-0.49.2-py3-none-manylinux_2_24_x86_64.whl
 
