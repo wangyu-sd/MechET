@@ -1,5 +1,24 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-09-16 productive full anchor-branch run:** the endpoint-shaped smoke
+> ended successfully but did not improve its fixed 16-reaction validation set:
+> execution stayed 24/32 and exact endpoint stayed 0/32.  Inspection showed
+> that 16/24 formally terminal wrong candidates retained the unchanged product
+> and merely appended fragments; the sole exact train candidate was an H=1
+> reset after 7/8 reference events, not a full episode.  Commit `f6bff25`
+> therefore adds a distinct no-transform outcome/penalty, productive-execution
+> reporting and complete continuation-action logging.  It does not relabel a
+> formal terminal as chemically correct.  A full bounded post-training task was
+> submitted as
+> `meteor_mechet_nl_anchor_branch_rl_productive_full_8a100_qy_20260916_01`,
+> instance `8b1d813ea0a4c8ab01a0aaabe7a30977`: 10 rounds x 256 distinct train
+> reactions, K=8, 50% full episodes and a disjoint 256-reaction validation
+> monitor.  This is 2,560 sampled reactions from the 257,167-row strict-
+> executable universe, not a full-data epoch and not unqualified FlowER full.
+> Test is never loaded.  Initial verification found an allocated ordinary
+> Qingyuan 8xA100 Pod and mounted Ceph; it was still copying the pinned vLLM
+> runtime with zero GPU memory, so rollout/model execution was not yet claimed.
+
 > **2026-09-16 natural-language anchor-branch post-training:** the active
 > lineage-correct parent is
 > `outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913`

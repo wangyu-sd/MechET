@@ -7,7 +7,24 @@
 
 Last updated: 2026-09-16.
 
-## Natural-language anchor-branch post-training (completed smoke; repair ready)
+## Natural-language anchor-branch post-training (full productive run submitted)
+
+The endpoint-shaped v2 smoke completed successfully.  Its train rollouts had
+315/512 formal terminals and one exact endpoint, but that exact candidate was
+an H=1 suffix after 7/8 reference events.  Fixed full-episode validation stayed
+24/32 formally terminal and 0/32 exact before and after the update.  Of the 24
+post-update wrong terminals, 16 retained the unchanged target and appended
+fragments.  This is an executable no-op, not a retrosynthetic solution.
+
+Commit `f6bff25` adds a no-transform penalty, a separate productive-execution
+metric and persisted per-decision continuation traces.  The full bounded task
+`meteor_mechet_nl_anchor_branch_rl_productive_full_8a100_qy_20260916_01`
+(instance `8b1d813ea0a4c8ab01a0aaabe7a30977`) uses 10 x 256 distinct train
+reactions, K=8, 50% full episodes and a disjoint 256-reaction validation
+monitor.  This is not a 257,167-row epoch.  At the initial live check the
+ordinary Qingyuan 8xA100 Pod and Ceph mount were present, while the pinned vLLM
+runtime was still staging and GPUs were idle; check collectors and GPU memory
+before claiming rollout progress.
 
 The current post-training actor is the completed natural-language electron-
 event SFT, not the historical Python-template checkpoint. PR #59 implements
