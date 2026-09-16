@@ -10,10 +10,14 @@
 > `meteor_mechet_nl_anchor_branch_rl_smoke_8a100_qy_20260916`, instance
 > `8b1d813ea0a4c8ab01a0a9893c1f075d`. It uses 64 named train reactions,
 > K=8 local first-tool branches, one actual policy-update round and 16 disjoint
-> validation reactions; test is never loaded. At the first live check the Pod,
-> eight A100s and Ceph mount were present, while the node-local vLLM runtime was
-> still being staged and GPUs were idle. Do not call it optimizer-active until
-> fresh default logs, model processes and non-idle GPUs are observed.
+> validation reactions; test is never loaded. Live verification found the Pod,
+> Ceph mount, eight collector processes and all eight A100s at roughly 33.8 GiB
+> with nonzero utilization. The 16-reaction baseline completed and the first
+> K=8 training group was persisted with nonzero local advantages. This verifies
+> real rollout collection, not yet a completed optimizer update. The CLI log
+> endpoint still returned only launcher lines even though worker/heartbeat
+> stdout was connected to PID 1's default pipe; use artifacts and Pod inspection
+> together until Taiji exposes the worker stream.
 
 > **Permanent denominator guard:** FlowER `3,080`, old mech-USPTO-31k `1,124`,
 > and current-compiler mech-USPTO-31k `1,253` are incomplete

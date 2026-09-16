@@ -16,9 +16,13 @@ equivalence pooling, endpoint-primary reward and first-tool-only local credit.
 The bounded 8xA100 task is
 `meteor_mechet_nl_anchor_branch_rl_smoke_8a100_qy_20260916`, instance
 `8b1d813ea0a4c8ab01a0a9893c1f075d`. It uses 64 train reactions and 16 disjoint
-validation reactions; test is unused. Initial live inspection confirmed the
-Pod, Ceph and eight A100s but only node-local vLLM staging, not model loading or
-optimizer activity. Query the live task before reporting progress.
+validation reactions; test is unused. Live inspection confirmed the Pod, Ceph,
+eight collector processes and all eight A100s actively sampling at about
+33.8 GiB/device. The 16-reaction baseline completed; the first K=8 training
+group was written with nonzero local advantages. No optimizer completion is yet
+claimed. Taiji's CLI log endpoint still shows only launcher output although the
+worker and heartbeat share PID 1's default stdout pipe, so inspect both artifacts
+and the live Pod before reporting later stages.
 
 ## Natural-language electron-event candidate (active)
 
