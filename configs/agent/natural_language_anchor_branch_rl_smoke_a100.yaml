@@ -1,0 +1,42 @@
+model_name_or_path: Qwen/Qwen3-8B
+model_revision: b968826d9c46dd6066d109eabc6255188de91218
+model_snapshot: /aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
+
+initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913
+initial_adapter_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913/adapter_manifest.json
+initial_adapter_model_sha256: 16648e587e084c273c35faee0adcd2486fbdb4f71985d007648421ea5990f3fb
+
+train_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/train.jsonl
+validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl
+stable_id_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/training_manifest.json
+natural_language_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_natural_language_event_sft_v1_rdkit2026/manifest.json
+expected_train_rows: 257167
+train_sha256: edc80c5c5eb13d50753c5566c5d6ac1b90b955b1a8dfece915241b2da4a40a75
+validation_sha256: 7303a6018850db61594af5854df936778c21a6668e61151f95e2c74c32d22d2a
+
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_anchor_branch_rl_smoke_seed17_20260916
+vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
+expected_gpu_regex: A100
+
+# One real post-training integration round. Test rows are never loaded.
+rounds: 1
+products_per_round: 64
+candidates_per_product: 8
+validation_monitor_rows: 16
+seed: 17
+condition: natural_language_verified_anchor_branch_rl_v1_smoke
+invalid_penalty: 0.1
+
+curriculum:
+  initial_frontier: 1
+  maximum_frontier: 12
+  full_episode_fraction: 0.2
+  promote_pass_at_k: 0.55
+  min_effective_groups: 8
+
+rollout:
+  temperature: 1.0
+  max_new_tokens: 512
+  max_context: 4096
+  max_decisions: 12
+  max_imports: 8
