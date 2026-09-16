@@ -1,5 +1,20 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-09-16 natural-language anchor-branch post-training:** the active
+> lineage-correct parent is
+> `outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913`
+> (adapter weights SHA-256
+> `16648e587e084c273c35faee0adcd2486fbdb4f71985d007648421ea5990f3fb`).
+> PR #59 supersedes the Python-template parent in PR #58 for this run. One
+> ordinary Qingyuan 8xA100 integration task was submitted:
+> `meteor_mechet_nl_anchor_branch_rl_smoke_8a100_qy_20260916`, instance
+> `8b1d813ea0a4c8ab01a0a9893c1f075d`. It uses 64 named train reactions,
+> K=8 local first-tool branches, one actual policy-update round and 16 disjoint
+> validation reactions; test is never loaded. At the first live check the Pod,
+> eight A100s and Ceph mount were present, while the node-local vLLM runtime was
+> still being staged and GPUs were idle. Do not call it optimizer-active until
+> fresh default logs, model processes and non-idle GPUs are observed.
+
 > **Permanent denominator guard:** FlowER `3,080`, old mech-USPTO-31k `1,124`,
 > and current-compiler mech-USPTO-31k `1,253` are incomplete
 > replay-compatible test subsets. Never call any of them the

@@ -5,7 +5,20 @@
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-09-14.
+Last updated: 2026-09-16.
+
+## Natural-language anchor-branch post-training (active)
+
+The current post-training actor is the completed natural-language electron-
+event SFT, not the historical Python-template checkpoint. PR #59 implements
+executor reset states, K=8 same-state first-tool branches, successor-state
+equivalence pooling, endpoint-primary reward and first-tool-only local credit.
+The bounded 8xA100 task is
+`meteor_mechet_nl_anchor_branch_rl_smoke_8a100_qy_20260916`, instance
+`8b1d813ea0a4c8ab01a0a9893c1f075d`. It uses 64 train reactions and 16 disjoint
+validation reactions; test is unused. Initial live inspection confirmed the
+Pod, Ceph and eight A100s but only node-local vLLM staging, not model loading or
+optimizer activity. Query the live task before reporting progress.
 
 ## Natural-language electron-event candidate (active)
 
