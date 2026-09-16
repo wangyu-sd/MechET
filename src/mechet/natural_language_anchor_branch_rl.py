@@ -232,6 +232,22 @@ def endpoint_potential(state: str, expected_precursor: str) -> dict[str, float]:
     }
 
 
+def contains_unchanged_target(state: str, target: str) -> bool:
+    """Return whether every target component survives unchanged in ``state``.
+
+    A terminal state that merely appends fragments to the input product is
+    formally executable, but it is not a retrosynthetic transformation.  Atom
+    maps are removed by ``_endpoint_components`` before this comparison.
+    """
+
+    state_counts = Counter(item[0] for item in _endpoint_components(str(state)))
+    target_counts = Counter(item[0] for item in _endpoint_components(str(target)))
+    return bool(target_counts) and all(
+        state_counts[component] >= count
+        for component, count in target_counts.items()
+    )
+
+
 def endpoint_shaped_reward(
     *,
     correct: bool,
@@ -245,6 +261,8 @@ def endpoint_shaped_reward(
     endpoint_similarity_weight: float,
     first_successor_progress_weight: float,
     nonexact_reward_ceiling: float,
+    target_retained: bool = False,
+    target_retained_penalty: float = 0.5,
 ) -> dict[str, float | str]:
     """Give dense endpoint credit while keeping exactness the unique success.
 
@@ -264,6 +282,12 @@ def endpoint_shaped_reward(
     if correct:
         reward = 1.0
         outcome = "exact_endpoint"
+    elif terminal and target_retained:
+        # Do not let fragment accumulation around an unchanged product earn
+        # endpoint-similarity credit.  This is an executable no-op, not a
+        # retrosynthetic solution.
+        reward = -abs(float(target_retained_penalty))
+        outcome = "target_retained_no_transform"
     elif terminal:
         reward = (
             -abs(float(wrong_terminal_penalty))

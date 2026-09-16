@@ -168,6 +168,7 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "--endpoint-similarity-weight", str(reward["endpoint_similarity_weight"]),
         "--first-successor-progress-weight", str(reward["first_successor_progress_weight"]),
         "--nonexact-reward-ceiling", str(reward["nonexact_reward_ceiling"]),
+        "--target-retained-penalty", str(reward.get("target_retained_penalty", 0.5)),
         "--temperature", str(rollout["temperature"]),
         "--max-new-tokens", str(rollout["max_new_tokens"]),
         "--max-context", str(rollout["max_context"]),

@@ -2,6 +2,7 @@ from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
     endpoint_potential,
     endpoint_shaped_reward,
+    contains_unchanged_target,
     state_value_margin,
     successor_fingerprint,
     task_from_episode,
@@ -98,6 +99,28 @@ def test_shaped_reward_keeps_exact_unique_and_ranks_wrong_endpoints():
     assert exact["reward"] == 1.0
     assert 0.0 > close["reward"] > remote["reward"]
     assert invalid["reward"] < 0.0
+
+
+def test_unchanged_target_terminal_is_a_no_transform_failure():
+    assert contains_unchanged_target("CCO.[Na+]", "CCO")
+    assert not contains_unchanged_target("CC=O.[Na+]", "CCO")
+    result = endpoint_shaped_reward(
+        correct=False,
+        terminal=True,
+        anchor_state="CCO",
+        first_successor_state="CCO.[Na+]",
+        final_state="CCO.[Na+]",
+        expected_precursor="CC=O.CN",
+        invalid_penalty=0.1,
+        wrong_terminal_penalty=0.5,
+        endpoint_similarity_weight=0.45,
+        first_successor_progress_weight=0.25,
+        nonexact_reward_ceiling=0.01,
+        target_retained=True,
+        target_retained_penalty=0.75,
+    )
+    assert result["outcome"] == "target_retained_no_transform"
+    assert result["reward"] == -0.75
 
 
 def test_historical_sparse_reward_contract_remains_replayable():

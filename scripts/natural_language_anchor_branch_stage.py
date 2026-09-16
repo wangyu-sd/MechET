@@ -19,6 +19,7 @@ from mechet.assistant_masking import render_chat
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
+    contains_unchanged_target,
     endpoint_shaped_reward,
     state_value_margin,
     stable_rng,
@@ -240,10 +241,17 @@ def _score_rollout(
     endpoint_similarity_weight: float,
     first_successor_progress_weight: float,
     nonexact_reward_ceiling: float,
+    target_retained_penalty: float,
 ):
     terminal = bool(node is not None and node.terminal)
     precursor = visible(node.state) if node is not None else ""
     correct = bool(terminal and precursor == task.expected_precursor)
+    target_retained = bool(
+        terminal
+        and not correct
+        and contains_unchanged_target(node.state, task.target)
+        and not contains_unchanged_target(task.expected_precursor, task.target)
+    )
     shaped = endpoint_shaped_reward(
         correct=correct,
         terminal=terminal,
@@ -256,15 +264,20 @@ def _score_rollout(
         endpoint_similarity_weight=endpoint_similarity_weight,
         first_successor_progress_weight=first_successor_progress_weight,
         nonexact_reward_ceiling=nonexact_reward_ceiling,
+        target_retained=target_retained,
+        target_retained_penalty=target_retained_penalty,
     )
     return {
         "formal_execute": terminal,
+        "productive_execute": bool(terminal and not target_retained),
+        "target_retained": target_retained,
         "correct": correct,
         "precursor_smiles": precursor,
         "reward": float(shaped["reward"]),
         "reward_terms": shaped,
         "failure": error,
         "decisions": steps,
+        "trajectory": list(node.actions) if node is not None else [],
     }
 
 
@@ -434,6 +447,7 @@ def collect(args):
                         endpoint_similarity_weight=args.endpoint_similarity_weight,
                         first_successor_progress_weight=args.first_successor_progress_weight,
                         nonexact_reward_ceiling=args.nonexact_reward_ceiling,
+                        target_retained_penalty=args.target_retained_penalty,
                     )
                     ids = list(decoded["ids"])
                     logps = list(decoded["logps"])
@@ -498,6 +512,7 @@ def main():
     parser.add_argument("--endpoint-similarity-weight", type=float, default=0.45)
     parser.add_argument("--first-successor-progress-weight", type=float, default=0.25)
     parser.add_argument("--nonexact-reward-ceiling", type=float, default=0.01)
+    parser.add_argument("--target-retained-penalty", type=float, default=0.5)
     parser.add_argument("--value-adapter")
     parser.add_argument("--continuation-candidates-per-mode", type=int, default=1)
     parser.add_argument("--continuation-temperature", type=float, default=0.7)

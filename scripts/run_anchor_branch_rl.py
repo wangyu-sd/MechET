@@ -68,6 +68,10 @@ def summarize(paths: list[Path]) -> dict:
         / candidates,
         "candidate_execution_rate": sum(bool(row["score"]["formal_execute"]) for row in records)
         / candidates,
+        "candidate_productive_execution_rate": sum(
+            bool(row["score"].get("productive_execute", row["score"]["formal_execute"]))
+            for row in records
+        ) / candidates,
         "group_pass_at_k": sum(row["endpoint_success"] for row in group_summaries)
         / len(group_summaries),
         "effective_group_rate": sum(row["effective"] for row in group_summaries)
