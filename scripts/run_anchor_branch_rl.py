@@ -176,11 +176,16 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
         if path.exists():
             path.rename(path.with_suffix(f".interrupted-{time.time_ns()}.jsonl"))
     workers = []
+    vllm_runtime = os.environ.get(
+        "MECHET_ANCHOR_VLLM_RUNTIME", str(cfg["vllm_runtime"])
+    )
+    if not Path(vllm_runtime, ".mechet_vllm_runtime_complete").is_file():
+        raise ValueError(f"incomplete vLLM runtime: {vllm_runtime}")
     try:
         for rank, path in enumerate(shards):
             environment = dict(os.environ)
             environment["CUDA_VISIBLE_DEVICES"] = str(rank)
-            environment["PYTHONPATH"] = cfg["vllm_runtime"] + ":" + environment.get(
+            environment["PYTHONPATH"] = vllm_runtime + ":" + environment.get(
                 "PYTHONPATH", ""
             )
             environment["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
