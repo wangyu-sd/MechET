@@ -29,8 +29,14 @@ terminal and invalid outcomes remain negative. Twenty-five relevant tests pass, 
 offline rescoring yields 218 reward values with contrast in 96/128 prompt-mode
 groups. Continuation ranking now uses the frozen state-value-v2 adapter over
 executor-valid unique successors instead of comparing raw NLL across the action
-and event prompt formats. Config and Taiji descriptor are prepared but **no v2 task has been
-submitted**. See `docs/NATURAL_LANGUAGE_ANCHOR_BRANCH_RL.md`.
+and event prompt formats. The v2 8xA100 smoke was submitted as
+`meteor_mechet_nl_anchor_branch_rl_shaped_smoke_8a100_qy_20260916`, instance
+`8b1d81eea0a4bdf601a0aa2e28e108b0`. Live inspection confirmed
+`TRAINING_RUNNING`, the private Ceph mount, the wrapper/heartbeat processes and
+local vLLM-runtime staging. GPU utilization is expected to remain zero until
+that one-time copy finishes; do not report optimizer activity before collector
+processes and GPU allocation are observed. See
+`docs/NATURAL_LANGUAGE_ANCHOR_BRANCH_RL.md`.
 
 ## Natural-language electron-event candidate (active)
 
