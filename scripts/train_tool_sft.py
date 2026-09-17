@@ -246,8 +246,19 @@ def validate_conversation(
             )
         if finish_trace not in {0, 1}:
             raise ValueError(f"invalid finish count in tool-decision row: {identifier}")
-        if metadata.get("decision_contract") != "markov_tool_decision_v1":
+        decision_contract = metadata.get("decision_contract")
+        if decision_contract not in {
+            "markov_tool_decision_v1",
+            "compressed_history_tool_decision_v1",
+        }:
             raise ValueError(f"invalid tool-decision metadata: {identifier}")
+        if decision_contract == "compressed_history_tool_decision_v1":
+            if metadata.get("history_contract") != "executor_compact_accepted_actions_v1":
+                raise ValueError(f"invalid compressed-history metadata: {identifier}")
+            if metadata.get("history_contains_failed_actions") is not False:
+                raise ValueError(f"standard history row contains failed actions: {identifier}")
+            if metadata.get("history_model_visible_gold_horizon") is not False:
+                raise ValueError(f"compressed-history row leaks gold horizon: {identifier}")
     elif calls or results:
         raise ValueError(f"direct condition contains tools: {identifier}")
     return {"tool_calls": calls, "tool_results": results, "finish_trace": finish_trace}
