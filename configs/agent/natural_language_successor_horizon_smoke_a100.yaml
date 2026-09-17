@@ -1,0 +1,71 @@
+model_name_or_path: Qwen/Qwen3-8B
+model_revision: b968826d9c46dd6066d109eabc6255188de91218
+model_snapshot: /aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
+
+initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913
+initial_adapter_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913/adapter_manifest.json
+initial_adapter_model_sha256: 16648e587e084c273c35faee0adcd2486fbdb4f71985d007648421ea5990f3fb
+
+# The first gate retains the frozen v2 critic.  Every round also writes
+# successor_value.jsonl with actor-induced hard negatives; that artifact trains
+# the successor_pn replacement without changing this smoke's frozen selector.
+value_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_state_value_v2_qwen3_8b_h20_seed17_20260915
+value_adapter_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_state_value_v2_qwen3_8b_h20_seed17_20260915/adapter_manifest.json
+value_adapter_model_sha256: 28ab4a29e52a11fcec227814b7b35526efdf15f8a774ae5b930e40c0039f5e82
+value_kind: state_abc
+
+train_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/train.jsonl
+validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl
+stable_id_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/training_manifest.json
+natural_language_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_natural_language_event_sft_v1_rdkit2026/manifest.json
+expected_train_rows: 257167
+train_sha256: edc80c5c5eb13d50753c5566c5d6ac1b90b955b1a8dfece915241b2da4a40a75
+validation_sha256: 7303a6018850db61594af5854df936778c21a6668e61151f95e2c74c32d22d2a
+
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_successor_horizon_smoke_seed17_20260917
+vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
+expected_gpu_regex: A100
+
+rounds: 1
+products_per_round: 64
+candidates_per_product: 8
+validation_monitor_rows: 32
+seed: 17
+condition: successor_anchored_receding_horizon_v1_smoke
+invalid_penalty: 0.1
+maximum_collector_error_rate: 0.05
+
+optimization:
+  success_gated_advantages: true
+  max_hard_negatives: 4
+
+reward:
+  contract: strict_successor_gated_endpoint_audit_v1
+  wrong_terminal_penalty: 0.5
+  endpoint_similarity_weight: 0.45
+  first_successor_progress_weight: 0.25
+  reference_first_successor_weight: 0.0
+  nonexact_reward_ceiling: 0.01
+  target_retained_penalty: 0.75
+
+executor_gates:
+  reject_target_retained_finish: true
+
+curriculum:
+  initial_frontier: 1
+  maximum_frontier: 12
+  full_episode_fraction: 0.2
+  promote_pass_at_k: 0.55
+  min_effective_groups: 8
+
+rollout:
+  temperature: 1.0
+  max_new_tokens: 512
+  max_context: 4096
+  max_decisions: 12
+  max_imports: 8
+  continuation_candidates_per_mode: 2
+  continuation_beam_width: 3
+  continuation_temperature: 0.7
+  value_score_weight: 1.0
+  policy_score_weight: 0.1

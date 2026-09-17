@@ -31,6 +31,8 @@ from mechet.in_place_grounded_flow import (
     merge_mapped_fragments,
 )
 from mechet.natural_language_electron_flow import compile_event_arguments
+from mechet.natural_language_anchor_branch_rl import contains_unchanged_target
+from mechet.successor_value import SUCCESSOR_VALUE_SYSTEM, successor_value_prompt
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS, _decision_row, _prompt
 from scripts.build_natural_language_state_value import VALUE_SYSTEM, value_prompt
 from scripts.eval_natural_language_event_local import MODEL_REVISION, prediction_call
@@ -141,9 +143,11 @@ class Runtime:
         self.model.load_adapter(args.value_adapter, adapter_name="value", is_trainable=False)
         self.model.eval()
         self.device = next(self.model.parameters()).device
+        self.value_kind = str(args.value_kind)
+        labels = "PN" if self.value_kind == "successor_pn" else "ABC"
         self.label_ids = {
             label: self.tokenizer(label, add_special_tokens=False)["input_ids"]
-            for label in "ABC"
+            for label in labels
         }
         if any(len(ids) != 1 for ids in self.label_ids.values()):
             raise RuntimeError(f"value labels must each be one token: {self.label_ids}")
@@ -226,25 +230,57 @@ class Runtime:
         return actions
 
     def values(
-        self, target: str, states: list[str], *, terminal: bool = False, batch_size: int = 16
+        self,
+        target: str,
+        states: list[str],
+        *,
+        current_states: list[str] | None = None,
+        terminal: bool = False,
+        batch_size: int = 16,
     ) -> list[float]:
         torch = self.torch
         self.model.set_adapter("value")
         output_values: list[float] = []
-        label_tokens = [self.label_ids[label][0] for label in "ABC"]
+        labels = "PN" if self.value_kind == "successor_pn" else "ABC"
+        label_tokens = [self.label_ids[label][0] for label in labels]
+        if self.value_kind == "successor_pn" and (
+            current_states is None or len(current_states) != len(states)
+        ):
+            raise ValueError("successor critic requires one parent state per successor")
         for start in range(0, len(states), batch_size):
-            prompts = [
-                render_chat(
-                    self.tokenizer,
-                    [
-                        {"role": "system", "content": VALUE_SYSTEM},
-                        {"role": "user", "content": value_prompt(target, state)},
-                    ],
-                    tools=[],
-                    add_generation_prompt=True,
-                )
-                for state in states[start : start + batch_size]
-            ]
+            batch_states = states[start : start + batch_size]
+            if self.value_kind == "successor_pn":
+                batch_parents = current_states[start : start + batch_size]
+                prompts = [
+                    render_chat(
+                        self.tokenizer,
+                        [
+                            {"role": "system", "content": SUCCESSOR_VALUE_SYSTEM},
+                            {
+                                "role": "user",
+                                "content": successor_value_prompt(
+                                    target, parent, state, terminal=terminal
+                                ),
+                            },
+                        ],
+                        tools=[],
+                        add_generation_prompt=True,
+                    )
+                    for parent, state in zip(batch_parents, batch_states, strict=True)
+                ]
+            else:
+                prompts = [
+                    render_chat(
+                        self.tokenizer,
+                        [
+                            {"role": "system", "content": VALUE_SYSTEM},
+                            {"role": "user", "content": value_prompt(target, state)},
+                        ],
+                        tools=[],
+                        add_generation_prompt=True,
+                    )
+                    for state in batch_states
+                ]
             encoded = self.tokenizer(
                 prompts, return_tensors="pt", padding=True, add_special_tokens=False
             )
@@ -252,16 +288,29 @@ class Runtime:
             with torch.inference_mode():
                 logits = self.model(**encoded).logits[:, -1, label_tokens].float()
                 logp = torch.log_softmax(logits, dim=-1)
-                useful = (
-                    logp[:, 1] - torch.logsumexp(logp[:, [0, 2]], dim=-1)
-                    if terminal
-                    else torch.logsumexp(logp[:, :2], dim=-1) - logp[:, 2]
-                )
+                if self.value_kind == "successor_pn":
+                    useful = logp[:, 0] - logp[:, 1]
+                else:
+                    useful = (
+                        logp[:, 1] - torch.logsumexp(logp[:, [0, 2]], dim=-1)
+                        if terminal
+                        else torch.logsumexp(logp[:, :2], dim=-1) - logp[:, 2]
+                    )
             output_values.extend(float(value) for value in useful.cpu().tolist())
+        if len(output_values) != len(states):
+            raise RuntimeError(
+                f"value/state cardinality mismatch: {len(output_values)} != {len(states)}"
+            )
         return output_values
 
 
-def execute(node: Node, action: Action, *, max_imports: int) -> tuple[Node | None, str]:
+def execute(
+    node: Node,
+    action: Action,
+    *,
+    max_imports: int,
+    reject_target_retained_finish: bool = False,
+) -> tuple[Node | None, str]:
     state_before = node.state
     state = node.state
     next_map = node.next_map
@@ -306,6 +355,10 @@ def execute(node: Node, action: Action, *, max_imports: int) -> tuple[Node | Non
         elif action.name == "finish_trace":
             if action.arguments:
                 raise ValueError("FINISH_ARGUMENTS_NOT_EMPTY")
+            if reject_target_retained_finish and contains_unchanged_target(
+                state, node.target
+            ):
+                raise ValueError("TARGET_RETAINED_NO_TRANSFORM")
             terminal = True
             result = {"ok": True, "code": "PASS", "derived_precursor": visible(state)}
         else:
@@ -351,7 +404,12 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
             for action in runtime.proposals(
                 target, node.state, candidates=args.branching, max_new_tokens=args.max_new_tokens
             ):
-                child, error = execute(node, action, max_imports=args.max_imports)
+                child, error = execute(
+                    node,
+                    action,
+                    max_imports=args.max_imports,
+                    reject_target_retained_finish=args.reject_target_retained_finish,
+                )
                 if child is None:
                     rejected[error] = rejected.get(error, 0) + 1
                 elif child.terminal:
@@ -360,7 +418,10 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
                     children.append(child)
         if new_terminals:
             terminal_values = runtime.values(
-                target, [child.state for child in new_terminals], terminal=True
+                target,
+                [child.state for child in new_terminals],
+                current_states=[child.actions[-1]["state_before"] for child in new_terminals],
+                terminal=True,
             )
             for child, value in zip(new_terminals, terminal_values, strict=True):
                 child.value = value
@@ -375,7 +436,11 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
             if incumbent is None or child.policy_score > incumbent.policy_score:
                 unique[key] = child
         children = list(unique.values())
-        values = runtime.values(target, [child.state for child in children])
+        values = runtime.values(
+            target,
+            [child.state for child in children],
+            current_states=[child.actions[-1]["state_before"] for child in children],
+        )
         for child, value in zip(children, values, strict=True):
             child.value = value
         width = args.early_beam if depth < args.early_depth else args.late_beam
@@ -441,6 +506,9 @@ def main() -> int:
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--policy-adapter", required=True)
     parser.add_argument("--value-adapter", required=True)
+    parser.add_argument(
+        "--value-kind", choices=["state_abc", "successor_pn"], default="state_abc"
+    )
     parser.add_argument("--sample-reactions", type=int, default=128)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--branching", type=int, default=4)
@@ -451,6 +519,7 @@ def main() -> int:
     parser.add_argument("--max-imports", type=int, default=8)
     parser.add_argument("--max-new-tokens", type=int, default=384)
     parser.add_argument("--value-weight", type=float, default=0.20)
+    parser.add_argument("--reject-target-retained-finish", action="store_true")
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
     rank = int(os.environ.get("RANK", "0"))

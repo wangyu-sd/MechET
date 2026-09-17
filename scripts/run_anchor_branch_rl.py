@@ -62,6 +62,10 @@ def summarize(paths: list[Path]) -> dict:
                 "is_full_episode": rows[0]["anchor"]["is_full_episode"],
                 "effective": any(float(row["advantage"]) != 0.0 for row in rows),
                 "endpoint_success": any(bool(row["score"]["correct"]) for row in rows),
+                "successor_success": any(
+                    bool(row["score"].get("reference_first_successor_exact"))
+                    for row in rows
+                ),
                 "unique_actions": len({row["action_fingerprint"] for row in rows}),
             }
         )
@@ -79,6 +83,9 @@ def summarize(paths: list[Path]) -> dict:
         ) / candidates,
         "group_pass_at_k": sum(row["endpoint_success"] for row in group_summaries)
         / len(group_summaries),
+        "group_successor_recall_at_k": sum(
+            row["successor_success"] for row in group_summaries
+        ) / len(group_summaries),
         "effective_group_rate": sum(row["effective"] for row in group_summaries)
         / len(group_summaries),
         "full_episode_groups": sum(row["is_full_episode"] for row in group_summaries),

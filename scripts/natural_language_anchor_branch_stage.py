@@ -29,6 +29,11 @@ from mechet.natural_language_anchor_branch_rl import (
     task_from_episode,
     task_record,
 )
+from mechet.successor_value import (
+    SUCCESSOR_VALUE_SYSTEM,
+    successor_value_margin,
+    successor_value_prompt,
+)
 from mechet.anchor_branch_rl import choose_horizon
 from scripts.build_natural_language_event_sft import (
     SYSTEM,
@@ -149,27 +154,61 @@ def _advance(
     return execute(node, action, max_imports=max_imports)
 
 
-def _critic_scores(llm, tokenizer, value_lora, parameters, task, nodes):
+def _critic_scores(
+    llm, tokenizer, value_lora, parameters, task, nodes, *, value_kind="state_abc"
+):
     if value_lora is None:
         return [0.0] * len(nodes)
-    prompts = [
-        render_chat(
-            tokenizer,
-            [
-                {"role": "system", "content": VALUE_SYSTEM},
-                {"role": "user", "content": value_prompt(task.target, node.state)},
-            ],
-            tools=[],
-            add_generation_prompt=True,
-        )
-        for node in nodes
-    ]
+    if value_kind == "successor_pn":
+        prompts = []
+        for node in nodes:
+            current = (
+                str(node.actions[-1]["state_before"])
+                if node.actions
+                else task.anchor_state
+            )
+            prompts.append(
+                render_chat(
+                    tokenizer,
+                    [
+                        {"role": "system", "content": SUCCESSOR_VALUE_SYSTEM},
+                        {
+                            "role": "user",
+                            "content": successor_value_prompt(
+                                task.target,
+                                current,
+                                node.state,
+                                terminal=node.terminal,
+                            ),
+                        },
+                    ],
+                    tools=[],
+                    add_generation_prompt=True,
+                )
+            )
+        labels = "PN"
+    elif value_kind == "state_abc":
+        prompts = [
+            render_chat(
+                tokenizer,
+                [
+                    {"role": "system", "content": VALUE_SYSTEM},
+                    {"role": "user", "content": value_prompt(task.target, node.state)},
+                ],
+                tools=[],
+                add_generation_prompt=True,
+            )
+            for node in nodes
+        ]
+        labels = "ABC"
+    else:
+        raise ValueError(f"unsupported value critic kind: {value_kind}")
     generated = llm.generate(
         prompts, parameters, lora_request=value_lora, use_tqdm=False
     )
     label_ids = {
         label: tokenizer(label, add_special_tokens=False)["input_ids"][0]
-        for label in "ABC"
+        for label in labels
     }
     output = []
     for node, generation in zip(nodes, generated, strict=True):
@@ -182,7 +221,11 @@ def _critic_scores(llm, tokenizer, value_lora, parameters, task, nodes):
             label_logps[label] = float(
                 value.logprob if hasattr(value, "logprob") else value
             )
-        output.append(state_value_margin(label_logps, terminal=node.terminal))
+        output.append(
+            successor_value_margin(label_logps)
+            if value_kind == "successor_pn"
+            else state_value_margin(label_logps, terminal=node.terminal)
+        )
     return output
 
 
@@ -240,6 +283,7 @@ def _greedy_continue(
         value_parameters,
         task,
         [child for _, child in candidates],
+        value_kind=args.value_kind,
     )
     ranked = [
         (
@@ -253,6 +297,117 @@ def _greedy_continue(
     ]
     ranked.sort(key=lambda item: item[0], reverse=True)
     return ranked[0][1], ""
+
+
+def _beam_continue(
+    llm,
+    tokenizer,
+    lora,
+    parameters,
+    value_lora,
+    value_parameters,
+    eos_ids,
+    task,
+    start,
+    args,
+    *,
+    remaining_decisions: int,
+):
+    """Replan after every executed event while retaining fallback branches.
+
+    Unlike the historical continuation loop, this keeps several chemically
+    distinct executor states alive.  A locally preferred branch can fail at a
+    later step without destroying the alternatives.  Prompts are regenerated
+    from each executor-owned successor, so this is receding-horizon search, not
+    one-shot program sampling.
+    """
+
+    if start.terminal or remaining_decisions <= 0:
+        return start, "" if start.terminal else "DECISION_BUDGET"
+    width = max(int(args.continuation_beam_width), 1)
+    frontier = [start]
+    terminals = []
+    last_errors: list[str] = []
+    for _ in range(int(remaining_decisions)):
+        jobs = []
+        prompts = []
+        for parent_index, node in enumerate(frontier):
+            for mode in PROMPT_MODES:
+                prompt = _render_prompt(tokenizer, task, node.state, mode)
+                if len(prompt) + args.max_new_tokens > args.max_context:
+                    last_errors.append("CONTEXT_BUDGET")
+                    continue
+                jobs.append((parent_index, node, mode))
+                prompts.append({"prompt_token_ids": prompt})
+        if not jobs:
+            break
+        generated = llm.generate(
+            prompts, parameters, lora_request=lora, use_tqdm=False
+        )
+        candidates = []
+        for (_, node, mode), output in zip(jobs, generated, strict=True):
+            for generated_value in output.outputs:
+                decoded = _decode_action(tokenizer, generated_value, eos_ids, mode)
+                child, error = _advance(
+                    node,
+                    decoded,
+                    args.max_imports,
+                    reject_target_retained_finish=args.reject_target_retained_finish,
+                )
+                if child is None:
+                    if error:
+                        last_errors.append(error)
+                    continue
+                candidates.append(child)
+        if not candidates:
+            break
+
+        # Pool surface forms and convergent paths before critic evaluation.
+        unique = {}
+        for child in candidates:
+            key = (visible(child.state), bool(child.terminal))
+            incumbent = unique.get(key)
+            if incumbent is None or child.policy_score > incumbent.policy_score:
+                unique[key] = child
+        candidates = list(unique.values())
+        critic_scores = _critic_scores(
+            llm,
+            tokenizer,
+            value_lora,
+            value_parameters,
+            task,
+            candidates,
+            value_kind=args.value_kind,
+        )
+        ranked = []
+        for child, critic_score in zip(candidates, critic_scores, strict=True):
+            child.value = float(critic_score)
+            score = (
+                float(args.value_score_weight) * float(critic_score)
+                + float(args.policy_score_weight) * float(child.policy_score)
+            )
+            ranked.append((score, child))
+        ranked.sort(key=lambda item: item[0], reverse=True)
+        terminals.extend(item for item in ranked if item[1].terminal)
+        terminals = sorted(terminals, key=lambda item: item[0], reverse=True)[:width]
+        frontier = [
+            child for _, child in ranked if not child.terminal
+        ][:width]
+        if not frontier:
+            break
+
+    if terminals:
+        return terminals[0][1], ""
+    if frontier:
+        best = max(
+            frontier,
+            key=lambda child: (
+                float(args.value_score_weight) * float(child.value)
+                + float(args.policy_score_weight) * float(child.policy_score)
+            ),
+        )
+        return best, "DECISION_BUDGET"
+    return None, last_errors[-1] if last_errors else "NO_EXECUTABLE_CONTINUATION"
 
 
 def _score_rollout(
@@ -310,6 +465,12 @@ def _score_rollout(
         "precursor_smiles": precursor,
         "reward": float(shaped["reward"]),
         "reward_terms": shaped,
+        "first_successor_state": (
+            visible(first_successor_state) if first_successor_state else ""
+        ),
+        # Private training label retained in rollout artifacts for auditable
+        # successor-value mining.  It is never rendered into an actor prompt.
+        "reference_first_successor_exact": reference_first_successor_exact,
         "failure": error,
         "decisions": steps,
         "trajectory": list(node.actions) if node is not None else [],
@@ -493,8 +654,9 @@ def collect(args):
         stop_token_ids=eos_ids,
         logprobs=0,
     )
+    value_labels = "PN" if args.value_kind == "successor_pn" else "ABC"
     label_ids = []
-    for label in "ABC":
+    for label in value_labels:
         ids = tokenizer(label, add_special_tokens=False)["input_ids"]
         if len(ids) != 1:
             raise ValueError(f"critic label is not one token: {label}={ids}")
@@ -503,7 +665,7 @@ def collect(args):
         n=1,
         temperature=0.0,
         max_tokens=1,
-        logprobs=3,
+        logprobs=len(value_labels),
         allowed_token_ids=label_ids,
     )
 
@@ -571,12 +733,13 @@ def collect(args):
                             invalid_text=str(decoded["text"]),
                         )
                         limit = min(args.max_decisions, 2 * task.horizon + 2)
-                        while (
+                        if (
                             node is not None
                             and not node.terminal
                             and decisions < limit
                         ):
-                            node, continuation_error = _greedy_continue(
+                            before = len(node.actions)
+                            node, continuation_error = _beam_continue(
                                 llm,
                                 tokenizer,
                                 lora,
@@ -587,11 +750,15 @@ def collect(args):
                                 task,
                                 node,
                                 args,
+                                remaining_decisions=limit - decisions,
                             )
-                            decisions += int(node is not None)
+                            decisions += (
+                                max(len(node.actions) - before, 0)
+                                if node is not None
+                                else 0
+                            )
                             if continuation_error:
                                 error = continuation_error
-                                break
                         if node is not None and not node.terminal and not error:
                             error = "DECISION_BUDGET"
                         score = _score_rollout(
@@ -609,6 +776,7 @@ def collect(args):
                             reference_first_successor_state=reference_first_successor,
                             reference_first_successor_weight=args.reference_first_successor_weight,
                         )
+                        score["first_successor_terminal"] = first_terminal
                         ids = list(decoded["ids"])
                         logps = list(decoded["logps"])
                         prompt = prompts[mode]
@@ -638,7 +806,9 @@ def collect(args):
                             raise ValueError("rollout token/mask/logprob misalignment")
                         records.append(record)
                         candidate_index += 1
-                summary = assign_local_advantages(records)
+                summary = assign_local_advantages(
+                    records, success_gated=args.success_gated_advantages
+                )
                 if not args.evaluation:
                     records.append(
                         _verified_replay_record(
@@ -706,10 +876,15 @@ def main():
     parser.add_argument("--target-retained-penalty", type=float, default=0.5)
     parser.add_argument("--reference-first-successor-weight", type=float, default=0.0)
     parser.add_argument("--value-adapter")
+    parser.add_argument(
+        "--value-kind", choices=["state_abc", "successor_pn"], default="state_abc"
+    )
     parser.add_argument("--continuation-candidates-per-mode", type=int, default=1)
     parser.add_argument("--continuation-temperature", type=float, default=0.7)
     parser.add_argument("--value-score-weight", type=float, default=1.0)
     parser.add_argument("--policy-score-weight", type=float, default=0.1)
+    parser.add_argument("--continuation-beam-width", type=int, default=1)
+    parser.add_argument("--success-gated-advantages", action="store_true")
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)
