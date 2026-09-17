@@ -63,7 +63,13 @@ def visible(state: str) -> str:
 def normal_smiles(value: str) -> str:
     from rdkit import Chem
 
-    mol = Chem.MolFromSmiles(str(value or ""))
+    # Explicit hydrogen atoms may be electron-flow participants.  The default
+    # RDKit parser removes them, which used to make an apparently successful
+    # import diverge from the supervised executor state and invalidate the next
+    # event.  Preserve graph atoms here; map_unmapped_fragment does the same.
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(str(value or ""), params)
     if mol is None:
         raise ValueError("invalid SMILES")
     for atom in mol.GetAtoms():

@@ -66,6 +66,41 @@ def test_import_scoring_is_order_invariant_but_checks_schedule() -> None:
     assert metrics["decision_exact"] is True
 
 
+def test_import_scoring_preserves_explicit_hydrogen_participants() -> None:
+    gold = {
+        "fragments": [
+            {
+                "smiles": "[H]OC(=O)[O-]",
+                "count": 1,
+                "purpose": "electron_participant",
+            }
+        ]
+    }
+    task = {
+        "decision_type": "import",
+        "gold_name": "import_fragments",
+        "gold_arguments": gold,
+    }
+    exact = score_prediction(
+        task, predicted_name="import_fragments", predicted_arguments=gold
+    )
+    collapsed = score_prediction(
+        task,
+        predicted_name="import_fragments",
+        predicted_arguments={
+            "fragments": [
+                {
+                    "smiles": "O=C([O-])O",
+                    "count": 1,
+                    "purpose": "electron_participant",
+                }
+            ]
+        },
+    )
+    assert exact["import_fragment_exact"] is True
+    assert collapsed["import_fragment_exact"] is False
+
+
 def test_finish_requires_the_finish_tool_and_empty_arguments() -> None:
     task = {
         "decision_type": "finish",

@@ -7,6 +7,7 @@ from mechet.natural_language_anchor_branch_rl import (
     successor_fingerprint,
     task_from_episode,
 )
+from scripts.natural_language_anchor_branch_stage import _advance, _node
 
 
 def test_task_hides_reference_suffix_and_tracks_reset():
@@ -148,3 +149,59 @@ def test_state_value_margin_distinguishes_continue_finish_and_off_path():
     assert state_value_margin(finish_scores, terminal=True) > 0
     assert state_value_margin(off_path_scores, terminal=False) < 0
     assert state_value_margin(off_path_scores, terminal=True) < 0
+
+
+def _decoded(name, arguments):
+    return {
+        "error": "",
+        "name": name,
+        "arguments": arguments,
+        "text": name,
+        "logps": [],
+        "ids": [],
+    }
+
+
+def test_executor_gate_rejects_finish_while_product_is_unchanged():
+    task = task_from_episode(
+        {
+            "reaction_id": "train_gate",
+            "target": "CO",
+            "start_state": "[CH3:1][OH:2]",
+            "expected_precursor": "C=O",
+            "horizon": 1,
+            "total_events": 1,
+        }
+    )
+    child, error = _advance(
+        _node(task),
+        _decoded("finish_trace", {}),
+        8,
+        reject_target_retained_finish=True,
+    )
+    assert child is None
+    assert error == "TARGET_RETAINED_NO_TRANSFORM"
+
+
+def test_reference_first_successor_credit_remains_below_exact_reward():
+    common = {
+        "correct": False,
+        "terminal": False,
+        "anchor_state": "CCO",
+        "first_successor_state": "CC=O",
+        "final_state": "CC=O",
+        "expected_precursor": "CC=O.CN",
+        "invalid_penalty": 0.5,
+        "wrong_terminal_penalty": 0.5,
+        "endpoint_similarity_weight": 0.45,
+        "first_successor_progress_weight": 0.25,
+        "nonexact_reward_ceiling": 0.01,
+        "reference_first_successor_weight": 0.25,
+    }
+    matched = endpoint_shaped_reward(
+        reference_first_successor_exact=True, **common
+    )["reward"]
+    unmatched = endpoint_shaped_reward(
+        reference_first_successor_exact=False, **common
+    )["reward"]
+    assert 0 > matched > unmatched

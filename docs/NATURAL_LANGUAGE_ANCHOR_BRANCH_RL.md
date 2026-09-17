@@ -72,3 +72,30 @@ productive (`A`), endpoint (`B`), or off-reference (`C`). Actor likelihood is a
 small tie-breaker only. The critic receives the product and public current state,
 never the expected precursor. Disabling the value adapter and setting one
 continuation candidate exactly restores the historical v1 search contract.
+
+## v4 implementation correction: productive gates and verified replay
+
+The first bounded productive run exposed an implementation gap rather than a
+change of algorithm. Its interrupted baseline produced 228 candidates over 114
+validation reactions: 172/228 were formally terminal, but only 45/228 were
+productive and 127/228 retained the unchanged target. One full product-only
+trajectory did reach the exact endpoint, confirming that the protocol can
+express a complete solution; most failures instead exploited an unproductive
+finish/import path.
+
+The v4 correction keeps the same executor-reset anchor-branch algorithm and
+adds four safeguards:
+
+- `finish_trace` is rejected while the unchanged target component remains;
+- explicit-hydrogen import participants are preserved by the executor instead
+  of being silently collapsed by SMILES normalization;
+- the private reference first successor supplies bounded local credit, while
+  all non-exact rewards remain strictly negative;
+- every train reaction contributes one verified first-decision replay record
+  after PPO, so the documented replay phase now exists in the training file.
+
+The expected precursor and reference successor remain training-private and are
+never rendered into the actor prompt. Per-reaction collector exceptions are
+written to sidecars and represented in the evaluation denominator; a single
+bad reaction no longer terminates all eight workers, while an aggregate error
+rate above 5% still fails the run after preserving diagnostics.

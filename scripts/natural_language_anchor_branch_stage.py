@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 from pathlib import Path
 import sys
+import traceback
 from typing import Any, Mapping
 
 REPO = Path(__file__).resolve().parents[1]
@@ -15,7 +17,7 @@ sys.path[:0] = [str(REPO), str(REPO / "src"), str(REPO / "scripts")]
 
 from anchor_branch_stage import train
 from python_continual_stage import log, read_rows
-from mechet.assistant_masking import render_chat
+from mechet.assistant_masking import encode_assistant_only_conversation, render_chat
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
@@ -28,7 +30,12 @@ from mechet.natural_language_anchor_branch_rl import (
     task_record,
 )
 from mechet.anchor_branch_rl import choose_horizon
-from scripts.build_natural_language_event_sft import SYSTEM, TOOLS, _prompt
+from scripts.build_natural_language_event_sft import (
+    SYSTEM,
+    TOOLS,
+    _import_arguments,
+    _prompt,
+)
 from scripts.build_natural_language_state_value import VALUE_SYSTEM, value_prompt
 from scripts.eval_natural_language_event_local import prediction_call
 from scripts.eval_natural_language_event_suffix import reference_episode
@@ -115,12 +122,26 @@ def _node(task) -> Node:
     )
 
 
-def _advance(node: Node, decoded: Mapping[str, Any], max_imports: int):
+def _advance(
+    node: Node,
+    decoded: Mapping[str, Any],
+    max_imports: int,
+    *,
+    reject_target_retained_finish: bool = False,
+):
     if decoded["error"]:
         return None, str(decoded["error"])
+    name = str(decoded["name"])
+    arguments = dict(decoded["arguments"])
+    if (
+        name == "finish_trace"
+        and reject_target_retained_finish
+        and contains_unchanged_target(node.state, node.target)
+    ):
+        return None, "TARGET_RETAINED_NO_TRANSFORM"
     action = Action(
-        name=str(decoded["name"]),
-        arguments=dict(decoded["arguments"]),
+        name=name,
+        arguments=arguments,
         raw=str(decoded["text"]),
         logprob=sum(float(value) for value in decoded["logps"]),
         tokens=max(len(decoded["ids"]), 1),
@@ -194,7 +215,12 @@ def _greedy_continue(
     for mode, output in zip(modes, generated, strict=True):
         for generated_value in output.outputs:
             decoded = _decode_action(tokenizer, generated_value, eos_ids, mode)
-            child, error = _advance(node, decoded, args.max_imports)
+            child, error = _advance(
+                node,
+                decoded,
+                args.max_imports,
+                reject_target_retained_finish=args.reject_target_retained_finish,
+            )
             if child is not None:
                 candidates.append((float(decoded["mean_logprob"]), child))
     if not candidates:
@@ -242,6 +268,8 @@ def _score_rollout(
     first_successor_progress_weight: float,
     nonexact_reward_ceiling: float,
     target_retained_penalty: float,
+    reference_first_successor_state: str,
+    reference_first_successor_weight: float,
 ):
     terminal = bool(node is not None and node.terminal)
     precursor = visible(node.state) if node is not None else ""
@@ -251,6 +279,11 @@ def _score_rollout(
         and not correct
         and contains_unchanged_target(node.state, task.target)
         and not contains_unchanged_target(task.expected_precursor, task.target)
+    )
+    reference_first_successor_exact = bool(
+        first_successor_state
+        and reference_first_successor_state
+        and visible(first_successor_state) == visible(reference_first_successor_state)
     )
     shaped = endpoint_shaped_reward(
         correct=correct,
@@ -266,6 +299,8 @@ def _score_rollout(
         nonexact_reward_ceiling=nonexact_reward_ceiling,
         target_retained=target_retained,
         target_retained_penalty=target_retained_penalty,
+        reference_first_successor_exact=reference_first_successor_exact,
+        reference_first_successor_weight=reference_first_successor_weight,
     )
     return {
         "formal_execute": terminal,
@@ -279,6 +314,110 @@ def _score_rollout(
         "decisions": steps,
         "trajectory": list(node.actions) if node is not None else [],
     }
+
+
+def _reference_first_decision(row: Mapping[str, Any], episode: Mapping[str, Any]):
+    """Return private training-only supervision for the first anchor decision."""
+
+    event = dict(episode["events"][0])
+    imports = [str(value) for value in event.get("imports") or []]
+    if imports:
+        step = dict(
+            ((row.get("metadata") or {}).get("trace_plan") or {})["steps"][
+                int(event["event_index"])
+            ]
+        )
+        visible_imports = [visible(value) for value in imports]
+        arguments = _import_arguments(imports, visible_imports, step.get("moves") or [])
+        return "action", "import_fragments", arguments, str(event["event_state"])
+    return (
+        "event",
+        "apply_electron_flow",
+        dict(event["gold_arguments"]),
+        str(event["reference_successor"]),
+    )
+
+
+def _verified_replay_record(tokenizer, task, row, episode, max_context: int):
+    mode, name, arguments, _ = _reference_first_decision(row, episode)
+    messages = _messages(task, mode) + [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "verified_anchor_replay",
+                    "type": "function",
+                    "function": {"name": name, "arguments": arguments},
+                }
+            ],
+        }
+    ]
+    encoded, metadata = encode_assistant_only_conversation(
+        tokenizer,
+        {"messages": messages, "tools": TOOLS},
+        max_length=max_context,
+    )
+    if metadata["exceeds_max_length"]:
+        raise ValueError("VERIFIED_REPLAY_EXCEEDS_CONTEXT")
+    input_ids = list(encoded["input_ids"])
+    loss_mask = [int(value != -100) for value in encoded["labels"]]
+    return {
+        "id": task.reaction_id,
+        "kind": "verified_replay",
+        "input_ids": input_ids,
+        "loss_mask": loss_mask,
+        "old_logps": [0.0] * len(input_ids),
+        "advantage": 0.0,
+        "reward": 1.0,
+        "prompt_mode": mode,
+        "reference_action": name,
+        "anchor": task_record(task),
+    }
+
+
+def _collector_error_records(row, args, total: int, exc: Exception):
+    reaction_id = str(row.get("id") or row.get("source_id") or "UNKNOWN")
+    digest = hashlib.sha256(reaction_id.encode("utf-8")).hexdigest()
+    failure = f"COLLECTOR_EXCEPTION:{type(exc).__name__}:{exc}"
+    anchor = {
+        "version": "collector_error_v1",
+        "state_hash": digest,
+        "horizon": -1,
+        "total_steps": total,
+        "prefix_steps": -1,
+        "is_full_episode": bool(args.evaluation or args.full_only),
+    }
+    return [
+        {
+            "id": reaction_id,
+            "kind": "collector_error",
+            "input_ids": [],
+            "loss_mask": [],
+            "old_logps": [],
+            "advantage": 0.0,
+            "reward": -abs(float(args.invalid_penalty)),
+            "candidate_index": index,
+            "terminated": False,
+            "prediction": "",
+            "score": {
+                "formal_execute": False,
+                "productive_execute": False,
+                "target_retained": False,
+                "correct": False,
+                "precursor_smiles": "",
+                "reward": -abs(float(args.invalid_penalty)),
+                "reward_terms": {"outcome": "collector_error"},
+                "failure": failure,
+                "decisions": 0,
+                "trajectory": [],
+            },
+            "prompt_mode": "collector_error",
+            "action_fingerprint": f"collector_error:{digest}",
+            "anchor": anchor,
+        }
+        for index in range(int(args.k))
+    ]
 
 
 def collect(args):
@@ -368,117 +507,172 @@ def collect(args):
         allowed_token_ids=label_ids,
     )
 
-    with output.open("x", encoding="utf-8") as handle:
+    error_path = output.with_suffix(output.suffix + ".errors.jsonl")
+    with output.open("x", encoding="utf-8") as handle, error_path.open(
+        "x", encoding="utf-8"
+    ) as error_handle:
         for number, row in enumerate(rows, 1):
             total = len(((row.get("metadata") or {}).get("trace_plan") or {}).get("steps") or [])
-            if total < 1:
-                raise ValueError(f"{row.get('id')}: empty trace")
-            rng = stable_rng(args.seed, args.round_index, str(row["id"]))
-            horizon = (
-                total
-                if args.evaluation or args.full_only
-                else choose_horizon(
-                    total,
-                    args.frontier,
-                    rng,
-                    full_episode_fraction=args.full_episode_fraction,
-                )
-            )
-            task = task_from_episode(reference_episode(row, horizon))
-            prompts = {
-                mode: _render_prompt(tokenizer, task, task.anchor_state, mode)
-                for mode in PROMPT_MODES
-            }
-            if any(
-                len(prompt) + args.max_new_tokens > args.max_context
-                for prompt in prompts.values()
-            ):
-                raise ValueError(f"{task.reaction_id}: first-action prompt exceeds context")
-            generations = llm.generate(
-                [{"prompt_token_ids": prompts[mode]} for mode in PROMPT_MODES],
-                first_parameters,
-                lora_request=lora,
-                use_tqdm=False,
-            )
-            records = []
-            candidate_index = 0
-            for mode, generated in zip(PROMPT_MODES, generations, strict=True):
-                for value in generated.outputs:
-                    decoded = _decode_action(tokenizer, value, eos_ids, mode)
-                    node, error = _advance(_node(task), decoded, args.max_imports)
-                    decisions = int(node is not None)
-                    first_state = node.state if node is not None else ""
-                    first_terminal = bool(node is not None and node.terminal)
-                    fingerprint = successor_fingerprint(
-                        prompt_mode=mode,
-                        action_name=str(decoded["name"]),
-                        successor_state=first_state,
-                        terminal=first_terminal,
-                        invalid_text=str(decoded["text"]),
+            try:
+                if total < 1:
+                    raise ValueError(f"{row.get('id')}: empty trace")
+                rng = stable_rng(args.seed, args.round_index, str(row["id"]))
+                horizon = (
+                    total
+                    if args.evaluation or args.full_only
+                    else choose_horizon(
+                        total,
+                        args.frontier,
+                        rng,
+                        full_episode_fraction=args.full_episode_fraction,
                     )
-                    limit = min(args.max_decisions, 2 * task.horizon + 2)
-                    while node is not None and not node.terminal and decisions < limit:
-                        node, continuation_error = _greedy_continue(
-                            llm,
-                            tokenizer,
-                            lora,
-                            continuation_parameters,
-                            value_lora,
-                            value_parameters,
-                            eos_ids,
+                )
+                episode = reference_episode(row, horizon)
+                task = task_from_episode(episode)
+                _, _, _, reference_first_successor = _reference_first_decision(
+                    row, episode
+                )
+                prompts = {
+                    mode: _render_prompt(tokenizer, task, task.anchor_state, mode)
+                    for mode in PROMPT_MODES
+                }
+                if any(
+                    len(prompt) + args.max_new_tokens > args.max_context
+                    for prompt in prompts.values()
+                ):
+                    raise ValueError(
+                        f"{task.reaction_id}: first-action prompt exceeds context"
+                    )
+                generations = llm.generate(
+                    [{"prompt_token_ids": prompts[mode]} for mode in PROMPT_MODES],
+                    first_parameters,
+                    lora_request=lora,
+                    use_tqdm=False,
+                )
+                records = []
+                candidate_index = 0
+                for mode, generated in zip(PROMPT_MODES, generations, strict=True):
+                    for value in generated.outputs:
+                        decoded = _decode_action(tokenizer, value, eos_ids, mode)
+                        node, error = _advance(
+                            _node(task),
+                            decoded,
+                            args.max_imports,
+                            reject_target_retained_finish=args.reject_target_retained_finish,
+                        )
+                        decisions = int(node is not None)
+                        first_state = node.state if node is not None else ""
+                        first_terminal = bool(node is not None and node.terminal)
+                        fingerprint = successor_fingerprint(
+                            prompt_mode=mode,
+                            action_name=str(decoded["name"]),
+                            successor_state=first_state,
+                            terminal=first_terminal,
+                            invalid_text=str(decoded["text"]),
+                        )
+                        limit = min(args.max_decisions, 2 * task.horizon + 2)
+                        while (
+                            node is not None
+                            and not node.terminal
+                            and decisions < limit
+                        ):
+                            node, continuation_error = _greedy_continue(
+                                llm,
+                                tokenizer,
+                                lora,
+                                continuation_parameters,
+                                value_lora,
+                                value_parameters,
+                                eos_ids,
+                                task,
+                                node,
+                                args,
+                            )
+                            decisions += int(node is not None)
+                            if continuation_error:
+                                error = continuation_error
+                                break
+                        if node is not None and not node.terminal and not error:
+                            error = "DECISION_BUDGET"
+                        score = _score_rollout(
                             task,
                             node,
-                            args,
+                            error,
+                            decisions,
+                            first_successor_state=first_state,
+                            invalid_penalty=args.invalid_penalty,
+                            wrong_terminal_penalty=args.wrong_terminal_penalty,
+                            endpoint_similarity_weight=args.endpoint_similarity_weight,
+                            first_successor_progress_weight=args.first_successor_progress_weight,
+                            nonexact_reward_ceiling=args.nonexact_reward_ceiling,
+                            target_retained_penalty=args.target_retained_penalty,
+                            reference_first_successor_state=reference_first_successor,
+                            reference_first_successor_weight=args.reference_first_successor_weight,
                         )
-                        decisions += int(node is not None)
-                        if continuation_error:
-                            error = continuation_error
-                            break
-                    if node is not None and not node.terminal and not error:
-                        error = "DECISION_BUDGET"
-                    score = _score_rollout(
-                        task,
-                        node,
-                        error,
-                        decisions,
-                        first_successor_state=first_state,
-                        invalid_penalty=args.invalid_penalty,
-                        wrong_terminal_penalty=args.wrong_terminal_penalty,
-                        endpoint_similarity_weight=args.endpoint_similarity_weight,
-                        first_successor_progress_weight=args.first_successor_progress_weight,
-                        nonexact_reward_ceiling=args.nonexact_reward_ceiling,
-                        target_retained_penalty=args.target_retained_penalty,
+                        ids = list(decoded["ids"])
+                        logps = list(decoded["logps"])
+                        prompt = prompts[mode]
+                        record = {
+                            "id": task.reaction_id,
+                            "kind": "rl",
+                            "input_ids": prompt + ids,
+                            "loss_mask": [0] * len(prompt) + [1] * len(ids),
+                            "old_logps": [0.0] * len(prompt) + logps,
+                            "advantage": 0.0,
+                            "reward": float(score["reward"]),
+                            "candidate_index": candidate_index,
+                            "terminated": bool(decoded["terminated"]),
+                            "prediction": str(decoded["text"]),
+                            "score": score,
+                            "prompt_mode": mode,
+                            "action_fingerprint": fingerprint,
+                            "anchor": task_record(task),
+                        }
+                        if not ids:
+                            record["loss_mask"] = [0] * len(record["loss_mask"])
+                        if not (
+                            len(record["input_ids"])
+                            == len(record["loss_mask"])
+                            == len(record["old_logps"])
+                        ):
+                            raise ValueError("rollout token/mask/logprob misalignment")
+                        records.append(record)
+                        candidate_index += 1
+                summary = assign_local_advantages(records)
+                if not args.evaluation:
+                    records.append(
+                        _verified_replay_record(
+                            tokenizer, task, row, episode, args.max_context
+                        )
                     )
-                    ids = list(decoded["ids"])
-                    logps = list(decoded["logps"])
-                    prompt = prompts[mode]
-                    record = {
-                        "id": task.reaction_id,
-                        "kind": "rl",
-                        "input_ids": prompt + ids,
-                        "loss_mask": [0] * len(prompt) + [1] * len(ids),
-                        "old_logps": [0.0] * len(prompt) + logps,
-                        "advantage": 0.0,
-                        "reward": float(score["reward"]),
-                        "candidate_index": candidate_index,
-                        "terminated": bool(decoded["terminated"]),
-                        "prediction": str(decoded["text"]),
-                        "score": score,
-                        "prompt_mode": mode,
-                        "action_fingerprint": fingerprint,
-                        "anchor": task_record(task),
-                    }
-                    if not ids:
-                        record["loss_mask"] = [0] * len(record["loss_mask"])
-                    if not (
-                        len(record["input_ids"])
-                        == len(record["loss_mask"])
-                        == len(record["old_logps"])
-                    ):
-                        raise ValueError("rollout token/mask/logprob misalignment")
-                    records.append(record)
-                    candidate_index += 1
-            summary = assign_local_advantages(records)
+                log_fields = {
+                    "id": task.reaction_id,
+                    "horizon": task.horizon,
+                    "full_episode": task.is_full_episode,
+                    **summary,
+                }
+            except Exception as exc:
+                if "out of memory" in str(exc).lower():
+                    raise
+                records = _collector_error_records(row, args, total, exc)
+                detail = {
+                    "id": str(row.get("id") or row.get("source_id") or "UNKNOWN"),
+                    "rank": args.rank,
+                    "error": f"{type(exc).__name__}:{exc}",
+                    "traceback": traceback.format_exc(),
+                }
+                error_handle.write(json.dumps(detail, ensure_ascii=False) + "\n")
+                error_handle.flush()
+                log_fields = {
+                    "id": detail["id"],
+                    "horizon": -1,
+                    "full_episode": bool(args.evaluation or args.full_only),
+                    "unique_actions": 1,
+                    "effective": False,
+                    "endpoint_success": False,
+                    "candidate_success_rate": 0.0,
+                    "collector_error": detail["error"],
+                }
             for record in records:
                 handle.write(json.dumps(record, ensure_ascii=False) + "\n")
             handle.flush()
@@ -487,10 +681,7 @@ def collect(args):
                 rank=args.rank,
                 done=number,
                 total=len(rows),
-                id=task.reaction_id,
-                horizon=task.horizon,
-                full_episode=task.is_full_episode,
-                **summary,
+                **log_fields,
             )
 
 
@@ -513,6 +704,7 @@ def main():
     parser.add_argument("--first-successor-progress-weight", type=float, default=0.25)
     parser.add_argument("--nonexact-reward-ceiling", type=float, default=0.01)
     parser.add_argument("--target-retained-penalty", type=float, default=0.5)
+    parser.add_argument("--reference-first-successor-weight", type=float, default=0.0)
     parser.add_argument("--value-adapter")
     parser.add_argument("--continuation-candidates-per-mode", type=int, default=1)
     parser.add_argument("--continuation-temperature", type=float, default=0.7)
@@ -525,6 +717,7 @@ def main():
     parser.add_argument("--max-imports", type=int, default=8)
     parser.add_argument("--evaluation", action="store_true")
     parser.add_argument("--full-only", action="store_true")
+    parser.add_argument("--reject-target-retained-finish", action="store_true")
     args = parser.parse_args()
     args.memory_efficient_logps = True
     (collect if args.mode == "collect" else train)(args)

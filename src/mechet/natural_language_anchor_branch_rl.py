@@ -263,6 +263,8 @@ def endpoint_shaped_reward(
     nonexact_reward_ceiling: float,
     target_retained: bool = False,
     target_retained_penalty: float = 0.5,
+    reference_first_successor_exact: bool = False,
+    reference_first_successor_weight: float = 0.0,
 ) -> dict[str, float | str]:
     """Give dense endpoint credit while keeping exactness the unique success.
 
@@ -293,6 +295,8 @@ def endpoint_shaped_reward(
             -abs(float(wrong_terminal_penalty))
             + float(endpoint_similarity_weight) * final
             + float(first_successor_progress_weight) * progress
+            + float(reference_first_successor_weight)
+            * float(reference_first_successor_exact)
         )
         reward = min(reward, -abs(float(nonexact_reward_ceiling)))
         outcome = "wrong_endpoint"
@@ -300,6 +304,8 @@ def endpoint_shaped_reward(
         reward = (
             -abs(float(invalid_penalty))
             + float(first_successor_progress_weight) * progress
+            + float(reference_first_successor_weight)
+            * float(reference_first_successor_exact)
         )
         reward = min(reward, -abs(float(nonexact_reward_ceiling)))
         outcome = "invalid_or_incomplete"
@@ -310,6 +316,7 @@ def endpoint_shaped_reward(
         "first_successor_potential": float(first),
         "final_potential": float(final),
         "first_successor_progress": float(progress),
+        "reference_first_successor_exact": float(reference_first_successor_exact),
     }
 
 

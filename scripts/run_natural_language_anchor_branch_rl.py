@@ -114,12 +114,12 @@ def prepare(cfg: dict, output: Path) -> None:
         output / "plan.json",
         {
             "artifact_type": (
-                "natural_language_verified_anchor_branch_rl_plan_v2"
+                "natural_language_verified_anchor_branch_rl_plan_v3"
                 if repaired
                 else "natural_language_verified_anchor_branch_rl_plan_v1"
             ),
             "algorithm": (
-                "executor_reset_successor_pooled_endpoint_shaping_value_ranked_first_tool_credit"
+                "executor_reset_successor_pooled_local_credit_value_ranked_verified_replay"
                 if repaired
                 else "executor_reset_same_state_successor_pooled_endpoint_reward_first_tool_call_credit"
             ),
@@ -169,6 +169,9 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "--first-successor-progress-weight", str(reward["first_successor_progress_weight"]),
         "--nonexact-reward-ceiling", str(reward["nonexact_reward_ceiling"]),
         "--target-retained-penalty", str(reward.get("target_retained_penalty", 0.5)),
+        "--reference-first-successor-weight", str(
+            reward.get("reference_first_successor_weight", 0.0)
+        ),
         "--temperature", str(rollout["temperature"]),
         "--max-new-tokens", str(rollout["max_new_tokens"]),
         "--max-context", str(rollout["max_context"]),
@@ -177,6 +180,9 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     ]
     if evaluation:
         command.extend(["--evaluation", "--full-only"])
+    gates = cfg.get("executor_gates") or {}
+    if gates.get("reject_target_retained_finish"):
+        command.append("--reject-target-retained-finish")
     if cfg.get("value_adapter_path"):
         command.extend(["--value-adapter", str(cfg["value_adapter_path"])])
     command.extend(
@@ -205,6 +211,11 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
     for path in shards:
         if path.exists():
             path.rename(path.with_suffix(f".interrupted-{time.time_ns()}.jsonl"))
+        error_path = path.with_suffix(path.suffix + ".errors.jsonl")
+        if error_path.exists():
+            error_path.rename(
+                error_path.with_suffix(f".interrupted-{time.time_ns()}.jsonl")
+            )
     runtime = os.environ.get("MECHET_ANCHOR_VLLM_RUNTIME", str(cfg["vllm_runtime"]))
     if not Path(runtime, ".mechet_vllm_runtime_complete").is_file():
         raise ValueError(f"incomplete vLLM runtime: {runtime}")
@@ -242,6 +253,13 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
                 worker.kill()
                 worker.wait()
     summary = summarize(shards)
+    if float(summary["collector_error_rate"]) > float(
+        cfg.get("maximum_collector_error_rate", 0.05)
+    ):
+        raise RuntimeError(
+            "collector error rate exceeds contract: "
+            f"{summary['collector_error_rate']:.4f}"
+        )
     public = {key: value for key, value in summary.items() if key != "group_summaries"}
     write_json(marker, {"adapter": str(adapter), "frontier": frontier, "round": round_index, "evaluation": evaluation, **public})
     log(stage="nl-anchor-collection-complete", **public)
@@ -303,7 +321,15 @@ def main():
             frontier=int(curriculum["frontier"]), round_index=round_index, evaluation=False,
         )
         training = round_path / "training.jsonl"
-        write_rows(training, (row for shard in shards for row in read_rows(shard)))
+        write_rows(
+            training,
+            (
+                row
+                for shard in shards
+                for row in read_rows(shard)
+                if row.get("kind") != "collector_error"
+            ),
+        )
         adapter = run_train(cfg, training, adapter, round_path / "training", int(cfg["seed"]) + round_index)
         _, validation = run_workers(
             cfg, output / "validation_monitor.jsonl", adapter, round_path / "validation",

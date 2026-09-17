@@ -42,7 +42,12 @@ def write_rows(path: Path, rows) -> None:
 
 
 def summarize(paths: list[Path]) -> dict:
-    records = [row for path in paths for row in read_rows(path) if row["kind"] == "rl"]
+    records = [
+        row
+        for path in paths
+        for row in read_rows(path)
+        if row["kind"] in {"rl", "collector_error"}
+    ]
     if not records:
         raise ValueError("empty anchor rollout")
     groups = defaultdict(list)
@@ -77,6 +82,13 @@ def summarize(paths: list[Path]) -> dict:
         "effective_group_rate": sum(row["effective"] for row in group_summaries)
         / len(group_summaries),
         "full_episode_groups": sum(row["is_full_episode"] for row in group_summaries),
+        "collector_error_candidates": sum(
+            row.get("kind") == "collector_error" for row in records
+        ),
+        "collector_error_rate": sum(
+            row.get("kind") == "collector_error" for row in records
+        )
+        / candidates,
         "horizon_histogram": {
             str(horizon): sum(row["horizon"] == horizon for row in group_summaries)
             for horizon in sorted({row["horizon"] for row in group_summaries})

@@ -5,9 +5,30 @@
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-09-16.
+Last updated: 2026-09-17.
 
-## Natural-language anchor-branch post-training (full productive run submitted)
+## Natural-language anchor-branch post-training (v4 correction gate)
+
+The bounded productive task ended during its pre-update validation after
+228/512 planned candidates (114/256 reactions), so it produced no RL adapter
+and must not be reported as a completed experiment. The preserved partial
+baseline had 172/228 formal terminals, 45/228 productive terminals, 127/228
+unchanged-target terminals, and 1/228 exact endpoints. The exact hit was a
+genuine full product-only trajectory; the dominant failure was instead the
+action/import branch appending context and finishing without transforming the
+target.
+
+PR #59 now carries the v4 implementation correction. The scientific method is
+unchanged: exact executor reset, same-state branching, executor verification,
+local first-action credit, value-ranked gold-free continuation, and curriculum
+toward full product-only episodes. The correction rejects unchanged-target
+finish, preserves explicit-hydrogen import participants, adds private
+reference-successor credit,
+materializes one verified replay record per train reaction, and preserves the
+evaluation denominator across isolated collector exceptions. The next gate is
+`configs/agent/natural_language_anchor_branch_rl_verified_replay_smoke_a100.yaml`
+(64 train reactions, K=8, 32 validation reactions); do not restart the larger
+2,560-reaction campaign until this gate completes.
 
 The endpoint-shaped v2 smoke completed successfully.  Its train rollouts had
 315/512 formal terminals and one exact endpoint, but that exact candidate was
