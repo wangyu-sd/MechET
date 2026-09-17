@@ -7,6 +7,28 @@
 
 Last updated: 2026-09-17.
 
+## Current three-stage method decision
+
+The active algorithm is now described as:
+
+1. **State-SFT** for executable local inverse transitions;
+2. **compressed-history Trajectory-SFT** for causal trajectory-prefix
+   conditioning without repeated full-state transcripts;
+3. **Execution-Anchored Receding-Horizon Optimization (EARHO)** for adaptive
+   frontier-local policy improvement under real executor transitions.
+
+EARHO replaces the informal label “hard-case RL.”  It identifies the first
+recoverable divergence frontier, pools alternative actions by executed chemical
+successor, assigns no positive advantage to all-negative groups, uses verified
+transition replay when policy support is absent, and expands the optimization
+horizon only as competence advances.  Reference successors and endpoints are
+training-private and never enter product-only inference prompts.
+
+The full algorithm contract and evidence gates are in
+`docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md`.  Historical
+`anchor_branch` and `successor_horizon` identifiers remain unchanged for run
+lineage.
+
 ## Natural-language anchor-branch post-training (v4 correction gate)
 
 The bounded productive task ended during its pre-update validation after

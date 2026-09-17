@@ -10,7 +10,7 @@
 [![Runtime tests](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml)
 [![Evidence tests](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml)
 
-[Research thesis](#research-thesis) · [Executable inverse dynamics](docs/EXECUTABLE_INVERSE_DYNAMICS.md) · [Main method](#main-method) · [Experimental program](#experimental-program) · [Reproduce](#minimum-credible-reproduction) · [Documentation](#documentation)
+[Research thesis](#research-thesis) · [Executable inverse dynamics](docs/EXECUTABLE_INVERSE_DYNAMICS.md) · [Three-stage optimization](docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md) · [Main method](#main-method) · [Experimental program](#experimental-program) · [Reproduce](#minimum-credible-reproduction) · [Documentation](#documentation)
 
 </div>
 
@@ -502,6 +502,7 @@ data, compute, inference, multi-seed and frozen-evaluation contracts pass.
 | [`docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md`](docs/PROOF_CENTRIC_EXPERIMENT_PLAN.md) | Legacy proof-centric implementation contract |
 | [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) | Ordered commands, artifacts, gates, and stopping rules |
 | [`docs/TOOL_SFT.md`](docs/TOOL_SFT.md) | Replay-verified supervision, Qwen3 assistant masking, and checkpoint lineage |
+| [`docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md`](docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md) | State-SFT, compressed-history Trajectory-SFT and EARHO algorithm flow |
 | [`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md) | mech-USPTO source identity, inverse v2 protocol, coverage, validation, and reproduction commands |
 | [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) | H2 execution-primitive signatures and composition splits |
 | [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) | Future textbook/RAG evidence conditions and interventions |

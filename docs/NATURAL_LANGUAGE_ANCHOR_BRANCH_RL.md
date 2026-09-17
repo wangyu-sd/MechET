@@ -1,5 +1,13 @@
 # Natural-language verified anchor-branch RL
 
+This document records the implementation lineage of Stage III in the current
+method.  The paper-facing name is **Execution-Anchored Receding-Horizon
+Optimization (EARHO)**.  `anchor_branch` and `successor_horizon` remain stable
+code/artifact names; they implement frontier-local branching, verified
+successor credit and bounded receding-horizon continuation.  The complete
+State-SFT -> compressed-history Trajectory-SFT -> EARHO flow is specified in
+`docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md`.
+
 This is the lineage-correct post-training condition for the completed
 natural-language electron-event actor:
 
