@@ -28,7 +28,11 @@ materializes one verified replay record per train reaction, and preserves the
 evaluation denominator across isolated collector exceptions. The next gate is
 `configs/agent/natural_language_anchor_branch_rl_verified_replay_smoke_a100.yaml`
 (64 train reactions, K=8, 32 validation reactions); do not restart the larger
-2,560-reaction campaign until this gate completes.
+2,560-reaction campaign until this gate completes. It was submitted to ordinary
+Qingyuan 8xA100 as
+`meteor_mechet_nl_anchor_branch_rl_verified_replay_smoke_8a100_qy_20260917_01`
+(instance `8b1d813ea0a4c8ab01a0ad78ebbc0db3`). At the first post-submit check it was
+still `PENDING`; submission success is not counted as execution success.
 
 The endpoint-shaped v2 smoke completed successfully.  Its train rollouts had
 315/512 formal terminals and one exact endpoint, but that exact candidate was
