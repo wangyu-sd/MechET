@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -33,6 +33,7 @@ from mechet.in_place_grounded_flow import (
 from mechet.natural_language_electron_flow import compile_event_arguments
 from mechet.natural_language_anchor_branch_rl import contains_unchanged_target
 from mechet.successor_value import SUCCESSOR_VALUE_SYSTEM, successor_value_prompt
+from mechet.trajectory_history import TrajectoryHistory
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS, _decision_row, _prompt
 from scripts.build_natural_language_state_value import VALUE_SYSTEM, value_prompt
 from scripts.eval_natural_language_event_local import MODEL_REVISION, prediction_call
@@ -153,16 +154,32 @@ class Runtime:
             raise RuntimeError(f"value labels must each be one token: {self.label_ids}")
 
     def proposals(
-        self, target: str, state: str, *, candidates: int, max_new_tokens: int
+        self,
+        node: Node,
+        *,
+        candidates: int,
+        max_new_tokens: int,
+        compact_history: bool = False,
     ) -> list[Action]:
         torch = self.torch
         self.model.set_adapter("policy")
+        target = node.target
+        state = node.state
         prompts = [
             render_chat(
                 self.tokenizer,
                 [
                     {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": _prompt(target, state, include_inventory=False)},
+                    {
+                        "role": "user",
+                        "content": policy_prompt(
+                            target,
+                            state,
+                            include_inventory=False,
+                            actions=node.actions,
+                            compact_history=compact_history,
+                        ),
+                    },
                 ],
                 tools=TOOLS,
                 add_generation_prompt=True,
@@ -171,7 +188,16 @@ class Runtime:
                 self.tokenizer,
                 [
                     {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": _prompt(target, state, include_inventory=True)},
+                    {
+                        "role": "user",
+                        "content": policy_prompt(
+                            target,
+                            state,
+                            include_inventory=True,
+                            actions=node.actions,
+                            compact_history=compact_history,
+                        ),
+                    },
                 ],
                 tools=TOOLS,
                 add_generation_prompt=True,
@@ -384,6 +410,47 @@ def execute(
     ), ""
 
 
+PROMPT_SUFFIX = "\nChoose the single next retrosynthetic action."
+
+
+def compact_history_from_actions(
+    actions: Sequence[Mapping[str, Any]],
+) -> TrajectoryHistory:
+    """Reconstruct exactly the Stage-II capsule from accepted runtime actions."""
+
+    history = TrajectoryHistory()
+    for record in actions:
+        history = history.accept(
+            str(record["name"]),
+            dict(record["arguments"]),
+            dict(record["result"]),
+        )
+    return history
+
+
+def policy_prompt(
+    target: str,
+    state: str,
+    *,
+    include_inventory: bool,
+    actions: Sequence[Mapping[str, Any]],
+    compact_history: bool,
+) -> str:
+    """Render either the Stage-I or Stage-II policy observation contract."""
+
+    prompt = _prompt(target, state, include_inventory=include_inventory)
+    if not compact_history:
+        return prompt
+    if not prompt.endswith(PROMPT_SUFFIX):
+        raise ValueError("natural-language policy prompt suffix changed")
+    return (
+        prompt[: -len(PROMPT_SUFFIX)]
+        + "\n\n"
+        + compact_history_from_actions(actions).render()
+        + PROMPT_SUFFIX
+    )
+
+
 def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     target_mapped = str(row["target_smiles"])
     target = visible(target_mapped)
@@ -402,7 +469,10 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         new_terminals: list[Node] = []
         for node in beam:
             for action in runtime.proposals(
-                target, node.state, candidates=args.branching, max_new_tokens=args.max_new_tokens
+                node,
+                candidates=args.branching,
+                max_new_tokens=args.max_new_tokens,
+                compact_history=args.compact_history,
             ):
                 child, error = execute(
                     node,
@@ -520,6 +590,11 @@ def main() -> int:
     parser.add_argument("--max-new-tokens", type=int, default=384)
     parser.add_argument("--value-weight", type=float, default=0.20)
     parser.add_argument("--reject-target-retained-finish", action="store_true")
+    parser.add_argument(
+        "--compact-history",
+        action="store_true",
+        help="append executor-reconstructible accepted-action history to policy prompts",
+    )
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
     rank = int(os.environ.get("RANK", "0"))

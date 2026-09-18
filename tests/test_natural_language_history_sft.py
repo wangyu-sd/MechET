@@ -8,6 +8,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from mechet.trajectory_history import TrajectoryHistory
 from scripts.build_natural_language_history_sft import transform_rows
+from scripts.run_natural_language_value_search import policy_prompt
 from scripts.train_tool_sft import validate_rows
 
 
@@ -111,3 +112,44 @@ def test_failed_gold_action_is_rejected() -> None:
         assert "only passing gold actions" in str(exc)
     else:
         raise AssertionError("failed actions must not enter standard history SFT")
+
+
+def test_closed_loop_prompt_reconstructs_training_history() -> None:
+    actions = [
+        {
+            "name": "import_fragments",
+            "arguments": {
+                "fragments": [
+                    {"smiles": "O", "count": 2, "purpose": "electron_participant"}
+                ]
+            },
+            "result": {"ok": True, "code": "PASS", "current_state": "CC.O.O"},
+        },
+        {
+            "name": "apply_electron_flow",
+            "arguments": {"direction": "retrosynthetic", "electron_flow": []},
+            "result": {"ok": True, "code": "PASS", "current_state": "C.C.O.O"},
+        },
+    ]
+    prompt = policy_prompt(
+        "CC",
+        "[CH3:1].[CH3:2].[OH2:3].[OH2:4]",
+        include_inventory=False,
+        actions=actions,
+        compact_history=True,
+    )
+    assert "accepted_action_types: import_fragments>apply_electron_flow" in prompt
+    assert "imported_fragments_committed: 2" in prompt
+    assert "electron_events_committed: 1" in prompt
+    assert prompt.endswith("Choose the single next retrosynthetic action.")
+
+
+def test_closed_loop_prompt_can_preserve_state_sft_contract() -> None:
+    prompt = policy_prompt(
+        "CC",
+        "[CH3:1][CH3:2]",
+        include_inventory=False,
+        actions=[],
+        compact_history=False,
+    )
+    assert "TRAJECTORY HISTORY" not in prompt
