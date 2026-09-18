@@ -5,7 +5,80 @@
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-09-14.
+Last updated: 2026-09-17.
+
+## Natural-language anchor-branch post-training (v4 correction gate)
+
+The bounded productive task ended during its pre-update validation after
+228/512 planned candidates (114/256 reactions), so it produced no RL adapter
+and must not be reported as a completed experiment. The preserved partial
+baseline had 172/228 formal terminals, 45/228 productive terminals, 127/228
+unchanged-target terminals, and 1/228 exact endpoints. The exact hit was a
+genuine full product-only trajectory; the dominant failure was instead the
+action/import branch appending context and finishing without transforming the
+target.
+
+PR #59 now carries the v4 implementation correction. The scientific method is
+unchanged: exact executor reset, same-state branching, executor verification,
+local first-action credit, value-ranked gold-free continuation, and curriculum
+toward full product-only episodes. The correction rejects unchanged-target
+finish, preserves explicit-hydrogen import participants, adds private
+reference-successor credit,
+materializes one verified replay record per train reaction, and preserves the
+evaluation denominator across isolated collector exceptions. The next gate is
+`configs/agent/natural_language_anchor_branch_rl_verified_replay_smoke_a100.yaml`
+(64 train reactions, K=8, 32 validation reactions); do not restart the larger
+2,560-reaction campaign until this gate completes. It was submitted to ordinary
+Qingyuan 8xA100 as
+`meteor_mechet_nl_anchor_branch_rl_verified_replay_smoke_8a100_qy_20260917_01`
+(instance `8b1d813ea0a4c8ab01a0ad78ebbc0db3`). At the first post-submit check it was
+still `PENDING`; submission success is not counted as execution success.
+
+The endpoint-shaped v2 smoke completed successfully.  Its train rollouts had
+315/512 formal terminals and one exact endpoint, but that exact candidate was
+an H=1 suffix after 7/8 reference events.  Fixed full-episode validation stayed
+24/32 formally terminal and 0/32 exact before and after the update.  Of the 24
+post-update wrong terminals, 16 retained the unchanged target and appended
+fragments.  This is an executable no-op, not a retrosynthetic solution.
+
+Commit `f6bff25` adds a no-transform penalty, a separate productive-execution
+metric and persisted per-decision continuation traces.  The full bounded task
+`meteor_mechet_nl_anchor_branch_rl_productive_full_8a100_qy_20260916_01`
+(instance `8b1d813ea0a4c8ab01a0aaabe7a30977`) uses 10 x 256 distinct train
+reactions, K=8, 50% full episodes and a disjoint 256-reaction validation
+monitor.  This is not a 257,167-row epoch.  At the initial live check the
+ordinary Qingyuan 8xA100 Pod and Ceph mount were present, while the pinned vLLM
+runtime was still staging and GPUs were idle; check collectors and GPU memory
+before claiming rollout progress.
+
+The current post-training actor is the completed natural-language electron-
+event SFT, not the historical Python-template checkpoint. PR #59 implements
+executor reset states, K=8 same-state first-tool branches, successor-state
+equivalence pooling, endpoint-primary reward and first-tool-only local credit.
+The bounded 8xA100 task was
+`meteor_mechet_nl_anchor_branch_rl_smoke_8a100_qy_20260916`, instance
+`8b1d813ea0a4c8ab01a0a9893c1f075d`. It ended successfully after 16 optimizer
+updates. Validation execution improved from 16/32 to 20/32 candidates, but exact
+endpoint success remained 0/32; the original SFT therefore remains the selected
+adapter. Test was unused.
+
+The failure is traced to sparse reward: only 1/512 training candidates was an
+exact endpoint, while 256 wrong terminals all received zero and 255 invalid or
+incomplete candidates received -0.1. The prepared v2 repair retains exactness as
+the only positive outcome and adds map-invariant, heavy-atom-weighted endpoint
+similarity plus first-successor progress to rank non-exact branches. All wrong
+terminal and invalid outcomes remain negative. Twenty-five relevant tests pass, and
+offline rescoring yields 218 reward values with contrast in 96/128 prompt-mode
+groups. Continuation ranking now uses the frozen state-value-v2 adapter over
+executor-valid unique successors instead of comparing raw NLL across the action
+and event prompt formats. The v2 8xA100 smoke was submitted as
+`meteor_mechet_nl_anchor_branch_rl_shaped_smoke_8a100_qy_20260916`, instance
+`8b1d81eea0a4bdf601a0aa2e28e108b0`. Live inspection confirmed
+`TRAINING_RUNNING`, the private Ceph mount, the wrapper/heartbeat processes and
+local vLLM-runtime staging. GPU utilization is expected to remain zero until
+that one-time copy finishes; do not report optimizer activity before collector
+processes and GPU allocation are observed. See
+`docs/NATURAL_LANGUAGE_ANCHOR_BRANCH_RL.md`.
 
 ## Natural-language electron-event candidate (active)
 

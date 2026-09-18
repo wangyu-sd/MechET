@@ -1,0 +1,40 @@
+model_name_or_path: Qwen/Qwen3-8B
+model_revision: b968826d9c46dd6066d109eabc6255188de91218
+initial_adapter_path: outputs/agent/python_template_slots_qwen3_8b_a100_seed17
+initial_adapter_manifest: outputs/agent/python_template_slots_qwen3_8b_a100_seed17/adapter_manifest.json
+initial_adapter_sha256: f1aa6ce01c76f4cce80ffadbd57fc2a67b0bcff46f19debfc0c46f4f7d508b69
+require_initial_adapter: true
+
+train_file: data/flower_python_template_slots_v1/train.jsonl
+validation_file: data/flower_python_template_slots_v1/valid.jsonl
+stable_id_manifest: data/flower_python_template_slots_v1/manifest.json
+expected_train_rows: 257167
+
+output_dir: outputs/agent/python_anchor_branch_rl_seed17_20260916
+model_snapshot: /aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
+vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
+expected_gpu_regex: A100|H20
+
+# Bounded post-training run. This is not a full-data SFT epoch.
+rounds: 10
+products_per_round: 256
+candidates_per_product: 8
+validation_monitor_rows: 256
+seed: 17
+
+condition: verified_anchor_branch_rl_v1
+invalid_penalty: 0.1
+reference_replay_fraction: 0.25
+
+curriculum:
+  initial_frontier: 1
+  maximum_frontier: 64
+  full_episode_fraction: 0.2
+  promote_pass_at_k: 0.55
+  min_effective_groups: 32
+
+rollout:
+  temperature: 1.0
+  max_new_tokens: 2048
+  max_context: 12288
+  batch_products: 4

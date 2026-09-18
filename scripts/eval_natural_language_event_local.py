@@ -168,7 +168,9 @@ def prediction_call(text: str, tokenizer: Any) -> tuple[str, dict[str, Any], str
 def _normal_smiles(smiles: str) -> str:
     from rdkit import Chem
 
-    mol = Chem.MolFromSmiles(str(smiles or ""))
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(str(smiles or ""), params)
     if mol is None:
         raise ValueError(f"invalid imported SMILES: {smiles!r}")
     for atom in mol.GetAtoms():
