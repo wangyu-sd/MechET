@@ -213,6 +213,10 @@ def _raw_graph_delta(source: str, destination: str) -> dict[str, Any]:
         mol = Chem.MolFromSmiles(smiles, params)
         if mol is None:
             raise ValueError("cannot derive graph delta from invalid state")
+        try:
+            Chem.Kekulize(mol, clearAromaticFlags=True)
+        except Exception:
+            pass
         bonds = {
             tuple(
                 sorted(
