@@ -613,6 +613,7 @@ def build_split(
         "reactions": len(reactions),
         "decision_rows": len(decisions),
         **dict(counts),
+        "unresolved_reactions": int(counts["unresolved_reactions"]),
         "source_sha256": sha256(source),
         "output_sha256": sha256(target),
         "unresolved_sha256": sha256(unresolved),
