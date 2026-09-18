@@ -4,19 +4,26 @@
 
 # MechET
 
-**Causal and compositional electron-flow reasoning for retrosynthesis**
+**From products to processes: retrosynthesis as executable inverse dynamics**
 
 [![Proof tests](https://github.com/wangyu-sd/MechET/actions/workflows/proof-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/proof-tests.yml)
 [![Runtime tests](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/agent-framework-tests.yml)
 [![Evidence tests](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml/badge.svg)](https://github.com/wangyu-sd/MechET/actions/workflows/knowledge-ablation-tests.yml)
 
-[Research thesis](#research-thesis) · [Main method](#main-method) · [Experimental program](#experimental-program) · [Reproduce](#minimum-credible-reproduction) · [Documentation](#documentation)
+[Research thesis](#research-thesis) · [Executable inverse dynamics](docs/EXECUTABLE_INVERSE_DYNAMICS.md) · [Main method](#main-method) · [Experimental program](#experimental-program) · [Reproduce](#minimum-credible-reproduction) · [Documentation](#documentation)
 
 </div>
 
 ---
 
 > **MechET asks whether a mechanistic rationale can be the computation that determines a retrosynthetic prediction—not merely a plausible explanation written after the answer.**
+
+The broader formulation is **retrosynthesis as executable inverse dynamics**:
+predict a constrained electron-flow process that produces the precursor rather
+than a precursor accompanied by a post-hoc account.  The formulation is
+architecture agnostic; Qwen is one controlled policy parameterization, not the
+scientific contribution.  See
+[`docs/EXECUTABLE_INVERSE_DYNAMICS.md`](docs/EXECUTABLE_INVERSE_DYNAMICS.md).
 
 > **Paper authority:** the ICLR experiment definitions and priorities follow
 > [`MechET-paper/EXPERIMENT_MATRIX.md`](https://github.com/wangyu-sd/MechET-paper/blob/main/EXPERIMENT_MATRIX.md).

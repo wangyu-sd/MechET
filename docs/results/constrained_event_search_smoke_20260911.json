@@ -1,0 +1,77 @@
+{
+  "artifact_type": "executor_constrained_event_search_smoke",
+  "date": "2026-09-11",
+  "status": "passed_deterministic_small_case",
+  "headline_eligible": false,
+  "scope": "model-free deterministic executor/search primitive smoke; not a checkpoint endpoint result",
+  "github_actions": {
+    "workflow_name": "Constrained event search tests",
+    "run_id": 34580018529,
+    "job_id": 103201163344,
+    "conclusion": "success",
+    "focused_tests": {
+      "passed": 5,
+      "failed": 0,
+      "runtime_seconds": 1.95
+    }
+  },
+  "case": {
+    "name": "mapped_SN2_like_event",
+    "initial_state": "[O-:1].[CH3:2][Br:3]",
+    "beam_width": 1,
+    "first_layer": {
+      "n_proposals": 4,
+      "selected_label": "substitution",
+      "selected_state": "[Br-:3].[O:1][CH3:2]",
+      "selected_normalized_logprob": -1.0,
+      "executor_rejected": [
+        {
+          "label": "invalid_high_score",
+          "normalized_logprob": -0.2,
+          "code": "CHEMICAL_STATE_INVALID",
+          "message": "INVALID_BOND_ORDER"
+        }
+      ],
+      "duplicate_pruned": [
+        {
+          "label": "substitution_reordered",
+          "normalized_logprob": -1.25,
+          "code": "DUPLICATE_SUCCESSOR"
+        }
+      ],
+      "beam_pruned": [
+        {
+          "label": "cleavage_only",
+          "normalized_logprob": -1.5,
+          "state": "[Br-:3].[CH3+:2].[O-:1]",
+          "code": "BEAM_CAPACITY"
+        }
+      ]
+    },
+    "second_layer": {
+      "proposal_label": "undo_substitution",
+      "normalized_logprob": -0.1,
+      "executor_formally_executable": true,
+      "selected": false,
+      "prune_code": "STATE_CYCLE",
+      "returned_state": "[CH3:2][Br:3].[O-:1]"
+    }
+  },
+  "verified_contracts": {
+    "invalid_high_likelihood_event_is_pruned_before_ranking": true,
+    "duplicate_successor_uses_one_beam_slot": true,
+    "model_likelihood_ranks_only_surviving_unique_states": true,
+    "formally_executable_ancestor_cycle_is_pruned_immediately": true,
+    "optional_chemistry_support_gate_is_tested": true
+  },
+  "not_tested": [
+    "Qwen checkpoint sampling",
+    "per-event model log-probability extraction from the live generation backend",
+    "environment fork/restore under tree search",
+    "finish_trace terminal-pool handling",
+    "reactive-core-only cycle detection",
+    "structural endpoint improvement",
+    "latency or token-budget savings on real validation reactions"
+  ],
+  "next_gate": "Run the same search contract on 32-64 frozen validation reactions with an existing current checkpoint under a matched generated-token budget before any RLVR run."
+}

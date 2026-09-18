@@ -1,0 +1,20 @@
+{
+  "artifact_type": "endpoint_process_optimizer_smoke_v1",
+  "fixture_rows": 8,
+  "active_groups": 4,
+  "episodes": 8,
+  "optimizer_steps": 1,
+  "loss": 1.2200353145599365,
+  "loss_finite": true,
+  "mean_kl": 0.0,
+  "kl_finite": true,
+  "nonzero_advantage_terms": 16,
+  "event_terms": 16,
+  "rejected_event_terms": 8,
+  "rejected_credit_negative": true,
+  "endpoint_terminal_dominant": true,
+  "gradient_norm": 4.946101188659668,
+  "parameters_changed": true,
+  "gold_prompt_leakage": false,
+  "passed": true
+}

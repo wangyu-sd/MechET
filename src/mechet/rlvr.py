@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 from typing import Any, Sequence
 
 import torch
@@ -398,3 +399,193 @@ def policy_loss_from_advantages(
         "length_normalized": bool(length_normalize),
     }
     return total_loss / max(n_terms, 1), stats
+
+
+def discounted_event_returns(
+    rewards: Sequence[float], *, gamma: float = 0.95
+) -> list[float]:
+    """Return one discounted process return for every sampled event span."""
+
+    if not 0.0 <= gamma <= 1.0:
+        raise ValueError("gamma must be in [0, 1]")
+    output = [0.0 for _ in rewards]
+    running = 0.0
+    for index in range(len(rewards) - 1, -1, -1):
+        running = float(rewards[index]) + gamma * running
+        output[index] = running
+    return output
+
+
+def event_rloo_advantages(
+    reward_sequences: Sequence[Sequence[float]], *, gamma: float = 0.95
+) -> tuple[list[list[float]], list[list[float]]]:
+    """Compute event returns and leave-one-rollout-out baselines by event index.
+
+    Rollouts in ``reward_sequences`` must share one start state.  Variable
+    lengths are supported; an event index with only one surviving rollout has
+    zero advantage rather than borrowing a baseline from another start state.
+    """
+
+    returns = [discounted_event_returns(values, gamma=gamma) for values in reward_sequences]
+    advantages = [[0.0 for _ in values] for values in returns]
+    max_events = max((len(values) for values in returns), default=0)
+    for event_index in range(max_events):
+        owners = [index for index, values in enumerate(returns) if event_index < len(values)]
+        values = [returns[index][event_index] for index in owners]
+        relative = rloo_advantages(values)
+        for owner, advantage in zip(owners, relative, strict=True):
+            advantages[owner][event_index] = advantage
+    return returns, advantages
+
+
+@dataclass(frozen=True)
+class EventPolicySample:
+    """One exact generated event span used by the event-level RL objective."""
+
+    prompt_token_ids: tuple[int, ...]
+    completion_token_ids: tuple[int, ...]
+    advantage: float
+    reference_logprob: float | None = None
+    rejected: bool = False
+
+
+def event_token_log_prob(
+    model: torch.nn.Module,
+    prompt_token_ids: Sequence[int],
+    completion_token_ids: Sequence[int],
+    *,
+    max_length: int = 8192,
+) -> tuple[torch.Tensor, int]:
+    """Return mean log probability for the exact sampled completion tokens."""
+
+    values, counts = event_token_log_probs_batch(
+        model,
+        [prompt_token_ids],
+        [completion_token_ids],
+        max_length=max_length,
+    )
+    return values[0], counts[0]
+
+
+def event_token_log_probs_batch(
+    model: torch.nn.Module,
+    prompt_token_ids: Sequence[Sequence[int]],
+    completion_token_ids: Sequence[Sequence[int]],
+    *,
+    max_length: int = 8192,
+    pad_token_id: int = 0,
+) -> tuple[torch.Tensor, list[int]]:
+    """Vectorized exact-span mean log probabilities with right padding."""
+
+    if len(prompt_token_ids) != len(completion_token_ids):
+        raise ValueError("prompt/completion batch sizes differ")
+    if not prompt_token_ids:
+        return torch.empty(0, device=_model_device(model)), []
+    sequences: list[list[int]] = []
+    starts: list[int] = []
+    counts: list[int] = []
+    for prompt_raw, completion_raw in zip(
+        prompt_token_ids, completion_token_ids, strict=True
+    ):
+        completion = list(completion_raw)
+        if not completion:
+            raise ValueError("event completion span is empty")
+        if max_length < 2 or len(completion) >= max_length:
+            raise ValueError("event completion span does not fit max_length")
+        prompt = list(prompt_raw)[-(max_length - len(completion)) :]
+        if not prompt:
+            raise ValueError("event span requires at least one prompt token")
+        sequences.append(prompt + completion)
+        starts.append(len(prompt) - 1)
+        counts.append(len(completion))
+    width = max(len(values) for values in sequences)
+    device = _model_device(model)
+    input_ids = torch.full(
+        (len(sequences), width),
+        int(pad_token_id),
+        dtype=torch.long,
+        device=device,
+    )
+    attention_mask = torch.zeros_like(input_ids)
+    completion_mask = torch.zeros(
+        (len(sequences), width - 1), dtype=torch.bool, device=device
+    )
+    for row, (values, start, count) in enumerate(zip(sequences, starts, counts, strict=True)):
+        input_ids[row, : len(values)] = torch.tensor(values, dtype=torch.long, device=device)
+        attention_mask[row, : len(values)] = 1
+        completion_mask[row, start : start + count] = True
+    outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+    logits = outputs.logits[:, :-1, :]
+    targets = input_ids[:, 1:]
+    selected = F.log_softmax(logits.float(), dim=-1).gather(
+        -1, targets.unsqueeze(-1)
+    ).squeeze(-1)
+    sums = (selected * completion_mask).sum(dim=1)
+    denominators = completion_mask.sum(dim=1).clamp_min(1)
+    return sums / denominators, counts
+
+
+def event_level_policy_loss(
+    model: torch.nn.Module,
+    samples: Sequence[EventPolicySample],
+    *,
+    beta_kl: float = 0.0,
+    max_length: int = 8192,
+    microbatch_size: int = 1,
+    pad_token_id: int = 0,
+    retain_zero_advantage: bool = False,
+) -> tuple[torch.Tensor, dict[str, Any]]:
+    """RLOO REINFORCE over event spans with a non-negative sampled KL proxy."""
+
+    if beta_kl < 0:
+        raise ValueError("beta_kl must be non-negative")
+    terms: list[torch.Tensor] = []
+    policy_values: list[float] = []
+    kl_values: list[float] = []
+    rejected_terms = 0
+    if microbatch_size < 1:
+        raise ValueError("microbatch_size must be positive")
+    active = [
+        sample
+        for sample in samples
+        if retain_zero_advantage
+        or beta_kl > 0
+        or abs(float(sample.advantage)) >= 1e-12
+    ]
+    for start in range(0, len(active), microbatch_size):
+        batch = active[start : start + microbatch_size]
+        logps, _ = event_token_log_probs_batch(
+            model,
+            [sample.prompt_token_ids for sample in batch],
+            [sample.completion_token_ids for sample in batch],
+            max_length=max_length,
+            pad_token_id=pad_token_id,
+        )
+        for sample, logp in zip(batch, logps, strict=True):
+            policy_term = -float(sample.advantage) * logp
+            kl_proxy = torch.zeros_like(logp)
+            if sample.reference_logprob is not None:
+                # k3 estimator: exp(log q - log p) - (log q - log p) - 1.
+                # It is non-negative, zero at the frozen parent, and differentiable
+                # through the actor log probability.
+                log_ratio = float(sample.reference_logprob) - logp
+                kl_proxy = torch.exp(log_ratio) - log_ratio - 1.0
+            terms.append(policy_term + beta_kl * kl_proxy)
+            policy_values.append(float(policy_term.detach().cpu()))
+            kl_values.append(float(kl_proxy.detach().cpu()))
+            rejected_terms += int(sample.rejected)
+    if not terms:
+        zero = torch.tensor(0.0, device=_model_device(model), requires_grad=True)
+        return zero, {
+            "event_terms": 0,
+            "rejected_event_terms": 0,
+            "mean_policy_loss": 0.0,
+            "mean_kl": 0.0,
+        }
+    loss = torch.stack(terms).mean()
+    return loss, {
+        "event_terms": len(terms),
+        "rejected_event_terms": rejected_terms,
+        "mean_policy_loss": sum(policy_values) / len(policy_values),
+        "mean_kl": sum(kl_values) / len(kl_values),
+    }

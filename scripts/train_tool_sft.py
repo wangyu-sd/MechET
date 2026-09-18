@@ -160,6 +160,7 @@ def validate_conversation(
     row: dict[str, Any],
     *,
     require_trace_owned: bool,
+    require_tool_decision: bool = False,
     allow_upstream_endpoint_fallback: bool = False,
 ) -> dict[str, int]:
     identifier = str(row.get("id") or "")
@@ -223,6 +224,8 @@ def validate_conversation(
         if metadata.get("endpoint_source") != "upstream_frozen_endpoint_fallback":
             raise ValueError(f"endpoint fallback provenance is invalid: {identifier}")
         return {"tool_calls": 0, "tool_results": 0, "finish_trace": 0}
+    if require_trace_owned and require_tool_decision:
+        raise ValueError("conversation cannot be both trace-owned and a tool decision")
     if require_trace_owned:
         if finish_trace != 1:
             raise ValueError(
@@ -236,6 +239,15 @@ def validate_conversation(
             raise ValueError(f"trace-owned row was not executor replayed: {identifier}")
         if not metadata.get("trace_digest"):
             raise ValueError(f"trace-owned row lacks trace_digest: {identifier}")
+    elif require_tool_decision:
+        if calls != 1 or results != 1:
+            raise ValueError(
+                f"tool-decision row requires one paired call/result: {identifier}"
+            )
+        if finish_trace not in {0, 1}:
+            raise ValueError(f"invalid finish count in tool-decision row: {identifier}")
+        if metadata.get("decision_contract") != "markov_tool_decision_v1":
+            raise ValueError(f"invalid tool-decision metadata: {identifier}")
     elif calls or results:
         raise ValueError(f"direct condition contains tools: {identifier}")
     return {"tool_calls": calls, "tool_results": results, "finish_trace": finish_trace}
@@ -245,6 +257,7 @@ def validate_rows(
     rows: list[dict[str, Any]],
     *,
     require_trace_owned: bool,
+    require_tool_decision: bool = False,
     allow_upstream_endpoint_fallback: bool = False,
 ) -> dict[str, Any]:
     if not rows:
@@ -269,6 +282,7 @@ def validate_rows(
         counts = validate_conversation(
             row,
             require_trace_owned=require_trace_owned,
+            require_tool_decision=require_tool_decision,
             allow_upstream_endpoint_fallback=allow_upstream_endpoint_fallback,
         )
         upstream_endpoint_fallback_rows += int(
@@ -296,6 +310,7 @@ def validate_rows(
         "finish_trace_rows": finish_rows,
         "finish_trace_rate": finish_rows / denominator,
         "require_trace_owned": require_trace_owned,
+        "require_tool_decision": require_tool_decision,
         "conversation_schema_valid": True,
         "upstream_endpoint_fallback_rows": upstream_endpoint_fallback_rows,
     }
@@ -533,6 +548,7 @@ def main() -> int:
     contract = dict(cfg.get("contract") or {})
     artifact_status = enforce_artifact_status(train_file, contract)
     require_trace_owned = bool(contract.get("require_trace_owned", True))
+    require_tool_decision = bool(contract.get("require_tool_decision", False))
     expected_fallback_rows = int(
         contract.get("expected_upstream_endpoint_fallback_rows", 0) or 0
     )
@@ -572,6 +588,7 @@ def main() -> int:
         else validate_rows(
             rows,
             require_trace_owned=require_trace_owned,
+            require_tool_decision=require_tool_decision,
             allow_upstream_endpoint_fallback=expected_fallback_rows > 0,
         )
     )
@@ -582,6 +599,7 @@ def main() -> int:
             validate_rows(
                 validation_rows,
                 require_trace_owned=require_trace_owned,
+                require_tool_decision=require_tool_decision,
                 allow_upstream_endpoint_fallback=expected_fallback_rows > 0,
             )
             if validation_rows
@@ -647,6 +665,7 @@ def main() -> int:
         from datasets import Dataset, concatenate_datasets
         from peft import (
             LoraConfig,
+            PeftModel,
             get_peft_model,
             prepare_model_for_kbit_training,
         )
@@ -802,23 +821,39 @@ def main() -> int:
         model.config.use_cache = False
 
     lora = dict(cfg.get("lora") or {})
-    peft_config = LoraConfig(
-        r=int(lora.get("r", 16)),
-        lora_alpha=int(lora.get("alpha", 32)),
-        lora_dropout=float(lora.get("dropout", 0.05)),
-        target_modules=list(
-            lora.get("target_modules")
-            or ["q_proj", "k_proj", "v_proj", "o_proj"]
-        ),
-        task_type="CAUSAL_LM",
-    )
+    initial_adapter_value = str(cfg.get("initial_adapter_path") or "").strip()
+    initial_adapter = Path(initial_adapter_value) if initial_adapter_value else None
+    if initial_adapter is not None:
+        if not (initial_adapter / "adapter_config.json").is_file():
+            raise FileNotFoundError(
+                f"initial_adapter_path is not a PEFT adapter: {initial_adapter}"
+            )
+        report["initial_adapter_path"] = str(initial_adapter)
+        report["initial_adapter_model_sha256"] = file_sha256(
+            initial_adapter / "adapter_model.safetensors"
+        )
     if use_qlora:
         model = prepare_model_for_kbit_training(
             model,
             use_gradient_checkpointing=gradient_checkpointing,
             gradient_checkpointing_kwargs={"use_reentrant": False},
         )
-    model = get_peft_model(model, peft_config)
+    if initial_adapter is not None:
+        model = PeftModel.from_pretrained(
+            model, str(initial_adapter), is_trainable=True
+        )
+    else:
+        peft_config = LoraConfig(
+            r=int(lora.get("r", 16)),
+            lora_alpha=int(lora.get("alpha", 32)),
+            lora_dropout=float(lora.get("dropout", 0.05)),
+            target_modules=list(
+                lora.get("target_modules")
+                or ["q_proj", "k_proj", "v_proj", "o_proj"]
+            ),
+            task_type="CAUSAL_LM",
+        )
+        model = get_peft_model(model, peft_config)
     if gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()

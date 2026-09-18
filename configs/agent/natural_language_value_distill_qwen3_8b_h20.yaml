@@ -1,0 +1,72 @@
+condition_name: natural_language_value_search_distill_v2_qwen3_8b_h20
+scientific_hypothesis: endpoint_verified_search_successes_improve_closed_loop_electron_policy
+model_name_or_path: Qwen/Qwen3-8B
+initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913
+train_file: data/flower_natural_language_value_distill_v2/train.jsonl
+validation_file: data/flower_natural_language_value_distill_v2/valid.jsonl
+pretokenized_cache_dir: data/flower_natural_language_value_distill_v2/qwen3_8b_tokens_4096
+pretokenization_world_size: 8
+output_dir: outputs/agent/natural_language_value_distill_v2_qwen3_8b_h20_seed17_20260915
+limit_examples: 0
+
+training:
+  qlora: true
+  attention_implementation: sdpa
+  require_flash_sdp: true
+  bf16: true
+  fp16: false
+  tf32: true
+  learning_rate: 5.0e-6
+  num_train_epochs: 1.0
+  max_steps: -1
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 8
+  gradient_accumulation_steps: 1
+  eval_strategy: "no"
+  max_length: 4096
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  gradient_checkpointing: true
+  use_liger_kernel: true
+  liger_kernel_config:
+    rope: true
+    rms_norm: true
+    swiglu: true
+    cross_entropy: false
+    fused_linear_cross_entropy: true
+  torch_compile: false
+  dataloader_num_workers: 4
+  logging_steps: 5
+  save_steps: 250
+  save_total_limit: 2
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: b968826d9c46dd6066d109eabc6255188de91218
+
+contract:
+  paper_baseline_id: natural-language-value-search-distill-v2
+  paper_method_name: mechet_value_guided_search_distilled_v2
+  paper_run_role: bounded_value_policy_improvement
+  stable_id_manifest: data/flower_natural_language_value_distill_v1/manifest.json
+  validation_report: data/flower_natural_language_value_distill_v1/manifest.json
+  expected_train_rows: -1
+  expected_validation_rows: -1
+  expected_test_rows: -1
+  expected_upstream_endpoint_fallback_rows: 0
+  require_trace_owned: false
+  require_tool_decision: true
+  terminal_tool: finish_trace
+  free_form_proof_submission: false
+  corpus_used: false
+  source_dataset: flower_new_dataset_strict_proof_universe_v4
+  source_artifact: product_only_value_search_successes_v2
+  reaction_denominator:
+    train: 257167
+    valid: 2890
+    test: 28967
+  model_visible_atom_maps: false
+  model_predicts_state: false
+  electron_flow_model_generated: true

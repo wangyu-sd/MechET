@@ -442,3 +442,68 @@ def render_grounded_event_prompt(task: Mapping[str, Any]) -> tuple[str, str]:
         "Choose the best next event. Answer with one label only."
     )
     return system, user
+
+
+def reverse_event_moves(
+    moves: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Invert a coupled polar/radical event for forward plausibility scoring."""
+
+    reversed_moves: list[dict[str, Any]] = []
+    for value in reversed(list(moves)):
+        if value.get("mode") == "BE_DELTA":
+            raise ValueError("BE_DELTA_EVENT")
+        move = ElectronMove.parse(value)
+        source, sink = move.source, move.sink
+        if source.kind == "LP" and sink.kind == "BOND":
+            reverse_source = sink
+            reverse_sink = ElectronContainer("ATOM", source.atoms)
+        elif source.kind == "BOND" and sink.kind in {"ATOM", "LP"}:
+            reverse_source = ElectronContainer("LP", sink.atoms)
+            reverse_sink = source
+        elif source.kind == sink.kind == "BOND":
+            reverse_source, reverse_sink = sink, source
+        elif source.kind == "RADICAL_PAIR" and sink.kind == "BOND":
+            reverse_source, reverse_sink = sink, source
+        elif source.kind == "BOND" and sink.kind == "RADICAL_PAIR":
+            reverse_source, reverse_sink = sink, source
+        else:
+            raise ValueError(f"unsupported reversible move: {move.id}")
+        reversed_moves.append(
+            {
+                "source": _container_dict(reverse_source),
+                "sink": _container_dict(reverse_sink),
+                "electrons": 2,
+            }
+        )
+    return reversed_moves
+
+
+def render_forward_event_prompt(task: Mapping[str, Any]) -> tuple[str, str]:
+    """Render the same choices as forward reactions from candidate predecessors."""
+
+    system = (
+        "You are comparing formally reversible elementary reaction steps. "
+        "Each option starts from a candidate precursor-like state and its listed "
+        "forward electron-flow event returns to the same current state. Choose the "
+        "option whose forward chemistry is most plausible. Formal round-trip validity "
+        "alone does not make a reaction chemically likely. Return only the option label."
+    )
+    rendered = []
+    for item in task.get("options") or []:
+        successor = str(item.get("successor") or "")
+        reverse_moves = reverse_event_moves(item.get("moves") or [])
+        descriptor = event_descriptor(successor, reverse_moves)
+        rendered.append(
+            f"[{item['label']}]\n"
+            f"CANDIDATE STARTING STATE:\n{unmap_state(successor)}\n"
+            f"FORWARD ELECTRON FLOW:\n{descriptor}"
+        )
+    user = (
+        f"COMMON FORWARD PRODUCT STATE:\n{task.get('current_state') or ''}\n\n"
+        f"ORIGINAL RETROSYNTHESIS TARGET:\n{task.get('target_product') or ''}\n\n"
+        "FORMALLY REVERSIBLE OPTIONS:\n"
+        + "\n\n".join(rendered)
+        + "\n\nChoose the most plausible forward reaction. Answer with one label only."
+    )
+    return system, user
