@@ -1,8 +1,12 @@
 # RLVR for endpoint-valid inverse electron-flow reasoning
 
-> **Status: design discussion only.** This document does not authorize data
-> construction, optimization, evaluation submission, or a Taiji task. A parent
-> checkpoint and reward contract must be selected explicitly before any run.
+> **Status: design plus an explicitly authorized optimization diagnostic.** A
+> full strict-executable-pool run was launched from the in-place grounded-flow
+> SFT parent using the PR #55 reward contract. Its update-422 telemetry shows no
+> improvement and is recorded in
+> [`ENDPOINT_PROCESS_RLVR_FULL_STATUS_20260912.md`](ENDPOINT_PROCESS_RLVR_FULL_STATUS_20260912.md).
+> This does not convert the diagnostic into a held-out paper result or authorize
+> additional training/evaluation tasks.
 
 ## 1. Why reconsider RLVR
 
