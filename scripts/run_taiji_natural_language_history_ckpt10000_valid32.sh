@@ -68,6 +68,7 @@ common_args=(
   --max-imports 8
   --max-new-tokens 384
   --value-weight 0.20
+  --no-4bit
   --reject-target-retained-finish
 )
 

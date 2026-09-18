@@ -124,20 +124,21 @@ class Runtime:
         self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
-        base = AutoModelForCausalLM.from_pretrained(
-            args.model,
-            revision=MODEL_REVISION,
-            trust_remote_code=True,
-            torch_dtype=torch.bfloat16,
-            device_map={"": local_rank},
-            attn_implementation="sdpa",
-            quantization_config=BitsAndBytesConfig(
+        model_kwargs: dict[str, Any] = {
+            "revision": MODEL_REVISION,
+            "trust_remote_code": True,
+            "torch_dtype": torch.bfloat16,
+            "device_map": {"": local_rank},
+            "attn_implementation": "sdpa",
+        }
+        if not args.no_4bit:
+            model_kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_compute_dtype=torch.bfloat16,
-            ),
-        )
+            )
+        base = AutoModelForCausalLM.from_pretrained(args.model, **model_kwargs)
         self.model = PeftModel.from_pretrained(
             base, args.policy_adapter, adapter_name="policy", is_trainable=False
         )
@@ -589,6 +590,11 @@ def main() -> int:
     parser.add_argument("--max-imports", type=int, default=8)
     parser.add_argument("--max-new-tokens", type=int, default=384)
     parser.add_argument("--value-weight", type=float, default=0.20)
+    parser.add_argument(
+        "--no-4bit",
+        action="store_true",
+        help="load the base model in BF16 (for A100/H20 images without bitsandbytes)",
+    )
     parser.add_argument("--reject-target-retained-finish", action="store_true")
     parser.add_argument(
         "--compact-history",
