@@ -10,6 +10,16 @@ the builder, executor-owned successor states, legal repeated imports, and
 prompt parity is 22,341/22,341.  Existing v1 history training/smoke remains
 historical diagnostic evidence and must not be reported as v2.
 
+The incorrect running v1 history task has now been stopped.  Full remote v2
+conversion first found 15 train / 0 valid / 7 test Kekule-drift rows and
+correctly prevented training.  Commit `408e132` repairs the fallback delta and
+all 22 rows now replay exactly.  Replacement task
+`meteor_mechet_nl_protocol_v2_full_sft_2stage_8h20_zjk_20260918_02` (instance
+`8b1d8014a0af10a701a0b3501c720673`) is running on 8xH20.  It performs the full
+zero-unresolved data gate, then clean State-SFT from the pinned Qwen3-8B base,
+then compact-history Trajectory-SFT; submission/running state is not evidence
+that either training stage has started or completed.
+
 > This file is the short-lived execution authority for the current ICLR work.
 > `PROJECT_MEMORY.md` remains authoritative for historical dataset/model lineage.
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
