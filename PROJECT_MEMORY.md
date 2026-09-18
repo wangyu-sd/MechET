@@ -1,5 +1,18 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-09-18 natural-language protocol v2 implementation repair:** the
+> mechanism-first scheme is unchanged, but v1 is diagnostic because its
+> molecular inventory visibility was conditioned on the gold action type and
+> its builder/runtime used different private-map assignment after imports.  v2
+> uses one inventory-bearing prompt for import/event/finish, mirrors runtime
+> remapping in the builder, advances only with executor outputs, allows repeated
+> imports, and uses 40 decision / 32 import defaults.  The repaired full valid
+> protocol achieved byte-exact prompt parity and executable gold replay for
+> 2,890/2,890 reactions (22,341/22,341 decisions).  Primary endpoint scoring is
+> structural exact; full-mixture exact is secondary.  See
+> `docs/NATURAL_LANGUAGE_PROTOCOL_V2.md`.  Do not treat the running v1 history
+> checkpoint or its dual-prompt smoke as the repaired v2 result.
+
 > **2026-09-16 productive full anchor-branch run:** the endpoint-shaped smoke
 > ended successfully but did not improve its fixed 16-reaction validation set:
 > execution stayed 24/32 and exact endpoint stayed 0/32.  Inspection showed

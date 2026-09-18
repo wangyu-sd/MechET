@@ -5,6 +5,19 @@ conda activate meteor
 code_dir=/aaa/fionafyang/buddy1/whaleywang/MechET-nl-anchor-branch-rl-20260916
 artifact_root=/aaa/fionafyang/buddy1/whaleywang/MechET
 cd "$code_dir"
+if [[ -n "${MECHET_EXPECTED_CODE_COMMIT:-}" ]]; then
+  actual_commit=$(git rev-parse HEAD)
+  if ! git cat-file -e "$MECHET_EXPECTED_CODE_COMMIT^{commit}" 2>/dev/null; then
+    echo "[meteor] expected code commit is unavailable: $MECHET_EXPECTED_CODE_COMMIT" >&2
+    exit 2
+  fi
+  if ! git diff --quiet "$MECHET_EXPECTED_CODE_COMMIT" "$actual_commit" -- \
+    scripts src configs/agent; then
+    echo "[meteor] algorithm files differ from pinned commit: $MECHET_EXPECTED_CODE_COMMIT" >&2
+    exit 2
+  fi
+  echo "[meteor] code_commit=$actual_commit pinned_algorithm_commit=$MECHET_EXPECTED_CODE_COMMIT"
+fi
 export HF_HUB_CACHE=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONUNBUFFERED=1 TOKENIZERS_PARALLELISM=false
 export PYTHONPATH="$code_dir/src:$code_dir/scripts${PYTHONPATH:+:$PYTHONPATH}"

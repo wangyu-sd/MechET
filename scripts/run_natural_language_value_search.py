@@ -16,21 +16,29 @@ import os
 from pathlib import Path
 import sys
 import time
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from mechet.assistant_masking import render_chat
+from mechet.endpoints import (
+    reference_structural_precursor,
+    split_precursor_endpoints,
+    structural_exact,
+)
 from mechet.forward_expert import verify_electron_step
 from mechet.in_place_grounded_flow import (
+    append_mapped_fragments_verbatim,
     deterministic_unmapped_state,
     map_unmapped_fragment,
     mapped_atom_numbers,
-    merge_mapped_fragments,
 )
 from mechet.natural_language_electron_flow import compile_event_arguments
+from mechet.natural_language_anchor_branch_rl import contains_unchanged_target
+from mechet.successor_value import SUCCESSOR_VALUE_SYSTEM, successor_value_prompt
+from mechet.trajectory_history import TrajectoryHistory
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS, _decision_row, _prompt
 from scripts.build_natural_language_state_value import VALUE_SYSTEM, value_prompt
 from scripts.eval_natural_language_event_local import MODEL_REVISION, prediction_call
@@ -114,6 +122,7 @@ class Runtime:
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
         self.torch = torch
+        self.args = args
         torch.cuda.set_device(local_rank)
         self.tokenizer = AutoTokenizer.from_pretrained(
             args.model, revision=MODEL_REVISION, trust_remote_code=True
@@ -121,57 +130,69 @@ class Runtime:
         self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
-        base = AutoModelForCausalLM.from_pretrained(
-            args.model,
-            revision=MODEL_REVISION,
-            trust_remote_code=True,
-            torch_dtype=torch.bfloat16,
-            device_map={"": local_rank},
-            attn_implementation="sdpa",
-            quantization_config=BitsAndBytesConfig(
+        model_kwargs: dict[str, Any] = {
+            "revision": MODEL_REVISION,
+            "trust_remote_code": True,
+            "torch_dtype": torch.bfloat16,
+            "device_map": {"": local_rank},
+            "attn_implementation": "sdpa",
+        }
+        if not args.no_4bit:
+            model_kwargs["quantization_config"] = BitsAndBytesConfig(
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_compute_dtype=torch.bfloat16,
-            ),
-        )
+            )
+        base = AutoModelForCausalLM.from_pretrained(args.model, **model_kwargs)
         self.model = PeftModel.from_pretrained(
             base, args.policy_adapter, adapter_name="policy", is_trainable=False
         )
         self.model.load_adapter(args.value_adapter, adapter_name="value", is_trainable=False)
         self.model.eval()
         self.device = next(self.model.parameters()).device
+        self.value_kind = str(args.value_kind)
+        labels = "PN" if self.value_kind == "successor_pn" else "ABC"
         self.label_ids = {
             label: self.tokenizer(label, add_special_tokens=False)["input_ids"]
-            for label in "ABC"
+            for label in labels
         }
         if any(len(ids) != 1 for ids in self.label_ids.values()):
             raise RuntimeError(f"value labels must each be one token: {self.label_ids}")
 
     def proposals(
-        self, target: str, state: str, *, candidates: int, max_new_tokens: int
+        self,
+        node: Node,
+        *,
+        candidates: int,
+        max_new_tokens: int,
+        compact_history: bool = False,
     ) -> list[Action]:
         torch = self.torch
         self.model.set_adapter("policy")
+        target = node.target
+        state = node.state
+        inventory_modes = [False, True] if self.args.legacy_dual_prompt else [True]
         prompts = [
             render_chat(
                 self.tokenizer,
                 [
                     {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": _prompt(target, state, include_inventory=False)},
+                    {
+                        "role": "user",
+                        "content": policy_prompt(
+                            target,
+                            state,
+                            include_inventory=include_inventory,
+                            actions=node.actions,
+                            compact_history=compact_history,
+                        ),
+                    },
                 ],
                 tools=TOOLS,
                 add_generation_prompt=True,
-            ),
-            render_chat(
-                self.tokenizer,
-                [
-                    {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": _prompt(target, state, include_inventory=True)},
-                ],
-                tools=TOOLS,
-                add_generation_prompt=True,
-            ),
+            )
+            for include_inventory in inventory_modes
         ]
         encoded = self.tokenizer(
             prompts, return_tensors="pt", padding=True, add_special_tokens=False
@@ -205,10 +226,13 @@ class Runtime:
             raw = self.tokenizer.decode(ids, skip_special_tokens=False)
             name, arguments, error = prediction_call(raw, self.tokenizer)
             prompt_kind = index // candidates
-            if error or (prompt_kind == 0 and name not in {"import_fragments", "finish_trace"}):
+            if error:
                 continue
-            if prompt_kind == 1 and name != "apply_electron_flow":
-                continue
+            if self.args.legacy_dual_prompt:
+                if prompt_kind == 0 and name not in {"import_fragments", "finish_trace"}:
+                    continue
+                if prompt_kind == 1 and name != "apply_electron_flow":
+                    continue
             signature = json.dumps([name, arguments], sort_keys=True, ensure_ascii=False)
             if signature in seen:
                 continue
@@ -226,25 +250,57 @@ class Runtime:
         return actions
 
     def values(
-        self, target: str, states: list[str], *, terminal: bool = False, batch_size: int = 16
+        self,
+        target: str,
+        states: list[str],
+        *,
+        current_states: list[str] | None = None,
+        terminal: bool = False,
+        batch_size: int = 16,
     ) -> list[float]:
         torch = self.torch
         self.model.set_adapter("value")
         output_values: list[float] = []
-        label_tokens = [self.label_ids[label][0] for label in "ABC"]
+        labels = "PN" if self.value_kind == "successor_pn" else "ABC"
+        label_tokens = [self.label_ids[label][0] for label in labels]
+        if self.value_kind == "successor_pn" and (
+            current_states is None or len(current_states) != len(states)
+        ):
+            raise ValueError("successor critic requires one parent state per successor")
         for start in range(0, len(states), batch_size):
-            prompts = [
-                render_chat(
-                    self.tokenizer,
-                    [
-                        {"role": "system", "content": VALUE_SYSTEM},
-                        {"role": "user", "content": value_prompt(target, state)},
-                    ],
-                    tools=[],
-                    add_generation_prompt=True,
-                )
-                for state in states[start : start + batch_size]
-            ]
+            batch_states = states[start : start + batch_size]
+            if self.value_kind == "successor_pn":
+                batch_parents = current_states[start : start + batch_size]
+                prompts = [
+                    render_chat(
+                        self.tokenizer,
+                        [
+                            {"role": "system", "content": SUCCESSOR_VALUE_SYSTEM},
+                            {
+                                "role": "user",
+                                "content": successor_value_prompt(
+                                    target, parent, state, terminal=terminal
+                                ),
+                            },
+                        ],
+                        tools=[],
+                        add_generation_prompt=True,
+                    )
+                    for parent, state in zip(batch_parents, batch_states, strict=True)
+                ]
+            else:
+                prompts = [
+                    render_chat(
+                        self.tokenizer,
+                        [
+                            {"role": "system", "content": VALUE_SYSTEM},
+                            {"role": "user", "content": value_prompt(target, state)},
+                        ],
+                        tools=[],
+                        add_generation_prompt=True,
+                    )
+                    for state in batch_states
+                ]
             encoded = self.tokenizer(
                 prompts, return_tensors="pt", padding=True, add_special_tokens=False
             )
@@ -252,16 +308,29 @@ class Runtime:
             with torch.inference_mode():
                 logits = self.model(**encoded).logits[:, -1, label_tokens].float()
                 logp = torch.log_softmax(logits, dim=-1)
-                useful = (
-                    logp[:, 1] - torch.logsumexp(logp[:, [0, 2]], dim=-1)
-                    if terminal
-                    else torch.logsumexp(logp[:, :2], dim=-1) - logp[:, 2]
-                )
+                if self.value_kind == "successor_pn":
+                    useful = logp[:, 0] - logp[:, 1]
+                else:
+                    useful = (
+                        logp[:, 1] - torch.logsumexp(logp[:, [0, 2]], dim=-1)
+                        if terminal
+                        else torch.logsumexp(logp[:, :2], dim=-1) - logp[:, 2]
+                    )
             output_values.extend(float(value) for value in useful.cpu().tolist())
+        if len(output_values) != len(states):
+            raise RuntimeError(
+                f"value/state cardinality mismatch: {len(output_values)} != {len(states)}"
+            )
         return output_values
 
 
-def execute(node: Node, action: Action, *, max_imports: int) -> tuple[Node | None, str]:
+def execute(
+    node: Node,
+    action: Action,
+    *,
+    max_imports: int,
+    reject_target_retained_finish: bool = False,
+) -> tuple[Node | None, str]:
     state_before = node.state
     state = node.state
     next_map = node.next_map
@@ -283,16 +352,17 @@ def execute(node: Node, action: Action, *, max_imports: int) -> tuple[Node | Non
                 expanded.extend([normal_smiles(str(item.get("smiles") or ""))] * count)
             if sum(imported.values()) + len(expanded) > max_imports:
                 raise ValueError("IMPORT_BUDGET_EXCEEDED")
-            repeated = sorted({fragment for fragment in expanded if imported.get(fragment, 0)})
-            if repeated:
-                raise ValueError(f"REPEATED_IMPORT:{repeated}")
             mapped: list[str] = []
             for fragment in expanded:
                 # Repeated stoichiometric imports are allowed only when explicitly counted.
                 mapped_fragment, next_map = map_unmapped_fragment(fragment, first_map=next_map)
                 mapped.append(mapped_fragment)
                 imported[fragment] = imported.get(fragment, 0) + 1
-            state = merge_mapped_fragments(state, mapped)
+            # Preserve the executor's exact Kekule representation.  A mapped
+            # canonical round-trip can re-aromatize a symmetric component;
+            # the next verify_electron_step then chooses a different Kekule
+            # form and applies an otherwise identical arrow to the wrong bond.
+            state = append_mapped_fragments_verbatim(state, mapped)
             result = {"ok": True, "code": "PASS", "current_state": visible(state)}
         elif action.name == "apply_electron_flow":
             moves = compile_event_arguments(state, action.arguments)
@@ -306,6 +376,15 @@ def execute(node: Node, action: Action, *, max_imports: int) -> tuple[Node | Non
         elif action.name == "finish_trace":
             if action.arguments:
                 raise ValueError("FINISH_ARGUMENTS_NOT_EMPTY")
+            transformed = any(
+                record.get("name") == "apply_electron_flow" for record in node.actions
+            )
+            if (
+                reject_target_retained_finish
+                and not transformed
+                and contains_unchanged_target(state, node.target)
+            ):
+                raise ValueError("TARGET_RETAINED_NO_TRANSFORM")
             terminal = True
             result = {"ok": True, "code": "PASS", "derived_precursor": visible(state)}
         else:
@@ -331,10 +410,55 @@ def execute(node: Node, action: Action, *, max_imports: int) -> tuple[Node | Non
     ), ""
 
 
+PROMPT_SUFFIX = "\nChoose the single next retrosynthetic action."
+
+
+def compact_history_from_actions(
+    actions: Sequence[Mapping[str, Any]],
+) -> TrajectoryHistory:
+    """Reconstruct exactly the Stage-II capsule from accepted runtime actions."""
+
+    history = TrajectoryHistory()
+    for record in actions:
+        history = history.accept(
+            str(record["name"]),
+            dict(record["arguments"]),
+            dict(record["result"]),
+        )
+    return history
+
+
+def policy_prompt(
+    target: str,
+    state: str,
+    *,
+    include_inventory: bool,
+    actions: Sequence[Mapping[str, Any]],
+    compact_history: bool,
+) -> str:
+    """Render either the Stage-I or Stage-II policy observation contract."""
+
+    prompt = _prompt(target, state, include_inventory=include_inventory)
+    if not compact_history:
+        return prompt
+    if not prompt.endswith(PROMPT_SUFFIX):
+        raise ValueError("natural-language policy prompt suffix changed")
+    return (
+        prompt[: -len(PROMPT_SUFFIX)]
+        + "\n\n"
+        + compact_history_from_actions(actions).render()
+        + PROMPT_SUFFIX
+    )
+
+
 def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     target_mapped = str(row["target_smiles"])
     target = visible(target_mapped)
-    expected = visible(str(row.get("full_precursor_state") or row["expected_precursor"]))
+    expected_full_mapped = str(
+        row.get("full_precursor_state") or row["expected_precursor"]
+    )
+    expected_full = visible(expected_full_mapped)
+    expected_structural = reference_structural_precursor(dict(row))
     root = Node(
         target=target,
         state=target_mapped,
@@ -349,9 +473,17 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         new_terminals: list[Node] = []
         for node in beam:
             for action in runtime.proposals(
-                target, node.state, candidates=args.branching, max_new_tokens=args.max_new_tokens
+                node,
+                candidates=args.branching,
+                max_new_tokens=args.max_new_tokens,
+                compact_history=args.compact_history,
             ):
-                child, error = execute(node, action, max_imports=args.max_imports)
+                child, error = execute(
+                    node,
+                    action,
+                    max_imports=args.max_imports,
+                    reject_target_retained_finish=args.reject_target_retained_finish,
+                )
                 if child is None:
                     rejected[error] = rejected.get(error, 0) + 1
                 elif child.terminal:
@@ -360,7 +492,10 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
                     children.append(child)
         if new_terminals:
             terminal_values = runtime.values(
-                target, [child.state for child in new_terminals], terminal=True
+                target,
+                [child.state for child in new_terminals],
+                current_states=[child.actions[-1]["state_before"] for child in new_terminals],
+                terminal=True,
             )
             for child, value in zip(new_terminals, terminal_values, strict=True):
                 child.value = value
@@ -375,7 +510,11 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
             if incumbent is None or child.policy_score > incumbent.policy_score:
                 unique[key] = child
         children = list(unique.values())
-        values = runtime.values(target, [child.state for child in children])
+        values = runtime.values(
+            target,
+            [child.state for child in children],
+            current_states=[child.actions[-1]["state_before"] for child in children],
+        )
         for child, value in zip(children, values, strict=True):
             child.value = value
         width = args.early_beam if depth < args.early_depth else args.late_beam
@@ -386,17 +525,33 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         )[:width]
     terminals.sort(key=lambda node: node.score(args.value_weight), reverse=True)
     top = terminals[0] if terminals else (beam[0] if beam else root)
-    any_exact = any(visible(node.state) == expected for node in terminals)
-    top_exact = bool(top.terminal and visible(top.state) == expected)
-    successful = next((node for node in terminals if visible(node.state) == expected), None)
+    def is_structural_match(node: Node) -> bool:
+        if not node.terminal:
+            return False
+        predicted = split_precursor_endpoints(node.state, target_mapped).structural
+        return structural_exact(predicted, expected_structural)
+
+    any_exact = any(is_structural_match(node) for node in terminals)
+    top_exact = is_structural_match(top)
+    top_full_exact = bool(top.terminal and visible(top.state) == expected_full)
+    successful = next((node for node in terminals if is_structural_match(node)), None)
+    top_structural = (
+        visible(split_precursor_endpoints(top.state, target_mapped).structural)
+        if top.terminal
+        else ""
+    )
     return {
         "id": str(row["id"]),
         "source_id": str(row["source_id"]),
         "target": target,
-        "expected_precursor": expected,
+        "expected_precursor": expected_full,
+        "expected_structural_precursor": visible(expected_structural),
         "top_precursor": visible(top.state),
+        "top_structural_precursor": top_structural,
         "top_terminal": top.terminal,
         "top1_exact": top_exact,
+        "top1_structural_exact": top_exact,
+        "top1_full_exact": top_full_exact,
         "pass_at_beam": any_exact,
         "n_terminals": len(terminals),
         "top_policy_score": top.policy_score,
@@ -441,16 +596,48 @@ def main() -> int:
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--policy-adapter", required=True)
     parser.add_argument("--value-adapter", required=True)
+    parser.add_argument(
+        "--value-kind", choices=["state_abc", "successor_pn"], default="state_abc"
+    )
     parser.add_argument("--sample-reactions", type=int, default=128)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--branching", type=int, default=4)
     parser.add_argument("--early-beam", type=int, default=4)
     parser.add_argument("--late-beam", type=int, default=2)
     parser.add_argument("--early-depth", type=int, default=2)
-    parser.add_argument("--max-decisions", type=int, default=10)
-    parser.add_argument("--max-imports", type=int, default=8)
+    parser.add_argument(
+        "--max-decisions",
+        type=int,
+        default=40,
+        help="maximum accepted tool decisions; covers the frozen SFT contract",
+    )
+    parser.add_argument(
+        "--max-imports",
+        type=int,
+        default=32,
+        help="maximum imported fragment copies; frozen SFT maximum is 24",
+    )
     parser.add_argument("--max-new-tokens", type=int, default=384)
     parser.add_argument("--value-weight", type=float, default=0.20)
+    parser.add_argument(
+        "--no-4bit",
+        action="store_true",
+        help="load the base model in BF16 (for A100/H20 images without bitsandbytes)",
+    )
+    parser.add_argument("--reject-target-retained-finish", action="store_true")
+    parser.add_argument(
+        "--legacy-dual-prompt",
+        action="store_true",
+        help=(
+            "reproduce the historical action-conditioned two-prompt evaluator; "
+            "new unified-observation checkpoints must not use this"
+        ),
+    )
+    parser.add_argument(
+        "--compact-history",
+        action="store_true",
+        help="append executor-reconstructible accepted-action history to policy prompts",
+    )
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
     rank = int(os.environ.get("RANK", "0"))

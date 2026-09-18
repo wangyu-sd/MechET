@@ -1,11 +1,43 @@
 # Active ICLR status
 
+## 2026-09-18: natural-language protocol v2 repair
+
+Keep the agreed mechanism-first method.  The current implementation authority
+is `docs/NATURAL_LANGUAGE_PROTOCOL_V2.md`: one identical inventory-bearing
+observation for all three tool choices, inference-time private-map mirroring in
+the builder, executor-owned successor states, legal repeated imports, and
+40-decision/32-import coverage.  Full validation gold replay is 2,890/2,890 and
+prompt parity is 22,341/22,341.  Existing v1 history training/smoke remains
+historical diagnostic evidence and must not be reported as v2.
+
 > This file is the short-lived execution authority for the current ICLR work.
 > `PROJECT_MEMORY.md` remains authoritative for historical dataset/model lineage.
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
 Last updated: 2026-09-17.
+
+## Current three-stage method decision
+
+The active algorithm is now described as:
+
+1. **State-SFT** for executable local inverse transitions;
+2. **compressed-history Trajectory-SFT** for causal trajectory-prefix
+   conditioning without repeated full-state transcripts;
+3. **Execution-Anchored Receding-Horizon Optimization (EARHO)** for adaptive
+   frontier-local policy improvement under real executor transitions.
+
+EARHO replaces the informal label “hard-case RL.”  It identifies the first
+recoverable divergence frontier, pools alternative actions by executed chemical
+successor, assigns no positive advantage to all-negative groups, uses verified
+transition replay when policy support is absent, and expands the optimization
+horizon only as competence advances.  Reference successors and endpoints are
+training-private and never enter product-only inference prompts.
+
+The full algorithm contract and evidence gates are in
+`docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md`.  Historical
+`anchor_branch` and `successor_horizon` identifiers remain unchanged for run
+lineage.
 
 ## Natural-language anchor-branch post-training (v4 correction gate)
 

@@ -5,6 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from eval_natural_language_event_local import score_prediction
 from mechet.natural_language_electron_flow import render_event_arguments
+from scripts.build_natural_language_event_sft import _decision_row
 
 
 def test_event_prediction_compiles_executes_and_matches_successor() -> None:
@@ -113,3 +114,37 @@ def test_finish_requires_the_finish_tool_and_empty_arguments() -> None:
     assert not score_prediction(
         task, predicted_name="import_fragments", predicted_arguments={}
     )["finish_exact"]
+
+
+def test_every_action_type_uses_the_same_inventory_observation() -> None:
+    source = {
+        "source_id": "train_1",
+        "target_smiles": "C",
+        "expected_precursor": "C.O",
+        "metadata": {},
+    }
+    for name, arguments in (
+        (
+            "import_fragments",
+            {
+                "fragments": [
+                    {"smiles": "O", "count": 1, "purpose": "electron_participant"}
+                ]
+            },
+        ),
+        ("apply_electron_flow", {"direction": "retrosynthetic"}),
+        ("finish_trace", {}),
+    ):
+        row = _decision_row(
+            row=source,
+            sequence_index=0,
+            decision_type=name,
+            mapped_state="[CH4:1]",
+            name=name,
+            arguments=arguments,
+            result={"ok": True, "code": "PASS"},
+        )
+        prompt = row["messages"][1]["content"]
+        assert "MOLECULAR INVENTORY" in prompt
+        assert "ANNOTATED CURRENT STATE" in prompt
+        assert row["metadata"]["decision_contract"] == "unified_inventory_tool_decision_v2"

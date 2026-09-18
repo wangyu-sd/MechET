@@ -14,10 +14,13 @@ import json
 import multiprocessing as mp
 import os
 from pathlib import Path
+import re
 import signal
 import sys
 import time
 from typing import Any, Mapping, Sequence
+
+from rdkit import Chem
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -27,6 +30,7 @@ from mechet.in_place_grounded_flow import (
     append_mapped_fragments_verbatim,
     deterministic_unmapped_state,
     extract_import_fragments,
+    map_unmapped_fragment,
     mapped_atom_numbers,
     mapped_state_signature,
     retain_mapped_components,
@@ -40,7 +44,8 @@ from mechet.natural_language_electron_flow import (
 from mechet.forward_expert import verify_electron_step
 
 
-VERSION = "natural_language_electron_event_v1"
+VERSION = "natural_language_electron_event_v2"
+DECISION_CONTRACT = "unified_inventory_tool_decision_v2"
 EXPECTED_REACTIONS = {"train": 257167, "valid": 2890, "test": 28967}
 SYSTEM = (
     "You are MechET, performing RETROSYNTHETIC electron-flow reasoning from the "
@@ -166,6 +171,92 @@ def _visible(mapped_state: str) -> str:
     return deterministic_unmapped_state(mapped_state).text
 
 
+_ATOM_MAP_RE = re.compile(r":(\d+)\]")
+
+
+def _translate_mapped_smiles(smiles: str, translation: Mapping[int, int]) -> str:
+    """Relabel maps without changing the authoritative bond serialization."""
+
+    def replace(match: re.Match[str]) -> str:
+        old = int(match.group(1))
+        if old not in translation:
+            raise ValueError(f"missing runtime map translation for {old}")
+        return f":{translation[old]}]"
+
+    return _ATOM_MAP_RE.sub(replace, str(smiles))
+
+
+def _translate_moves(
+    moves: Sequence[Mapping[str, Any]], translation: Mapping[int, int]
+) -> list[dict[str, Any]]:
+    output = json.loads(json.dumps(list(moves)))
+    for move in output:
+        if move.get("mode") == "BE_DELTA":
+            for item in move.get("bond_deltas") or []:
+                item["atoms"] = [translation[int(value)] for value in item["atoms"]]
+            for item in move.get("charge_actions") or []:
+                item["atom_map"] = translation[int(item["atom_map"])]
+        else:
+            for side in ("source", "sink"):
+                move[side]["atoms"] = [
+                    translation[int(value)] for value in move[side]["atoms"]
+                ]
+    return output
+
+
+def _raw_graph_delta(source: str, destination: str) -> dict[str, Any]:
+    """Encode a representation repair only when the normal arrow replay drifts."""
+
+    def graph(smiles: str) -> tuple[dict[tuple[int, int], int], dict[int, int]]:
+        params = Chem.SmilesParserParams()
+        params.removeHs = False
+        mol = Chem.MolFromSmiles(smiles, params)
+        if mol is None:
+            raise ValueError("cannot derive graph delta from invalid state")
+        bonds = {
+            tuple(
+                sorted(
+                    (
+                        int(bond.GetBeginAtom().GetAtomMapNum()),
+                        int(bond.GetEndAtom().GetAtomMapNum()),
+                    )
+                )
+            ): int(round(bond.GetBondTypeAsDouble()))
+            for bond in mol.GetBonds()
+        }
+        charges = {
+            int(atom.GetAtomMapNum()): int(atom.GetFormalCharge())
+            for atom in mol.GetAtoms()
+        }
+        return bonds, charges
+
+    source_bonds, source_charges = graph(source)
+    destination_bonds, destination_charges = graph(destination)
+    if set(source_charges) != set(destination_charges):
+        raise ValueError("graph delta atom sets differ")
+    bond_deltas = [
+        {"atoms": list(pair), "delta": destination_bonds.get(pair, 0) - source_bonds.get(pair, 0)}
+        for pair in sorted(set(source_bonds) | set(destination_bonds))
+        if destination_bonds.get(pair, 0) != source_bonds.get(pair, 0)
+    ]
+    charge_actions = [
+        {
+            "atom_map": atom_map,
+            "q0": source_charges[atom_map],
+            "q1": destination_charges[atom_map],
+        }
+        for atom_map in sorted(source_charges)
+        if source_charges[atom_map] != destination_charges[atom_map]
+    ]
+    if not bond_deltas and not charge_actions:
+        raise ValueError("graph delta is empty")
+    return {
+        "mode": "BE_DELTA",
+        "bond_deltas": bond_deltas,
+        "charge_actions": charge_actions,
+    }
+
+
 def _prompt(target: str, mapped_state: str, *, include_inventory: bool) -> str:
     inventory = build_inventory(mapped_state)
     prefix = (
@@ -203,7 +294,11 @@ def _decision_row(
                 "content": _prompt(
                     str(row["target_smiles"]),
                     mapped_state,
-                    include_inventory=name == "apply_electron_flow",
+                    # Every action is predicted from one identical observation
+                    # contract.  Conditioning inventory visibility on the gold
+                    # action type leaks the teacher-forced tool class and makes
+                    # import/event/finish likelihoods incomparable at inference.
+                    include_inventory=True,
                 ),
             },
             {"role": "assistant", "content": "", "tool_calls": [_call(name, arguments, call_id)]},
@@ -217,7 +312,7 @@ def _decision_row(
         "tools": TOOLS,
         "metadata": {
             "representation": VERSION,
-            "decision_contract": "markov_tool_decision_v1",
+            "decision_contract": DECISION_CONTRACT,
             "reaction_id": reaction_id,
             "decision_index": sequence_index,
             "decision_type": decision_type,
@@ -275,8 +370,13 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     scheduled = schedule_imports(fragments, steps)
     target_maps = mapped_atom_numbers(target)
     present_maps = set(target_maps)
-    current = retain_mapped_components(str(steps[0]["state_before"]), present_maps)
-    target_visible = _visible(current)
+    translation = {value: value for value in target_maps}
+    next_private_map = max(target_maps, default=0) + 1
+    # Start from the actual benchmark product representation.  Earlier builds
+    # substituted the hidden authoritative step-0 state, whose Kekule form can
+    # differ from the product available to a real product-only runtime.
+    current = target
+    target_visible = _visible(target)
     public_row = dict(
         row,
         target_smiles=target_visible,
@@ -285,19 +385,39 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     sequence = 0
     events = 0
-    for event_index, (step, mapped_imports) in enumerate(zip(steps, scheduled)):
-        authoritative_prefix = retain_mapped_components(
-            str(step.get("state_before") or ""), present_maps
-        )
-        if mapped_state_signature(current) != mapped_state_signature(authoritative_prefix):
-            raise ValueError(f"authoritative prefix changed at event {event_index}")
-        moves = [dict(value) for value in step.get("moves") or []]
-        visible_imports = [_visible(fragment) for fragment in mapped_imports]
-        event_state = append_mapped_fragments_verbatim(current, mapped_imports)
-        if mapped_imports:
-            for fragment in mapped_imports:
-                present_maps.update(mapped_atom_numbers(fragment))
-            import_arguments = _import_arguments(mapped_imports, visible_imports, moves)
+    for step, source_imports in zip(steps, scheduled):
+        # The v2 trajectory is executor-owned from the public product onward.
+        # Do not replace it with the hidden authoritative prefix between
+        # decisions; doing so makes teacher-forced states unreachable online.
+        source_moves = [dict(value) for value in step.get("moves") or []]
+        visible_imports = [_visible(fragment) for fragment in source_imports]
+        runtime_imports: list[str] = []
+        for source_fragment, visible_fragment in zip(
+            source_imports, visible_imports, strict=True
+        ):
+            runtime_fragment, next_private_map = map_unmapped_fragment(
+                visible_fragment, first_map=next_private_map
+            )
+            source_serialization = deterministic_unmapped_state(source_fragment)
+            runtime_serialization = deterministic_unmapped_state(runtime_fragment)
+            if source_serialization.text != runtime_serialization.text:
+                raise ValueError("runtime import changed visible fragment")
+            for source_map, runtime_map in zip(
+                source_serialization.atom_maps,
+                runtime_serialization.atom_maps,
+                strict=True,
+            ):
+                if source_map in translation and translation[source_map] != runtime_map:
+                    raise ValueError("inconsistent source-to-runtime atom map")
+                translation[source_map] = runtime_map
+            runtime_imports.append(runtime_fragment)
+            present_maps.update(mapped_atom_numbers(source_fragment))
+        moves = _translate_moves(source_moves, translation)
+        event_state = append_mapped_fragments_verbatim(current, runtime_imports)
+        if runtime_imports:
+            import_arguments = _import_arguments(
+                runtime_imports, visible_imports, moves
+            )
             output.append(
                 _decision_row(
                     row=public_row,
@@ -310,12 +430,33 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
                         "ok": True,
                         "code": "PASS",
                         "current_state": _visible(event_state),
-                        "imported_fragments": len(mapped_imports),
+                        "imported_fragments": len(runtime_imports),
                     },
                 )
             )
             sequence += 1
 
+        authoritative_successor = _translate_mapped_smiles(
+            retain_mapped_components(str(step.get("state_after") or ""), present_maps),
+            translation,
+        )
+        replay = verify_electron_step(event_state, moves)
+        if not replay.get("ok") or mapped_state_signature(
+            str(replay.get("state_smiles") or "")
+        ) != mapped_state_signature(authoritative_successor):
+            try:
+                repair = _raw_graph_delta(event_state, authoritative_successor)
+                repaired = verify_electron_step(event_state, [repair])
+                if repaired.get("ok") and mapped_state_signature(
+                    str(repaired["state_smiles"])
+                ) == mapped_state_signature(authoritative_successor):
+                    moves = [repair]
+                    replay = repaired
+            except Exception:
+                # Some aromatic deltas are representation-equivalent but not
+                # directly executable from this Kekule choice.  Keep the
+                # ordinary electron replay and let the next event continue.
+                pass
         arguments = render_event_arguments(event_state, moves)
         compiled = compile_event_arguments(event_state, arguments)
         if canonical_event(compiled) != canonical_event(moves):
@@ -325,11 +466,7 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             raise ValueError(
                 f"natural-language replay failed at {events}: {replay.get('code')}"
             )
-        successor = retain_mapped_components(
-            str(step.get("state_after") or replay["state_smiles"]), present_maps
-        )
-        if mapped_state_signature(str(replay["state_smiles"])) != mapped_state_signature(successor):
-            raise ValueError(f"successor state changed at event {events}")
+        successor = str(replay["state_smiles"])
         output.append(
             _decision_row(
                 row=public_row,
@@ -351,7 +488,8 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
 
     if events != len(steps):
         raise ValueError("event-decision coverage mismatch")
-    if mapped_state_signature(current) != mapped_state_signature(expected):
+    runtime_expected = _translate_mapped_smiles(expected, translation)
+    if mapped_state_signature(current) != mapped_state_signature(runtime_expected):
         raise ValueError("natural-language trace endpoint changed")
     output.append(
         _decision_row(
@@ -552,8 +690,8 @@ def main() -> int:
         "decision_rows": {key: value["decision_rows"] for key, value in reports.items()},
         "splits": reports,
         "split_reaction_id_overlap": overlap,
-        "observation_contract": "target_current_state_plus_natural_inventory_v1",
-        "decision_contract": "markov_tool_decision_v1",
+        "observation_contract": "target_current_state_plus_natural_inventory_v2_unified",
+        "decision_contract": DECISION_CONTRACT,
         "import_policy": "first_electron_use_with_explicit_final_spectators",
         "model_visible_atom_maps": False,
         "model_predicts_state": False,

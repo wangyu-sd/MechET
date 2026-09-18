@@ -89,6 +89,12 @@ def validate_contract(cfg: dict) -> None:
         value_manifest = json.loads(Path(cfg["value_adapter_manifest"]).read_text())
         if value_manifest.get("base_model_revision") != cfg["model_revision"]:
             raise ValueError("state-value adapter base revision mismatch")
+        value_kind = str(cfg.get("value_kind") or "state_abc")
+        condition = str(value_manifest.get("condition_name") or "")
+        if value_kind == "state_abc" and "state_value" not in condition:
+            raise ValueError("state_abc selector is not a state-value adapter")
+        if value_kind == "successor_pn" and "successor" not in condition:
+            raise ValueError("successor_pn selector is not a successor-value adapter")
 
 
 def prepare(cfg: dict, output: Path) -> None:
@@ -109,17 +115,25 @@ def prepare(cfg: dict, output: Path) -> None:
     monitor = validation[: int(cfg["validation_monitor_rows"])]
     write_rows(output / "validation_monitor.jsonl", monitor)
     ids = [str(row["id"]) for row in selected]
+    successor_horizon = bool(
+        (cfg.get("optimization") or {}).get("success_gated_advantages")
+        or int((cfg.get("rollout") or {}).get("continuation_beam_width", 1)) > 1
+    )
     repaired = bool(cfg.get("reward") or cfg.get("value_adapter_path"))
     write_json(
         output / "plan.json",
         {
             "artifact_type": (
-                "natural_language_verified_anchor_branch_rl_plan_v3"
+                "natural_language_successor_horizon_plan_v1"
+                if successor_horizon
+                else "natural_language_verified_anchor_branch_rl_plan_v3"
                 if repaired
                 else "natural_language_verified_anchor_branch_rl_plan_v1"
             ),
             "algorithm": (
-                "executor_reset_successor_pooled_local_credit_value_ranked_verified_replay"
+                "successor_gated_local_credit_receding_horizon_beam_hard_negative_replay"
+                if successor_horizon
+                else "executor_reset_successor_pooled_local_credit_value_ranked_verified_replay"
                 if repaired
                 else "executor_reset_same_state_successor_pooled_endpoint_reward_first_tool_call_credit"
             ),
@@ -180,11 +194,20 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     ]
     if evaluation:
         command.extend(["--evaluation", "--full-only"])
+    if cfg.get("legacy_dual_prompt"):
+        command.append("--legacy-dual-prompt")
     gates = cfg.get("executor_gates") or {}
     if gates.get("reject_target_retained_finish"):
         command.append("--reject-target-retained-finish")
     if cfg.get("value_adapter_path"):
-        command.extend(["--value-adapter", str(cfg["value_adapter_path"])])
+        command.extend(
+            [
+                "--value-adapter",
+                str(cfg["value_adapter_path"]),
+                "--value-kind",
+                str(cfg.get("value_kind") or "state_abc"),
+            ]
+        )
     command.extend(
         [
             "--continuation-candidates-per-mode",
@@ -195,8 +218,12 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
             str(rollout.get("value_score_weight", 1.0)),
             "--policy-score-weight",
             str(rollout.get("policy_score_weight", 0.1)),
+            "--continuation-beam-width",
+            str(rollout.get("continuation_beam_width", 1)),
         ]
     )
+    if (cfg.get("optimization") or {}).get("success_gated_advantages"):
+        command.append("--success-gated-advantages")
     return command
 
 
@@ -266,6 +293,26 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
     return shards, summary
 
 
+def build_successor_value_rows(cfg, source: Path, shards: list[Path], output: Path) -> None:
+    """Persist reference successors plus current-policy hard negatives."""
+
+    if output.exists():
+        return
+    command = [
+        sys.executable,
+        "scripts/build_successor_value_from_rollouts.py",
+        "--source",
+        str(source),
+        "--output",
+        str(output),
+        "--max-negatives",
+        str((cfg.get("optimization") or {}).get("max_hard_negatives", 4)),
+    ]
+    for shard in shards:
+        command.extend(["--rollout", str(shard)])
+    subprocess.run(command, check=True)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", required=True)
@@ -319,6 +366,12 @@ def main():
         shards, summary = run_workers(
             cfg, round_path / "source.jsonl", adapter, round_path / "rollouts",
             frontier=int(curriculum["frontier"]), round_index=round_index, evaluation=False,
+        )
+        build_successor_value_rows(
+            cfg,
+            round_path / "source.jsonl",
+            shards,
+            round_path / "successor_value.jsonl",
         )
         training = round_path / "training.jsonl"
         write_rows(

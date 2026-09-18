@@ -1,5 +1,13 @@
 # Natural-language verified anchor-branch RL
 
+This document records the implementation lineage of Stage III in the current
+method.  The paper-facing name is **Execution-Anchored Receding-Horizon
+Optimization (EARHO)**.  `anchor_branch` and `successor_horizon` remain stable
+code/artifact names; they implement frontier-local branching, verified
+successor credit and bounded receding-horizon continuation.  The complete
+State-SFT -> compressed-history Trajectory-SFT -> EARHO flow is specified in
+`docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md`.
+
 This is the lineage-correct post-training condition for the completed
 natural-language electron-event actor:
 
@@ -99,3 +107,34 @@ never rendered into the actor prompt. Per-reaction collector exceptions are
 written to sidecars and represented in the evaluation denominator; a single
 bad reaction no longer terminates all eight workers, while an aggregate error
 rate above 5% still fails the run after preserving diagnostics.
+
+## Successor-anchored receding-horizon repair
+
+The v4 smoke showed that relative normalization is unsafe when every sampled
+successor is wrong: it assigns positive advantage to the least-negative member
+of an all-negative group.  The repaired contract therefore separates local
+transition learning from long-horizon endpoint evaluation.
+
+For each reset state, an actor proposal is locally positive only when execution
+reaches the private reference first successor (up to the existing public-state
+canonicalization) or when the complete rollout reaches the exact endpoint.
+Prompt modes with no such proposal receive zero policy advantage.  They are
+recovered by the verified reference replay record rather than by promoting a
+wrong action.  Generated executable non-reference successors are persisted as
+hard negatives in `successor_value.jsonl`; the corresponding binary critic sees
+only target, current state, candidate successor, and terminal status.  It never
+sees the expected precursor.
+
+Continuation is no longer a single greedy chain.  After every executed action,
+the policy proposes action-mode and event-mode alternatives, chemical-equivalent
+successors are pooled, and a bounded beam is reranked.  Multiple states remain
+available until the next executor transition, so failure of the current best
+branch falls back to another state.  This is a small receding-horizon search,
+not full MCTS and not one-shot proof sampling.
+
+The bounded integration configuration is
+`configs/agent/natural_language_successor_horizon_smoke_a100.yaml`.  It retains
+the frozen A/B/C critic only for the first gate while simultaneously producing
+the hard-negative data needed to train the P/N successor critic.  No benchmark
+claim is attached until that gate and an unchanged product-only evaluation have
+completed.

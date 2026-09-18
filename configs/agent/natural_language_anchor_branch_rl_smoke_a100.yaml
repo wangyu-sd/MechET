@@ -5,6 +5,7 @@ model_snapshot: /aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/m
 initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913
 initial_adapter_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_sft_qwen3_8b_a100_seed17_20260913/adapter_manifest.json
 initial_adapter_model_sha256: 16648e587e084c273c35faee0adcd2486fbdb4f71985d007648421ea5990f3fb
+legacy_dual_prompt: true
 
 train_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/train.jsonl
 validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl

@@ -79,8 +79,38 @@ def successor_fingerprint(
     return f"{prompt_mode}:{digest}"
 
 
-def assign_local_advantages(records: Sequence[dict[str, Any]]) -> dict[str, Any]:
-    """Estimate first-action values without comparing incompatible prompt modes."""
+def _successor_positive(row: Mapping[str, Any]) -> bool:
+    """Whether a sampled first decision has verified positive supervision.
+
+    Endpoint success is always positive.  During training, an exact match to
+    the private reference first successor is also positive even when a later
+    sampled continuation fails.  This is the local-credit boundary: downstream
+    rollout noise must not turn a verified correct first decision negative.
+    """
+
+    score = dict(row.get("score") or {})
+    return bool(
+        score.get("correct")
+        or score.get("reference_first_successor_exact")
+        or (score.get("reward_terms") or {}).get("reference_first_successor_exact")
+    )
+
+
+def assign_local_advantages(
+    records: Sequence[dict[str, Any]],
+    *,
+    success_gated: bool = False,
+) -> dict[str, Any]:
+    """Estimate first-action values without comparing incompatible prompts.
+
+    ``success_gated=False`` preserves the historical reward-normalized
+    contract for audit replay.  The repaired long-horizon contract sets
+    ``success_gated=True``.  It updates a prompt mode only when at least one
+    generated action reaches the reference successor or the exact endpoint.
+    All-negative groups therefore produce zero policy gradient instead of
+    promoting an arbitrary least-bad action.  The caller can still inject a
+    verified reference replay example for supervised recovery.
+    """
 
     if not records:
         raise ValueError("empty natural-language anchor group")
@@ -92,16 +122,30 @@ def assign_local_advantages(records: Sequence[dict[str, Any]]) -> dict[str, Any]
         by_mode.setdefault(str(row["prompt_mode"]), []).append(row)
 
     effective = False
+    modes_with_positive = 0
+    eligible_records = 0
     action_values: dict[str, float] = {}
     for mode, mode_rows in by_mode.items():
         rewards: dict[str, list[float]] = {}
         for row in mode_rows:
-            rewards.setdefault(str(row["action_fingerprint"]), []).append(
-                float(row["reward"])
+            value = (
+                float(_successor_positive(row))
+                if success_gated
+                else float(row["reward"])
             )
+            rewards.setdefault(str(row["action_fingerprint"]), []).append(value)
         q_values = {
             key: sum(values) / len(values) for key, values in rewards.items()
         }
+        has_positive = any(_successor_positive(row) for row in mode_rows)
+        if success_gated and not has_positive:
+            for row in mode_rows:
+                row["anchor_action_q"] = q_values[str(row["action_fingerprint"])]
+                row["anchor_baseline"] = 0.0
+                row["advantage"] = 0.0
+                row["update_eligible"] = False
+            continue
+        modes_with_positive += int(has_positive)
         baseline = sum(q_values.values()) / len(q_values)
         variance = sum((value - baseline) ** 2 for value in q_values.values()) / max(
             len(q_values) - 1, 1
@@ -118,10 +162,16 @@ def assign_local_advantages(records: Sequence[dict[str, Any]]) -> dict[str, Any]
             row["advantage"] = (
                 (q_value - baseline) / (scale + 1e-4) if mode_effective else 0.0
             )
+            row["update_eligible"] = bool(mode_effective)
+            eligible_records += int(mode_effective)
     return {
         "unique_actions": len(action_values),
         "effective": effective,
+        "success_gated": bool(success_gated),
+        "modes_with_positive": modes_with_positive,
+        "eligible_records": eligible_records,
         "endpoint_success": any(bool(row["score"]["correct"]) for row in records),
+        "successor_success": any(_successor_positive(row) for row in records),
         "candidate_success_rate": sum(
             bool(row["score"]["correct"]) for row in records
         )
