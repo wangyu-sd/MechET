@@ -1,0 +1,30 @@
+{
+  "artifact_type": "natural_language_protocol_v2_validation_audit",
+  "date": "2026-09-18",
+  "split": "valid",
+  "source_artifact": "data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl",
+  "source_sha256": "7303a6018850db61594af5854df936778c21a6668e61151f95e2c74c32d22d2a",
+  "reaction_denominator": 2890,
+  "decision_rows": 22341,
+  "decision_counts": {
+    "import_fragments": 7919,
+    "apply_electron_flow": 11532,
+    "finish_trace": 2890
+  },
+  "unresolved_reactions": 0,
+  "model_visible_atom_maps": false,
+  "gold_action_conditioned_observation": false,
+  "builder_output_sha256": "1cb752bb490a6ab2a63b809aa373a63a3388609a31707f9e4a7178300dd4d4d2",
+  "independent_runtime_audit": {
+    "byte_exact_prompt_parity": "22341/22341",
+    "executable_decisions": "22341/22341",
+    "completed_trajectories": "2890/2890",
+    "prompt_mismatches": 0,
+    "execution_failures": 0,
+    "max_decisions": 40,
+    "max_imported_fragment_copies": 32,
+    "reject_true_noop_finish": true
+  },
+  "test_set_used": false,
+  "notes": "Validation-only implementation audit; this is not model accuracy and does not authorize training from a partial artifact."
+}

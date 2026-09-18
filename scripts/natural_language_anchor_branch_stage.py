@@ -50,8 +50,12 @@ from scripts.run_natural_language_value_search import Action, Node, execute, vis
 PROMPT_MODES = ("action", "event")
 
 
+def _prompt_modes(args) -> tuple[str, ...]:
+    return PROMPT_MODES if getattr(args, "legacy_dual_prompt", False) else ("unified",)
+
+
 def _messages(task, mode: str) -> list[dict[str, Any]]:
-    if mode not in PROMPT_MODES:
+    if mode not in (*PROMPT_MODES, "unified"):
         raise ValueError(f"unsupported prompt mode: {mode}")
     return [
         {"role": "system", "content": SYSTEM},
@@ -60,7 +64,7 @@ def _messages(task, mode: str) -> list[dict[str, Any]]:
             "content": _prompt(
                 task.target,
                 task.anchor_state,
-                include_inventory=mode == "event",
+                include_inventory=mode in {"event", "unified"},
             ),
         },
     ]
@@ -71,7 +75,11 @@ def _render_prompt(tokenizer, task, state: str, mode: str) -> list[int]:
         {"role": "system", "content": SYSTEM},
         {
             "role": "user",
-            "content": _prompt(task.target, state, include_inventory=mode == "event"),
+            "content": _prompt(
+                task.target,
+                state,
+                include_inventory=mode in {"event", "unified"},
+            ),
         },
     ]
     rendered = render_chat(tokenizer, messages, tools=TOOLS, add_generation_prompt=True)
@@ -90,6 +98,8 @@ def _completion(tokenizer, value, eos_ids):
 
 
 def _allowed(mode: str, name: str) -> bool:
+    if mode == "unified":
+        return name in {"import_fragments", "apply_electron_flow", "finish_trace"}
     return (
         name == "apply_electron_flow"
         if mode == "event"
@@ -138,12 +148,6 @@ def _advance(
         return None, str(decoded["error"])
     name = str(decoded["name"])
     arguments = dict(decoded["arguments"])
-    if (
-        name == "finish_trace"
-        and reject_target_retained_finish
-        and contains_unchanged_target(node.state, node.target)
-    ):
-        return None, "TARGET_RETAINED_NO_TRANSFORM"
     action = Action(
         name=name,
         arguments=arguments,
@@ -151,7 +155,15 @@ def _advance(
         logprob=sum(float(value) for value in decoded["logps"]),
         tokens=max(len(decoded["ids"]), 1),
     )
-    return execute(node, action, max_imports=max_imports)
+    child, error = execute(
+        node,
+        action,
+        max_imports=max_imports,
+        reject_target_retained_finish=reject_target_retained_finish,
+    )
+    if error == "ValueError:TARGET_RETAINED_NO_TRANSFORM":
+        error = "TARGET_RETAINED_NO_TRANSFORM"
+    return child, error
 
 
 def _critic_scores(
@@ -246,7 +258,7 @@ def _greedy_continue(
     candidates = []
     prompts = []
     modes = []
-    for mode in PROMPT_MODES:
+    for mode in _prompt_modes(args):
         prompt = _render_prompt(tokenizer, task, node.state, mode)
         if len(prompt) + args.max_new_tokens > args.max_context:
             return None, "CONTEXT_BUDGET"
@@ -332,7 +344,7 @@ def _beam_continue(
         jobs = []
         prompts = []
         for parent_index, node in enumerate(frontier):
-            for mode in PROMPT_MODES:
+            for mode in _prompt_modes(args):
                 prompt = _render_prompt(tokenizer, task, node.state, mode)
                 if len(prompt) + args.max_new_tokens > args.max_context:
                     last_errors.append("CONTEXT_BUDGET")
@@ -499,8 +511,10 @@ def _reference_first_decision(row: Mapping[str, Any], episode: Mapping[str, Any]
     )
 
 
-def _verified_replay_record(tokenizer, task, row, episode, max_context: int):
+def _verified_replay_record(tokenizer, task, row, episode, max_context: int, args):
     mode, name, arguments, _ = _reference_first_decision(row, episode)
+    if not getattr(args, "legacy_dual_prompt", False):
+        mode = "unified"
     messages = _messages(task, mode) + [
         {
             "role": "assistant",
@@ -588,8 +602,9 @@ def collect(args):
 
     if vllm.__version__ != "0.8.5":
         raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
-    if args.k < 2 or args.k % 2:
-        raise ValueError("k must be an even integer >= 2")
+    prompt_modes = _prompt_modes(args)
+    if args.k < 2 or args.k % len(prompt_modes):
+        raise ValueError("k must be at least 2 and divisible by the prompt-mode count")
     output = Path(args.output)
     if output.exists():
         raise ValueError(f"refusing overwrite: {output}")
@@ -631,7 +646,7 @@ def collect(args):
         }
     )
     first_parameters = SamplingParams(
-        n=args.k // 2,
+        n=args.k // len(prompt_modes),
         temperature=0.0 if args.evaluation else args.temperature,
         top_p=1.0,
         top_k=-1,
@@ -696,7 +711,7 @@ def collect(args):
                 )
                 prompts = {
                     mode: _render_prompt(tokenizer, task, task.anchor_state, mode)
-                    for mode in PROMPT_MODES
+                    for mode in prompt_modes
                 }
                 if any(
                     len(prompt) + args.max_new_tokens > args.max_context
@@ -706,14 +721,14 @@ def collect(args):
                         f"{task.reaction_id}: first-action prompt exceeds context"
                     )
                 generations = llm.generate(
-                    [{"prompt_token_ids": prompts[mode]} for mode in PROMPT_MODES],
+                    [{"prompt_token_ids": prompts[mode]} for mode in prompt_modes],
                     first_parameters,
                     lora_request=lora,
                     use_tqdm=False,
                 )
                 records = []
                 candidate_index = 0
-                for mode, generated in zip(PROMPT_MODES, generations, strict=True):
+                for mode, generated in zip(prompt_modes, generations, strict=True):
                     for value in generated.outputs:
                         decoded = _decode_action(tokenizer, value, eos_ids, mode)
                         node, error = _advance(
@@ -812,7 +827,7 @@ def collect(args):
                 if not args.evaluation:
                     records.append(
                         _verified_replay_record(
-                            tokenizer, task, row, episode, args.max_context
+                            tokenizer, task, row, episode, args.max_context, args
                         )
                     )
                 log_fields = {
@@ -888,11 +903,16 @@ def main():
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)
-    parser.add_argument("--max-decisions", type=int, default=12)
-    parser.add_argument("--max-imports", type=int, default=8)
+    parser.add_argument("--max-decisions", type=int, default=40)
+    parser.add_argument("--max-imports", type=int, default=32)
     parser.add_argument("--evaluation", action="store_true")
     parser.add_argument("--full-only", action="store_true")
     parser.add_argument("--reject-target-retained-finish", action="store_true")
+    parser.add_argument(
+        "--legacy-dual-prompt",
+        action="store_true",
+        help="reproduce the historical gold-action-conditioned prompt split",
+    )
     args = parser.parse_args()
     args.memory_efficient_logps = True
     (collect if args.mode == "collect" else train)(args)

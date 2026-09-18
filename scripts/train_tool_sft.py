@@ -250,9 +250,14 @@ def validate_conversation(
         if decision_contract not in {
             "markov_tool_decision_v1",
             "compressed_history_tool_decision_v1",
+            "unified_inventory_tool_decision_v2",
+            "unified_inventory_compressed_history_tool_decision_v2",
         }:
             raise ValueError(f"invalid tool-decision metadata: {identifier}")
-        if decision_contract == "compressed_history_tool_decision_v1":
+        if decision_contract in {
+            "compressed_history_tool_decision_v1",
+            "unified_inventory_compressed_history_tool_decision_v2",
+        }:
             if metadata.get("history_contract") != "executor_compact_accepted_actions_v1":
                 raise ValueError(f"invalid compressed-history metadata: {identifier}")
             if metadata.get("history_contains_failed_actions") is not False:

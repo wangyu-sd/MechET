@@ -70,6 +70,9 @@ common_args=(
   --value-weight 0.20
   --no-4bit
   --reject-target-retained-finish
+  # This completed smoke used the historical v1 action-conditioned prompts.
+  # Keep the flag only for exact artifact reproduction; v2 uses one prompt.
+  --legacy-dual-prompt
 )
 
 CUDA_VISIBLE_DEVICES=0,1,2,3 torchrun \

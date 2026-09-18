@@ -194,6 +194,8 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     ]
     if evaluation:
         command.extend(["--evaluation", "--full-only"])
+    if cfg.get("legacy_dual_prompt"):
+        command.append("--legacy-dual-prompt")
     gates = cfg.get("executor_gates") or {}
     if gates.get("reject_target_retained_finish"):
         command.append("--reject-target-retained-finish")

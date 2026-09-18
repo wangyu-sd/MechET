@@ -27,8 +27,8 @@ from mechet.trajectory_history import TrajectoryHistory
 
 
 EXPECTED_REACTIONS = {"train": 257167, "valid": 2890, "test": 28967}
-VERSION = "natural_language_electron_event_history_v1"
-DECISION_CONTRACT = "compressed_history_tool_decision_v1"
+VERSION = "natural_language_electron_event_history_v2"
+DECISION_CONTRACT = "unified_inventory_compressed_history_tool_decision_v2"
 PROMPT_SUFFIX = "\nChoose the single next retrosynthetic action."
 
 
@@ -85,7 +85,7 @@ def add_history(row: dict[str, Any], history: TrajectoryHistory) -> dict[str, An
     )
     output["metadata"] = metadata
     output["task_type"] = VERSION
-    output["id"] = f"{row['id']}::history_v1"
+    output["id"] = f"{row['id']}::history_v2"
     encoded_messages = json.dumps(output["messages"], ensure_ascii=False)
     forbidden = ("remaining_events", "expected_precursor", "reference_successor")
     if any(value in encoded_messages for value in forbidden):
@@ -197,7 +197,7 @@ def main() -> int:
         "reaction_denominator": {k: v["reactions"] for k, v in reports.items()},
         "decision_rows": {k: v["decision_rows"] for k, v in reports.items()},
         "splits": reports,
-        "observation_contract": "target_current_state_compact_history_v1",
+        "observation_contract": "target_current_state_inventory_compact_history_v2",
         "decision_contract": DECISION_CONTRACT,
         "history_contract": "executor_compact_accepted_actions_v1",
         "gold_standard_only": True,
@@ -229,4 +229,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

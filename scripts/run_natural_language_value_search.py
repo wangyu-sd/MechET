@@ -23,12 +23,17 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from mechet.assistant_masking import render_chat
+from mechet.endpoints import (
+    reference_structural_precursor,
+    split_precursor_endpoints,
+    structural_exact,
+)
 from mechet.forward_expert import verify_electron_step
 from mechet.in_place_grounded_flow import (
+    append_mapped_fragments_verbatim,
     deterministic_unmapped_state,
     map_unmapped_fragment,
     mapped_atom_numbers,
-    merge_mapped_fragments,
 )
 from mechet.natural_language_electron_flow import compile_event_arguments
 from mechet.natural_language_anchor_branch_rl import contains_unchanged_target
@@ -117,6 +122,7 @@ class Runtime:
         from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
         self.torch = torch
+        self.args = args
         torch.cuda.set_device(local_rank)
         self.tokenizer = AutoTokenizer.from_pretrained(
             args.model, revision=MODEL_REVISION, trust_remote_code=True
@@ -166,6 +172,7 @@ class Runtime:
         self.model.set_adapter("policy")
         target = node.target
         state = node.state
+        inventory_modes = [False, True] if self.args.legacy_dual_prompt else [True]
         prompts = [
             render_chat(
                 self.tokenizer,
@@ -176,7 +183,7 @@ class Runtime:
                         "content": policy_prompt(
                             target,
                             state,
-                            include_inventory=False,
+                            include_inventory=include_inventory,
                             actions=node.actions,
                             compact_history=compact_history,
                         ),
@@ -184,25 +191,8 @@ class Runtime:
                 ],
                 tools=TOOLS,
                 add_generation_prompt=True,
-            ),
-            render_chat(
-                self.tokenizer,
-                [
-                    {"role": "system", "content": SYSTEM},
-                    {
-                        "role": "user",
-                        "content": policy_prompt(
-                            target,
-                            state,
-                            include_inventory=True,
-                            actions=node.actions,
-                            compact_history=compact_history,
-                        ),
-                    },
-                ],
-                tools=TOOLS,
-                add_generation_prompt=True,
-            ),
+            )
+            for include_inventory in inventory_modes
         ]
         encoded = self.tokenizer(
             prompts, return_tensors="pt", padding=True, add_special_tokens=False
@@ -236,10 +226,13 @@ class Runtime:
             raw = self.tokenizer.decode(ids, skip_special_tokens=False)
             name, arguments, error = prediction_call(raw, self.tokenizer)
             prompt_kind = index // candidates
-            if error or (prompt_kind == 0 and name not in {"import_fragments", "finish_trace"}):
+            if error:
                 continue
-            if prompt_kind == 1 and name != "apply_electron_flow":
-                continue
+            if self.args.legacy_dual_prompt:
+                if prompt_kind == 0 and name not in {"import_fragments", "finish_trace"}:
+                    continue
+                if prompt_kind == 1 and name != "apply_electron_flow":
+                    continue
             signature = json.dumps([name, arguments], sort_keys=True, ensure_ascii=False)
             if signature in seen:
                 continue
@@ -359,16 +352,17 @@ def execute(
                 expanded.extend([normal_smiles(str(item.get("smiles") or ""))] * count)
             if sum(imported.values()) + len(expanded) > max_imports:
                 raise ValueError("IMPORT_BUDGET_EXCEEDED")
-            repeated = sorted({fragment for fragment in expanded if imported.get(fragment, 0)})
-            if repeated:
-                raise ValueError(f"REPEATED_IMPORT:{repeated}")
             mapped: list[str] = []
             for fragment in expanded:
                 # Repeated stoichiometric imports are allowed only when explicitly counted.
                 mapped_fragment, next_map = map_unmapped_fragment(fragment, first_map=next_map)
                 mapped.append(mapped_fragment)
                 imported[fragment] = imported.get(fragment, 0) + 1
-            state = merge_mapped_fragments(state, mapped)
+            # Preserve the executor's exact Kekule representation.  A mapped
+            # canonical round-trip can re-aromatize a symmetric component;
+            # the next verify_electron_step then chooses a different Kekule
+            # form and applies an otherwise identical arrow to the wrong bond.
+            state = append_mapped_fragments_verbatim(state, mapped)
             result = {"ok": True, "code": "PASS", "current_state": visible(state)}
         elif action.name == "apply_electron_flow":
             moves = compile_event_arguments(state, action.arguments)
@@ -382,8 +376,13 @@ def execute(
         elif action.name == "finish_trace":
             if action.arguments:
                 raise ValueError("FINISH_ARGUMENTS_NOT_EMPTY")
-            if reject_target_retained_finish and contains_unchanged_target(
-                state, node.target
+            transformed = any(
+                record.get("name") == "apply_electron_flow" for record in node.actions
+            )
+            if (
+                reject_target_retained_finish
+                and not transformed
+                and contains_unchanged_target(state, node.target)
             ):
                 raise ValueError("TARGET_RETAINED_NO_TRANSFORM")
             terminal = True
@@ -455,7 +454,11 @@ def policy_prompt(
 def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) -> dict[str, Any]:
     target_mapped = str(row["target_smiles"])
     target = visible(target_mapped)
-    expected = visible(str(row.get("full_precursor_state") or row["expected_precursor"]))
+    expected_full_mapped = str(
+        row.get("full_precursor_state") or row["expected_precursor"]
+    )
+    expected_full = visible(expected_full_mapped)
+    expected_structural = reference_structural_precursor(dict(row))
     root = Node(
         target=target,
         state=target_mapped,
@@ -522,17 +525,33 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         )[:width]
     terminals.sort(key=lambda node: node.score(args.value_weight), reverse=True)
     top = terminals[0] if terminals else (beam[0] if beam else root)
-    any_exact = any(visible(node.state) == expected for node in terminals)
-    top_exact = bool(top.terminal and visible(top.state) == expected)
-    successful = next((node for node in terminals if visible(node.state) == expected), None)
+    def is_structural_match(node: Node) -> bool:
+        if not node.terminal:
+            return False
+        predicted = split_precursor_endpoints(node.state, target_mapped).structural
+        return structural_exact(predicted, expected_structural)
+
+    any_exact = any(is_structural_match(node) for node in terminals)
+    top_exact = is_structural_match(top)
+    top_full_exact = bool(top.terminal and visible(top.state) == expected_full)
+    successful = next((node for node in terminals if is_structural_match(node)), None)
+    top_structural = (
+        visible(split_precursor_endpoints(top.state, target_mapped).structural)
+        if top.terminal
+        else ""
+    )
     return {
         "id": str(row["id"]),
         "source_id": str(row["source_id"]),
         "target": target,
-        "expected_precursor": expected,
+        "expected_precursor": expected_full,
+        "expected_structural_precursor": visible(expected_structural),
         "top_precursor": visible(top.state),
+        "top_structural_precursor": top_structural,
         "top_terminal": top.terminal,
         "top1_exact": top_exact,
+        "top1_structural_exact": top_exact,
+        "top1_full_exact": top_full_exact,
         "pass_at_beam": any_exact,
         "n_terminals": len(terminals),
         "top_policy_score": top.policy_score,
@@ -586,8 +605,18 @@ def main() -> int:
     parser.add_argument("--early-beam", type=int, default=4)
     parser.add_argument("--late-beam", type=int, default=2)
     parser.add_argument("--early-depth", type=int, default=2)
-    parser.add_argument("--max-decisions", type=int, default=10)
-    parser.add_argument("--max-imports", type=int, default=8)
+    parser.add_argument(
+        "--max-decisions",
+        type=int,
+        default=40,
+        help="maximum accepted tool decisions; covers the frozen SFT contract",
+    )
+    parser.add_argument(
+        "--max-imports",
+        type=int,
+        default=32,
+        help="maximum imported fragment copies; frozen SFT maximum is 24",
+    )
     parser.add_argument("--max-new-tokens", type=int, default=384)
     parser.add_argument("--value-weight", type=float, default=0.20)
     parser.add_argument(
@@ -596,6 +625,14 @@ def main() -> int:
         help="load the base model in BF16 (for A100/H20 images without bitsandbytes)",
     )
     parser.add_argument("--reject-target-retained-finish", action="store_true")
+    parser.add_argument(
+        "--legacy-dual-prompt",
+        action="store_true",
+        help=(
+            "reproduce the historical action-conditioned two-prompt evaluator; "
+            "new unified-observation checkpoints must not use this"
+        ),
+    )
     parser.add_argument(
         "--compact-history",
         action="store_true",

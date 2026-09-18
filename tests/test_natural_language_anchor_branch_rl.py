@@ -10,7 +10,7 @@ from mechet.natural_language_anchor_branch_rl import (
     task_from_episode,
 )
 from scripts.natural_language_anchor_branch_stage import _advance, _beam_continue, _node
-from scripts.run_natural_language_value_search import Node
+from scripts.run_natural_language_value_search import Action, Node, execute, visible
 
 
 def test_task_hides_reference_suffix_and_tracks_reset():
@@ -172,6 +172,7 @@ def test_receding_horizon_beam_falls_back_when_greedy_branch_dies(monkeypatch):
         value_score_weight=1.0,
         policy_score_weight=0.0,
         value_kind="state_abc",
+        legacy_dual_prompt=True,
     )
     task = SimpleNamespace(target="C", anchor_state="C")
     result, error = _beam_continue(
@@ -311,6 +312,73 @@ def test_executor_gate_rejects_finish_while_product_is_unchanged():
     )
     assert child is None
     assert error == "TARGET_RETAINED_NO_TRANSFORM"
+
+
+def test_executor_allows_a_repeated_fragment_when_gold_needs_two_batches():
+    root = Node(
+        target="C",
+        state="[CH4:1]",
+        next_map=2,
+        visited={"C"},
+    )
+    imported_once, error = execute(
+        root,
+        Action(
+            "import_fragments",
+            {
+                "fragments": [
+                    {"smiles": "[H]Cl", "count": 1, "purpose": "electron_participant"}
+                ]
+            },
+            "",
+            0.0,
+            1,
+        ),
+        max_imports=8,
+    )
+    assert not error and imported_once is not None
+    imported_twice, error = execute(
+        imported_once,
+        Action(
+            "import_fragments",
+            {
+                "fragments": [
+                    {"smiles": "[H]Cl", "count": 1, "purpose": "electron_participant"}
+                ]
+            },
+            "",
+            0.0,
+            1,
+        ),
+        max_imports=8,
+    )
+    assert not error and imported_twice is not None
+    assert imported_twice.imported["[H]Cl"] == 2
+
+
+def test_finish_guard_rejects_only_a_true_noop_not_a_transformed_mixture():
+    transformed = Node(
+        target="C",
+        state="[CH4:1].[OH2:2]",
+        next_map=3,
+        visited={"C", "C.O"},
+        actions=[
+            {
+                "state_before": "[CH4:1]",
+                "name": "apply_electron_flow",
+                "arguments": {},
+                "result": {"ok": True, "code": "PASS", "current_state": "C.O"},
+            }
+        ],
+    )
+    terminal, error = execute(
+        transformed,
+        Action("finish_trace", {}, "", 0.0, 1),
+        max_imports=8,
+        reject_target_retained_finish=True,
+    )
+    assert not error and terminal is not None and terminal.terminal
+    assert visible(terminal.state) == "C.O"
 
 
 def test_reference_first_successor_credit_remains_below_exact_reward():

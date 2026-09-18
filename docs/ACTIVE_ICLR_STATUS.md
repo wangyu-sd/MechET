@@ -1,5 +1,15 @@
 # Active ICLR status
 
+## 2026-09-18: natural-language protocol v2 repair
+
+Keep the agreed mechanism-first method.  The current implementation authority
+is `docs/NATURAL_LANGUAGE_PROTOCOL_V2.md`: one identical inventory-bearing
+observation for all three tool choices, inference-time private-map mirroring in
+the builder, executor-owned successor states, legal repeated imports, and
+40-decision/32-import coverage.  Full validation gold replay is 2,890/2,890 and
+prompt parity is 22,341/22,341.  Existing v1 history training/smoke remains
+historical diagnostic evidence and must not be reported as v2.
+
 > This file is the short-lived execution authority for the current ICLR work.
 > `PROJECT_MEMORY.md` remains authoritative for historical dataset/model lineage.
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
