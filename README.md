@@ -74,7 +74,7 @@ See [`docs/STATUS_MATRIX.md`](docs/STATUS_MATRIX.md) for the complete implementa
 
 ## Research thesis
 
-Most mechanism-aware language models optimize an answer and a rationale jointly, but do not guarantee that the rationale is causally upstream of the answer. A chemically plausible chain of thought may therefore coexist with an endpoint produced through an independent, unverifiable channel.
+MechET studies **causal and compositional electron-flow reasoning**. Most mechanism-aware language models optimize an answer and a rationale jointly, but do not guarantee that the rationale is causally upstream of the answer. A chemically plausible chain of thought may therefore coexist with an endpoint produced through an independent, unverifiable channel.
 
 MechET removes that ambiguity by formulating retrosynthesis as **causal program induction over explicit source-to-sink electron-flow actions**. The model commits actions to a deterministic environment; an environment-owned trace is then the only computational source of the executable proof and precursor.
 
