@@ -118,6 +118,8 @@ def test_reactive_fragment_program_replays_without_atom_maps():
     )
     assert replay_reactive_fragment(program) == "c1ccccc1"
     assert program.active_atoms
+    restored = type(program).from_dict(program.to_dict())
+    assert restored == program
 
 
 def test_reactive_import_must_be_used_by_the_next_electron_event():

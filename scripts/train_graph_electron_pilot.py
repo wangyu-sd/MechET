@@ -113,7 +113,7 @@ def build_decisions(
             else:
                 kind = "FLOW"
                 # Fail loudly on candidate-space gaps; do not silently filter.
-                inventory = MoveInventory.from_state(str(step["state_before"]))
+                inventory = MoveInventory.from_state(current)
                 for value in moves:
                     move = ElectronMove.parse(value)
                     if move.source not in inventory.sources or move.sink not in inventory.compatible_sinks(move.source):
@@ -159,8 +159,22 @@ def import_candidates(
     rng: random.Random,
 ) -> tuple[list[str], int]:
     key = strip_atom_maps(gold)
-    pool = [item for item in bank if item != key]
-    sampled = rng.sample(pool, min(negatives, len(pool)))
+    available = len(bank) - int(key in bank)
+    wanted = min(negatives, available)
+    if wanted * 4 >= len(bank):
+        pool = [item for item in bank if item != key]
+        sampled = rng.sample(pool, wanted)
+    else:
+        # Full training has only ~31 negatives but thousands of environment
+        # fragments.  Rejection sampling avoids rebuilding a 7k-item list for
+        # every IMPORT_ENV decision while preserving uniform sampling.
+        selected: set[str] = set()
+        sampled = []
+        while len(sampled) < wanted:
+            candidate = bank[rng.randrange(len(bank))]
+            if candidate != key and candidate not in selected:
+                selected.add(candidate)
+                sampled.append(candidate)
     candidates = sampled + [key]
     rng.shuffle(candidates)
     return candidates, candidates.index(key)

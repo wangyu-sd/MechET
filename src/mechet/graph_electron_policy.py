@@ -13,6 +13,7 @@ decoder and remain subject to the same executor gate.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+from functools import lru_cache
 from typing import Any, Mapping, Sequence
 
 from rdkit import Chem
@@ -62,14 +63,12 @@ def _charge_bucket(charge: int) -> int:
     return max(-5, min(5, int(charge))) + 5
 
 
-def smiles_to_graph(
+@lru_cache(maxsize=16384)
+def _smiles_to_graph_cached(
     smiles: str,
-    *,
-    target_maps: Sequence[int] | None = None,
-    require_maps: bool = True,
+    target_maps: tuple[int, ...],
+    require_maps: bool,
 ) -> GraphTensor:
-    """Convert mapped SMILES to graph tensors without exposing map IDs as features."""
-
     params = Chem.SmilesParserParams()
     params.removeHs = False
     mol = Chem.MolFromSmiles(str(smiles or ""), params)
@@ -78,7 +77,7 @@ def smiles_to_graph(
     maps = tuple(int(atom.GetAtomMapNum()) for atom in mol.GetAtoms())
     if require_maps and (any(value <= 0 for value in maps) or len(set(maps)) != len(maps)):
         raise ValueError("current and target states require unique positive private maps")
-    target_set = set(int(value) for value in (target_maps or ()))
+    target_set = set(target_maps)
     atom_rows: list[list[int]] = []
     for atom in mol.GetAtoms():
         atom_rows.append(
@@ -113,6 +112,19 @@ def smiles_to_graph(
             else torch.empty((0, 3), dtype=torch.long)
         ),
         maps=maps,
+    )
+
+
+def smiles_to_graph(
+    smiles: str,
+    *,
+    target_maps: Sequence[int] | None = None,
+    require_maps: bool = True,
+) -> GraphTensor:
+    """Convert mapped SMILES to cached tensors without exposing map IDs."""
+
+    return _smiles_to_graph_cached(
+        str(smiles), tuple(int(value) for value in (target_maps or ())), require_maps
     )
 
 

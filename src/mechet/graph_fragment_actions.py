@@ -68,6 +68,25 @@ class ReactiveFragmentProgram:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, value: Mapping[str, Any]) -> "ReactiveFragmentProgram":
+        return cls(
+            role=str(value["role"]),
+            atoms=tuple(FragmentAtom(**item) for item in value["atoms"]),
+            extra_bonds=tuple(
+                FragmentBond(
+                    atoms=tuple(item["atoms"]),
+                    bond_type=int(item["bond_type"]),
+                    stereo=int(item.get("stereo", 0)),
+                    stereo_atoms=tuple(item.get("stereo_atoms") or ()),
+                    bond_dir=int(item.get("bond_dir", 0)),
+                )
+                for item in value.get("extra_bonds") or ()
+            ),
+            active_atoms=tuple(int(item) for item in value["active_atoms"]),
+            source_unmapped_smiles=str(value.get("source_unmapped_smiles") or ""),
+        )
+
 
 @dataclass(frozen=True)
 class ImportSupervision:
