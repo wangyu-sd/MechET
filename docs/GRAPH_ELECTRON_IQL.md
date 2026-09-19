@@ -21,7 +21,7 @@ evidence that the chemistry is correct.
 
 ## Factorized action space
 
-The first policy has four action families.
+The policy has five action families.
 
 1. `FLOW`: select a state-derived electron source, then a source-conditioned
    sink, repeat for the arrows in one coupled event, and atomically `COMMIT`.
@@ -29,13 +29,27 @@ The first policy has four action families.
 2. `BE_DELTA`: select a sparse unordered atom pair and `-1/+1` bond-electron
    change, or an atom and `-1/+1` charge change, repeat, then atomically commit.
    This is `O(n^2)` per sparse edit instead of enumerating complete edit sets.
-3. `IMPORT`: retrieve one canonical unmapped fragment from a graph-encoded
-   fragment bank.  Imported mapped copies are allocated by the executor.
-4. `FINISH`: ask the executor to return the current precursor mixture.
+3. `IMPORT_ENV`: retrieve a canonical unmapped solvent, salt, catalyst or
+   other endpoint-context molecule from a graph-encoded catalog.  This is a
+   closed action because these molecules do not participate in the reference
+   electron moves.
+4. `IMPORT_REACTIVE`: generate an open-vocabulary, map-free molecular graph as
+   an `ADD_ATOM`/`ADD_BOND`/`COMMIT` program and identify an active atom.  The
+   executor sanitizes the graph, assigns fresh private maps, and requires the
+   immediately following electron event to touch an active imported atom.
+5. `FINISH`: ask the executor to return the current precursor mixture.
 
 The ordinary FLOW inventory covered 2,008/2,008 ordinary/radical reference
 moves in the existing first-1,000-event validation audit.  The three events
 outside that inventory are represented by the separate `BE_DELTA` head.
+
+The frozen-train import audit contains 1,343,982 import occurrences: 600,403
+electron-participating occurrences (17,856 unique canonical fragments) and
+743,579 environment occurrences (6,964 unique).  On strict test, a top-5,000
+train catalog covers 95.996% of reactive occurrences but only 91.135% of
+complete reactions; therefore a single closed catalog is not the main
+reactive-import action.  The environment catalog remains appropriate because
+its corresponding occurrence/reaction coverage is 98.998%/97.269%.
 
 ## Model
 
@@ -44,13 +58,18 @@ outside that inventory are represented by the separate `BE_DELTA` head.
 - graph context from current/product pooled embeddings and their difference;
 - hierarchical family, source, conditional-sink and continue/commit heads;
 - sparse BE pair/atom/delta heads;
-- graph-to-graph fragment retrieval head;
+- graph-to-graph environment-fragment retrieval head;
+- role-conditioned reactive-fragment graph decoder with atom, bond, pointer,
+  ring-closure and active-site heads;
 - state value `V(G)` and action value `Q(G,a)` heads.
 
-No SMILES string, JSON, Python program or atom-map integer is generated.  This
-eliminates syntax failures and makes the policy equivariant to atom traversal
-and map renumbering.  The executor remains responsible for sanitization,
-electron accounting, cycle rejection and endpoint construction.
+No SMILES string, JSON, Python source or atom-map integer is generated.  The
+reactive-fragment decoder emits typed graph operations; SMILES is only an
+executor serialization after sanitization.  This eliminates text syntax
+failures and makes the policy equivariant to atom traversal and map
+renumbering.  The executor remains responsible for map allocation,
+sanitization, electron accounting, reactive-import use, cycle rejection and
+endpoint construction.
 
 ## Training
 
@@ -60,8 +79,11 @@ Train all action heads on the frozen strict executable FlowER universe:
 257,167 train, 2,890 valid and 28,967 test reactions.  This is the strict
 mechanism universe, not unqualified FlowER full (257,171/2,890/28,971).
 
-Import retrieval uses in-batch and frequency-matched negative fragments.  Report
-separate accuracy for electron-participating and endpoint-context imports.
+Environment import retrieval uses in-batch and frequency-matched negative
+fragments.  Reactive imports use teacher-forced graph-program likelihood before
+IQL.  Report environment retrieval, reactive graph exact match, active-site
+accuracy, executor acceptance and complete-fragment endpoint coverage
+separately.
 
 ### Stage 2: executor-labelled graph IQL
 

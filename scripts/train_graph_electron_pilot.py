@@ -25,6 +25,10 @@ from mechet.graph_electron_policy import (
     GraphElectronPolicy,
     strip_atom_maps,
 )
+from mechet.graph_fragment_actions import (
+    classify_imports,
+    decompose_reactive_fragment,
+)
 from mechet.transactional_event_space import MoveInventory
 
 
@@ -48,11 +52,9 @@ def fragment_bank(path: Path, row_limit: int, bank_size: int) -> tuple[list[str]
     counts: Counter[str] = Counter()
     for row in rows(path, row_limit):
         plan = dict((row.get("metadata") or {}).get("trace_plan") or {})
-        for fragment in plan.get("initial_imports") or ():
-            counts[strip_atom_maps(str(fragment))] += 1
-        for step in plan.get("steps") or ():
-            for fragment in step.get("imports") or ():
-                counts[strip_atom_maps(str(fragment))] += 1
+        for item in classify_imports(plan):
+            if item.kind == "IMPORT_ENV":
+                counts[strip_atom_maps(item.fragment)] += 1
     return [item for item, _ in counts.most_common(bank_size)], counts
 
 
@@ -72,33 +74,37 @@ def build_decisions(
         plan = dict((row.get("metadata") or {}).get("trace_plan") or {})
         target = str(plan.get("target_smiles") or "")
         current = target
-        for fragment in plan.get("initial_imports") or ():
-            decisions.append(
-                {
-                    "reaction_id": row.get("id"),
-                    "kind": "IMPORT",
-                    "current": current,
-                    "target": target,
-                    "fragment": str(fragment),
-                }
-            )
-            stats["IMPORT"] += 1
+        import_supervision = iter(classify_imports(plan))
+
+        def add_import(fragment: str) -> None:
+            nonlocal current
+            item = next(import_supervision)
+            if item.fragment != str(fragment):
+                raise ValueError("chronological import supervision drift")
+            decision: dict[str, Any] = {
+                "reaction_id": row.get("id"),
+                "kind": item.kind,
+                "current": current,
+                "target": target,
+                "fragment": str(fragment),
+            }
+            if item.kind == "IMPORT_REACTIVE":
+                decision["program"] = decompose_reactive_fragment(
+                    str(fragment),
+                    participating_maps=item.participating_maps,
+                    role=str(item.role),
+                )
+            decisions.append(decision)
+            stats[item.kind] += 1
             current = append_fragment(current, str(fragment))
+
+        for fragment in plan.get("initial_imports") or ():
+            add_import(str(fragment))
             if len(decisions) >= decision_limit:
                 return decisions, dict(stats)
         for step in plan.get("steps") or ():
             for fragment in step.get("imports") or ():
-                decisions.append(
-                    {
-                        "reaction_id": row.get("id"),
-                        "kind": "IMPORT",
-                        "current": current,
-                        "target": target,
-                        "fragment": str(fragment),
-                    }
-                )
-                stats["IMPORT"] += 1
-                current = append_fragment(current, str(fragment))
+                add_import(str(fragment))
                 if len(decisions) >= decision_limit:
                     return decisions, dict(stats)
             moves = list(step.get("moves") or ())
@@ -118,7 +124,11 @@ def build_decisions(
                 {
                     "reaction_id": row.get("id"),
                     "kind": kind,
-                    "current": str(step["state_before"]),
+                    # ``state_before`` is recorded before this step's imports.
+                    # ``current`` includes them and is therefore the only valid
+                    # observation for moves that reference newly allocated maps
+                    # (notably explicit-H BE_DELTA events).
+                    "current": current,
                     "target": target,
                     "moves": moves,
                 }
@@ -171,13 +181,17 @@ def decision_loss(
         return model.be_delta_nll(
             decision["current"], decision["target"], decision["moves"][0]
         )[0]
-    if kind == "IMPORT":
+    if kind == "IMPORT_ENV":
         candidates, gold = import_candidates(
             decision["fragment"], bank, negatives=negatives, rng=rng
         )
         return model.import_nll(
             decision["current"], decision["target"], candidates, gold
         )
+    if kind == "IMPORT_REACTIVE":
+        return model.reactive_fragment_nll(
+            decision["current"], decision["target"], decision["program"]
+        )[0]
     if kind == "FINISH":
         return model.finish_nll(decision["current"], decision["target"])
     raise ValueError(f"unknown decision kind: {kind}")
@@ -201,7 +215,7 @@ def evaluate_decisions(
         family = ACTION_FAMILIES[int(model.family_logits(context).argmax())]
         counts["family_total"] += 1
         counts["family_correct"] += int(family == decision["kind"])
-        if decision["kind"] == "IMPORT":
+        if decision["kind"] == "IMPORT_ENV":
             candidates, gold = import_candidates(
                 decision["fragment"], bank, negatives=negatives, rng=rng
             )
