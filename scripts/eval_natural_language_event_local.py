@@ -140,12 +140,24 @@ def collect_tasks(
                     "key": str(public["id"]),
                     "reaction_id": reaction_id,
                     "decision_type": decision_type,
+                    "decision_index": int(public["metadata"]["decision_index"]),
                     "event_depth": int(private["event_depth"]),
                     "stratum": stratum,
                     "messages": public["messages"][:2],
                     "tools": public["tools"],
                     "gold_name": str(gold_call["name"]),
                     "gold_arguments": dict(gold_call["arguments"]),
+                    "gold_event_moves": len(
+                        list((gold_call["arguments"] or {}).get("electron_flow") or [])
+                    ),
+                    "gold_import_purposes": sorted(
+                        {
+                            str(item.get("purpose") or "")
+                            for item in list(
+                                (gold_call["arguments"] or {}).get("fragments") or []
+                            )
+                        }
+                    ),
                     "private_state": str(private["private_state"]),
                     "reference_successor": str(private["reference_successor"]),
                 }
@@ -224,6 +236,9 @@ def score_prediction(
         "destination_site_exact": False,
         "successor_map_exact": False,
         "successor_chemical_exact": False,
+        "gold_formal_execute": False,
+        "gold_reference_map_exact": False,
+        "gold_reference_chemical_exact": False,
         "import_fragment_exact": False,
         "import_schedule_exact": False,
         "finish_exact": False,
@@ -258,17 +273,36 @@ def score_prediction(
         )
         gold_moves = compile_event_arguments(str(task["private_state"]), gold_arguments)
         execution = verify_electron_step(str(task["private_state"]), predicted_moves)
+        gold_execution = verify_electron_step(str(task["private_state"]), gold_moves)
         formal = bool(execution.get("ok"))
+        gold_formal = bool(gold_execution.get("ok"))
+        if not gold_formal:
+            raise ValueError(
+                "gold event failed replay: "
+                + str(
+                    gold_execution.get("code")
+                    or gold_execution.get("message")
+                    or "EXECUTION_FAILED"
+                )
+            )
         reference = str(task["reference_successor"])
         predicted_state = str(execution.get("state_smiles") or "")
+        gold_state = str(gold_execution.get("state_smiles") or "")
         map_exact = bool(
             formal
             and mapped_state_signature(predicted_state)
-            == mapped_state_signature(reference)
+            == mapped_state_signature(gold_state)
         )
         chemical_exact = bool(
             formal
             and deterministic_unmapped_state(predicted_state).text
+            == deterministic_unmapped_state(gold_state).text
+        )
+        gold_reference_map_exact = (
+            mapped_state_signature(gold_state) == mapped_state_signature(reference)
+        )
+        gold_reference_chemical_exact = (
+            deterministic_unmapped_state(gold_state).text
             == deterministic_unmapped_state(reference).text
         )
         event_exact = canonical_event(predicted_moves) == canonical_event(gold_moves)
@@ -283,6 +317,9 @@ def score_prediction(
             == _site_signature(gold_moves, "destination"),
             successor_map_exact=map_exact,
             successor_chemical_exact=chemical_exact,
+            gold_formal_execute=gold_formal,
+            gold_reference_map_exact=gold_reference_map_exact,
+            gold_reference_chemical_exact=gold_reference_chemical_exact,
             execution_error=(
                 ""
                 if formal
@@ -350,7 +387,7 @@ def run(args: argparse.Namespace) -> int:
     tokenizer.padding_side = "left"
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
-    dtype = torch.float16
+    dtype = torch.bfloat16 if args.dtype == "bfloat16" else torch.float16
     try:
         bnb_version = importlib.metadata.version("bitsandbytes")
     except importlib.metadata.PackageNotFoundError as exc:
@@ -426,8 +463,11 @@ def run(args: argparse.Namespace) -> int:
                     "key": task["key"],
                     "reaction_id": task["reaction_id"],
                     "decision_type": task["decision_type"],
+                    "decision_index": task["decision_index"],
                     "event_depth": task["event_depth"],
                     "stratum": task["stratum"],
+                    "gold_event_moves": task["gold_event_moves"],
+                    "gold_import_purposes": task["gold_import_purposes"],
                     "gold_name": task["gold_name"],
                     "predicted_name": name,
                     "predicted_arguments": arguments,
@@ -459,6 +499,9 @@ METRICS = (
     "destination_site_exact",
     "successor_map_exact",
     "successor_chemical_exact",
+    "gold_formal_execute",
+    "gold_reference_map_exact",
+    "gold_reference_chemical_exact",
     "import_fragment_exact",
     "import_schedule_exact",
     "finish_exact",
@@ -475,6 +518,66 @@ def _summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         int(row.get("generated_tokens", 0)) for row in rows
     ) / max(len(rows), 1)
     return result
+
+
+def _reaction_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    grouped: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in rows:
+        grouped[str(row["reaction_id"])].append(row)
+    reactions = []
+    first_error_histogram: Counter[str] = Counter()
+    for reaction_id, values in grouped.items():
+        ordered = sorted(values, key=lambda value: int(value["decision_index"]))
+        first_error = next(
+            (
+                int(value["decision_index"])
+                for value in ordered
+                if not bool(value.get("decision_exact"))
+            ),
+            None,
+        )
+        first_error_histogram[
+            "none" if first_error is None else str(first_error)
+        ] += 1
+        event_rows = [value for value in ordered if value["decision_type"] == "event"]
+        import_rows = [value for value in ordered if value["decision_type"] == "import"]
+        finish_rows = [value for value in ordered if value["decision_type"] == "finish"]
+        reactions.append(
+            {
+                "reaction_id": reaction_id,
+                "all_tools_correct": all(bool(value.get("correct_tool")) for value in ordered),
+                "all_decisions_exact": all(
+                    bool(value.get("decision_exact")) for value in ordered
+                ),
+                "all_events_formally_executable": all(
+                    bool(value.get("formal_execute")) for value in event_rows
+                ),
+                "all_event_successors_chemical_exact": all(
+                    bool(value.get("successor_chemical_exact")) for value in event_rows
+                ),
+                "all_import_fragments_exact": all(
+                    bool(value.get("import_fragment_exact")) for value in import_rows
+                ),
+                "finish_exact": len(finish_rows) == 1
+                and bool(finish_rows[0].get("finish_exact")),
+            }
+        )
+    output: dict[str, Any] = {
+        "n": len(reactions),
+        "first_decision_error_index": dict(sorted(first_error_histogram.items())),
+    }
+    for field in (
+        "all_tools_correct",
+        "all_decisions_exact",
+        "all_events_formally_executable",
+        "all_event_successors_chemical_exact",
+        "all_import_fragments_exact",
+        "finish_exact",
+    ):
+        count = sum(bool(value[field]) for value in reactions)
+        output[field] = count
+        output[f"{field}_rate"] = count / max(len(reactions), 1)
+    return output
 
 
 def aggregate(args: argparse.Namespace) -> int:
@@ -494,6 +597,19 @@ def aggregate(args: argparse.Namespace) -> int:
     by_type = {
         name: _summary([row for row in rows if row["decision_type"] == name])
         for name in ("import", "event", "finish")
+    }
+    event_rows = [row for row in rows if row["decision_type"] == "event"]
+    import_rows = [row for row in rows if row["decision_type"] == "import"]
+    move_buckets = {
+        "1": lambda value: int(value.get("gold_event_moves", 0)) == 1,
+        "2": lambda value: int(value.get("gold_event_moves", 0)) == 2,
+        "3": lambda value: int(value.get("gold_event_moves", 0)) == 3,
+        "4_plus": lambda value: int(value.get("gold_event_moves", 0)) >= 4,
+    }
+    import_purpose_buckets = {
+        "electron_participant_only": ["electron_participant"],
+        "endpoint_context_only": ["endpoint_context"],
+        "mixed": ["electron_participant", "endpoint_context"],
     }
     report = {
         "artifact_type": "natural_language_event_gold_state_local_k1_v1",
@@ -515,14 +631,40 @@ def aggregate(args: argparse.Namespace) -> int:
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "model": args.model,
         "model_revision": MODEL_REVISION,
+        "compute_dtype": args.dtype,
         "overall": _summary(rows),
         "by_type": by_type,
-        "event_by_stratum": {
+        "oracle_state_reaction_level": _reaction_summary(rows),
+        "tool_confusion": dict(
+            Counter(
+                f"{row['decision_type']}->{row.get('predicted_name') or 'NONE'}"
+                for row in rows
+            )
+        ),
+        "event_by_move_count": {
+            name: _summary([row for row in event_rows if predicate(row)])
+            for name, predicate in move_buckets.items()
+        },
+        "event_by_depth": {
+            str(depth): _summary(
+                [row for row in event_rows if int(row.get("event_depth", -1)) == depth]
+            )
+            for depth in sorted({int(row.get("event_depth", -1)) for row in event_rows})
+        },
+        "import_by_purpose": {
             name: _summary(
                 [
                     row
-                    for row in rows
-                    if row["decision_type"] == "event" and row["stratum"] == name
+                    for row in import_rows
+                    if list(row.get("gold_import_purposes") or []) == purposes
+                ]
+            )
+            for name, purposes in import_purpose_buckets.items()
+        },
+        "event_by_stratum": {
+            name: _summary(
+                [
+                    row for row in event_rows if row["stratum"] == name
                 ]
             )
             for name in ("short", "medium", "long")
@@ -553,6 +695,9 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)
+    parser.add_argument(
+        "--dtype", choices=("float16", "bfloat16"), default="float16"
+    )
     args = parser.parse_args()
     return run(args) if args.command == "run" else aggregate(args)
 
