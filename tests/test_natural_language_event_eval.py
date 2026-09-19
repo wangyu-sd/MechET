@@ -44,6 +44,41 @@ def test_event_prediction_compiles_executes_and_matches_successor() -> None:
     assert metrics["successor_chemical_exact"] is True
 
 
+def test_successor_equivalence_uses_executed_gold_not_representation_reference() -> None:
+    state = "[O:1]=[C:2]([OH:3])[CH3:4].[O-:5][CH2:6][CH3:7]"
+    moves = [
+        {
+            "source": {"kind": "BOND", "atoms": [1, 2]},
+            "sink": {"kind": "ATOM", "atoms": [1]},
+            "electrons": 2,
+        },
+        {
+            "source": {"kind": "LP", "atoms": [5]},
+            "sink": {"kind": "BOND", "atoms": [2, 5]},
+            "electrons": 2,
+        },
+    ]
+    arguments = render_event_arguments(state, moves)
+    task = {
+        "decision_type": "event",
+        "gold_name": "apply_electron_flow",
+        "gold_arguments": arguments,
+        "private_state": state,
+        # Deliberately stale/representation-drifted authority.  A prediction
+        # identical to the executable gold action must still receive credit.
+        "reference_successor": "[CH4:4]",
+    }
+    metrics = score_prediction(
+        task,
+        predicted_name="apply_electron_flow",
+        predicted_arguments=arguments,
+    )
+    assert metrics["event_exact"] is True
+    assert metrics["successor_map_exact"] is True
+    assert metrics["successor_chemical_exact"] is True
+    assert metrics["gold_reference_chemical_exact"] is False
+
+
 def test_import_scoring_is_order_invariant_but_checks_schedule() -> None:
     gold = {
         "fragments": [

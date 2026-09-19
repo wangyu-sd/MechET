@@ -223,7 +223,7 @@ def run(args: argparse.Namespace) -> int:
     tokenizer.padding_side = "left"
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
-    dtype = torch.float16
+    dtype = torch.bfloat16 if args.dtype == "bfloat16" else torch.float16
     try:
         bnb_version = importlib.metadata.version("bitsandbytes")
     except importlib.metadata.PackageNotFoundError as exc:
@@ -323,12 +323,31 @@ def run(args: argparse.Namespace) -> int:
                     gold_moves = compile_event_arguments(
                         str(reference["event_state"]), reference["gold_arguments"]
                     )
+                    gold_execution = verify_electron_step(
+                        str(reference["event_state"]), gold_moves
+                    )
+                    if not gold_execution.get("ok"):
+                        raise ValueError(
+                            "GOLD_EXECUTION_FAILED:"
+                            + str(
+                                gold_execution.get("code")
+                                or gold_execution.get("message")
+                                or "UNKNOWN"
+                            )
+                        )
+                    gold_successor = str(gold_execution["state_smiles"])
                     event_exact = canonical_event(predicted_moves) == canonical_event(gold_moves)
                     map_exact = mapped_state_signature(predicted_successor) == mapped_state_signature(
-                        reference_successor
+                        gold_successor
                     )
                     chemical_exact = deterministic_unmapped_state(
                         predicted_successor
+                    ).text == deterministic_unmapped_state(gold_successor).text
+                    gold_reference_map_exact = mapped_state_signature(
+                        gold_successor
+                    ) == mapped_state_signature(reference_successor)
+                    gold_reference_chemical_exact = deterministic_unmapped_state(
+                        gold_successor
                     ).text == deterministic_unmapped_state(reference_successor).text
                     call_id = f"rollout_{local_step:03d}"
                     tool_result = {
@@ -367,6 +386,8 @@ def run(args: argparse.Namespace) -> int:
                             "event_exact": event_exact,
                             "successor_map_exact": map_exact,
                             "successor_chemical_exact": chemical_exact,
+                            "gold_reference_map_exact": gold_reference_map_exact,
+                            "gold_reference_chemical_exact": gold_reference_chemical_exact,
                         }
                     )
                     current = predicted_successor
@@ -467,6 +488,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "model": args.model,
         "model_revision": MODEL_REVISION,
+        "compute_dtype": args.dtype,
         "by_horizon": {},
         "failure_codes": dict(Counter(row["failure"] for row in rows if row["failure"])),
     }
@@ -512,6 +534,9 @@ def main() -> int:
     )
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)
+    parser.add_argument(
+        "--dtype", choices=("float16", "bfloat16"), default="float16"
+    )
     args = parser.parse_args()
     if any(value != "full" and int(value) <= 0 for value in args.horizons):
         parser.error("horizons must be positive integers or full")
