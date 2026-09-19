@@ -2,13 +2,18 @@
 set -euo pipefail
 
 RUNTIME_DIR="${MECHET_GRAPH_POLICY_RUNTIME_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET-graph-electron-iql-20260919}"
+SHARED_REPO="/aaa/fionafyang/buddy1/whaleywang/MechET"
 DATA_ROOT="/aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1"
 OUTPUT_ROOT="/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/graph_electron_iql_bc_pilot_20260919"
+RDKIT_WHEEL="$SHARED_REPO/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl"
 
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
+echo "a41dde42ecb24e7d93d62b89e8e5d267b02bbac764f965f3968296c99234c685  $RDKIT_WHEEL" | sha256sum --check --strict
+RUNTIME_TARGET=$(mktemp -d /tmp/mechet_graph_policy_runtime.XXXXXX)
+python -m pip install --quiet --no-deps --target "$RUNTIME_TARGET" "$RDKIT_WHEEL"
 cd "$RUNTIME_DIR"
-export PYTHONPATH="$RUNTIME_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$RUNTIME_TARGET:$RUNTIME_DIR/src${PYTHONPATH:+:$PYTHONPATH}"
 export PYTHONUNBUFFERED=1
 
 echo "[graph-electron] runtime=$RUNTIME_DIR"
