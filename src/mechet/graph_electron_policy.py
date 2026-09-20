@@ -26,6 +26,7 @@ except ImportError as exc:  # pragma: no cover - exercised by optional install
     raise ImportError("graph_electron_policy requires the 'train' extra") from exc
 
 from .forward_expert import ElectronContainer, ElectronMove
+from .electron_policy_protocol import CompressedTrajectory, IMPORT_ROLES
 from .graph_fragment_actions import (
     REACTIVE_ROLES,
     FragmentAtom,
@@ -280,6 +281,75 @@ class PolicyContext:
     vector: torch.Tensor
 
 
+class CompressedHistoryEncoder(nn.Module):
+    """Encode the map-free accepted-action ledger without state repetition."""
+
+    _families = ("NONE",) + ACTION_FAMILIES
+    _containers = ("NONE", "LP", "ATOM", "BOND", "RADICAL_PAIR")
+
+    def __init__(self, hidden_dim: int):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.family = nn.Embedding(len(self._families), hidden_dim)
+        self.source = nn.Embedding(len(self._containers), hidden_dim)
+        self.sink = nn.Embedding(len(self._containers), hidden_dim)
+        self.role = nn.Embedding(len(IMPORT_ROLES), hidden_dim)
+        self.counts = nn.Linear(6, hidden_dim)
+        self.cell = nn.GRUCell(hidden_dim, hidden_dim)
+        self.empty = nn.Parameter(torch.zeros(hidden_dim))
+
+    def forward(
+        self, histories: Sequence[CompressedTrajectory], *, device: torch.device
+    ) -> torch.Tensor:
+        if not histories:
+            return self.empty.new_empty((0, self.hidden_dim))
+        hidden = self.empty.to(device).expand(len(histories), -1)
+        maximum = max((len(item.events) for item in histories), default=0)
+        for step in range(maximum):
+            rows: list[list[float]] = []
+            families: list[int] = []
+            sources: list[int] = []
+            sinks: list[int] = []
+            roles: list[int] = []
+            active: list[bool] = []
+            for history in histories:
+                if step >= len(history.events):
+                    event = None
+                    active.append(False)
+                else:
+                    event = history.events[step]
+                    active.append(True)
+                family = event.family if event is not None else "NONE"
+                source = event.source_kinds[0] if event and event.source_kinds else "NONE"
+                sink = event.sink_kinds[0] if event and event.sink_kinds else "NONE"
+                role = event.import_role if event is not None else "NONE"
+                families.append(self._families.index(family))
+                sources.append(self._containers.index(source))
+                sinks.append(self._containers.index(sink))
+                roles.append(IMPORT_ROLES.index(role))
+                rows.append(
+                    [
+                        min((event.electron_moves if event else 0) / 8.0, 1.0),
+                        min((event.fragment_atoms if event else 0) / 32.0, 1.0),
+                        min((event.active_atoms if event else 0) / 8.0, 1.0),
+                        min((event.extra_bonds if event else 0) / 8.0, 1.0),
+                        min((event.bond_edits if event else 0) / 8.0, 1.0),
+                        min((event.charge_edits if event else 0) / 8.0, 1.0),
+                    ]
+                )
+            event_vector = (
+                self.family(torch.tensor(families, device=device))
+                + self.source(torch.tensor(sources, device=device))
+                + self.sink(torch.tensor(sinks, device=device))
+                + self.role(torch.tensor(roles, device=device))
+                + self.counts(torch.tensor(rows, dtype=torch.float32, device=device))
+            )
+            candidate = self.cell(event_vector, hidden)
+            mask = torch.tensor(active, dtype=torch.bool, device=device)[:, None]
+            hidden = torch.where(mask, candidate, hidden)
+        return hidden
+
+
 class GraphElectronPolicy(nn.Module):
     """Hierarchical graph actor with value and action-value heads."""
 
@@ -293,6 +363,13 @@ class GraphElectronPolicy(nn.Module):
             nn.LayerNorm(2 * hidden_dim),
             nn.Linear(2 * hidden_dim, hidden_dim),
         )
+        self.history_encoder = CompressedHistoryEncoder(hidden_dim)
+        self.history_residual = nn.Sequential(
+            nn.Linear(2 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, hidden_dim)
+        )
+        # Stage 1 is exactly state-only.  Stage 2 starts from that checkpoint
+        # and learns to open this residual gate for useful trajectory context.
+        self.history_gate = nn.Parameter(torch.zeros(()))
         self.family_head = nn.Linear(hidden_dim, len(ACTION_FAMILIES))
         self.kind_embedding = nn.Embedding(len(CONTAINER_KINDS), hidden_dim)
         self.container = nn.Sequential(
@@ -420,7 +497,26 @@ class GraphElectronPolicy(nn.Module):
         for module in legacy:
             module.requires_grad_(False)
 
-    def encode_context(self, current_smiles: str, target_smiles: str) -> PolicyContext:
+    def _add_history(
+        self,
+        vectors: torch.Tensor,
+        histories: Sequence[CompressedTrajectory] | None,
+    ) -> torch.Tensor:
+        if histories is None:
+            return vectors
+        if len(histories) != vectors.shape[0]:
+            raise ValueError("history batch does not match graph batch")
+        encoded = self.history_encoder(histories, device=vectors.device)
+        update = self.history_residual(torch.cat((vectors, encoded), dim=-1))
+        return vectors + torch.tanh(self.history_gate) * update
+
+    def encode_context(
+        self,
+        current_smiles: str,
+        target_smiles: str,
+        *,
+        history: CompressedTrajectory | None = None,
+    ) -> PolicyContext:
         target = smiles_to_graph(target_smiles).to(self.device)
         target_maps = target.maps
         current = smiles_to_graph(current_smiles, target_maps=target_maps).to(self.device)
@@ -432,12 +528,16 @@ class GraphElectronPolicy(nn.Module):
                 dim=-1,
             )
         )
+        vector = self._add_history(
+            vector[None, :], None if history is None else (history,)
+        ).squeeze(0)
         return PolicyContext(current_nodes=current_nodes, current_maps=current.maps, vector=vector)
 
     def encode_context_batch(
         self,
         current_graphs: Sequence[GraphTensor],
         target_graphs: Sequence[GraphTensor],
+        histories: Sequence[CompressedTrajectory] | None = None,
     ) -> list[PolicyContext]:
         """Encode a real mini-batch while retaining private map/node bindings."""
 
@@ -458,6 +558,7 @@ class GraphElectronPolicy(nn.Module):
                 dim=-1,
             )
         )
+        vectors = self._add_history(vectors, histories)
         return [
             PolicyContext(
                 current_nodes=current_nodes[start:end],
@@ -472,8 +573,136 @@ class GraphElectronPolicy(nn.Module):
 
         return self.encoder.forward_batch(graphs)[1]
 
+    def forward(
+        self,
+        decisions: Sequence[Mapping[str, Any]],
+        current_graphs: Sequence[GraphTensor],
+        target_graphs: Sequence[GraphTensor],
+        histories: Sequence[CompressedTrajectory] | None = None,
+    ) -> torch.Tensor:
+        """Return per-decision BC losses for standard DDP training.
+
+        Keeping every trainable operation inside ``forward`` lets PyTorch DDP
+        discover used parameters and bucket gradients.  Diagnostic scalar
+        conversion is disabled here so the asynchronous CUDA queue is not
+        drained once per loss component.
+        """
+
+        if len(decisions) != len(current_graphs):
+            raise ValueError("decision and graph batches differ")
+        contexts = self.encode_context_batch(
+            current_graphs, target_graphs, histories
+        )
+        losses: list[torch.Tensor] = []
+        for value, context in zip(decisions, contexts):
+            kind = str(value["kind"])
+            if kind == "FLOW":
+                loss = self.direct_flow_nll(
+                    str(value["current"]),
+                    str(value["target"]),
+                    value["moves"],
+                    context=context,
+                    return_parts=False,
+                )[0]
+            elif kind == "BE_DELTA":
+                loss = self.be_delta_nll(
+                    str(value["current"]),
+                    str(value["target"]),
+                    value["moves"][0],
+                    context=context,
+                    return_parts=False,
+                )[0]
+            elif kind in {"IMPORT_ENV", "IMPORT_REACTIVE"}:
+                loss = self.reactive_fragment_nll(
+                    str(value["current"]),
+                    str(value["target"]),
+                    value["program"],
+                    context=context,
+                    return_parts=False,
+                )[0]
+            elif kind == "FINISH":
+                loss = self.finish_nll(
+                    str(value["current"]), str(value["target"]), context=context
+                )
+            else:
+                raise ValueError(f"unknown decision kind: {kind}")
+            losses.append(loss)
+        return torch.stack(losses)
+
     def family_logits(self, context: PolicyContext) -> torch.Tensor:
         return self.family_head(context.vector)
+
+    @torch.no_grad()
+    def sample_next_family(
+        self,
+        current_smiles: str,
+        target_smiles: str,
+        *,
+        trajectory: CompressedTrajectory | None = None,
+        greedy: bool = False,
+        temperature: float = 1.0,
+    ) -> dict[str, Any]:
+        """Sample one action family directly, without a candidate inventory."""
+
+        context = self.encode_context(
+            current_smiles, target_smiles, history=trajectory
+        )
+        index, logprob = self._sample_index(
+            self.family_logits(context), greedy=greedy, temperature=temperature
+        )
+        return {
+            "family": ACTION_FAMILIES[index],
+            "logprob": logprob,
+            "candidate_enumeration": False,
+        }
+
+    def canonical_action_nll(
+        self,
+        decision: Mapping[str, Any],
+        *,
+        history: CompressedTrajectory | None = None,
+    ) -> torch.Tensor:
+        """Differentiable log-probability bridge for stage-3 PPO/GRPO.
+
+        Rollout stores the directly sampled canonical action.  RL recomputes
+        its log-probability as ``-canonical_action_nll``; no candidate set is
+        reconstructed during collection or optimization.
+        """
+
+        current = str(decision["current"])
+        target = str(decision["target"])
+        context = self.encode_context(current, target, history=history)
+        kind = str(decision["kind"])
+        if kind == "FLOW":
+            return self.direct_flow_nll(
+                current,
+                target,
+                decision["moves"],
+                context=context,
+                return_parts=False,
+            )[0]
+        if kind == "BE_DELTA":
+            return self.be_delta_nll(
+                current,
+                target,
+                decision["moves"][0],
+                context=context,
+                return_parts=False,
+            )[0]
+        if kind in {"IMPORT_ENV", "IMPORT_REACTIVE"}:
+            program = decision["program"]
+            if isinstance(program, Mapping):
+                program = ReactiveFragmentProgram.from_dict(program)
+            return self.reactive_fragment_nll(
+                current,
+                target,
+                program,
+                context=context,
+                return_parts=False,
+            )[0]
+        if kind == "FINISH":
+            return self.finish_nll(current, target, context=context)
+        raise ValueError(f"unknown canonical action: {kind}")
 
     def value(self, context: PolicyContext) -> torch.Tensor:
         return self.value_head(context.vector).squeeze(-1)
@@ -668,6 +897,7 @@ class GraphElectronPolicy(nn.Module):
         moves: Sequence[ElectronMove | Mapping[str, Any]],
         *,
         context: PolicyContext | None = None,
+        return_parts: bool = True,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """Teacher-forced FLOW loss with no state-derived action enumeration."""
 
@@ -736,12 +966,17 @@ class GraphElectronPolicy(nn.Module):
                 torch.tensor([commit_target], device=self.device),
             )
         total = family_loss + source_loss + sink_loss + commit_loss
-        return total, {
-            "family": float(family_loss.detach()),
-            "source": float(source_loss.detach()),
-            "sink": float(sink_loss.detach()),
-            "commit": float(commit_loss.detach()),
-        }
+        parts = (
+            {
+                "family": float(family_loss.detach()),
+                "source": float(source_loss.detach()),
+                "sink": float(sink_loss.detach()),
+                "commit": float(commit_loss.detach()),
+            }
+            if return_parts
+            else {}
+        )
+        return total, parts
 
     def _sample_direct_container(
         self,
@@ -798,13 +1033,16 @@ class GraphElectronPolicy(nn.Module):
         current_smiles: str,
         target_smiles: str,
         *,
+        trajectory: CompressedTrajectory | None = None,
         max_arrows: int = 8,
         greedy: bool = False,
         temperature: float = 1.0,
     ) -> dict[str, Any]:
         """Generate a complete electron event without a legal-action inventory."""
 
-        context = self.encode_context(current_smiles, target_smiles)
+        context = self.encode_context(
+            current_smiles, target_smiles, history=trajectory
+        )
         history = torch.zeros_like(context.vector)
         moves: list[ElectronMove] = []
         total_logprob = 0.0
@@ -908,6 +1146,7 @@ class GraphElectronPolicy(nn.Module):
         payload: Mapping[str, Any],
         *,
         context: PolicyContext | None = None,
+        return_parts: bool = True,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """NLL for a sparse BE-matrix edit sequence followed by atomic commit.
 
@@ -1010,12 +1249,17 @@ class GraphElectronPolicy(nn.Module):
             commit_scores[None, :], torch.tensor([2], device=self.device)
         )
         total = family_loss + operation_loss + position_loss + delta_loss
-        return total, {
-            "family": float(family_loss.detach()),
-            "operation": float(operation_loss.detach()),
-            "position": float(position_loss.detach()),
-            "delta": float(delta_loss.detach()),
-        }
+        parts = (
+            {
+                "family": float(family_loss.detach()),
+                "operation": float(operation_loss.detach()),
+                "position": float(position_loss.detach()),
+                "delta": float(delta_loss.detach()),
+            }
+            if return_parts
+            else {}
+        )
+        return total, parts
 
     def import_nll(
         self,
@@ -1126,6 +1370,7 @@ class GraphElectronPolicy(nn.Module):
         program: ReactiveFragmentProgram,
         *,
         context: PolicyContext | None = None,
+        return_parts: bool = True,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """Teacher-forced graph-program loss for an open-vocabulary import."""
 
@@ -1267,15 +1512,20 @@ class GraphElectronPolicy(nn.Module):
             + bond_loss
             + active_loss
         )
-        return total, {
-            "family": float(family_loss.detach()),
-            "role": float(role_loss.detach()),
-            "operation": float(operation_loss.detach()),
-            "atom": float(atom_loss.detach()),
-            "position": float(position_loss.detach()),
-            "bond": float(bond_loss.detach()),
-            "active": float(active_loss.detach()),
-        }
+        parts = (
+            {
+                "family": float(family_loss.detach()),
+                "role": float(role_loss.detach()),
+                "operation": float(operation_loss.detach()),
+                "atom": float(atom_loss.detach()),
+                "position": float(position_loss.detach()),
+                "bond": float(bond_loss.detach()),
+                "active": float(active_loss.detach()),
+            }
+            if return_parts
+            else {}
+        )
+        return total, parts
 
     @staticmethod
     def _sample_index(
@@ -1302,6 +1552,7 @@ class GraphElectronPolicy(nn.Module):
         current_smiles: str,
         target_smiles: str,
         *,
+        trajectory: CompressedTrajectory | None = None,
         role: str | None = None,
         max_atoms: int = 32,
         max_extra_bonds: int = 8,
@@ -1318,7 +1569,9 @@ class GraphElectronPolicy(nn.Module):
 
         if max_atoms < 1 or max_extra_bonds < 0:
             raise ValueError("invalid fragment rollout limits")
-        context = self.encode_context(current_smiles, target_smiles)
+        context = self.encode_context(
+            current_smiles, target_smiles, history=trajectory
+        )
         total_logprob = 0.0
         if role is None:
             role_index, value = self._sample_index(

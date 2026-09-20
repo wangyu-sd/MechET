@@ -12,6 +12,13 @@ from pathlib import Path
 import time
 from typing import Any, Iterable
 
+from mechet.electron_policy_protocol import (
+    CompressedTrajectory,
+    PROTOCOL_VERSION,
+    STAGE_ONLINE_RL,
+    STAGE_STATE_BC,
+    STAGE_TRAJECTORY_BC,
+)
 from mechet.graph_fragment_actions import classify_imports, decompose_reactive_fragment
 
 
@@ -40,9 +47,10 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
     current = target
     decisions: list[dict[str, Any]] = []
     supervision = iter(classify_imports(plan))
+    history = CompressedTrajectory()
 
     def add_import(fragment: str) -> None:
-        nonlocal current
+        nonlocal current, history
         item = next(supervision)
         if item.fragment != fragment:
             raise ValueError(f"row {row_index}: chronological import supervision drift")
@@ -62,7 +70,9 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
             participating_maps=item.participating_maps,
             role=str(item.role) if item.role else "ENVIRONMENT",
         ).to_dict()
+        decision["history"] = history.to_dict()
         decisions.append(decision)
+        history = history.append(decision)
         current = append_fragment(current, fragment)
 
     for fragment in plan.get("initial_imports") or ():
@@ -76,15 +86,16 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
             if len(moves) == 1 and moves[0].get("mode") == "BE_DELTA"
             else "FLOW"
         )
-        decisions.append(
-            {
-                "reaction_id": row.get("id"),
-                "kind": kind,
-                "current": current,
-                "target": target,
-                "moves": moves,
-            }
-        )
+        decision = {
+            "reaction_id": row.get("id"),
+            "kind": kind,
+            "current": current,
+            "target": target,
+            "moves": moves,
+            "history": history.to_dict(),
+        }
+        decisions.append(decision)
+        history = history.append(decision)
         current = str(step["state_after"])
     decisions.append(
         {
@@ -92,6 +103,7 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
             "kind": "FINISH",
             "current": current,
             "target": target,
+            "history": history.to_dict(),
         }
     )
     try:
@@ -188,8 +200,14 @@ def main() -> None:
         raise SystemExit("source is not the frozen strict trace universe")
     args.output.mkdir(parents=True, exist_ok=True)
     manifest: dict[str, Any] = {
-        "schema_version": 2,
+        "schema_version": 3,
         "artifact_type": "graph_electron_direct_pointer_decisions",
+        "policy_protocol": {
+            "version": PROTOCOL_VERSION,
+            "tracks": ["llm", "graph"],
+            "stages": [STAGE_STATE_BC, STAGE_TRAJECTORY_BC, STAGE_ONLINE_RL],
+            "history": "accepted_action_ledger_without_state_snapshots_or_gold_horizon",
+        },
         "action_contract": {
             "flow": "direct_conditional_node_pointers_no_candidate_inventory",
             "imports": "open_graph_program_for_environment_and_reactive_fragments",

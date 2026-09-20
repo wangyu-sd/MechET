@@ -185,6 +185,7 @@ A later level cannot rescue an earlier failure.
 
 - [`STATUS_MATRIX.md`](STATUS_MATRIX.md) — implementation status versus unestablished scientific results.
 - [`EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md`](EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md) — the active State-SFT → compressed-history Trajectory-SFT → EARHO learning curriculum and its long-horizon evidence gates.
+- [`TWO_TRACK_THREE_STAGE_ELECTRON_POLICY.md`](TWO_TRACK_THREE_STAGE_ELECTRON_POLICY.md) — the shared LLM/graph next-event contract, tensorized BC pipeline, compressed trajectory, and candidate-free RL interface.
 - [`A7_STATE_TRACE_DESIGN.md`](A7_STATE_TRACE_DESIGN.md) — proposed state-visible, history-queryable A7 trajectory redesign and its adoption gates; it is not an approved main condition.
 - [`results/a7_historical_subset_long_horizon_audit_20260902.json`](results/a7_historical_subset_long_horizon_audit_20260902.json) — machine-readable comparison between the successful legacy 3,080-target A7 trace view and the current full-universe trajectory lengths; diagnostic, not headline-eligible.
 - [`A8_ETPG_DESIGN.md`](A8_ETPG_DESIGN.md) — proposed partial-order electron-transfer program, its relationship to prior OpenFlow/proof/GFR experiments, and its staged adoption gates.

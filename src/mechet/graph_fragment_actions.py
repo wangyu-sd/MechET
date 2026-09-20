@@ -365,7 +365,17 @@ def decompose_reactive_fragment(
     )
 
 
-def replay_reactive_fragment(program: ReactiveFragmentProgram) -> str:
+def _fragment_program_mol(
+    program: ReactiveFragmentProgram,
+    *,
+    atom_maps: Sequence[int] | None = None,
+) -> Chem.Mol:
+    if atom_maps is not None:
+        atom_maps = tuple(int(value) for value in atom_maps)
+        if len(atom_maps) != len(program.atoms):
+            raise ValueError("fragment atom-map count mismatch")
+        if any(value <= 0 for value in atom_maps) or len(set(atom_maps)) != len(atom_maps):
+            raise ValueError("fragment atom maps must be unique positive integers")
     rw = Chem.RWMol()
     for index, spec in enumerate(program.atoms):
         atom = Chem.Atom(int(spec.atomic_num))
@@ -375,6 +385,8 @@ def replay_reactive_fragment(program: ReactiveFragmentProgram) -> str:
         atom.SetNoImplicit(bool(spec.no_implicit))
         atom.SetNumRadicalElectrons(int(spec.radical_electrons))
         atom.SetChiralTag(Chem.ChiralType(int(spec.chiral_tag)))
+        if atom_maps is not None:
+            atom.SetAtomMapNum(atom_maps[index])
         added = rw.AddAtom(atom)
         if added != index:
             raise ValueError("unexpected RDKit atom insertion order")
@@ -391,4 +403,21 @@ def replay_reactive_fragment(program: ReactiveFragmentProgram) -> str:
             bond.SetStereo(Chem.BondStereo(int(spec.stereo)))
     mol = rw.GetMol()
     Chem.SanitizeMol(mol)
+    return mol
+
+
+def replay_reactive_fragment(program: ReactiveFragmentProgram) -> str:
+    mol = _fragment_program_mol(program)
     return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+
+
+def allocate_reactive_fragment_maps(
+    program: ReactiveFragmentProgram, *, first_map: int
+) -> tuple[str, tuple[int, ...]]:
+    """Assign executor-private maps to a generated map-free graph program."""
+
+    if int(first_map) <= 0:
+        raise ValueError("first private atom map must be positive")
+    assigned = tuple(range(int(first_map), int(first_map) + len(program.atoms)))
+    mol = _fragment_program_mol(program, atom_maps=assigned)
+    return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True), assigned

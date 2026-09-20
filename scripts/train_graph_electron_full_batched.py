@@ -3,20 +3,26 @@
 from __future__ import annotations
 
 import argparse
-from collections import deque
-from concurrent.futures import Future, ProcessPoolExecutor
+from bisect import bisect_right
+from collections import OrderedDict
 from dataclasses import dataclass
 import json
 import math
-import multiprocessing as mp
 import os
 from pathlib import Path
 import time
-from typing import Any, Iterator
+from typing import Any
 
 import torch
 import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data import DataLoader, Dataset
 
+from mechet.electron_policy_protocol import (
+    CompressedTrajectory,
+    STAGE_STATE_BC,
+    STAGE_TRAJECTORY_BC,
+)
 from mechet.graph_electron_policy import (
     ACTION_FAMILIES,
     GraphElectronPolicy,
@@ -24,7 +30,6 @@ from mechet.graph_electron_policy import (
     smiles_to_graph,
 )
 from mechet.graph_fragment_actions import ReactiveFragmentProgram
-from train_graph_electron_full import synchronize_gradients
 
 
 @dataclass(frozen=True)
@@ -32,6 +37,7 @@ class PreparedDecision:
     value: dict[str, Any]
     current_graph: GraphTensor
     target_graph: GraphTensor
+    history: CompressedTrajectory
 
 
 def prepare_line(line: str) -> PreparedDecision:
@@ -42,56 +48,143 @@ def prepare_line(line: str) -> PreparedDecision:
     current_graph = smiles_to_graph(
         value["current"], target_maps=target_graph.maps
     )
-    return PreparedDecision(value, current_graph, target_graph)
+    return PreparedDecision(
+        value,
+        current_graph,
+        target_graph,
+        CompressedTrajectory.from_dict(value.get("history")),
+    )
 
 
-def prepare_lines(lines: list[str]) -> list[PreparedDecision]:
-    """Process one complete mini-batch in a worker to amortize IPC overhead."""
+class JsonlDecisionDataset(Dataset[PreparedDecision]):
+    """Indexed JSONL dataset whose workers own parsing and RDKit conversion.
 
-    return [prepare_line(line) for line in lines]
+    JSONL remains the auditable source contract.  ``DataLoader`` supplies the
+    standard worker lifecycle, deterministic batching, exception propagation,
+    and persistent prefetching.  Production runs use
+    :class:`TensorChunkDecisionDataset`; this backend remains an auditable
+    fallback and the one-time tensor-cache compiler's source.
+    """
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.offsets: list[int] = []
+        offset = 0
+        with path.open("rb") as handle:
+            for line in handle:
+                self.offsets.append(offset)
+                offset += len(line)
+        self._handle = None
+
+    def __len__(self) -> int:
+        return len(self.offsets)
+
+    def __getstate__(self) -> dict[str, Any]:
+        value = dict(self.__dict__)
+        value["_handle"] = None
+        return value
+
+    def __getitem__(self, index: int) -> PreparedDecision:
+        if self._handle is None:
+            self._handle = self.path.open("rb")
+        self._handle.seek(self.offsets[index])
+        return prepare_line(self._handle.readline().decode("utf-8"))
 
 
-def raw_batches(path: Path, batch_size: int, skip: int = 0) -> Iterator[list[str]]:
-    with path.open() as handle:
-        for _ in range(skip):
-            if not handle.readline():
-                return
-        batch: list[str] = []
-        for line in handle:
-            batch.append(line)
-            if len(batch) == batch_size:
-                yield batch
-                batch = []
-        if batch:
-            yield batch
+def collate_prepared(items: list[PreparedDecision]) -> list[PreparedDecision]:
+    return items
 
 
-def prefetched_batches(
-    path: Path,
-    *,
-    batch_size: int,
-    skip: int,
-    executor: ProcessPoolExecutor,
-    prefetch: int,
-) -> Iterator[list[PreparedDecision]]:
-    source = iter(raw_batches(path, batch_size, skip))
-    queue: deque[Future[list[PreparedDecision]]] = deque()
+def write_tensor_chunk(items: list[PreparedDecision], path: Path) -> None:
+    """Write a trusted tensor chunk with graph de-duplication inside the chunk."""
 
-    def schedule(lines: list[str]) -> Future[list[PreparedDecision]]:
-        return executor.submit(prepare_lines, lines)
+    graph_ids: dict[tuple[str, ...], int] = {}
+    graphs: list[GraphTensor] = []
 
-    for _ in range(prefetch):
-        try:
-            queue.append(schedule(next(source)))
-        except StopIteration:
-            break
-    while queue:
-        future = queue.popleft()
-        try:
-            queue.append(schedule(next(source)))
-        except StopIteration:
-            pass
-        yield future.result()
+    def add(key: tuple[str, ...], graph: GraphTensor) -> int:
+        found = graph_ids.get(key)
+        if found is not None:
+            return found
+        index = len(graphs)
+        graph_ids[key] = index
+        graphs.append(graph)
+        return index
+
+    records = []
+    for item in items:
+        value = item.value
+        target = str(value["target"])
+        current = str(value["current"])
+        records.append(
+            {
+                "value": value,
+                "target_graph": add(("target", target), item.target_graph),
+                "current_graph": add(("current", target, current), item.current_graph),
+                "history": item.history.to_dict(),
+            }
+        )
+    temporary = path.with_suffix(path.suffix + ".partial")
+    torch.save({"graphs": graphs, "records": records}, temporary)
+    os.replace(temporary, path)
+
+
+class TensorChunkDecisionDataset(Dataset[PreparedDecision]):
+    """Memory-bounded map dataset over precompiled graph/action tensor chunks."""
+
+    def __init__(self, root: Path, *, cache_chunks: int = 2):
+        manifest = json.loads((root / "manifest.json").read_text())
+        self.root = root
+        self.chunks = tuple(manifest["chunks"])
+        self.starts: list[int] = []
+        total = 0
+        for item in self.chunks:
+            self.starts.append(total)
+            total += int(item["rows"])
+        self.rows = total
+        if self.rows != int(manifest["rows"]):
+            raise ValueError("tensor-cache row count mismatch")
+        self.cache_chunks = max(1, int(cache_chunks))
+        self._cache: OrderedDict[int, dict[str, Any]] = OrderedDict()
+
+    def __len__(self) -> int:
+        return self.rows
+
+    def __getstate__(self) -> dict[str, Any]:
+        value = dict(self.__dict__)
+        value["_cache"] = OrderedDict()
+        return value
+
+    def _chunk(self, index: int) -> dict[str, Any]:
+        value = self._cache.get(index)
+        if value is not None:
+            self._cache.move_to_end(index)
+            return value
+        value = torch.load(
+            self.root / self.chunks[index]["file"],
+            map_location="cpu",
+            weights_only=False,
+        )
+        self._cache[index] = value
+        self._cache.move_to_end(index)
+        while len(self._cache) > self.cache_chunks:
+            self._cache.popitem(last=False)
+        return value
+
+    def __getitem__(self, index: int) -> PreparedDecision:
+        if index < 0:
+            index += self.rows
+        if index < 0 or index >= self.rows:
+            raise IndexError(index)
+        chunk_index = bisect_right(self.starts, index) - 1
+        chunk = self._chunk(chunk_index)
+        record = chunk["records"][index - self.starts[chunk_index]]
+        graphs = chunk["graphs"]
+        return PreparedDecision(
+            record["value"],
+            graphs[int(record["current_graph"])],
+            graphs[int(record["target_graph"])],
+            CompressedTrajectory.from_dict(record["history"]),
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -108,6 +201,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--log-updates", type=int, default=20)
     parser.add_argument("--checkpoint-updates", type=int, default=2000)
+    parser.add_argument(
+        "--tensor-cache",
+        type=Path,
+        help="Root containing train.rankXX tensor-cache directories.",
+    )
+    parser.add_argument(
+        "--stage",
+        choices=(STAGE_STATE_BC, STAGE_TRAJECTORY_BC),
+        default=STAGE_STATE_BC,
+    )
+    parser.add_argument(
+        "--initialize-from",
+        type=Path,
+        help="Stage-1 checkpoint used to initialize trajectory behavior cloning.",
+    )
     return parser.parse_args()
 
 
@@ -180,8 +288,37 @@ def main() -> None:
     )
     model.freeze_enumerated_action_heads()
     model = model.to(device)
+    if args.initialize_from is not None:
+        if args.stage != STAGE_TRAJECTORY_BC:
+            raise SystemExit("--initialize-from is reserved for trajectory_bc")
+        parent = torch.load(args.initialize_from, map_location="cpu", weights_only=False)
+        incompatible = model.load_state_dict(parent["model"], strict=False)
+        allowed_missing = {
+            name
+            for name in model.state_dict()
+            if name.startswith("history_encoder.")
+            or name.startswith("history_residual.")
+            or name == "history_gate"
+        }
+        if set(incompatible.missing_keys) - allowed_missing or incompatible.unexpected_keys:
+            raise SystemExit(
+                "stage-1 checkpoint is incompatible beyond the new history adapter: "
+                f"missing={incompatible.missing_keys} unexpected={incompatible.unexpected_keys}"
+            )
+    distributed_model = DistributedDataParallel(
+        model,
+        device_ids=[local_rank],
+        output_device=local_rank,
+        broadcast_buffers=False,
+        find_unused_parameters=True,
+        gradient_as_bucket_view=True,
+    )
     optimizer = torch.optim.AdamW(
-        (parameter for parameter in model.parameters() if parameter.requires_grad),
+        (
+            parameter
+            for parameter in distributed_model.parameters()
+            if parameter.requires_grad
+        ),
         lr=args.learning_rate,
     )
     # v2 starts clean; its checkpoints are deliberately incompatible with the
@@ -189,40 +326,54 @@ def main() -> None:
     if any(args.output.glob("checkpoint-*.pt")):
         raise SystemExit("batched output directory already contains a checkpoint")
 
-    # Parsing SMILES into graph tensors is CPU-heavy. Threads do not scale
-    # because the Python/RDKit path retains the GIL, so
-    # each GPU rank owns independent spawn workers.  Batches (rather than
-    # individual rows) cross IPC to keep serialization overhead bounded.
-    process_context = mp.get_context("spawn")
-    with ProcessPoolExecutor(
-        max_workers=args.cpu_workers, mp_context=process_context
-    ) as executor:
+    dataset: Dataset[PreparedDecision]
+    if args.tensor_cache is not None:
+        dataset = TensorChunkDecisionDataset(
+            args.tensor_cache / f"train.rank{rank:02d}"
+        )
+        loader_backend = "tensor_cache"
+    else:
+        dataset = JsonlDecisionDataset(shard)
+        loader_backend = "jsonl_audit_fallback"
+    if len(dataset) != local_rows:
+        raise SystemExit(f"rank {rank}: shard rows changed: {len(dataset)} != {local_rows}")
+    loader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.cpu_workers,
+        collate_fn=collate_prepared,
+        multiprocessing_context="spawn",
+        persistent_workers=True,
+        prefetch_factor=args.prefetch,
+        pin_memory=False,
+        drop_last=False,
+    )
+    if args.stage == STAGE_TRAJECTORY_BC and int(manifest.get("schema_version", 0)) < 3:
+        raise SystemExit("trajectory_bc requires schema-v3 decisions with compressed history")
+    try:
         if rank == 0:
             print(
                 f"[graph-batched] world_size={world_size} train_decisions={train_meta['decisions']} "
                 f"rank_rows={rank_rows} batch_per_rank={args.batch_size} "
                 f"global_batch={args.batch_size * world_size} cpu_workers_total="
                 f"{args.cpu_workers * world_size} process_prefetch={args.prefetch} "
+                f"loader=torch.DataLoader/{loader_backend} stage={args.stage} "
                 "action_contract=direct_pointer_no_inventory "
-                f"parameters={sum(p.numel() for p in model.parameters())}",
+                f"distributed=torch.DDP parameters={sum(p.numel() for p in model.parameters())}",
                 flush=True,
             )
         dist.barrier()
         for epoch_index in range(args.epochs):
-            model.train()
+            distributed_model.train()
             loss_sum = 0.0
             real_rows = 0
             updates = 0
             started = time.time()
-            batches = prefetched_batches(
-                shard,
-                batch_size=args.batch_size,
-                skip=0,
-                executor=executor,
-                prefetch=args.prefetch,
-            )
+            batches = iter(loader)
             total_updates = math.ceil(max_rows / args.batch_size)
             first: PreparedDecision | None = None
+            loss_sum_tensor = torch.zeros((), dtype=torch.float64, device=device)
             for update_index in range(total_updates):
                 try:
                     prepared = next(batches)
@@ -238,54 +389,28 @@ def main() -> None:
                 weights = [1.0] * real_count + [0.0] * (args.batch_size - real_count)
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                    contexts = model.encode_context_batch(
+                    losses = distributed_model(
+                        [item.value for item in prepared],
                         [item.current_graph for item in prepared],
                         [item.target_graph for item in prepared],
+                        (
+                            [item.history for item in prepared]
+                            if args.stage == STAGE_TRAJECTORY_BC
+                            else None
+                        ),
                     )
-                    losses: list[torch.Tensor] = []
-                    for index, (item, context, weight) in enumerate(
-                        zip(prepared, contexts, weights)
-                    ):
-                        value = item.value
-                        kind = value["kind"]
-                        if kind == "FLOW":
-                            loss = model.direct_flow_nll(
-                                value["current"],
-                                value["target"],
-                                value["moves"],
-                                context=context,
-                            )[0]
-                        elif kind == "BE_DELTA":
-                            loss = model.be_delta_nll(
-                                value["current"],
-                                value["target"],
-                                value["moves"][0],
-                                context=context,
-                            )[0]
-                        elif kind in {"IMPORT_ENV", "IMPORT_REACTIVE"}:
-                            loss = model.reactive_fragment_nll(
-                                value["current"],
-                                value["target"],
-                                value["program"],
-                                context=context,
-                            )[0]
-                        elif kind == "FINISH":
-                            loss = model.finish_nll(
-                                value["current"], value["target"], context=context
-                            )
-                        else:
-                            raise ValueError(f"unknown decision kind: {kind}")
-                        losses.append(loss * weight)
-                    batch_loss = torch.stack(losses).sum() / args.batch_size
+                    weight_tensor = torch.tensor(weights, device=device)
+                    weighted_losses = losses * weight_tensor
+                    batch_loss = weighted_losses.sum() / args.batch_size
                 batch_loss.backward()
-                synchronize_gradients(model, world_size)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(distributed_model.parameters(), 1.0)
                 optimizer.step()
                 updates += 1
                 real_rows += real_count
-                loss_sum += float(torch.stack(losses).detach().sum())
+                loss_sum_tensor += weighted_losses.detach().sum().to(torch.float64)
                 if rank == 0 and updates % args.log_updates == 0:
                     elapsed = time.time() - started
+                    loss_sum = float(loss_sum_tensor)
                     print(
                         f"[graph-batched] epoch={epoch_index + 1}/{args.epochs} "
                         f"update={updates}/{total_updates} decisions_rank0={real_rows}/{local_rows} "
@@ -305,8 +430,8 @@ def main() -> None:
                         processed_rows=real_rows,
                     )
                     print(f"[graph-batched] checkpoint={checkpoint}", flush=True)
-            totals = torch.tensor(
-                [loss_sum, real_rows], dtype=torch.float64, device=device
+            totals = torch.stack(
+                (loss_sum_tensor, torch.tensor(float(real_rows), dtype=torch.float64, device=device))
             )
             dist.all_reduce(totals, op=dist.ReduceOp.SUM)
             result = {
@@ -335,7 +460,8 @@ def main() -> None:
                                 if epoch_index + 1 == args.epochs
                                 else "training"
                             ),
-                            "trainer": "direct_pointer_no_enumeration_bf16_v1",
+                            "trainer": "two_track_direct_pointer_ddp_tensor_bf16_v1",
+                            "stage": args.stage,
                             "action_families": list(ACTION_FAMILIES),
                             "reaction_denominator": expected,
                             "train_decisions": train_meta["decisions"],
@@ -351,6 +477,11 @@ def main() -> None:
                     flush=True,
                 )
             dist.barrier()
+    finally:
+        # Explicitly release persistent workers before distributed shutdown.
+        iterator = getattr(loader, "_iterator", None)
+        if iterator is not None:
+            iterator._shutdown_workers()
     dist.destroy_process_group()
 
 
