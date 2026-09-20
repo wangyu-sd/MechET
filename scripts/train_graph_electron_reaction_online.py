@@ -142,6 +142,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--source-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--verified-offset-index",
+        type=Path,
+        help=(
+            "Reuse an offset index produced only after this trainer verified the "
+            "frozen source SHA256; avoids re-hashing the same 5 GB source."
+        ),
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--hidden-dim", type=int, default=192)
@@ -200,18 +208,29 @@ def main() -> None:
     if int(train_meta["rows"]) != EXPECTED["train"]:
         raise SystemExit("reaction denominator mismatch")
     args.output.mkdir(parents=True, exist_ok=True)
-    offset_index = args.output / "train.reaction_offsets.u64"
+    offset_index = args.verified_offset_index or args.output / "train.reaction_offsets.u64"
     if rank == 0:
-        actual_sha = sha256_file(source)
-        if actual_sha != train_meta["sha256"]:
-            raise SystemExit("frozen train source hash mismatch")
-        print(
-            f"[graph-online] source_verified reactions={EXPECTED['train']} sha256={actual_sha} "
-            "expanded_decisions_on_disk=0",
-            flush=True,
-        )
-        if not offset_index.exists():
-            build_offset_index(source, offset_index, EXPECTED["train"])
+        if args.verified_offset_index is not None:
+            expected_bytes = EXPECTED["train"] * array("Q").itemsize
+            if not offset_index.is_file() or offset_index.stat().st_size != expected_bytes:
+                raise SystemExit("verified offset index is missing or has the wrong row count")
+            print(
+                f"[graph-online] source_verified provenance_index={offset_index} "
+                f"reactions={EXPECTED['train']} manifest_sha256={train_meta['sha256']} "
+                "expanded_decisions_on_disk=0",
+                flush=True,
+            )
+        else:
+            actual_sha = sha256_file(source)
+            if actual_sha != train_meta["sha256"]:
+                raise SystemExit("frozen train source hash mismatch")
+            print(
+                f"[graph-online] source_verified reactions={EXPECTED['train']} sha256={actual_sha} "
+                "expanded_decisions_on_disk=0",
+                flush=True,
+            )
+            if not offset_index.exists():
+                build_offset_index(source, offset_index, EXPECTED["train"])
     dist.barrier()
 
     if args.initialize_from and args.resume_from:

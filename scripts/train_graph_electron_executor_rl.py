@@ -25,6 +25,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--source-manifest", type=Path, required=True)
+    parser.add_argument(
+        "--verified-offset-index",
+        type=Path,
+        help="Offset index created after frozen-source SHA256 verification.",
+    )
     parser.add_argument("--initialize-from", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--episodes", type=int, default=1024)
@@ -95,12 +100,22 @@ def main() -> None:
     if not manifest.get("strict_trace_universe_complete"):
         raise SystemExit("source is not the frozen strict trace universe")
     args.output.mkdir(parents=True, exist_ok=True)
-    offsets_path = args.output / "train.reaction_offsets.u64"
+    offsets_path = args.verified_offset_index or args.output / "train.reaction_offsets.u64"
     if rank == 0:
-        if sha256_file(source) != manifest["splits"]["train"]["sha256"]:
-            raise SystemExit("frozen train source hash mismatch")
-        if not offsets_path.exists():
-            build_offset_index(source, offsets_path, EXPECTED["train"])
+        if args.verified_offset_index is not None:
+            expected_bytes = EXPECTED["train"] * array("Q").itemsize
+            if not offsets_path.is_file() or offsets_path.stat().st_size != expected_bytes:
+                raise SystemExit("verified offset index is missing or has the wrong row count")
+            print(
+                f"[graph-executor-rl] source_verified provenance_index={offsets_path} "
+                f"manifest_sha256={manifest['splits']['train']['sha256']}",
+                flush=True,
+            )
+        else:
+            if sha256_file(source) != manifest["splits"]["train"]["sha256"]:
+                raise SystemExit("frozen train source hash mismatch")
+            if not offsets_path.exists():
+                build_offset_index(source, offsets_path, EXPECTED["train"])
     dist.barrier()
     offsets = array("Q")
     with offsets_path.open("rb") as handle:

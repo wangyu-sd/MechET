@@ -6,6 +6,7 @@ SHARED_REPO="/aaa/fionafyang/buddy1/whaleywang/MechET"
 SOURCE_ROOT="$SHARED_REPO/data/flower_inverse_tool_sft_action_delta_v1"
 SOURCE_MANIFEST="$SOURCE_ROOT/training_manifest.json"
 RESUME_CHECKPOINT="$SHARED_REPO/outputs/agent/graph_electron_reaction_online_v1_8a100_20260920/checkpoint-epoch1-update500.pt"
+VERIFIED_INDEX="$SHARED_REPO/outputs/agent/graph_electron_reaction_online_v1_8a100_20260920/train.reaction_offsets.u64"
 SMOKE_ROOT="$SHARED_REPO/outputs/agent/graph_electron_three_stage_smoke_v1"
 STATE_ROOT="$SMOKE_ROOT/state_bc"
 TRAJECTORY_ROOT="$SMOKE_ROOT/trajectory_bc"
@@ -27,12 +28,16 @@ rm -rf "$SMOKE_ROOT"
 mkdir -p "$STATE_ROOT" "$TRAJECTORY_ROOT" "$RL_ROOT"
 echo "[graph-three-stage-smoke] runtime=$RUNTIME_DIR commit=$(git rev-parse HEAD)"
 echo "[graph-three-stage-smoke] gpus=$(nvidia-smi --query-gpu=name --format=csv,noheader | tr '\n' ';')"
-python - "$SOURCE_MANIFEST" "$RESUME_CHECKPOINT" <<'PY'
+python - "$SOURCE_MANIFEST" "$RESUME_CHECKPOINT" "$VERIFIED_INDEX" <<'PY'
 import json,os,sys,torch
+from pathlib import Path
 manifest=json.load(open(sys.argv[1])); checkpoint=torch.load(sys.argv[2],map_location='cpu',weights_only=False)
+index=Path(sys.argv[3]); resume=Path(sys.argv[2])
 assert manifest['strict_trace_universe_complete'] is True
 assert {s:manifest['splits'][s]['rows'] for s in ('train','valid','test')} == {'train':257167,'valid':2890,'test':28967}
 assert checkpoint['update']==500 and checkpoint['config']['stage']=='state_bc'
+assert checkpoint['source_manifest']['splits']['train']['sha256'] == manifest['splits']['train']['sha256']
+assert index.parent == resume.parent and index.is_file() and index.stat().st_size == 257167 * 8
 names=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
 expected=os.environ.get('MECHET_EXPECTED_GPU','H20').upper()
 assert len(names)==8 and all(expected in name.upper() for name in names),(expected,names)
@@ -43,6 +48,7 @@ echo "[graph-three-stage-smoke] stage=1 state-SFT updates=8 resume=500"
 python -m torch.distributed.run --standalone --nproc_per_node=8 \
   scripts/train_graph_electron_reaction_online.py \
   --source-root "$SOURCE_ROOT" --source-manifest "$SOURCE_MANIFEST" \
+  --verified-offset-index "$VERIFIED_INDEX" \
   --output "$STATE_ROOT" --stage state_bc --epochs 1 \
   --resume-from "$RESUME_CHECKPOINT" --resume-update 500 --max-updates 8 \
   --hidden-dim 192 --layers 6 --learning-rate 0.0003 \
@@ -55,6 +61,7 @@ echo "[graph-three-stage-smoke] stage=2 trajectory-SFT updates=8 initialization=
 python -m torch.distributed.run --standalone --nproc_per_node=8 \
   scripts/train_graph_electron_reaction_online.py \
   --source-root "$SOURCE_ROOT" --source-manifest "$SOURCE_MANIFEST" \
+  --verified-offset-index "$VERIFIED_INDEX" \
   --output "$TRAJECTORY_ROOT" --stage trajectory_bc --epochs 1 \
   --initialize-from "$STATE_FINAL" --max-updates 8 \
   --hidden-dim 192 --layers 6 --learning-rate 0.0001 \
@@ -67,6 +74,7 @@ echo "[graph-three-stage-smoke] stage=3 executor-RL episodes=64 initialization=$
 python -m torch.distributed.run --standalone --nproc_per_node=8 \
   scripts/train_graph_electron_executor_rl.py \
   --source-root "$SOURCE_ROOT" --source-manifest "$SOURCE_MANIFEST" \
+  --verified-offset-index "$VERIFIED_INDEX" \
   --initialize-from "$TRAJECTORY_FINAL" --output "$RL_ROOT" \
   --episodes 64 --episodes-per-update 1 --max-steps 12 \
   --learning-rate 0.000005 --discount 0.97 --invalid-penalty 1.0 \
