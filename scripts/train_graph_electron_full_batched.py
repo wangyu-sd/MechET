@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import argparse
 from collections import deque
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
 from dataclasses import dataclass
 import json
 import math
+import multiprocessing as mp
 import os
 from pathlib import Path
 import random
@@ -53,6 +54,12 @@ def prepare_line(line: str) -> PreparedDecision:
     return PreparedDecision(value, current_graph, target_graph, inventory)
 
 
+def prepare_lines(lines: list[str]) -> list[PreparedDecision]:
+    """Process one complete mini-batch in a worker to amortize IPC overhead."""
+
+    return [prepare_line(line) for line in lines]
+
+
 def raw_batches(path: Path, batch_size: int, skip: int = 0) -> Iterator[list[str]]:
     with path.open() as handle:
         for _ in range(skip):
@@ -73,14 +80,14 @@ def prefetched_batches(
     *,
     batch_size: int,
     skip: int,
-    executor: ThreadPoolExecutor,
+    executor: ProcessPoolExecutor,
     prefetch: int,
 ) -> Iterator[list[PreparedDecision]]:
     source = iter(raw_batches(path, batch_size, skip))
-    queue: deque[list[Future[PreparedDecision]]] = deque()
+    queue: deque[Future[list[PreparedDecision]]] = deque()
 
-    def schedule(lines: list[str]) -> list[Future[PreparedDecision]]:
-        return [executor.submit(prepare_line, line) for line in lines]
+    def schedule(lines: list[str]) -> Future[list[PreparedDecision]]:
+        return executor.submit(prepare_lines, lines)
 
     for _ in range(prefetch):
         try:
@@ -88,12 +95,12 @@ def prefetched_batches(
         except StopIteration:
             break
     while queue:
-        futures = queue.popleft()
+        future = queue.popleft()
         try:
             queue.append(schedule(next(source)))
         except StopIteration:
             pass
-        yield [future.result() for future in futures]
+        yield future.result()
 
 
 def parse_args() -> argparse.Namespace:
@@ -106,7 +113,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--cpu-workers", type=int, default=6)
-    parser.add_argument("--prefetch", type=int, default=4)
+    parser.add_argument("--prefetch", type=int, default=12)
     parser.add_argument("--import-negatives", type=int, default=31)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--log-updates", type=int, default=20)
@@ -188,9 +195,16 @@ def main() -> None:
     if any(args.output.glob("checkpoint-*.pt")):
         raise SystemExit("batched output directory already contains a checkpoint")
 
-    with ThreadPoolExecutor(max_workers=args.cpu_workers) as executor:
+    # Parsing SMILES and constructing the legal FLOW inventory are CPU-heavy.
+    # Threads do not scale because the Python/RDKit path retains the GIL, so
+    # each GPU rank owns independent spawn workers.  Batches (rather than
+    # individual rows) cross IPC to keep serialization overhead bounded.
+    process_context = mp.get_context("spawn")
+    with ProcessPoolExecutor(
+        max_workers=args.cpu_workers, mp_context=process_context
+    ) as executor, ThreadPoolExecutor(max_workers=args.cpu_workers) as bank_executor:
         fragment_graphs = list(
-            executor.map(
+            bank_executor.map(
                 lambda fragment: smiles_to_graph(fragment, require_maps=False), bank
             )
         )
@@ -200,7 +214,8 @@ def main() -> None:
                 f"[graph-batched] world_size={world_size} train_decisions={train_meta['decisions']} "
                 f"rank_rows={rank_rows} batch_per_rank={args.batch_size} "
                 f"global_batch={args.batch_size * world_size} cpu_workers_total="
-                f"{args.cpu_workers * world_size} env_bank={len(bank)} "
+                f"{args.cpu_workers * world_size} process_prefetch={args.prefetch} "
+                f"env_bank={len(bank)} "
                 f"parameters={sum(p.numel() for p in model.parameters())}",
                 flush=True,
             )
@@ -380,7 +395,7 @@ def main() -> None:
                                 if epoch_index + 1 == args.epochs
                                 else "training"
                             ),
-                            "trainer": "packed_graph_cpu_prefetch_bf16_v2",
+                            "trainer": "packed_graph_multiprocess_prefetch_bf16_v3",
                             "action_families": list(ACTION_FAMILIES),
                             "reaction_denominator": expected,
                             "train_decisions": train_meta["decisions"],
