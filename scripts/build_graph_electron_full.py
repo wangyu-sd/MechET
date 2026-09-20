@@ -12,6 +12,8 @@ from pathlib import Path
 import time
 from typing import Any, Iterable
 
+from rdkit import Chem
+
 from mechet.electron_policy_protocol import (
     CompressedTrajectory,
     PROTOCOL_VERSION,
@@ -19,7 +21,7 @@ from mechet.electron_policy_protocol import (
     STAGE_STATE_BC,
     STAGE_TRAJECTORY_BC,
 )
-from mechet.graph_fragment_actions import classify_imports, decompose_reactive_fragment
+from mechet.graph_fragment_actions import decompose_reactive_fragment, infer_reactive_role
 
 
 EXPECTED = {"train": 257167, "valid": 2890, "test": 28967}
@@ -37,6 +39,63 @@ def append_fragment(state: str, fragment: str) -> str:
     return f"{state}.{fragment}" if state else fragment
 
 
+def atom_maps(smiles: str) -> tuple[int, ...]:
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(str(smiles or ""), params)
+    if mol is None:
+        raise ValueError(f"invalid mapped state: {smiles!r}")
+    maps = tuple(int(atom.GetAtomMapNum()) for atom in mol.GetAtoms())
+    if any(value <= 0 for value in maps) or len(set(maps)) != len(maps):
+        raise ValueError("mapped states require unique positive atom maps")
+    return maps
+
+
+def touched_maps(moves: Iterable[dict[str, Any]]) -> set[int]:
+    output: set[int] = set()
+    for move in moves:
+        if move.get("mode") == "BE_DELTA":
+            for item in move.get("bond_deltas") or ():
+                output.update(int(value) for value in item.get("atoms") or ())
+            for item in move.get("charge_actions") or ():
+                value = int(item.get("atom_map") or 0)
+                if value > 0:
+                    output.add(value)
+            continue
+        for side in ("source", "sink"):
+            output.update(
+                int(value) for value in (move.get(side) or {}).get("atoms") or ()
+            )
+    return output
+
+
+def project_state(smiles: str, allowed_maps: set[int]) -> str:
+    """Remove not-yet-imported disconnected atoms from an authoritative state.
+
+    The original trace stores all root imports in every state.  First-use
+    scheduling must not reveal a future fragment merely by copying that state.
+    Projection is map membership only; all chemistry among already introduced
+    atoms remains byte-for-byte derived from the executor-produced successor.
+    """
+
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(str(smiles or ""), params)
+    if mol is None:
+        raise ValueError("cannot project invalid executor state")
+    removable = [
+        atom.GetIdx()
+        for atom in mol.GetAtoms()
+        if int(atom.GetAtomMapNum()) not in allowed_maps
+    ]
+    rw = Chem.RWMol(mol)
+    for index in sorted(removable, reverse=True):
+        rw.RemoveAtom(index)
+    projected = rw.GetMol()
+    Chem.SanitizeMol(projected)
+    return Chem.MolToSmiles(projected, canonical=True, isomericSmiles=True)
+
+
 def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
     row_index, line = payload
     row = json.loads(line)
@@ -46,17 +105,42 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
         raise ValueError(f"row {row_index} lacks target_smiles")
     current = target
     decisions: list[dict[str, Any]] = []
-    supervision = iter(classify_imports(plan))
     history = CompressedTrajectory()
+    steps = list(plan.get("steps") or ())
+    step_touched = [touched_maps(step.get("moves") or ()) for step in steps]
+    introduced_maps = set(atom_maps(target))
 
-    def add_import(fragment: str) -> None:
+    raw_imports: list[str] = [str(item) for item in plan.get("initial_imports") or ()]
+    for step in steps:
+        raw_imports.extend(str(item) for item in step.get("imports") or ())
+    scheduled: list[tuple[int, int, str, tuple[int, ...], str]] = []
+    seen_import_maps: set[int] = set()
+    for order, fragment in enumerate(raw_imports):
+        maps = atom_maps(fragment)
+        overlap = seen_import_maps & set(maps)
+        if overlap:
+            raise ValueError(f"row {row_index}: duplicate import maps {sorted(overlap)}")
+        seen_import_maps.update(maps)
+        first_use = next(
+            (index for index, touched in enumerate(step_touched) if touched & set(maps)),
+            len(steps),
+        )
+        active = tuple(sorted(set(maps) & (step_touched[first_use] if first_use < len(steps) else set())))
+        role = (
+            infer_reactive_role({"steps": [steps[first_use]]}, active)
+            if active
+            else "ENVIRONMENT"
+        )
+        scheduled.append((first_use, order, fragment, active, role))
+
+    def add_import(
+        fragment: str, active: tuple[int, ...], role: str
+    ) -> None:
         nonlocal current, history
-        item = next(supervision)
-        if item.fragment != fragment:
-            raise ValueError(f"row {row_index}: chronological import supervision drift")
+        kind = "IMPORT_REACTIVE" if active else "IMPORT_ENV"
         decision: dict[str, Any] = {
             "reaction_id": row.get("id"),
-            "kind": item.kind,
+            "kind": kind,
             "current": current,
             "target": target,
             "fragment": fragment,
@@ -67,20 +151,27 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
         # an environment fragment that creates no next-event obligation.
         decision["program"] = decompose_reactive_fragment(
             fragment,
-            participating_maps=item.participating_maps,
-            role=str(item.role) if item.role else "ENVIRONMENT",
+            participating_maps=active,
+            role=role,
         ).to_dict()
         decision["history"] = history.to_dict()
         decisions.append(decision)
         history = history.append(decision)
         current = append_fragment(current, fragment)
+        introduced_maps.update(atom_maps(fragment))
 
-    for fragment in plan.get("initial_imports") or ():
-        add_import(str(fragment))
-    for step in plan.get("steps") or ():
-        for fragment in step.get("imports") or ():
-            add_import(str(fragment))
+    for step_index, step in enumerate(steps):
+        for _, _, fragment, active, role in sorted(
+            (item for item in scheduled if item[0] == step_index),
+            key=lambda item: item[1],
+        ):
+            add_import(fragment, active, role)
         moves = list(step.get("moves") or ())
+        missing = touched_maps(moves) - introduced_maps
+        if missing:
+            raise ValueError(
+                f"row {row_index} step {step_index}: first-use scheduler missed maps {sorted(missing)}"
+            )
         kind = (
             "BE_DELTA"
             if len(moves) == 1 and moves[0].get("mode") == "BE_DELTA"
@@ -96,7 +187,16 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
         }
         decisions.append(decision)
         history = history.append(decision)
-        current = str(step["state_after"])
+        current = project_state(str(step["state_after"]), introduced_maps)
+    # Spectators and other never-electron-participating endpoint context are
+    # delayed until the mechanism is complete.  They cannot distract or block
+    # the electron policy, while strict full-mixture endpoint evaluation is
+    # preserved after these final imports.
+    for _, _, fragment, active, role in sorted(
+        (item for item in scheduled if item[0] == len(steps)),
+        key=lambda item: item[1],
+    ):
+        add_import(fragment, active, role)
     decisions.append(
         {
             "reaction_id": row.get("id"),
@@ -106,12 +206,9 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
             "history": history.to_dict(),
         }
     )
-    try:
-        next(supervision)
-    except StopIteration:
-        pass
-    else:
-        raise ValueError(f"row {row_index}: unconsumed import supervision")
+    decision_count = len(decisions)
+    for decision in decisions:
+        decision["reaction_decision_count"] = decision_count
     return row_index, decisions
 
 
@@ -200,7 +297,7 @@ def main() -> None:
         raise SystemExit("source is not the frozen strict trace universe")
     args.output.mkdir(parents=True, exist_ok=True)
     manifest: dict[str, Any] = {
-        "schema_version": 3,
+        "schema_version": 4,
         "artifact_type": "graph_electron_direct_pointer_decisions",
         "policy_protocol": {
             "version": PROTOCOL_VERSION,
@@ -209,9 +306,10 @@ def main() -> None:
             "history": "accepted_action_ledger_without_state_snapshots_or_gold_horizon",
         },
         "action_contract": {
-            "flow": "direct_conditional_node_pointers_no_candidate_inventory",
+            "flow": "factorized_node_pointers_with_state_derived_legality_masks",
             "imports": "open_graph_program_for_environment_and_reactive_fragments",
             "executor": "post_generation_validation_only",
+            "import_schedule": "first_electron_use_then_terminal_environment",
         },
         "source_manifest": str(args.source_manifest),
         "reaction_denominator": EXPECTED,

@@ -3,6 +3,11 @@
 Status: experimental architecture/pilot.  This does not replace the current
 LLM main condition until a frozen validation comparison succeeds.
 
+Protocol-v2 correction: the earlier Taiji task
+`meteor_mechet_graph_electron_direct_pointer_full_8a100_qy_20260920_04` uses the
+schema-v2 upfront-import/unmasked-pointer artifact. Preserve it only as a legacy
+baseline; it is not a checkpoint or result for the repaired first-use policy.
+
 ## Objective
 
 Represent inverse mechanism inference as an executor-defined MDP rather than a
@@ -25,14 +30,14 @@ The policy has five action families.
 
 1. `FLOW`: select a state-derived electron source, then a source-conditioned
    sink, repeat for the arrows in one coupled event, and atomically `COMMIT`.
-   `MoveInventory` provides the reference-independent legal mask.
+   Reference-independent graph masks remove impossible LP/bond/source-sink
+   prefixes without enumerating complete events or routes.
 2. `BE_DELTA`: select a sparse unordered atom pair and `-1/+1` bond-electron
    change, or an atom and `-1/+1` charge change, repeat, then atomically commit.
    This is `O(n^2)` per sparse edit instead of enumerating complete edit sets.
-3. `IMPORT_ENV`: retrieve a canonical unmapped solvent, salt, catalyst or
-   other endpoint-context molecule from a graph-encoded catalog.  This is a
-   closed action because these molecules do not participate in the reference
-   electron moves.
+3. `IMPORT_ENV`: generate a canonical unmapped solvent, salt, catalyst or
+   other endpoint-context graph.  Environment-only components are delayed
+   until the electron mechanism has completed and before strict `FINISH`.
 4. `IMPORT_REACTIVE`: generate an open-vocabulary, map-free molecular graph as
    an `ADD_ATOM`/`ADD_BOND`/`COMMIT` program and identify an active atom.  The
    executor sanitizes the graph, assigns fresh private maps, and requires the
@@ -54,11 +59,12 @@ its corresponding occurrence/reaction coverage is 98.998%/97.269%.
 ## Model
 
 - shared six-layer edge-aware message-passing encoder for current state,
-  product and candidate fragments;
+  product and candidate fragments, including stereochemical/valence features;
+- private-handle current/product alignment converted to per-node chemical
+  deltas; atom-map integer values themselves remain absent;
 - graph context from current/product pooled embeddings and their difference;
 - hierarchical family, source, conditional-sink and continue/commit heads;
 - sparse BE pair/atom/delta heads;
-- graph-to-graph environment-fragment retrieval head;
 - role-conditioned reactive-fragment graph decoder with atom, bond, pointer,
   ring-closure and active-site heads;
 - state value `V(G)` and action value `Q(G,a)` heads.
@@ -79,11 +85,15 @@ Train all action heads on the frozen strict executable FlowER universe:
 257,167 train, 2,890 valid and 28,967 test reactions.  This is the strict
 mechanism universe, not unqualified FlowER full (257,171/2,890/28,971).
 
-Environment import retrieval uses in-batch and frequency-matched negative
-fragments.  Reactive imports use teacher-forced graph-program likelihood before
-IQL.  Report environment retrieval, reactive graph exact match, active-site
+Reactive and environment imports use teacher-forced graph-program likelihood
+before IQL. Imports are scheduled at first electron use; never-used environment
+context is terminal. Multi-active-site supervision and sampling use the same
+non-empty set distribution. Report reactive graph exact match, active-site
 accuracy, executor acceptance and complete-fragment endpoint coverage
 separately.
+
+Training is reaction-balanced and inverse-square-root family-balanced (capped),
+so long mechanisms and the rare BE family are not erased by raw frequency.
 
 ### Stage 2: executor-labelled graph IQL
 
@@ -132,6 +142,10 @@ Before a full run, require:
 
 An overfit or training-loss result is only an implementation smoke, never a
 retrosynthesis result.
+
+The closed-loop evaluator is `scripts/evaluate_graph_electron_policy.py`. It
+uses only product/current/history as policy input and reports generation
+failure, executor acceptance and full-mixture endpoint exactness separately.
 
 ## Related method boundary
 

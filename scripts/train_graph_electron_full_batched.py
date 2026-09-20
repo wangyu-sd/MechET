@@ -46,7 +46,9 @@ def prepare_line(line: str) -> PreparedDecision:
         value["program"] = ReactiveFragmentProgram.from_dict(value["program"])
     target_graph = smiles_to_graph(value["target"])
     current_graph = smiles_to_graph(
-        value["current"], target_maps=target_graph.maps
+        value["current"],
+        target_smiles=value["target"],
+        target_maps=target_graph.maps,
     )
     return PreparedDecision(
         value,
@@ -267,6 +269,17 @@ def main() -> None:
     if manifest.get("reaction_denominator") != expected:
         raise SystemExit("full decision manifest denominator mismatch")
     train_meta = manifest["splits"]["train"]
+    family_counts = {
+        str(key): int(value) for key, value in train_meta["family_counts"].items()
+    }
+    family_reference = max(family_counts.values())
+    family_weights = {
+        key: min(12.0, math.sqrt(family_reference / max(1, value)))
+        for key, value in family_counts.items()
+    }
+    mean_reaction_decisions = float(train_meta["decisions"]) / float(
+        train_meta["reactions"]
+    )
     if int(manifest["shard_count"]) != world_size:
         raise SystemExit("decision shard count must equal world size")
     shard_meta = train_meta["shards"][rank]
@@ -349,8 +362,8 @@ def main() -> None:
         pin_memory=False,
         drop_last=False,
     )
-    if args.stage == STAGE_TRAJECTORY_BC and int(manifest.get("schema_version", 0)) < 3:
-        raise SystemExit("trajectory_bc requires schema-v3 decisions with compressed history")
+    if int(manifest.get("schema_version", 0)) < 4:
+        raise SystemExit("repaired graph training requires schema-v4 first-use decisions")
     try:
         if rank == 0:
             print(
@@ -359,7 +372,7 @@ def main() -> None:
                 f"global_batch={args.batch_size * world_size} cpu_workers_total="
                 f"{args.cpu_workers * world_size} process_prefetch={args.prefetch} "
                 f"loader=torch.DataLoader/{loader_backend} stage={args.stage} "
-                "action_contract=direct_pointer_no_inventory "
+                "action_contract=factorized_pointer_with_legality_masks "
                 f"distributed=torch.DDP parameters={sum(p.numel() for p in model.parameters())}",
                 flush=True,
             )
@@ -374,6 +387,7 @@ def main() -> None:
             total_updates = math.ceil(max_rows / args.batch_size)
             first: PreparedDecision | None = None
             loss_sum_tensor = torch.zeros((), dtype=torch.float64, device=device)
+            weight_sum_tensor = torch.zeros((), dtype=torch.float64, device=device)
             for update_index in range(total_updates):
                 try:
                     prepared = next(batches)
@@ -384,9 +398,15 @@ def main() -> None:
                 real_count = len(prepared)
                 if first is None:
                     raise RuntimeError("cannot pad an empty decision shard")
+                weights = [
+                    family_weights[str(item.value["kind"])]
+                    * mean_reaction_decisions
+                    / max(1, int(item.value.get("reaction_decision_count") or 1))
+                    for item in prepared
+                ]
                 while len(prepared) < args.batch_size:
                     prepared.append(first)
-                weights = [1.0] * real_count + [0.0] * (args.batch_size - real_count)
+                weights.extend([0.0] * (args.batch_size - real_count))
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                     losses = distributed_model(
@@ -401,20 +421,21 @@ def main() -> None:
                     )
                     weight_tensor = torch.tensor(weights, device=device)
                     weighted_losses = losses * weight_tensor
-                    batch_loss = weighted_losses.sum() / args.batch_size
+                    batch_loss = weighted_losses.sum() / weight_tensor.sum().clamp_min(1.0)
                 batch_loss.backward()
                 torch.nn.utils.clip_grad_norm_(distributed_model.parameters(), 1.0)
                 optimizer.step()
                 updates += 1
                 real_rows += real_count
                 loss_sum_tensor += weighted_losses.detach().sum().to(torch.float64)
+                weight_sum_tensor += weight_tensor.detach().sum().to(torch.float64)
                 if rank == 0 and updates % args.log_updates == 0:
                     elapsed = time.time() - started
                     loss_sum = float(loss_sum_tensor)
                     print(
                         f"[graph-batched] epoch={epoch_index + 1}/{args.epochs} "
                         f"update={updates}/{total_updates} decisions_rank0={real_rows}/{local_rows} "
-                        f"mean_loss_rank0={loss_sum / max(1, real_rows):.5f} "
+                        f"mean_loss_rank0={loss_sum / max(1e-9, float(weight_sum_tensor)):.5f} "
                         f"rate_rank0={real_rows / max(1e-6, elapsed):.2f}decision/s",
                         flush=True,
                     )
@@ -431,13 +452,17 @@ def main() -> None:
                     )
                     print(f"[graph-batched] checkpoint={checkpoint}", flush=True)
             totals = torch.stack(
-                (loss_sum_tensor, torch.tensor(float(real_rows), dtype=torch.float64, device=device))
+                (
+                    loss_sum_tensor,
+                    weight_sum_tensor,
+                    torch.tensor(float(real_rows), dtype=torch.float64, device=device),
+                )
             )
             dist.all_reduce(totals, op=dist.ReduceOp.SUM)
             result = {
                 "epoch": epoch_index + 1,
                 "mean_loss": float(totals[0].item() / totals[1].item()),
-                "decisions": int(totals[1].item()),
+                "decisions": int(totals[2].item()),
                 "updates": updates,
                 "wall_seconds": time.time() - started,
             }
@@ -465,6 +490,7 @@ def main() -> None:
                             "action_families": list(ACTION_FAMILIES),
                             "reaction_denominator": expected,
                             "train_decisions": train_meta["decisions"],
+                            "family_weights": family_weights,
                             "latest_epoch": result,
                             "latest_checkpoint": str(checkpoint),
                         },

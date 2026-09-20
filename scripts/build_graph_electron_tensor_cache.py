@@ -19,7 +19,7 @@ from train_graph_electron_full_batched import (
 )
 
 
-FORMAT = "graph_electron_tensor_cache_v1"
+FORMAT = "graph_electron_tensor_cache_v2_aligned_product"
 
 
 def sha256_file(path: Path) -> str:

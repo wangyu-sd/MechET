@@ -3,11 +3,11 @@ set -Eeuo pipefail
 
 RUNTIME_DIR="${MECHET_GRAPH_RUNTIME_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET-graph-electron-iql-20260919}"
 SHARED_REPO="/aaa/fionafyang/buddy1/whaleywang/MechET"
-DATA_ROOT="$SHARED_REPO/data/graph_electron_two_track_v1"
-TENSOR_ROOT="$SHARED_REPO/data/graph_electron_two_track_v1_tensor"
-STAGE1_ROOT="$SHARED_REPO/outputs/agent/graph_electron_state_bc_tensor_8a100_20260920"
-STAGE1_CHECKPOINT="${GRAPH_STAGE1_CHECKPOINT:-$STAGE1_ROOT/checkpoint-epoch1-update5165.pt}"
-OUTPUT_ROOT="$SHARED_REPO/outputs/agent/graph_electron_trajectory_bc_tensor_8a100_20260920"
+DATA_ROOT="$SHARED_REPO/data/graph_electron_two_track_v2_first_use"
+TENSOR_ROOT="$SHARED_REPO/data/graph_electron_two_track_v2_first_use_tensor"
+STAGE1_ROOT="$SHARED_REPO/outputs/agent/graph_electron_state_bc_v2_first_use_8a100_20260920"
+STAGE1_CHECKPOINT="${GRAPH_STAGE1_CHECKPOINT:-$STAGE1_ROOT/checkpoint-epoch1-update5166.pt}"
+OUTPUT_ROOT="$SHARED_REPO/outputs/agent/graph_electron_trajectory_bc_v2_first_use_8a100_20260920"
 RDKIT_WHEEL="$SHARED_REPO/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl"
 
 source /root/miniconda3/etc/profile.d/conda.sh

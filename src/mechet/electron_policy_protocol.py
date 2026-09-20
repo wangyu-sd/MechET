@@ -15,11 +15,12 @@ non-Markov control-flow information and a small typed action ledger.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
 
-PROTOCOL_VERSION = "electron_policy_two_track_three_stage_v1"
+PROTOCOL_VERSION = "electron_policy_two_track_three_stage_v2"
 
 TRACK_LLM = "llm"
 TRACK_GRAPH = "graph"
@@ -66,6 +67,12 @@ class CompactElectronEvent:
     extra_bonds: int = 0
     bond_edits: int = 0
     charge_edits: int = 0
+    # Stable, map-free radius-1 chemical fingerprints for the sites touched by
+    # the action.  These retain *where/what* happened without retaining private
+    # atom-map integers or another full molecular-state snapshot.
+    site_codes: tuple[int, ...] = ()
+    accepted: bool = True
+    error_code: str = ""
 
     def __post_init__(self) -> None:
         if self.family not in ACTION_FAMILIES:
@@ -86,6 +93,8 @@ class CompactElectronEvent:
         )
         if any(int(value) < 0 for value in counts):
             raise ValueError("compact event counts must be non-negative")
+        if any(int(value) < 0 or int(value) >= 65536 for value in self.site_codes):
+            raise ValueError("site codes must be unsigned 16-bit values")
 
     @classmethod
     def from_dict(cls, value: Mapping[str, Any]) -> "CompactElectronEvent":
@@ -100,23 +109,28 @@ class CompactElectronEvent:
             extra_bonds=int(value.get("extra_bonds") or 0),
             bond_edits=int(value.get("bond_edits") or 0),
             charge_edits=int(value.get("charge_edits") or 0),
+            site_codes=tuple(int(item) for item in value.get("site_codes") or ()),
+            accepted=bool(value.get("accepted", True)),
+            error_code=str(value.get("error_code") or ""),
         )
 
     def render(self) -> str:
+        outcome = "ok" if self.accepted else f"rejected:{self.error_code or 'UNKNOWN'}"
         if self.family in {"IMPORT_ENV", "IMPORT_REACTIVE"}:
             return (
                 f"{self.family}(role={self.import_role},atoms={self.fragment_atoms},"
-                f"active={self.active_atoms},rings={self.extra_bonds})"
+                f"active={self.active_atoms},rings={self.extra_bonds},sites={len(self.site_codes)},"
+                f"outcome={outcome})"
             )
         if self.family == "FLOW":
             signatures = ",".join(
                 f"{source}>{sink}"
                 for source, sink in zip(self.source_kinds, self.sink_kinds)
             )
-            return f"FLOW({signatures};arrows={self.electron_moves})"
+            return f"FLOW({signatures};arrows={self.electron_moves};sites={len(self.site_codes)};outcome={outcome})"
         if self.family == "BE_DELTA":
-            return f"BE_DELTA(bonds={self.bond_edits},charges={self.charge_edits})"
-        return "FINISH"
+            return f"BE_DELTA(bonds={self.bond_edits},charges={self.charge_edits};sites={len(self.site_codes)};outcome={outcome})"
+        return f"FINISH(outcome={outcome})"
 
 
 @dataclass(frozen=True)
@@ -145,8 +159,13 @@ class CompressedTrajectory:
             "events": [asdict(item) for item in self.events],
         }
 
-    def append(self, decision: Mapping[str, Any]) -> "CompressedTrajectory":
-        return CompressedTrajectory(self.events + (event_from_decision(decision),))
+    def append(
+        self, decision: Mapping[str, Any], *, max_events: int = 32
+    ) -> "CompressedTrajectory":
+        if max_events < 1:
+            raise ValueError("max_events must be positive")
+        events = self.events + (event_from_decision(decision),)
+        return CompressedTrajectory(events[-max_events:])
 
     def render(self) -> str:
         if not self.events:
@@ -159,41 +178,137 @@ class CompressedTrajectory:
         return tuple(item.family for item in self.events)
 
 
+def _stable_site_code(parts: Sequence[Any]) -> int:
+    payload = "|".join(str(item) for item in parts).encode("utf-8")
+    return int.from_bytes(hashlib.sha256(payload).digest()[:2], "big")
+
+
+def _state_site_codes(
+    current: str, containers: Sequence[Mapping[str, Any]]
+) -> tuple[int, ...]:
+    """Encode touched local chemistry while discarding private map identities."""
+
+    if not current or not containers:
+        return ()
+    from rdkit import Chem
+
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(current, params)
+    if mol is None:
+        return ()
+    by_map = {
+        int(atom.GetAtomMapNum()): atom
+        for atom in mol.GetAtoms()
+        if int(atom.GetAtomMapNum()) > 0
+    }
+    output: list[int] = []
+    for container in containers:
+        atom_codes: list[int] = []
+        for atom_map in container.get("atoms") or ():
+            atom = by_map.get(int(atom_map))
+            if atom is None:
+                continue
+            neighbours = sorted(
+                (
+                    int(neighbour.GetAtomicNum()),
+                    int(round(mol.GetBondBetweenAtoms(atom.GetIdx(), neighbour.GetIdx()).GetBondTypeAsDouble())),
+                )
+                for neighbour in atom.GetNeighbors()
+            )
+            atom_codes.append(
+                _stable_site_code(
+                    (
+                        atom.GetAtomicNum(),
+                        atom.GetFormalCharge(),
+                        atom.GetDegree(),
+                        atom.GetTotalNumHs(),
+                        int(atom.GetIsAromatic()),
+                        atom.GetNumRadicalElectrons(),
+                        neighbours,
+                    )
+                )
+            )
+        if atom_codes:
+            output.append(
+                _stable_site_code((str(container.get("kind") or "NONE"), sorted(atom_codes)))
+            )
+    return tuple(output)
+
+
 def event_from_decision(decision: Mapping[str, Any]) -> CompactElectronEvent:
     """Project an executor action into the shared, map-invariant history."""
 
     family = str(decision["kind"])
+    accepted = bool(decision.get("accepted", True))
+    error_code = str(decision.get("error_code") or "")
     if family in {"IMPORT_ENV", "IMPORT_REACTIVE"}:
         program = decision.get("program") or {}
+        if hasattr(program, "to_dict"):
+            program = program.to_dict()
         atoms: Sequence[Any] = program.get("atoms") or ()
         active: Sequence[Any] = program.get("active_atoms") or ()
         extra: Sequence[Any] = program.get("extra_bonds") or ()
         role = str(program.get("role") or ("ENVIRONMENT" if family == "IMPORT_ENV" else "OTHER_REACTIVE"))
+        site_codes = tuple(
+            _stable_site_code(
+                (
+                    (atoms[index] or {}).get("atomic_num", 0),
+                    (atoms[index] or {}).get("formal_charge", 0),
+                    (atoms[index] or {}).get("explicit_h", 0),
+                    (atoms[index] or {}).get("radical_electrons", 0),
+                )
+            )
+            for raw_index in active
+            for index in (int(raw_index),)
+            if 0 <= index < len(atoms)
+        )
         return CompactElectronEvent(
             family=family,
             import_role=role,
             fragment_atoms=len(atoms),
             active_atoms=len(active),
             extra_bonds=len(extra),
+            site_codes=site_codes,
+            accepted=accepted,
+            error_code=error_code,
         )
     if family == "FLOW":
         moves = list(decision.get("moves") or ())
+        containers = [
+            side
+            for item in moves
+            for side in ((item.get("source") or {}), (item.get("sink") or {}))
+        ]
         return CompactElectronEvent(
             family=family,
             source_kinds=tuple(str((item.get("source") or {}).get("kind") or "NONE") for item in moves),
             sink_kinds=tuple(str((item.get("sink") or {}).get("kind") or "NONE") for item in moves),
             electron_moves=len(moves),
+            site_codes=_state_site_codes(str(decision.get("current") or ""), containers),
+            accepted=accepted,
+            error_code=error_code,
         )
     if family == "BE_DELTA":
         moves = list(decision.get("moves") or ())
         payload = moves[0] if moves else {}
+        containers = []
+        for item in payload.get("bond_deltas") or ():
+            containers.append({"kind": "BOND", "atoms": item.get("atoms") or ()})
+        for item in payload.get("charge_actions") or ():
+            containers.append({"kind": "ATOM", "atoms": [item.get("atom_map")]})
         return CompactElectronEvent(
             family=family,
             bond_edits=len(payload.get("bond_deltas") or ()),
             charge_edits=len(payload.get("charge_actions") or ()),
+            site_codes=_state_site_codes(str(decision.get("current") or ""), containers),
+            accepted=accepted,
+            error_code=error_code,
         )
     if family == "FINISH":
-        return CompactElectronEvent(family=family)
+        return CompactElectronEvent(
+            family=family, accepted=accepted, error_code=error_code
+        )
     raise ValueError(f"unknown decision family: {family}")
 
 

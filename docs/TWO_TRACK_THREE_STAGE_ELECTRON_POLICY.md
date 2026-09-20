@@ -38,8 +38,9 @@ priors before any sparse endpoint reward is introduced.
 
 ### Stage 2 — trajectory behavior cloning (`trajectory_bc`)
 
-Initialize from stage 1.  Add the ordered ledger of accepted past events.  The
-ledger contains action families, container kinds, import roles and small counts;
+Initialize from stage 1. Add the ordered ledger of accepted and recently rejected
+events. The ledger contains action families, container kinds, import roles,
+small counts, map-free local chemical-site fingerprints and executor error codes;
 it does not repeat molecular states or expose atom maps, gold suffixes, or the
 expected precursor.  The exact current state remains authoritative.  A residual
 history gate is initialized at zero so stage-2 initialization is identical to
@@ -54,11 +55,13 @@ family -> container kind -> graph node pointer(s) -> event commit
 family -> open fragment graph program -> fragment commit
 ```
 
-There is no source/sink candidate inventory and no retrieval-ranked fragment
-bank.  The executor accepts or rejects the generated event and returns the real
-successor state.  RL stores the sampled action/log-probability, public executor
-result, successor state and terminal reward.  Candidate enumeration is neither
-an input feature nor an exploration mechanism.
+There is no enumerated route/event candidate list and no retrieval-ranked
+fragment bank. Factorized pointers use reference-independent hard masks for
+structural and electron-container legality. The executor accepts or rejects the
+generated event and returns the real successor state. Rejected actions and
+public error codes enter the next compact observation so the policy can revise
+instead of repeating. RL stores the sampled action/log-probability, public
+executor result, successor state and terminal reward.
 
 Recommended reward components are:
 
@@ -100,9 +103,11 @@ This is not the unqualified FlowER-full reaction split of
 have no executable mechanism and remain outside this two-track policy dataset.
 
 Each compiled decision stores `target`, `current`, `kind`, the canonical action
-payload, and the compressed history *before* that action.  One schema-v3 build
-therefore supports both BC stages: stage 1 ignores `history`; stage 2 consumes
-it.  JSONL is the audit artifact.  Production trainers access it through a
+payload, and the compressed history *before* that action. Schema v4 schedules
+reactive imports at first electron use and environment-only imports immediately
+before the terminal endpoint; it also stores reaction/family balancing metadata.
+The same build supports both BC stages: stage 1 ignores `history`; stage 2 consumes
+it. JSONL is the audit artifact. Production trainers access it through a
 standard `torch.utils.data.Dataset/DataLoader`; packed tensor shards can replace
 the Dataset backend without changing the model protocol.
 
@@ -120,6 +125,7 @@ the Dataset backend without changing the model protocol.
 
 - shared protocol/history: `src/mechet/electron_policy_protocol.py`;
 - graph policy and history encoder: `src/mechet/graph_electron_policy.py`;
-- schema-v3 compiler: `scripts/build_graph_electron_full.py`;
+- schema-v4 compiler: `scripts/build_graph_electron_full.py`;
 - stage-1/stage-2 DDP trainer: `scripts/train_graph_electron_full_batched.py`;
+- product-only closed-loop evaluator: `scripts/evaluate_graph_electron_policy.py`;
 - LLM serialization: `llm_training_record()` in the shared protocol module.

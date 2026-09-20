@@ -149,8 +149,16 @@ class DirectGraphElectronEnv:
             result = {"ok": False, "code": "ACTION_EXECUTION_ERROR", "message": str(exc)}
 
         accepted = bool(result.get("ok"))
-        if accepted:
-            self._history = self._history.append(canonical)
+        # Rejections are part of the policy observation.  Otherwise a rejected
+        # action leaves both graph state and history unchanged, making a greedy
+        # policy repeat the same invalid event without seeing executor feedback.
+        history_event = {
+            **canonical,
+            "current": before.current,
+            "accepted": accepted,
+            "error_code": "" if accepted else str(result.get("code") or "UNKNOWN"),
+        }
+        self._history = self._history.append(history_event)
         terminal = family == "FINISH" or self._steps >= self.max_steps
         self._done = terminal
         if terminal:

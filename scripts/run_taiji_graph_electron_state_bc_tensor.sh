@@ -5,9 +5,9 @@ RUNTIME_DIR="${MECHET_GRAPH_RUNTIME_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechE
 SHARED_REPO="/aaa/fionafyang/buddy1/whaleywang/MechET"
 SOURCE_ROOT="$SHARED_REPO/data/flower_inverse_tool_sft_action_delta_v1"
 SOURCE_MANIFEST="$SOURCE_ROOT/training_manifest.json"
-DATA_ROOT="$SHARED_REPO/data/graph_electron_two_track_v1"
-TENSOR_ROOT="$SHARED_REPO/data/graph_electron_two_track_v1_tensor"
-OUTPUT_ROOT="$SHARED_REPO/outputs/agent/graph_electron_state_bc_tensor_8a100_20260920"
+DATA_ROOT="$SHARED_REPO/data/graph_electron_two_track_v2_first_use"
+TENSOR_ROOT="$SHARED_REPO/data/graph_electron_two_track_v2_first_use_tensor"
+OUTPUT_ROOT="$SHARED_REPO/outputs/agent/graph_electron_state_bc_v2_first_use_8a100_20260920"
 RDKIT_WHEEL="$SHARED_REPO/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl"
 
 source /root/miniconda3/etc/profile.d/conda.sh
@@ -26,7 +26,7 @@ echo "[graph-state-bc] gpus=$(nvidia-smi --query-gpu=name --format=csv,noheader 
 if [[ ! -f "$DATA_ROOT/manifest.json" ]]; then
   CPUS=$(getconf _NPROCESSORS_ONLN)
   if (( CPUS > 48 )); then CPUS=48; fi
-  echo "[graph-state-bc] building schema-v3 canonical decisions workers=$CPUS"
+  echo "[graph-state-bc] building schema-v4 first-use canonical decisions workers=$CPUS"
   python scripts/build_graph_electron_full.py \
     --source-root "$SOURCE_ROOT" \
     --source-manifest "$SOURCE_MANIFEST" \
@@ -49,17 +49,19 @@ python - "$DATA_ROOT/manifest.json" "$TENSOR_ROOT/manifest.json" <<'PY'
 import json,sys,rdkit,torch
 decisions=json.load(open(sys.argv[1])); cache=json.load(open(sys.argv[2]))
 expected={'train':257167,'valid':2890,'test':28967}
-assert decisions['schema_version'] == 3
+assert decisions['schema_version'] == 4
 assert decisions['reaction_denominator'] == expected
 assert decisions['splits']['train']['decisions'] == 2644501
-assert decisions['action_contract']['flow'] == 'direct_conditional_node_pointers_no_candidate_inventory'
+assert decisions['action_contract']['flow'] == 'factorized_node_pointers_with_state_derived_legality_masks'
+assert decisions['action_contract']['import_schedule'] == 'first_electron_use_then_terminal_environment'
 assert decisions['policy_protocol']['tracks'] == ['llm','graph']
 assert cache['splits']['train']['decisions'] == 2644501
 names=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
 assert len(names) == 8 and all('A100' in name.upper() for name in names), names
 assert rdkit.__version__ == '2026.03.4'
 print({'runtime_gate':'passed','stage':'state_bc','loader':'tensor_cache',
-       'candidate_enumeration':False,'train_decisions':2644501,'gpus':names},flush=True)
+       'route_candidate_enumeration':False,'first_use_imports':True,
+       'train_decisions':2644501,'gpus':names},flush=True)
 PY
 
 echo "[graph-state-bc] starting stage-1 state-only behavior cloning"

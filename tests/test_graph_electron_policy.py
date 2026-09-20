@@ -80,8 +80,8 @@ def test_packed_context_encoder_matches_single_graph_encoder():
     targets = (TARGET, TARGET)
     target_graphs = [smiles_to_graph(value) for value in targets]
     current_graphs = [
-        smiles_to_graph(value, target_maps=target_graph.maps)
-        for value, target_graph in zip(states, target_graphs)
+        smiles_to_graph(value, target_smiles=target, target_maps=target_graph.maps)
+        for value, target, target_graph in zip(states, targets, target_graphs)
     ]
     with torch.no_grad():
         packed = model.encode_context_batch(current_graphs, target_graphs)
@@ -96,8 +96,12 @@ def test_packed_context_encoder_supports_bfloat16_autocast():
     model = tiny_policy().eval()
     target_graphs = [smiles_to_graph(TARGET), smiles_to_graph(TARGET)]
     current_graphs = [
-        smiles_to_graph(STATE, target_maps=target_graphs[0].maps),
-        smiles_to_graph("[O-:3].[Br:2][CH3:1]", target_maps=target_graphs[1].maps),
+        smiles_to_graph(STATE, target_smiles=TARGET, target_maps=target_graphs[0].maps),
+        smiles_to_graph(
+            "[O-:3].[Br:2][CH3:1]",
+            target_smiles=TARGET,
+            target_maps=target_graphs[1].maps,
+        ),
     ]
     with torch.no_grad(), torch.autocast(device_type="cpu", dtype=torch.bfloat16):
         contexts = model.encode_context_batch(current_graphs, target_graphs)
