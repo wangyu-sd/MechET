@@ -3,7 +3,7 @@
   "readable_name": "meteor MechET graph electron complete 3-stage smoke (8xH20 ZJK)",
   "template_flag": "kubeflow_job_learning",
   "task_type": "general_gpu_type",
-  "task_flag": "meteor_mechet_graph_electron_three_stage_smoke_8h20_zjk_20260920_03",
+  "task_flag": "meteor_mechet_graph_electron_three_stage_smoke_8h20_zjk_20260920_04",
   "dataset_id": "F06A5CC1127144DE9CF3FF9BDBE77A1A",
   "model_id": "152FF65EEDD84C6AA76D7F4C1A5B3BAB",
   "host_num": 1,

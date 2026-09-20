@@ -436,7 +436,21 @@ def main() -> None:
     finally:
         iterator = getattr(loader, "_iterator", None)
         if iterator is not None:
-            iterator._shutdown_workers()
+            try:
+                iterator._shutdown_workers()
+            except RuntimeError as exc:
+                # A capped smoke run deliberately exits while workers still
+                # hold prefetched reactions.  Some RDKit/PyTorch combinations
+                # report their expected termination as SIGABRT.  The optimizer
+                # updates and final checkpoint are already synchronized above;
+                # never hide this error during an uncapped/full run.
+                if args.max_updates is None:
+                    raise
+                if rank == 0:
+                    print(
+                        f"[graph-online] capped_worker_shutdown_warning={exc}",
+                        flush=True,
+                    )
         dist.destroy_process_group()
 
 
