@@ -11,6 +11,7 @@ from mechet.graph_electron_policy import (
     GraphElectronPolicy,
     smiles_to_graph,
 )
+from mechet.graph_fragment_actions import decompose_reactive_fragment
 
 
 TARGET = "[CH3:1][Br:2]"
@@ -116,6 +117,43 @@ def test_unified_sampler_supports_finish_and_be_delta():
         model.family_head.bias[ACTION_FAMILIES.index("FINISH")] = 10.0
     finished = model.sample_action(TARGET, TARGET, greedy=True)
     assert finished["action"] == {"kind": "FINISH"}
+    env = DirectGraphElectronEnv(max_steps=4)
+    observation = env.reset(
+        target=TARGET,
+        expected_precursor="[Br-:2].[CH3:1][O:4][CH3:3]",
+    )
+    program = decompose_reactive_fragment(
+        "[O-:3][CH3:4]", participating_maps=(3,), role="NUCLEOPHILE"
+    )
+    observation = env.step(
+        {"kind": "IMPORT_REACTIVE", "program": program.to_dict()}
+    ).next_observation
+    observation = env.step(
+        {
+            "kind": "FLOW",
+            "moves": [
+                {
+                    "source": {"kind": "LP", "atoms": [4]},
+                    "sink": {"kind": "BOND", "atoms": [1, 4]},
+                    "electrons": 2,
+                },
+                {
+                    "source": {"kind": "BOND", "atoms": [1, 2]},
+                    "sink": {"kind": "ATOM", "atoms": [2]},
+                    "electrons": 2,
+                },
+            ],
+        }
+    ).next_observation
+    terminal = env.step(
+        model.sample_action(
+            observation.current,
+            observation.target,
+            trajectory=observation.history,
+            greedy=True,
+        )["action"]
+    )
+    assert terminal.done and terminal.reward > 0
 
     with torch.no_grad():
         model.be_operation_head[-1].weight.zero_()
