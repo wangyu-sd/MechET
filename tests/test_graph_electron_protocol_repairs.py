@@ -165,6 +165,31 @@ def test_unified_sampler_supports_finish_and_be_delta():
     assert be["moves"][0]["bond_deltas"]
 
 
+def test_failed_fragment_rollout_preserves_attempt_for_executor_reward(monkeypatch):
+    model = tiny_policy().eval()
+    program = decompose_reactive_fragment(
+        "[O-:3][CH3:4]", participating_maps=(3,), role="NUCLEOPHILE"
+    )
+    with torch.no_grad():
+        model.family_head.weight.zero_()
+        model.family_head.bias.fill_(-10.0)
+        model.family_head.bias[ACTION_FAMILIES.index("IMPORT_REACTIVE")] = 10.0
+    monkeypatch.setattr(
+        model,
+        "rollout_reactive_fragment",
+        lambda *args, **kwargs: {
+            "ok": False,
+            "code": "INVALID_REACTIVE_FRAGMENT",
+            "program": program,
+            "logprob": -2.0,
+        },
+    )
+    sampled = model.sample_action(TARGET, TARGET, greedy=True)
+    assert not sampled["ok"]
+    assert sampled["action"]["kind"] == "IMPORT_REACTIVE"
+    assert sampled["action"]["program"] == program.to_dict()
+
+
 def test_history_keeps_map_free_site_identity_and_is_bounded():
     decision = {
         "kind": "FLOW",

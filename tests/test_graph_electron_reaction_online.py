@@ -69,3 +69,7 @@ def test_reaction_dataset_shards_whole_reactions(tmp_path: Path):
     right_ids = {batch[0].value["reaction_id"] for batch in map(right.__getitem__, range(len(right)))}
     assert not (left_ids & right_ids)
     assert len(left_ids | right_ids) == 5
+    resumed = ReactionOnlineDataset(
+        source, offsets, rank=0, world_size=2, seed=3, skip_reactions=1
+    )
+    assert len(resumed) == len(left) - 1

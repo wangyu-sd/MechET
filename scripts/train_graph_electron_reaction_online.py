@@ -66,12 +66,16 @@ class ReactionOnlineDataset(Dataset[list[PreparedDecision]]):
         rank: int,
         world_size: int,
         seed: int,
+        skip_reactions: int = 0,
     ) -> None:
         offsets = array("Q")
         with offset_index.open("rb") as handle:
             offsets.fromfile(handle, offset_index.stat().st_size // offsets.itemsize)
         selected = list(range(rank, len(offsets), world_size))
         random.Random(seed).shuffle(selected)
+        if skip_reactions < 0 or skip_reactions > len(selected):
+            raise ValueError("skip_reactions lies outside the rank-local shard")
+        selected = selected[skip_reactions:]
         self.source = source
         self.entries = tuple((index, int(offsets[index])) for index in selected)
         self._handle = None
@@ -149,6 +153,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--stage", choices=(STAGE_STATE_BC, STAGE_TRAJECTORY_BC), default=STAGE_STATE_BC)
     parser.add_argument("--initialize-from", type=Path)
+    parser.add_argument(
+        "--resume-from",
+        type=Path,
+        help="Exact same-stage checkpoint including optimizer state.",
+    )
+    parser.add_argument(
+        "--resume-update", type=int, default=0,
+        help="Completed same-stage updates to skip deterministically.",
+    )
     parser.add_argument("--log-updates", type=int, default=10)
     parser.add_argument("--checkpoint-updates", type=int, default=1000)
     return parser.parse_args()
@@ -193,12 +206,16 @@ def main() -> None:
             build_offset_index(source, offset_index, EXPECTED["train"])
     dist.barrier()
 
+    if args.initialize_from and args.resume_from:
+        raise SystemExit("initialize-from and resume-from are mutually exclusive")
+    skipped_reactions = args.resume_update * args.reactions_per_batch
     dataset = ReactionOnlineDataset(
         source,
         offset_index,
         rank=rank,
         world_size=world_size,
         seed=args.seed,
+        skip_reactions=skipped_reactions,
     )
     local_reactions = len(dataset)
     batch_counts = torch.tensor(
@@ -230,7 +247,15 @@ def main() -> None:
         hidden_dim=args.hidden_dim, num_layers=args.layers, dropout=0.1
     )
     model.freeze_enumerated_action_heads()
-    if args.initialize_from:
+    resume_checkpoint = None
+    if args.resume_from:
+        resume_checkpoint = torch.load(args.resume_from, map_location="cpu", weights_only=False)
+        if int(resume_checkpoint.get("update") or -1) != args.resume_update:
+            raise SystemExit("resume checkpoint/update mismatch")
+        if str((resume_checkpoint.get("config") or {}).get("stage")) != args.stage:
+            raise SystemExit("resume checkpoint stage mismatch")
+        model.load_state_dict(resume_checkpoint["model"], strict=True)
+    elif args.initialize_from:
         checkpoint = torch.load(args.initialize_from, map_location="cpu", weights_only=False)
         model.load_state_dict(checkpoint["model"], strict=True)
     model.to(device)
@@ -244,6 +269,8 @@ def main() -> None:
         (parameter for parameter in distributed_model.parameters() if parameter.requires_grad),
         lr=args.learning_rate,
     )
+    if resume_checkpoint is not None:
+        optimizer.load_state_dict(resume_checkpoint["optimizer"])
     family_counts = Counter(train_meta.get("family_counts") or {})
     if not family_counts:
         family_counts = Counter(
@@ -265,7 +292,8 @@ def main() -> None:
         print(
             f"[graph-online] world_size={world_size} reactions={EXPECTED['train']} "
             f"conceptual_decisions={EXPECTED_DECISIONS['train']} expanded_decisions_on_disk=0 "
-            f"reactions_per_batch_rank={args.reactions_per_batch} updates={total_updates} "
+            f"reactions_per_batch_rank={args.reactions_per_batch} updates_remaining={total_updates} "
+            f"resume_update={args.resume_update} "
             f"cpu_workers_total={args.cpu_workers * world_size} stage={args.stage}",
             flush=True,
         )
@@ -276,7 +304,8 @@ def main() -> None:
             weight_denominator = torch.zeros((), dtype=torch.float64, device=device)
             processed_reactions = processed_decisions = 0
             started = time.time()
-            for update, prepared in enumerate(loader, 1):
+            for relative_update, prepared in enumerate(loader, 1):
+                update = args.resume_update + relative_update
                 reaction_ids = {str(item.value["reaction_id"]) for item in prepared}
                 real_reactions = len(reaction_ids)
                 weights = torch.tensor(
@@ -313,7 +342,8 @@ def main() -> None:
                     elapsed = time.time() - started
                     print(
                         f"[graph-online] epoch={epoch_index + 1}/{args.epochs} "
-                        f"update={update}/{total_updates} reactions_rank0={processed_reactions}/{local_reactions} "
+                        f"update={update}/{args.resume_update + total_updates} "
+                        f"reactions_rank0={processed_reactions}/{local_reactions} "
                         f"decisions_transient_rank0={processed_decisions} "
                         f"mean_loss_rank0={float(loss_numerator / weight_denominator):.5f} "
                         f"reaction_rate_rank0={processed_reactions / max(1e-6, elapsed):.2f}/s",
@@ -349,7 +379,7 @@ def main() -> None:
                     args=args,
                     source_manifest=manifest,
                     epoch=epoch_index + 1,
-                    update=total_updates,
+                    update=args.resume_update + total_updates,
                     processed_reactions=processed_reactions,
                     processed_decisions=processed_decisions,
                 )

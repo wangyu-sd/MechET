@@ -2453,7 +2453,23 @@ class GraphElectronPolicy(nn.Module):
                 temperature=temperature,
             )
         if not sampled.get("ok"):
-            return {**sampled, "family": family, "logprob": family_logprob + float(sampled.get("logprob", 0.0))}
+            # Preserve the attempted canonical program/event so online RL can
+            # assign executor rejection credit to the complete sampled action,
+            # rather than punishing only the coarse family choice.
+            attempted: dict[str, Any] = {"kind": family}
+            if sampled.get("moves") is not None:
+                attempted["moves"] = sampled["moves"]
+            program = sampled.get("program")
+            if isinstance(program, ReactiveFragmentProgram):
+                attempted["program"] = program.to_dict()
+            elif isinstance(program, Mapping):
+                attempted["program"] = dict(program)
+            return {
+                **sampled,
+                "family": family,
+                "action": attempted,
+                "logprob": family_logprob + float(sampled.get("logprob", 0.0)),
+            }
         action: dict[str, Any] = {"kind": family}
         if family in {"FLOW", "BE_DELTA"}:
             action["moves"] = sampled["moves"]
