@@ -25,7 +25,7 @@ export OMP_NUM_THREADS=1
 echo "[graph-three-stage] runtime=$RUNTIME_DIR commit=$(git rev-parse HEAD)"
 echo "[graph-three-stage] gpus=$(nvidia-smi --query-gpu=name --format=csv,noheader | tr '\n' ';')"
 python - "$SOURCE_MANIFEST" "$RESUME_CHECKPOINT" "$STATE_ROOT" "$TRAJECTORY_ROOT" "$RL_ROOT" <<'PY'
-import json,sys,torch
+import json,os,sys,torch
 from pathlib import Path
 manifest=json.load(open(sys.argv[1])); resume=Path(sys.argv[2]); outputs=[Path(x) for x in sys.argv[3:]]
 assert manifest['strict_trace_universe_complete'] is True
@@ -34,13 +34,14 @@ assert resume.is_file()
 checkpoint=torch.load(resume,map_location='cpu',weights_only=False)
 assert checkpoint['update']==500 and checkpoint['config']['stage']=='state_bc'
 names=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
-assert len(names)==8 and all('A100' in name.upper() for name in names),names
+expected_gpu=os.environ.get('MECHET_EXPECTED_GPU','A100').upper()
+assert len(names)==8 and all(expected_gpu in name.upper() for name in names),(expected_gpu,names)
 for output in outputs:
     if output.exists() and list(output.glob('checkpoint-*.pt')):
         raise SystemExit(f'fresh stage output already contains checkpoints: {output}')
     output.mkdir(parents=True,exist_ok=True)
 print({'runtime_gate':'passed','pipeline':['state_bc_resume','trajectory_bc','online_executor_rl'],
-       'resume_update':500,'expanded_decisions_on_disk':0,'gpus':names},flush=True)
+       'resume_update':500,'expanded_decisions_on_disk':0,'expected_gpu':expected_gpu,'gpus':names},flush=True)
 PY
 
 echo "[graph-three-stage] stage=1 state-SFT resume update=500"
