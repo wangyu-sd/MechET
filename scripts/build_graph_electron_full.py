@@ -12,11 +12,7 @@ from pathlib import Path
 import time
 from typing import Any, Iterable
 
-from rdkit import Chem
-
-from mechet.forward_expert import ElectronMove
 from mechet.graph_fragment_actions import classify_imports, decompose_reactive_fragment
-from mechet.transactional_event_space import MoveInventory
 
 
 EXPECTED = {"train": 257167, "valid": 2890, "test": 28967}
@@ -34,16 +30,7 @@ def append_fragment(state: str, fragment: str) -> str:
     return f"{state}.{fragment}" if state else fragment
 
 
-def canonical_unmapped_fragment(smiles: str) -> str:
-    mol = Chem.MolFromSmiles(smiles)
-    if mol is None:
-        raise ValueError(f"invalid environment fragment: {smiles!r}")
-    for atom in mol.GetAtoms():
-        atom.SetAtomMapNum(0)
-    return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
-
-
-def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]], list[str]]:
+def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
     row_index, line = payload
     row = json.loads(line)
     plan = dict((row.get("metadata") or {}).get("trace_plan") or {})
@@ -52,7 +39,6 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]], li
         raise ValueError(f"row {row_index} lacks target_smiles")
     current = target
     decisions: list[dict[str, Any]] = []
-    environment: list[str] = []
     supervision = iter(classify_imports(plan))
 
     def add_import(fragment: str) -> None:
@@ -67,14 +53,15 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]], li
             "target": target,
             "fragment": fragment,
         }
-        if item.kind == "IMPORT_REACTIVE":
-            decision["program"] = decompose_reactive_fragment(
-                fragment,
-                participating_maps=item.participating_maps,
-                role=str(item.role),
-            ).to_dict()
-        else:
-            environment.append(canonical_unmapped_fragment(fragment))
+        # Both reactive and spectator imports are generated as molecular graph
+        # programs.  IMPORT_ENV therefore no longer retrieves or ranks a
+        # train-only fragment catalog.  Empty active atoms explicitly identify
+        # an environment fragment that creates no next-event obligation.
+        decision["program"] = decompose_reactive_fragment(
+            fragment,
+            participating_maps=item.participating_maps,
+            role=str(item.role) if item.role else "ENVIRONMENT",
+        ).to_dict()
         decisions.append(decision)
         current = append_fragment(current, fragment)
 
@@ -89,17 +76,6 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]], li
             if len(moves) == 1 and moves[0].get("mode") == "BE_DELTA"
             else "FLOW"
         )
-        if kind == "FLOW":
-            inventory = MoveInventory.from_state(current)
-            for value in moves:
-                move = ElectronMove.parse(value)
-                if (
-                    move.source not in inventory.sources
-                    or move.sink not in inventory.compatible_sinks(move.source)
-                ):
-                    raise ValueError(
-                        f"row {row_index} step {step.get('step_index')} outside legal inventory: {move}"
-                    )
         decisions.append(
             {
                 "reaction_id": row.get("id"),
@@ -124,7 +100,7 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]], li
         pass
     else:
         raise ValueError(f"row {row_index}: unconsumed import supervision")
-    return row_index, decisions, environment
+    return row_index, decisions
 
 
 def indexed_lines(path: Path) -> Iterable[tuple[int, str]]:
@@ -145,7 +121,6 @@ def compile_split(
     finals = [output / f"{split}.rank{index:02d}.jsonl" for index in range(shards)]
     handles = [path.open("w") for path in partials]
     family_counts: Counter[str] = Counter()
-    environment_counts: Counter[str] = Counter()
     shard_rows = [0] * shards
     reaction_rows = 0
     decision_index = 0
@@ -153,13 +128,12 @@ def compile_split(
     context = mp.get_context("spawn")
     try:
         with context.Pool(processes=workers, maxtasksperchild=1000) as pool:
-            for row_index, decisions, environment in pool.imap(
+            for row_index, decisions in pool.imap(
                 compile_row, indexed_lines(source), chunksize=4
             ):
                 if row_index != reaction_rows:
                     raise ValueError(f"{split}: ordered worker stream drift at {row_index}")
                 reaction_rows += 1
-                environment_counts.update(environment)
                 for decision in decisions:
                     shard = decision_index % shards
                     decision["decision_index"] = decision_index
@@ -191,7 +165,6 @@ def compile_split(
             {"file": path.name, "rows": rows, "sha256": sha256_file(path)}
             for path, rows in zip(finals, shard_rows)
         ],
-        "environment_counts": environment_counts if split == "train" else Counter(),
         "wall_seconds": time.time() - started,
     }
 
@@ -215,14 +188,18 @@ def main() -> None:
         raise SystemExit("source is not the frozen strict trace universe")
     args.output.mkdir(parents=True, exist_ok=True)
     manifest: dict[str, Any] = {
-        "schema_version": 1,
-        "artifact_type": "graph_electron_dual_import_decisions",
+        "schema_version": 2,
+        "artifact_type": "graph_electron_direct_pointer_decisions",
+        "action_contract": {
+            "flow": "direct_conditional_node_pointers_no_candidate_inventory",
+            "imports": "open_graph_program_for_environment_and_reactive_fragments",
+            "executor": "post_generation_validation_only",
+        },
         "source_manifest": str(args.source_manifest),
         "reaction_denominator": EXPECTED,
         "shard_count": args.shards,
         "splits": {},
     }
-    environment_counts: Counter[str] = Counter()
     for split in ("train", "valid", "test"):
         source = args.source_root / f"{split}.jsonl"
         frozen = source_manifest["splits"][split]
@@ -237,22 +214,12 @@ def main() -> None:
             workers=args.workers,
             shards=args.shards,
         )
-        environment_counts.update(result.pop("environment_counts"))
         manifest["splits"][split] = result
-    bank = [fragment for fragment, _ in environment_counts.most_common()]
-    bank_path = args.output / "environment_fragment_bank.json"
-    bank_path.write_text(json.dumps(bank, indent=2) + "\n")
-    manifest["environment_fragment_bank"] = {
-        "file": bank_path.name,
-        "unique": len(bank),
-        "occurrences": sum(environment_counts.values()),
-        "sha256": sha256_file(bank_path),
-    }
     manifest_path = args.output / "manifest.json"
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
     print(
         f"[graph-build] completed manifest={manifest_path} train_decisions="
-        f"{manifest['splits']['train']['decisions']} env_bank={len(bank)}",
+        f"{manifest['splits']['train']['decisions']} action_contract=direct_pointer",
         flush=True,
     )
 

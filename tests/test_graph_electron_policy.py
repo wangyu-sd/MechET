@@ -239,7 +239,56 @@ def test_sparse_be_matrix_head_scores_bond_and_charge_edits():
     assert torch.isfinite(loss)
     assert set(parts) == {"family", "operation", "position", "delta"}
     loss.backward()
-    assert model.be_pair_head[-1].weight.grad is not None
+    assert model.be_pair_first_head[-1].weight.grad is not None
+    assert model.be_pair_second_head[-1].weight.grad is not None
+
+
+def test_direct_flow_pointer_loss_is_finite_and_pair_order_invariant():
+    model = tiny_policy().eval()
+    forward, _ = model.direct_flow_nll(STATE, TARGET, MOVES)
+    reversed_pairs = [
+        {
+            **move,
+            "source": {
+                **move["source"],
+                "atoms": list(reversed(move["source"]["atoms"])),
+            },
+            "sink": {
+                **move["sink"],
+                "atoms": list(reversed(move["sink"]["atoms"])),
+            },
+        }
+        for move in MOVES
+    ]
+    reverse, _ = model.direct_flow_nll(STATE, TARGET, reversed_pairs)
+    assert torch.isfinite(forward)
+    assert torch.allclose(forward, reverse, atol=1e-6)
+    forward.backward()
+    assert model.direct_source_first_head[-1].weight.grad is not None
+    assert model.direct_sink_second_head[-1].weight.grad is not None
+
+
+def test_environment_fragment_program_needs_no_catalog_or_active_atom():
+    program = decompose_reactive_fragment(
+        "[Na+:7]",
+        participating_maps=(),
+        role="ENVIRONMENT",
+    )
+    assert program.role == "ENVIRONMENT"
+    assert program.active_atoms == ()
+    assert replay_reactive_fragment(program) == "[Na+]"
+    model = tiny_policy().train()
+    loss, parts = model.reactive_fragment_nll(STATE, TARGET, program)
+    assert torch.isfinite(loss)
+    assert set(parts) == {
+        "family",
+        "role",
+        "operation",
+        "atom",
+        "position",
+        "bond",
+        "active",
+    }
 
 
 def test_finish_and_iql_objectives_are_finite():

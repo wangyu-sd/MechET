@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
-"""CPU-prefetched, packed-graph 8-GPU training for the full graph policy."""
+"""Full 8-GPU training for the no-enumeration direct graph policy."""
 from __future__ import annotations
 
 import argparse
 from collections import deque
-from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
+from concurrent.futures import Future, ProcessPoolExecutor
 from dataclasses import dataclass
 import json
 import math
 import multiprocessing as mp
 import os
 from pathlib import Path
-import random
 import time
 from typing import Any, Iterator
 
@@ -25,9 +24,7 @@ from mechet.graph_electron_policy import (
     smiles_to_graph,
 )
 from mechet.graph_fragment_actions import ReactiveFragmentProgram
-from mechet.transactional_event_space import MoveInventory
 from train_graph_electron_full import synchronize_gradients
-from train_graph_electron_pilot import import_candidates
 
 
 @dataclass(frozen=True)
@@ -35,23 +32,17 @@ class PreparedDecision:
     value: dict[str, Any]
     current_graph: GraphTensor
     target_graph: GraphTensor
-    inventory: MoveInventory | None
 
 
 def prepare_line(line: str) -> PreparedDecision:
     value = json.loads(line)
-    if value["kind"] == "IMPORT_REACTIVE":
+    if value["kind"] in {"IMPORT_ENV", "IMPORT_REACTIVE"}:
         value["program"] = ReactiveFragmentProgram.from_dict(value["program"])
     target_graph = smiles_to_graph(value["target"])
     current_graph = smiles_to_graph(
         value["current"], target_maps=target_graph.maps
     )
-    inventory = (
-        MoveInventory.from_state(value["current"])
-        if value["kind"] == "FLOW"
-        else None
-    )
-    return PreparedDecision(value, current_graph, target_graph, inventory)
+    return PreparedDecision(value, current_graph, target_graph)
 
 
 def prepare_lines(lines: list[str]) -> list[PreparedDecision]:
@@ -114,7 +105,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--cpu-workers", type=int, default=6)
     parser.add_argument("--prefetch", type=int, default=12)
-    parser.add_argument("--import-negatives", type=int, default=31)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--log-updates", type=int, default=20)
     parser.add_argument("--checkpoint-updates", type=int, default=2000)
@@ -181,48 +171,45 @@ def main() -> None:
     max_rows = max(rank_rows)
     if max_rows - min(rank_rows) > 1:
         raise SystemExit(f"unbalanced full decision shards: {rank_rows}")
-    bank = json.loads(
-        (args.data / manifest["environment_fragment_bank"]["file"]).read_text()
-    )
+    if manifest.get("artifact_type") != "graph_electron_direct_pointer_decisions":
+        raise SystemExit("trainer requires direct-pointer decision artifact")
     args.output.mkdir(parents=True, exist_ok=True)
     torch.manual_seed(args.seed)
     model = GraphElectronPolicy(
         hidden_dim=args.hidden_dim, num_layers=args.layers, dropout=0.1
-    ).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
+    )
+    model.freeze_enumerated_action_heads()
+    model = model.to(device)
+    optimizer = torch.optim.AdamW(
+        (parameter for parameter in model.parameters() if parameter.requires_grad),
+        lr=args.learning_rate,
+    )
     # v2 starts clean; its checkpoints are deliberately incompatible with the
     # interrupted per-decision optimizer trajectory even though shapes match.
     if any(args.output.glob("checkpoint-*.pt")):
         raise SystemExit("batched output directory already contains a checkpoint")
 
-    # Parsing SMILES and constructing the legal FLOW inventory are CPU-heavy.
-    # Threads do not scale because the Python/RDKit path retains the GIL, so
+    # Parsing SMILES into graph tensors is CPU-heavy. Threads do not scale
+    # because the Python/RDKit path retains the GIL, so
     # each GPU rank owns independent spawn workers.  Batches (rather than
     # individual rows) cross IPC to keep serialization overhead bounded.
     process_context = mp.get_context("spawn")
     with ProcessPoolExecutor(
         max_workers=args.cpu_workers, mp_context=process_context
-    ) as executor, ThreadPoolExecutor(max_workers=args.cpu_workers) as bank_executor:
-        fragment_graphs = list(
-            bank_executor.map(
-                lambda fragment: smiles_to_graph(fragment, require_maps=False), bank
-            )
-        )
-        bank_graph = dict(zip(bank, fragment_graphs))
+    ) as executor:
         if rank == 0:
             print(
                 f"[graph-batched] world_size={world_size} train_decisions={train_meta['decisions']} "
                 f"rank_rows={rank_rows} batch_per_rank={args.batch_size} "
                 f"global_batch={args.batch_size * world_size} cpu_workers_total="
                 f"{args.cpu_workers * world_size} process_prefetch={args.prefetch} "
-                f"env_bank={len(bank)} "
+                "action_contract=direct_pointer_no_inventory "
                 f"parameters={sum(p.numel() for p in model.parameters())}",
                 flush=True,
             )
         dist.barrier()
         for epoch_index in range(args.epochs):
             model.train()
-            rng = random.Random(args.seed + epoch_index * 1000 + rank)
             loss_sum = 0.0
             real_rows = 0
             updates = 0
@@ -249,39 +236,11 @@ def main() -> None:
                 while len(prepared) < args.batch_size:
                     prepared.append(first)
                 weights = [1.0] * real_count + [0.0] * (args.batch_size - real_count)
-                env_payload: dict[int, tuple[list[str], int, int, int]] = {}
-                flat_candidate_graphs: list[GraphTensor] = []
-                for index, item in enumerate(prepared):
-                    if item.value["kind"] != "IMPORT_ENV" or weights[index] == 0:
-                        continue
-                    candidates, gold = import_candidates(
-                        item.value["fragment"],
-                        bank,
-                        negatives=args.import_negatives,
-                        rng=rng,
-                    )
-                    start = len(flat_candidate_graphs)
-                    for fragment in candidates:
-                        graph = bank_graph.get(fragment)
-                        if graph is None:
-                            graph = smiles_to_graph(fragment, require_maps=False)
-                        flat_candidate_graphs.append(graph)
-                    env_payload[index] = (
-                        candidates,
-                        gold,
-                        start,
-                        len(flat_candidate_graphs),
-                    )
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                     contexts = model.encode_context_batch(
                         [item.current_graph for item in prepared],
                         [item.target_graph for item in prepared],
-                    )
-                    candidate_pools = (
-                        model.encode_fragment_batch(flat_candidate_graphs)
-                        if flat_candidate_graphs
-                        else None
                     )
                     losses: list[torch.Tensor] = []
                     for index, (item, context, weight) in enumerate(
@@ -290,12 +249,11 @@ def main() -> None:
                         value = item.value
                         kind = value["kind"]
                         if kind == "FLOW":
-                            loss = model.flow_nll(
+                            loss = model.direct_flow_nll(
                                 value["current"],
                                 value["target"],
                                 value["moves"],
                                 context=context,
-                                inventory=item.inventory,
                             )[0]
                         elif kind == "BE_DELTA":
                             loss = model.be_delta_nll(
@@ -304,25 +262,7 @@ def main() -> None:
                                 value["moves"][0],
                                 context=context,
                             )[0]
-                        elif kind == "IMPORT_ENV":
-                            if weight == 0:
-                                # Padding still traverses the family head so all
-                                # ranks materialize identical gradient tensors.
-                                loss = model.finish_nll(
-                                    value["current"], value["target"], context=context
-                                )
-                            else:
-                                candidates, gold, start, end = env_payload[index]
-                                assert candidate_pools is not None
-                                loss = model.import_nll(
-                                    value["current"],
-                                    value["target"],
-                                    candidates,
-                                    gold,
-                                    context=context,
-                                    candidate_pools=candidate_pools[start:end],
-                                )
-                        elif kind == "IMPORT_REACTIVE":
+                        elif kind in {"IMPORT_ENV", "IMPORT_REACTIVE"}:
                             loss = model.reactive_fragment_nll(
                                 value["current"],
                                 value["target"],
@@ -395,7 +335,7 @@ def main() -> None:
                                 if epoch_index + 1 == args.epochs
                                 else "training"
                             ),
-                            "trainer": "packed_graph_multiprocess_prefetch_bf16_v3",
+                            "trainer": "direct_pointer_no_enumeration_bf16_v1",
                             "action_families": list(ACTION_FAMILIES),
                             "reaction_denominator": expected,
                             "train_decisions": train_meta["decisions"],

@@ -1,9 +1,8 @@
-"""Typed environment imports and open-vocabulary reactive-fragment programs.
+"""Open-vocabulary molecular-graph programs for every imported fragment.
 
-Environment/context molecules are selected from a catalog.  A fragment whose
-private atoms participate in any reference electron move is instead compiled
-to a deterministic graph-construction program.  Atom maps are used only to
-derive supervision and are absent from the program seen by the model.
+Environment and reactive molecules share one deterministic graph-construction
+representation. Atom maps are used only to derive supervision and are absent
+from the program seen by the model.
 """
 from __future__ import annotations
 
@@ -14,6 +13,7 @@ from rdkit import Chem
 
 
 REACTIVE_ROLES = (
+    "ENVIRONMENT",
     "NUCLEOPHILE",
     "ELECTROPHILE",
     "BOND_DONOR",
@@ -60,7 +60,7 @@ class ReactiveFragmentProgram:
             raise ValueError(f"unknown reactive role: {self.role}")
         if not self.atoms:
             raise ValueError("reactive fragment cannot be empty")
-        if not self.active_atoms:
+        if not self.active_atoms and self.role != "ENVIRONMENT":
             raise ValueError("reactive fragment requires at least one active atom")
         if set(self.active_atoms) - set(range(len(self.atoms))):
             raise ValueError("active atom outside fragment")
@@ -301,7 +301,7 @@ def decompose_reactive_fragment(
         for index, atom_map in enumerate(source_maps)
         if atom_map in set(int(value) for value in participating_maps)
     }
-    if not active_source_indices:
+    if not active_source_indices and role != "ENVIRONMENT":
         raise ValueError("reactive fragment has no participating atom")
     work = Chem.Mol(source)
     for atom in work.GetAtoms():

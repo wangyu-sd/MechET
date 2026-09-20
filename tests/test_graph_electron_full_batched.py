@@ -34,5 +34,4 @@ def test_spawn_process_prefetch_roundtrip(tmp_path):
             )
         )
     assert [len(batch) for batch in batches] == [2, 2, 1]
-    assert all(item.inventory is not None for batch in batches for item in batch)
     assert all(item.current_graph.atoms.ndim == 2 for batch in batches for item in batch)

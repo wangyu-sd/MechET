@@ -4,11 +4,11 @@ The policy never emits atom-map numbers or tool syntax.  Atom maps are private
 executor handles used only to connect a scored graph node/container to the
 existing MechET runtime.  The learned action is factorized as
 
-``action family -> source container -> sink container -> continue/commit``.
+``action family -> container kind -> conditional node pointers -> commit``.
 
-Endpoint-context molecules are selected with a graph-to-graph retrieval head.
-Electron-participating imports instead use a typed, map-free molecular-graph
-decoder and remain subject to the same executor gate.
+Both environment and electron-participating imports use a typed, map-free
+molecular-graph decoder.  Chemistry rules do not construct candidate action
+lists; the executor validates the model-proposed event after generation.
 """
 from __future__ import annotations
 
@@ -38,6 +38,8 @@ from .transactional_event_space import MoveInventory
 
 ACTION_FAMILIES = ("FLOW", "BE_DELTA", "IMPORT_ENV", "IMPORT_REACTIVE", "FINISH")
 CONTAINER_KINDS = {"LP": 0, "ATOM": 1, "BOND": 2, "RADICAL_PAIR": 3}
+FLOW_SOURCE_KINDS = ("LP", "BOND", "RADICAL_PAIR")
+FLOW_SINK_KINDS = ("ATOM", "BOND", "RADICAL_PAIR")
 FRAGMENT_BOND_TYPES = (1, 2, 3, 12, 17)
 
 
@@ -308,10 +310,46 @@ class GraphElectronPolicy(nn.Module):
         self.commit_head = nn.Sequential(
             nn.Linear(2 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 2)
         )
+        # Direct electron-event decoder.  It predicts container kinds and
+        # graph-node pointers without asking chemistry rules to construct a
+        # candidate action list.  Two-atom containers use conditional pointers
+        # p(i)p(j|i); a symmetric set likelihood removes arbitrary endpoint
+        # ordering and avoids materializing O(n^2) pairs.
+        self.direct_source_kind_head = nn.Linear(
+            2 * hidden_dim, len(FLOW_SOURCE_KINDS)
+        )
+        self.direct_source_first_head = nn.Sequential(
+            nn.Linear(3 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
+        )
+        self.direct_source_second_head = nn.Sequential(
+            nn.Linear(4 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
+        )
+        self.direct_sink_kind_head = nn.Linear(3 * hidden_dim, len(FLOW_SINK_KINDS))
+        self.direct_sink_first_head = nn.Sequential(
+            nn.Linear(4 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
+        )
+        self.direct_sink_second_head = nn.Sequential(
+            nn.Linear(5 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
+        )
+        self.direct_source_kind_embedding = nn.Embedding(
+            len(FLOW_SOURCE_KINDS), hidden_dim
+        )
+        self.direct_sink_kind_embedding = nn.Embedding(
+            len(FLOW_SINK_KINDS), hidden_dim
+        )
+        self.direct_action = nn.Sequential(
+            nn.Linear(2 * hidden_dim, hidden_dim), nn.Tanh()
+        )
         self.be_operation_head = nn.Sequential(
             nn.Linear(2 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 3)
         )
         self.be_pair_head = nn.Sequential(
+            nn.Linear(4 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
+        )
+        self.be_pair_first_head = nn.Sequential(
+            nn.Linear(3 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
+        )
+        self.be_pair_second_head = nn.Sequential(
             nn.Linear(4 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
         )
         self.be_atom_head = nn.Sequential(
@@ -344,6 +382,12 @@ class GraphElectronPolicy(nn.Module):
         self.fragment_pair_head = nn.Sequential(
             nn.Linear(3 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
         )
+        self.fragment_pair_first_head = nn.Sequential(
+            nn.Linear(2 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
+        )
+        self.fragment_pair_second_head = nn.Sequential(
+            nn.Linear(3 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
+        )
         self.fragment_bond_type_head = nn.Linear(hidden_dim, len(FRAGMENT_BOND_TYPES))
         self.fragment_active_head = nn.Sequential(
             nn.Linear(2 * hidden_dim, hidden_dim), nn.SiLU(), nn.Linear(hidden_dim, 1)
@@ -359,6 +403,22 @@ class GraphElectronPolicy(nn.Module):
     @property
     def device(self) -> torch.device:
         return next(self.parameters()).device
+
+    def freeze_enumerated_action_heads(self) -> None:
+        """Exclude legacy candidate-ranking heads from direct-policy training."""
+
+        legacy = (
+            self.kind_embedding,
+            self.container,
+            self.source_head,
+            self.sink_head,
+            self.import_query,
+            self.import_key,
+            self.be_pair_head,
+            self.fragment_pair_head,
+        )
+        for module in legacy:
+            module.requires_grad_(False)
 
     def encode_context(self, current_smiles: str, target_smiles: str) -> PolicyContext:
         target = smiles_to_graph(target_smiles).to(self.device)
@@ -534,6 +594,296 @@ class GraphElectronPolicy(nn.Module):
             "commit": float(commit_loss.detach()),
         }
 
+    @staticmethod
+    def _pointer_logits(
+        nodes: torch.Tensor,
+        conditioning: Sequence[torch.Tensor],
+        head: nn.Module,
+    ) -> torch.Tensor:
+        repeated = [value.expand(nodes.shape[0], -1) for value in conditioning]
+        return head(torch.cat((nodes, *repeated), dim=-1)).squeeze(-1)
+
+    def _direct_container_nll(
+        self,
+        *,
+        nodes: torch.Tensor,
+        maps: tuple[int, ...],
+        kind: str,
+        atoms: tuple[int, ...],
+        kinds: tuple[str, ...],
+        kind_logits: torch.Tensor,
+        first_conditioning: Sequence[torch.Tensor],
+        first_head: nn.Module,
+        second_conditioning: Sequence[torch.Tensor],
+        second_head: nn.Module,
+        kind_embedding: nn.Embedding,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if kind not in kinds:
+            raise ValueError(f"unsupported direct container kind: {kind}")
+        kind_index = kinds.index(kind)
+        loss = F.cross_entropy(
+            kind_logits[None, :], torch.tensor([kind_index], device=self.device)
+        )
+        positions = {atom_map: index for index, atom_map in enumerate(maps)}
+        try:
+            target = tuple(positions[int(atom_map)] for atom_map in atoms)
+        except KeyError as exc:
+            raise ValueError(f"direct pointer target outside current graph: {atoms}") from exc
+        first_logits = self._pointer_logits(nodes, first_conditioning, first_head)
+        if len(target) == 1:
+            loss = loss + F.cross_entropy(
+                first_logits[None, :], torch.tensor([target[0]], device=self.device)
+            )
+            representation = nodes[target[0]]
+        elif len(target) == 2:
+            left, right = target
+
+            def ordered_logprob(first: int, second: int) -> torch.Tensor:
+                first_logprob = F.log_softmax(first_logits, dim=0)[first]
+                second_logits = self._pointer_logits(
+                    nodes,
+                    (*second_conditioning, nodes[first]),
+                    second_head,
+                ).clone()
+                second_logits[first] = -torch.inf
+                return first_logprob + F.log_softmax(second_logits, dim=0)[second]
+
+            # Either endpoint order is correct.  This set likelihood prevents
+            # private atom-map ordering from becoming a supervision shortcut.
+            loss = loss - torch.logaddexp(
+                ordered_logprob(left, right), ordered_logprob(right, left)
+            )
+            representation = nodes[left] + nodes[right]
+        else:
+            raise ValueError(f"invalid direct container arity: {kind} {atoms}")
+        representation = torch.tanh(
+            representation + kind_embedding.weight[kind_index]
+        )
+        return loss, representation
+
+    def direct_flow_nll(
+        self,
+        current_smiles: str,
+        target_smiles: str,
+        moves: Sequence[ElectronMove | Mapping[str, Any]],
+        *,
+        context: PolicyContext | None = None,
+    ) -> tuple[torch.Tensor, dict[str, float]]:
+        """Teacher-forced FLOW loss with no state-derived action enumeration."""
+
+        if not moves:
+            raise ValueError("FLOW event requires at least one move")
+        context = context or self.encode_context(current_smiles, target_smiles)
+        parsed = [
+            item if isinstance(item, ElectronMove) else ElectronMove.parse(item)
+            for item in moves
+        ]
+        family_target = torch.tensor(ACTION_FAMILIES.index("FLOW"), device=self.device)
+        family_loss = F.cross_entropy(
+            self.family_logits(context)[None, :], family_target[None]
+        )
+        history = torch.zeros_like(context.vector)
+        source_loss = context.vector.new_zeros(())
+        sink_loss = context.vector.new_zeros(())
+        commit_loss = context.vector.new_zeros(())
+        for index, move in enumerate(parsed):
+            source_state = torch.cat((context.vector, history), dim=-1)
+            source_kind_logits = self.direct_source_kind_head(source_state)
+            value, source_embedding = self._direct_container_nll(
+                nodes=context.current_nodes,
+                maps=context.current_maps,
+                kind=move.source.kind,
+                atoms=move.source.atoms,
+                kinds=FLOW_SOURCE_KINDS,
+                kind_logits=source_kind_logits,
+                first_conditioning=(source_state,),
+                first_head=self.direct_source_first_head,
+                second_conditioning=(source_state,),
+                second_head=self.direct_source_second_head,
+                kind_embedding=self.direct_source_kind_embedding,
+            )
+            source_loss = source_loss + value
+            sink_state = torch.cat(
+                (context.vector, history, source_embedding), dim=-1
+            )
+            sink_kind_logits = self.direct_sink_kind_head(sink_state)
+            value, sink_embedding = self._direct_container_nll(
+                nodes=context.current_nodes,
+                maps=context.current_maps,
+                kind=move.sink.kind,
+                atoms=move.sink.atoms,
+                kinds=FLOW_SINK_KINDS,
+                kind_logits=sink_kind_logits,
+                first_conditioning=(sink_state,),
+                first_head=self.direct_sink_first_head,
+                second_conditioning=(sink_state,),
+                second_head=self.direct_sink_second_head,
+                kind_embedding=self.direct_sink_kind_embedding,
+            )
+            sink_loss = sink_loss + value
+            action_embedding = self.direct_action(
+                torch.cat((source_embedding, sink_embedding), dim=-1)
+            )
+            history = self.event_cell(
+                action_embedding[None, :], history[None, :]
+            ).squeeze(0)
+            commit_target = int(index == len(parsed) - 1)
+            commit_scores = self.commit_head(
+                torch.cat((context.vector, history), dim=-1)
+            )
+            commit_loss = commit_loss + F.cross_entropy(
+                commit_scores[None, :],
+                torch.tensor([commit_target], device=self.device),
+            )
+        total = family_loss + source_loss + sink_loss + commit_loss
+        return total, {
+            "family": float(family_loss.detach()),
+            "source": float(source_loss.detach()),
+            "sink": float(sink_loss.detach()),
+            "commit": float(commit_loss.detach()),
+        }
+
+    def _sample_direct_container(
+        self,
+        *,
+        context: PolicyContext,
+        kinds: tuple[str, ...],
+        kind_logits: torch.Tensor,
+        first_conditioning: Sequence[torch.Tensor],
+        first_head: nn.Module,
+        second_conditioning: Sequence[torch.Tensor],
+        second_head: nn.Module,
+        kind_embedding: nn.Embedding,
+        greedy: bool,
+        temperature: float,
+    ) -> tuple[ElectronContainer, torch.Tensor, float]:
+        kind_index, total_logprob = self._sample_index(
+            kind_logits, greedy=greedy, temperature=temperature
+        )
+        kind = kinds[kind_index]
+        first_logits = self._pointer_logits(
+            context.current_nodes, first_conditioning, first_head
+        )
+        first, value = self._sample_index(
+            first_logits, greedy=greedy, temperature=temperature
+        )
+        total_logprob += value
+        indices = [first]
+        if kind in {"BOND", "RADICAL_PAIR"}:
+            second_logits = self._pointer_logits(
+                context.current_nodes,
+                (*second_conditioning, context.current_nodes[first]),
+                second_head,
+            )
+            allowed = torch.ones_like(second_logits, dtype=torch.bool)
+            allowed[first] = False
+            second, value = self._sample_index(
+                second_logits,
+                greedy=greedy,
+                temperature=temperature,
+                allowed=allowed,
+            )
+            indices.append(second)
+            total_logprob += value
+        atoms = tuple(context.current_maps[index] for index in indices)
+        embedding = torch.tanh(
+            context.current_nodes[indices].sum(dim=0)
+            + kind_embedding.weight[kind_index]
+        )
+        return ElectronContainer(kind, atoms), embedding, total_logprob
+
+    @torch.no_grad()
+    def rollout_direct_flow(
+        self,
+        current_smiles: str,
+        target_smiles: str,
+        *,
+        max_arrows: int = 8,
+        greedy: bool = False,
+        temperature: float = 1.0,
+    ) -> dict[str, Any]:
+        """Generate a complete electron event without a legal-action inventory."""
+
+        context = self.encode_context(current_smiles, target_smiles)
+        history = torch.zeros_like(context.vector)
+        moves: list[ElectronMove] = []
+        total_logprob = 0.0
+        for _ in range(max_arrows):
+            source_state = torch.cat((context.vector, history), dim=-1)
+            try:
+                source, source_embedding, value = self._sample_direct_container(
+                    context=context,
+                    kinds=FLOW_SOURCE_KINDS,
+                    kind_logits=self.direct_source_kind_head(source_state),
+                    first_conditioning=(source_state,),
+                    first_head=self.direct_source_first_head,
+                    second_conditioning=(source_state,),
+                    second_head=self.direct_source_second_head,
+                    kind_embedding=self.direct_source_kind_embedding,
+                    greedy=greedy,
+                    temperature=temperature,
+                )
+            except ValueError as exc:
+                return {
+                    "ok": False,
+                    "code": "DIRECT_POINTER_INVALID",
+                    "message": str(exc),
+                    "moves": [move.to_dict() for move in moves],
+                    "logprob": total_logprob,
+                }
+            total_logprob += value
+            sink_state = torch.cat(
+                (context.vector, history, source_embedding), dim=-1
+            )
+            try:
+                sink, sink_embedding, value = self._sample_direct_container(
+                    context=context,
+                    kinds=FLOW_SINK_KINDS,
+                    kind_logits=self.direct_sink_kind_head(sink_state),
+                    first_conditioning=(sink_state,),
+                    first_head=self.direct_sink_first_head,
+                    second_conditioning=(sink_state,),
+                    second_head=self.direct_sink_second_head,
+                    kind_embedding=self.direct_sink_kind_embedding,
+                    greedy=greedy,
+                    temperature=temperature,
+                )
+            except ValueError as exc:
+                return {
+                    "ok": False,
+                    "code": "DIRECT_POINTER_INVALID",
+                    "message": str(exc),
+                    "moves": [move.to_dict() for move in moves],
+                    "logprob": total_logprob,
+                }
+            total_logprob += value
+            moves.append(ElectronMove(source, sink))
+            action_embedding = self.direct_action(
+                torch.cat((source_embedding, sink_embedding), dim=-1)
+            )
+            history = self.event_cell(
+                action_embedding[None, :], history[None, :]
+            ).squeeze(0)
+            commit_logits = self.commit_head(
+                torch.cat((context.vector, history), dim=-1)
+            )
+            commit, value = self._sample_index(
+                commit_logits, greedy=greedy, temperature=temperature
+            )
+            total_logprob += value
+            if commit == 1:
+                return {
+                    "ok": True,
+                    "moves": [move.to_dict() for move in moves],
+                    "logprob": total_logprob,
+                }
+        return {
+            "ok": False,
+            "code": "DIRECT_FLOW_BUDGET",
+            "moves": [move.to_dict() for move in moves],
+            "logprob": total_logprob,
+        }
+
     def import_logits(
         self,
         context: PolicyContext,
@@ -561,10 +911,9 @@ class GraphElectronPolicy(nn.Module):
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """NLL for a sparse BE-matrix edit sequence followed by atomic commit.
 
-        Candidate bond positions are all unordered atom pairs, so this head can
-        represent both bond deletion/order reduction and new-bond formation in
-        ``O(n^2)`` choices per sparse edit.  Charge changes use ``O(n)`` atom
-        choices.  The executor still validates the coupled edit atomically.
+        Bond positions are emitted by two conditional node pointers rather
+        than an enumerated pair list.  The executor validates the resulting
+        sparse edit atomically after generation.
         """
 
         if payload.get("mode") != "BE_DELTA":
@@ -594,13 +943,6 @@ class GraphElectronPolicy(nn.Module):
         if not operations:
             raise ValueError("BE_DELTA payload contains no sparse edits")
 
-        pair_maps = tuple(
-            (context.current_maps[left], context.current_maps[right])
-            for left in range(len(context.current_maps))
-            for right in range(left + 1, len(context.current_maps))
-        )
-        pair_containers = tuple(ElectronContainer("BOND", pair) for pair in pair_maps)
-        pair_embeddings = self.encode_containers(context, pair_containers)
         atom_maps = tuple(context.current_maps)
         atom_embeddings = context.current_nodes
 
@@ -610,22 +952,35 @@ class GraphElectronPolicy(nn.Module):
                 operation_scores[None, :], torch.tensor([operation], device=self.device)
             )
             if operation == 0:
-                normalized = tuple(sorted(location))
-                normalized_pairs = tuple(tuple(sorted(pair)) for pair in pair_maps)
-                if normalized not in normalized_pairs:
-                    raise ValueError(f"BE pair references missing private maps: {location}")
-                selected = normalized_pairs.index(normalized)
-                repeated = torch.cat(
-                    (
-                        pair_embeddings,
-                        context.vector.expand(len(pair_maps), -1),
-                        history.expand(len(pair_maps), -1),
-                        pair_embeddings * context.vector.expand(len(pair_maps), -1),
-                    ),
-                    dim=-1,
+                try:
+                    left, right = (positions[value] for value in location)
+                except KeyError as exc:
+                    raise ValueError(
+                        f"BE pair references missing private maps: {location}"
+                    ) from exc
+                state = torch.cat((context.vector, history), dim=-1)
+                first_logits = self._pointer_logits(
+                    atom_embeddings, (state,), self.be_pair_first_head
                 )
-                scores = self.be_pair_head(repeated).squeeze(-1)
-                action_embedding = pair_embeddings[selected]
+
+                def ordered_pair_logprob(first: int, second: int) -> torch.Tensor:
+                    second_logits = self._pointer_logits(
+                        atom_embeddings,
+                        (state, atom_embeddings[first]),
+                        self.be_pair_second_head,
+                    ).clone()
+                    second_logits[first] = -torch.inf
+                    return F.log_softmax(first_logits, dim=0)[first] + F.log_softmax(
+                        second_logits, dim=0
+                    )[second]
+
+                position_loss = position_loss - torch.logaddexp(
+                    ordered_pair_logprob(left, right),
+                    ordered_pair_logprob(right, left),
+                )
+                action_embedding = torch.tanh(
+                    atom_embeddings[left] + atom_embeddings[right]
+                )
             else:
                 if location[0] not in positions:
                     raise ValueError(f"BE charge references missing private map: {location[0]}")
@@ -640,9 +995,9 @@ class GraphElectronPolicy(nn.Module):
                 )
                 scores = self.be_atom_head(repeated).squeeze(-1)
                 action_embedding = atom_embeddings[selected]
-            position_loss = position_loss + F.cross_entropy(
-                scores[None, :], torch.tensor([selected], device=self.device)
-            )
+                position_loss = position_loss + F.cross_entropy(
+                    scores[None, :], torch.tensor([selected], device=self.device)
+                )
             delta_scores = self.be_delta_head(torch.cat((context.vector, action_embedding), dim=-1))
             delta_target = 0 if delta == -1 else 1
             delta_loss = delta_loss + F.cross_entropy(
@@ -775,9 +1130,8 @@ class GraphElectronPolicy(nn.Module):
         """Teacher-forced graph-program loss for an open-vocabulary import."""
 
         context = context or self.encode_context(current_smiles, target_smiles)
-        family_target = torch.tensor(
-            ACTION_FAMILIES.index("IMPORT_REACTIVE"), device=self.device
-        )
+        family = "IMPORT_ENV" if program.role == "ENVIRONMENT" else "IMPORT_REACTIVE"
+        family_target = torch.tensor(ACTION_FAMILIES.index(family), device=self.device)
         family_loss = F.cross_entropy(
             self.family_logits(context)[None, :], family_target[None]
         )
@@ -841,11 +1195,6 @@ class GraphElectronPolicy(nn.Module):
                     ),
                 )
 
-        existing = {
-            tuple(sorted((index, int(atom.parent))))
-            for index, atom in enumerate(program.atoms)
-            if atom.parent is not None
-        }
         for extra_index, bond in enumerate(program.extra_bonds):
             nodes, state = self._reactive_fragment_state(
                 context, program, len(program.atoms), extra_index
@@ -854,32 +1203,26 @@ class GraphElectronPolicy(nn.Module):
                 self.fragment_operation_head(state)[None, :],
                 torch.tensor([1], device=self.device),
             )
-            candidates = tuple(
-                (left, right)
-                for left in range(nodes.shape[0])
-                for right in range(left + 1, nodes.shape[0])
-                if (left, right) not in existing
-            )
             target_pair = tuple(sorted(map(int, bond.atoms)))
-            if target_pair not in candidates:
-                raise ValueError(f"extra bond outside legal pair inventory: {target_pair}")
-            pair_embeddings = torch.stack(
-                [
-                    torch.cat(
-                        (
-                            nodes[left] + nodes[right],
-                            torch.abs(nodes[left] - nodes[right]),
-                            state,
-                        ),
-                        dim=-1,
-                    )
-                    for left, right in candidates
-                ]
+            if min(target_pair) < 0 or max(target_pair) >= nodes.shape[0]:
+                raise ValueError(f"extra bond outside fragment: {target_pair}")
+            first_logits = self._pointer_logits(
+                nodes, (state,), self.fragment_pair_first_head
             )
-            pair_scores = self.fragment_pair_head(pair_embeddings).squeeze(-1)
-            position_loss = position_loss + F.cross_entropy(
-                pair_scores[None, :],
-                torch.tensor([candidates.index(target_pair)], device=self.device),
+
+            def ordered_pair_logprob(first: int, second: int) -> torch.Tensor:
+                second_logits = self._pointer_logits(
+                    nodes, (state, nodes[first]), self.fragment_pair_second_head
+                ).clone()
+                second_logits[first] = -torch.inf
+                return F.log_softmax(first_logits, dim=0)[first] + F.log_softmax(
+                    second_logits, dim=0
+                )[second]
+
+            left, right = target_pair
+            position_loss = position_loss - torch.logaddexp(
+                ordered_pair_logprob(left, right),
+                ordered_pair_logprob(right, left),
             )
             if int(bond.bond_type) not in FRAGMENT_BOND_TYPES:
                 raise ValueError(f"unsupported fragment bond type: {bond.bond_type}")
@@ -889,7 +1232,6 @@ class GraphElectronPolicy(nn.Module):
                     [FRAGMENT_BOND_TYPES.index(int(bond.bond_type))], device=self.device
                 ),
             )
-            existing.add(target_pair)
 
         nodes, state = self._reactive_fragment_state(
             context, program, len(program.atoms), len(program.extra_bonds)
@@ -1007,22 +1349,10 @@ class GraphElectronPolicy(nn.Module):
             nodes, state = self._reactive_fragment_state(
                 context, holder, len(atoms), len(extra_bonds)
             )
-            existing = {
-                tuple(sorted((index, int(atom.parent))))
-                for index, atom in enumerate(atoms)
-                if atom.parent is not None
-            }
-            existing.update(tuple(sorted(bond.atoms)) for bond in extra_bonds)
-            pair_candidates = tuple(
-                (left, right)
-                for left in range(len(atoms))
-                for right in range(left + 1, len(atoms))
-                if (left, right) not in existing
-            )
             allowed = torch.tensor(
                 [
                     len(atoms) < max_atoms,
-                    bool(pair_candidates) and len(extra_bonds) < max_extra_bonds,
+                    len(atoms) >= 2 and len(extra_bonds) < max_extra_bonds,
                     bool(atoms),
                 ],
                 dtype=torch.bool,
@@ -1036,18 +1366,23 @@ class GraphElectronPolicy(nn.Module):
             )
             total_logprob += value
             if operation == 2:
-                active_logits = self.fragment_active_head(
-                    torch.cat((nodes, state.expand(nodes.shape[0], -1)), dim=-1)
-                ).squeeze(-1)
-                active, value = self._sample_index(
-                    active_logits, greedy=greedy, temperature=temperature
-                )
-                total_logprob += value
+                active_atoms: tuple[int, ...]
+                if role == "ENVIRONMENT":
+                    active_atoms = ()
+                else:
+                    active_logits = self.fragment_active_head(
+                        torch.cat((nodes, state.expand(nodes.shape[0], -1)), dim=-1)
+                    ).squeeze(-1)
+                    active, value = self._sample_index(
+                        active_logits, greedy=greedy, temperature=temperature
+                    )
+                    total_logprob += value
+                    active_atoms = (active,)
                 program = ReactiveFragmentProgram(
                     role=role,
                     atoms=tuple(atoms),
                     extra_bonds=tuple(extra_bonds),
-                    active_atoms=(active,),
+                    active_atoms=active_atoms,
                     source_unmapped_smiles="",
                 )
                 try:
@@ -1066,7 +1401,7 @@ class GraphElectronPolicy(nn.Module):
                     "ok": True,
                     "fragment": fragment,
                     "role": role,
-                    "active_atom": active,
+                    "active_atom": active_atoms[0] if active_atoms else None,
                     "program": program,
                     "operations": operations,
                     "logprob": total_logprob,
@@ -1131,22 +1466,23 @@ class GraphElectronPolicy(nn.Module):
                 operations.append({"op": "ADD_ATOM", "atom": asdict(atom)})
                 continue
 
-            pair_embeddings = torch.stack(
-                [
-                    torch.cat(
-                        (
-                            nodes[left] + nodes[right],
-                            torch.abs(nodes[left] - nodes[right]),
-                            state,
-                        ),
-                        dim=-1,
-                    )
-                    for left, right in pair_candidates
-                ]
+            first_logits = self._pointer_logits(
+                nodes, (state,), self.fragment_pair_first_head
             )
-            pair_scores = self.fragment_pair_head(pair_embeddings).squeeze(-1)
-            pair_index, value = self._sample_index(
-                pair_scores, greedy=greedy, temperature=temperature
+            first, value = self._sample_index(
+                first_logits, greedy=greedy, temperature=temperature
+            )
+            total_logprob += value
+            second_logits = self._pointer_logits(
+                nodes, (state, nodes[first]), self.fragment_pair_second_head
+            )
+            second_allowed = torch.ones_like(second_logits, dtype=torch.bool)
+            second_allowed[first] = False
+            second, value = self._sample_index(
+                second_logits,
+                greedy=greedy,
+                temperature=temperature,
+                allowed=second_allowed,
             )
             total_logprob += value
             bond_index, value = self._sample_index(
@@ -1156,7 +1492,7 @@ class GraphElectronPolicy(nn.Module):
             )
             total_logprob += value
             bond = FragmentBond(
-                atoms=pair_candidates[pair_index],
+                atoms=tuple(sorted((first, second))),
                 bond_type=FRAGMENT_BOND_TYPES[bond_index],
             )
             extra_bonds.append(bond)
