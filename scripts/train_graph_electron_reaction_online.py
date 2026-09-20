@@ -164,6 +164,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--log-updates", type=int, default=10)
     parser.add_argument("--checkpoint-updates", type=int, default=1000)
+    parser.add_argument(
+        "--max-updates",
+        type=int,
+        default=None,
+        help="Optional smoke-test cap on rank-synchronous optimizer updates.",
+    )
     return parser.parse_args()
 
 
@@ -171,6 +177,8 @@ def main() -> None:
     args = parse_args()
     if min(args.epochs, args.reactions_per_batch, args.cpu_workers, args.prefetch) < 1:
         raise SystemExit("epochs, batch size, workers, and prefetch must be positive")
+    if args.max_updates is not None and args.max_updates < 1:
+        raise SystemExit("max-updates must be positive when provided")
     dist.init_process_group(backend="nccl")
     rank = dist.get_rank()
     world_size = dist.get_world_size()
@@ -229,7 +237,12 @@ def main() -> None:
     dist.all_reduce(maximum, op=dist.ReduceOp.MAX)
     if int(minimum) != int(maximum):
         raise SystemExit("reaction sharding gives unequal DDP update counts")
-    total_updates = int(maximum)
+    available_updates = int(maximum)
+    total_updates = (
+        min(available_updates, args.max_updates)
+        if args.max_updates is not None
+        else available_updates
+    )
     loader = DataLoader(
         dataset,
         batch_size=args.reactions_per_batch,
@@ -305,6 +318,8 @@ def main() -> None:
             processed_reactions = processed_decisions = 0
             started = time.time()
             for relative_update, prepared in enumerate(loader, 1):
+                if relative_update > total_updates:
+                    break
                 update = args.resume_update + relative_update
                 reaction_ids = {str(item.value["reaction_id"]) for item in prepared}
                 real_reactions = len(reaction_ids)

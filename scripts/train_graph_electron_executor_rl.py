@@ -131,6 +131,8 @@ def main() -> None:
         "steps": 0,
         "accepted": 0,
         "invalid": 0,
+        "penalized_invalid": 0,
+        "invalid_penalty_reward": 0.0,
         "endpoint_exact": 0,
         "reward": 0.0,
     }
@@ -187,6 +189,10 @@ def main() -> None:
                 totals["steps"] += 1
                 totals["accepted"] += int(transition.accepted)
                 totals["invalid"] += int(not transition.accepted)
+                explicitly_penalized = not transition.done and not transition.accepted
+                totals["penalized_invalid"] += int(explicitly_penalized)
+                if explicitly_penalized:
+                    totals["invalid_penalty_reward"] += reward
                 totals["endpoint_exact"] += int(
                     bool(transition.result.get("endpoint_exact"))
                 )
@@ -275,6 +281,8 @@ def main() -> None:
             totals["steps"],
             totals["accepted"],
             totals["invalid"],
+            totals["penalized_invalid"],
+            totals["invalid_penalty_reward"],
             totals["endpoint_exact"],
             totals["reward"],
         ],
@@ -298,8 +306,10 @@ def main() -> None:
             "steps": int(summary[1]),
             "accepted": int(summary[2]),
             "invalid": int(summary[3]),
-            "endpoint_exact": int(summary[4]),
-            "mean_reward": float(summary[5] / summary[0]),
+            "penalized_invalid": int(summary[4]),
+            "invalid_penalty_reward": float(summary[5]),
+            "endpoint_exact": int(summary[6]),
+            "mean_reward": float(summary[7] / summary[0]),
             "invalid_penalty": args.invalid_penalty,
             "latest_checkpoint": str(final),
             "wall_seconds": time.time() - started,
