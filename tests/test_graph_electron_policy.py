@@ -74,6 +74,24 @@ def test_source_scores_are_permutation_equivariant_by_private_map():
         assert abs(scored[0][source] - scored[1][source]) < 1e-5
 
 
+def test_packed_context_encoder_matches_single_graph_encoder():
+    model = tiny_policy().eval()
+    states = (STATE, "[O-:3].[Br:2][CH3:1]")
+    targets = (TARGET, TARGET)
+    target_graphs = [smiles_to_graph(value) for value in targets]
+    current_graphs = [
+        smiles_to_graph(value, target_maps=target_graph.maps)
+        for value, target_graph in zip(states, target_graphs)
+    ]
+    with torch.no_grad():
+        packed = model.encode_context_batch(current_graphs, target_graphs)
+        singles = [model.encode_context(state, target) for state, target in zip(states, targets)]
+    for left, right in zip(packed, singles):
+        assert left.current_maps == right.current_maps
+        assert torch.allclose(left.current_nodes, right.current_nodes, atol=1e-6)
+        assert torch.allclose(left.vector, right.vector, atol=1e-6)
+
+
 def test_flow_nll_is_finite_and_updates_policy():
     model = tiny_policy().train()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)

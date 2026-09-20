@@ -206,6 +206,67 @@ class MolecularGraphEncoder(nn.Module):
             nodes = layer(nodes, graph.edge_index, edges)
         return nodes, nodes.mean(dim=0)
 
+    def forward_batch(
+        self, graphs: Sequence[GraphTensor]
+    ) -> tuple[torch.Tensor, torch.Tensor, tuple[tuple[int, int], ...]]:
+        """Encode disconnected graphs in one packed GNN invocation."""
+
+        if not graphs:
+            raise ValueError("graph batch cannot be empty")
+        device = self.atom_embeddings[0].weight.device
+        atom_parts: list[torch.Tensor] = []
+        edge_index_parts: list[torch.Tensor] = []
+        edge_attr_parts: list[torch.Tensor] = []
+        graph_parts: list[torch.Tensor] = []
+        slices: list[tuple[int, int]] = []
+        offset = 0
+        for graph_index, graph in enumerate(graphs):
+            count = int(graph.atoms.shape[0])
+            if count == 0:
+                raise ValueError("molecular graph cannot be empty")
+            atom_parts.append(graph.atoms.to(device, non_blocking=True))
+            graph_parts.append(
+                torch.full((count,), graph_index, dtype=torch.long, device=device)
+            )
+            if graph.edge_index.numel():
+                edge_index_parts.append(
+                    graph.edge_index.to(device, non_blocking=True) + offset
+                )
+                edge_attr_parts.append(graph.edge_attr.to(device, non_blocking=True))
+            slices.append((offset, offset + count))
+            offset += count
+        atoms = torch.cat(atom_parts)
+        edge_index = (
+            torch.cat(edge_index_parts, dim=1)
+            if edge_index_parts
+            else torch.empty((2, 0), dtype=torch.long, device=device)
+        )
+        edge_attr = (
+            torch.cat(edge_attr_parts)
+            if edge_attr_parts
+            else torch.empty((0, 3), dtype=torch.long, device=device)
+        )
+        nodes = sum(
+            embedding(atoms[:, column])
+            for column, embedding in enumerate(self.atom_embeddings)
+        )
+        edges = (
+            sum(
+                embedding(edge_attr[:, column])
+                for column, embedding in enumerate(self.edge_embeddings)
+            )
+            if edge_attr.numel()
+            else nodes.new_zeros((0, nodes.shape[-1]))
+        )
+        for layer in self.layers:
+            nodes = layer(nodes, edge_index, edges)
+        graph_index = torch.cat(graph_parts)
+        pools = nodes.new_zeros((len(graphs), nodes.shape[-1]))
+        pools.index_add_(0, graph_index, nodes)
+        counts = torch.bincount(graph_index, minlength=len(graphs)).to(nodes.dtype)
+        pools = pools / counts[:, None].clamp_min(1.0)
+        return nodes, pools, tuple(slices)
+
 
 @dataclass
 class PolicyContext:
@@ -310,6 +371,44 @@ class GraphElectronPolicy(nn.Module):
         )
         return PolicyContext(current_nodes=current_nodes, current_maps=current.maps, vector=vector)
 
+    def encode_context_batch(
+        self,
+        current_graphs: Sequence[GraphTensor],
+        target_graphs: Sequence[GraphTensor],
+    ) -> list[PolicyContext]:
+        """Encode a real mini-batch while retaining private map/node bindings."""
+
+        if len(current_graphs) != len(target_graphs) or not current_graphs:
+            raise ValueError("current/target graph batches must be equally non-empty")
+        current_nodes, current_pools, current_slices = self.encoder.forward_batch(
+            current_graphs
+        )
+        _, target_pools, _ = self.encoder.forward_batch(target_graphs)
+        vectors = self.context(
+            torch.cat(
+                (
+                    current_pools,
+                    target_pools,
+                    torch.abs(current_pools - target_pools),
+                    current_pools * target_pools,
+                ),
+                dim=-1,
+            )
+        )
+        return [
+            PolicyContext(
+                current_nodes=current_nodes[start:end],
+                current_maps=current_graphs[index].maps,
+                vector=vectors[index],
+            )
+            for index, (start, end) in enumerate(current_slices)
+        ]
+
+    def encode_fragment_batch(self, graphs: Sequence[GraphTensor]) -> torch.Tensor:
+        """Return pooled embeddings for a packed fragment candidate batch."""
+
+        return self.encoder.forward_batch(graphs)[1]
+
     def family_logits(self, context: PolicyContext) -> torch.Tensor:
         return self.family_head(context.vector)
 
@@ -380,13 +479,16 @@ class GraphElectronPolicy(nn.Module):
         current_smiles: str,
         target_smiles: str,
         moves: Sequence[ElectronMove | Mapping[str, Any]],
+        *,
+        context: PolicyContext | None = None,
+        inventory: MoveInventory | None = None,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """Teacher-forced NLL for one atomic coupled electron event."""
 
         if not moves:
             raise ValueError("FLOW event requires at least one move")
-        context = self.encode_context(current_smiles, target_smiles)
-        inventory = MoveInventory.from_state(current_smiles)
+        context = context or self.encode_context(current_smiles, target_smiles)
+        inventory = inventory or MoveInventory.from_state(current_smiles)
         parsed = [item if isinstance(item, ElectronMove) else ElectronMove.parse(item) for item in moves]
         family_target = torch.tensor(ACTION_FAMILIES.index("FLOW"), device=self.device)
         family_loss = F.cross_entropy(self.family_logits(context)[None, :], family_target[None])
@@ -451,6 +553,8 @@ class GraphElectronPolicy(nn.Module):
         current_smiles: str,
         target_smiles: str,
         payload: Mapping[str, Any],
+        *,
+        context: PolicyContext | None = None,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """NLL for a sparse BE-matrix edit sequence followed by atomic commit.
 
@@ -462,7 +566,7 @@ class GraphElectronPolicy(nn.Module):
 
         if payload.get("mode") != "BE_DELTA":
             raise ValueError("BE head requires a BE_DELTA payload")
-        context = self.encode_context(current_smiles, target_smiles)
+        context = context or self.encode_context(current_smiles, target_smiles)
         family_target = torch.tensor(ACTION_FAMILIES.index("BE_DELTA"), device=self.device)
         family_loss = F.cross_entropy(self.family_logits(context)[None, :], family_target[None])
         history = torch.zeros_like(context.vector)
@@ -561,11 +665,21 @@ class GraphElectronPolicy(nn.Module):
         target_smiles: str,
         fragments: Sequence[str],
         gold_index: int,
+        *,
+        context: PolicyContext | None = None,
+        candidate_pools: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        context = self.encode_context(current_smiles, target_smiles)
+        context = context or self.encode_context(current_smiles, target_smiles)
         family_target = torch.tensor(ACTION_FAMILIES.index("IMPORT_ENV"), device=self.device)
         family_loss = F.cross_entropy(self.family_logits(context)[None, :], family_target[None])
-        scores, _ = self.import_logits(context, fragments)
+        if candidate_pools is None:
+            scores, _ = self.import_logits(context, fragments)
+        else:
+            if candidate_pools.shape[0] != len(fragments):
+                raise ValueError("candidate pool count does not match fragment count")
+            keys = F.normalize(self.import_key(candidate_pools), dim=-1)
+            query = F.normalize(self.import_query(context.vector), dim=-1)
+            scores = keys @ query
         fragment_loss = F.cross_entropy(
             scores[None, :], torch.tensor([int(gold_index)], device=self.device)
         )
@@ -652,10 +766,12 @@ class GraphElectronPolicy(nn.Module):
         current_smiles: str,
         target_smiles: str,
         program: ReactiveFragmentProgram,
+        *,
+        context: PolicyContext | None = None,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """Teacher-forced graph-program loss for an open-vocabulary import."""
 
-        context = self.encode_context(current_smiles, target_smiles)
+        context = context or self.encode_context(current_smiles, target_smiles)
         family_target = torch.tensor(
             ACTION_FAMILIES.index("IMPORT_REACTIVE"), device=self.device
         )
@@ -1051,8 +1167,14 @@ class GraphElectronPolicy(nn.Module):
             "logprob": total_logprob,
         }
 
-    def finish_nll(self, current_smiles: str, target_smiles: str) -> torch.Tensor:
-        context = self.encode_context(current_smiles, target_smiles)
+    def finish_nll(
+        self,
+        current_smiles: str,
+        target_smiles: str,
+        *,
+        context: PolicyContext | None = None,
+    ) -> torch.Tensor:
+        context = context or self.encode_context(current_smiles, target_smiles)
         target = torch.tensor(ACTION_FAMILIES.index("FINISH"), device=self.device)
         return F.cross_entropy(self.family_logits(context)[None, :], target[None])
 
