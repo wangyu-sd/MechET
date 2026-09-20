@@ -7,7 +7,7 @@ SOURCE_ROOT="$SHARED_REPO/data/flower_inverse_tool_sft_action_delta_v1"
 SOURCE_MANIFEST="$SOURCE_ROOT/training_manifest.json"
 RESUME_CHECKPOINT="$SHARED_REPO/outputs/agent/graph_electron_reaction_online_v1_8a100_20260920/checkpoint-epoch1-update500.pt"
 VERIFIED_INDEX="$SHARED_REPO/outputs/agent/graph_electron_reaction_online_v1_8a100_20260920/train.reaction_offsets.u64"
-SMOKE_ROOT="$SHARED_REPO/outputs/agent/graph_electron_three_stage_smoke_v1"
+SMOKE_ROOT="$SHARED_REPO/outputs/agent/graph_electron_three_stage_smoke_v2"
 STATE_ROOT="$SMOKE_ROOT/state_bc"
 TRAJECTORY_ROOT="$SMOKE_ROOT/trajectory_bc"
 RL_ROOT="$SMOKE_ROOT/executor_rl"
@@ -24,8 +24,16 @@ export PYTHONUNBUFFERED=1
 export MKL_THREADING_LAYER=GNU
 export OMP_NUM_THREADS=1
 
-rm -rf "$SMOKE_ROOT"
 mkdir -p "$STATE_ROOT" "$TRAJECTORY_ROOT" "$RL_ROOT"
+existing_checkpoint=$(find "$SMOKE_ROOT" -mindepth 2 -type f -name 'checkpoint-*.pt' -print -quit)
+if [[ -n "$existing_checkpoint" ]]; then
+  echo "[graph-three-stage-smoke] refusing non-fresh output root: $SMOKE_ROOT" >&2
+  exit 2
+fi
+# Keep terminal output live for Taiji and a persistent copy for post-mortem
+# diagnosis if the pod disappears. This is teeing, not log redirection.
+exec > >(tee -a "$SMOKE_ROOT/runtime.log") 2>&1
+trap 'status=$?; echo "[graph-three-stage-smoke] exit_status=$status time=$(date --iso-8601=seconds)"; trap - EXIT; exit "$status"' EXIT
 echo "[graph-three-stage-smoke] runtime=$RUNTIME_DIR commit=$(git rev-parse HEAD)"
 echo "[graph-three-stage-smoke] gpus=$(nvidia-smi --query-gpu=name --format=csv,noheader | tr '\n' ';')"
 python - "$SOURCE_MANIFEST" "$RESUME_CHECKPOINT" "$VERIFIED_INDEX" <<'PY'
