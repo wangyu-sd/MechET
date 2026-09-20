@@ -25,6 +25,7 @@ def tiny_policy() -> GraphElectronPolicy:
 def test_compiler_schedules_reactive_import_at_first_use_and_environment_at_end():
     row = {
         "id": "first-use",
+        "expected_precursor": "[Br-:2].[CH3:1][O:3][CH3:4].[Na+:5]",
         "metadata": {
             "trace_plan": {
                 "target_smiles": TARGET,

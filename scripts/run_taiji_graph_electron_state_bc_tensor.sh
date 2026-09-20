@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+echo "[graph-state-bc] DEPRECATED: expanded decision JSON/tensor-cache training is disabled; use run_taiji_graph_electron_reaction_online.sh" >&2
+exit 2
+
 RUNTIME_DIR="${MECHET_GRAPH_RUNTIME_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET-graph-electron-iql-20260919}"
 SHARED_REPO="/aaa/fionafyang/buddy1/whaleywang/MechET"
 SOURCE_ROOT="$SHARED_REPO/data/flower_inverse_tool_sft_action_delta_v1"

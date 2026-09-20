@@ -42,6 +42,12 @@ class PreparedDecision:
 
 def prepare_line(line: str) -> PreparedDecision:
     value = json.loads(line)
+    return prepare_value(value)
+
+
+def prepare_value(value: dict[str, Any]) -> PreparedDecision:
+    """Tensorize one in-memory decision without a JSON round trip."""
+
     if value["kind"] in {"IMPORT_ENV", "IMPORT_REACTIVE"}:
         value["program"] = ReactiveFragmentProgram.from_dict(value["program"])
     target_graph = smiles_to_graph(value["target"])

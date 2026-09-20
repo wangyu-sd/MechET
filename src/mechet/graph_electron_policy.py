@@ -43,6 +43,11 @@ CONTAINER_KINDS = {"LP": 0, "ATOM": 1, "BOND": 2, "RADICAL_PAIR": 3}
 FLOW_SOURCE_KINDS = ("LP", "BOND", "RADICAL_PAIR")
 FLOW_SINK_KINDS = ("ATOM", "BOND", "RADICAL_PAIR")
 FRAGMENT_BOND_TYPES = (1, 2, 3, 12, 17)
+# Frozen strict universe maxima are 69 atoms and 9 non-tree bonds.  Small
+# headroom keeps inference well-defined without excluding any training row.
+MAX_FRAGMENT_ATOMS = 72
+MAX_FRAGMENT_EXTRA_BONDS = 12
+MAX_BE_EDITS = 6
 
 
 @dataclass(frozen=True)
@@ -1338,6 +1343,7 @@ class GraphElectronPolicy(nn.Module):
         *,
         context: PolicyContext | None = None,
         return_parts: bool = True,
+        max_edits: int = MAX_BE_EDITS,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """NLL for a sparse BE-matrix edit sequence followed by atomic commit.
 
@@ -1373,14 +1379,39 @@ class GraphElectronPolicy(nn.Module):
         if not operations:
             raise ValueError("BE_DELTA payload contains no sparse edits")
 
+        if len(operations) > max_edits:
+            raise ValueError(
+                f"BE_DELTA has {len(operations)} edits, above the rollout limit {max_edits}"
+            )
+        params = Chem.SmilesParserParams()
+        params.removeHs = False
+        mol = Chem.MolFromSmiles(current_smiles, params)
+        if mol is None:
+            raise ValueError("invalid current state for BE_DELTA")
         atom_maps = tuple(context.current_maps)
         atom_embeddings = context.current_nodes
+        by_map = {int(atom.GetAtomMapNum()): atom for atom in mol.GetAtoms()}
+        seen_pairs: set[tuple[int, int]] = set()
+        seen_atoms: set[int] = set()
+        charge_phase = False
 
-        for operation, location, delta in operations:
+        for edit_index, (operation, location, delta) in enumerate(operations):
+            if charge_phase and operation == 0:
+                raise ValueError("BE_DELTA canonical order requires bonds before charges")
+            charge_phase = charge_phase or operation == 1
             operation_scores = self.be_operation_head(torch.cat((context.vector, history), dim=-1))
-            operation_loss = operation_loss + F.cross_entropy(
-                operation_scores[None, :], torch.tensor([operation], device=self.device)
+            operation_allowed = torch.tensor(
+                [not charge_phase or operation == 0, True, edit_index > 0],
+                dtype=torch.bool,
+                device=self.device,
             )
+            # Once a charge edit is emitted the canonical program cannot go
+            # back to bond edits.  The current charge itself is still legal.
+            if charge_phase:
+                operation_allowed[0] = False
+            operation_loss = operation_loss - F.log_softmax(
+                operation_scores.masked_fill(~operation_allowed, -torch.inf), dim=0
+            )[operation]
             if operation == 0:
                 try:
                     left, right = (positions[value] for value in location)
@@ -1393,15 +1424,32 @@ class GraphElectronPolicy(nn.Module):
                     atom_embeddings, (state,), self.be_pair_first_head
                 )
 
+                pair_allowed = torch.zeros(
+                    (len(atom_maps), len(atom_maps)), dtype=torch.bool, device=self.device
+                )
+                for first in range(len(atom_maps)):
+                    for second in range(first + 1, len(atom_maps)):
+                        pair = tuple(sorted((atom_maps[first], atom_maps[second])))
+                        if pair in seen_pairs:
+                            continue
+                        left_atom, right_atom = by_map[pair[0]], by_map[pair[1]]
+                        bond = mol.GetBondBetweenAtoms(left_atom.GetIdx(), right_atom.GetIdx())
+                        order = 0.0 if bond is None else float(bond.GetBondTypeAsDouble())
+                        if order > 0.0 or order < 3.0:
+                            pair_allowed[first, second] = True
+                            pair_allowed[second, first] = True
+                first_allowed = pair_allowed.any(dim=1)
+
                 def ordered_pair_logprob(first: int, second: int) -> torch.Tensor:
                     second_logits = self._pointer_logits(
                         atom_embeddings,
                         (state, atom_embeddings[first]),
                         self.be_pair_second_head,
                     ).clone()
-                    second_logits[first] = -torch.inf
-                    return F.log_softmax(first_logits, dim=0)[first] + F.log_softmax(
-                        second_logits, dim=0
+                    return F.log_softmax(
+                        first_logits.masked_fill(~first_allowed, -torch.inf), dim=0
+                    )[first] + F.log_softmax(
+                        second_logits.masked_fill(~pair_allowed[first], -torch.inf), dim=0
                     )[second]
 
                 position_loss = position_loss - torch.logaddexp(
@@ -1410,6 +1458,14 @@ class GraphElectronPolicy(nn.Module):
                 )
                 action_embedding = torch.tanh(
                     atom_embeddings[left] + atom_embeddings[right]
+                )
+                pair = tuple(sorted(location))
+                seen_pairs.add(pair)
+                left_atom, right_atom = by_map[pair[0]], by_map[pair[1]]
+                bond = mol.GetBondBetweenAtoms(left_atom.GetIdx(), right_atom.GetIdx())
+                order = 0.0 if bond is None else float(bond.GetBondTypeAsDouble())
+                delta_allowed = torch.tensor(
+                    [order > 0.0, order < 3.0], dtype=torch.bool, device=self.device
                 )
             else:
                 if location[0] not in positions:
@@ -1425,20 +1481,37 @@ class GraphElectronPolicy(nn.Module):
                 )
                 scores = self.be_atom_head(repeated).squeeze(-1)
                 action_embedding = atom_embeddings[selected]
-                position_loss = position_loss + F.cross_entropy(
-                    scores[None, :], torch.tensor([selected], device=self.device)
+                atom_allowed = torch.tensor(
+                    [atom_map not in seen_atoms for atom_map in atom_maps],
+                    dtype=torch.bool,
+                    device=self.device,
+                )
+                position_loss = position_loss - F.log_softmax(
+                    scores.masked_fill(~atom_allowed, -torch.inf), dim=0
+                )[selected]
+                seen_atoms.add(location[0])
+                q0 = int(by_map[location[0]].GetFormalCharge())
+                delta_allowed = torch.tensor(
+                    [q0 > -5, q0 < 5], dtype=torch.bool, device=self.device
                 )
             delta_scores = self.be_delta_head(torch.cat((context.vector, action_embedding), dim=-1))
             delta_target = 0 if delta == -1 else 1
-            delta_loss = delta_loss + F.cross_entropy(
-                delta_scores[None, :], torch.tensor([delta_target], device=self.device)
-            )
+            if not bool(delta_allowed[delta_target]):
+                raise ValueError(f"illegal BE delta {delta} at {location}")
+            delta_loss = delta_loss - F.log_softmax(
+                delta_scores.masked_fill(~delta_allowed, -torch.inf), dim=0
+            )[delta_target]
             history = self.event_cell(action_embedding[None, :], history[None, :]).squeeze(0)
 
         commit_scores = self.be_operation_head(torch.cat((context.vector, history), dim=-1))
-        operation_loss = operation_loss + F.cross_entropy(
-            commit_scores[None, :], torch.tensor([2], device=self.device)
+        commit_allowed = torch.tensor(
+            [not charge_phase and len(operations) < max_edits, len(operations) < max_edits, True],
+            dtype=torch.bool,
+            device=self.device,
         )
+        operation_loss = operation_loss - F.log_softmax(
+            commit_scores.masked_fill(~commit_allowed, -torch.inf), dim=0
+        )[2]
         total = family_loss + operation_loss + position_loss + delta_loss
         parts = (
             {
@@ -1568,6 +1641,8 @@ class GraphElectronPolicy(nn.Module):
         context: PolicyContext | None = None,
         return_parts: bool = True,
         normalize: bool = True,
+        max_atoms: int = MAX_FRAGMENT_ATOMS,
+        max_extra_bonds: int = MAX_FRAGMENT_EXTRA_BONDS,
     ) -> tuple[torch.Tensor, dict[str, float]]:
         """Teacher-forced graph-program loss for an open-vocabulary import."""
 
@@ -1604,10 +1679,17 @@ class GraphElectronPolicy(nn.Module):
             nodes, state = self._reactive_fragment_state(
                 context, program, atom_index, 0
             )
-            operation_loss = operation_loss + F.cross_entropy(
-                self.fragment_operation_head(state)[None, :],
-                torch.tensor([0], device=self.device),
+            operation_allowed = torch.tensor(
+                [atom_index < max_atoms, atom_index >= 2, atom_index > 0],
+                dtype=torch.bool,
+                device=self.device,
             )
+            operation_loss = operation_loss - F.log_softmax(
+                self.fragment_operation_head(state).masked_fill(
+                    ~operation_allowed, -torch.inf
+                ),
+                dim=0,
+            )[0]
             atom_loss = atom_loss + F.cross_entropy(
                 self.fragment_element_head(state)[None, :],
                 torch.tensor([int(atom.atomic_num)], device=self.device),
@@ -1654,10 +1736,17 @@ class GraphElectronPolicy(nn.Module):
             nodes, state = self._reactive_fragment_state(
                 context, program, len(program.atoms), extra_index
             )
-            operation_loss = operation_loss + F.cross_entropy(
-                self.fragment_operation_head(state)[None, :],
-                torch.tensor([1], device=self.device),
+            operation_allowed = torch.tensor(
+                [False, extra_index < max_extra_bonds, True],
+                dtype=torch.bool,
+                device=self.device,
             )
+            operation_loss = operation_loss - F.log_softmax(
+                self.fragment_operation_head(state).masked_fill(
+                    ~operation_allowed, -torch.inf
+                ),
+                dim=0,
+            )[1]
             target_pair = tuple(sorted(map(int, bond.atoms)))
             if min(target_pair) < 0 or max(target_pair) >= nodes.shape[0]:
                 raise ValueError(f"extra bond outside fragment: {target_pair}")
@@ -1665,13 +1754,32 @@ class GraphElectronPolicy(nn.Module):
                 nodes, (state,), self.fragment_pair_first_head
             )
 
+            occupied = {
+                tuple(sorted((index, int(atom.parent))))
+                for index, atom in enumerate(program.atoms)
+                if atom.parent is not None
+            }
+            occupied.update(
+                tuple(sorted(map(int, existing.atoms)))
+                for existing in program.extra_bonds[:extra_index]
+            )
+            pair_allowed = torch.ones(
+                (nodes.shape[0], nodes.shape[0]), dtype=torch.bool, device=self.device
+            )
+            pair_allowed.fill_diagonal_(False)
+            for first, second in occupied:
+                pair_allowed[first, second] = False
+                pair_allowed[second, first] = False
+            first_allowed = pair_allowed.any(dim=1)
+
             def ordered_pair_logprob(first: int, second: int) -> torch.Tensor:
                 second_logits = self._pointer_logits(
                     nodes, (state, nodes[first]), self.fragment_pair_second_head
                 ).clone()
-                second_logits[first] = -torch.inf
-                return F.log_softmax(first_logits, dim=0)[first] + F.log_softmax(
-                    second_logits, dim=0
+                return F.log_softmax(
+                    first_logits.masked_fill(~first_allowed, -torch.inf), dim=0
+                )[first] + F.log_softmax(
+                    second_logits.masked_fill(~pair_allowed[first], -torch.inf), dim=0
                 )[second]
 
             left, right = target_pair
@@ -1691,10 +1799,22 @@ class GraphElectronPolicy(nn.Module):
         nodes, state = self._reactive_fragment_state(
             context, program, len(program.atoms), len(program.extra_bonds)
         )
-        operation_loss = operation_loss + F.cross_entropy(
-            self.fragment_operation_head(state)[None, :],
-            torch.tensor([2], device=self.device),
+        terminal_allowed = torch.tensor(
+            [
+                not program.extra_bonds and len(program.atoms) < max_atoms,
+                len(program.atoms) >= 2
+                and len(program.extra_bonds) < max_extra_bonds,
+                bool(program.atoms),
+            ],
+            dtype=torch.bool,
+            device=self.device,
         )
+        operation_loss = operation_loss - F.log_softmax(
+            self.fragment_operation_head(state).masked_fill(
+                ~terminal_allowed, -torch.inf
+            ),
+            dim=0,
+        )[2]
         active_logits = self.fragment_active_head(
             torch.cat((nodes, state.expand(nodes.shape[0], -1)), dim=-1)
         ).squeeze(-1)
@@ -1808,8 +1928,8 @@ class GraphElectronPolicy(nn.Module):
         trajectory: CompressedTrajectory | None = None,
         family: str | None = None,
         role: str | None = None,
-        max_atoms: int = 32,
-        max_extra_bonds: int = 8,
+        max_atoms: int = MAX_FRAGMENT_ATOMS,
+        max_extra_bonds: int = MAX_FRAGMENT_EXTRA_BONDS,
         greedy: bool = False,
         temperature: float = 1.0,
     ) -> dict[str, Any]:
@@ -1858,6 +1978,7 @@ class GraphElectronPolicy(nn.Module):
         atoms: list[FragmentAtom] = []
         extra_bonds: list[FragmentBond] = []
         operations: list[dict[str, Any]] = []
+        bond_phase = False
         max_operations = max_atoms + max_extra_bonds + 1
         for _ in range(max_operations):
             # A one-carbon dummy makes the typed program valid while the empty
@@ -1875,7 +1996,7 @@ class GraphElectronPolicy(nn.Module):
             )
             allowed = torch.tensor(
                 [
-                    len(atoms) < max_atoms,
+                    not bond_phase and len(atoms) < max_atoms,
                     len(atoms) >= 2 and len(extra_bonds) < max_extra_bonds,
                     bool(atoms),
                 ],
@@ -1994,22 +2115,66 @@ class GraphElectronPolicy(nn.Module):
             first_logits = self._pointer_logits(
                 nodes, (state,), self.fragment_pair_first_head
             )
-            first, value = self._sample_index(
-                first_logits, greedy=greedy, temperature=temperature
+            bond_phase = True
+            occupied = {
+                tuple(sorted((index, int(atom.parent))))
+                for index, atom in enumerate(atoms)
+                if atom.parent is not None
+            }
+            occupied.update(tuple(sorted(map(int, bond.atoms))) for bond in extra_bonds)
+            pair_allowed = torch.ones(
+                (len(atoms), len(atoms)), dtype=torch.bool, device=self.device
             )
-            total_logprob += value
+            pair_allowed.fill_diagonal_(False)
+            for left, right in occupied:
+                pair_allowed[left, right] = False
+                pair_allowed[right, left] = False
+            first_allowed = pair_allowed.any(dim=1)
+            if not bool(first_allowed.any()):
+                return {
+                    "ok": False,
+                    "code": "FRAGMENT_BOND_SPACE_EXHAUSTED",
+                    "role": role,
+                    "operations": operations,
+                    "logprob": total_logprob,
+                }
+            first, value = self._sample_index(
+                first_logits,
+                greedy=greedy,
+                temperature=temperature,
+                allowed=first_allowed,
+            )
             second_logits = self._pointer_logits(
                 nodes, (state, nodes[first]), self.fragment_pair_second_head
             )
-            second_allowed = torch.ones_like(second_logits, dtype=torch.bool)
-            second_allowed[first] = False
+            second_allowed = pair_allowed[first]
             second, value = self._sample_index(
                 second_logits,
                 greedy=greedy,
                 temperature=temperature,
                 allowed=second_allowed,
             )
-            total_logprob += value
+            # The action is an undirected bond.  Its probability is the sum
+            # of the two ordered pointer paths, exactly as in teacher forcing.
+            def ordered_pair_logprob(left: int, right: int) -> torch.Tensor:
+                second_scores = self._pointer_logits(
+                    nodes, (state, nodes[left]), self.fragment_pair_second_head
+                )
+                return F.log_softmax(
+                    (first_logits / temperature).masked_fill(~first_allowed, -torch.inf), dim=0
+                )[left] + F.log_softmax(
+                    (second_scores / temperature).masked_fill(
+                        ~pair_allowed[left], -torch.inf
+                    ),
+                    dim=0,
+                )[right]
+
+            total_logprob += float(
+                torch.logaddexp(
+                    ordered_pair_logprob(first, second),
+                    ordered_pair_logprob(second, first),
+                )
+            )
             bond_index, value = self._sample_index(
                 self.fragment_bond_type_head(state),
                 greedy=greedy,
@@ -2038,7 +2203,7 @@ class GraphElectronPolicy(nn.Module):
         target_smiles: str,
         *,
         trajectory: CompressedTrajectory | None = None,
-        max_edits: int = 6,
+        max_edits: int = MAX_BE_EDITS,
         greedy: bool = False,
         temperature: float = 1.0,
     ) -> dict[str, Any]:
@@ -2061,13 +2226,18 @@ class GraphElectronPolicy(nn.Module):
         charge_actions: list[dict[str, Any]] = []
         seen_pairs: set[tuple[int, int]] = set()
         seen_atoms: set[int] = set()
+        charge_phase = False
         total_logprob = 0.0
         for edit_index in range(max_edits + 1):
             operation_logits = self.be_operation_head(
                 torch.cat((context.vector, history), dim=-1)
             )
             operation_allowed = torch.tensor(
-                [edit_index < max_edits, edit_index < max_edits, edit_index > 0],
+                [
+                    edit_index < max_edits and not charge_phase,
+                    edit_index < max_edits,
+                    edit_index > 0,
+                ],
                 dtype=torch.bool,
                 device=self.device,
             )
@@ -2095,31 +2265,80 @@ class GraphElectronPolicy(nn.Module):
                 first_logits = self._pointer_logits(
                     context.current_nodes, (state,), self.be_pair_first_head
                 )
-                first, value = self._sample_index(
-                    first_logits, greedy=greedy, temperature=temperature
+                pair_allowed = torch.zeros(
+                    (len(context.current_maps), len(context.current_maps)),
+                    dtype=torch.bool,
+                    device=self.device,
                 )
-                total_logprob += value
+                for left_index in range(len(context.current_maps)):
+                    for right_index in range(left_index + 1, len(context.current_maps)):
+                        pair = tuple(
+                            sorted(
+                                (
+                                    context.current_maps[left_index],
+                                    context.current_maps[right_index],
+                                )
+                            )
+                        )
+                        if pair in seen_pairs:
+                            continue
+                        left_atom, right_atom = by_map[pair[0]], by_map[pair[1]]
+                        bond = mol.GetBondBetweenAtoms(
+                            left_atom.GetIdx(), right_atom.GetIdx()
+                        )
+                        order = 0.0 if bond is None else float(bond.GetBondTypeAsDouble())
+                        if order > 0.0 or order < 3.0:
+                            pair_allowed[left_index, right_index] = True
+                            pair_allowed[right_index, left_index] = True
+                first_allowed = pair_allowed.any(dim=1)
+                if not bool(first_allowed.any()):
+                    return {
+                        "ok": False,
+                        "code": "BE_PAIR_SPACE_EXHAUSTED",
+                        "logprob": total_logprob,
+                    }
+                first, value = self._sample_index(
+                    first_logits,
+                    greedy=greedy,
+                    temperature=temperature,
+                    allowed=first_allowed,
+                )
                 second_logits = self._pointer_logits(
                     context.current_nodes,
                     (state, context.current_nodes[first]),
                     self.be_pair_second_head,
                 )
-                second_allowed = torch.ones_like(second_logits, dtype=torch.bool)
-                second_allowed[first] = False
-                for pair in seen_pairs:
-                    if context.current_maps[first] in pair:
-                        other = pair[0] if pair[1] == context.current_maps[first] else pair[1]
-                        if other in positions:
-                            second_allowed[positions[other]] = False
-                if not bool(second_allowed.any()):
-                    return {"ok": False, "code": "BE_PAIR_SPACE_EXHAUSTED", "logprob": total_logprob}
+                second_allowed = pair_allowed[first]
                 second, value = self._sample_index(
                     second_logits,
                     greedy=greedy,
                     temperature=temperature,
                     allowed=second_allowed,
                 )
-                total_logprob += value
+                def ordered_pair_logprob(left_index: int, right_index: int) -> torch.Tensor:
+                    right_logits = self._pointer_logits(
+                        context.current_nodes,
+                        (state, context.current_nodes[left_index]),
+                        self.be_pair_second_head,
+                    )
+                    return F.log_softmax(
+                        (first_logits / temperature).masked_fill(
+                            ~first_allowed, -torch.inf
+                        ),
+                        dim=0,
+                    )[left_index] + F.log_softmax(
+                        (right_logits / temperature).masked_fill(
+                            ~pair_allowed[left_index], -torch.inf
+                        ),
+                        dim=0,
+                    )[right_index]
+
+                total_logprob += float(
+                    torch.logaddexp(
+                        ordered_pair_logprob(first, second),
+                        ordered_pair_logprob(second, first),
+                    )
+                )
                 pair = tuple(sorted((context.current_maps[first], context.current_maps[second])))
                 seen_pairs.add(pair)
                 left = by_map[pair[0]]
@@ -2141,6 +2360,7 @@ class GraphElectronPolicy(nn.Module):
                 total_logprob += value
                 bond_deltas.append({"atoms": list(pair), "delta": -1 if delta_index == 0 else 1})
             else:
+                charge_phase = True
                 atom_logits = self.be_atom_head(
                     torch.cat(
                         (

@@ -51,6 +51,15 @@ def atom_maps(smiles: str) -> tuple[int, ...]:
     return maps
 
 
+def canonical_mapped(smiles: str) -> str:
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(str(smiles or ""), params)
+    if mol is None:
+        raise ValueError(f"invalid mapped endpoint: {smiles!r}")
+    return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+
+
 def touched_maps(moves: Iterable[dict[str, Any]]) -> set[int]:
     output: set[int] = set()
     for move in moves:
@@ -197,6 +206,9 @@ def compile_row(payload: tuple[int, str]) -> tuple[int, list[dict[str, Any]]]:
         key=lambda item: item[1],
     ):
         add_import(fragment, active, role)
+    expected_precursor = str(row.get("expected_precursor") or plan.get("expected_precursor") or "")
+    if not expected_precursor or canonical_mapped(current) != canonical_mapped(expected_precursor):
+        raise ValueError(f"row {row_index}: compiled endpoint differs from frozen precursor")
     decisions.append(
         {
             "reaction_id": row.get("id"),

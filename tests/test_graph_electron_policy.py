@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
 import torch
 
 from mechet.forward_expert import ElectronContainer
@@ -13,6 +14,7 @@ from mechet.graph_electron_policy import (
     strip_atom_maps,
 )
 from mechet.graph_fragment_actions import (
+    REACTIVE_ROLES,
     bind_reactive_import,
     classify_imports,
     decompose_reactive_fragment,
@@ -229,6 +231,48 @@ def test_reactive_fragment_rollout_returns_map_free_executor_option():
     assert ":" not in result["fragment"]
 
 
+def test_reactive_fragment_rollout_logprob_matches_exact_teacher_forcing():
+    model = tiny_policy().eval()
+    with torch.no_grad():
+        for head in (
+            model.fragment_element_head,
+            model.fragment_charge_head,
+            model.fragment_h_head,
+            model.fragment_no_implicit_head,
+            model.fragment_radical_head,
+            model.fragment_chiral_head,
+            model.reactive_role_head,
+        ):
+            head.weight.zero_()
+            head.bias.zero_()
+        model.fragment_element_head.bias[6] = 10.0
+        model.fragment_charge_head.bias[5] = 10.0
+        model.fragment_h_head.bias[4] = 10.0
+        model.fragment_no_implicit_head.bias[1] = 10.0
+        model.fragment_radical_head.bias[0] = 10.0
+        model.fragment_chiral_head.bias[0] = 10.0
+        model.reactive_role_head.bias[REACTIVE_ROLES.index("NUCLEOPHILE")] = 10.0
+    result = model.rollout_reactive_fragment(
+        TARGET,
+        TARGET,
+        family="IMPORT_REACTIVE",
+        max_atoms=1,
+        max_extra_bonds=0,
+        greedy=True,
+    )
+    assert result["ok"]
+    loss, parts = model.reactive_fragment_nll(
+        TARGET,
+        TARGET,
+        result["program"],
+        normalize=False,
+        max_atoms=1,
+        max_extra_bonds=0,
+    )
+    conditional_nll = float(loss.detach()) - parts["family"]
+    assert conditional_nll == pytest.approx(-result["logprob"], abs=1e-4)
+
+
 def test_sparse_be_matrix_head_scores_bond_and_charge_edits():
     model = tiny_policy().train()
     payload = {
@@ -245,6 +289,23 @@ def test_sparse_be_matrix_head_scores_bond_and_charge_edits():
     loss.backward()
     assert model.be_pair_first_head[-1].weight.grad is not None
     assert model.be_pair_second_head[-1].weight.grad is not None
+
+
+def test_be_rollout_logprob_matches_exact_teacher_forcing():
+    model = tiny_policy().eval()
+    with torch.no_grad():
+        model.be_operation_head[-1].weight.zero_()
+        model.be_operation_head[-1].bias[:] = torch.tensor([10.0, -10.0, -10.0])
+    result = model.rollout_be_delta(TARGET, TARGET, max_edits=1, greedy=True)
+    assert result["ok"]
+    loss, parts = model.be_delta_nll(
+        TARGET,
+        TARGET,
+        result["moves"][0],
+        max_edits=1,
+    )
+    conditional_nll = float(loss.detach()) - parts["family"]
+    assert conditional_nll == pytest.approx(-result["logprob"], abs=1e-5)
 
 
 def test_direct_flow_pointer_loss_is_finite_and_pair_order_invariant():
