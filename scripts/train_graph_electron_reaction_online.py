@@ -67,6 +67,7 @@ class ReactionOnlineDataset(Dataset[list[PreparedDecision]]):
         world_size: int,
         seed: int,
         skip_reactions: int = 0,
+        reaction_limit_per_rank: int | None = None,
     ) -> None:
         offsets = array("Q")
         with offset_index.open("rb") as handle:
@@ -76,6 +77,10 @@ class ReactionOnlineDataset(Dataset[list[PreparedDecision]]):
         if skip_reactions < 0 or skip_reactions > len(selected):
             raise ValueError("skip_reactions lies outside the rank-local shard")
         selected = selected[skip_reactions:]
+        if reaction_limit_per_rank is not None:
+            if reaction_limit_per_rank < 1:
+                raise ValueError("reaction limit must be positive")
+            selected = selected[:reaction_limit_per_rank]
         self.source = source
         self.entries = tuple((index, int(offsets[index])) for index in selected)
         self._handle = None
@@ -159,6 +164,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cpu-workers", type=int, default=3)
     parser.add_argument("--prefetch", type=int, default=3)
     parser.add_argument("--seed", type=int, default=17)
+    parser.add_argument("--expected-world-size", type=int, default=8)
+    parser.add_argument(
+        "--reaction-limit-per-rank",
+        type=int,
+        default=None,
+        help="Fixed shuffled reaction subset used by intentional overfit smokes.",
+    )
+    parser.add_argument(
+        "--amp-dtype", choices=("auto", "bf16", "fp16"), default="auto"
+    )
     parser.add_argument("--stage", choices=(STAGE_STATE_BC, STAGE_TRAJECTORY_BC), default=STAGE_STATE_BC)
     parser.add_argument("--initialize-from", type=Path)
     parser.add_argument(
@@ -191,8 +206,10 @@ def main() -> None:
     rank = dist.get_rank()
     world_size = dist.get_world_size()
     local_rank = int(os.environ["LOCAL_RANK"])
-    if world_size != 8:
-        raise SystemExit(f"full run requires 8 ranks, got {world_size}")
+    if world_size != args.expected_world_size:
+        raise SystemExit(
+            f"world-size mismatch: expected {args.expected_world_size}, got {world_size}"
+        )
     torch.cuda.set_device(local_rank)
     device = torch.device("cuda", local_rank)
     torch.set_float32_matmul_precision("high")
@@ -243,6 +260,7 @@ def main() -> None:
         world_size=world_size,
         seed=args.seed,
         skip_reactions=skipped_reactions,
+        reaction_limit_per_rank=args.reaction_limit_per_rank,
     )
     local_reactions = len(dataset)
     batch_counts = torch.tensor(
@@ -303,6 +321,16 @@ def main() -> None:
     )
     if resume_checkpoint is not None:
         optimizer.load_state_dict(resume_checkpoint["optimizer"])
+    amp_dtype = (
+        torch.bfloat16
+        if args.amp_dtype == "bf16"
+        else torch.float16
+        if args.amp_dtype == "fp16"
+        else torch.bfloat16
+        if torch.cuda.is_bf16_supported()
+        else torch.float16
+    )
+    scaler = torch.cuda.amp.GradScaler(enabled=amp_dtype == torch.float16)
     family_counts = Counter(train_meta.get("family_counts") or {})
     if not family_counts:
         family_counts = Counter(
@@ -326,7 +354,8 @@ def main() -> None:
             f"conceptual_decisions={EXPECTED_DECISIONS['train']} expanded_decisions_on_disk=0 "
             f"reactions_per_batch_rank={args.reactions_per_batch} updates_remaining={total_updates} "
             f"resume_update={args.resume_update} "
-            f"cpu_workers_total={args.cpu_workers * world_size} stage={args.stage}",
+            f"cpu_workers_total={args.cpu_workers * world_size} stage={args.stage} "
+            f"amp_dtype={str(amp_dtype).replace('torch.', '')}",
             flush=True,
         )
     try:
@@ -336,10 +365,11 @@ def main() -> None:
             weight_denominator = torch.zeros((), dtype=torch.float64, device=device)
             processed_reactions = processed_decisions = 0
             started = time.time()
+            epoch_update_base = args.resume_update + epoch_index * total_updates
             for relative_update, prepared in enumerate(loader, 1):
                 if relative_update > total_updates:
                     break
-                update = args.resume_update + relative_update
+                update = epoch_update_base + relative_update
                 reaction_ids = {str(item.value["reaction_id"]) for item in prepared}
                 real_reactions = len(reaction_ids)
                 weights = torch.tensor(
@@ -352,7 +382,7 @@ def main() -> None:
                     device=device,
                 )
                 optimizer.zero_grad(set_to_none=True)
-                with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+                with torch.autocast(device_type="cuda", dtype=amp_dtype):
                     losses = distributed_model(
                         [item.value for item in prepared],
                         [item.current_graph for item in prepared],
@@ -365,9 +395,11 @@ def main() -> None:
                     )
                     weighted = losses * weights
                     loss = weighted.sum() / weights.sum().clamp_min(1.0)
-                loss.backward()
+                scaler.scale(loss).backward()
+                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(distributed_model.parameters(), 1.0)
-                optimizer.step()
+                scaler.step(optimizer)
+                scaler.update()
                 processed_reactions += real_reactions
                 processed_decisions += len(prepared)
                 loss_numerator += weighted.detach().sum().to(torch.float64)
@@ -376,7 +408,7 @@ def main() -> None:
                     elapsed = time.time() - started
                     print(
                         f"[graph-online] epoch={epoch_index + 1}/{args.epochs} "
-                        f"update={update}/{args.resume_update + total_updates} "
+                        f"update={update}/{args.resume_update + args.epochs * total_updates} "
                         f"reactions_rank0={processed_reactions}/{local_reactions} "
                         f"decisions_transient_rank0={processed_decisions} "
                         f"mean_loss_rank0={float(loss_numerator / weight_denominator):.5f} "
@@ -413,7 +445,7 @@ def main() -> None:
                     args=args,
                     source_manifest=manifest,
                     epoch=epoch_index + 1,
-                    update=args.resume_update + total_updates,
+                    update=epoch_update_base + total_updates,
                     processed_reactions=processed_reactions,
                     processed_decisions=processed_decisions,
                 )

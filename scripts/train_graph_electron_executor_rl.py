@@ -42,6 +42,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--bc-weight", type=float, default=0.05)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--seed", type=int, default=23)
+    parser.add_argument("--expected-world-size", type=int, default=8)
+    parser.add_argument(
+        "--reaction-limit-per-rank",
+        type=int,
+        default=None,
+        help="Repeat a fixed shuffled subset for intentional overfit smokes.",
+    )
     parser.add_argument("--log-updates", type=int, default=5)
     parser.add_argument("--checkpoint-updates", type=int, default=25)
     return parser.parse_args()
@@ -86,8 +93,12 @@ def main() -> None:
     dist.init_process_group(backend="nccl")
     rank, world_size = dist.get_rank(), dist.get_world_size()
     local_rank = int(os.environ["LOCAL_RANK"])
-    if world_size != 8 or args.episodes % (world_size * args.episodes_per_update):
-        raise SystemExit("episodes must be divisible by 8 * episodes-per-update")
+    if world_size != args.expected_world_size:
+        raise SystemExit(
+            f"world-size mismatch: expected {args.expected_world_size}, got {world_size}"
+        )
+    if args.episodes % (world_size * args.episodes_per_update):
+        raise SystemExit("episodes must be divisible by world-size * episodes-per-update")
     torch.cuda.set_device(local_rank)
     device = torch.device("cuda", local_rank)
     torch.set_float32_matmul_precision("high")
@@ -140,6 +151,12 @@ def main() -> None:
     updates = rank_episodes // args.episodes_per_update
     source_order = list(range(rank, len(offsets), world_size))
     random.Random(args.seed).shuffle(source_order)
+    if args.reaction_limit_per_rank is not None:
+        if args.reaction_limit_per_rank < 1:
+            raise SystemExit("reaction-limit-per-rank must be positive")
+        source_order = source_order[: args.reaction_limit_per_rank]
+    if not source_order:
+        raise SystemExit("rank-local reaction subset is empty")
     handle = source.open("rb")
     totals = {
         "episodes": 0,
@@ -166,7 +183,7 @@ def main() -> None:
         bc_terms: list[torch.Tensor] = []
         for within in range(args.episodes_per_update):
             episode_index = (update - 1) * args.episodes_per_update + within
-            source_index = source_order[episode_index]
+            source_index = source_order[episode_index % len(source_order)]
             handle.seek(int(offsets[source_index]))
             line = handle.readline().decode("utf-8")
             row = json.loads(line)

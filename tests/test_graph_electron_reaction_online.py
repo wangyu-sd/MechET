@@ -73,3 +73,12 @@ def test_reaction_dataset_shards_whole_reactions(tmp_path: Path):
         source, offsets, rank=0, world_size=2, seed=3, skip_reactions=1
     )
     assert len(resumed) == len(left) - 1
+    limited = ReactionOnlineDataset(
+        source,
+        offsets,
+        rank=0,
+        world_size=1,
+        seed=3,
+        reaction_limit_per_rank=2,
+    )
+    assert len(limited) == 2
