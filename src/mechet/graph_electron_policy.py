@@ -168,7 +168,10 @@ class EdgeMessageLayer(nn.Module):
         if edge_index.numel():
             source, destination = edge_index
             messages = self.message(torch.cat((nodes[source], edges), dim=-1))
-            aggregate.index_add_(0, destination, messages)
+            # Autocast may produce BF16 messages while the numerically stable
+            # accumulation buffer remains FP32. ``index_add_`` requires an
+            # exact dtype match, so promote only at the reduction boundary.
+            aggregate.index_add_(0, destination, messages.to(aggregate.dtype))
             degree.index_add_(0, destination, torch.ones_like(destination, dtype=nodes.dtype)[:, None])
         aggregate = aggregate / degree.clamp_min(1.0).sqrt()
         return self.norm(nodes + self.update(torch.cat((nodes, aggregate), dim=-1)))
