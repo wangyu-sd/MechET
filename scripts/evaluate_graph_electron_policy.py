@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 from pathlib import Path
+import random
 import time
 
 import torch
@@ -22,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-steps", type=int, default=32)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--sample", action="store_true")
+    parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--log-every", type=int, default=10)
     return parser.parse_args()
 
@@ -30,6 +33,8 @@ def main() -> None:
     args = parse_args()
     if args.limit < 1 or args.max_steps < 1:
         raise SystemExit("limit and max-steps must be positive")
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
     checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     config = checkpoint.get("config") or {}
     model = GraphElectronPolicy(
@@ -45,6 +50,8 @@ def main() -> None:
 
     rows = []
     accepted = attempted = exact = finished = generation_failures = 0
+    action_families: Counter[str] = Counter()
+    rejection_codes: Counter[str] = Counter()
     started = time.time()
     with args.data.open() as handle:
         for index, line in enumerate(handle):
@@ -70,9 +77,12 @@ def main() -> None:
                 action = sampled.get("action") or {
                     "kind": str(sampled.get("family") or "")
                 }
+                action_families[str(action.get("kind") or "UNKNOWN")] += 1
                 transition = env.step(action)
                 attempted += 1
                 accepted += int(transition.accepted)
+                if not transition.accepted:
+                    rejection_codes[str(transition.result.get("code") or "UNKNOWN")] += 1
                 endpoint_exact = endpoint_exact or bool(
                     transition.result.get("endpoint_exact")
                 )
@@ -124,6 +134,9 @@ def main() -> None:
         "executor_accepted": accepted,
         "executor_accept_rate": accepted / max(1, attempted),
         "generation_failures": generation_failures,
+        "action_families": dict(action_families),
+        "rejection_codes": dict(rejection_codes),
+        "seed": args.seed,
         "wall_seconds": time.time() - started,
         "rows": rows,
     }
