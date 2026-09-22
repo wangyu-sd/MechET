@@ -44,7 +44,13 @@ from scripts.build_natural_language_event_sft import (
 from scripts.build_natural_language_state_value import VALUE_SYSTEM, value_prompt
 from scripts.eval_natural_language_event_local import prediction_call
 from scripts.eval_natural_language_event_suffix import reference_episode
-from scripts.run_natural_language_value_search import Action, Node, execute, visible
+from scripts.run_natural_language_value_search import Action, Node, execute, policy_prompt, visible
+from scripts.earho_v2_protocol import (
+    V2AnchorTask,
+    anchor_task as v2_anchor_task,
+    locate_first_divergence,
+    replay_reference,
+)
 
 
 PROMPT_MODES = ("action", "event")
@@ -61,26 +67,37 @@ def _messages(task, mode: str) -> list[dict[str, Any]]:
         {"role": "system", "content": SYSTEM},
         {
             "role": "user",
-            "content": _prompt(
-                task.target,
-                task.anchor_state,
-                include_inventory=mode in {"event", "unified"},
+            "content": (
+                policy_prompt(
+                    task.target, task.anchor_state, include_inventory=True,
+                    actions=task.anchor_actions, compact_history=True,
+                )
+                if isinstance(task, V2AnchorTask)
+                else _prompt(
+                    task.target, task.anchor_state,
+                    include_inventory=mode in {"event", "unified"},
+                )
             ),
         },
     ]
 
 
-def _render_prompt(tokenizer, task, state: str, mode: str) -> list[int]:
+def _render_prompt(tokenizer, task, state: str, mode: str, *, actions=None) -> list[int]:
+    if isinstance(task, V2AnchorTask):
+        if mode != "unified":
+            raise ValueError("v2 trajectory policy requires the unified prompt")
+        content = policy_prompt(
+            task.target, state, include_inventory=True,
+            actions=task.anchor_actions if actions is None else actions,
+            compact_history=True,
+        )
+    else:
+        content = _prompt(
+            task.target, state, include_inventory=mode in {"event", "unified"},
+        )
     messages = [
         {"role": "system", "content": SYSTEM},
-        {
-            "role": "user",
-            "content": _prompt(
-                task.target,
-                state,
-                include_inventory=mode in {"event", "unified"},
-            ),
-        },
+        {"role": "user", "content": content},
     ]
     rendered = render_chat(tokenizer, messages, tools=TOOLS, add_generation_prompt=True)
     return tokenizer.encode(rendered, add_special_tokens=False)
@@ -133,7 +150,12 @@ def _node(task) -> Node:
         target=task.target,
         state=state,
         next_map=max(mapped_atom_numbers(state), default=0) + 1,
-        visited={visible(state)},
+        actions=list(task.anchor_actions) if isinstance(task, V2AnchorTask) else [],
+        visited=(
+            set(task.prefix_states)
+            if isinstance(task, V2AnchorTask)
+            else {visible(state)}
+        ),
     )
 
 
@@ -259,7 +281,7 @@ def _greedy_continue(
     prompts = []
     modes = []
     for mode in _prompt_modes(args):
-        prompt = _render_prompt(tokenizer, task, node.state, mode)
+        prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions)
         if len(prompt) + args.max_new_tokens > args.max_context:
             return None, "CONTEXT_BUDGET"
         prompts.append({"prompt_token_ids": prompt})
@@ -345,7 +367,7 @@ def _beam_continue(
         prompts = []
         for parent_index, node in enumerate(frontier):
             for mode in _prompt_modes(args):
-                prompt = _render_prompt(tokenizer, task, node.state, mode)
+                prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions)
                 if len(prompt) + args.max_new_tokens > args.max_context:
                     last_errors.append("CONTEXT_BUDGET")
                     continue
@@ -492,6 +514,14 @@ def _score_rollout(
 def _reference_first_decision(row: Mapping[str, Any], episode: Mapping[str, Any]):
     """Return private training-only supervision for the first anchor decision."""
 
+    if isinstance(episode, V2AnchorTask):
+        return (
+            "unified",
+            episode.reference_name,
+            dict(episode.reference_arguments),
+            episode.reference_next_state,
+        )
+
     event = dict(episode["events"][0])
     imports = [str(value) for value in event.get("imports") or []]
     if imports:
@@ -547,8 +577,53 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
         "reward": 1.0,
         "prompt_mode": mode,
         "reference_action": name,
-        "anchor": task_record(task),
+        "anchor": _task_record(task),
     }
+
+
+def _task_record(task):
+    record = task_record(task)
+    if isinstance(task, V2AnchorTask):
+        record.update(
+            version="earho_first_divergence_v2",
+            divergence_reason=task.divergence_reason,
+            decision_index=task.prefix_events,
+            compact_history=True,
+        )
+    return record
+
+
+def _v2_successor_fingerprint(state: str, terminal: bool, invalid_text: str) -> str:
+    """Pool equivalent executed successors across action names and surface text."""
+
+    if not state:
+        return "INVALID:" + hashlib.sha256(invalid_text.encode()).hexdigest()[:16]
+    payload = f"{int(terminal)}:{visible(state)}"
+    return "CHEM:" + hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _v2_probe(llm, tokenizer, lora, parameters, eos_ids, reference, args):
+    """Locate the first divergence using only product and public executor feedback."""
+
+    probe_task = v2_anchor_task(reference, 0, divergence_reason="PRODUCT_PROBE")
+
+    def step(node):
+        prompt = _render_prompt(
+            tokenizer, probe_task, node.state, "unified", actions=node.actions
+        )
+        if len(prompt) + args.max_new_tokens > args.max_context:
+            return None, "PRODUCT_PROBE_CONTEXT_BUDGET"
+        generated = llm.generate(
+            [{"prompt_token_ids": prompt}], parameters,
+            lora_request=lora, use_tqdm=False,
+        )
+        decoded = _decode_action(tokenizer, generated[0].outputs[0], eos_ids, "unified")
+        return _advance(
+            node, decoded, args.max_imports,
+            reject_target_retained_finish=args.reject_target_retained_finish,
+        )
+
+    return locate_first_divergence(reference, step)
 
 
 def _collector_error_records(row, args, total: int, exc: Exception):
@@ -655,6 +730,16 @@ def collect(args):
         stop_token_ids=eos_ids,
         logprobs=0,
     )
+    probe_parameters = SamplingParams(
+        n=1,
+        temperature=0.0,
+        top_p=1.0,
+        top_k=-1,
+        repetition_penalty=1.0,
+        max_tokens=args.max_new_tokens,
+        stop_token_ids=eos_ids,
+        logprobs=0,
+    )
     continuation_parameters = SamplingParams(
         n=args.continuation_candidates_per_mode,
         temperature=(
@@ -689,28 +774,62 @@ def collect(args):
         "x", encoding="utf-8"
     ) as error_handle:
         for number, row in enumerate(rows, 1):
-            total = len(((row.get("metadata") or {}).get("trace_plan") or {}).get("steps") or [])
+            total = (
+                len(row.get("earho_v2_reference_decisions") or ())
+                if args.protocol_v2
+                else len(((row.get("metadata") or {}).get("trace_plan") or {}).get("steps") or [])
+            )
             try:
                 if total < 1:
                     raise ValueError(f"{row.get('id')}: empty trace")
                 rng = stable_rng(args.seed, args.round_index, str(row["id"]))
-                horizon = (
-                    total
-                    if args.evaluation or args.full_only
-                    else choose_horizon(
-                        total,
-                        args.frontier,
-                        rng,
-                        full_episode_fraction=args.full_episode_fraction,
+                no_correction_frontier = False
+                first_divergence_index = None
+                if args.protocol_v2:
+                    reference = replay_reference(
+                        row, row["earho_v2_reference_decisions"],
+                        max_imports=args.max_imports,
                     )
-                )
-                episode = reference_episode(row, horizon)
-                task = task_from_episode(episode)
-                _, _, _, reference_first_successor = _reference_first_decision(
-                    row, episode
-                )
+                    if args.evaluation or args.full_only:
+                        anchor_index, reason = 0, "PRODUCT_ONLY_EVALUATION"
+                    else:
+                        divergence = _v2_probe(
+                            llm, tokenizer, lora, probe_parameters, eos_ids,
+                            reference, args,
+                        )
+                        first_divergence_index = divergence.decision_index
+                        no_correction_frontier = divergence.decision_index is None
+                        if no_correction_frontier:
+                            anchor_index, reason = 0, divergence.reason
+                        elif rng.random() < args.full_episode_fraction:
+                            anchor_index, reason = 0, "FULL_EPISODE_REHEARSAL"
+                        else:
+                            anchor_index = int(divergence.decision_index)
+                            reason = divergence.reason
+                    task = v2_anchor_task(
+                        reference, anchor_index, divergence_reason=reason
+                    )
+                    episode = task
+                    reference_first_successor = task.reference_next_state
+                else:
+                    horizon = (
+                        total
+                        if args.evaluation or args.full_only
+                        else choose_horizon(
+                            total, args.frontier, rng,
+                            full_episode_fraction=args.full_episode_fraction,
+                        )
+                    )
+                    episode = reference_episode(row, horizon)
+                    task = task_from_episode(episode)
+                    _, _, _, reference_first_successor = _reference_first_decision(
+                        row, episode
+                    )
                 prompts = {
-                    mode: _render_prompt(tokenizer, task, task.anchor_state, mode)
+                    mode: _render_prompt(
+                        tokenizer, task, task.anchor_state, mode,
+                        actions=(task.anchor_actions if isinstance(task, V2AnchorTask) else None),
+                    )
                     for mode in prompt_modes
                 }
                 if any(
@@ -740,14 +859,28 @@ def collect(args):
                         decisions = int(node is not None)
                         first_state = node.state if node is not None else ""
                         first_terminal = bool(node is not None and node.terminal)
-                        fingerprint = successor_fingerprint(
-                            prompt_mode=mode,
-                            action_name=str(decoded["name"]),
-                            successor_state=first_state,
-                            terminal=first_terminal,
-                            invalid_text=str(decoded["text"]),
+                        fingerprint = (
+                            _v2_successor_fingerprint(
+                                first_state, first_terminal, str(decoded["text"])
+                            )
+                            if args.protocol_v2
+                            else successor_fingerprint(
+                                prompt_mode=mode,
+                                action_name=str(decoded["name"]),
+                                successor_state=first_state,
+                                terminal=first_terminal,
+                                invalid_text=str(decoded["text"]),
+                            )
                         )
-                        limit = min(args.max_decisions, 2 * task.horizon + 2)
+                        limit = (
+                            args.max_decisions
+                            if args.protocol_v2 and (
+                                args.evaluation or task.divergence_reason == "FULL_EPISODE_REHEARSAL"
+                            )
+                            else min(args.max_decisions, max(1, args.frontier))
+                            if args.protocol_v2
+                            else min(args.max_decisions, 2 * task.horizon + 2)
+                        )
                         if (
                             node is not None
                             and not node.terminal
@@ -809,7 +942,7 @@ def collect(args):
                             "score": score,
                             "prompt_mode": mode,
                             "action_fingerprint": fingerprint,
-                            "anchor": task_record(task),
+                            "anchor": _task_record(task),
                         }
                         if not ids:
                             record["loss_mask"] = [0] * len(record["loss_mask"])
@@ -824,7 +957,21 @@ def collect(args):
                 summary = assign_local_advantages(
                     records, success_gated=args.success_gated_advantages
                 )
-                if not args.evaluation:
+                if no_correction_frontier and not args.evaluation:
+                    for record in records:
+                        record["advantage"] = 0.0
+                        record["update_eligible"] = False
+                    summary["effective"] = False
+                    summary["eligible_records"] = 0
+                needs_replay = (
+                    not args.evaluation
+                    and not no_correction_frontier
+                    and (
+                        not args.protocol_v2
+                        or not (summary["successor_success"] or summary["endpoint_success"])
+                    )
+                )
+                if needs_replay:
                     records.append(
                         _verified_replay_record(
                             tokenizer, task, row, episode, args.max_context, args
@@ -834,6 +981,10 @@ def collect(args):
                     "id": task.reaction_id,
                     "horizon": task.horizon,
                     "full_episode": task.is_full_episode,
+                    "first_divergence_index": (
+                        first_divergence_index if args.protocol_v2 else None
+                    ),
+                    "no_correction_frontier": no_correction_frontier,
                     **summary,
                 }
             except Exception as exc:
@@ -913,7 +1064,10 @@ def main():
         action="store_true",
         help="reproduce the historical gold-action-conditioned prompt split",
     )
+    parser.add_argument("--protocol-v2", action="store_true")
     args = parser.parse_args()
+    if args.protocol_v2 and (args.legacy_dual_prompt or not args.success_gated_advantages):
+        raise ValueError("EARHO v2 requires unified history prompts and success-gated advantages")
     args.memory_efficient_logps = True
     (collect if args.mode == "collect" else train)(args)
 
