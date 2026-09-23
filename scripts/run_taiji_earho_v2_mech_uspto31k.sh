@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-code_dir=/aaa/fionafyang/buddy1/whaleywang/MechET-nl-v2-full-runtime-20260918-02
+code_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 artifact_root=/aaa/fionafyang/buddy1/whaleywang/MechET
 vllm_ceph=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
 vllm_archive=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311_pruned.tar.zst
@@ -60,5 +60,6 @@ print({'vllm': vllm.__version__, 'processor_mixin': ProcessorMixin.__name__}, fl
 PY
 export MECHET_ANCHOR_VLLM_RUNTIME=$vllm_local
 
-echo "[earho-v2] code=$(git rev-parse HEAD) config=$config"
-exec python -u scripts/run_earho_v2.py --config "$config" "$@"
+entrypoint=${MECHET_EARHO_ENTRYPOINT:-scripts/run_earho_v2.py}
+echo "[earho-v2] code=$(git rev-parse HEAD) config=$config entrypoint=$entrypoint"
+exec python -u "$entrypoint" --config "$config" "$@"
