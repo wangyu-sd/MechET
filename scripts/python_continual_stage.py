@@ -164,12 +164,15 @@ def collect(args):
 def train(args):
     import torch
     from datasets import Dataset
-    from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingArguments
-    from peft import PeftModel
+    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, Trainer, TrainingArguments
+    from peft import PeftModel, prepare_model_for_kbit_training
     from python_repair_grpo import frozen_sft_adapter
     from trl.trainer.utils import selective_log_softmax
     rank = int(os.environ.get("LOCAL_RANK", 0))
     cpu_smoke = bool(getattr(args, "cpu_smoke", False))
+    qlora_nf4 = bool(getattr(args, "qlora_nf4", False))
+    if qlora_nf4 and cpu_smoke:
+        raise ValueError("NF4 QLoRA requires CUDA")
     if not cpu_smoke:
         torch.cuda.set_device(rank)
     rows = read_rows(args.data)
@@ -179,12 +182,35 @@ def train(args):
         if len(r["input_ids"]) > 12288:
             raise ValueError("Training trajectory exceeds context (no silent truncation)")
     tok = AutoTokenizer.from_pretrained(args.model, local_files_only=True)
-    base = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32 if cpu_smoke else torch.bfloat16,
-            attn_implementation="sdpa", local_files_only=True)
+    quantization_config = (
+        BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
+        if qlora_nf4 else None
+    )
+    base = AutoModelForCausalLM.from_pretrained(
+        args.model,
+        torch_dtype=torch.float32 if cpu_smoke else torch.bfloat16,
+        quantization_config=quantization_config,
+        device_map={"": rank} if qlora_nf4 else None,
+        attn_implementation="sdpa",
+        local_files_only=True,
+    )
     memory_efficient = bool(getattr(args, "memory_efficient_logps", False))
     if memory_efficient:
         from mechet.selected_policy_logps import install_selected_logps_forward
         install_selected_logps_forward(base)
+    if qlora_nf4:
+        base = prepare_model_for_kbit_training(
+            base,
+            use_gradient_checkpointing=True,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
+        )
+    log(stage="actor-train-runtime", rank=rank, dtype="bfloat16" if not cpu_smoke else "float32",
+        quantization="bnb_nf4_double_quant" if qlora_nf4 else "none")
     model = PeftModel.from_pretrained(base, args.adapter, is_trainable=True)
     model.load_adapter(args.reference, adapter_name="sft_reference", is_trainable=False)
     model.set_adapter("default")
@@ -285,6 +311,7 @@ def train(args):
             "initial_adapter": args.adapter, "reference": args.reference, "updates": updates,
             "rows": len(rows), "algorithm": "group_relative_clipped_policy_update_then_verified_supervised_replay",
             "memory_efficient_logps": memory_efficient,
+            "quantization": "bnb_nf4_double_quant_bf16" if qlora_nf4 else "none",
             "eligible_policy_only": args.eligible_policy_only,
             "selected_policy_rows": len(policy_rows),
             "replay_epochs": replay_epochs}, indent=2))

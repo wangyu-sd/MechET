@@ -304,6 +304,8 @@ def run_train(cfg, data, adapter, output, seed):
     optimization = cfg.get("optimization") or {}
     if optimization.get("eligible_policy_only"):
         command.append("--eligible-policy-only")
+    if cfg.get("actor_quantization") == "bnb_nf4_double_quant_bf16":
+        command.append("--qlora-nf4")
     if int(optimization.get("replay_epochs", 1)) != 1:
         command.extend(["--replay-epochs", str(int(optimization["replay_epochs"]))])
     subprocess.run(command, check=True)

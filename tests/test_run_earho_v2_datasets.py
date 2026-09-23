@@ -4,6 +4,7 @@ import pytest
 
 from scripts.run_earho_v2 import _dataset_contract, _sample_reactions
 from scripts.run_natural_language_anchor_branch_rl import worker_command
+from scripts.run_anchor_branch_rl import run_train
 
 
 def test_streaming_sample_is_deterministic_and_unique(tmp_path):
@@ -53,3 +54,24 @@ def test_precision_matched_actor_flag_reaches_every_collector(tmp_path):
     )
     position = command.index("--actor-quantization")
     assert command[position + 1] == "bnb_nf4_double_quant_bf16"
+
+
+def test_precision_matched_actor_flag_reaches_learner(tmp_path, monkeypatch):
+    source = tmp_path / "updates.jsonl"
+    source.write_text(json.dumps({"kind": "verified_replay"}) + "\n")
+    output = tmp_path / "training"
+    observed = []
+
+    def fake_run(command, *, check):
+        assert check
+        observed.extend(command)
+        (output / "adapter").mkdir(parents=True)
+        (output / "adapter" / "adapter_model.safetensors").touch()
+
+    monkeypatch.setattr("scripts.run_anchor_branch_rl.subprocess.run", fake_run)
+    run_train(
+        {"model_snapshot": "/model", "initial_adapter_path": "/parent",
+         "actor_quantization": "bnb_nf4_double_quant_bf16"},
+        source, tmp_path / "parent", output, 17,
+    )
+    assert "--qlora-nf4" in observed
