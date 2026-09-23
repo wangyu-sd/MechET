@@ -52,3 +52,15 @@ preparation on both datasets. These are not evidence of improved endpoint
 accuracy. The 2026-09-23 Taiji submissions are recorded in the respective
 `configs/taiji/meteor_mechet_earho_v2_*` task configs; platform `start success`
 alone is not proof of an allocated GPU or an optimizer update.
+
+Operational retry on 2026-09-23: both ordinary A100 candidates remained in
+resource waiting. The two ordinary H20 candidates allocated GPUs, but their
+initial instances were stopped before any policy update because copying the
+entire vLLM runtime directory from Ceph stalled on many small files. The
+replacement launcher extracts the same pinned runtime from a single pruned
+archive (only tests, RLlib and Python bytecode caches are omitted):
+`artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311_pruned.tar.zst`,
+SHA-256 `60fcd6f2f2454e55cd17c70fb483514a1e043ad9da97621ccd8d717220783a65`.
+Its zstd stream and completion marker were verified before the replacement
+instances were started. All H20 preparation plans were replay-verified locally;
+check the new instances' POD processes and GPUs before reporting RL progress.
