@@ -1,11 +1,12 @@
-# EARHO Stage III; NOT runnable until the Stage-II SHA is pinned below.
+# EARHO Stage III on the current-compiler strict executable 31k trace view.
 # Executable trace training view: 10,152 / 1,319 / 1,253, not full-31k.
+dataset_id: mech_uspto31k_current_compiler
 protocol_version: trajectory_history_v2
 model_name_or_path: Qwen/Qwen3-8B
 model_revision: b968826d9c46dd6066d109eabc6255188de91218
 model_snapshot: /aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
 initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mech_uspto31k_nl_history_v2_qwen3_8b_h20_seed17_20260922
-initial_adapter_model_sha256: REPLACE_WITH_STAGE_II_SHA256
+initial_adapter_model_sha256: ff15689530a7971f6a8e97058574fd78c79ca0cc0e7ab57cc2cc00719631a129
 value_adapter_path: null
 value_kind: successor_pn
 

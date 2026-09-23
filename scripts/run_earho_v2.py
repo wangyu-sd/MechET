@@ -27,6 +27,36 @@ from scripts.train_python_template_rlvr import _load_yaml
 
 
 PROTOCOL = "trajectory_history_v2"
+DATASETS = {
+    "mech_uspto31k_current_compiler": {
+        "reaction_denominator": {"train": 10152, "valid": 1319, "test": 1253},
+        "full_reaction_denominator": {"train": 24959, "valid": 3120, "test": 3120},
+        "source_manifest_name": "manifest.json",
+        "history_status": "validated_trace_view",
+        "source_dataset": "mech_uspto_31k_current_compiler_executable_trace_view",
+        "executor_revision": "mech_uspto31k_current_compiler_20260824",
+    },
+    "flower_strict_executable": {
+        "reaction_denominator": {"train": 257167, "valid": 2890, "test": 28967},
+        "full_reaction_denominator": {"train": 257171, "valid": 2890, "test": 28971},
+        "source_manifest_name": "training_manifest.json",
+        "history_status": "validated_complete",
+        "source_dataset": "flower_strict_executable_action_delta_v1",
+        "executor_revision": "flower_strict_executable_action_delta_v1",
+    },
+}
+
+
+def _dataset_contract(cfg: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return DATASETS[str(cfg["dataset_id"])]
+    except KeyError as exc:
+        raise ValueError("unknown EARHO dataset_id") from exc
+
+
+def _resolve_artifact(root: Path, value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else root / path
 
 
 def validate_contract(cfg: dict[str, Any]) -> None:
@@ -39,16 +69,18 @@ def validate_contract(cfg: dict[str, Any]) -> None:
     if str(cfg.get("value_kind") or "successor_pn") != "successor_pn":
         raise ValueError("EARHO requires a transition-level P/N successor critic")
     source_dir = Path(cfg["train_file"]).parent
-    source_manifest = json.loads(Path(cfg["stable_id_manifest"]).read_text())
+    dataset = _dataset_contract(cfg)
+    source_manifest_path = Path(cfg["stable_id_manifest"])
+    if source_manifest_path.name != dataset["source_manifest_name"] or source_manifest_path.parent != source_dir:
+        raise ValueError("source manifest does not belong to selected executable trace view")
+    source_manifest = json.loads(source_manifest_path.read_text())
     source_status = json.loads((source_dir / "ARTIFACT_STATUS.json").read_text())
     if source_status.get("training_allowed") is not True:
         raise ValueError("source executable trace view is not training-enabled")
     expected = dict(cfg["reaction_denominator"])
     full = dict(cfg["full_reaction_denominator"])
-    if expected != {"train": 10152, "valid": 1319, "test": 1253}:
-        raise ValueError("unexpected current-compiler 31k executable denominator")
-    if full != {"train": 24959, "valid": 3120, "test": 3120}:
-        raise ValueError("unexpected complete 31k reaction denominator")
+    if expected != dataset["reaction_denominator"] or full != dataset["full_reaction_denominator"]:
+        raise ValueError("EARHO dataset denominator mismatch")
     for split, key in (("train", "train_file"), ("valid", "validation_file")):
         item = source_manifest["splits"][split]
         if int(item["rows"]) != expected[split]:
@@ -57,24 +89,29 @@ def validate_contract(cfg: dict[str, Any]) -> None:
             raise ValueError(f"{split} source SHA-256 mismatch")
     history_dir = Path(cfg["history_file"]).parent
     history_manifest = json.loads(Path(cfg["natural_language_manifest"]).read_text())
-    if not history_manifest.get("training_allowed") or history_manifest.get("status") != "validated_trace_view":
+    if not history_manifest.get("training_allowed") or history_manifest.get("status") != dataset["history_status"]:
         raise ValueError("v2 history supervision is not validated")
     if history_manifest.get("decision_contract") != "unified_inventory_compressed_history_tool_decision_v2":
         raise ValueError("v2 compressed-history decision contract mismatch")
     if history_manifest.get("reaction_denominator") != expected:
         raise ValueError("history executable denominator changed")
-    if history_manifest.get("full_reaction_denominator") != full:
+    if history_manifest.get("full_reaction_denominator", history_manifest.get("reaction_denominator")) != (
+        full if cfg["dataset_id"] == "mech_uspto31k_current_compiler" else expected
+    ):
         raise ValueError("history complete denominator changed")
     repository_root = source_dir.parents[1]
-    event_dir = repository_root / str(history_manifest["source_artifact"])
+    event_dir = _resolve_artifact(repository_root, str(history_manifest["source_artifact"]))
     event_manifest_path = event_dir / "manifest.json"
     event_manifest = json.loads(event_manifest_path.read_text())
-    if event_manifest.get("source_artifact") != str(source_dir.relative_to(repository_root)):
+    if _resolve_artifact(repository_root, str(event_manifest.get("source_artifact"))) != source_dir:
         raise ValueError("event supervision does not descend from selected source")
     if event_manifest.get("source_manifest_sha256") != _sha256(Path(cfg["stable_id_manifest"])):
         raise ValueError("event/source manifest lineage mismatch")
-    if history_manifest.get("source_manifest_sha256") != _sha256(event_manifest_path):
+    history_parent_hash = history_manifest.get("source_manifest_sha256")
+    if history_parent_hash is not None and history_parent_hash != _sha256(event_manifest_path):
         raise ValueError("history/event manifest lineage mismatch")
+    if history_parent_hash is None and cfg["dataset_id"] != "flower_strict_executable":
+        raise ValueError("history/event manifest lineage hash missing")
     for split in ("train", "valid"):
         if _sha256(history_dir / f"{split}.jsonl") != history_manifest["splits"][split]["output_sha256"]:
             raise ValueError(f"{split} history SHA-256 mismatch")
@@ -91,7 +128,7 @@ def validate_contract(cfg: dict[str, Any]) -> None:
     if adapter_manifest.get("base_model_revision") != cfg["model_revision"]:
         raise ValueError("parent/base model revision mismatch")
     if adapter_manifest.get("train_file_sha256") != history_manifest["splits"]["train"]["output_sha256"]:
-        raise ValueError("Stage-II parent was not trained on the selected 31k history data")
+        raise ValueError("Stage-II parent was not trained on the selected history data")
     if cfg.get("value_adapter_path"):
         raise ValueError("v2 successor value must start untrained and be learned from actor rollouts")
 
@@ -215,11 +252,11 @@ def _critic_config(
         expected_train_rows=manifest["splits"]["train"]["rows"],
         expected_validation_rows=manifest["splits"]["valid"]["rows"],
         expected_test_rows=0,
-        source_dataset="mech_uspto_31k_current_compiler_executable_trace_view",
+        source_dataset=_dataset_contract(cfg)["source_dataset"],
         source_artifact=cfg["train_file"],
         reaction_denominator=cfg["reaction_denominator"],
         environment_revision="earho_v2_successor_value_pn",
-        executor_revision="mech_uspto31k_current_compiler_20260824",
+        executor_revision=_dataset_contract(cfg)["executor_revision"],
     )
     path = dataset / "critic_training.yaml"
     path.write_text(yaml.safe_dump(critic, sort_keys=False))
