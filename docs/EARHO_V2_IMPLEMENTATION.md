@@ -6,11 +6,13 @@ historical v1 State-SFT adapter.
 
 ## Training flow
 
-1. `scripts/run_earho_v2.py` validates the pinned current-compiler executable
-   31k trace view and the completed Stage-II adapter. The executable training
-   denominator is 10,152 reactions; the complete endpoint denominator is
-   24,959/3,120/3,120 and is not relabelled as program coverage. No test rows
-   are loaded for post-training.
+1. `scripts/run_earho_v2.py` validates the selected strict-executable trace
+   view and its completed Stage-II adapter. The mech-USPTO-31k executable
+   denominator is 10,152/1,319/1,253; its complete endpoint denominator is
+   24,959/3,120/3,120. The FlowER strict-executable denominator is
+   257,167/2,890/28,967; the official unfiltered reaction split is
+   257,171/2,890/28,971. Neither trace view is relabelled as the full
+   reaction benchmark. No test rows are loaded for post-training.
 2. Each collector performs a product-start v2 policy rollout with the real
    executor. `scripts/earho_v2_protocol.py` independently replays the private
    reference decisions, compares *executed* canonical successors, and returns
@@ -32,15 +34,21 @@ historical v1 State-SFT adapter.
    subsequent bounded search scores `(product, current state, candidate
    successor, terminal)` without a reference endpoint or gold horizon.
 
-The operational config is
-`configs/agent/earho_v2_mech_uspto31k_8a100.yaml`. Its parent adapter SHA
-contains an explicit placeholder and must be pinned to the completed Stage-II
-weights before any Taiji submission. The config is a bounded 640-reaction RL
-campaign, **not** a full 10,152-reaction RL epoch. A real GPU integration
-smoke (vLLM sampling, PPO update, critic update, resume, product-only
-validation) is still required before a full campaign is scientifically usable.
+The operational configs are
+`configs/agent/earho_v2_mech_uspto31k_8a100.yaml` and
+`configs/agent/earho_v2_flower_strict_8a100.yaml`. Both parent adapter SHA-256
+values are pinned to the completed Stage-II weights. Each config selects 640
+distinct RL-train reactions in five 128-reaction rounds with K=8, plus a
+separate 128-reaction validation monitor. These are **bounded campaigns**, not
+full RL epochs or benchmark test runs. The source is sampled by line number
+without materializing the multi-GB FlowER JSONL in memory. A real GPU
+integration smoke (vLLM sampling, PPO update, critic update, resume,
+product-only validation) is still required before endpoint improvement can be
+claimed.
 
-Local checks completed: 27 protocol/legacy regression tests, 25 reference
-replays from each 31k split, 4-train/3-valid preparation dry run, and a
-successor-critic `train_tool_sft.py --dry-run`. These are not evidence of
-improved endpoint accuracy.
+Local checks completed: 24 current protocol/regression tests, strict manifest
+and adapter SHA checks, and full 640-train/128-validation reference-replay
+preparation on both datasets. These are not evidence of improved endpoint
+accuracy. The 2026-09-23 Taiji submissions are recorded in the respective
+`configs/taiji/meteor_mechet_earho_v2_*` task configs; platform `start success`
+alone is not proof of an allocated GPU or an optimizer update.
