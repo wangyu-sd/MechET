@@ -5,6 +5,7 @@ code_dir=/aaa/fionafyang/buddy1/whaleywang/MechET-nl-v2-full-runtime-20260918-02
 artifact_root=/aaa/fionafyang/buddy1/whaleywang/MechET
 vllm_ceph=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
 config=${1:-$code_dir/configs/agent/earho_v2_mech_uspto31k_8a100.yaml}
+if [[ $# -gt 0 ]]; then shift; fi
 
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -27,10 +28,11 @@ python -m pip install --quiet --no-deps --target "$wheel_target" \
 export PYTHONPATH=$wheel_target:$code_dir/src:$code_dir
 
 python - <<'PY'
-import rdkit, torch
+import os, re, rdkit, torch
 names = [torch.cuda.get_device_name(index) for index in range(torch.cuda.device_count())]
-if len(names) != 8 or not all('A100' in name for name in names):
-    raise SystemExit(f'expected ordinary 8xA100, got {names}')
+expected = os.environ.get('MECHET_EXPECTED_GPU_REGEX', 'A100')
+if len(names) != 8 or not all(re.search(expected, name) for name in names):
+    raise SystemExit(f'expected ordinary 8x{expected}, got {names}')
 if rdkit.__version__ != '2026.03.4':
     raise SystemExit(f'expected RDKit 2026.03.4, got {rdkit.__version__}')
 print({'hardware': names, 'rdkit': rdkit.__version__}, flush=True)
@@ -43,4 +45,4 @@ test -f "$vllm_local/.mechet_vllm_runtime_complete"
 export MECHET_ANCHOR_VLLM_RUNTIME=$vllm_local
 
 echo "[earho-v2] code=$(git rev-parse HEAD) config=$config"
-exec python -u scripts/run_earho_v2.py --config "$config"
+exec python -u scripts/run_earho_v2.py --config "$config" "$@"

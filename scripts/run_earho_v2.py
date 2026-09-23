@@ -421,8 +421,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--expected-gpu-regex")
+    parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
     cfg = _load_yaml(args.config)
+    if args.expected_gpu_regex:
+        cfg["expected_gpu_regex"] = args.expected_gpu_regex
+    if args.output_dir:
+        cfg["output_dir"] = str(args.output_dir)
     if args.prepare_only:
         validate_contract(cfg)
         prepare(cfg, Path(cfg["output_dir"]))
