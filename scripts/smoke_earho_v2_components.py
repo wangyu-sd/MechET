@@ -54,6 +54,7 @@ def main() -> int:
         "monitor_sha256": expected_sha,
         "frontier": args.frontier,
         "beam_width": beam_width,
+        "prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
         "candidate_count_per_reaction": 2,
         "test_used": False,
     }

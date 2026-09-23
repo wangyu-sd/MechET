@@ -1,5 +1,16 @@
 # EARHO v2 strategy smoke, 2026-09-23
 
+> **Superseded prompt contract, discovered later on 2026-09-23.** The runs
+> below used Qwen3 `add_generation_prompt=True`, which inserted an empty
+> `<think>...</think>` block absent from full-conversation Stage-II SFT tool
+> calls. Actual Qwen tokenization confirmed this mismatch on 64/64 sampled
+> first-decision validation rows; the new SFT-aligned prefix matched all 64.
+> Therefore the five RL rounds and the matched search smokes are diagnostic
+> outcomes under a mismatched inference prompt, not evidence about the intended
+> method. The queued balanced-policy task was stopped before training and the
+> full-valid confirmation was stopped with partial outputs preserved. A new
+> aligned Stage-II product-start smoke is required before restarting EARHO.
+
 Scope: mech-USPTO-31k **current-compiler executable trace view** (10,152 train / 1,319 valid / 1,253 test), not the complete 24,959 / 3,120 / 3,120 reaction denominator. The five-round EARHO campaign sampled 128 distinct train products per round and used a fixed 128-reaction validation monitor. This is strategy screening, not paper test-set evidence. No test rows were loaded.
 
 Paper-aligned training contract: product-start rollout; first consequential divergence from independently replayed reference; same-anchor K=8 executed successors; invalid/no-op/cycle rejection and successor-equivalence pooling; positive only for reference-equivalent successor or exact endpoint; all-negative groups receive zero policy advantage and verified replay; learned successor P/N critic; adaptive continuation horizon. The monitor used product-only, full-episode K=2 sampling and beam width 2.
@@ -31,6 +42,6 @@ The no-critic condition produced 113 formally terminated but wrong candidates am
 
 ## Confirmation running
 
-`meteor_mechet_earho_v2_round01_full_valid_8a100_qy_20260923_01` evaluates the selected round-1 actor and critic with beam 2 and K=2 on all 1,319 executable-view validation reactions. Its pinned input manifest is `outputs/eval/earho_v2_round01_full_executable_valid_20260923/plan.json` under the main repository. Report all 1,319, plus the 1,191 reactions not in the 128-reaction selection monitor. The candidate run is not yet a full 3,120-reaction valid evaluation or a 3,120-reaction test evaluation.
+`meteor_mechet_earho_v2_round01_full_valid_8a100_qy_20260923_01` was stopped after the prompt mismatch was confirmed. Its partial outputs under `outputs/eval/earho_v2_round01_full_executable_valid_20260923/` must not be reported as a result. Its planned 1,319-reaction confirmation is cancelled; a new aligned Stage-II smoke is the next gate. None of these runs is a full 3,120-reaction valid evaluation or a 3,120-reaction test evaluation.
 
 Do not call K=2 stochastic Pass@2 Top-2. Do not promote any setting to a main result until the larger validation confirms endpoint improvement; keep formal execution, wrong terminal, and failure categories as secondary diagnostics.

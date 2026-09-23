@@ -56,6 +56,26 @@ def render_chat(
     raise TypeError(f"chat template rendering failed{suffix}: {last_error}")
 
 
+def render_qwen_sft_aligned_prefix(
+    tokenizer: Any,
+    messages: list[dict[str, Any]],
+    *,
+    tools: list[dict[str, Any]] | None = None,
+) -> str:
+    """Start an assistant completion at the same boundary as full-conversation SFT.
+
+    Qwen3's ``add_generation_prompt=True`` adds an empty ``<think>`` block even
+    with thinking disabled. A completed assistant tool-call in the SFT corpus
+    has no such block. The resulting token-prefix mismatch changes the policy
+    observation, so construct the exact ChatML assistant header instead.
+    """
+
+    history = render_chat(tokenizer, messages, tools=tools, add_generation_prompt=False)
+    if not history.endswith("<|im_end|>\n"):
+        raise ValueError("Qwen SFT prefix does not end at a completed message")
+    return history + "<|im_start|>assistant\n"
+
+
 def tokenize_text(tokenizer: Any, text: str) -> list[int]:
     encoded = tokenizer(text, add_special_tokens=False, truncation=False)
     if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
