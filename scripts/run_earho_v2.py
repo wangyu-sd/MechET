@@ -66,6 +66,8 @@ def validate_contract(cfg: dict[str, Any]) -> None:
         None, "qwen_sft_aligned_no_think_v1"
     ):
         raise ValueError("unsupported EARHO prompt-prefix contract")
+    if cfg.get("actor_quantization") not in (None, "bnb_nf4_double_quant_bf16"):
+        raise ValueError("EARHO actor quantization must match NF4/double-quant/BF16 SFT")
     if cfg.get("legacy_dual_prompt") or cfg.get("test_file"):
         raise ValueError("v1 dual prompts and test data are forbidden")
     if not (cfg.get("optimization") or {}).get("success_gated_advantages"):

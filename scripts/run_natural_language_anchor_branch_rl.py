@@ -170,6 +170,7 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "--output", str(path),
         "--model", cfg["model_snapshot"],
         "--adapter", str(adapter),
+        "--actor-quantization", str(cfg.get("actor_quantization", "none")),
         "--rank", str(rank),
         "--world-size", "8",
         "--k", "2" if evaluation else str(cfg["candidates_per_product"]),

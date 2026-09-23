@@ -693,10 +693,16 @@ def collect(args):
         raise ValueError(f"refusing overwrite: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
     rows = read_rows(args.data)[args.rank :: args.world_size]
+    quantization = (
+        "bitsandbytes"
+        if args.actor_quantization == "bnb_nf4_double_quant_bf16"
+        else None
+    )
     llm = LLM(
         model=args.model,
         tokenizer=args.model,
         dtype="bfloat16",
+        quantization=quantization,
         tensor_parallel_size=1,
         gpu_memory_utilization=0.85,
         max_model_len=args.max_context,
@@ -709,6 +715,16 @@ def collect(args):
         enforce_eager=True,
         seed=(args.seed + args.rank) % (2**32),
         trust_remote_code=True,
+    )
+    actual_quantization = llm.llm_engine.model_config.quantization
+    if actual_quantization != quantization:
+        raise RuntimeError(
+            f"actor quantization mismatch: requested={quantization} actual={actual_quantization}"
+        )
+    print(
+        f"[actor-runtime] dtype=bfloat16 quantization={actual_quantization} "
+        f"nf4_double_quant={quantization == 'bitsandbytes'}",
+        flush=True,
     )
     tokenizer = llm.get_tokenizer()
     lora = LoRARequest("nl_anchor_actor", 1, str(Path(args.adapter).resolve()))
@@ -1079,6 +1095,11 @@ def main():
         help="reproduce the historical gold-action-conditioned prompt split",
     )
     parser.add_argument("--protocol-v2", action="store_true")
+    parser.add_argument(
+        "--actor-quantization",
+        choices=["none", "bnb_nf4_double_quant_bf16"],
+        default="none",
+    )
     args = parser.parse_args()
     if args.protocol_v2 and (args.legacy_dual_prompt or not args.success_gated_advantages):
         raise ValueError("EARHO v2 requires unified history prompts and success-gated advantages")
