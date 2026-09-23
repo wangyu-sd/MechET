@@ -5,6 +5,7 @@ code_dir=/aaa/fionafyang/buddy1/whaleywang/MechET-nl-v2-full-runtime-20260918-02
 artifact_root=/aaa/fionafyang/buddy1/whaleywang/MechET
 vllm_ceph=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
 vllm_archive=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311_pruned.tar.zst
+vllm_overlay=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_numpy_core_tests_overlay.tar.zst
 config=${1:-$code_dir/configs/agent/earho_v2_mech_uspto31k_8a100.yaml}
 if [[ $# -gt 0 ]]; then shift; fi
 
@@ -22,6 +23,10 @@ if [[ ! -f "$vllm_ceph/.mechet_vllm_runtime_complete" ]]; then
 fi
 if [[ ! -f "$vllm_archive" ]]; then
   echo "[earho-v2] missing single-file vLLM runtime archive: $vllm_archive" >&2
+  exit 2
+fi
+if [[ ! -f "$vllm_overlay" ]]; then
+  echo "[earho-v2] missing NumPy compatibility overlay: $vllm_overlay" >&2
   exit 2
 fi
 wheel_target=$(mktemp -d /tmp/mechet_earho_v2_wheels.XXXXXX)
@@ -46,7 +51,13 @@ PY
 vllm_local=$(mktemp -d /tmp/mechet_earho_v2_vllm.XXXXXX)
 echo "[earho-v2] extracting pinned vLLM 0.8.5 archive to $vllm_local"
 tar --zstd -xf "$vllm_archive" -C "$vllm_local"
+tar --zstd -xf "$vllm_overlay" -C "$vllm_local"
 test -f "$vllm_local/.mechet_vllm_runtime_complete"
+PYTHONPATH=$vllm_local:$PYTHONPATH python - <<'PY'
+from transformers import ProcessorMixin
+import vllm
+print({'vllm': vllm.__version__, 'processor_mixin': ProcessorMixin.__name__}, flush=True)
+PY
 export MECHET_ANCHOR_VLLM_RUNTIME=$vllm_local
 
 echo "[earho-v2] code=$(git rev-parse HEAD) config=$config"
