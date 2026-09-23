@@ -722,7 +722,13 @@ def collect(args):
     )
     first_parameters = SamplingParams(
         n=args.k // len(prompt_modes),
-        temperature=0.0 if args.evaluation else args.temperature,
+        # vLLM requires n=1 for greedy decoding. Validation keeps the same
+        # stochastic K-candidate policy as collection when K > 1.
+        temperature=(
+            args.temperature
+            if args.k // len(prompt_modes) > 1
+            else (0.0 if args.evaluation else args.temperature)
+        ),
         top_p=1.0,
         top_k=-1,
         repetition_penalty=1.0,
