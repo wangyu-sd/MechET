@@ -207,7 +207,9 @@ def test_successor_value_labels_are_reaction_disjoint_and_private():
             "anchor": {"version": "earho_first_divergence_v2",
                        "state_hash": task.state_hash, "decision_index": 0,
                        "divergence_reason": task.divergence_reason},
-            "score": {"first_successor_state": "[CH3:1][Br:2].[K+:3]",
+            # Collector persists the public, unmapped state, not the private
+            # executor atom maps. This is the deployed rollout contract.
+            "score": {"first_successor_state": "CBr.[K+]",
                       "first_successor_terminal": False, "correct": False},
             "reward": -0.1,
         })
