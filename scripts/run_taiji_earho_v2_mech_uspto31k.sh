@@ -4,6 +4,7 @@ set -Eeuo pipefail
 code_dir=/aaa/fionafyang/buddy1/whaleywang/MechET-nl-v2-full-runtime-20260918-02
 artifact_root=/aaa/fionafyang/buddy1/whaleywang/MechET
 vllm_ceph=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
+vllm_archive=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311_pruned.tar.zst
 config=${1:-$code_dir/configs/agent/earho_v2_mech_uspto31k_8a100.yaml}
 if [[ $# -gt 0 ]]; then shift; fi
 
@@ -17,6 +18,10 @@ export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
 
 if [[ ! -f "$vllm_ceph/.mechet_vllm_runtime_complete" ]]; then
   echo "[earho-v2] incomplete vLLM runtime: $vllm_ceph" >&2
+  exit 2
+fi
+if [[ ! -f "$vllm_archive" ]]; then
+  echo "[earho-v2] missing single-file vLLM runtime archive: $vllm_archive" >&2
   exit 2
 fi
 wheel_target=$(mktemp -d /tmp/mechet_earho_v2_wheels.XXXXXX)
@@ -39,8 +44,8 @@ print({'hardware': names, 'rdkit': rdkit.__version__}, flush=True)
 PY
 
 vllm_local=$(mktemp -d /tmp/mechet_earho_v2_vllm.XXXXXX)
-echo "[earho-v2] staging pinned vLLM 0.8.5 runtime to $vllm_local"
-cp -a "$vllm_ceph/." "$vllm_local/"
+echo "[earho-v2] extracting pinned vLLM 0.8.5 archive to $vllm_local"
+tar --zstd -xf "$vllm_archive" -C "$vllm_local"
 test -f "$vllm_local/.mechet_vllm_runtime_complete"
 export MECHET_ANCHOR_VLLM_RUNTIME=$vllm_local
 
