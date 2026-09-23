@@ -27,7 +27,7 @@ sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "src"))
 
 from mechet.a7_rescue import canonical_event, stable_sample_key
-from mechet.assistant_masking import render_chat
+from mechet.assistant_masking import render_qwen_sft_aligned_prefix
 from mechet.forward_expert import verify_electron_step
 from mechet.in_place_grounded_flow import (
     append_mapped_fragments_verbatim,
@@ -157,7 +157,7 @@ def _render_fitting_prompt(
         for group in kept:
             messages.extend(group)
         messages.append(dict(user))
-        prompt = render_chat(tokenizer, messages, tools=TOOLS, add_generation_prompt=True)
+        prompt = render_qwen_sft_aligned_prefix(tokenizer, messages, tools=TOOLS)
         tokens = len(tokenizer(prompt, add_special_tokens=False)["input_ids"])
         if tokens <= max_prompt_tokens or not kept:
             return prompt, len(kept), tokens

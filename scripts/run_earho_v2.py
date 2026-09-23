@@ -62,6 +62,10 @@ def _resolve_artifact(root: Path, value: str) -> Path:
 def validate_contract(cfg: dict[str, Any]) -> None:
     if cfg.get("protocol_version") != PROTOCOL:
         raise ValueError("EARHO v2 requires the compressed-history v2 protocol")
+    if cfg.get("prompt_prefix_contract") not in (
+        None, "qwen_sft_aligned_no_think_v1"
+    ):
+        raise ValueError("unsupported EARHO prompt-prefix contract")
     if cfg.get("legacy_dual_prompt") or cfg.get("test_file"):
         raise ValueError("v1 dual prompts and test data are forbidden")
     if not (cfg.get("optimization") or {}).get("success_gated_advantages"):
@@ -235,6 +239,7 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             "reference_endpoint_model_visible": False,
             "first_divergence_from_product_rollout": True,
             "actor_prompt_history_contract": "executor_compact_accepted_actions_v1",
+            "prompt_prefix_contract": cfg.get("prompt_prefix_contract"),
             "test_used": False,
         },
     )

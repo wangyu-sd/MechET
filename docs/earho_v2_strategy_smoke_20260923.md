@@ -11,6 +11,14 @@
 > full-valid confirmation was stopped with partial outputs preserved. A new
 > aligned Stage-II product-start smoke is required before restarting EARHO.
 
+**Aligned parent smoke completed:** the same frozen Stage-II adapter on the
+same 128 validation reactions and K=2 produced 0/256 exact endpoints and
+3/256 formally terminated candidates. The initial import count was 118/256
+(old prefix: 129/256). The prefix correction is necessary but not sufficient;
+the parent policy still lacks reliable first-action site selection. The
+next EARHO training run must collect fresh rollouts under the aligned prompt;
+none of the old PPO records can be reused as on-policy data.
+
 Scope: mech-USPTO-31k **current-compiler executable trace view** (10,152 train / 1,319 valid / 1,253 test), not the complete 24,959 / 3,120 / 3,120 reaction denominator. The five-round EARHO campaign sampled 128 distinct train products per round and used a fixed 128-reaction validation monitor. This is strategy screening, not paper test-set evidence. No test rows were loaded.
 
 Paper-aligned training contract: product-start rollout; first consequential divergence from independently replayed reference; same-anchor K=8 executed successors; invalid/no-op/cycle rejection and successor-equivalence pooling; positive only for reference-equivalent successor or exact endpoint; all-negative groups receive zero policy advantage and verified replay; learned successor P/N critic; adaptive continuation horizon. The monitor used product-only, full-episode K=2 sampling and beam width 2.

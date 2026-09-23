@@ -26,7 +26,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 from mechet.a7_rescue import canonical_event, mechanism_length_stratum, stratified_sample
 from mechet.agent_inference import parse_tool_calls
-from mechet.assistant_masking import render_chat
+from mechet.assistant_masking import render_qwen_sft_aligned_prefix
 from mechet.forward_expert import ElectronMove, verify_electron_step
 from mechet.in_place_grounded_flow import (
     append_mapped_fragments_verbatim,
@@ -381,11 +381,10 @@ def run(args: argparse.Namespace) -> int:
         for batch in _batches(selected, args.batch_size):
             started = time.time()
             prompts = [
-                render_chat(
+                render_qwen_sft_aligned_prefix(
                     tokenizer,
                     list(task["messages"]),
                     tools=list(task["tools"]),
-                    add_generation_prompt=True,
                 )
                 for task in batch
             ]
