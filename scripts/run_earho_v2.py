@@ -158,6 +158,24 @@ def _attach_decisions(
     return output
 
 
+def _sample_reactions(path: Path, total: int, count: int, seed: int) -> list[dict[str, Any]]:
+    """Sample by line number without materializing the multi-GB source JSONL."""
+    if count > total:
+        raise ValueError("requested more distinct RL reactions than available")
+    selected = random.Random(seed).sample(range(total), count)
+    positions = {line_number: position for position, line_number in enumerate(selected)}
+    rows: list[dict[str, Any] | None] = [None] * count
+    seen = 0
+    with path.open(encoding="utf-8") as handle:
+        for seen, line in enumerate(handle, start=1):
+            position = positions.get(seen - 1)
+            if position is not None:
+                rows[position] = json.loads(line)
+    if seen != total or any(row is None for row in rows):
+        raise ValueError(f"source JSONL row count changed: {path}")
+    return [row for row in rows if row is not None]
+
+
 def prepare(cfg: dict[str, Any], output: Path) -> None:
     config_sha256 = hashlib.sha256(
         json.dumps(cfg, sort_keys=True, separators=(",", ":")).encode()
@@ -176,20 +194,18 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
         if len(plan.get("prepared_files") or {}) != int(cfg["rounds"]) + 1:
             raise ValueError("EARHO preparation manifest is incomplete")
         return
-    source = read_rows(cfg["train_file"])
-    validation = read_rows(cfg["validation_file"])
-    if len(source) != cfg["reaction_denominator"]["train"]:
-        raise ValueError("source train count mismatch")
-    if len(validation) != cfg["reaction_denominator"]["valid"]:
-        raise ValueError("source validation count mismatch")
-    random.Random(int(cfg["seed"])).shuffle(source)
-    random.Random(int(cfg["seed"])).shuffle(validation)
     count = int(cfg["rounds"]) * int(cfg["products_per_round"])
-    if count > len(source):
-        raise ValueError("requested more distinct RL train reactions than available")
-    selected = _attach_decisions(source[:count], Path(cfg["history_file"]))
+    source = _sample_reactions(
+        Path(cfg["train_file"]), int(cfg["reaction_denominator"]["train"]),
+        count, int(cfg["seed"]),
+    )
+    validation = _sample_reactions(
+        Path(cfg["validation_file"]), int(cfg["reaction_denominator"]["valid"]),
+        int(cfg["validation_monitor_rows"]), int(cfg["seed"]),
+    )
+    selected = _attach_decisions(source, Path(cfg["history_file"]))
     monitor = _attach_decisions(
-        validation[: int(cfg["validation_monitor_rows"])],
+        validation,
         Path(cfg["history_validation_file"]),
     )
     output.mkdir(parents=True, exist_ok=True)
@@ -210,7 +226,7 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             "artifact_type": "earho_first_divergence_v2_plan",
             "protocol_version": PROTOCOL,
             "config_sha256": config_sha256,
-            "source_reactions": len(source),
+            "source_reactions": int(cfg["reaction_denominator"]["train"]),
             "selected_train_reactions": count,
             "validation_monitor_reactions": len(monitor),
             "selected_id_sha256": hashlib.sha256("\n".join(ids).encode()).hexdigest(),
