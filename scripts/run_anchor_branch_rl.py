@@ -301,6 +301,11 @@ def run_train(cfg, data, adapter, output, seed):
         "--seed",
         str(seed),
     ]
+    optimization = cfg.get("optimization") or {}
+    if optimization.get("eligible_policy_only"):
+        command.append("--eligible-policy-only")
+    if int(optimization.get("replay_epochs", 1)) != 1:
+        command.extend(["--replay-epochs", str(int(optimization["replay_epochs"]))])
     subprocess.run(command, check=True)
     if not (output / "adapter/adapter_model.safetensors").is_file():
         raise RuntimeError("anchor training returned without adapter weights")

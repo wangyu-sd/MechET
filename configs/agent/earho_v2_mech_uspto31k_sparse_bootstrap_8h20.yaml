@@ -1,0 +1,63 @@
+# Bounded 31k EARHO repair. Same frozen reaction IDs and K8 campaign as the
+# first H20 task, with corrected continuation diagnostics and sparse-reward
+# actor update. This is not a full 31k RL epoch or a full-test evaluation.
+dataset_id: mech_uspto31k_current_compiler
+protocol_version: trajectory_history_v2
+model_name_or_path: Qwen/Qwen3-8B
+model_revision: b968826d9c46dd6066d109eabc6255188de91218
+model_snapshot: /aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
+initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mech_uspto31k_nl_history_v2_qwen3_8b_h20_seed17_20260922
+initial_adapter_model_sha256: ff15689530a7971f6a8e97058574fd78c79ca0cc0e7ab57cc2cc00719631a129
+value_adapter_path: null
+value_kind: successor_pn
+train_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/train.jsonl
+validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/valid.jsonl
+stable_id_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/manifest.json
+history_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2/train.jsonl
+history_validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2/valid.jsonl
+natural_language_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2/manifest.json
+reaction_denominator: {train: 10152, valid: 1319, test: 1253}
+full_reaction_denominator: {train: 24959, valid: 3120, test: 3120}
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_v2_mech_uspto31k_sparse_bootstrap_seed17_h20_20260923
+vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
+expected_gpu_regex: H20
+maximum_collector_error_rate: 0.05
+rounds: 5
+products_per_round: 128
+candidates_per_product: 8
+validation_monitor_rows: 128
+seed: 17
+condition: earho_v2_mech_uspto31k_sparse_bootstrap
+invalid_penalty: 0.1
+reward:
+  contract: exact_endpoint_or_reference_successor_v2
+  wrong_terminal_penalty: 0.5
+  endpoint_similarity_weight: 0.45
+  first_successor_progress_weight: 0.25
+  reference_first_successor_weight: 0.25
+  nonexact_reward_ceiling: 0.01
+  target_retained_penalty: 0.75
+executor_gates:
+  reject_target_retained_finish: true
+curriculum:
+  initial_frontier: 2
+  maximum_frontier: 12
+  full_episode_fraction: 0.25
+  promote_pass_at_k: 0.1
+  min_effective_groups: 16
+optimization:
+  success_gated_advantages: true
+  max_hard_negatives: 4
+  eligible_policy_only: true
+  replay_epochs: 4
+rollout:
+  temperature: 1.0
+  max_new_tokens: 384
+  max_context: 4096
+  max_decisions: 40
+  max_imports: 32
+  continuation_candidates_per_mode: 2
+  continuation_temperature: 0.7
+  continuation_beam_width: 2
+  value_score_weight: 1.0
+  policy_score_weight: 0.1

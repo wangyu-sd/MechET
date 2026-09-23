@@ -362,6 +362,7 @@ def _beam_continue(
     frontier = [start]
     terminals = []
     last_errors: list[str] = []
+    exhausted_budget = True
     for _ in range(int(remaining_decisions)):
         jobs = []
         prompts = []
@@ -374,6 +375,7 @@ def _beam_continue(
                 jobs.append((parent_index, node, mode))
                 prompts.append({"prompt_token_ids": prompt})
         if not jobs:
+            exhausted_budget = False
             break
         generated = llm.generate(
             prompts, parameters, lora_request=lora, use_tqdm=False
@@ -394,6 +396,7 @@ def _beam_continue(
                     continue
                 candidates.append(child)
         if not candidates:
+            exhausted_budget = False
             break
 
         # Pool surface forms and convergent paths before critic evaluation.
@@ -428,6 +431,7 @@ def _beam_continue(
             child for _, child in ranked if not child.terminal
         ][:width]
         if not frontier:
+            exhausted_budget = False
             break
 
     if terminals:
@@ -440,7 +444,10 @@ def _beam_continue(
                 + float(args.policy_score_weight) * float(child.policy_score)
             ),
         )
-        return best, "DECISION_BUDGET"
+        return best, (
+            "DECISION_BUDGET" if exhausted_budget else
+            last_errors[-1] if last_errors else "NO_EXECUTABLE_CONTINUATION"
+        )
     return None, last_errors[-1] if last_errors else "NO_EXECUTABLE_CONTINUATION"
 
 

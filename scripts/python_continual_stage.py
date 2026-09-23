@@ -30,6 +30,14 @@ def read_rows(path):
         return [json.loads(line) for line in handle if line.strip()]
 
 
+def policy_rows_for_update(rows, eligible_only=False):
+    policy = [row for row in rows if row["kind"] == "rl"]
+    if eligible_only:
+        policy = [row for row in policy if row.get("update_eligible") is True
+                  and float(row.get("advantage") or 0.0) != 0.0]
+    return policy
+
+
 def log(**record):
     print(json.dumps(record, ensure_ascii=False), flush=True)
 
@@ -239,14 +247,22 @@ def train(args):
     if (output / "stage_done.json").exists():
         raise ValueError("Stage already completed; driver should resume at next stage")
     updates = 0
-    for phase, phase_rows in [("ppo", [r for r in rows if r["kind"] == "rl"]),
+    policy_rows = policy_rows_for_update(rows, args.eligible_policy_only)
+    replay_epochs = int(args.replay_epochs)
+    if replay_epochs < 1:
+        raise ValueError("replay_epochs must be positive")
+    log(stage="policy-update-selection", total_policy_rows=sum(r["kind"] == "rl" for r in rows),
+        selected_policy_rows=len(policy_rows), eligible_only=args.eligible_policy_only,
+        replay_rows=sum(r["kind"] != "rl" for r in rows), replay_epochs=replay_epochs)
+    for phase, phase_rows in [("ppo", policy_rows),
                               ("replay", [r for r in rows if r["kind"] != "rl"])]:
         if not phase_rows:
             continue
         if phase == "ppo" and not any(r["advantage"] for r in phase_rows):
             log(stage="zero-task-reward-variance", action="supervised-recovery", rows=len(phase_rows))
             continue
-        training_args = TrainingArguments(output_dir=str(output / phase), num_train_epochs=1,
+        training_args = TrainingArguments(output_dir=str(output / phase),
+            num_train_epochs=1 if phase == "ppo" else replay_epochs,
             per_device_train_batch_size=1, gradient_accumulation_steps=4,
             learning_rate=1e-6 if phase == "ppo" else 3e-6, lr_scheduler_type="constant",
             logging_steps=1, save_strategy="no", bf16=not cpu_smoke, tf32=not cpu_smoke, use_cpu=cpu_smoke,
@@ -268,7 +284,10 @@ def train(args):
         (output / "stage_done.json").write_text(json.dumps({"adapter": str(output / "adapter"),
             "initial_adapter": args.adapter, "reference": args.reference, "updates": updates,
             "rows": len(rows), "algorithm": "group_relative_clipped_policy_update_then_verified_supervised_replay",
-            "memory_efficient_logps": memory_efficient}, indent=2))
+            "memory_efficient_logps": memory_efficient,
+            "eligible_policy_only": args.eligible_policy_only,
+            "selected_policy_rows": len(policy_rows),
+            "replay_epochs": replay_epochs}, indent=2))
     trainer.accelerator.wait_for_everyone()
     if torch.distributed.is_initialized():
         torch.distributed.destroy_process_group()
@@ -284,6 +303,8 @@ def main():
     p.add_argument("--k", type=int, default=8)
     p.add_argument("--seed", type=int, default=17)
     p.add_argument("--evaluation", action="store_true")
+    p.add_argument("--eligible-policy-only", action="store_true")
+    p.add_argument("--replay-epochs", type=int, default=1)
     args = p.parse_args()
     (collect if args.mode == "collect" else train)(args)
 

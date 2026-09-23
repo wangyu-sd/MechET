@@ -11,6 +11,7 @@ from mechet.natural_language_anchor_branch_rl import (
 )
 from scripts.natural_language_anchor_branch_stage import _advance, _beam_continue, _node
 from scripts.run_natural_language_value_search import Action, Node, execute, visible
+from scripts.python_continual_stage import policy_rows_for_update
 
 
 def test_task_hides_reference_suffix_and_tracks_reset():
@@ -85,6 +86,43 @@ def test_successor_gated_advantages_never_promote_all_negative_groups():
     assert summary["modes_with_positive"] == 0
     assert all(row["advantage"] == 0.0 for row in records)
     assert not any(row["update_eligible"] for row in records)
+
+
+def test_eligible_policy_update_excludes_zero_signal_but_keeps_replay():
+    rows = [
+        {"kind": "rl", "update_eligible": False, "advantage": 0.0},
+        {"kind": "rl", "update_eligible": True, "advantage": 0.5},
+        {"kind": "rl", "update_eligible": True, "advantage": -0.5},
+        {"kind": "verified_replay", "advantage": 0.0},
+    ]
+    assert len(policy_rows_for_update(rows)) == 3
+    assert policy_rows_for_update(rows, eligible_only=True) == rows[1:3]
+    assert [row for row in rows if row["kind"] != "rl"] == rows[3:]
+
+
+def test_receding_horizon_reports_invalid_continuation_not_budget(monkeypatch):
+    import scripts.natural_language_anchor_branch_stage as stage
+
+    state = "[CH4:1]"
+    root = Node(target="C", state=state, next_map=2, visited={"C"})
+
+    class FakeLLM:
+        def generate(self, prompts, parameters, **kwargs):
+            return [SimpleNamespace(outputs=[SimpleNamespace()]) for _ in prompts]
+
+    monkeypatch.setattr(stage, "_render_prompt", lambda *args, **kwargs: [1])
+    monkeypatch.setattr(stage, "_decode_action", lambda *args, **kwargs: {"name": "invalid"})
+    monkeypatch.setattr(stage, "_advance", lambda *args, **kwargs: (None, "INVALID_ELECTRON_EVENT"))
+    args = SimpleNamespace(continuation_beam_width=2, max_new_tokens=16,
+                           max_context=128, max_imports=2,
+                           reject_target_retained_finish=False,
+                           value_score_weight=1.0, policy_score_weight=0.0,
+                           value_kind="successor_pn", legacy_dual_prompt=True)
+    result, error = _beam_continue(FakeLLM(), None, None, None, None, None,
+                                   [], SimpleNamespace(target="C"), root, args,
+                                   remaining_decisions=40)
+    assert result is root
+    assert error == "INVALID_ELECTRON_EVENT"
 
 
 def test_successor_gated_advantages_credit_verified_first_successor_only():
