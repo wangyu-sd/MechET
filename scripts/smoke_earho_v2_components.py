@@ -20,6 +20,7 @@ def main() -> int:
     parser.add_argument("--critic", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--frontier", type=int, required=True)
+    parser.add_argument("--beam-width", type=int)
     parser.add_argument("--prepare-only", action="store_true")
     args = parser.parse_args()
 
@@ -39,6 +40,9 @@ def main() -> int:
         raise FileNotFoundError("critic adapter is incomplete")
     if args.frontier < 1:
         raise ValueError("frontier must be positive")
+    if args.beam_width is not None and args.beam_width < 1:
+        raise ValueError("beam width must be positive")
+    beam_width = int(args.beam_width or cfg["rollout"]["continuation_beam_width"])
 
     smoke = {
         "artifact_type": "earho_v2_matched_component_smoke",
@@ -49,6 +53,7 @@ def main() -> int:
         "monitor": str(monitor),
         "monitor_sha256": expected_sha,
         "frontier": args.frontier,
+        "beam_width": beam_width,
         "candidate_count_per_reaction": 2,
         "test_used": False,
     }
@@ -61,6 +66,7 @@ def main() -> int:
         print(json.dumps(smoke, ensure_ascii=False), flush=True)
         return 0
     eval_cfg = dict(cfg, value_adapter_path=str(args.critic) if args.critic else None)
+    eval_cfg["rollout"] = dict(cfg["rollout"], continuation_beam_width=beam_width)
     _, result = run_workers(
         eval_cfg, monitor, args.actor, args.output / "validation",
         frontier=args.frontier, round_index=-1, evaluation=True,
