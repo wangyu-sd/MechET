@@ -1,4 +1,6 @@
 from types import SimpleNamespace
+import subprocess
+import sys
 
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
@@ -98,6 +100,15 @@ def test_eligible_policy_update_excludes_zero_signal_but_keeps_replay():
     assert len(policy_rows_for_update(rows)) == 3
     assert policy_rows_for_update(rows, eligible_only=True) == rows[1:3]
     assert [row for row in rows if row["kind"] != "rl"] == rows[3:]
+
+
+def test_actor_stage_accepts_sparse_bootstrap_options():
+    result = subprocess.run(
+        [sys.executable, "scripts/anchor_branch_stage.py", "train", "--help"],
+        check=True, capture_output=True, text=True,
+    )
+    assert "--eligible-policy-only" in result.stdout
+    assert "--replay-epochs" in result.stdout
 
 
 def test_receding_horizon_reports_invalid_continuation_not_budget(monkeypatch):

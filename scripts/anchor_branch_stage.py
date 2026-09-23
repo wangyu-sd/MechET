@@ -234,6 +234,8 @@ def main():
     parser.add_argument("--max-context", type=int, default=12288)
     parser.add_argument("--evaluation", action="store_true")
     parser.add_argument("--full-only", action="store_true")
+    parser.add_argument("--eligible-policy-only", action="store_true")
+    parser.add_argument("--replay-epochs", type=int, default=1)
     args = parser.parse_args()
     args.memory_efficient_logps = True
     (collect if args.mode == "collect" else train)(args)
