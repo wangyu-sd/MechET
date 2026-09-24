@@ -1,4 +1,5 @@
 from scripts.smoke_earho_v2_balanced_policy import balance
+from scripts.python_continual_stage import trainer_records
 
 
 def _row(index, advantage, fingerprint, logp):
@@ -38,3 +39,20 @@ def test_all_negative_anchor_stays_zero_update():
     changed, report = balance(rows)
     assert report["selected_negative_policy_rows"] == 0
     assert all(row["advantage"] == 0.0 and not row["update_eligible"] for row in changed)
+
+
+def test_learner_projection_excludes_heterogeneous_rollout_diagnostics():
+    from datasets import Dataset
+
+    rows = []
+    for changes in ([], {"unexpected": "model-generated-shape"}):
+        rows.append({
+            "kind": "rl", "input_ids": [1, 2], "loss_mask": [0, 1],
+            "old_logps": [0.0, -0.5], "advantage": 1.0,
+            "score": {"trajectory": [{"arguments": {"bond_order_changes": changes}}]},
+        })
+    dataset = Dataset.from_list(trainer_records(rows))
+    assert dataset.num_rows == 2
+    assert set(dataset.column_names) == {
+        "kind", "input_ids", "loss_mask", "old_logps", "advantage"
+    }

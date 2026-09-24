@@ -238,24 +238,36 @@ def _critic_scores(
         labels = "ABC"
     else:
         raise ValueError(f"unsupported value critic kind: {value_kind}")
-    generated = llm.generate(
-        prompts, parameters, lora_request=value_lora, use_tqdm=False
-    )
     label_ids = {
         label: tokenizer(label, add_special_tokens=False)["input_ids"][0]
         for label in labels
     }
+    # A generation top-k logprob dictionary is not an exhaustive distribution:
+    # even with allowed_token_ids, vLLM 0.8.5 can omit the other P/N label.
+    # Score each actual label as the final prompt token instead. vLLM includes
+    # the observed prompt token's logprob even when it is not in the top-k.
+    scoring_prompts = [
+        {"prompt_token_ids": tokenizer.encode(prompt, add_special_tokens=False) + [token_id]}
+        for prompt in prompts
+        for token_id in label_ids.values()
+    ]
+    generated = llm.generate(
+        scoring_prompts, parameters, lora_request=value_lora, use_tqdm=False
+    )
     output = []
-    for node, generation in zip(nodes, generated, strict=True):
-        distribution = generation.outputs[0].logprobs[0]
+    for index, node in enumerate(nodes):
         label_logps = {}
-        for label, token_id in label_ids.items():
+        for offset, (label, token_id) in enumerate(label_ids.items()):
+            generation = generated[index * len(label_ids) + offset]
+            distribution = (generation.prompt_logprobs or [None])[-1] or {}
             value = distribution.get(token_id)
             if value is None:
-                raise ValueError(f"critic omitted allowed label {label}")
+                raise ValueError(f"critic did not score prompt label {label}")
             label_logps[label] = float(
                 value.logprob if hasattr(value, "logprob") else value
             )
+            if not math.isfinite(label_logps[label]):
+                raise ValueError(f"critic returned nonfinite label score {label}")
         output.append(
             successor_value_margin(label_logps)
             if value_kind == "successor_pn"
@@ -795,8 +807,7 @@ def collect(args):
         n=1,
         temperature=0.0,
         max_tokens=1,
-        logprobs=len(value_labels),
-        allowed_token_ids=label_ids,
+        prompt_logprobs=0,
     )
 
     error_path = output.with_suffix(output.suffix + ".errors.jsonl")

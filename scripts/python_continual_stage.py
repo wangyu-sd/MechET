@@ -38,6 +38,22 @@ def policy_rows_for_update(rows, eligible_only=False):
     return policy
 
 
+TRAINER_FIELDS = ("kind", "input_ids", "loss_mask", "old_logps", "advantage")
+
+
+def trainer_records(rows):
+    """Keep only numeric learner inputs; rollout diagnostics are not Arrow data."""
+    projected = []
+    for row in rows:
+        item = {field: row[field] for field in TRAINER_FIELDS}
+        if not (
+            len(item["input_ids"]) == len(item["loss_mask"]) == len(item["old_logps"])
+        ):
+            raise ValueError("learner token, mask and logprob lengths differ")
+        projected.append(item)
+    return projected
+
+
 def log(**record):
     print(json.dumps(record, ensure_ascii=False), flush=True)
 
@@ -296,7 +312,7 @@ def train(args):
             ddp_find_unused_parameters=False, report_to=[], remove_unused_columns=False,
             seed=args.seed, data_seed=args.seed, disable_tqdm=True)
         trainer = ContinualTrainer(model=model, args=training_args, data_collator=collate,
-                                  train_dataset=Dataset.from_list(phase_rows), processing_class=tok)
+                                  train_dataset=Dataset.from_list(trainer_records(phase_rows)), processing_class=tok)
         trainer.model_accepts_loss_kwargs = False
         log(stage="continual-train", phase=phase, rows=len(phase_rows), rank=rank)
         result = trainer.train()

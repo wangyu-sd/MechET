@@ -2,6 +2,8 @@ from types import SimpleNamespace
 import subprocess
 import sys
 
+import pytest
+
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
     endpoint_potential,
@@ -11,9 +13,38 @@ from mechet.natural_language_anchor_branch_rl import (
     successor_fingerprint,
     task_from_episode,
 )
-from scripts.natural_language_anchor_branch_stage import _advance, _beam_continue, _node
+from scripts.natural_language_anchor_branch_stage import _advance, _beam_continue, _critic_scores, _node
 from scripts.run_natural_language_value_search import Action, Node, execute, visible
 from scripts.python_continual_stage import policy_rows_for_update
+
+
+def test_critic_scores_both_labels_as_prompt_tokens_not_generation_topk():
+    class Tokenizer:
+        def apply_chat_template(self, _messages, **_kwargs):
+            return "<|im_start|>user\nexample<|im_end|>\n"
+
+        def __call__(self, label, **_kwargs):
+            return {"input_ids": [11 if label == "P" else 12]}
+
+        def encode(self, _prompt, **_kwargs):
+            return [101, 102]
+
+    class LLM:
+        def generate(self, prompts, parameters, **_kwargs):
+            assert len(prompts) == 2
+            assert [p["prompt_token_ids"][-1] for p in prompts] == [11, 12]
+            assert parameters == "prompt-logprob-params"
+            return [
+                SimpleNamespace(prompt_logprobs=[None, {11: SimpleNamespace(logprob=-0.2)}]),
+                SimpleNamespace(prompt_logprobs=[None, {12: SimpleNamespace(logprob=-1.2)}]),
+            ]
+
+    task = SimpleNamespace(target="C", anchor_state="C")
+    node = SimpleNamespace(state="C", terminal=False, actions=[])
+    assert _critic_scores(
+        LLM(), Tokenizer(), object(), "prompt-logprob-params", task, [node],
+        value_kind="successor_pn",
+    ) == pytest.approx([1.0])
 
 
 def test_task_hides_reference_suffix_and_tracks_reset():
