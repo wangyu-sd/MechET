@@ -59,6 +59,27 @@ def _resolve_artifact(root: Path, value: str) -> Path:
     return path if path.is_absolute() else root / path
 
 
+def load_earho_config(path: Path) -> dict[str, Any]:
+    """Resolve one immutable experiment base with explicit nested overrides."""
+
+    cfg = _load_yaml(path)
+    parent_name = cfg.pop("extends", None)
+    if parent_name is None:
+        return cfg
+    parent_path = (path.parent / str(parent_name)).resolve()
+    if parent_path == path.resolve() or not parent_path.is_file():
+        raise ValueError("EARHO base config does not exist or extends itself")
+    parent = _load_yaml(parent_path)
+    if "extends" in parent:
+        raise ValueError("nested EARHO config inheritance is forbidden")
+    for key, value in cfg.items():
+        if isinstance(value, dict) and isinstance(parent.get(key), dict):
+            parent[key] = {**parent[key], **value}
+        else:
+            parent[key] = value
+    return parent
+
+
 def validate_contract(cfg: dict[str, Any]) -> None:
     if cfg.get("protocol_version") != PROTOCOL:
         raise ValueError("EARHO v2 requires the compressed-history v2 protocol")
@@ -72,6 +93,20 @@ def validate_contract(cfg: dict[str, Any]) -> None:
         raise ValueError("v1 dual prompts and test data are forbidden")
     if not (cfg.get("optimization") or {}).get("success_gated_advantages"):
         raise ValueError("EARHO requires success-gated policy advantages")
+    reward = cfg.get("reward") or {}
+    if reward.get("contract") not in {
+        "exact_endpoint_or_reference_successor_v2",
+        "paper_earho_bounded_horizon_v1",
+    }:
+        raise ValueError("EARHO reward contract must be explicit")
+    if reward.get("contract") == "paper_earho_bounded_horizon_v1":
+        coefficients = [float(reward[name]) for name in (
+            "lambda_s", "lambda_e", "lambda_c", "lambda_n"
+        )]
+        if not all(0 <= value < float("inf") for value in coefficients):
+            raise ValueError("EARHO reward coefficients must be finite and nonnegative")
+        if coefficients[0] <= coefficients[1]:
+            raise ValueError("verified successor credit must exceed pure execution credit")
     if str(cfg.get("value_kind") or "successor_pn") != "successor_pn":
         raise ValueError("EARHO requires a transition-level P/N successor critic")
     source_dir = Path(cfg["train_file"]).parent
@@ -194,6 +229,8 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             raise ValueError("existing EARHO plan has a different parent adapter")
         if plan.get("protocol_version") != PROTOCOL:
             raise ValueError("existing EARHO plan has a different protocol")
+        if plan.get("reward_contract", "exact_endpoint_or_reference_successor_v2") != cfg["reward"]["contract"]:
+            raise ValueError("existing EARHO plan has a different reward objective")
         for name, digest in (plan.get("prepared_files") or {}).items():
             if _sha256(output / name) != digest:
                 raise ValueError(f"prepared EARHO source changed: {name}")
@@ -231,6 +268,11 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
         {
             "artifact_type": "earho_first_divergence_v2_plan",
             "protocol_version": PROTOCOL,
+            "reward_contract": cfg["reward"]["contract"],
+            "reward_coefficients": {
+                key: cfg["reward"][key]
+                for key in ("lambda_s", "lambda_e", "lambda_c", "lambda_n")
+            } if cfg["reward"]["contract"] == "paper_earho_bounded_horizon_v1" else None,
             "config_sha256": config_sha256,
             "source_reactions": int(cfg["reaction_denominator"]["train"]),
             "selected_train_reactions": count,
@@ -431,7 +473,7 @@ def main() -> int:
     parser.add_argument("--expected-gpu-regex")
     parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
-    cfg = _load_yaml(args.config)
+    cfg = load_earho_config(args.config)
     if args.expected_gpu_regex:
         cfg["expected_gpu_regex"] = args.expected_gpu_regex
     if args.output_dir:

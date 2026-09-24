@@ -1,0 +1,10 @@
+# Separate from the historical binary-credit run; never resume its artifacts.
+extends: earho_v2_mech_uspto31k_nf4_matched_8a100.yaml
+condition: earho_paper_bounded_horizon_mech31k
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_mech31k_seed17_a100_20260924
+reward:
+  contract: paper_earho_bounded_horizon_v1
+  lambda_s: 0.25
+  lambda_e: 0.05
+  lambda_c: 0.25
+  lambda_n: 0.25

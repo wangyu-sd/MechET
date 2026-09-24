@@ -26,6 +26,7 @@ from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
     contains_unchanged_target,
     endpoint_shaped_reward,
+    paper_earho_return,
     state_value_margin,
     stable_rng,
     successor_fingerprint,
@@ -471,6 +472,7 @@ def _score_rollout(
     steps: int,
     *,
     first_successor_state: str,
+    first_successor_terminal: bool = False,
     invalid_penalty: float,
     wrong_terminal_penalty: float,
     endpoint_similarity_weight: float,
@@ -479,6 +481,8 @@ def _score_rollout(
     target_retained_penalty: float,
     reference_first_successor_state: str,
     reference_first_successor_weight: float,
+    paper_weights: Mapping[str, float] | None = None,
+    continuation_limit: int | None = None,
 ):
     terminal = bool(node is not None and node.terminal)
     precursor = visible(node.state) if node is not None else ""
@@ -494,24 +498,31 @@ def _score_rollout(
         and reference_first_successor_state
         and visible(first_successor_state) == visible(reference_first_successor_state)
     )
-    shaped = endpoint_shaped_reward(
-        correct=correct,
-        terminal=terminal,
-        anchor_state=task.anchor_state,
-        first_successor_state=first_successor_state,
-        final_state=node.state if node is not None else "",
-        expected_precursor=task.expected_precursor,
-        invalid_penalty=invalid_penalty,
-        wrong_terminal_penalty=wrong_terminal_penalty,
-        endpoint_similarity_weight=endpoint_similarity_weight,
-        first_successor_progress_weight=first_successor_progress_weight,
-        nonexact_reward_ceiling=nonexact_reward_ceiling,
-        target_retained=target_retained,
-        target_retained_penalty=target_retained_penalty,
-        reference_first_successor_exact=reference_first_successor_exact,
-        reference_first_successor_weight=reference_first_successor_weight,
+    shaped = (
+        {"reward": 0.0, "outcome": (
+            "exact_endpoint" if correct else
+            "wrong_endpoint" if terminal else "invalid_or_incomplete"
+        )}
+        if paper_weights is not None else
+        endpoint_shaped_reward(
+            correct=correct,
+            terminal=terminal,
+            anchor_state=task.anchor_state,
+            first_successor_state=first_successor_state,
+            final_state=node.state if node is not None else "",
+            expected_precursor=task.expected_precursor,
+            invalid_penalty=invalid_penalty,
+            wrong_terminal_penalty=wrong_terminal_penalty,
+            endpoint_similarity_weight=endpoint_similarity_weight,
+            first_successor_progress_weight=first_successor_progress_weight,
+            nonexact_reward_ceiling=nonexact_reward_ceiling,
+            target_retained=target_retained,
+            target_retained_penalty=target_retained_penalty,
+            reference_first_successor_exact=reference_first_successor_exact,
+            reference_first_successor_weight=reference_first_successor_weight,
+        )
     )
-    return {
+    score = {
         "formal_execute": terminal,
         "productive_execute": bool(terminal and not target_retained),
         "target_retained": target_retained,
@@ -522,6 +533,7 @@ def _score_rollout(
         "first_successor_state": (
             visible(first_successor_state) if first_successor_state else ""
         ),
+        "first_successor_terminal": bool(first_successor_terminal),
         # Private training label retained in rollout artifacts for auditable
         # successor-value mining.  It is never rendered into an actor prompt.
         "reference_first_successor_exact": reference_first_successor_exact,
@@ -529,6 +541,16 @@ def _score_rollout(
         "decisions": steps,
         "trajectory": list(node.actions) if node is not None else [],
     }
+    if paper_weights is not None:
+        score["earho_return_terms"] = paper_earho_return(
+            score, anchor_state=task.anchor_state,
+            horizon=int(continuation_limit), weights=paper_weights,
+        )
+        score["reward"] = float(score["earho_return_terms"]["return"])
+        score["reward_terms"] = {
+            "outcome": shaped["outcome"], **score["earho_return_terms"]
+        }
+    return score
 
 
 def _reference_first_decision(row: Mapping[str, Any], episode: Mapping[str, Any]):
@@ -618,7 +640,7 @@ def _v2_successor_fingerprint(state: str, terminal: bool, invalid_text: str) -> 
 
     if not state:
         return "INVALID:" + hashlib.sha256(invalid_text.encode()).hexdigest()[:16]
-    payload = f"{int(terminal)}:{visible(state)}"
+    payload = visible(state)
     return "CHEM:" + hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -956,6 +978,7 @@ def collect(args):
                             error,
                             decisions,
                             first_successor_state=first_state,
+                            first_successor_terminal=first_terminal,
                             invalid_penalty=args.invalid_penalty,
                             wrong_terminal_penalty=args.wrong_terminal_penalty,
                             endpoint_similarity_weight=args.endpoint_similarity_weight,
@@ -964,8 +987,17 @@ def collect(args):
                             target_retained_penalty=args.target_retained_penalty,
                             reference_first_successor_state=reference_first_successor,
                             reference_first_successor_weight=args.reference_first_successor_weight,
+                            paper_weights=(
+                                {
+                                    "lambda_s": args.paper_lambda_s,
+                                    "lambda_e": args.paper_lambda_e,
+                                    "lambda_c": args.paper_lambda_c,
+                                    "lambda_n": args.paper_lambda_n,
+                                }
+                                if args.paper_earho_objective else None
+                            ),
+                            continuation_limit=limit,
                         )
-                        score["first_successor_terminal"] = first_terminal
                         ids = list(decoded["ids"])
                         logps = list(decoded["logps"])
                         prompt = prompts[mode]
@@ -996,7 +1028,8 @@ def collect(args):
                         records.append(record)
                         candidate_index += 1
                 summary = assign_local_advantages(
-                    records, success_gated=args.success_gated_advantages
+                    records, success_gated=args.success_gated_advantages,
+                    paper_objective=args.paper_earho_objective,
                 )
                 if no_correction_frontier and not args.evaluation:
                     for record in records:
@@ -1092,6 +1125,11 @@ def main():
     parser.add_argument("--policy-score-weight", type=float, default=0.1)
     parser.add_argument("--continuation-beam-width", type=int, default=1)
     parser.add_argument("--success-gated-advantages", action="store_true")
+    parser.add_argument("--paper-earho-objective", action="store_true")
+    parser.add_argument("--paper-lambda-s", type=float, default=0.25)
+    parser.add_argument("--paper-lambda-e", type=float, default=0.05)
+    parser.add_argument("--paper-lambda-c", type=float, default=0.25)
+    parser.add_argument("--paper-lambda-n", type=float, default=0.25)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)

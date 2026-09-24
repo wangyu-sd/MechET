@@ -225,6 +225,15 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     )
     if (cfg.get("optimization") or {}).get("success_gated_advantages"):
         command.append("--success-gated-advantages")
+    if reward.get("contract") == "paper_earho_bounded_horizon_v1":
+        command.append("--paper-earho-objective")
+        for name, flag in (
+            ("lambda_s", "--paper-lambda-s"),
+            ("lambda_e", "--paper-lambda-e"),
+            ("lambda_c", "--paper-lambda-c"),
+            ("lambda_n", "--paper-lambda-n"),
+        ):
+            command.extend([flag, str(reward[name])])
     if cfg.get("protocol_version") == "trajectory_history_v2":
         command.append("--protocol-v2")
     return command

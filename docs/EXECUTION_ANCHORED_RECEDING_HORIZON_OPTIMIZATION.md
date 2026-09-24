@@ -241,3 +241,42 @@ The existing code uses the historical names `anchor_branch` and
 `successor_horizon`; these are implementation components of EARHO.  Renaming
 the scientific method does not alter frozen artifact identifiers or prior run
 lineage.
+
+## Paper-objective implementation contract (2026-09-24)
+
+The new `paper_earho_bounded_horizon_v1` reward contract implements the
+schematic objective above in `paper_earho_return`. For a first action sampled
+at an executor-replayed anchor, its bounded continuation records:
+
+| Term | Operational definition |
+|---|---|
+| `R_end` | terminal executed precursor exactly equals the private reference endpoint, map-invariant |
+| `R_succ` | first executed successor exactly equals the private reference successor, map-invariant |
+| `R_exec` | accepted decisions in the bounded continuation divided by the continuation decision budget |
+| `R_cycle` | the selected branch reports a state-cycle failure |
+| `R_noop` | unchanged nonterminal first successor or an unchanged-target finish rejected by the executor |
+
+The paper does not fix the four coefficients; the explicit experimental
+choice is `lambda_s=0.25`, `lambda_e=0.05`, `lambda_c=0.25`, and
+`lambda_n=0.25`. These are not fitted results. The five terms, coefficients,
+actual horizon and scalar return are persisted under
+`score.earho_return_terms` for every sampled branch. The legacy
+endpoint-similarity shaping is bypassed entirely for this contract.
+
+Advantages are assigned to the sampled **first action only**. Actions
+reaching an identical canonical successor share a pooled return. A positive
+advantage requires either `R_end=1` or `R_succ=1`; executable wrong successors
+cannot become positive through relative normalization or through `R_exec`.
+When every candidate in a prompt-mode group is wrong, all policy advantages
+are zero and the verified reference transition is replayed. The critic's
+executable hard-negative dataset and the product-only inference prompt are
+unchanged. This is frontier-local credit based on bounded long-horizon
+consequences, not full-trajectory PPO over every continuation action.
+
+The historical `exact_endpoint_or_reference_successor_v2` configurations
+remain reproducible but use binary credit. The paper-objective configurations
+are `configs/agent/earho_paper_mech_uspto31k_8a100.yaml` and
+`configs/agent/earho_paper_flower_strict_8h20.yaml`; each inherits the pinned
+dataset and Stage-II parent from its old configuration and writes to a new
+output directory. Do not resume an old binary-credit run into either new
+directory or report its metrics as a paper-objective result.

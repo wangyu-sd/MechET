@@ -160,6 +160,7 @@ def test_chemical_successor_pooling_ignores_action_surface():
     left = _v2_successor_fingerprint("[Na+:3].[CH3:1][Br:2]", False, "alpha")
     right = _v2_successor_fingerprint("[CH3:9][Br:8].[Na+:7]", False, "beta")
     assert left == right
+    assert left == _v2_successor_fingerprint("[CH3:9][Br:8].[Na+:7]", True, "finish")
     assert left != _v2_successor_fingerprint("[CH3:1][Br:2]", False, "alpha")
 
 
