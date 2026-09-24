@@ -125,3 +125,28 @@ def test_paper_config_is_separate_and_reaches_collector(name, tmp_path):
     )
     assert "--paper-earho-objective" in command
     assert command[command.index("--paper-lambda-s") + 1] == "0.25"
+
+
+def test_k2_gt_smoke_keeps_reward_and_parent_but_limits_actor_candidates(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    cfg = load_earho_config(
+        root / "configs/agent/earho_paper_flower_strict_k2_gt_smoke_8a100.yaml"
+    )
+    baseline = load_earho_config(
+        root / "configs/agent/earho_paper_flower_strict_8h20.yaml"
+    )
+    assert cfg["candidates_per_product"] == 2
+    assert cfg["rounds"] == 1
+    assert cfg["products_per_round"] == 128
+    assert cfg["initial_adapter_model_sha256"] == baseline["initial_adapter_model_sha256"]
+    assert cfg["reward"] == baseline["reward"]
+    assert cfg["optimization"] == baseline["optimization"]
+    assert cfg["output_dir"] != baseline["output_dir"]
+    command = worker_command(
+        cfg, tmp_path / "source.jsonl", tmp_path / "actor",
+        tmp_path / "rollout.jsonl", 0, frontier=2,
+        round_index=0, evaluation=False,
+    )
+    assert command[command.index("--k") + 1] == "2"
+    assert "--paper-earho-objective" in command
+    assert "--success-gated-advantages" in command

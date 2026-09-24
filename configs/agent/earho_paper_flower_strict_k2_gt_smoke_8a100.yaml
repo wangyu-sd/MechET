@@ -1,0 +1,16 @@
+# Isolated one-round pilot: two actor candidates per anchor, with the existing
+# verified GT replay when neither candidate has verified positive credit.
+# The executor, reward and Stage-II parent remain identical to the K8 campaign.
+extends: earho_v2_flower_strict_nf4_matched_8h20.yaml
+condition: earho_paper_bounded_horizon_flower_strict_k2_gt_smoke
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_k2_gt_smoke_seed17_a100_20260924
+expected_gpu_regex: A100
+rounds: 1
+products_per_round: 128
+candidates_per_product: 2
+reward:
+  contract: paper_earho_bounded_horizon_v1
+  lambda_s: 0.25
+  lambda_e: 0.05
+  lambda_c: 0.25
+  lambda_n: 0.25
