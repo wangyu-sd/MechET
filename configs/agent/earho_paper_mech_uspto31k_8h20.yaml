@@ -1,0 +1,12 @@
+# H20 relocation of the identical pinned mech-USPTO-31K paper EARHO condition.
+# Keep the resource-waiting A100 attempt's output untouched and start fresh.
+extends: earho_v2_mech_uspto31k_nf4_matched_8a100.yaml
+condition: earho_paper_bounded_horizon_mech31k_h20
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_mech31k_seed17_h20_20260924
+expected_gpu_regex: H20
+reward:
+  contract: paper_earho_bounded_horizon_v1
+  lambda_s: 0.25
+  lambda_e: 0.05
+  lambda_c: 0.25
+  lambda_n: 0.25
