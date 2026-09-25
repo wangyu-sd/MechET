@@ -242,7 +242,24 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
 def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation):
     marker = output / "collection_done.json"
     shards = [output / f"rank{rank}.jsonl" for rank in range(8)]
+    # The v2 paper driver is restartable, but a completed collection is only
+    # reusable with the same actor, data, runtime and generation contract.
+    lineage = None
+    if cfg.get("protocol_version") == "trajectory_history_v2":
+        inputs = {
+            "config": cfg,
+            "data_sha256": _sha256(Path(data)),
+            "actor_sha256": _sha256(Path(adapter) / "adapter_model.safetensors"),
+            "frontier": int(frontier),
+            "round_index": int(round_index),
+            "evaluation": bool(evaluation),
+        }
+        lineage = hashlib.sha256(
+            json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
     if marker.exists():
+        if lineage is not None and json.loads(marker.read_text()).get("lineage_sha256") != lineage:
+            raise ValueError("completed EARHO collection belongs to different inputs")
         if not all(path.is_file() for path in shards):
             raise ValueError("collection marker exists with missing shards")
         return shards, summarize(shards)
@@ -300,7 +317,8 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
             f"{summary['collector_error_rate']:.4f}"
         )
     public = {key: value for key, value in summary.items() if key != "group_summaries"}
-    write_json(marker, {"adapter": str(adapter), "frontier": frontier, "round": round_index, "evaluation": evaluation, **public})
+    write_json(marker, {"adapter": str(adapter), "frontier": frontier, "round": round_index,
+                        "evaluation": evaluation, "lineage_sha256": lineage, **public})
     log(stage="nl-anchor-collection-complete", **public)
     return shards, summary
 

@@ -88,7 +88,7 @@ def build_rows(
             )
         )
         statistics["reference_positives"] += 1
-        seen = {visible_successor_state(expected.state)}
+        seen = {(visible_successor_state(expected.state), bool(expected.terminal))}
         alternatives = []
         for candidate in candidates:
             score = dict(candidate.get("score") or {})
@@ -96,14 +96,16 @@ def build_rows(
             if not successor:
                 continue
             public = visible_successor_state(successor)
-            if public in seen:
+            terminal = bool(score.get("first_successor_terminal"))
+            successor_key = (public, terminal)
+            if successor_key in seen:
                 continue
-            seen.add(public)
+            seen.add(successor_key)
             productive = bool(score.get("correct"))
             alternatives.append((
                 float(candidate.get("anchor_action_q") or candidate.get("reward") or 0.0),
                 successor,
-                bool(score.get("first_successor_terminal")),
+                terminal,
                 "P" if productive else "N",
             ))
         alternatives.sort(key=lambda item: item[0], reverse=True)

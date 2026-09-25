@@ -10,7 +10,7 @@ from mechet.natural_language_anchor_branch_rl import (
     paper_earho_return,
 )
 from scripts.natural_language_anchor_branch_stage import _score_rollout
-from scripts.run_earho_v2 import load_earho_config
+from scripts.run_earho_v2 import load_earho_config, validate_contract
 from scripts.run_natural_language_anchor_branch_rl import worker_command
 
 
@@ -109,6 +109,26 @@ def test_paper_collector_does_not_compute_legacy_potential(monkeypatch):
     assert score["earho_return_terms"]["horizon"] == 3
 
 
+def test_reference_successor_credit_requires_matching_terminal_status():
+    task = SimpleNamespace(
+        anchor_state="[CH3:1][OH:2]", target="CO", expected_precursor="CN"
+    )
+    node = SimpleNamespace(state="[CH3:1][OH:2]", terminal=True, actions=[])
+    score = _score_rollout(
+        task, node, "", 1, first_successor_state=node.state,
+        first_successor_terminal=True,
+        invalid_penalty=0.1, wrong_terminal_penalty=0.5,
+        endpoint_similarity_weight=0.45, first_successor_progress_weight=0.25,
+        nonexact_reward_ceiling=0.01, target_retained_penalty=0.75,
+        reference_first_successor_state=node.state,
+        reference_first_successor_terminal=False,
+        reference_first_successor_weight=0.25,
+        paper_weights=WEIGHTS, continuation_limit=1,
+    )
+    assert not score["reference_first_successor_exact"]
+    assert not score["earho_return_terms"]["verified_positive"]
+
+
 @pytest.mark.parametrize("name", [
     "earho_paper_mech_uspto31k_8a100.yaml",
     "earho_paper_flower_strict_8h20.yaml",
@@ -117,7 +137,7 @@ def test_paper_config_is_separate_and_reaches_collector(name, tmp_path):
     root = Path(__file__).resolve().parents[1]
     cfg = load_earho_config(root / "configs/agent" / name)
     assert cfg["reward"]["contract"] == "paper_earho_bounded_horizon_v1"
-    assert "20260924" in cfg["output_dir"]
+    assert "prefixv2" in cfg["output_dir"]
     command = worker_command(
         cfg, tmp_path / "source.jsonl", tmp_path / "actor",
         tmp_path / "rollout.jsonl", 0, frontier=2,
@@ -125,6 +145,14 @@ def test_paper_config_is_separate_and_reaches_collector(name, tmp_path):
     )
     assert "--paper-earho-objective" in command
     assert command[command.index("--paper-lambda-s") + 1] == "0.25"
+
+
+def test_formal_driver_rejects_old_no_think_prompt_contract():
+    with pytest.raises(ValueError, match="SFT-aligned Qwen generation prefix"):
+        validate_contract({
+            "protocol_version": "trajectory_history_v2",
+            "prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+        })
 
 
 def test_k2_gt_smoke_keeps_reward_and_parent_but_limits_actor_candidates(tmp_path):

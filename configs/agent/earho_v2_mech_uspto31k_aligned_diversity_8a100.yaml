@@ -3,7 +3,7 @@
 # 768-reaction RL sample, not an epoch over the 10,152 executable-view train set.
 dataset_id: mech_uspto31k_current_compiler
 protocol_version: trajectory_history_v2
-prompt_prefix_contract: qwen_sft_aligned_no_think_v1
+prompt_prefix_contract: qwen_sft_template_generation_prefix_v2
 model_name_or_path: Qwen/Qwen3-8B
 model_revision: b968826d9c46dd6066d109eabc6255188de91218
 model_snapshot: /aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218

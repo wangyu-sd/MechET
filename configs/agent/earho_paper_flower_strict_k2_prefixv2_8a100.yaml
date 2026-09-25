@@ -1,0 +1,16 @@
+# Matched rerun of the 2026-09-24 K=2 pilot after the Stage-III prefix,
+# verified-suffix replay, and terminal-successor corrections. This is the
+# strict-executable FlowER trace view, not the unqualified reaction-level full split.
+extends: earho_v2_flower_strict_nf4_matched_8h20.yaml
+condition: earho_paper_bounded_horizon_flower_strict_k2_prefixv2
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_k2_prefixv2_seed17_a100_20260925
+expected_gpu_regex: A100
+rounds: 1
+products_per_round: 128
+candidates_per_product: 2
+reward:
+  contract: paper_earho_bounded_horizon_v1
+  lambda_s: 0.25
+  lambda_e: 0.05
+  lambda_c: 0.25
+  lambda_n: 0.25

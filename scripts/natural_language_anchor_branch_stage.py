@@ -20,6 +20,7 @@ from python_continual_stage import log, read_rows
 from mechet.assistant_masking import (
     encode_assistant_only_conversation,
     render_qwen_sft_aligned_prefix,
+    tokenize_text,
 )
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import (
@@ -480,6 +481,7 @@ def _score_rollout(
     nonexact_reward_ceiling: float,
     target_retained_penalty: float,
     reference_first_successor_state: str,
+    reference_first_successor_terminal: bool | None = None,
     reference_first_successor_weight: float,
     paper_weights: Mapping[str, float] | None = None,
     continuation_limit: int | None = None,
@@ -497,6 +499,10 @@ def _score_rollout(
         first_successor_state
         and reference_first_successor_state
         and visible(first_successor_state) == visible(reference_first_successor_state)
+        and (
+            reference_first_successor_terminal is None
+            or bool(first_successor_terminal) == bool(reference_first_successor_terminal)
+        )
     )
     shaped = (
         {"reward": 0.0, "outcome": (
@@ -608,7 +614,15 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
     if metadata["exceeds_max_length"]:
         raise ValueError("VERIFIED_REPLAY_EXCEEDS_CONTEXT")
     input_ids = list(encoded["input_ids"])
-    loss_mask = [int(value != -100) for value in encoded["labels"]]
+    prefix = tokenize_text(
+        tokenizer,
+        render_qwen_sft_aligned_prefix(tokenizer, _messages(task, mode), tools=TOOLS),
+    )
+    if input_ids[: len(prefix)] != prefix or len(input_ids) <= len(prefix):
+        raise ValueError("VERIFIED_REPLAY_PROMPT_MISMATCH")
+    # The actor receives the completed Qwen3 generation prefix at inference.
+    # Replay must supervise only the action generated after that prefix.
+    loss_mask = [0] * len(prefix) + [1] * (len(input_ids) - len(prefix))
     return {
         "id": task.reaction_id,
         "kind": "verified_replay",
@@ -621,6 +635,28 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
         "reference_action": name,
         "anchor": _task_record(task),
     }
+
+
+def _verified_replay_records(tokenizer, task, row, episode, max_context: int, args,
+                             *, reference=None):
+    """Replay every remaining verified decision, not just the anchor action.
+
+    Each decision has its own public state and compact accepted history, exactly
+    as in Stage-II Trajectory-SFT.  Private future actions never enter a prompt.
+    """
+    if not isinstance(task, V2AnchorTask):
+        return [_verified_replay_record(tokenizer, task, row, episode, max_context, args)]
+    if reference is None or reference.reaction_id != task.reaction_id:
+        raise ValueError("VERIFIED_REPLAY_REFERENCE_MISSING")
+    records = []
+    for index in range(task.prefix_events, len(reference.decisions)):
+        step = v2_anchor_task(reference, index, divergence_reason=task.divergence_reason)
+        record = _verified_replay_record(
+            tokenizer, step, row, step, max_context, args
+        )
+        record["reference_decision_index"] = index
+        records.append(record)
+    return records
 
 
 def _task_record(task):
@@ -636,11 +672,11 @@ def _task_record(task):
 
 
 def _v2_successor_fingerprint(state: str, terminal: bool, invalid_text: str) -> str:
-    """Pool equivalent executed successors across action names and surface text."""
+    """Pool equivalent executed successors without merging finish and continue."""
 
     if not state:
         return "INVALID:" + hashlib.sha256(invalid_text.encode()).hexdigest()[:16]
-    payload = visible(state)
+    payload = f"{int(bool(terminal))}:{visible(state)}"
     return "CHEM:" + hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -986,6 +1022,9 @@ def collect(args):
                             nonexact_reward_ceiling=args.nonexact_reward_ceiling,
                             target_retained_penalty=args.target_retained_penalty,
                             reference_first_successor_state=reference_first_successor,
+                            reference_first_successor_terminal=(
+                                task.reference_terminal if isinstance(task, V2AnchorTask) else None
+                            ),
                             reference_first_successor_weight=args.reference_first_successor_weight,
                             paper_weights=(
                                 {
@@ -1046,9 +1085,10 @@ def collect(args):
                     )
                 )
                 if needs_replay:
-                    records.append(
-                        _verified_replay_record(
-                            tokenizer, task, row, episode, args.max_context, args
+                    records.extend(
+                        _verified_replay_records(
+                            tokenizer, task, row, episode, args.max_context, args,
+                            reference=reference if args.protocol_v2 else None,
                         )
                     )
                 log_fields = {

@@ -2,7 +2,7 @@
 # Separate from the historical binary-credit run; never resume its artifacts.
 extends: earho_v2_flower_strict_nf4_matched_8h20.yaml
 condition: earho_paper_bounded_horizon_flower_strict
-output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_seed17_h20_20260924
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_prefixv2_seed17_h20_20260925
 reward:
   contract: paper_earho_bounded_horizon_v1
   lambda_s: 0.25

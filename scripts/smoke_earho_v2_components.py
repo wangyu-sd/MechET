@@ -7,9 +7,8 @@ import argparse
 import json
 from pathlib import Path
 
-from scripts.run_earho_v2 import validate_contract
+from scripts.run_earho_v2 import load_earho_config, validate_contract
 from scripts.run_natural_language_anchor_branch_rl import _sha256, run_workers
-from scripts.train_python_template_rlvr import _load_yaml
 
 
 def main() -> int:
@@ -24,7 +23,7 @@ def main() -> int:
     parser.add_argument("--prepare-only", action="store_true")
     args = parser.parse_args()
 
-    cfg = _load_yaml(args.config)
+    cfg = load_earho_config(args.config)
     validate_contract(cfg)
     campaign = args.campaign
     plan = json.loads((campaign / "plan.json").read_text())
@@ -34,6 +33,8 @@ def main() -> int:
         raise ValueError("frozen EARHO validation monitor SHA-256 mismatch")
     if plan["initial_adapter_model_sha256"] != cfg["initial_adapter_model_sha256"]:
         raise ValueError("smoke and campaign have different Stage-II parents")
+    if plan.get("prompt_prefix_contract") != cfg["prompt_prefix_contract"]:
+        raise ValueError("smoke and campaign have different actor prompt prefixes")
     if not (args.actor / "adapter_model.safetensors").is_file():
         raise FileNotFoundError("actor adapter is incomplete")
     if args.critic and not (args.critic / "adapter_model.safetensors").is_file():
@@ -54,7 +55,7 @@ def main() -> int:
         "monitor_sha256": expected_sha,
         "frontier": args.frontier,
         "beam_width": beam_width,
-        "prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+        "prompt_prefix_contract": cfg["prompt_prefix_contract"],
         "candidate_count_per_reaction": 2,
         "test_used": False,
     }

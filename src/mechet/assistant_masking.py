@@ -62,18 +62,21 @@ def render_qwen_sft_aligned_prefix(
     *,
     tools: list[dict[str, Any]] | None = None,
 ) -> str:
-    """Start an assistant completion at the same boundary as full-conversation SFT.
+    """Return the generation prefix used by completed Qwen3 SFT examples.
 
-    Qwen3's ``add_generation_prompt=True`` adds an empty ``<think>`` block even
-    with thinking disabled. A completed assistant tool-call in the SFT corpus
-    has no such block. The resulting token-prefix mismatch changes the policy
-    observation, so construct the exact ChatML assistant header instead.
+    Qwen3's shipped template inserts an empty thinking block when thinking is
+    disabled, including in completed assistant tool calls and short text labels.
+    The online actor and critic must condition on those same tokens.  Do not
+    reconstruct the assistant header by hand: it silently drops that block.
     """
 
     history = render_chat(tokenizer, messages, tools=tools, add_generation_prompt=False)
     if not history.endswith("<|im_end|>\n"):
         raise ValueError("Qwen SFT prefix does not end at a completed message")
-    return history + "<|im_start|>assistant\n"
+    prefix = render_chat(tokenizer, messages, tools=tools, add_generation_prompt=True)
+    if not prefix.startswith(history):
+        raise ValueError("Qwen generation prefix differs from SFT history")
+    return prefix
 
 
 def tokenize_text(tokenizer: Any, text: str) -> list[int]:

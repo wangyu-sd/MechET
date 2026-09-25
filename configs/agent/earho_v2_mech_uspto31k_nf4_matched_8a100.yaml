@@ -3,7 +3,7 @@
 # Keep the same reactions, seed, rewards, horizon, and K; never reuse old rollouts.
 dataset_id: mech_uspto31k_current_compiler
 protocol_version: trajectory_history_v2
-prompt_prefix_contract: qwen_sft_aligned_no_think_v1
+prompt_prefix_contract: qwen_sft_template_generation_prefix_v2
 actor_quantization: bnb_nf4_double_quant_bf16
 model_name_or_path: Qwen/Qwen3-8B
 model_revision: b968826d9c46dd6066d109eabc6255188de91218
