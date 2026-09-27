@@ -30,6 +30,30 @@ def read_rows(path):
         return [json.loads(line) for line in handle if line.strip()]
 
 
+def policy_rows_for_update(rows, eligible_only=False):
+    policy = [row for row in rows if row["kind"] == "rl"]
+    if eligible_only:
+        policy = [row for row in policy if row.get("update_eligible") is True
+                  and float(row.get("advantage") or 0.0) != 0.0]
+    return policy
+
+
+TRAINER_FIELDS = ("kind", "input_ids", "loss_mask", "old_logps", "advantage")
+
+
+def trainer_records(rows):
+    """Keep only numeric learner inputs; rollout diagnostics are not Arrow data."""
+    projected = []
+    for row in rows:
+        item = {field: row[field] for field in TRAINER_FIELDS}
+        if not (
+            len(item["input_ids"]) == len(item["loss_mask"]) == len(item["old_logps"])
+        ):
+            raise ValueError("learner token, mask and logprob lengths differ")
+        projected.append(item)
+    return projected
+
+
 def log(**record):
     print(json.dumps(record, ensure_ascii=False), flush=True)
 
@@ -156,12 +180,15 @@ def collect(args):
 def train(args):
     import torch
     from datasets import Dataset
-    from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingArguments
-    from peft import PeftModel
+    from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig, Trainer, TrainingArguments
+    from peft import PeftModel, prepare_model_for_kbit_training
     from python_repair_grpo import frozen_sft_adapter
     from trl.trainer.utils import selective_log_softmax
     rank = int(os.environ.get("LOCAL_RANK", 0))
     cpu_smoke = bool(getattr(args, "cpu_smoke", False))
+    qlora_nf4 = bool(getattr(args, "qlora_nf4", False))
+    if qlora_nf4 and cpu_smoke:
+        raise ValueError("NF4 QLoRA requires CUDA")
     if not cpu_smoke:
         torch.cuda.set_device(rank)
     rows = read_rows(args.data)
@@ -171,12 +198,35 @@ def train(args):
         if len(r["input_ids"]) > 12288:
             raise ValueError("Training trajectory exceeds context (no silent truncation)")
     tok = AutoTokenizer.from_pretrained(args.model, local_files_only=True)
-    base = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32 if cpu_smoke else torch.bfloat16,
-            attn_implementation="sdpa", local_files_only=True)
+    quantization_config = (
+        BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
+        if qlora_nf4 else None
+    )
+    base = AutoModelForCausalLM.from_pretrained(
+        args.model,
+        torch_dtype=torch.float32 if cpu_smoke else torch.bfloat16,
+        quantization_config=quantization_config,
+        device_map={"": rank} if qlora_nf4 else None,
+        attn_implementation="sdpa",
+        local_files_only=True,
+    )
     memory_efficient = bool(getattr(args, "memory_efficient_logps", False))
     if memory_efficient:
         from mechet.selected_policy_logps import install_selected_logps_forward
         install_selected_logps_forward(base)
+    if qlora_nf4:
+        base = prepare_model_for_kbit_training(
+            base,
+            use_gradient_checkpointing=True,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
+        )
+    log(stage="actor-train-runtime", rank=rank, dtype="bfloat16" if not cpu_smoke else "float32",
+        quantization="bnb_nf4_double_quant" if qlora_nf4 else "none")
     model = PeftModel.from_pretrained(base, args.adapter, is_trainable=True)
     model.load_adapter(args.reference, adapter_name="sft_reference", is_trainable=False)
     model.set_adapter("default")
@@ -239,14 +289,22 @@ def train(args):
     if (output / "stage_done.json").exists():
         raise ValueError("Stage already completed; driver should resume at next stage")
     updates = 0
-    for phase, phase_rows in [("ppo", [r for r in rows if r["kind"] == "rl"]),
+    policy_rows = policy_rows_for_update(rows, args.eligible_policy_only)
+    replay_epochs = int(args.replay_epochs)
+    if replay_epochs < 1:
+        raise ValueError("replay_epochs must be positive")
+    log(stage="policy-update-selection", total_policy_rows=sum(r["kind"] == "rl" for r in rows),
+        selected_policy_rows=len(policy_rows), eligible_only=args.eligible_policy_only,
+        replay_rows=sum(r["kind"] != "rl" for r in rows), replay_epochs=replay_epochs)
+    for phase, phase_rows in [("ppo", policy_rows),
                               ("replay", [r for r in rows if r["kind"] != "rl"])]:
         if not phase_rows:
             continue
         if phase == "ppo" and not any(r["advantage"] for r in phase_rows):
             log(stage="zero-task-reward-variance", action="supervised-recovery", rows=len(phase_rows))
             continue
-        training_args = TrainingArguments(output_dir=str(output / phase), num_train_epochs=1,
+        training_args = TrainingArguments(output_dir=str(output / phase),
+            num_train_epochs=1 if phase == "ppo" else replay_epochs,
             per_device_train_batch_size=1, gradient_accumulation_steps=4,
             learning_rate=1e-6 if phase == "ppo" else 3e-6, lr_scheduler_type="constant",
             logging_steps=1, save_strategy="no", bf16=not cpu_smoke, tf32=not cpu_smoke, use_cpu=cpu_smoke,
@@ -254,7 +312,7 @@ def train(args):
             ddp_find_unused_parameters=False, report_to=[], remove_unused_columns=False,
             seed=args.seed, data_seed=args.seed, disable_tqdm=True)
         trainer = ContinualTrainer(model=model, args=training_args, data_collator=collate,
-                                  train_dataset=Dataset.from_list(phase_rows), processing_class=tok)
+                                  train_dataset=Dataset.from_list(trainer_records(phase_rows)), processing_class=tok)
         trainer.model_accepts_loss_kwargs = False
         log(stage="continual-train", phase=phase, rows=len(phase_rows), rank=rank)
         result = trainer.train()
@@ -268,7 +326,11 @@ def train(args):
         (output / "stage_done.json").write_text(json.dumps({"adapter": str(output / "adapter"),
             "initial_adapter": args.adapter, "reference": args.reference, "updates": updates,
             "rows": len(rows), "algorithm": "group_relative_clipped_policy_update_then_verified_supervised_replay",
-            "memory_efficient_logps": memory_efficient}, indent=2))
+            "memory_efficient_logps": memory_efficient,
+            "quantization": "bnb_nf4_double_quant_bf16" if qlora_nf4 else "none",
+            "eligible_policy_only": args.eligible_policy_only,
+            "selected_policy_rows": len(policy_rows),
+            "replay_epochs": replay_epochs}, indent=2))
     trainer.accelerator.wait_for_everyone()
     if torch.distributed.is_initialized():
         torch.distributed.destroy_process_group()
@@ -284,6 +346,8 @@ def main():
     p.add_argument("--k", type=int, default=8)
     p.add_argument("--seed", type=int, default=17)
     p.add_argument("--evaluation", action="store_true")
+    p.add_argument("--eligible-policy-only", action="store_true")
+    p.add_argument("--replay-epochs", type=int, default=1)
     args = p.parse_args()
     (collect if args.mode == "collect" else train)(args)
 

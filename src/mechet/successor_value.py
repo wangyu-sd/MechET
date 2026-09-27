@@ -25,7 +25,8 @@ SUCCESSOR_VALUE_SYSTEM = (
 )
 
 
-def _visible(state: str) -> str:
+def visible_successor_state(state: str) -> str:
+    """Canonical public SMILES for either mapped executor or public rollout state."""
     raw = str(state)
     mol = Chem.MolFromSmiles(raw)
     if mol is None:
@@ -46,9 +47,9 @@ def successor_value_prompt(
     terminal: bool,
 ) -> str:
     return (
-        f"TARGET PRODUCT SMILES: {_visible(target)}\n"
-        f"CURRENT STATE SMILES: {_visible(current_state)}\n"
-        f"CANDIDATE SUCCESSOR SMILES: {_visible(successor_state)}\n"
+        f"TARGET PRODUCT SMILES: {visible_successor_state(target)}\n"
+        f"CURRENT STATE SMILES: {visible_successor_state(current_state)}\n"
+        f"CANDIDATE SUCCESSOR SMILES: {visible_successor_state(successor_state)}\n"
         f"CANDIDATE TERMINAL: {'yes' if terminal else 'no'}\n\n"
         "Return P or N."
     )
@@ -67,7 +68,7 @@ def successor_value_row(
 ) -> dict[str, Any]:
     if label not in {"P", "N"}:
         raise ValueError(f"invalid successor-value label: {label}")
-    visible_successor = _visible(successor_state)
+    visible_successor = visible_successor_state(successor_state)
     digest = hashlib.sha256(
         f"{state_hash}:{int(terminal)}:{visible_successor}:{label}".encode("utf-8")
     ).hexdigest()[:20]

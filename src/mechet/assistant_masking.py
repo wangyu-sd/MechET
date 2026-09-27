@@ -56,6 +56,40 @@ def render_chat(
     raise TypeError(f"chat template rendering failed{suffix}: {last_error}")
 
 
+def render_qwen_sft_tool_prefix(
+    tokenizer: Any,
+    messages: list[dict[str, Any]],
+    *,
+    tools: list[dict[str, Any]],
+) -> str:
+    """Match an assistant tool call in a completed Qwen3 SFT conversation.
+
+    Qwen3's generation template inserts an empty thinking block, but its
+    completed assistant tool call followed by a tool response does not. Actor
+    prompts must use the latter boundary, not add_generation_prompt=True.
+    """
+    if not tools:
+        raise ValueError("tool-call prefix requires tool schemas")
+    history = render_chat(tokenizer, messages, tools=tools, add_generation_prompt=False)
+    if not history.endswith("<|im_end|>\n"):
+        raise ValueError("Qwen SFT prefix does not end at a completed message")
+    return history + "<|im_start|>assistant\n"
+
+
+def render_qwen_sft_text_prefix(
+    tokenizer: Any,
+    messages: list[dict[str, Any]],
+) -> str:
+    """Match a completed Qwen3 assistant text answer (e.g. a critic label)."""
+    history = render_chat(tokenizer, messages, add_generation_prompt=False)
+    if not history.endswith("<|im_end|>\n"):
+        raise ValueError("Qwen SFT prefix does not end at a completed message")
+    prefix = render_chat(tokenizer, messages, add_generation_prompt=True)
+    if not prefix.startswith(history):
+        raise ValueError("Qwen generation prefix differs from SFT history")
+    return prefix
+
+
 def tokenize_text(tokenizer: Any, text: str) -> list[int]:
     encoded = tokenizer(text, add_special_tokens=False, truncation=False)
     if not isinstance(encoded, Mapping) or "input_ids" not in encoded:

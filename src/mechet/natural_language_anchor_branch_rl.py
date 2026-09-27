@@ -23,6 +23,7 @@ from .in_place_grounded_flow import deterministic_unmapped_state
 
 
 VERSION = "natural_language_verified_anchor_branch_rl_v1"
+PAPER_EARHO_REWARD_CONTRACT = "paper_earho_bounded_horizon_v1"
 _MORGAN = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=1024)
 
 
@@ -96,16 +97,69 @@ def _successor_positive(row: Mapping[str, Any]) -> bool:
     )
 
 
+def paper_earho_return(
+    score: Mapping[str, Any], *, anchor_state: str, horizon: int,
+    weights: Mapping[str, float],
+) -> dict[str, float | bool | int | str]:
+    """Evaluate the paper's bounded-continuation objective, never a text score.
+
+    ``decisions`` counts accepted actions after the executor reset, including
+    the sampled first action.  The execution term is a feasibility fraction;
+    it cannot, on its own, make an action a verified positive for policy credit.
+    """
+
+    if horizon < 1:
+        raise ValueError("EARHO continuation horizon must be positive")
+    names = ("lambda_s", "lambda_e", "lambda_c", "lambda_n")
+    coefficients = {name: float(weights[name]) for name in names}
+    if not all(math.isfinite(value) and value >= 0 for value in coefficients.values()):
+        raise ValueError("EARHO reward coefficients must be finite and nonnegative")
+    accepted = int(score.get("decisions") or 0)
+    if accepted < 0 or accepted > horizon:
+        raise ValueError(f"accepted decisions outside horizon: {accepted}/{horizon}")
+    failure = str(score.get("failure") or "")
+    first_state = str(score.get("first_successor_state") or "")
+    end = float(bool(score.get("correct")))
+    successor = float(bool(score.get("reference_first_successor_exact")))
+    execution = accepted / horizon
+    cycle = float("STATE_CYCLE" in failure)
+    noop = float(
+        bool(score.get("target_retained"))
+        or "TARGET_RETAINED_NO_TRANSFORM" in failure
+        or bool(
+            first_state
+            and not bool(score.get("first_successor_terminal"))
+            and first_state == deterministic_unmapped_state(anchor_state).text
+        )
+    )
+    value = (
+        end + coefficients["lambda_s"] * successor
+        + coefficients["lambda_e"] * execution
+        - coefficients["lambda_c"] * cycle
+        - coefficients["lambda_n"] * noop
+    )
+    return {
+        "contract": PAPER_EARHO_REWARD_CONTRACT,
+        "R_end": end, "R_succ": successor, "R_exec": execution,
+        "R_cycle": cycle, "R_noop": noop,
+        "accepted_decisions": accepted, "horizon": horizon,
+        **coefficients, "return": float(value),
+        "verified_positive": bool(end or successor),
+    }
+
+
 def assign_local_advantages(
     records: Sequence[dict[str, Any]],
     *,
     success_gated: bool = False,
+    paper_objective: bool = False,
 ) -> dict[str, Any]:
     """Estimate first-action values without comparing incompatible prompts.
 
     ``success_gated=False`` preserves the historical reward-normalized
-    contract for audit replay.  The repaired long-horizon contract sets
-    ``success_gated=True``.  It updates a prompt mode only when at least one
+    contract for audit replay.  The paper objective requires a verified
+    positive signal and a bounded-return record for every candidate.  It
+    updates a prompt mode only when at least one
     generated action reaches the reference successor or the exact endpoint.
     All-negative groups therefore produce zero policy gradient instead of
     promoting an arbitrary least-bad action.  The caller can still inject a
@@ -114,6 +168,8 @@ def assign_local_advantages(
 
     if not records:
         raise ValueError("empty natural-language anchor group")
+    if paper_objective and not success_gated:
+        raise ValueError("paper EARHO requires verified-positive gating")
     anchors = {(row["id"], row["anchor"]["state_hash"]) for row in records}
     if len(anchors) != 1:
         raise ValueError("anchor group mixes reactions or reset states")
@@ -127,23 +183,67 @@ def assign_local_advantages(
     action_values: dict[str, float] = {}
     for mode, mode_rows in by_mode.items():
         rewards: dict[str, list[float]] = {}
+        positive_keys: set[str] = set()
         for row in mode_rows:
-            value = (
-                float(_successor_positive(row))
-                if success_gated
-                else float(row["reward"])
-            )
-            rewards.setdefault(str(row["action_fingerprint"]), []).append(value)
+            key = str(row["action_fingerprint"])
+            if paper_objective:
+                terms = (row.get("score") or {}).get("earho_return_terms") or {}
+                if terms.get("contract") != PAPER_EARHO_REWARD_CONTRACT:
+                    raise ValueError("missing paper EARHO bounded-return terms")
+                value = float(terms["return"])
+                if not math.isfinite(value):
+                    raise ValueError("nonfinite paper EARHO return")
+                if bool(terms["verified_positive"]) != _successor_positive(row):
+                    raise ValueError("EARHO return and verified label disagree")
+                if _successor_positive(row):
+                    positive_keys.add(key)
+            else:
+                value = (
+                    float(_successor_positive(row))
+                    if success_gated
+                    else float(row["reward"])
+                )
+            rewards.setdefault(key, []).append(value)
         q_values = {
             key: sum(values) / len(values) for key, values in rewards.items()
         }
         has_positive = any(_successor_positive(row) for row in mode_rows)
         if success_gated and not has_positive:
+            for key, value in q_values.items():
+                action_values[f"{mode}:{key}"] = value
             for row in mode_rows:
                 row["anchor_action_q"] = q_values[str(row["action_fingerprint"])]
                 row["anchor_baseline"] = 0.0
                 row["advantage"] = 0.0
                 row["update_eligible"] = False
+            continue
+        if paper_objective:
+            positive_q = [q_values[key] for key in q_values if key in positive_keys]
+            negative_q = [q_values[key] for key in q_values if key not in positive_keys]
+            positive_mean = sum(positive_q) / len(positive_q)
+            negative_mean = (
+                sum(negative_q) / len(negative_q) if negative_q else 0.0
+            )
+            # The verified label, not relative rank among wrong successors,
+            # fixes the sign.  Bounded-return magnitudes set the strength.
+            for key, value in q_values.items():
+                action_values[f"{mode}:{key}"] = value
+            for row in mode_rows:
+                key = str(row["action_fingerprint"])
+                q_value = q_values[key]
+                positive = key in positive_keys
+                advantage = (
+                    max(q_value - negative_mean, 1e-4)
+                    if positive else
+                    min(q_value - positive_mean, -1e-4)
+                )
+                row["anchor_action_q"] = q_value
+                row["anchor_baseline"] = negative_mean if positive else positive_mean
+                row["advantage"] = advantage
+                row["update_eligible"] = True
+                eligible_records += 1
+            modes_with_positive += 1
+            effective = True
             continue
         modes_with_positive += int(has_positive)
         baseline = sum(q_values.values()) / len(q_values)

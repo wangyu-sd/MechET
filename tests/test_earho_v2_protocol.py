@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import hashlib
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -21,6 +22,7 @@ from scripts.earho_v2_protocol import (
 from scripts.build_earho_v2_successor_value import build_rows
 from scripts.natural_language_anchor_branch_stage import (
     _messages, _node, _v2_probe, _v2_successor_fingerprint,
+    _verified_replay_records,
 )
 from scripts.run_natural_language_value_search import (
     Action, Node, execute, policy_prompt, visible,
@@ -94,6 +96,93 @@ def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     assert len(_node(task).actions) == 1
 
 
+def test_verified_fallback_replays_whole_remaining_trajectory_with_matching_prefix():
+    class Tokenizer:
+        def apply_chat_template(self, messages, *, tokenize, add_generation_prompt,
+                                tools=None, enable_thinking=False):
+            assert not tokenize and not enable_thinking
+            rendered = ""
+            for index, message in enumerate(messages):
+                content = str(message.get("content") or "")
+                if message.get("tool_calls"):
+                    content += "<tool_call>" + str(message["tool_calls"]) + "</tool_call>"
+                followed_by_tool = (
+                    message["role"] == "assistant"
+                    and index + 1 < len(messages)
+                    and messages[index + 1]["role"] == "tool"
+                )
+                if message["role"] == "assistant" and not followed_by_tool:
+                    content = "<think>\n\n</think>\n\n" + content
+                rendered += f"<|im_start|>{message['role']}\n{content}<|im_end|>\n"
+            if add_generation_prompt:
+                rendered += "<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            return rendered
+
+        def __call__(self, text, **kwargs):
+            return {"input_ids": [ord(char) for char in text]}
+
+    source, decisions = fixture()
+    reference = replay_reference(source, decisions)
+    first = anchor_task(reference, 0, divergence_reason="INVALID_ACTION")
+    args = SimpleNamespace(legacy_dual_prompt=False)
+    records = _verified_replay_records(
+        Tokenizer(), first, source, first, 100000, args, reference=reference
+    )
+    assert [item["reference_decision_index"] for item in records] == [0, 1]
+    assert [item["reference_action"] for item in records] == [
+        "import_fragments", "finish_trace"
+    ]
+    for index, record in enumerate(records):
+        ids = record["input_ids"]
+        mask = record["loss_mask"]
+        boundary = mask.index(1)
+        prefix = "".join(chr(value) for value in ids[:boundary])
+        completion = "".join(chr(value) for value in ids[boundary:])
+        assert prefix.endswith("<|im_start|>assistant\n")
+        assert "<think>\n\n</think>\n\n" not in prefix
+        assert completion.startswith("<tool_call>")
+        assert "<think>" not in completion
+        assert "<|im_start|>tool" not in completion
+        assert f"accepted_actions: {index}" in prefix
+        assert all(value == 0 for value in mask[:boundary])
+        assert all(value == 1 for value in mask[boundary:])
+    second = anchor_task(reference, 1, divergence_reason="INVALID_ACTION")
+    suffix = _verified_replay_records(
+        Tokenizer(), second, source, second, 100000, args, reference=reference
+    )
+    assert [item["reference_decision_index"] for item in suffix] == [1]
+
+
+def test_real_qwen_verified_replay_supervises_tool_call_without_think_when_available():
+    from transformers import AutoTokenizer
+
+    snapshot = Path(
+        "/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/"
+        "models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
+    )
+    if not snapshot.is_dir():
+        pytest.skip("local Qwen3-8B tokenizer snapshot is unavailable")
+    tokenizer = AutoTokenizer.from_pretrained(
+        snapshot, local_files_only=True, trust_remote_code=True
+    )
+    source, decisions = fixture()
+    reference = replay_reference(source, decisions)
+    task = anchor_task(reference, 0, divergence_reason="INVALID_ACTION")
+    records = _verified_replay_records(
+        tokenizer, task, source, task, 100000,
+        SimpleNamespace(legacy_dual_prompt=False), reference=reference,
+    )
+    assert len(records) == 2
+    for record in records:
+        boundary = record["loss_mask"].index(1)
+        prefix = tokenizer.decode(record["input_ids"][:boundary], skip_special_tokens=False)
+        completion = tokenizer.decode(record["input_ids"][boundary:], skip_special_tokens=False)
+        assert prefix.endswith("<|im_start|>assistant\n")
+        assert completion.startswith("<tool_call>")
+        assert "<think>" not in completion
+        assert "<|im_start|>tool" not in completion
+
+
 def test_product_probe_uses_first_executed_successor_mismatch():
     source, decisions = fixture()
     reference = replay_reference(source, decisions)
@@ -156,10 +245,32 @@ def test_reference_prompt_drift_and_private_leak_are_rejected():
         replay_reference(source, changed)
 
 
+def test_v2_collection_rejects_stale_completed_marker(tmp_path):
+    import json
+
+    from scripts.run_natural_language_anchor_branch_rl import run_workers
+
+    source = tmp_path / "source.jsonl"
+    source.write_text("{}\n")
+    adapter = tmp_path / "actor"
+    adapter.mkdir()
+    (adapter / "adapter_model.safetensors").write_bytes(b"actor")
+    output = tmp_path / "collection"
+    output.mkdir()
+    (output / "collection_done.json").write_text(json.dumps({"adapter": str(adapter)}))
+    with pytest.raises(ValueError, match="different inputs"):
+        run_workers(
+            {"protocol_version": "trajectory_history_v2"},
+            source, adapter, output, frontier=2, round_index=0,
+            evaluation=False,
+        )
+
+
 def test_chemical_successor_pooling_ignores_action_surface():
     left = _v2_successor_fingerprint("[Na+:3].[CH3:1][Br:2]", False, "alpha")
     right = _v2_successor_fingerprint("[CH3:9][Br:8].[Na+:7]", False, "beta")
     assert left == right
+    assert left != _v2_successor_fingerprint("[CH3:9][Br:8].[Na+:7]", True, "finish")
     assert left != _v2_successor_fingerprint("[CH3:1][Br:2]", False, "alpha")
 
 
@@ -207,7 +318,9 @@ def test_successor_value_labels_are_reaction_disjoint_and_private():
             "anchor": {"version": "earho_first_divergence_v2",
                        "state_hash": task.state_hash, "decision_index": 0,
                        "divergence_reason": task.divergence_reason},
-            "score": {"first_successor_state": "[CH3:1][Br:2].[K+:3]",
+            # Collector persists the public, unmapped state, not the private
+            # executor atom maps. This is the deployed rollout contract.
+            "score": {"first_successor_state": "CBr.[K+]",
                       "first_successor_terminal": False, "correct": False},
             "reward": -0.1,
         })

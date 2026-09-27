@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-09-26",
+  "scope": "Existing EARHO Taiji task specifications and local EARHO output roots through 2026-09-25; no live platform state is asserted.",
+  "classification_notes": {
+    "confirmed_actor_prefix_mismatch": "Diagnostic only: generation inserted an empty Qwen thinking block before a tool call, unlike completed SFT tool-call rows. Do not use as clean Stage-III evidence or resume as v3.",
+    "legacy_pre_v3": "Historical protocol/diagnostic lineage; not a prefixv3 result. This label does not assert the confirmed prefix mismatch or that the job completed."
+  },
+  "task_configs": [
+    {
+      "path": "configs/taiji/meteor_mechet_earho_paper_flower_k2_gt_smoke_8a100_qy_20260924.json",
+      "task_flag": "meteor_mechet_earho_paper_flower_k2_gt_smoke_8a100_qy_20260924_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_paper_flower_k2_prefixv2_8a100_qy_20260925.json",
+      "task_flag": "meteor_mechet_earho_flower_k2_prefixv2_8a100_qy_20260925_01",
+      "classification": "confirmed_actor_prefix_mismatch"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_paper_flower_strict_8h20_zjk_20260924.json",
+      "task_flag": "meteor_mechet_earho_paper_flower_strict_8h20_zjk_20260924_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_paper_mech31k_8a100_qy_20260924.json",
+      "task_flag": "meteor_mechet_earho_paper_mech31k_8a100_qy_20260924_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_paper_mech31k_8h20_zjk_20260924.json",
+      "task_flag": "meteor_mechet_earho_paper_mech31k_8h20_zjk_20260924_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_actor_only_smoke_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_actor_only_smoke_8a100_qy_20260923_02",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_actor_only_smoke_8h20_zjk_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_actor_only_smoke_8h20_zjk_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_aligned_diversity_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_aligned_diversity_8a100_qy_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_aligned_parent_smoke_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_aligned_parent_smoke_8a100_qy_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_balanced_policy_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_balanced_policy_8a100_qy_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_beam4_smoke_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_beam4_smoke_8a100_qy_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_flower_critic_fix_8h20_zjk_20260924.json",
+      "task_flag": "meteor_mechet_earho_v2_flower_critic_fix_8h20_zjk_20260924_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_flower_nf4_matched_8h20_zjk_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_flower_nf4_matched_8h20_zjk_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_flower_strict_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_flower_strict_8a100_qy_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_flower_strict_8h20_zjk_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_flower_strict_8h20_zjk_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_mech31k_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_mech31k_8a100_qy_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_mech31k_8h20_zjk_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_mech31k_8h20_zjk_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_mech31k_arrow_fix_8a100_qy_20260924.json",
+      "task_flag": "meteor_mechet_earho_v2_mech31k_arrow_fix_8a100_qy_20260924_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_mech31k_sparse_bootstrap_8h20_zjk_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_mech31k_sparse_bootstrap_8h20_zjk_20260923_01",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_nf4_matched_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_nf4_matched_8a100_qy_20260923_02",
+      "classification": "legacy_pre_v3"
+    },
+    {
+      "path": "configs/taiji/meteor_mechet_earho_v2_round01_full_valid_8a100_qy_20260923.json",
+      "task_flag": "meteor_mechet_earho_v2_round01_full_valid_8a100_qy_20260923_01",
+      "classification": "legacy_pre_v3"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "outputs/agent/earho_paper_flower_strict_k2_gt_smoke_seed17_a100_20260924",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+      "observed_local_phase": "completed"
+    },
+    {
+      "path": "outputs/agent/earho_paper_flower_strict_k2_prefixv2_seed17_a100_20260925",
+      "classification": "confirmed_actor_prefix_mismatch",
+      "observed_prompt_prefix_contract": "qwen_sft_template_generation_prefix_v2",
+      "observed_local_phase": "completed"
+    },
+    {
+      "path": "outputs/agent/earho_paper_flower_strict_seed17_h20_20260924",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+      "observed_local_phase": "round_done"
+    },
+    {
+      "path": "outputs/agent/earho_paper_mech31k_seed17_h20_20260924",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+      "observed_local_phase": "completed"
+    },
+    {
+      "path": "outputs/agent/earho_v2_balanced_policy_round01_smoke_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "planned_or_partial"
+    },
+    {
+      "path": "outputs/agent/earho_v2_flower_strict_nf4_matched_seed17_h20_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+      "observed_local_phase": "round_done"
+    },
+    {
+      "path": "outputs/agent/earho_v2_flower_strict_seed17_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "planned_or_partial"
+    },
+    {
+      "path": "outputs/agent/earho_v2_flower_strict_seed17_h20_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "round_done"
+    },
+    {
+      "path": "outputs/agent/earho_v2_mech31k_aligned_diversity_seed17_a100_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+      "observed_local_phase": "planned_or_partial"
+    },
+    {
+      "path": "outputs/agent/earho_v2_mech31k_nf4_matched_seed17_a100_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+      "observed_local_phase": "round_done"
+    },
+    {
+      "path": "outputs/agent/earho_v2_mech_uspto31k_seed17_20260922",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "planned_or_partial"
+    },
+    {
+      "path": "outputs/agent/earho_v2_mech_uspto31k_seed17_h20_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "round_done"
+    },
+    {
+      "path": "outputs/agent/earho_v2_mech_uspto31k_sparse_bootstrap_seed17_h20_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "completed"
+    },
+    {
+      "path": "outputs/eval/earho_v2_component_smoke_round01_actor_no_critic_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "other"
+    },
+    {
+      "path": "outputs/eval/earho_v2_component_smoke_round01_beam4_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "other"
+    },
+    {
+      "path": "outputs/eval/earho_v2_round01_full_executable_valid_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "planned_or_partial"
+    },
+    {
+      "path": "outputs/eval/earho_v2_stageii_aligned_prefix_smoke_20260923",
+      "classification": "legacy_pre_v3",
+      "observed_prompt_prefix_contract": "none",
+      "observed_local_phase": "other"
+    }
+  ]
+}

@@ -27,28 +27,99 @@ from scripts.train_python_template_rlvr import _load_yaml
 
 
 PROTOCOL = "trajectory_history_v2"
+DATASETS = {
+    "mech_uspto31k_current_compiler": {
+        "reaction_denominator": {"train": 10152, "valid": 1319, "test": 1253},
+        "full_reaction_denominator": {"train": 24959, "valid": 3120, "test": 3120},
+        "source_manifest_name": "manifest.json",
+        "history_status": "validated_trace_view",
+        "source_dataset": "mech_uspto_31k_current_compiler_executable_trace_view",
+        "executor_revision": "mech_uspto31k_current_compiler_20260824",
+    },
+    "flower_strict_executable": {
+        "reaction_denominator": {"train": 257167, "valid": 2890, "test": 28967},
+        "full_reaction_denominator": {"train": 257171, "valid": 2890, "test": 28971},
+        "source_manifest_name": "training_manifest.json",
+        "history_status": "validated_complete",
+        "source_dataset": "flower_strict_executable_action_delta_v1",
+        "executor_revision": "flower_strict_executable_action_delta_v1",
+    },
+}
+
+
+def _dataset_contract(cfg: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return DATASETS[str(cfg["dataset_id"])]
+    except KeyError as exc:
+        raise ValueError("unknown EARHO dataset_id") from exc
+
+
+def _resolve_artifact(root: Path, value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else root / path
+
+
+def load_earho_config(path: Path) -> dict[str, Any]:
+    """Resolve one immutable experiment base with explicit nested overrides."""
+
+    cfg = _load_yaml(path)
+    parent_name = cfg.pop("extends", None)
+    if parent_name is None:
+        return cfg
+    parent_path = (path.parent / str(parent_name)).resolve()
+    if parent_path == path.resolve() or not parent_path.is_file():
+        raise ValueError("EARHO base config does not exist or extends itself")
+    parent = _load_yaml(parent_path)
+    if "extends" in parent:
+        raise ValueError("nested EARHO config inheritance is forbidden")
+    for key, value in cfg.items():
+        if isinstance(value, dict) and isinstance(parent.get(key), dict):
+            parent[key] = {**parent[key], **value}
+        else:
+            parent[key] = value
+    return parent
 
 
 def validate_contract(cfg: dict[str, Any]) -> None:
     if cfg.get("protocol_version") != PROTOCOL:
         raise ValueError("EARHO v2 requires the compressed-history v2 protocol")
+    if cfg.get("prompt_prefix_contract") != "qwen_sft_tool_and_text_prefix_v3":
+        raise ValueError("EARHO requires distinct SFT-aligned tool and text prefixes (v3)")
+    if cfg.get("actor_quantization") not in (None, "bnb_nf4_double_quant_bf16"):
+        raise ValueError("EARHO actor quantization must match NF4/double-quant/BF16 SFT")
     if cfg.get("legacy_dual_prompt") or cfg.get("test_file"):
         raise ValueError("v1 dual prompts and test data are forbidden")
     if not (cfg.get("optimization") or {}).get("success_gated_advantages"):
         raise ValueError("EARHO requires success-gated policy advantages")
+    reward = cfg.get("reward") or {}
+    if reward.get("contract") not in {
+        "exact_endpoint_or_reference_successor_v2",
+        "paper_earho_bounded_horizon_v1",
+    }:
+        raise ValueError("EARHO reward contract must be explicit")
+    if reward.get("contract") == "paper_earho_bounded_horizon_v1":
+        coefficients = [float(reward[name]) for name in (
+            "lambda_s", "lambda_e", "lambda_c", "lambda_n"
+        )]
+        if not all(0 <= value < float("inf") for value in coefficients):
+            raise ValueError("EARHO reward coefficients must be finite and nonnegative")
+        if coefficients[0] <= coefficients[1]:
+            raise ValueError("verified successor credit must exceed pure execution credit")
     if str(cfg.get("value_kind") or "successor_pn") != "successor_pn":
         raise ValueError("EARHO requires a transition-level P/N successor critic")
     source_dir = Path(cfg["train_file"]).parent
-    source_manifest = json.loads(Path(cfg["stable_id_manifest"]).read_text())
+    dataset = _dataset_contract(cfg)
+    source_manifest_path = Path(cfg["stable_id_manifest"])
+    if source_manifest_path.name != dataset["source_manifest_name"] or source_manifest_path.parent != source_dir:
+        raise ValueError("source manifest does not belong to selected executable trace view")
+    source_manifest = json.loads(source_manifest_path.read_text())
     source_status = json.loads((source_dir / "ARTIFACT_STATUS.json").read_text())
     if source_status.get("training_allowed") is not True:
         raise ValueError("source executable trace view is not training-enabled")
     expected = dict(cfg["reaction_denominator"])
     full = dict(cfg["full_reaction_denominator"])
-    if expected != {"train": 10152, "valid": 1319, "test": 1253}:
-        raise ValueError("unexpected current-compiler 31k executable denominator")
-    if full != {"train": 24959, "valid": 3120, "test": 3120}:
-        raise ValueError("unexpected complete 31k reaction denominator")
+    if expected != dataset["reaction_denominator"] or full != dataset["full_reaction_denominator"]:
+        raise ValueError("EARHO dataset denominator mismatch")
     for split, key in (("train", "train_file"), ("valid", "validation_file")):
         item = source_manifest["splits"][split]
         if int(item["rows"]) != expected[split]:
@@ -57,24 +128,29 @@ def validate_contract(cfg: dict[str, Any]) -> None:
             raise ValueError(f"{split} source SHA-256 mismatch")
     history_dir = Path(cfg["history_file"]).parent
     history_manifest = json.loads(Path(cfg["natural_language_manifest"]).read_text())
-    if not history_manifest.get("training_allowed") or history_manifest.get("status") != "validated_trace_view":
+    if not history_manifest.get("training_allowed") or history_manifest.get("status") != dataset["history_status"]:
         raise ValueError("v2 history supervision is not validated")
     if history_manifest.get("decision_contract") != "unified_inventory_compressed_history_tool_decision_v2":
         raise ValueError("v2 compressed-history decision contract mismatch")
     if history_manifest.get("reaction_denominator") != expected:
         raise ValueError("history executable denominator changed")
-    if history_manifest.get("full_reaction_denominator") != full:
+    if history_manifest.get("full_reaction_denominator", history_manifest.get("reaction_denominator")) != (
+        full if cfg["dataset_id"] == "mech_uspto31k_current_compiler" else expected
+    ):
         raise ValueError("history complete denominator changed")
     repository_root = source_dir.parents[1]
-    event_dir = repository_root / str(history_manifest["source_artifact"])
+    event_dir = _resolve_artifact(repository_root, str(history_manifest["source_artifact"]))
     event_manifest_path = event_dir / "manifest.json"
     event_manifest = json.loads(event_manifest_path.read_text())
-    if event_manifest.get("source_artifact") != str(source_dir.relative_to(repository_root)):
+    if _resolve_artifact(repository_root, str(event_manifest.get("source_artifact"))) != source_dir:
         raise ValueError("event supervision does not descend from selected source")
     if event_manifest.get("source_manifest_sha256") != _sha256(Path(cfg["stable_id_manifest"])):
         raise ValueError("event/source manifest lineage mismatch")
-    if history_manifest.get("source_manifest_sha256") != _sha256(event_manifest_path):
+    history_parent_hash = history_manifest.get("source_manifest_sha256")
+    if history_parent_hash is not None and history_parent_hash != _sha256(event_manifest_path):
         raise ValueError("history/event manifest lineage mismatch")
+    if history_parent_hash is None and cfg["dataset_id"] != "flower_strict_executable":
+        raise ValueError("history/event manifest lineage hash missing")
     for split in ("train", "valid"):
         if _sha256(history_dir / f"{split}.jsonl") != history_manifest["splits"][split]["output_sha256"]:
             raise ValueError(f"{split} history SHA-256 mismatch")
@@ -91,7 +167,7 @@ def validate_contract(cfg: dict[str, Any]) -> None:
     if adapter_manifest.get("base_model_revision") != cfg["model_revision"]:
         raise ValueError("parent/base model revision mismatch")
     if adapter_manifest.get("train_file_sha256") != history_manifest["splits"]["train"]["output_sha256"]:
-        raise ValueError("Stage-II parent was not trained on the selected 31k history data")
+        raise ValueError("Stage-II parent was not trained on the selected history data")
     if cfg.get("value_adapter_path"):
         raise ValueError("v2 successor value must start untrained and be learned from actor rollouts")
 
@@ -121,6 +197,24 @@ def _attach_decisions(
     return output
 
 
+def _sample_reactions(path: Path, total: int, count: int, seed: int) -> list[dict[str, Any]]:
+    """Sample by line number without materializing the multi-GB source JSONL."""
+    if count > total:
+        raise ValueError("requested more distinct RL reactions than available")
+    selected = random.Random(seed).sample(range(total), count)
+    positions = {line_number: position for position, line_number in enumerate(selected)}
+    rows: list[dict[str, Any] | None] = [None] * count
+    seen = 0
+    with path.open(encoding="utf-8") as handle:
+        for seen, line in enumerate(handle, start=1):
+            position = positions.get(seen - 1)
+            if position is not None:
+                rows[position] = json.loads(line)
+    if seen != total or any(row is None for row in rows):
+        raise ValueError(f"source JSONL row count changed: {path}")
+    return [row for row in rows if row is not None]
+
+
 def prepare(cfg: dict[str, Any], output: Path) -> None:
     config_sha256 = hashlib.sha256(
         json.dumps(cfg, sort_keys=True, separators=(",", ":")).encode()
@@ -133,26 +227,26 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             raise ValueError("existing EARHO plan has a different parent adapter")
         if plan.get("protocol_version") != PROTOCOL:
             raise ValueError("existing EARHO plan has a different protocol")
+        if plan.get("reward_contract", "exact_endpoint_or_reference_successor_v2") != cfg["reward"]["contract"]:
+            raise ValueError("existing EARHO plan has a different reward objective")
         for name, digest in (plan.get("prepared_files") or {}).items():
             if _sha256(output / name) != digest:
                 raise ValueError(f"prepared EARHO source changed: {name}")
         if len(plan.get("prepared_files") or {}) != int(cfg["rounds"]) + 1:
             raise ValueError("EARHO preparation manifest is incomplete")
         return
-    source = read_rows(cfg["train_file"])
-    validation = read_rows(cfg["validation_file"])
-    if len(source) != cfg["reaction_denominator"]["train"]:
-        raise ValueError("source train count mismatch")
-    if len(validation) != cfg["reaction_denominator"]["valid"]:
-        raise ValueError("source validation count mismatch")
-    random.Random(int(cfg["seed"])).shuffle(source)
-    random.Random(int(cfg["seed"])).shuffle(validation)
     count = int(cfg["rounds"]) * int(cfg["products_per_round"])
-    if count > len(source):
-        raise ValueError("requested more distinct RL train reactions than available")
-    selected = _attach_decisions(source[:count], Path(cfg["history_file"]))
+    source = _sample_reactions(
+        Path(cfg["train_file"]), int(cfg["reaction_denominator"]["train"]),
+        count, int(cfg["seed"]),
+    )
+    validation = _sample_reactions(
+        Path(cfg["validation_file"]), int(cfg["reaction_denominator"]["valid"]),
+        int(cfg["validation_monitor_rows"]), int(cfg["seed"]),
+    )
+    selected = _attach_decisions(source, Path(cfg["history_file"]))
     monitor = _attach_decisions(
-        validation[: int(cfg["validation_monitor_rows"])],
+        validation,
         Path(cfg["history_validation_file"]),
     )
     output.mkdir(parents=True, exist_ok=True)
@@ -172,8 +266,13 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
         {
             "artifact_type": "earho_first_divergence_v2_plan",
             "protocol_version": PROTOCOL,
+            "reward_contract": cfg["reward"]["contract"],
+            "reward_coefficients": {
+                key: cfg["reward"][key]
+                for key in ("lambda_s", "lambda_e", "lambda_c", "lambda_n")
+            } if cfg["reward"]["contract"] == "paper_earho_bounded_horizon_v1" else None,
             "config_sha256": config_sha256,
-            "source_reactions": len(source),
+            "source_reactions": int(cfg["reaction_denominator"]["train"]),
             "selected_train_reactions": count,
             "validation_monitor_reactions": len(monitor),
             "selected_id_sha256": hashlib.sha256("\n".join(ids).encode()).hexdigest(),
@@ -182,6 +281,7 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             "reference_endpoint_model_visible": False,
             "first_divergence_from_product_rollout": True,
             "actor_prompt_history_contract": "executor_compact_accepted_actions_v1",
+            "prompt_prefix_contract": cfg.get("prompt_prefix_contract"),
             "test_used": False,
         },
     )
@@ -215,11 +315,11 @@ def _critic_config(
         expected_train_rows=manifest["splits"]["train"]["rows"],
         expected_validation_rows=manifest["splits"]["valid"]["rows"],
         expected_test_rows=0,
-        source_dataset="mech_uspto_31k_current_compiler_executable_trace_view",
+        source_dataset=_dataset_contract(cfg)["source_dataset"],
         source_artifact=cfg["train_file"],
         reaction_denominator=cfg["reaction_denominator"],
         environment_revision="earho_v2_successor_value_pn",
-        executor_revision="mech_uspto31k_current_compiler_20260824",
+        executor_revision=_dataset_contract(cfg)["executor_revision"],
     )
     path = dataset / "critic_training.yaml"
     path.write_text(yaml.safe_dump(critic, sort_keys=False))
@@ -368,8 +468,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--prepare-only", action="store_true")
+    parser.add_argument("--expected-gpu-regex")
+    parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
-    cfg = _load_yaml(args.config)
+    cfg = load_earho_config(args.config)
+    if args.expected_gpu_regex:
+        cfg["expected_gpu_regex"] = args.expected_gpu_regex
+    if args.output_dir:
+        cfg["output_dir"] = str(args.output_dir)
     if args.prepare_only:
         validate_contract(cfg)
         prepare(cfg, Path(cfg["output_dir"]))

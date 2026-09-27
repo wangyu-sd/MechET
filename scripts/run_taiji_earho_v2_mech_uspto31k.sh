@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-code_dir=/aaa/fionafyang/buddy1/whaleywang/MechET-nl-v2-full-runtime-20260918-02
+code_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 artifact_root=/aaa/fionafyang/buddy1/whaleywang/MechET
 vllm_ceph=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
+vllm_archive=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311_pruned.tar.zst
+vllm_overlay=$artifact_root/artifacts/taiji_vllm_runtime/vllm_0_8_5_numpy_core_tests_overlay.tar.zst
 config=${1:-$code_dir/configs/agent/earho_v2_mech_uspto31k_8a100.yaml}
+if [[ $# -gt 0 ]]; then shift; fi
 
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -18,6 +21,14 @@ if [[ ! -f "$vllm_ceph/.mechet_vllm_runtime_complete" ]]; then
   echo "[earho-v2] incomplete vLLM runtime: $vllm_ceph" >&2
   exit 2
 fi
+if [[ ! -f "$vllm_archive" ]]; then
+  echo "[earho-v2] missing single-file vLLM runtime archive: $vllm_archive" >&2
+  exit 2
+fi
+if [[ ! -f "$vllm_overlay" ]]; then
+  echo "[earho-v2] missing NumPy compatibility overlay: $vllm_overlay" >&2
+  exit 2
+fi
 wheel_target=$(mktemp -d /tmp/mechet_earho_v2_wheels.XXXXXX)
 python -m pip install --quiet --no-deps --target "$wheel_target" \
   "$artifact_root/artifacts/wheels/liger_kernel-0.6.2-py3-none-any.whl" \
@@ -27,20 +38,28 @@ python -m pip install --quiet --no-deps --target "$wheel_target" \
 export PYTHONPATH=$wheel_target:$code_dir/src:$code_dir
 
 python - <<'PY'
-import rdkit, torch
+import os, re, rdkit, torch
 names = [torch.cuda.get_device_name(index) for index in range(torch.cuda.device_count())]
-if len(names) != 8 or not all('A100' in name for name in names):
-    raise SystemExit(f'expected ordinary 8xA100, got {names}')
+expected = os.environ.get('MECHET_EXPECTED_GPU_REGEX', 'A100')
+if len(names) != 8 or not all(re.search(expected, name) for name in names):
+    raise SystemExit(f'expected ordinary 8x{expected}, got {names}')
 if rdkit.__version__ != '2026.03.4':
     raise SystemExit(f'expected RDKit 2026.03.4, got {rdkit.__version__}')
 print({'hardware': names, 'rdkit': rdkit.__version__}, flush=True)
 PY
 
 vllm_local=$(mktemp -d /tmp/mechet_earho_v2_vllm.XXXXXX)
-echo "[earho-v2] staging pinned vLLM 0.8.5 runtime to $vllm_local"
-cp -a "$vllm_ceph/." "$vllm_local/"
+echo "[earho-v2] extracting pinned vLLM 0.8.5 archive to $vllm_local"
+tar --zstd -xf "$vllm_archive" -C "$vllm_local"
+tar --zstd -xf "$vllm_overlay" -C "$vllm_local"
 test -f "$vllm_local/.mechet_vllm_runtime_complete"
+PYTHONPATH=$vllm_local:$PYTHONPATH python - <<'PY'
+from transformers import ProcessorMixin
+import vllm
+print({'vllm': vllm.__version__, 'processor_mixin': ProcessorMixin.__name__}, flush=True)
+PY
 export MECHET_ANCHOR_VLLM_RUNTIME=$vllm_local
 
-echo "[earho-v2] code=$(git rev-parse HEAD) config=$config"
-exec python -u scripts/run_earho_v2.py --config "$config"
+entrypoint=${MECHET_EARHO_ENTRYPOINT:-scripts/run_earho_v2.py}
+echo "[earho-v2] code=$(git rev-parse HEAD) config=$config entrypoint=$entrypoint"
+exec python -u "$entrypoint" --config "$config" "$@"

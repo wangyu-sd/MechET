@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from mechet.assistant_masking import render_chat
+from mechet.assistant_masking import render_qwen_sft_text_prefix, render_qwen_sft_tool_prefix
 from mechet.endpoints import (
     reference_structural_precursor,
     split_precursor_endpoints,
@@ -174,7 +174,7 @@ class Runtime:
         state = node.state
         inventory_modes = [False, True] if self.args.legacy_dual_prompt else [True]
         prompts = [
-            render_chat(
+            render_qwen_sft_tool_prefix(
                 self.tokenizer,
                 [
                     {"role": "system", "content": SYSTEM},
@@ -190,7 +190,6 @@ class Runtime:
                     },
                 ],
                 tools=TOOLS,
-                add_generation_prompt=True,
             )
             for include_inventory in inventory_modes
         ]
@@ -272,7 +271,7 @@ class Runtime:
             if self.value_kind == "successor_pn":
                 batch_parents = current_states[start : start + batch_size]
                 prompts = [
-                    render_chat(
+                    render_qwen_sft_text_prefix(
                         self.tokenizer,
                         [
                             {"role": "system", "content": SUCCESSOR_VALUE_SYSTEM},
@@ -283,21 +282,17 @@ class Runtime:
                                 ),
                             },
                         ],
-                        tools=[],
-                        add_generation_prompt=True,
                     )
                     for parent, state in zip(batch_parents, batch_states, strict=True)
                 ]
             else:
                 prompts = [
-                    render_chat(
+                    render_qwen_sft_text_prefix(
                         self.tokenizer,
                         [
                             {"role": "system", "content": VALUE_SYSTEM},
                             {"role": "user", "content": value_prompt(target, state)},
                         ],
-                        tools=[],
-                        add_generation_prompt=True,
                     )
                     for state in batch_states
                 ]

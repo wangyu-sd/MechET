@@ -17,12 +17,18 @@ sys.path[:0] = [str(REPO), str(REPO / "src"), str(REPO / "scripts")]
 
 from anchor_branch_stage import train
 from python_continual_stage import log, read_rows
-from mechet.assistant_masking import encode_assistant_only_conversation, render_chat
+from mechet.assistant_masking import (
+    encode_assistant_only_conversation,
+    render_qwen_sft_text_prefix,
+    render_qwen_sft_tool_prefix,
+    tokenize_text,
+)
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
     contains_unchanged_target,
     endpoint_shaped_reward,
+    paper_earho_return,
     state_value_margin,
     stable_rng,
     successor_fingerprint,
@@ -99,7 +105,7 @@ def _render_prompt(tokenizer, task, state: str, mode: str, *, actions=None) -> l
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": content},
     ]
-    rendered = render_chat(tokenizer, messages, tools=TOOLS, add_generation_prompt=True)
+    rendered = render_qwen_sft_tool_prefix(tokenizer, messages, tools=TOOLS)
     return tokenizer.encode(rendered, add_special_tokens=False)
 
 
@@ -202,7 +208,7 @@ def _critic_scores(
                 else task.anchor_state
             )
             prompts.append(
-                render_chat(
+                render_qwen_sft_text_prefix(
                     tokenizer,
                     [
                         {"role": "system", "content": SUCCESSOR_VALUE_SYSTEM},
@@ -216,45 +222,53 @@ def _critic_scores(
                             ),
                         },
                     ],
-                    tools=[],
-                    add_generation_prompt=True,
                 )
             )
         labels = "PN"
     elif value_kind == "state_abc":
         prompts = [
-            render_chat(
+            render_qwen_sft_text_prefix(
                 tokenizer,
                 [
                     {"role": "system", "content": VALUE_SYSTEM},
                     {"role": "user", "content": value_prompt(task.target, node.state)},
                 ],
-                tools=[],
-                add_generation_prompt=True,
             )
             for node in nodes
         ]
         labels = "ABC"
     else:
         raise ValueError(f"unsupported value critic kind: {value_kind}")
-    generated = llm.generate(
-        prompts, parameters, lora_request=value_lora, use_tqdm=False
-    )
     label_ids = {
         label: tokenizer(label, add_special_tokens=False)["input_ids"][0]
         for label in labels
     }
+    # A generation top-k logprob dictionary is not an exhaustive distribution:
+    # even with allowed_token_ids, vLLM 0.8.5 can omit the other P/N label.
+    # Score each actual label as the final prompt token instead. vLLM includes
+    # the observed prompt token's logprob even when it is not in the top-k.
+    scoring_prompts = [
+        {"prompt_token_ids": tokenizer.encode(prompt, add_special_tokens=False) + [token_id]}
+        for prompt in prompts
+        for token_id in label_ids.values()
+    ]
+    generated = llm.generate(
+        scoring_prompts, parameters, lora_request=value_lora, use_tqdm=False
+    )
     output = []
-    for node, generation in zip(nodes, generated, strict=True):
-        distribution = generation.outputs[0].logprobs[0]
+    for index, node in enumerate(nodes):
         label_logps = {}
-        for label, token_id in label_ids.items():
+        for offset, (label, token_id) in enumerate(label_ids.items()):
+            generation = generated[index * len(label_ids) + offset]
+            distribution = (generation.prompt_logprobs or [None])[-1] or {}
             value = distribution.get(token_id)
             if value is None:
-                raise ValueError(f"critic omitted allowed label {label}")
+                raise ValueError(f"critic did not score prompt label {label}")
             label_logps[label] = float(
                 value.logprob if hasattr(value, "logprob") else value
             )
+            if not math.isfinite(label_logps[label]):
+                raise ValueError(f"critic returned nonfinite label score {label}")
         output.append(
             successor_value_margin(label_logps)
             if value_kind == "successor_pn"
@@ -362,6 +376,7 @@ def _beam_continue(
     frontier = [start]
     terminals = []
     last_errors: list[str] = []
+    exhausted_budget = True
     for _ in range(int(remaining_decisions)):
         jobs = []
         prompts = []
@@ -374,6 +389,7 @@ def _beam_continue(
                 jobs.append((parent_index, node, mode))
                 prompts.append({"prompt_token_ids": prompt})
         if not jobs:
+            exhausted_budget = False
             break
         generated = llm.generate(
             prompts, parameters, lora_request=lora, use_tqdm=False
@@ -394,6 +410,7 @@ def _beam_continue(
                     continue
                 candidates.append(child)
         if not candidates:
+            exhausted_budget = False
             break
 
         # Pool surface forms and convergent paths before critic evaluation.
@@ -428,6 +445,7 @@ def _beam_continue(
             child for _, child in ranked if not child.terminal
         ][:width]
         if not frontier:
+            exhausted_budget = False
             break
 
     if terminals:
@@ -440,7 +458,10 @@ def _beam_continue(
                 + float(args.policy_score_weight) * float(child.policy_score)
             ),
         )
-        return best, "DECISION_BUDGET"
+        return best, (
+            "DECISION_BUDGET" if exhausted_budget else
+            last_errors[-1] if last_errors else "NO_EXECUTABLE_CONTINUATION"
+        )
     return None, last_errors[-1] if last_errors else "NO_EXECUTABLE_CONTINUATION"
 
 
@@ -451,6 +472,7 @@ def _score_rollout(
     steps: int,
     *,
     first_successor_state: str,
+    first_successor_terminal: bool = False,
     invalid_penalty: float,
     wrong_terminal_penalty: float,
     endpoint_similarity_weight: float,
@@ -458,7 +480,10 @@ def _score_rollout(
     nonexact_reward_ceiling: float,
     target_retained_penalty: float,
     reference_first_successor_state: str,
+    reference_first_successor_terminal: bool | None = None,
     reference_first_successor_weight: float,
+    paper_weights: Mapping[str, float] | None = None,
+    continuation_limit: int | None = None,
 ):
     terminal = bool(node is not None and node.terminal)
     precursor = visible(node.state) if node is not None else ""
@@ -473,25 +498,36 @@ def _score_rollout(
         first_successor_state
         and reference_first_successor_state
         and visible(first_successor_state) == visible(reference_first_successor_state)
+        and (
+            reference_first_successor_terminal is None
+            or bool(first_successor_terminal) == bool(reference_first_successor_terminal)
+        )
     )
-    shaped = endpoint_shaped_reward(
-        correct=correct,
-        terminal=terminal,
-        anchor_state=task.anchor_state,
-        first_successor_state=first_successor_state,
-        final_state=node.state if node is not None else "",
-        expected_precursor=task.expected_precursor,
-        invalid_penalty=invalid_penalty,
-        wrong_terminal_penalty=wrong_terminal_penalty,
-        endpoint_similarity_weight=endpoint_similarity_weight,
-        first_successor_progress_weight=first_successor_progress_weight,
-        nonexact_reward_ceiling=nonexact_reward_ceiling,
-        target_retained=target_retained,
-        target_retained_penalty=target_retained_penalty,
-        reference_first_successor_exact=reference_first_successor_exact,
-        reference_first_successor_weight=reference_first_successor_weight,
+    shaped = (
+        {"reward": 0.0, "outcome": (
+            "exact_endpoint" if correct else
+            "wrong_endpoint" if terminal else "invalid_or_incomplete"
+        )}
+        if paper_weights is not None else
+        endpoint_shaped_reward(
+            correct=correct,
+            terminal=terminal,
+            anchor_state=task.anchor_state,
+            first_successor_state=first_successor_state,
+            final_state=node.state if node is not None else "",
+            expected_precursor=task.expected_precursor,
+            invalid_penalty=invalid_penalty,
+            wrong_terminal_penalty=wrong_terminal_penalty,
+            endpoint_similarity_weight=endpoint_similarity_weight,
+            first_successor_progress_weight=first_successor_progress_weight,
+            nonexact_reward_ceiling=nonexact_reward_ceiling,
+            target_retained=target_retained,
+            target_retained_penalty=target_retained_penalty,
+            reference_first_successor_exact=reference_first_successor_exact,
+            reference_first_successor_weight=reference_first_successor_weight,
+        )
     )
-    return {
+    score = {
         "formal_execute": terminal,
         "productive_execute": bool(terminal and not target_retained),
         "target_retained": target_retained,
@@ -502,6 +538,7 @@ def _score_rollout(
         "first_successor_state": (
             visible(first_successor_state) if first_successor_state else ""
         ),
+        "first_successor_terminal": bool(first_successor_terminal),
         # Private training label retained in rollout artifacts for auditable
         # successor-value mining.  It is never rendered into an actor prompt.
         "reference_first_successor_exact": reference_first_successor_exact,
@@ -509,6 +546,16 @@ def _score_rollout(
         "decisions": steps,
         "trajectory": list(node.actions) if node is not None else [],
     }
+    if paper_weights is not None:
+        score["earho_return_terms"] = paper_earho_return(
+            score, anchor_state=task.anchor_state,
+            horizon=int(continuation_limit), weights=paper_weights,
+        )
+        score["reward"] = float(score["earho_return_terms"]["return"])
+        score["reward_terms"] = {
+            "outcome": shaped["outcome"], **score["earho_return_terms"]
+        }
+    return score
 
 
 def _reference_first_decision(row: Mapping[str, Any], episode: Mapping[str, Any]):
@@ -541,7 +588,8 @@ def _reference_first_decision(row: Mapping[str, Any], episode: Mapping[str, Any]
     )
 
 
-def _verified_replay_record(tokenizer, task, row, episode, max_context: int, args):
+def _verified_replay_record(tokenizer, task, row, episode, max_context: int, args,
+                            *, tool_result=None):
     mode, name, arguments, _ = _reference_first_decision(row, episode)
     if not getattr(args, "legacy_dual_prompt", False):
         mode = "unified"
@@ -556,8 +604,13 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
                     "function": {"name": name, "arguments": arguments},
                 }
             ],
-        }
+        },
+        dict(tool_result) if tool_result is not None else {
+            "role": "tool", "name": name, "content": "{}",
+        },
     ]
+    if messages[-1].get("role") != "tool" or messages[-1].get("name") != name:
+        raise ValueError("VERIFIED_REPLAY_TOOL_RESULT_MISMATCH")
     encoded, metadata = encode_assistant_only_conversation(
         tokenizer,
         {"messages": messages, "tools": TOOLS},
@@ -565,8 +618,19 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
     )
     if metadata["exceeds_max_length"]:
         raise ValueError("VERIFIED_REPLAY_EXCEEDS_CONTEXT")
-    input_ids = list(encoded["input_ids"])
-    loss_mask = [int(value != -100) for value in encoded["labels"]]
+    # The following tool message selects Qwen3's completed tool-call template.
+    # It is executor output, not actor supervision, so truncate after the
+    # assistant span before constructing the learner record.
+    assistant_end = int(metadata["assistant_spans"][0][1])
+    input_ids = list(encoded["input_ids"][:assistant_end])
+    prefix = tokenize_text(
+        tokenizer,
+        render_qwen_sft_tool_prefix(tokenizer, _messages(task, mode), tools=TOOLS),
+    )
+    if input_ids[: len(prefix)] != prefix or len(input_ids) <= len(prefix):
+        raise ValueError("VERIFIED_REPLAY_PROMPT_MISMATCH")
+    # Replay supervises only the assistant tool call after the actor prefix.
+    loss_mask = [0] * len(prefix) + [1] * (len(input_ids) - len(prefix))
     return {
         "id": task.reaction_id,
         "kind": "verified_replay",
@@ -579,6 +643,30 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
         "reference_action": name,
         "anchor": _task_record(task),
     }
+
+
+def _verified_replay_records(tokenizer, task, row, episode, max_context: int, args,
+                             *, reference=None):
+    """Replay every remaining verified decision, not just the anchor action.
+
+    Each decision has its own public state and compact accepted history, exactly
+    as in Stage-II Trajectory-SFT.  Private future actions never enter a prompt.
+    """
+    if not isinstance(task, V2AnchorTask):
+        return [_verified_replay_record(tokenizer, task, row, episode, max_context, args)]
+    if reference is None or reference.reaction_id != task.reaction_id:
+        raise ValueError("VERIFIED_REPLAY_REFERENCE_MISSING")
+    records = []
+    for index in range(task.prefix_events, len(reference.decisions)):
+        step = v2_anchor_task(reference, index, divergence_reason=task.divergence_reason)
+        result = reference.decisions[index]["messages"][-1]
+        record = _verified_replay_record(
+            tokenizer, step, row, step, max_context, args,
+            tool_result=result,
+        )
+        record["reference_decision_index"] = index
+        records.append(record)
+    return records
 
 
 def _task_record(task):
@@ -594,11 +682,11 @@ def _task_record(task):
 
 
 def _v2_successor_fingerprint(state: str, terminal: bool, invalid_text: str) -> str:
-    """Pool equivalent executed successors across action names and surface text."""
+    """Pool equivalent executed successors without merging finish and continue."""
 
     if not state:
         return "INVALID:" + hashlib.sha256(invalid_text.encode()).hexdigest()[:16]
-    payload = f"{int(terminal)}:{visible(state)}"
+    payload = f"{int(bool(terminal))}:{visible(state)}"
     return "CHEM:" + hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -685,10 +773,16 @@ def collect(args):
         raise ValueError(f"refusing overwrite: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
     rows = read_rows(args.data)[args.rank :: args.world_size]
+    quantization = (
+        "bitsandbytes"
+        if args.actor_quantization == "bnb_nf4_double_quant_bf16"
+        else None
+    )
     llm = LLM(
         model=args.model,
         tokenizer=args.model,
         dtype="bfloat16",
+        quantization=quantization,
         tensor_parallel_size=1,
         gpu_memory_utilization=0.85,
         max_model_len=args.max_context,
@@ -701,6 +795,16 @@ def collect(args):
         enforce_eager=True,
         seed=(args.seed + args.rank) % (2**32),
         trust_remote_code=True,
+    )
+    actual_quantization = llm.llm_engine.model_config.quantization
+    if actual_quantization != quantization:
+        raise RuntimeError(
+            f"actor quantization mismatch: requested={quantization} actual={actual_quantization}"
+        )
+    print(
+        f"[actor-runtime] dtype=bfloat16 quantization={actual_quantization} "
+        f"nf4_double_quant={quantization == 'bitsandbytes'}",
+        flush=True,
     )
     tokenizer = llm.get_tokenizer()
     lora = LoRARequest("nl_anchor_actor", 1, str(Path(args.adapter).resolve()))
@@ -722,7 +826,13 @@ def collect(args):
     )
     first_parameters = SamplingParams(
         n=args.k // len(prompt_modes),
-        temperature=0.0 if args.evaluation else args.temperature,
+        # vLLM requires n=1 for greedy decoding. Validation keeps the same
+        # stochastic K-candidate policy as collection when K > 1.
+        temperature=(
+            args.temperature
+            if args.k // len(prompt_modes) > 1
+            else (0.0 if args.evaluation else args.temperature)
+        ),
         top_p=1.0,
         top_k=-1,
         repetition_penalty=1.0,
@@ -765,8 +875,7 @@ def collect(args):
         n=1,
         temperature=0.0,
         max_tokens=1,
-        logprobs=len(value_labels),
-        allowed_token_ids=label_ids,
+        prompt_logprobs=0,
     )
 
     error_path = output.with_suffix(output.suffix + ".errors.jsonl")
@@ -915,6 +1024,7 @@ def collect(args):
                             error,
                             decisions,
                             first_successor_state=first_state,
+                            first_successor_terminal=first_terminal,
                             invalid_penalty=args.invalid_penalty,
                             wrong_terminal_penalty=args.wrong_terminal_penalty,
                             endpoint_similarity_weight=args.endpoint_similarity_weight,
@@ -922,9 +1032,21 @@ def collect(args):
                             nonexact_reward_ceiling=args.nonexact_reward_ceiling,
                             target_retained_penalty=args.target_retained_penalty,
                             reference_first_successor_state=reference_first_successor,
+                            reference_first_successor_terminal=(
+                                task.reference_terminal if isinstance(task, V2AnchorTask) else None
+                            ),
                             reference_first_successor_weight=args.reference_first_successor_weight,
+                            paper_weights=(
+                                {
+                                    "lambda_s": args.paper_lambda_s,
+                                    "lambda_e": args.paper_lambda_e,
+                                    "lambda_c": args.paper_lambda_c,
+                                    "lambda_n": args.paper_lambda_n,
+                                }
+                                if args.paper_earho_objective else None
+                            ),
+                            continuation_limit=limit,
                         )
-                        score["first_successor_terminal"] = first_terminal
                         ids = list(decoded["ids"])
                         logps = list(decoded["logps"])
                         prompt = prompts[mode]
@@ -955,7 +1077,8 @@ def collect(args):
                         records.append(record)
                         candidate_index += 1
                 summary = assign_local_advantages(
-                    records, success_gated=args.success_gated_advantages
+                    records, success_gated=args.success_gated_advantages,
+                    paper_objective=args.paper_earho_objective,
                 )
                 if no_correction_frontier and not args.evaluation:
                     for record in records:
@@ -972,9 +1095,10 @@ def collect(args):
                     )
                 )
                 if needs_replay:
-                    records.append(
-                        _verified_replay_record(
-                            tokenizer, task, row, episode, args.max_context, args
+                    records.extend(
+                        _verified_replay_records(
+                            tokenizer, task, row, episode, args.max_context, args,
+                            reference=reference if args.protocol_v2 else None,
                         )
                     )
                 log_fields = {
@@ -1051,6 +1175,11 @@ def main():
     parser.add_argument("--policy-score-weight", type=float, default=0.1)
     parser.add_argument("--continuation-beam-width", type=int, default=1)
     parser.add_argument("--success-gated-advantages", action="store_true")
+    parser.add_argument("--paper-earho-objective", action="store_true")
+    parser.add_argument("--paper-lambda-s", type=float, default=0.25)
+    parser.add_argument("--paper-lambda-e", type=float, default=0.05)
+    parser.add_argument("--paper-lambda-c", type=float, default=0.25)
+    parser.add_argument("--paper-lambda-n", type=float, default=0.25)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)
@@ -1065,6 +1194,11 @@ def main():
         help="reproduce the historical gold-action-conditioned prompt split",
     )
     parser.add_argument("--protocol-v2", action="store_true")
+    parser.add_argument(
+        "--actor-quantization",
+        choices=["none", "bnb_nf4_double_quant_bf16"],
+        default="none",
+    )
     args = parser.parse_args()
     if args.protocol_v2 and (args.legacy_dual_prompt or not args.success_gated_advantages):
         raise ValueError("EARHO v2 requires unified history prompts and success-gated advantages")

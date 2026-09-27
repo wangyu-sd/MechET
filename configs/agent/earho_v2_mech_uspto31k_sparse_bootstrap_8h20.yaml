@@ -1,5 +1,6 @@
-# EARHO Stage III on the current-compiler strict executable 31k trace view.
-# Executable trace training view: 10,152 / 1,319 / 1,253, not full-31k.
+# Bounded 31k EARHO repair. Same frozen reaction IDs and K8 campaign as the
+# first H20 task, with corrected continuation diagnostics and sparse-reward
+# actor update. This is not a full 31k RL epoch or a full-test evaluation.
 dataset_id: mech_uspto31k_current_compiler
 protocol_version: trajectory_history_v2
 model_name_or_path: Qwen/Qwen3-8B
@@ -9,7 +10,6 @@ initial_adapter_path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mec
 initial_adapter_model_sha256: ff15689530a7971f6a8e97058574fd78c79ca0cc0e7ab57cc2cc00719631a129
 value_adapter_path: null
 value_kind: successor_pn
-
 train_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/train.jsonl
 validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/valid.jsonl
 stable_id_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/manifest.json
@@ -18,19 +18,16 @@ history_validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspt
 natural_language_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2/manifest.json
 reaction_denominator: {train: 10152, valid: 1319, test: 1253}
 full_reaction_denominator: {train: 24959, valid: 3120, test: 3120}
-
-output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_v2_mech_uspto31k_seed17_20260922
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_v2_mech_uspto31k_sparse_bootstrap_seed17_h20_20260923
 vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
-expected_gpu_regex: A100
+expected_gpu_regex: H20
 maximum_collector_error_rate: 0.05
-
-# Bounded training campaign, not a full 10,152-reaction RL epoch.
 rounds: 5
 products_per_round: 128
 candidates_per_product: 8
 validation_monitor_rows: 128
 seed: 17
-condition: earho_v2_mech_uspto31k_first_divergence
+condition: earho_v2_mech_uspto31k_sparse_bootstrap
 invalid_penalty: 0.1
 reward:
   contract: exact_endpoint_or_reference_successor_v2
@@ -51,6 +48,8 @@ curriculum:
 optimization:
   success_gated_advantages: true
   max_hard_negatives: 4
+  eligible_policy_only: true
+  replay_epochs: 4
 rollout:
   temperature: 1.0
   max_new_tokens: 384

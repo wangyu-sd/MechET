@@ -19,9 +19,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-from mechet.successor_value import successor_value_row
+from mechet.successor_value import successor_value_row, visible_successor_state
 from scripts.earho_v2_protocol import replay_reference
-from scripts.run_natural_language_value_search import visible
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -89,22 +88,24 @@ def build_rows(
             )
         )
         statistics["reference_positives"] += 1
-        seen = {visible(expected.state)}
+        seen = {(visible_successor_state(expected.state), bool(expected.terminal))}
         alternatives = []
         for candidate in candidates:
             score = dict(candidate.get("score") or {})
             successor = str(score.get("first_successor_state") or "")
             if not successor:
                 continue
-            public = visible(successor)
-            if public in seen:
+            public = visible_successor_state(successor)
+            terminal = bool(score.get("first_successor_terminal"))
+            successor_key = (public, terminal)
+            if successor_key in seen:
                 continue
-            seen.add(public)
+            seen.add(successor_key)
             productive = bool(score.get("correct"))
             alternatives.append((
                 float(candidate.get("anchor_action_q") or candidate.get("reward") or 0.0),
                 successor,
-                bool(score.get("first_successor_terminal")),
+                terminal,
                 "P" if productive else "N",
             ))
         alternatives.sort(key=lambda item: item[0], reverse=True)
