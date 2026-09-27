@@ -11,9 +11,13 @@ import json
 from pathlib import Path
 
 from scripts.run_anchor_branch_rl import read_rows, write_json, write_rows
-from scripts.run_earho_v2 import _attach_decisions, validate_contract
+from scripts.run_earho_v2 import (
+    _attach_decisions,
+    _evaluation_candidate_count,
+    load_earho_config,
+    validate_contract,
+)
 from scripts.run_natural_language_anchor_branch_rl import _sha256, run_workers
-from scripts.train_python_template_rlvr import _load_yaml
 
 
 def main() -> int:
@@ -26,7 +30,7 @@ def main() -> int:
     parser.add_argument("--prepare-only", action="store_true")
     args = parser.parse_args()
 
-    cfg = _load_yaml(args.config)
+    cfg = load_earho_config(args.config)
     validate_contract(cfg)
     if args.frontier < 1:
         raise ValueError("frontier must be positive")
@@ -47,7 +51,7 @@ def main() -> int:
         "critic_sha256": _sha256(args.critic / "adapter_model.safetensors") if args.critic else None,
         "frontier": args.frontier,
         "beam_width": int(cfg["rollout"]["continuation_beam_width"]),
-        "candidate_count_per_reaction": 2,
+        "candidate_count_per_reaction": _evaluation_candidate_count(cfg),
         "test_used": False,
     }
     if plan_path.is_file():
