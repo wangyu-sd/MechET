@@ -9,8 +9,17 @@ from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
     paper_earho_return,
 )
-from scripts.natural_language_anchor_branch_stage import _score_rollout
-from scripts.run_earho_v2 import load_earho_config, validate_contract
+from scripts.natural_language_anchor_branch_stage import (
+    _collection_prompt_modes,
+    _score_rollout,
+)
+from scripts.run_earho_v2 import (
+    _advance_frontier,
+    _evaluation_candidate_count,
+    _validate_paper_ablation_contract,
+    load_earho_config,
+    validate_contract,
+)
 from scripts.run_natural_language_anchor_branch_rl import worker_command
 
 
@@ -132,6 +141,7 @@ def test_reference_successor_credit_requires_matching_terminal_status():
 @pytest.mark.parametrize("name", [
     "earho_paper_mech_uspto31k_prefixv3_8a100.yaml",
     "earho_paper_flower_strict_prefixv3_8h20.yaml",
+    "earho_paper_flower_strict_prefixv3_8a100.yaml",
 ])
 def test_paper_config_is_separate_and_reaches_collector(name, tmp_path):
     root = Path(__file__).resolve().parents[1]
@@ -193,3 +203,109 @@ def test_k2_gt_smoke_keeps_reward_and_parent_but_limits_actor_candidates(tmp_pat
     assert command[command.index("--k") + 1] == "2"
     assert "--paper-earho-objective" in command
     assert "--success-gated-advantages" in command
+
+
+def test_no_success_gate_ablation_uses_relative_bounded_return():
+    records = [
+        _row("wrong-fast", decisions=4),
+        _row("wrong-short", decisions=1),
+    ]
+    result = assign_local_advantages(
+        records, success_gated=False, paper_objective=True,
+    )
+    assert result["effective"]
+    assert records[0]["advantage"] > 0
+    assert records[1]["advantage"] < 0
+    assert all(row["update_eligible"] for row in records)
+
+
+@pytest.mark.parametrize(
+    ("name", "ablation", "required_flag"),
+    [
+        ("earho_paper_flower_strict_prefixv3_fixed_h2_8h20.yaml",
+         "fixed_horizon", None),
+        ("earho_paper_flower_strict_prefixv3_no_pooling_8h20.yaml",
+         "without_pooling", "--disable-successor-pooling"),
+        ("earho_paper_flower_strict_prefixv3_no_value_8h20.yaml",
+         "without_value_guidance", None),
+        ("earho_paper_flower_strict_prefixv3_no_success_gate_8h20.yaml",
+         "without_success_gate", None),
+        ("earho_paper_flower_strict_prefixv3_no_fallback_8h20.yaml",
+         "without_fallback_supervision", "--disable-fallback-supervision"),
+        ("earho_paper_flower_strict_prefixv3_no_gate_no_fallback_8h20.yaml",
+         "without_success_gate_and_fallback", "--disable-fallback-supervision"),
+    ],
+)
+def test_paper_ablation_configs_are_explicit_and_runnable(
+    name, ablation, required_flag, tmp_path
+):
+    root = Path(__file__).resolve().parents[1]
+    cfg = load_earho_config(root / "configs/agent" / name)
+    assert cfg["paper_ablation"] == ablation
+    _validate_paper_ablation_contract(cfg)
+    command = worker_command(
+        cfg, tmp_path / "source.jsonl", tmp_path / "actor",
+        tmp_path / "rollout.jsonl", 0, frontier=2,
+        round_index=0, evaluation=False,
+    )
+    if required_flag:
+        assert required_flag in command
+    if ablation == "without_success_gate":
+        assert "--success-gated-advantages" not in command
+        assert "--disable-fallback-supervision" not in command
+    if ablation == "without_value_guidance":
+        position = command.index("--value-score-weight")
+        assert command[position + 1] == "0.0"
+
+
+def test_fixed_horizon_ablation_never_promotes():
+    cfg = {
+        "curriculum": {
+            "adaptive_horizon": False,
+            "promote_pass_at_k": 0.1,
+            "min_effective_groups": 1,
+            "maximum_frontier": 12,
+        }
+    }
+    summaries = [
+        {
+            "is_full_episode": False,
+            "effective": True,
+            "successor_success": True,
+            "endpoint_success": False,
+        }
+    ]
+    horizon, report = _advance_frontier(cfg, 2, summaries)
+    assert horizon == 2
+    assert report["frontier_before"] == 2
+    assert report["frontier_after"] == 2
+    assert report["fixed_horizon"] is True
+    assert report["promoted"] is False
+
+
+def test_paper_validation_selection_is_greedy_k1(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    cfg = load_earho_config(
+        root / "configs/agent/earho_paper_flower_strict_prefixv3_8h20.yaml"
+    )
+    assert _evaluation_candidate_count(cfg) == 1
+    command = worker_command(
+        cfg, tmp_path / "source.jsonl", tmp_path / "actor",
+        tmp_path / "rollout.jsonl", 0, frontier=2,
+        round_index=-1, evaluation=True,
+    )
+    assert command[command.index("--k") + 1] == "1"
+    assert "--evaluation" in command
+    for flag, expected in (
+        ("--continuation-candidates-per-mode", "1"),
+        ("--continuation-temperature", "0.0"),
+        ("--continuation-beam-width", "1"),
+    ):
+        assert command[command.index(flag) + 1] == expected
+
+
+def test_k1_evaluation_uses_one_prompt_mode_even_for_legacy_dual_prompt():
+    args = SimpleNamespace(evaluation=True, k=1, legacy_dual_prompt=True)
+    assert _collection_prompt_modes(args) == ("event",)
+    args.evaluation = False
+    assert _collection_prompt_modes(args) == ("action", "event")

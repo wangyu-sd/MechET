@@ -155,6 +155,11 @@ def prepare(cfg: dict, output: Path) -> None:
 
 def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, evaluation):
     rollout = cfg["rollout"]
+    candidate_count = (
+        int((cfg.get("evaluation") or {}).get("candidates_per_reaction", 1))
+        if evaluation else int(cfg["candidates_per_product"])
+    )
+    greedy_k1 = evaluation and candidate_count == 1
     reward = cfg.get("reward") or {
         # Historical v1 contract: exact=1, wrong terminal=0, invalid=-penalty.
         "wrong_terminal_penalty": 0.0,
@@ -173,7 +178,7 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "--actor-quantization", str(cfg.get("actor_quantization", "none")),
         "--rank", str(rank),
         "--world-size", "8",
-        "--k", "2" if evaluation else str(cfg["candidates_per_product"]),
+        "--k", str(candidate_count),
         "--seed", str((int(cfg["seed"]) + max(round_index, 0) * 1009) % (2**32)),
         "--round-index", str(round_index),
         "--frontier", str(frontier),
@@ -212,19 +217,24 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     command.extend(
         [
             "--continuation-candidates-per-mode",
-            str(rollout.get("continuation_candidates_per_mode", 1)),
+            str(1 if greedy_k1 else rollout.get("continuation_candidates_per_mode", 1)),
             "--continuation-temperature",
-            str(rollout.get("continuation_temperature", 0.7)),
+            str(0.0 if greedy_k1 else rollout.get("continuation_temperature", 0.7)),
             "--value-score-weight",
             str(rollout.get("value_score_weight", 1.0)),
             "--policy-score-weight",
             str(rollout.get("policy_score_weight", 0.1)),
             "--continuation-beam-width",
-            str(rollout.get("continuation_beam_width", 1)),
+            str(1 if greedy_k1 else rollout.get("continuation_beam_width", 1)),
         ]
     )
-    if (cfg.get("optimization") or {}).get("success_gated_advantages"):
+    optimization = cfg.get("optimization") or {}
+    if optimization.get("success_gated_advantages"):
         command.append("--success-gated-advantages")
+    if not optimization.get("successor_pooling", True):
+        command.append("--disable-successor-pooling")
+    if not optimization.get("fallback_supervision", True):
+        command.append("--disable-fallback-supervision")
     if reward.get("contract") == "paper_earho_bounded_horizon_v1":
         command.append("--paper-earho-objective")
         for name, flag in (
@@ -239,17 +249,59 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     return command
 
 
+def _runtime_lineage_identity(cfg, runtime_marker: Path) -> dict[str, str]:
+    """Identify the pinned runtime, not its ephemeral extraction directory."""
+    source = cfg.get("vllm_runtime")
+    if not source:
+        raise ValueError("EARHO v2 collection requires a pinned vLLM runtime source")
+    return {
+        "runtime_source": str(Path(source).resolve()),
+        "runtime_marker_sha256": _sha256(runtime_marker),
+    }
+
+
+def _vllm_port_for_rank(rank: int) -> int:
+    """Give concurrent vLLM engines disjoint TCPStore search ranges.
+
+    vLLM 0.8.5's get_open_port() briefly binds port 0 and then releases it.
+    Eight simultaneous engines can therefore choose the same ephemeral port
+    before any of their torch distributed stores starts listening.
+    """
+    if not 0 <= rank < 8:
+        raise ValueError(f"invalid local GPU rank: {rank}")
+    return 20000 + 1024 * rank
+
+
 def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation):
     marker = output / "collection_done.json"
     shards = [output / f"rank{rank}.jsonl" for rank in range(8)]
-    # The v2 paper driver is restartable, but a completed collection is only
-    # reusable with the same actor, data, runtime and generation contract.
+    marker_record = json.loads(marker.read_text()) if marker.exists() else None
+    if (
+        marker_record is not None
+        and cfg.get("protocol_version") == "trajectory_history_v2"
+        and not marker_record.get("lineage_sha256")
+    ):
+        raise ValueError("completed EARHO collection belongs to different inputs")
+    runtime = os.environ.get("MECHET_ANCHOR_VLLM_RUNTIME", str(cfg.get("vllm_runtime") or ""))
+    if not runtime:
+        raise ValueError("EARHO v2 collection requires a pinned vLLM runtime")
+    runtime_marker = Path(runtime, ".mechet_vllm_runtime_complete")
+    if not runtime_marker.is_file():
+        raise ValueError(f"incomplete vLLM runtime: {runtime}")
+    # Reuse is allowed only when actor, critic, data, resolved runtime and
+    # generation contract are byte-identical to the completed collection.
     lineage = None
     if cfg.get("protocol_version") == "trajectory_history_v2":
+        value_adapter = cfg.get("value_adapter_path")
         inputs = {
             "config": cfg,
             "data_sha256": _sha256(Path(data)),
             "actor_sha256": _sha256(Path(adapter) / "adapter_model.safetensors"),
+            "value_adapter_sha256": (
+                _sha256(Path(value_adapter) / "adapter_model.safetensors")
+                if value_adapter else None
+            ),
+            **_runtime_lineage_identity(cfg, runtime_marker),
             "frontier": int(frontier),
             "round_index": int(round_index),
             "evaluation": bool(evaluation),
@@ -257,8 +309,8 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
         lineage = hashlib.sha256(
             json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
-    if marker.exists():
-        if lineage is not None and json.loads(marker.read_text()).get("lineage_sha256") != lineage:
+    if marker_record is not None:
+        if lineage is not None and marker_record.get("lineage_sha256") != lineage:
             raise ValueError("completed EARHO collection belongs to different inputs")
         if not all(path.is_file() for path in shards):
             raise ValueError("collection marker exists with missing shards")
@@ -272,9 +324,6 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
             error_path.rename(
                 error_path.with_suffix(f".interrupted-{time.time_ns()}.jsonl")
             )
-    runtime = os.environ.get("MECHET_ANCHOR_VLLM_RUNTIME", str(cfg["vllm_runtime"]))
-    if not Path(runtime, ".mechet_vllm_runtime_complete").is_file():
-        raise ValueError(f"incomplete vLLM runtime: {runtime}")
     workers = []
     try:
         for rank, path in enumerate(shards):
@@ -283,6 +332,7 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
             env["PYTHONPATH"] = runtime + ":" + env.get("PYTHONPATH", "")
             env["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
             env["VLLM_CACHE_ROOT"] = f"/tmp/meteor-nl-anchor-vllm-{rank}"
+            env["VLLM_PORT"] = str(_vllm_port_for_rank(rank))
             workers.append(
                 subprocess.Popen(
                     worker_command(

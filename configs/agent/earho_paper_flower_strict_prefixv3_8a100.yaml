@@ -1,11 +1,8 @@
-# New Stage-III K=2 smoke; old prefixv2 task is diagnostic only.
+# Same frozen full-method contract as H20, with a distinct A100 output.
 extends: earho_v2_flower_strict_nf4_matched_8h20.yaml
-condition: earho_paper_bounded_horizon_flower_strict_k2_prefixv3
-output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_k2_prefixv3_seed17_a100
+condition: earho_paper_bounded_horizon_flower_strict_prefixv3_a100
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_prefixv3_seed17_a100
 expected_gpu_regex: A100
-rounds: 1
-products_per_round: 128
-candidates_per_product: 2
 reward:
   contract: paper_earho_bounded_horizon_v1
   lambda_s: 0.25

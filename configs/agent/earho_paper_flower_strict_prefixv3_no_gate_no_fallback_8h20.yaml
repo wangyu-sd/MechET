@@ -1,0 +1,17 @@
+# Matched FlowER EARHO paper ablation under prefix-v3.
+extends: earho_v2_flower_strict_nf4_matched_8h20.yaml
+reward:
+  contract: paper_earho_bounded_horizon_v1
+  lambda_s: 0.25
+  lambda_e: 0.05
+  lambda_c: 0.25
+  lambda_n: 0.25
+evaluation:
+  candidates_per_reaction: 1
+  checkpoint_metric: group_pass_at_k
+paper_ablation: without_success_gate_and_fallback
+condition: earho_paper_flower_prefixv3_no_gate_no_fallback
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_prefixv3_no_gate_no_fallback_seed17_h20
+optimization:
+  success_gated_advantages: false
+  fallback_supervision: false

@@ -104,7 +104,7 @@ def _python_script_from_command(command: str) -> str | None:
     return None
 
 
-def _script_contract(path: Path) -> list[str]:
+def _script_contract(path: Path, *, require_entrypoint: bool = True) -> list[str]:
     failures: list[str] = []
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -115,10 +115,11 @@ def _script_contract(path: Path) -> list[str]:
         for node in tree.body
     )
     has_entrypoint = "if __name__" in path.read_text(encoding="utf-8")
-    if not has_main:
-        failures.append("missing main()")
-    if not has_entrypoint:
-        failures.append("missing __main__ entrypoint")
+    if require_entrypoint:
+        if not has_main:
+            failures.append("missing main()")
+        if not has_entrypoint:
+            failures.append("missing __main__ entrypoint")
     compile_result = subprocess.run(
         [sys.executable, "-m", "py_compile", str(path)],
         capture_output=True,
@@ -135,6 +136,7 @@ def check(root: Path, *, check_cli_help: bool = False) -> dict[str, Any]:
     errors: list[dict[str, Any]] = []
     warnings: list[dict[str, Any]] = []
     referenced_scripts: set[str] = set()
+    documented_cli_scripts: set[str] = set()
     referenced_configs: set[str] = set()
 
     anchor_cache = {
@@ -188,13 +190,16 @@ def check(root: Path, *, check_cli_help: bool = False) -> dict[str, Any]:
                 script = _python_script_from_command(command)
                 if script:
                     referenced_scripts.add(script)
+                    documented_cli_scripts.add(script)
 
     for script in sorted(referenced_scripts):
         path = root / script
         if not path.exists():
             errors.append({"type": "missing_documented_script", "path": script})
             continue
-        for failure in _script_contract(path):
+        for failure in _script_contract(
+            path, require_entrypoint=script in documented_cli_scripts
+        ):
             errors.append(
                 {
                     "type": "invalid_documented_script",
@@ -202,7 +207,7 @@ def check(root: Path, *, check_cli_help: bool = False) -> dict[str, Any]:
                     "error": failure,
                 }
             )
-        if check_cli_help:
+        if check_cli_help and script in documented_cli_scripts:
             result = subprocess.run(
                 [sys.executable, str(path), "--help"],
                 cwd=root,

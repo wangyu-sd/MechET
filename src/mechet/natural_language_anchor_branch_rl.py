@@ -156,20 +156,16 @@ def assign_local_advantages(
 ) -> dict[str, Any]:
     """Estimate first-action values without comparing incompatible prompts.
 
-    ``success_gated=False`` preserves the historical reward-normalized
-    contract for audit replay.  The paper objective requires a verified
-    positive signal and a bounded-return record for every candidate.  It
-    updates a prompt mode only when at least one
-    generated action reaches the reference successor or the exact endpoint.
-    All-negative groups therefore produce zero policy gradient instead of
-    promoting an arbitrary least-bad action.  The caller can still inject a
-    verified reference replay example for supervised recovery.
+    ``success_gated=False`` uses ordinary within-group relative advantages
+    and is retained only for the paper's matched no-gate ablation.  The full
+    paper objective uses verified-positive gating: a prompt mode is updated
+    only when at least one generated action reaches the reference successor or
+    the exact endpoint.  All-negative groups then produce zero policy gradient
+    instead of promoting an arbitrary least-bad action.
     """
 
     if not records:
         raise ValueError("empty natural-language anchor group")
-    if paper_objective and not success_gated:
-        raise ValueError("paper EARHO requires verified-positive gating")
     anchors = {(row["id"], row["anchor"]["state_hash"]) for row in records}
     if len(anchors) != 1:
         raise ValueError("anchor group mixes reactions or reset states")
@@ -217,7 +213,7 @@ def assign_local_advantages(
                 row["advantage"] = 0.0
                 row["update_eligible"] = False
             continue
-        if paper_objective:
+        if paper_objective and success_gated:
             positive_q = [q_values[key] for key in q_values if key in positive_keys]
             negative_q = [q_values[key] for key in q_values if key not in positive_keys]
             positive_mean = sum(positive_q) / len(positive_q)

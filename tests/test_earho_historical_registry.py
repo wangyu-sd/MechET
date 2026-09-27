@@ -16,7 +16,10 @@ def test_all_existing_earho_task_specs_are_registered():
     expected = {
         path.relative_to(ROOT).as_posix()
         for path in (ROOT / "configs/taiji").glob("meteor_mechet_earho_*.json")
+        if "prefixv3" not in path.stem
     }
+    # The frozen registry describes pre-v3 tasks, not newly submitted v3 runs.
+    assert all("prefixv3" not in row["path"] for row in rows)
     assert {row["path"] for row in rows} == expected
     assert len(rows) == len(expected)
     assert {row["classification"] for row in rows} == {
