@@ -413,14 +413,16 @@ def _beam_continue(
             exhausted_budget = False
             break
 
-        # Pool surface forms and convergent paths before critic evaluation.
-        unique = {}
-        for child in candidates:
-            key = (visible(child.state), bool(child.terminal))
-            incumbent = unique.get(key)
-            if incumbent is None or child.policy_score > incumbent.policy_score:
-                unique[key] = child
-        candidates = list(unique.values())
+        # The full paper method pools convergent executor states before critic
+        # evaluation. The matched no-pooling ablation keeps each realization.
+        if not args.disable_successor_pooling:
+            unique = {}
+            for child in candidates:
+                key = (visible(child.state), bool(child.terminal))
+                incumbent = unique.get(key)
+                if incumbent is None or child.policy_score > incumbent.policy_score:
+                    unique[key] = child
+            candidates = list(unique.values())
         critic_scores = _critic_scores(
             llm,
             tokenizer,
@@ -690,6 +692,27 @@ def _v2_successor_fingerprint(state: str, terminal: bool, invalid_text: str) -> 
     return "CHEM:" + hashlib.sha256(payload.encode()).hexdigest()
 
 
+def _v2_action_fingerprint(
+    decoded: Mapping[str, Any], terminal: bool, invalid_text: str
+) -> str:
+    """Keep distinct first-action realizations for the no-pooling ablation."""
+
+    if decoded.get("error"):
+        return "INVALID_ACTION:" + hashlib.sha256(
+            invalid_text.encode("utf-8")
+        ).hexdigest()[:16]
+    payload = json.dumps(
+        {
+            "name": str(decoded.get("name") or ""),
+            "arguments": decoded.get("arguments") or {},
+            "terminal": bool(terminal),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return "ACTION:" + hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def _v2_probe(llm, tokenizer, lora, parameters, eos_ids, reference, args):
     """Locate the first divergence using only product and public executor feedback."""
 
@@ -766,8 +789,11 @@ def collect(args):
     if vllm.__version__ != "0.8.5":
         raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
     prompt_modes = _prompt_modes(args)
-    if args.k < 2 or args.k % len(prompt_modes):
-        raise ValueError("k must be at least 2 and divisible by the prompt-mode count")
+    minimum_k = 1 if args.evaluation else 2
+    if args.k < minimum_k or args.k % len(prompt_modes):
+        raise ValueError(
+            f"k must be at least {minimum_k} and divisible by the prompt-mode count"
+        )
     output = Path(args.output)
     if output.exists():
         raise ValueError(f"refusing overwrite: {output}")
@@ -968,19 +994,24 @@ def collect(args):
                         decisions = int(node is not None)
                         first_state = node.state if node is not None else ""
                         first_terminal = bool(node is not None and node.terminal)
-                        fingerprint = (
-                            _v2_successor_fingerprint(
-                                first_state, first_terminal, str(decoded["text"])
+                        if args.protocol_v2:
+                            fingerprint = (
+                                _v2_action_fingerprint(
+                                    decoded, first_terminal, str(decoded["text"])
+                                )
+                                if args.disable_successor_pooling
+                                else _v2_successor_fingerprint(
+                                    first_state, first_terminal, str(decoded["text"])
+                                )
                             )
-                            if args.protocol_v2
-                            else successor_fingerprint(
+                        else:
+                            fingerprint = successor_fingerprint(
                                 prompt_mode=mode,
                                 action_name=str(decoded["name"]),
                                 successor_state=first_state,
                                 terminal=first_terminal,
                                 invalid_text=str(decoded["text"]),
                             )
-                        )
                         limit = (
                             args.max_decisions
                             if args.protocol_v2 and (
@@ -1088,6 +1119,7 @@ def collect(args):
                     summary["eligible_records"] = 0
                 needs_replay = (
                     not args.evaluation
+                    and not args.disable_fallback_supervision
                     and not no_correction_frontier
                     and (
                         not args.protocol_v2
@@ -1175,6 +1207,8 @@ def main():
     parser.add_argument("--policy-score-weight", type=float, default=0.1)
     parser.add_argument("--continuation-beam-width", type=int, default=1)
     parser.add_argument("--success-gated-advantages", action="store_true")
+    parser.add_argument("--disable-successor-pooling", action="store_true")
+    parser.add_argument("--disable-fallback-supervision", action="store_true")
     parser.add_argument("--paper-earho-objective", action="store_true")
     parser.add_argument("--paper-lambda-s", type=float, default=0.25)
     parser.add_argument("--paper-lambda-e", type=float, default=0.05)
@@ -1200,8 +1234,14 @@ def main():
         default="none",
     )
     args = parser.parse_args()
-    if args.protocol_v2 and (args.legacy_dual_prompt or not args.success_gated_advantages):
-        raise ValueError("EARHO v2 requires unified history prompts and success-gated advantages")
+    if args.protocol_v2 and args.legacy_dual_prompt:
+        raise ValueError("EARHO v2 requires the unified history prompt")
+    if (
+        args.protocol_v2
+        and not args.paper_earho_objective
+        and not args.success_gated_advantages
+    ):
+        raise ValueError("non-paper EARHO v2 requires success-gated advantages")
     args.memory_efficient_logps = True
     (collect if args.mode == "collect" else train)(args)
 
