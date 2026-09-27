@@ -12,3 +12,12 @@ reward:
   lambda_e: 0.05
   lambda_c: 0.25
   lambda_n: 0.25
+paper_ablation: full
+curriculum:
+  adaptive_horizon: true
+optimization:
+  fallback_supervision: true
+  successor_pooling: true
+evaluation:
+  candidates_per_reaction: 1
+  checkpoint_metric: group_pass_at_k
