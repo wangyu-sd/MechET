@@ -55,3 +55,21 @@ def test_documentation_checker_reports_missing_link_anchor_and_script(tmp_path):
     assert "missing_markdown_anchor" in kinds
     assert "missing_documented_script" in kinds
     assert not result["passed"]
+
+
+def test_documentation_checker_allows_importable_helper_module_mentions(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "helper.py").write_text(
+        "def replay_reference(value):\n"
+        "    return value\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "docs" / "guide.md").write_text(
+        "# Guide\n\nImplementation helper: scripts/helper.py\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "README.md").write_text("# Project\n", encoding="utf-8")
+    result = module.check(tmp_path)
+    assert result["passed"]
+    assert result["n_referenced_scripts"] == 1
