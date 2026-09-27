@@ -1,5 +1,19 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
+> compact-history task was stopped because its action-conditioned observation
+> and private-map replay contract are diagnostic only.  The first clean v2
+> H20 task correctly failed closed during full conversion: valid was complete,
+> while 15 train and 7 test reactions exposed a Kekule bond-order mismatch in
+> fallback graph-delta extraction; no optimizer training started.  Commit
+> `408e132` aligns that extraction with executor Kekule semantics, and all 22
+> source rows replay exactly after the repair.  Replacement task
+> `meteor_mechet_nl_protocol_v2_full_sft_2stage_8h20_zjk_20260918_02`, instance
+> `8b1d8014a0af10a701a0b3501c720673`, is genuinely running on ordinary 8xH20
+> with Ceph mounted and pinned runtime `408e132`.  It must rebuild and audit
+> 257,167 / 2,890 / 28,967 reactions with zero unresolved rows before clean
+> base-model State-SFT and then compact-history Trajectory-SFT can begin.
+
 > **2026-09-18 natural-language protocol v2 implementation repair:** the
 > mechanism-first scheme is unchanged, but v1 is diagnostic because its
 > molecular inventory visibility was conditioned on the gold action type and
