@@ -19,11 +19,13 @@ It fixes the paper bounded-horizon reward, verified-positive gating, successor
 pooling, fallback supervision, adaptive horizon control, and successor-value
 guidance.
 
-Checkpoint selection uses product-start greedy K=1 validation by default
+For new clean prefix-v3 runs, checkpoint selection uses product-start greedy K=1 validation by default
 (`evaluation.candidates_per_reaction: 1`,
-`evaluation.checkpoint_metric: group_pass_at_k`). Final paper Top-k evaluation
-is a separate benchmark step and must not be substituted by this selection
-monitor.
+`evaluation.checkpoint_metric: group_pass_at_k`). Final paper Top-k evaluation is a separate benchmark step and must not be
+substituted by this selection monitor. The manuscript does not currently link
+the historical 74.1% checkpoint to a frozen selection record, so this clean K=1
+rule is a forward reproduction contract rather than a claim about how the
+unlinked historical number was selected.
 
 ## Matched component configurations
 
@@ -38,6 +40,9 @@ monitor.
 | Without success gate and fallback | `earho_paper_flower_strict_prefixv3_no_gate_no_fallback_8h20.yaml` |
 
 The fixed-horizon condition freezes the inherited initial frontier at H=2.
+The manuscript currently says only "fixed H" and does not state the integer H,
+so exact historical reproduction still requires confirming that the reported
+row used H=2; the code does not silently relabel another historical run.
 The no-gate condition retains the same bounded paper return but uses ordinary
 within-group relative advantages, so unsupported actions can compete by return.
 The no-pooling condition keeps distinct action realizations during first-action
@@ -92,6 +97,27 @@ frontier, beam width, and candidate count. Rollout collection additionally
 binds the resolved vLLM runtime marker and actor/critic weights into its lineage
 hash, preventing stale collections from being reused after a runtime or
 checkpoint change.
+
+## Remaining paper-provenance blockers
+
+The current manuscript includes an `Outcome-only updating` Stage-III control
+starting from Trajectory-SFT, but neither the paper nor the inspected code
+history freezes its complete operational contract (frontier reset policy,
+success gate, fallback replay, successor critic use, and horizon schedule).
+PR #59 documents an earlier endpoint-primary anchor-branch algorithm, but its
+parent lineage predates the current Trajectory-SFT condition. This reproduction
+PR therefore does not manufacture an "outcome-only" config by guessing those
+choices.
+
+Before calling the paper table exactly reproduced, the experiment record must
+supply:
+
+- the outcome-only Stage-III resolved config and checkpoint lineage;
+- the integer H used by the reported fixed-H row;
+- the integer seeds corresponding to manuscript Seed A/B/C;
+- the checkpoint-selection record used for the currently typeset EARHO result;
+- final candidate/evaluator artifacts linking each reported number to a clean
+  prefix-v3 run.
 
 ## Claim boundary
 
