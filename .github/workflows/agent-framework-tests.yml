@@ -9,6 +9,8 @@ on:
       - "src/mechet/agent_*.py"
       - "src/mechet/*environment*.py"
       - "src/mechet/assistant_masking.py"
+      - "src/mechet/natural_language_anchor_branch_rl.py"
+      - "src/mechet/successor_value.py"
       - "src/mechet/model_revision.py"
       - "src/mechet/electron_flow_trace.py"
       - "src/mechet/endpoints.py"
@@ -30,10 +32,18 @@ on:
       - "scripts/train_inverse_agent_*.py"
       - "scripts/train_tool_sft.py"
       - "scripts/build_textbook_tool_sft.py"
+      - "scripts/natural_language_anchor_branch_stage.py"
+      - "scripts/run_natural_language_anchor_branch_rl.py"
+      - "scripts/run_earho_v2.py"
+      - "scripts/eval_earho_v2_validation.py"
       - "configs/agent/**"
       - "configs/knowledge/**"
       - "configs/experiments/**"
       - "tests/test_agent_*.py"
+      - "tests/test_earho_*.py"
+      - "tests/test_run_earho_v2_datasets.py"
+      - "tests/test_qwen_sft_generation_prefix.py"
+      - "tests/test_natural_language_anchor_branch_rl.py"
       - "tests/test_runtime_data_contract_repairs.py"
       - "tests/test_statistical_evaluation.py"
       - "tests/test_evaluation_seed_aggregation.py"
@@ -121,6 +131,14 @@ jobs:
             tests/test_runtime_data_contract_repairs.py \
             tests/test_statistical_evaluation.py \
             tests/test_evaluation_seed_aggregation.py
+      - name: Run EARHO paper reproduction tests
+        run: |
+          PYTHONPATH=.:src pytest -q \
+            tests/test_earho_paper_objective.py \
+            tests/test_earho_v2_protocol.py \
+            tests/test_run_earho_v2_datasets.py \
+            tests/test_qwen_sft_generation_prefix.py \
+            tests/test_natural_language_anchor_branch_rl.py
       - name: Build root-import Tool-SFT supervision
         run: |
           mkdir -p /tmp/mechet-runtime
