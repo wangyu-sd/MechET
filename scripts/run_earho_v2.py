@@ -364,6 +364,10 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
         {
             "artifact_type": "earho_first_divergence_v2_plan",
             "protocol_version": PROTOCOL,
+            "paper_ablation": str(cfg.get("paper_ablation") or "full"),
+            "seed": int(cfg["seed"]),
+            "evaluation_contract": dict(cfg.get("evaluation") or {}),
+            "resolved_config": cfg,
             "reward_contract": cfg["reward"]["contract"],
             "reward_coefficients": {
                 key: cfg["reward"][key]
@@ -560,6 +564,8 @@ def run(cfg: dict[str, Any]) -> None:
         log(stage="earho-v2-round-complete", round=round_index,
             endpoint_rate=score, actor=str(actor), critic=str(critic), **decision)
     write_json(output / "completed.json", {
+        "paper_ablation": str(cfg.get("paper_ablation") or "full"),
+        "seed": int(cfg["seed"]),
         "latest_actor": str(actor), "latest_critic": str(critic),
         "best": best, "test_used": False,
     })
