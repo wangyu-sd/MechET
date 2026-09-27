@@ -141,6 +141,7 @@ def test_reference_successor_credit_requires_matching_terminal_status():
 @pytest.mark.parametrize("name", [
     "earho_paper_mech_uspto31k_prefixv3_8a100.yaml",
     "earho_paper_flower_strict_prefixv3_8h20.yaml",
+    "earho_paper_flower_strict_prefixv3_8a100.yaml",
 ])
 def test_paper_config_is_separate_and_reaches_collector(name, tmp_path):
     root = Path(__file__).resolve().parents[1]
