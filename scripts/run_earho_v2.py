@@ -80,6 +80,102 @@ def load_earho_config(path: Path) -> dict[str, Any]:
     return parent
 
 
+_PAPER_ABLATION_EXPECTATIONS = {
+    "full": {
+        "success_gate": True, "fallback": True, "pooling": True,
+        "adaptive_horizon": True, "value_guidance": True,
+    },
+    "fixed_horizon": {
+        "success_gate": True, "fallback": True, "pooling": True,
+        "adaptive_horizon": False, "value_guidance": True,
+    },
+    "without_pooling": {
+        "success_gate": True, "fallback": True, "pooling": False,
+        "adaptive_horizon": True, "value_guidance": True,
+    },
+    "without_value_guidance": {
+        "success_gate": True, "fallback": True, "pooling": True,
+        "adaptive_horizon": True, "value_guidance": False,
+    },
+    "without_success_gate": {
+        "success_gate": False, "fallback": True, "pooling": True,
+        "adaptive_horizon": True, "value_guidance": True,
+    },
+    "without_fallback_supervision": {
+        "success_gate": True, "fallback": False, "pooling": True,
+        "adaptive_horizon": True, "value_guidance": True,
+    },
+    "without_success_gate_and_fallback": {
+        "success_gate": False, "fallback": False, "pooling": True,
+        "adaptive_horizon": True, "value_guidance": True,
+    },
+}
+
+
+def _paper_ablation_state(cfg: dict[str, Any]) -> dict[str, bool]:
+    optimization = cfg.get("optimization") or {}
+    curriculum = cfg.get("curriculum") or {}
+    rollout = cfg.get("rollout") or {}
+    return {
+        "success_gate": bool(optimization.get("success_gated_advantages")),
+        "fallback": bool(optimization.get("fallback_supervision", True)),
+        "pooling": bool(optimization.get("successor_pooling", True)),
+        "adaptive_horizon": bool(curriculum.get("adaptive_horizon", True)),
+        "value_guidance": float(rollout.get("value_score_weight", 1.0)) != 0.0,
+    }
+
+
+def _validate_paper_ablation_contract(cfg: dict[str, Any]) -> None:
+    name = str(cfg.get("paper_ablation") or "full")
+    expected = _PAPER_ABLATION_EXPECTATIONS.get(name)
+    if expected is None:
+        raise ValueError(f"unknown paper EARHO ablation: {name}")
+    actual = _paper_ablation_state(cfg)
+    if actual != expected:
+        raise ValueError(
+            f"paper EARHO ablation contract mismatch for {name}: "
+            f"expected={expected} actual={actual}"
+        )
+
+
+def _evaluation_candidate_count(cfg: dict[str, Any]) -> int:
+    value = int((cfg.get("evaluation") or {}).get("candidates_per_reaction", 1))
+    if value < 1:
+        raise ValueError("EARHO evaluation candidates_per_reaction must be positive")
+    return value
+
+
+def _validation_score(cfg: dict[str, Any], summary: dict[str, Any]) -> float:
+    metric = str((cfg.get("evaluation") or {}).get(
+        "checkpoint_metric", "group_pass_at_k"
+    ))
+    if metric not in {"group_pass_at_k", "candidate_endpoint_rate"}:
+        raise ValueError(f"unsupported EARHO checkpoint metric: {metric}")
+    return float(summary[metric])
+
+
+def _advance_frontier(
+    cfg: dict[str, Any],
+    horizon: int,
+    summaries: list[dict[str, Any]],
+) -> tuple[int, dict[str, Any]]:
+    next_horizon, report = promote_productive_horizon(
+        horizon, summaries,
+        productive_pass_rate=float(cfg["curriculum"]["promote_pass_at_k"]),
+        minimum_effective_groups=int(cfg["curriculum"]["min_effective_groups"]),
+        maximum_horizon=int(cfg["curriculum"]["maximum_frontier"]),
+    )
+    if bool((cfg.get("curriculum") or {}).get("adaptive_horizon", True)):
+        return next_horizon, report
+    fixed = dict(report)
+    fixed.update(
+        frontier_after=horizon,
+        promoted=False,
+        fixed_horizon=True,
+    )
+    return horizon, fixed
+
+
 def validate_contract(cfg: dict[str, Any]) -> None:
     if cfg.get("protocol_version") != PROTOCOL:
         raise ValueError("EARHO v2 requires the compressed-history v2 protocol")
@@ -89,8 +185,6 @@ def validate_contract(cfg: dict[str, Any]) -> None:
         raise ValueError("EARHO actor quantization must match NF4/double-quant/BF16 SFT")
     if cfg.get("legacy_dual_prompt") or cfg.get("test_file"):
         raise ValueError("v1 dual prompts and test data are forbidden")
-    if not (cfg.get("optimization") or {}).get("success_gated_advantages"):
-        raise ValueError("EARHO requires success-gated policy advantages")
     reward = cfg.get("reward") or {}
     if reward.get("contract") not in {
         "exact_endpoint_or_reference_successor_v2",
@@ -105,6 +199,10 @@ def validate_contract(cfg: dict[str, Any]) -> None:
             raise ValueError("EARHO reward coefficients must be finite and nonnegative")
         if coefficients[0] <= coefficients[1]:
             raise ValueError("verified successor credit must exceed pure execution credit")
+        _validate_paper_ablation_contract(cfg)
+    elif not (cfg.get("optimization") or {}).get("success_gated_advantages"):
+        raise ValueError("non-paper EARHO requires success-gated policy advantages")
+    _evaluation_candidate_count(cfg)
     if str(cfg.get("value_kind") or "successor_pn") != "successor_pn":
         raise ValueError("EARHO requires a transition-level P/N successor critic")
     source_dir = Path(cfg["train_file"]).parent
@@ -395,8 +493,12 @@ def run(cfg: dict[str, Any]) -> None:
         output / "baseline_validation", frontier=int(curriculum["frontier"]),
         round_index=-1, evaluation=True,
     )
+    validation_metric = str((cfg.get("evaluation") or {}).get(
+        "checkpoint_metric", "group_pass_at_k"
+    ))
     best = {"actor": str(actor), "critic": None,
-            "endpoint_rate": float(baseline["candidate_endpoint_rate"])}
+            "endpoint_rate": _validation_score(cfg, baseline),
+            "validation_metric": validation_metric}
     for round_index in range(int(cfg["rounds"])):
         round_path = output / f"round{round_index:02d}"
         done = round_path / "round_done.json"
@@ -439,20 +541,19 @@ def run(cfg: dict[str, Any]) -> None:
             round_path / "validation", frontier=int(curriculum["frontier"]),
             round_index=-1, evaluation=True,
         )
-        score = float(validation["candidate_endpoint_rate"])
+        score = _validation_score(cfg, validation)
         if score > float(best["endpoint_rate"]):
             best = {"actor": str(next_actor), "critic": str(next_critic),
-                    "endpoint_rate": score}
-        next_frontier, decision = promote_productive_horizon(
-            int(curriculum["frontier"]), collection["group_summaries"],
-            productive_pass_rate=float(cfg["curriculum"]["promote_pass_at_k"]),
-            minimum_effective_groups=int(cfg["curriculum"]["min_effective_groups"]),
-            maximum_horizon=int(cfg["curriculum"]["maximum_frontier"]),
+                    "endpoint_rate": score,
+                    "validation_metric": validation_metric}
+        next_frontier, decision = _advance_frontier(
+            cfg, int(curriculum["frontier"]), collection["group_summaries"],
         )
         curriculum["frontier"] = next_frontier
         curriculum["history"].append({"round": round_index, **decision})
         write_json(done, {"actor": str(next_actor), "critic": str(next_critic),
                           "best": best, "validation_endpoint_rate": score,
+                          "validation_metric": validation_metric,
                           "curriculum": decision})
         write_json(curriculum_path, curriculum)
         actor, critic = next_actor, next_critic
@@ -470,12 +571,15 @@ def main() -> int:
     parser.add_argument("--prepare-only", action="store_true")
     parser.add_argument("--expected-gpu-regex")
     parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--seed", type=int)
     args = parser.parse_args()
     cfg = load_earho_config(args.config)
     if args.expected_gpu_regex:
         cfg["expected_gpu_regex"] = args.expected_gpu_regex
     if args.output_dir:
         cfg["output_dir"] = str(args.output_dir)
+    if args.seed is not None:
+        cfg["seed"] = int(args.seed)
     if args.prepare_only:
         validate_contract(cfg)
         prepare(cfg, Path(cfg["output_dir"]))
