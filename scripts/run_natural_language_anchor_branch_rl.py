@@ -173,7 +173,10 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "--actor-quantization", str(cfg.get("actor_quantization", "none")),
         "--rank", str(rank),
         "--world-size", "8",
-        "--k", "2" if evaluation else str(cfg["candidates_per_product"]),
+        "--k", (
+            str(int((cfg.get("evaluation") or {}).get("candidates_per_reaction", 1)))
+            if evaluation else str(cfg["candidates_per_product"])
+        ),
         "--seed", str((int(cfg["seed"]) + max(round_index, 0) * 1009) % (2**32)),
         "--round-index", str(round_index),
         "--frontier", str(frontier),
@@ -223,8 +226,13 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
             str(rollout.get("continuation_beam_width", 1)),
         ]
     )
-    if (cfg.get("optimization") or {}).get("success_gated_advantages"):
+    optimization = cfg.get("optimization") or {}
+    if optimization.get("success_gated_advantages"):
         command.append("--success-gated-advantages")
+    if not optimization.get("successor_pooling", True):
+        command.append("--disable-successor-pooling")
+    if not optimization.get("fallback_supervision", True):
+        command.append("--disable-fallback-supervision")
     if reward.get("contract") == "paper_earho_bounded_horizon_v1":
         command.append("--paper-earho-objective")
         for name, flag in (
@@ -242,14 +250,25 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
 def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation):
     marker = output / "collection_done.json"
     shards = [output / f"rank{rank}.jsonl" for rank in range(8)]
-    # The v2 paper driver is restartable, but a completed collection is only
-    # reusable with the same actor, data, runtime and generation contract.
+    runtime = os.environ.get("MECHET_ANCHOR_VLLM_RUNTIME", str(cfg["vllm_runtime"]))
+    runtime_marker = Path(runtime, ".mechet_vllm_runtime_complete")
+    if not runtime_marker.is_file():
+        raise ValueError(f"incomplete vLLM runtime: {runtime}")
+    # Reuse is allowed only when actor, critic, data, resolved runtime and
+    # generation contract are byte-identical to the completed collection.
     lineage = None
     if cfg.get("protocol_version") == "trajectory_history_v2":
+        value_adapter = cfg.get("value_adapter_path")
         inputs = {
             "config": cfg,
             "data_sha256": _sha256(Path(data)),
             "actor_sha256": _sha256(Path(adapter) / "adapter_model.safetensors"),
+            "value_adapter_sha256": (
+                _sha256(Path(value_adapter) / "adapter_model.safetensors")
+                if value_adapter else None
+            ),
+            "runtime_root": str(Path(runtime).resolve()),
+            "runtime_marker_sha256": _sha256(runtime_marker),
             "frontier": int(frontier),
             "round_index": int(round_index),
             "evaluation": bool(evaluation),
@@ -272,9 +291,6 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
             error_path.rename(
                 error_path.with_suffix(f".interrupted-{time.time_ns()}.jsonl")
             )
-    runtime = os.environ.get("MECHET_ANCHOR_VLLM_RUNTIME", str(cfg["vllm_runtime"]))
-    if not Path(runtime, ".mechet_vllm_runtime_complete").is_file():
-        raise ValueError(f"incomplete vLLM runtime: {runtime}")
     workers = []
     try:
         for rank, path in enumerate(shards):
