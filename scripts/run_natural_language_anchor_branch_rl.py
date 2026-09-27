@@ -249,6 +249,17 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     return command
 
 
+def _runtime_lineage_identity(cfg, runtime_marker: Path) -> dict[str, str]:
+    """Identify the pinned runtime, not its ephemeral extraction directory."""
+    source = cfg.get("vllm_runtime")
+    if not source:
+        raise ValueError("EARHO v2 collection requires a pinned vLLM runtime source")
+    return {
+        "runtime_source": str(Path(source).resolve()),
+        "runtime_marker_sha256": _sha256(runtime_marker),
+    }
+
+
 def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation):
     marker = output / "collection_done.json"
     shards = [output / f"rank{rank}.jsonl" for rank in range(8)]
@@ -278,8 +289,7 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
                 _sha256(Path(value_adapter) / "adapter_model.safetensors")
                 if value_adapter else None
             ),
-            "runtime_root": str(Path(runtime).resolve()),
-            "runtime_marker_sha256": _sha256(runtime_marker),
+            **_runtime_lineage_identity(cfg, runtime_marker),
             "frontier": int(frontier),
             "round_index": int(round_index),
             "evaluation": bool(evaluation),

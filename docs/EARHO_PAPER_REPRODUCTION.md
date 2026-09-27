@@ -98,7 +98,9 @@ The validation plan records source/history hashes, actor and critic hashes,
 frontier, beam width, and candidate count. Rollout collection additionally
 binds the resolved vLLM runtime marker and actor/critic weights into its lineage
 hash, preventing stale collections from being reused after a runtime or
-checkpoint change.
+checkpoint change. The identity uses the pinned Ceph runtime source and marker
+hash, not the random local extraction directory, so a restarted task can reuse
+an otherwise identical completed collection.
 
 ## Remaining paper-provenance blockers
 

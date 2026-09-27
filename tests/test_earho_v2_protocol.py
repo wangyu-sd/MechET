@@ -266,6 +266,28 @@ def test_v2_collection_rejects_stale_completed_marker(tmp_path):
         )
 
 
+def test_v2_runtime_lineage_survives_fresh_temporary_extraction(tmp_path):
+    from scripts.run_natural_language_anchor_branch_rl import _runtime_lineage_identity
+
+    source = tmp_path / "pinned_ceph_runtime"
+    config = {"vllm_runtime": str(source)}
+    markers = []
+    for name in ("stage_a", "stage_b"):
+        marker = tmp_path / name / ".mechet_vllm_runtime_complete"
+        marker.parent.mkdir()
+        marker.write_text("vllm 0.8.5\n")
+        markers.append(marker)
+    assert _runtime_lineage_identity(config, markers[0]) == _runtime_lineage_identity(
+        config, markers[1]
+    )
+    markers[1].write_text("different runtime\n")
+    assert _runtime_lineage_identity(config, markers[0]) != _runtime_lineage_identity(
+        config, markers[1]
+    )
+    with pytest.raises(ValueError, match="pinned vLLM runtime source"):
+        _runtime_lineage_identity({}, markers[0])
+
+
 def test_chemical_successor_pooling_ignores_action_surface():
     left = _v2_successor_fingerprint("[Na+:3].[CH3:1][Br:2]", False, "alpha")
     right = _v2_successor_fingerprint("[CH3:9][Br:8].[Na+:7]", False, "beta")
