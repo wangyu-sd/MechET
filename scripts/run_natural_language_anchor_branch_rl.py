@@ -250,7 +250,16 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
 def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation):
     marker = output / "collection_done.json"
     shards = [output / f"rank{rank}.jsonl" for rank in range(8)]
-    runtime = os.environ.get("MECHET_ANCHOR_VLLM_RUNTIME", str(cfg["vllm_runtime"]))
+    marker_record = json.loads(marker.read_text()) if marker.exists() else None
+    if (
+        marker_record is not None
+        and cfg.get("protocol_version") == "trajectory_history_v2"
+        and not marker_record.get("lineage_sha256")
+    ):
+        raise ValueError("completed EARHO collection belongs to different inputs")
+    runtime = os.environ.get("MECHET_ANCHOR_VLLM_RUNTIME", str(cfg.get("vllm_runtime") or ""))
+    if not runtime:
+        raise ValueError("EARHO v2 collection requires a pinned vLLM runtime")
     runtime_marker = Path(runtime, ".mechet_vllm_runtime_complete")
     if not runtime_marker.is_file():
         raise ValueError(f"incomplete vLLM runtime: {runtime}")
@@ -276,8 +285,8 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
         lineage = hashlib.sha256(
             json.dumps(inputs, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
-    if marker.exists():
-        if lineage is not None and json.loads(marker.read_text()).get("lineage_sha256") != lineage:
+    if marker_record is not None:
+        if lineage is not None and marker_record.get("lineage_sha256") != lineage:
             raise ValueError("completed EARHO collection belongs to different inputs")
         if not all(path.is_file() for path in shards):
             raise ValueError("collection marker exists with missing shards")
