@@ -155,6 +155,11 @@ def prepare(cfg: dict, output: Path) -> None:
 
 def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, evaluation):
     rollout = cfg["rollout"]
+    candidate_count = (
+        int((cfg.get("evaluation") or {}).get("candidates_per_reaction", 1))
+        if evaluation else int(cfg["candidates_per_product"])
+    )
+    greedy_k1 = evaluation and candidate_count == 1
     reward = cfg.get("reward") or {
         # Historical v1 contract: exact=1, wrong terminal=0, invalid=-penalty.
         "wrong_terminal_penalty": 0.0,
@@ -173,10 +178,7 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "--actor-quantization", str(cfg.get("actor_quantization", "none")),
         "--rank", str(rank),
         "--world-size", "8",
-        "--k", (
-            str(int((cfg.get("evaluation") or {}).get("candidates_per_reaction", 1)))
-            if evaluation else str(cfg["candidates_per_product"])
-        ),
+        "--k", str(candidate_count),
         "--seed", str((int(cfg["seed"]) + max(round_index, 0) * 1009) % (2**32)),
         "--round-index", str(round_index),
         "--frontier", str(frontier),
@@ -215,15 +217,15 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     command.extend(
         [
             "--continuation-candidates-per-mode",
-            str(rollout.get("continuation_candidates_per_mode", 1)),
+            str(1 if greedy_k1 else rollout.get("continuation_candidates_per_mode", 1)),
             "--continuation-temperature",
-            str(rollout.get("continuation_temperature", 0.7)),
+            str(0.0 if greedy_k1 else rollout.get("continuation_temperature", 0.7)),
             "--value-score-weight",
             str(rollout.get("value_score_weight", 1.0)),
             "--policy-score-weight",
             str(rollout.get("policy_score_weight", 0.1)),
             "--continuation-beam-width",
-            str(rollout.get("continuation_beam_width", 1)),
+            str(1 if greedy_k1 else rollout.get("continuation_beam_width", 1)),
         ]
     )
     optimization = cfg.get("optimization") or {}

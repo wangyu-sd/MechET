@@ -66,6 +66,15 @@ def _prompt_modes(args) -> tuple[str, ...]:
     return PROMPT_MODES if getattr(args, "legacy_dual_prompt", False) else ("unified",)
 
 
+def _collection_prompt_modes(args) -> tuple[str, ...]:
+    modes = _prompt_modes(args)
+    if getattr(args, "evaluation", False) and args.k == 1 and len(modes) > 1:
+        # A single-candidate monitor cannot split K across two legacy prompts.
+        # Use the inventory-bearing event prompt consistently at every step.
+        return ("event",)
+    return modes
+
+
 def _messages(task, mode: str) -> list[dict[str, Any]]:
     if mode not in (*PROMPT_MODES, "unified"):
         raise ValueError(f"unsupported prompt mode: {mode}")
@@ -294,7 +303,7 @@ def _greedy_continue(
     candidates = []
     prompts = []
     modes = []
-    for mode in _prompt_modes(args):
+    for mode in _collection_prompt_modes(args):
         prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions)
         if len(prompt) + args.max_new_tokens > args.max_context:
             return None, "CONTEXT_BUDGET"
@@ -381,7 +390,7 @@ def _beam_continue(
         jobs = []
         prompts = []
         for parent_index, node in enumerate(frontier):
-            for mode in _prompt_modes(args):
+            for mode in _collection_prompt_modes(args):
                 prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions)
                 if len(prompt) + args.max_new_tokens > args.max_context:
                     last_errors.append("CONTEXT_BUDGET")
@@ -788,7 +797,7 @@ def collect(args):
 
     if vllm.__version__ != "0.8.5":
         raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
-    prompt_modes = _prompt_modes(args)
+    prompt_modes = _collection_prompt_modes(args)
     minimum_k = 1 if args.evaluation else 2
     if args.k < minimum_k or args.k % len(prompt_modes):
         raise ValueError(

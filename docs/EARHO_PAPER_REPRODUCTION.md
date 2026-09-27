@@ -21,7 +21,9 @@ guidance.
 
 For new clean prefix-v3 runs, checkpoint selection uses product-start greedy K=1 validation by default
 (`evaluation.candidates_per_reaction: 1`,
-`evaluation.checkpoint_metric: group_pass_at_k`). Final paper Top-k evaluation is a separate benchmark step and must not be
+`evaluation.checkpoint_metric: group_pass_at_k`). This monitor uses one prompt
+mode, one deterministic continuation sample, and beam width one throughout
+the episode. Final paper Top-k evaluation is a separate benchmark step and must not be
 substituted by this selection monitor. The manuscript does not currently link
 the historical 74.1% checkpoint to a frozen selection record, so this clean K=1
 rule is a forward reproduction contract rather than a claim about how the

@@ -9,7 +9,10 @@ from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
     paper_earho_return,
 )
-from scripts.natural_language_anchor_branch_stage import _score_rollout
+from scripts.natural_language_anchor_branch_stage import (
+    _collection_prompt_modes,
+    _score_rollout,
+)
 from scripts.run_earho_v2 import (
     _advance_frontier,
     _evaluation_candidate_count,
@@ -292,3 +295,16 @@ def test_paper_validation_selection_is_greedy_k1(tmp_path):
     )
     assert command[command.index("--k") + 1] == "1"
     assert "--evaluation" in command
+    for flag, expected in (
+        ("--continuation-candidates-per-mode", "1"),
+        ("--continuation-temperature", "0.0"),
+        ("--continuation-beam-width", "1"),
+    ):
+        assert command[command.index(flag) + 1] == expected
+
+
+def test_k1_evaluation_uses_one_prompt_mode_even_for_legacy_dual_prompt():
+    args = SimpleNamespace(evaluation=True, k=1, legacy_dual_prompt=True)
+    assert _collection_prompt_modes(args) == ("event",)
+    args.evaluation = False
+    assert _collection_prompt_modes(args) == ("action", "event")
