@@ -83,8 +83,8 @@ def load_earho_config(path: Path) -> dict[str, Any]:
 def validate_contract(cfg: dict[str, Any]) -> None:
     if cfg.get("protocol_version") != PROTOCOL:
         raise ValueError("EARHO v2 requires the compressed-history v2 protocol")
-    if cfg.get("prompt_prefix_contract") != "qwen_sft_template_generation_prefix_v2":
-        raise ValueError("EARHO requires the SFT-aligned Qwen generation prefix")
+    if cfg.get("prompt_prefix_contract") != "qwen_sft_tool_and_text_prefix_v3":
+        raise ValueError("EARHO requires distinct SFT-aligned tool and text prefixes (v3)")
     if cfg.get("actor_quantization") not in (None, "bnb_nf4_double_quant_bf16"):
         raise ValueError("EARHO actor quantization must match NF4/double-quant/BF16 SFT")
     if cfg.get("legacy_dual_prompt") or cfg.get("test_file"):

@@ -3,7 +3,7 @@
 # Keep the same reactions, seed, rewards, horizon, and K; never reuse old rollouts.
 dataset_id: mech_uspto31k_current_compiler
 protocol_version: trajectory_history_v2
-prompt_prefix_contract: qwen_sft_template_generation_prefix_v2
+prompt_prefix_contract: qwen_sft_tool_and_text_prefix_v3
 actor_quantization: bnb_nf4_double_quant_bf16
 model_name_or_path: Qwen/Qwen3-8B
 model_revision: b968826d9c46dd6066d109eabc6255188de91218
@@ -20,7 +20,7 @@ history_validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspt
 natural_language_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2/manifest.json
 reaction_denominator: {train: 10152, valid: 1319, test: 1253}
 full_reaction_denominator: {train: 24959, valid: 3120, test: 3120}
-output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_v2_mech31k_nf4_matched_seed17_a100_20260923
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_v2_mech31k_nf4_matched_prefixv3_seed17_a100
 vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
 expected_gpu_regex: A100
 maximum_collector_error_rate: 0.05

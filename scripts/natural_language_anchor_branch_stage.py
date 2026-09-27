@@ -19,7 +19,8 @@ from anchor_branch_stage import train
 from python_continual_stage import log, read_rows
 from mechet.assistant_masking import (
     encode_assistant_only_conversation,
-    render_qwen_sft_aligned_prefix,
+    render_qwen_sft_text_prefix,
+    render_qwen_sft_tool_prefix,
     tokenize_text,
 )
 from mechet.in_place_grounded_flow import mapped_atom_numbers
@@ -104,7 +105,7 @@ def _render_prompt(tokenizer, task, state: str, mode: str, *, actions=None) -> l
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": content},
     ]
-    rendered = render_qwen_sft_aligned_prefix(tokenizer, messages, tools=TOOLS)
+    rendered = render_qwen_sft_tool_prefix(tokenizer, messages, tools=TOOLS)
     return tokenizer.encode(rendered, add_special_tokens=False)
 
 
@@ -207,7 +208,7 @@ def _critic_scores(
                 else task.anchor_state
             )
             prompts.append(
-                render_qwen_sft_aligned_prefix(
+                render_qwen_sft_text_prefix(
                     tokenizer,
                     [
                         {"role": "system", "content": SUCCESSOR_VALUE_SYSTEM},
@@ -221,19 +222,17 @@ def _critic_scores(
                             ),
                         },
                     ],
-                    tools=[],
                 )
             )
         labels = "PN"
     elif value_kind == "state_abc":
         prompts = [
-            render_qwen_sft_aligned_prefix(
+            render_qwen_sft_text_prefix(
                 tokenizer,
                 [
                     {"role": "system", "content": VALUE_SYSTEM},
                     {"role": "user", "content": value_prompt(task.target, node.state)},
                 ],
-                tools=[],
             )
             for node in nodes
         ]
@@ -589,7 +588,8 @@ def _reference_first_decision(row: Mapping[str, Any], episode: Mapping[str, Any]
     )
 
 
-def _verified_replay_record(tokenizer, task, row, episode, max_context: int, args):
+def _verified_replay_record(tokenizer, task, row, episode, max_context: int, args,
+                            *, tool_result=None):
     mode, name, arguments, _ = _reference_first_decision(row, episode)
     if not getattr(args, "legacy_dual_prompt", False):
         mode = "unified"
@@ -604,8 +604,13 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
                     "function": {"name": name, "arguments": arguments},
                 }
             ],
-        }
+        },
+        dict(tool_result) if tool_result is not None else {
+            "role": "tool", "name": name, "content": "{}",
+        },
     ]
+    if messages[-1].get("role") != "tool" or messages[-1].get("name") != name:
+        raise ValueError("VERIFIED_REPLAY_TOOL_RESULT_MISMATCH")
     encoded, metadata = encode_assistant_only_conversation(
         tokenizer,
         {"messages": messages, "tools": TOOLS},
@@ -613,15 +618,18 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
     )
     if metadata["exceeds_max_length"]:
         raise ValueError("VERIFIED_REPLAY_EXCEEDS_CONTEXT")
-    input_ids = list(encoded["input_ids"])
+    # The following tool message selects Qwen3's completed tool-call template.
+    # It is executor output, not actor supervision, so truncate after the
+    # assistant span before constructing the learner record.
+    assistant_end = int(metadata["assistant_spans"][0][1])
+    input_ids = list(encoded["input_ids"][:assistant_end])
     prefix = tokenize_text(
         tokenizer,
-        render_qwen_sft_aligned_prefix(tokenizer, _messages(task, mode), tools=TOOLS),
+        render_qwen_sft_tool_prefix(tokenizer, _messages(task, mode), tools=TOOLS),
     )
     if input_ids[: len(prefix)] != prefix or len(input_ids) <= len(prefix):
         raise ValueError("VERIFIED_REPLAY_PROMPT_MISMATCH")
-    # The actor receives the completed Qwen3 generation prefix at inference.
-    # Replay must supervise only the action generated after that prefix.
+    # Replay supervises only the assistant tool call after the actor prefix.
     loss_mask = [0] * len(prefix) + [1] * (len(input_ids) - len(prefix))
     return {
         "id": task.reaction_id,
@@ -651,8 +659,10 @@ def _verified_replay_records(tokenizer, task, row, episode, max_context: int, ar
     records = []
     for index in range(task.prefix_events, len(reference.decisions)):
         step = v2_anchor_task(reference, index, divergence_reason=task.divergence_reason)
+        result = reference.decisions[index]["messages"][-1]
         record = _verified_replay_record(
-            tokenizer, step, row, step, max_context, args
+            tokenizer, step, row, step, max_context, args,
+            tool_result=result,
         )
         record["reference_decision_index"] = index
         records.append(record)

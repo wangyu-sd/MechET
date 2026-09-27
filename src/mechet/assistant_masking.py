@@ -56,24 +56,35 @@ def render_chat(
     raise TypeError(f"chat template rendering failed{suffix}: {last_error}")
 
 
-def render_qwen_sft_aligned_prefix(
+def render_qwen_sft_tool_prefix(
     tokenizer: Any,
     messages: list[dict[str, Any]],
     *,
-    tools: list[dict[str, Any]] | None = None,
+    tools: list[dict[str, Any]],
 ) -> str:
-    """Return the generation prefix used by completed Qwen3 SFT examples.
+    """Match an assistant tool call in a completed Qwen3 SFT conversation.
 
-    Qwen3's shipped template inserts an empty thinking block when thinking is
-    disabled, including in completed assistant tool calls and short text labels.
-    The online actor and critic must condition on those same tokens.  Do not
-    reconstruct the assistant header by hand: it silently drops that block.
+    Qwen3's generation template inserts an empty thinking block, but its
+    completed assistant tool call followed by a tool response does not. Actor
+    prompts must use the latter boundary, not add_generation_prompt=True.
     """
-
+    if not tools:
+        raise ValueError("tool-call prefix requires tool schemas")
     history = render_chat(tokenizer, messages, tools=tools, add_generation_prompt=False)
     if not history.endswith("<|im_end|>\n"):
         raise ValueError("Qwen SFT prefix does not end at a completed message")
-    prefix = render_chat(tokenizer, messages, tools=tools, add_generation_prompt=True)
+    return history + "<|im_start|>assistant\n"
+
+
+def render_qwen_sft_text_prefix(
+    tokenizer: Any,
+    messages: list[dict[str, Any]],
+) -> str:
+    """Match a completed Qwen3 assistant text answer (e.g. a critic label)."""
+    history = render_chat(tokenizer, messages, add_generation_prompt=False)
+    if not history.endswith("<|im_end|>\n"):
+        raise ValueError("Qwen SFT prefix does not end at a completed message")
+    prefix = render_chat(tokenizer, messages, add_generation_prompt=True)
     if not prefix.startswith(history):
         raise ValueError("Qwen generation prefix differs from SFT history")
     return prefix

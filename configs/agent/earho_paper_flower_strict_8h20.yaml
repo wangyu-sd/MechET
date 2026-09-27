@@ -1,8 +1,10 @@
-# Strict-executable FlowER view, not the unqualified reaction-level full split.
-# Separate from the historical binary-credit run; never resume its artifacts.
+# HISTORICAL PRE-v3 TASK. Do not resubmit or use as a prefixv3 result.
+# The 2026-09-24 output used the earlier no-think actor boundary; see the
+# historical EARHO task registry. Strict-executable FlowER, not official full.
 extends: earho_v2_flower_strict_nf4_matched_8h20.yaml
+prompt_prefix_contract: qwen_sft_aligned_no_think_v1
 condition: earho_paper_bounded_horizon_flower_strict
-output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_prefixv2_seed17_h20_20260925
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_seed17_h20_20260924
 reward:
   contract: paper_earho_bounded_horizon_v1
   lambda_s: 0.25

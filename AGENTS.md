@@ -16,3 +16,11 @@ trace subsets. In this repository, unqualified "FlowER full" means the frozen
 reaction-level official split with 257,171 train, 2,890 valid, and 28,971 test
 rows. Any filtering must be explicitly named and must not silently replace the
 requested full condition.
+
+Before discussing or reusing an EARHO task, read
+`docs/EARHO_HISTORICAL_TASKS.md` and
+`docs/EARHO_HISTORICAL_RUN_REGISTRY.json`. The 2026-09-25 K=2 `prefixv2`
+task has a confirmed actor/SFT prefix mismatch and is diagnostic only.
+Earlier pre-v3 tasks are historical but must not all be assigned that same
+bug. Never resume a historical task specification or output as `prefixv3`;
+use a separate `*prefixv3*.yaml` config and output path.

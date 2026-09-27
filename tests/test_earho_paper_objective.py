@@ -130,14 +130,14 @@ def test_reference_successor_credit_requires_matching_terminal_status():
 
 
 @pytest.mark.parametrize("name", [
-    "earho_paper_mech_uspto31k_8a100.yaml",
-    "earho_paper_flower_strict_8h20.yaml",
+    "earho_paper_mech_uspto31k_prefixv3_8a100.yaml",
+    "earho_paper_flower_strict_prefixv3_8h20.yaml",
 ])
 def test_paper_config_is_separate_and_reaches_collector(name, tmp_path):
     root = Path(__file__).resolve().parents[1]
     cfg = load_earho_config(root / "configs/agent" / name)
     assert cfg["reward"]["contract"] == "paper_earho_bounded_horizon_v1"
-    assert "prefixv2" in cfg["output_dir"]
+    assert "prefixv3" in cfg["output_dir"]
     command = worker_command(
         cfg, tmp_path / "source.jsonl", tmp_path / "actor",
         tmp_path / "rollout.jsonl", 0, frontier=2,
@@ -147,21 +147,36 @@ def test_paper_config_is_separate_and_reaches_collector(name, tmp_path):
     assert command[command.index("--paper-lambda-s") + 1] == "0.25"
 
 
-def test_formal_driver_rejects_old_no_think_prompt_contract():
-    with pytest.raises(ValueError, match="SFT-aligned Qwen generation prefix"):
+def test_formal_driver_rejects_old_unified_prompt_contract():
+    with pytest.raises(ValueError, match="distinct SFT-aligned tool and text prefixes"):
         validate_contract({
             "protocol_version": "trajectory_history_v2",
-            "prompt_prefix_contract": "qwen_sft_aligned_no_think_v1",
+            "prompt_prefix_contract": "qwen_sft_template_generation_prefix_v2",
         })
+
+
+@pytest.mark.parametrize("name", [
+    "earho_paper_flower_strict_8h20.yaml",
+    "earho_paper_mech_uspto31k_8a100.yaml",
+    "earho_paper_mech_uspto31k_8h20.yaml",
+    "earho_paper_flower_strict_k2_gt_smoke_8a100.yaml",
+    "earho_paper_flower_strict_k2_prefixv2_8a100.yaml",
+])
+def test_historical_paper_configs_cannot_be_resubmitted_as_v3(name):
+    root = Path(__file__).resolve().parents[1]
+    cfg = load_earho_config(root / "configs/agent" / name)
+    assert "prefixv3" not in cfg["output_dir"]
+    with pytest.raises(ValueError, match="distinct SFT-aligned tool and text prefixes"):
+        validate_contract(cfg)
 
 
 def test_k2_gt_smoke_keeps_reward_and_parent_but_limits_actor_candidates(tmp_path):
     root = Path(__file__).resolve().parents[1]
     cfg = load_earho_config(
-        root / "configs/agent/earho_paper_flower_strict_k2_gt_smoke_8a100.yaml"
+        root / "configs/agent/earho_paper_flower_strict_k2_gt_smoke_prefixv3_8a100.yaml"
     )
     baseline = load_earho_config(
-        root / "configs/agent/earho_paper_flower_strict_8h20.yaml"
+        root / "configs/agent/earho_paper_flower_strict_prefixv3_8h20.yaml"
     )
     assert cfg["candidates_per_product"] == 2
     assert cfg["rounds"] == 1

@@ -1,6 +1,12 @@
+from pathlib import Path
+
 import pytest
 
-from mechet.assistant_masking import render_chat, render_qwen_sft_aligned_prefix
+from mechet.assistant_masking import (
+    render_chat,
+    render_qwen_sft_text_prefix,
+    render_qwen_sft_tool_prefix,
+)
 
 
 class ThinkingTemplate:
@@ -8,32 +14,47 @@ class ThinkingTemplate:
         self, messages, *, tokenize, add_generation_prompt, enable_thinking=True, tools=None
     ):
         assert not tokenize
-        history = "".join(
-            f"<|im_start|>{message['role']}\n"
-            + ("<think>\n\n</think>\n\n" if message["role"] == "assistant" else "")
-            + message["content"] + "<|im_end|>\n"
-            for message in messages
-        )
+        history = ""
+        for index, message in enumerate(messages):
+            content = str(message.get("content") or "")
+            if message.get("tool_calls"):
+                content += "<tool_call>flow</tool_call>"
+            followed_by_tool = (
+                message["role"] == "assistant"
+                and index + 1 < len(messages)
+                and messages[index + 1]["role"] == "tool"
+            )
+            if message["role"] == "assistant" and not followed_by_tool:
+                content = "<think>\n\n</think>\n\n" + content
+            history += f"<|im_start|>{message['role']}\n{content}<|im_end|>\n"
         if add_generation_prompt:
             return history + "<|im_start|>assistant\n<think>\n\n</think>\n\n"
         return history
 
 
-def test_generation_prefix_matches_full_sft_tool_call_boundary():
+def test_tool_prefix_matches_completed_sft_tool_call_not_generation_template():
     tok = ThinkingTemplate()
     history = [{"role": "system", "content": "S"}, {"role": "user", "content": "U"}]
-    completion = {"role": "assistant", "content": "<tool_call>flow</tool_call>"}
-    full = render_chat(tok, history + [completion], tools=[{"name": "flow"}])
-    aligned = render_qwen_sft_aligned_prefix(tok, history, tools=[{"name": "flow"}])
-    generated = render_chat(tok, history, tools=[{"name": "flow"}], add_generation_prompt=True)
-    assert full.startswith(aligned)
-    assert aligned == generated
-    assert aligned.endswith("<|im_start|>assistant\n<think>\n\n</think>\n\n")
+    assistant = {"role": "assistant", "content": "", "tool_calls": [{"name": "flow"}]}
+    result = {"role": "tool", "content": "OK"}
+    tools = [{"name": "flow"}]
+    full = render_chat(tok, history + [assistant, result], tools=tools)
+    prefix = render_qwen_sft_tool_prefix(tok, history, tools=tools)
+    assert full.startswith(prefix)
+    assert prefix.endswith("<|im_start|>assistant\n")
+    assert not full.startswith(render_chat(tok, history, tools=tools, add_generation_prompt=True))
 
 
-def test_real_qwen3_prefix_matches_tool_and_value_sft_when_available():
-    from pathlib import Path
+def test_text_prefix_matches_completed_sft_answer():
+    tok = ThinkingTemplate()
+    history = [{"role": "system", "content": "S"}, {"role": "user", "content": "U"}]
+    full = render_chat(tok, history + [{"role": "assistant", "content": "P"}])
+    prefix = render_qwen_sft_text_prefix(tok, history)
+    assert full.startswith(prefix)
+    assert prefix.endswith("<|im_start|>assistant\n<think>\n\n</think>\n\n")
 
+
+def test_real_qwen3_tool_and_text_prefixes_match_completed_sft_when_available():
     from transformers import AutoTokenizer
 
     snapshot = Path(
@@ -45,25 +66,31 @@ def test_real_qwen3_prefix_matches_tool_and_value_sft_when_available():
     tok = AutoTokenizer.from_pretrained(snapshot, local_files_only=True, trust_remote_code=True)
     history = [{"role": "system", "content": "S"}, {"role": "user", "content": "U"}]
     tools = [{"type": "function", "function": {"name": "foo", "parameters": {"type": "object"}}}]
-    completions = [
-        ({"role": "assistant", "content": "P"}, None),
-        ({"role": "assistant", "content": "", "tool_calls": [
-            {"id": "x", "type": "function", "function": {"name": "foo", "arguments": {"a": 1}}}
-        ]}, tools),
+    assistant = {"role": "assistant", "content": "", "tool_calls": [
+        {"id": "x", "type": "function", "function": {"name": "foo", "arguments": {"a": 1}}}
+    ]}
+    cases = [
+        (render_qwen_sft_tool_prefix(tok, history, tools=tools),
+         render_chat(tok, history + [assistant, {"role": "tool", "name": "foo", "content": "OK"}], tools=tools)),
+        (render_qwen_sft_text_prefix(tok, history),
+         render_chat(tok, history + [{"role": "assistant", "content": "P"}])),
     ]
-    for assistant, schemas in completions:
-        prefix = render_qwen_sft_aligned_prefix(tok, history, tools=schemas)
-        full = render_chat(tok, history + [assistant], tools=schemas)
+    for prefix, full in cases:
         prefix_ids = tok.encode(prefix, add_special_tokens=False)
         full_ids = tok.encode(full, add_special_tokens=False)
         assert full_ids[:len(prefix_ids)] == prefix_ids
         assert len(full_ids) > len(prefix_ids)
 
 
-def test_generation_prefix_rejects_non_chatml_history():
+def test_prefixes_reject_non_chatml_history_and_missing_tool_schema():
     class BrokenTemplate(ThinkingTemplate):
         def apply_chat_template(self, *args, **kwargs):
             return "not ChatML"
 
+    history = [{"role": "user", "content": "U"}]
     with pytest.raises(ValueError, match="completed message"):
-        render_qwen_sft_aligned_prefix(BrokenTemplate(), [{"role": "user", "content": "U"}])
+        render_qwen_sft_tool_prefix(BrokenTemplate(), history, tools=[{"name": "foo"}])
+    with pytest.raises(ValueError, match="completed message"):
+        render_qwen_sft_text_prefix(BrokenTemplate(), history)
+    with pytest.raises(ValueError, match="requires tool schemas"):
+        render_qwen_sft_tool_prefix(ThinkingTemplate(), history, tools=[])

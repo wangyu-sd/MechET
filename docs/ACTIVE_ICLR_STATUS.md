@@ -1,5 +1,26 @@
 # Active ICLR status
 
+## 2026-09-26: Stage-III actor/critic prefix correction
+
+The Qwen3 tool-call SFT rows render a completed assistant tool call followed by
+a tool response with `<|im_start|>assistant\n<tool_call>`; the old Stage-III
+actor used `add_generation_prompt=True`, which inserted an empty `<think>` block
+before `<tool_call>`. That unified prefix implementation has been removed.
+Actor rollout, replay and evaluation now use the tool-call boundary; the
+successor-value critic still uses the text-answer boundary with the empty
+thinking block, as its SFT rows require. Verified replay now renders the
+assistant call with a following tool response (matching Stage-II SFT), then
+truncates before that response so executor output is never actor-supervised.
+The active config contract is
+`qwen_sft_tool_and_text_prefix_v3`, with separate `prefixv3` output paths.
+Historical `prefixv2` rollouts/adapters must remain diagnostic and must not
+be presented as clean Stage-III results or resumed under the new contract.
+This is a code/prompt-parity correction; no new Stage-III outcome is claimed.
+All pre-v3 EARHO task specifications and local output roots are explicitly
+classified in `docs/EARHO_HISTORICAL_RUN_REGISTRY.json`; only the 2026-09-25
+K=2 `prefixv2` run is labelled as the **confirmed** empty-think prefix mismatch.
+The other old runs are labelled historical, not automatically assigned that bug.
+
 ## 2026-09-18: natural-language protocol v2 repair
 
 Keep the agreed mechanism-first method.  The current implementation authority
@@ -15,7 +36,7 @@ historical diagnostic evidence and must not be reported as v2.
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-09-17.
+Last updated: 2026-09-26.
 
 ## Current three-stage method decision
 

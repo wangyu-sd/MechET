@@ -1,7 +1,8 @@
-# Matched rerun of the 2026-09-24 K=2 pilot after the Stage-III prefix,
-# verified-suffix replay, and terminal-successor corrections. This is the
-# strict-executable FlowER trace view, not the unqualified reaction-level full split.
+# HISTORICAL DIAGNOSTIC ONLY: this 2026-09-25 K=2 run used the confirmed
+# actor empty-think/SFT tool-call prefix mismatch. Do not resume or cite it as
+# clean Stage III evidence. Preserve its original task and output identity.
 extends: earho_v2_flower_strict_nf4_matched_8h20.yaml
+prompt_prefix_contract: qwen_sft_template_generation_prefix_v2
 condition: earho_paper_bounded_horizon_flower_strict_k2_prefixv2
 output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_k2_prefixv2_seed17_a100_20260925
 expected_gpu_regex: A100

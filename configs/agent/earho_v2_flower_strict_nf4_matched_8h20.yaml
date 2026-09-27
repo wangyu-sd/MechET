@@ -3,7 +3,7 @@
 # This is the 257,167/2,890/28,967 executable mechanism view, NOT FlowER full.
 dataset_id: flower_strict_executable
 protocol_version: trajectory_history_v2
-prompt_prefix_contract: qwen_sft_template_generation_prefix_v2
+prompt_prefix_contract: qwen_sft_tool_and_text_prefix_v3
 actor_quantization: bnb_nf4_double_quant_bf16
 model_name_or_path: Qwen/Qwen3-8B
 model_revision: b968826d9c46dd6066d109eabc6255188de91218
@@ -20,7 +20,7 @@ history_validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_na
 natural_language_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_natural_language_event_history_v2/manifest.json
 reaction_denominator: {train: 257167, valid: 2890, test: 28967}
 full_reaction_denominator: {train: 257171, valid: 2890, test: 28971}
-output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_v2_flower_strict_nf4_matched_seed17_h20_20260923
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_v2_flower_strict_nf4_matched_prefixv3_seed17_h20
 vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
 expected_gpu_regex: H20
 maximum_collector_error_rate: 0.05

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import hashlib
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -101,11 +102,16 @@ def test_verified_fallback_replays_whole_remaining_trajectory_with_matching_pref
                                 tools=None, enable_thinking=False):
             assert not tokenize and not enable_thinking
             rendered = ""
-            for message in messages:
+            for index, message in enumerate(messages):
                 content = str(message.get("content") or "")
                 if message.get("tool_calls"):
                     content += "<tool_call>" + str(message["tool_calls"]) + "</tool_call>"
-                if message["role"] == "assistant":
+                followed_by_tool = (
+                    message["role"] == "assistant"
+                    and index + 1 < len(messages)
+                    and messages[index + 1]["role"] == "tool"
+                )
+                if message["role"] == "assistant" and not followed_by_tool:
                     content = "<think>\n\n</think>\n\n" + content
                 rendered += f"<|im_start|>{message['role']}\n{content}<|im_end|>\n"
             if add_generation_prompt:
@@ -131,7 +137,12 @@ def test_verified_fallback_replays_whole_remaining_trajectory_with_matching_pref
         mask = record["loss_mask"]
         boundary = mask.index(1)
         prefix = "".join(chr(value) for value in ids[:boundary])
-        assert "<think>\n\n</think>\n\n" in prefix
+        completion = "".join(chr(value) for value in ids[boundary:])
+        assert prefix.endswith("<|im_start|>assistant\n")
+        assert "<think>\n\n</think>\n\n" not in prefix
+        assert completion.startswith("<tool_call>")
+        assert "<think>" not in completion
+        assert "<|im_start|>tool" not in completion
         assert f"accepted_actions: {index}" in prefix
         assert all(value == 0 for value in mask[:boundary])
         assert all(value == 1 for value in mask[boundary:])
@@ -140,6 +151,36 @@ def test_verified_fallback_replays_whole_remaining_trajectory_with_matching_pref
         Tokenizer(), second, source, second, 100000, args, reference=reference
     )
     assert [item["reference_decision_index"] for item in suffix] == [1]
+
+
+def test_real_qwen_verified_replay_supervises_tool_call_without_think_when_available():
+    from transformers import AutoTokenizer
+
+    snapshot = Path(
+        "/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/"
+        "models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218"
+    )
+    if not snapshot.is_dir():
+        pytest.skip("local Qwen3-8B tokenizer snapshot is unavailable")
+    tokenizer = AutoTokenizer.from_pretrained(
+        snapshot, local_files_only=True, trust_remote_code=True
+    )
+    source, decisions = fixture()
+    reference = replay_reference(source, decisions)
+    task = anchor_task(reference, 0, divergence_reason="INVALID_ACTION")
+    records = _verified_replay_records(
+        tokenizer, task, source, task, 100000,
+        SimpleNamespace(legacy_dual_prompt=False), reference=reference,
+    )
+    assert len(records) == 2
+    for record in records:
+        boundary = record["loss_mask"].index(1)
+        prefix = tokenizer.decode(record["input_ids"][:boundary], skip_special_tokens=False)
+        completion = tokenizer.decode(record["input_ids"][boundary:], skip_special_tokens=False)
+        assert prefix.endswith("<|im_start|>assistant\n")
+        assert completion.startswith("<tool_call>")
+        assert "<think>" not in completion
+        assert "<|im_start|>tool" not in completion
 
 
 def test_product_probe_uses_first_executed_successor_mismatch():
