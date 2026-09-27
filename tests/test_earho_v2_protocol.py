@@ -288,6 +288,17 @@ def test_v2_runtime_lineage_survives_fresh_temporary_extraction(tmp_path):
         _runtime_lineage_identity({}, markers[0])
 
 
+def test_concurrent_vllm_engines_have_disjoint_port_search_ranges():
+    from scripts.run_natural_language_anchor_branch_rl import _vllm_port_for_rank
+
+    ports = [_vllm_port_for_rank(rank) for rank in range(8)]
+    assert len(set(ports)) == 8
+    assert all(1024 <= port < 65536 for port in ports)
+    assert all(right - left == 1024 for left, right in zip(ports, ports[1:]))
+    with pytest.raises(ValueError, match="invalid local GPU rank"):
+        _vllm_port_for_rank(8)
+
+
 def test_chemical_successor_pooling_ignores_action_surface():
     left = _v2_successor_fingerprint("[Na+:3].[CH3:1][Br:2]", False, "alpha")
     right = _v2_successor_fingerprint("[CH3:9][Br:8].[Na+:7]", False, "beta")

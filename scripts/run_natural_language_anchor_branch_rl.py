@@ -260,6 +260,18 @@ def _runtime_lineage_identity(cfg, runtime_marker: Path) -> dict[str, str]:
     }
 
 
+def _vllm_port_for_rank(rank: int) -> int:
+    """Give concurrent vLLM engines disjoint TCPStore search ranges.
+
+    vLLM 0.8.5's get_open_port() briefly binds port 0 and then releases it.
+    Eight simultaneous engines can therefore choose the same ephemeral port
+    before any of their torch distributed stores starts listening.
+    """
+    if not 0 <= rank < 8:
+        raise ValueError(f"invalid local GPU rank: {rank}")
+    return 20000 + 1024 * rank
+
+
 def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation):
     marker = output / "collection_done.json"
     shards = [output / f"rank{rank}.jsonl" for rank in range(8)]
@@ -320,6 +332,7 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
             env["PYTHONPATH"] = runtime + ":" + env.get("PYTHONPATH", "")
             env["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
             env["VLLM_CACHE_ROOT"] = f"/tmp/meteor-nl-anchor-vllm-{rank}"
+            env["VLLM_PORT"] = str(_vllm_port_for_rank(rank))
             workers.append(
                 subprocess.Popen(
                     worker_command(
