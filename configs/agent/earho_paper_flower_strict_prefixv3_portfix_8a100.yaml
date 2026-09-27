@@ -1,0 +1,21 @@
+# Fresh full-method output after fixing concurrent vLLM TCPStore port allocation.
+# Five rounds x 128 reactions sample the 257,167-row strict-executable view.
+extends: earho_v2_flower_strict_nf4_matched_8h20.yaml
+condition: earho_paper_bounded_horizon_flower_strict_prefixv3_portfix_a100
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/earho_paper_flower_strict_prefixv3_portfix_seed17_a100
+expected_gpu_regex: A100
+reward:
+  contract: paper_earho_bounded_horizon_v1
+  lambda_s: 0.25
+  lambda_e: 0.05
+  lambda_c: 0.25
+  lambda_n: 0.25
+paper_ablation: full
+curriculum:
+  adaptive_horizon: true
+optimization:
+  fallback_supervision: true
+  successor_pooling: true
+evaluation:
+  candidates_per_reaction: 1
+  checkpoint_metric: group_pass_at_k
