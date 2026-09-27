@@ -415,7 +415,7 @@ def _beam_continue(
 
         # The full paper method pools convergent executor states before critic
         # evaluation. The matched no-pooling ablation keeps each realization.
-        if not args.disable_successor_pooling:
+        if not getattr(args, "disable_successor_pooling", False):
             unique = {}
             for child in candidates:
                 key = (visible(child.state), bool(child.terminal))
@@ -999,7 +999,7 @@ def collect(args):
                                 _v2_action_fingerprint(
                                     decoded, first_terminal, str(decoded["text"])
                                 )
-                                if args.disable_successor_pooling
+                                if getattr(args, "disable_successor_pooling", False)
                                 else _v2_successor_fingerprint(
                                     first_state, first_terminal, str(decoded["text"])
                                 )
@@ -1119,7 +1119,7 @@ def collect(args):
                     summary["eligible_records"] = 0
                 needs_replay = (
                     not args.evaluation
-                    and not args.disable_fallback_supervision
+                    and not getattr(args, "disable_fallback_supervision", False)
                     and not no_correction_frontier
                     and (
                         not args.protocol_v2
