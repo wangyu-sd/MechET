@@ -1,81 +1,375 @@
-# Mechanism-conditioned reaction-state JEPA: research proposal
+# CRN-JEPA: an executable 2D chemical reaction world
 
-**Status:** proposal for discussion, not an implemented method, completed experiment, or change to the current MechET/ICLR protocol. This document does not authorize a training job. It extends the experimental graph-policy direction in [PR #65](https://github.com/wangyu-sd/MechET/pull/65); it does not replace the trace-owned main method or the separate EARHO work.
+**Status:** spin-off research proposal. This document is not an implemented method, completed experiment, training authorization, or change to the current MechET/ICLR protocol. It records a research direction that originated from MechET's executor and graph-policy work but is now scientifically broader than retrosynthesis and should migrate to an independent repository once the Phase-0 design is frozen.
 
-## Scientific question and precise scope
+## Core thesis
 
-Can a model learn *which chemically legal electron-flow decisions lead toward useful reaction outcomes*, while sharing a representation across retrosynthesis, forward reaction prediction, reaction-condition selection, graph-level transition-bottleneck inference, and gas-phase fragmentation?
+The project does **not** train a separate model for each chemical-reaction task. It constructs an executable two-dimensional chemical reaction world and learns its latent dynamics with JEPA.
 
-The proposed object is a **mechanism-conditioned reaction-state network**. A node is an entire chemical state (a multiset of molecular graphs, charges, electron containers, provenance of imported species, and optional context). An edge is a typed, executor-checkable event. Branches represent alternative mechanisms and products. This is not yet a quantitative chemical reaction network with experimentally determined concentrations, rate constants, or microkinetics; those require additional data and models.
+The chemical world is a **Chemical Reaction Network (CRN)** in the chemistry sense, not a neural network. Molecular species are nodes. Elementary electron-transfer events are directed hyperedges that may consume and produce multiple species. A reaction state identifies which species are currently present together with the relevant domain context. JEPA learns which regions of the CRN remain reachable after candidate chemical events.
 
-The current paper's [scientific thesis](SCIENTIFIC_THESIS.md) is narrower: computational, executor-owned inverse electron-flow reasoning for a declared organic-chemistry scope. Gas-phase ions, radicals, condition effects, and transition-bottleneck or barrier proxies below are **new tasks with separate data and validation contracts**, not capabilities inherited from that thesis.
+The resulting scientific question is:
 
-## Model and inference contract
+> Can a model learn the future reachable structure of an executable chemical reaction network well enough that forward reaction simulation, mechanism exploration, retrosynthesis, catalytic-cycle analysis and gas-phase fragmentation become different forms of navigation over the same learned chemical world?
 
-Let `x_t` contain the full current state and its domain/context `c`: solution versus gas phase, reaction conditions if known, ion/adduct and collision energy for MS, and provenance for atoms entering via fragment imports. The shared atom/bond encoder `E` is permutation-equivariant; a graph-level readout is permutation-invariant. Private atom maps may align training states and executor handles but their integer values are not learned features.
+## 1. Chemical world definition
 
-```text
-z_t = E(x_t, c)
-candidate actions a_t ~ policy(a | z_t, compact history, task)
-x_(t+1) = exact domain executor(x_t, a_t)
-predicted future latent zhat_(t+h) = F_h(z_t, a_t ... a_(t+h-1), c)
-```
+### 1.1 Species
 
-The action-conditioned JEPA predictor `F_h` matches a stop-gradient/EMA target encoder of actual future states for short and longer horizons (for example 1, 2 and 4 accepted events). The loss includes **atom- and bond-local targets as well as graph-level targets**: a graph-only embedding could ignore the very bond-order, charge, or radical change that defines an electron event. Action prediction, inverse-action consistency, and variance/covariance anti-collapse regularization complement latent prediction. Given an action sequence, future states are less multimodal; where actions are unknown, use multiple hypotheses rather than averaging mutually exclusive products.
+A species is a chemically explicit 2D molecular graph
 
-An exact executor, not the latent predictor, defines committed chemical states. The useful role of JEPA is to rank actions by predicted *downstream consequence* and to provide a long-horizon representation/value signal. If it merely learns to imitate the already-available deterministic one-step executor, it adds cost without a new capability. At inference, a small policy-guided search uses the predictor for proposal/ranking and checks selected actions with the executor; every reported structure comes from execution. This is a testable design hypothesis, not a performance claim. Action-conditioned latent planning has precedents in [V-JEPA 2](https://arxiv.org/abs/2506.09985), but its transfer to chemistry is unproven.
+\[
+m_i=(G_i,q_i,r_i,\chi_i,\iota_i,\ldots),
+\]
 
-The core graph policy can reuse the factorized `FLOW`, sparse `BE_DELTA`, `IMPORT_REACTIVE`, `IMPORT_ENV`, and `FINISH` action families proposed in [PR #65](https://github.com/wangyu-sd/MechET/pull/65). Open-vocabulary reactive imports need an explicit graph generator and independent validity/coverage metrics; a small closed fragment catalog must not silently become the main model. The shared encoder can be large while each domain has a small, typed dynamics/action head. One undifferentiated transition head for solution reactions and collision-induced gas-phase fragmentation is not chemically justified.
+including atom identity, bond order, formal charge, radical/spin bookkeeping where available, stereochemical state and isotope information when relevant.
 
-## What “chemically credible” means
+### 1.2 Elementary events
 
-Confidence must be attached to a **specific claim and evidence level**, not to one opaque model probability. The proposed output is an auditable record: structures, conditions or ionization context, proposed events, executor outcomes, provenance, evidence, calibrated uncertainty, and explicit abstention reason where necessary.
+A CRN edge is not an overall reaction edit. It is an **elementary mechanistic event** with explicit electronic bookkeeping:
 
-| Level | Evidence and check | What it supports | What it does **not** prove |
-|---|---|---|---|
-| 0. Formal accounting | Typed action replay; atom/isotope provenance; bond-electron, formal-charge and spin bookkeeping; explicit reservoirs for imports, protons, electrons and neutral losses; graph sanitization and cycle checks | Internally consistent state transformation | That the reaction occurs under real conditions |
-| 1. Mechanistic consistency | Reverse-path replay plus a separately trained forward predictor or other independent check; known reaction class and competing branches; sensitivity to required reagents/conditions | A coherent computational mechanism hypothesis | A unique physical mechanism or selectivity |
-| 2. Computational physics, when invoked | Optional external electronic-structure calculations on selected pathways, with explicitly declared geometry, solvation/ionization assumptions, energy method and uncertainty | Additional evidence about particular steps under a declared approximation | Universal feasibility across solvents, temperatures or instruments; this is not an input or output requirement of the graph JEPA |
-| 3. External empirical agreement | Independent literature reactions, held-out condition/yield measurements, known products, reference spectra and expert adjudication, with provenance and non-overlap audit | Out-of-sample predictive reliability in a stated domain | Guarantee for every new molecule |
-| 4. Prospective confirmation | Carefully selected new synthesis, spectroscopy or mechanistic experiments | Stronger evidence for the tested cases | A universal certificate for all model outputs |
+\[
+e:\{m_1,\ldots,m_k\}\rightarrow\{m'_1,\ldots,m'_l\}.
+\]
 
-Wet-lab testing is therefore **not a prerequisite for every prediction or for an initial research result**. Credible pre-experimental claims can rest on Levels 0–3, but must name the level reached. A forward-model score, RetroChimera rank, or JEPA distance is soft evidence, not a law. A round trip through the *same* executor is an integrity check, not independent confirmation. Even an algebraically reversible inverse program does not mean the forward reaction is kinetically accessible under the same conditions. FlowER's BE-matrix work motivates electron accounting, not a blanket claim of experimental mechanism identification ([FlowER](https://www.nature.com/articles/s41586-025-09426-9)).
+Because a chemical step can involve multiple reactants and multiple products, the appropriate representation is a directed hyperedge. An event records the affected atoms/bonds/electron containers, charge/radical changes, imported species and provenance.
 
-**The proposed model does not generate 3D transition-state geometries.** Its transition-state-related output is a *graph-level transition-bottleneck hypothesis*: which bonds/electron containers change together and which alternative event sequences are difficult under the learned pathway model. An uncertain barrier ranking is added only if independently labeled energetic or kinetic data support that head; without such labels, do not call an event physically rate-limiting. An event-centred latent bottleneck is useful for pathway search without a 3D input or output, but it is not a physical first-order saddle point. If a future downstream study claims to have located a conventional quantum-chemical transition state, that stronger claim requires an external calculation validating a first-order saddle point and an intrinsic reaction coordinate (or comparably justified path check) between the intended endpoints ([Meissner et al., 2026](https://www.nature.com/articles/s41524-026-02301-9)). That validation is optional and outside the core JEPA contract.
+A formally replayable graph edit is not automatically a physically established mechanism. Every edge therefore carries a provenance/evidence tag.
 
-## Task adapters: shared representation, distinct evidence
+### 1.3 Reaction state
 
-| Task | Input and predicted object | Additional model/data requirement | Minimum convincing evaluation |
-|---|---|---|---|
-| Retrosynthesis | Product-only graph → executable inverse-event trajectory → complete precursor mixture | Mechanism trajectories, fragment-import generator, optional endpoint preference teacher | Formal acceptance and full-mixture Top-1/Top-K on frozen denominators; alternative-route review; diversity and cost |
-| Forward reaction simulation | Reactant/reagent state plus conditions → branching electron-event trajectories and product distribution | Independently trained forward policy; conditions and side-product data | Product/side-product recovery, selectivity calibration, unseen-class transfer, conservation and nontrivial trajectory checks |
-| Condition selection | Specified reactants and desired product → candidate solvent, catalyst, additives, temperature and amounts | Condition/yield/selectivity records; context-dependent outcome model and explicit missingness | Held-out condition retrieval, yield/selectivity error and calibration, condition-class OOD tests; regret only where counterfactual condition outcomes or prospective tests are available |
-| Graph-level transition bottleneck | Reactant/product or an elementary event → changed bond/electron containers, competing event ranking, and optional barrier proxy | Mechanism-event supervision; separately sourced kinetic or calculated barrier labels only for the optional barrier head; no 3D geometry head | Event/center accuracy, competing-path ranking and calibration; barrier error only on independently labeled cases; never score a graph bottleneck as a located physical TS |
-| MS/MS and gas-phase fragmentation | Precursor ion/adduct, polarity, collision energy and instrument domain → charged-fragment/neutral-loss network and spectrum | Dedicated gas-phase action head, charge/radical/H-transfer handling and spectrum-intensity head; reference spectra | Exact formula and `m/z`, fragment recall, spectrum similarity, energy-conditioned response, isomer retrieval, charge/mass accounting |
+The CRN is the world map. A **ReactionState** is the current location in that world:
 
-Condition recommendation is a separate supervised problem with categorical and continuous targets; reaction records often lack standardized quantities and settings ([condition-recommendation study](https://doi.org/10.1039/D5SC04957A)). A low predicted barrier proxy is not by itself a yield prediction. The first practical transition-bottleneck use is to rank plausible elementary graph events and identify uncertain or competing branches. Optional external QM verification can later examine a small selected set, but the JEPA itself remains graph-native; [reactive ML potentials for TS search](https://www.nature.com/articles/s41467-026-72945-0) address a different, geometry-dependent task.
+\[
+X_t=(\{m_i\}_t,c_t),
+\]
 
-MS is a meaningful transfer test of electron/fragment representations, **not the same dynamics** as solution-phase synthesis. The domain head must model ionization/adducts, collision energy, competing charged fragments, complementary neutrals, radical pathways and hydrogen transfer. Fragment-network and intensity prediction are distinct heads, as in [ICEBERG](https://pmc.ncbi.nlm.nih.gov/articles/PMC12154671/); a correct fragment formula is not automatically a correct intensity or mechanistic explanation. Published spectra provide empirical validation without new wet-lab measurements, subject to instrument/domain stratification.
+where \(c_t\) may include phase, solvent, catalyst, temperature, ion/adduct, collision energy or other domain context when known.
 
-## RetroChimera teacher: an endpoint preference, not a physics oracle
+A transition is
 
-[RetroChimera](https://www.nature.com/articles/s41586-026-11160-9) predicts and ranks precursor sets from a product. Freeze a versioned checkpoint and cache its product-only Top-K outputs on **training products only**. Match canonical complete precursor multisets; record teacher coverage and provenance. No teacher prediction, GT precursor, or reference suffix enters a student test prompt.
+\[
+X_t\xrightarrow{e_t}X_{t+1}.
+\]
 
-On fresh student rollouts, compare **executor-accepted terminal endpoints** using calibrated rank/support where the teacher actually provides it. A teacher Top-K omission means *unknown*, not chemically impossible. Prefer a verifiable endpoint or independent evidence over the teacher when they disagree. Retain mechanism-supervised anchors and reward non-GT alternatives only when the evidence contract supports them. This is **on-policy endpoint-preference distillation**, not token-level OPD or electron-action distillation: RetroChimera does not expose an expert distribution over student-visited electron states. Its paper and [released interface](https://github.com/microsoft/retrochimera) support endpoint ranking, not mechanism labels.
+The executor is authoritative for committed states:
 
-Because the teacher may have been trained on patent-derived or commercial data, audit exact and near-duplicate train/test overlap before making a clean-transfer claim. Pistachio, USPTO-50K and USPTO-FULL checkpoints are separate teacher conditions, not interchangeable baselines. Report teacher-only performance and student/teacher complementarity before claiming an improvement from distillation.
+\[
+X_{t+1}=\operatorname{Executor}(X_t,e_t).
+\]
 
-## Data, scale and falsification gates
+There is only one CRN. ReactionState is not a second CRN; it is the currently active multiset of species and context inside the same chemical world.
 
-1. **Start with the current mechanistic domain.** Use frozen strict-executable trajectories for inverse state/action supervision; keep the official reaction-level FlowER split and the strict-executable subset named separately per `PROJECT_MEMORY.md`. Electron-event decisions from one reaction are correlated, not independent reaction examples. Existing FlowER-derived trajectories do not automatically label condition optima, activation barriers or MS fragmentation.
-2. **Pretrain and train with provenance.** Separate domain, phase, source dataset, mechanism provenance (`inferred`, `calculated`, `experimental`), atom mapping, conditions, uncertainty and data license. Use graph/action masking and multi-horizon JEPA targets only where transitions are known. Add independent forward, conditions, optional barrier and spectra datasets per task; do not invent missing labels or merge solution/gas tasks by SMILES alone.
-3. **Scale empirically.** Compare approximately 50M, 200M and, only if justified, 500M parameter graph/trajectory models on frozen splits and controlled data/compute budgets. Track unique reactions and families, not just correlated transition counts. Measure throughput and inference-time executor/QM calls. Stop scaling if long-horizon accuracy, OOD reliability or calibration plateaus; parameter count alone is not evidence of chemistry.
-4. **Require isolating controls.** Compare graph policy alone, policy+JEPA, policy+teacher, and policy+JEPA+teacher under matched encoder/action/data budgets; include teacher-only endpoint predictions. Test teacher top-k coverage before distillation. Remove action conditioning or shuffle future-state targets to test whether JEPA learns useful dynamics rather than a trivial graph prior.
-5. **Assess reliability, not just exact match.** Report formal failure modes, top-k complete endpoints, independent forward and condition metrics, 1/2/4/8-step rollout drift, alternative-product coverage, reaction-class/scaffold/time/source OOD, calibration/reliability plots, risk–coverage under abstention, and paired qualitative chemistry review. A single experimental reference is not the full set of valid precursor routes.
-6. **Use a staged go/no-go.** First establish improvement in mechanistic inverse/forward tasks. Add condition prediction only after labeled contexts are identified. Add graph-level transition-bottleneck inference and gas-phase MS as separately gated extensions. Conventional 3D TS search is optional external validation, not a required JEPA task. A poor cross-domain result is evidence against the proposed shared representation, not a reason to weaken the evaluator.
+## 2. What JEPA must learn
 
-## Immediate, low-cost decision experiment
+The JEPA is not introduced to approximate the already deterministic one-step executor. Its purpose is to model **future chemical reachability**.
 
-Without changing the ICLR main run or launching a large model, train one modest graph encoder/policy with and without a 1/2/4-step action-conditioned JEPA auxiliary objective on the same frozen mechanistic training view. Compare teacher-forced next-event accuracy, closed-loop legality, long-horizon endpoint accuracy, uncertainty calibration and compute. In parallel, freeze RetroChimera outputs on a development-only product set to measure endpoint overlap and potential distillation coverage. Only if these two signals are nontrivial should a 200M-scale student and teacher-guided post-training be proposed.
+Let
 
-**Decision rule:** If JEPA improves only latent loss but not executed decisions, it is not a useful world model for this task. If RetroChimera improves only endpoint ranking while valid mechanism paths cannot reach those endpoints, it is not yet a mechanism teacher. If the model cannot separate gas-phase fragmentation from solution reactions under controlled tests, do not claim a unified chemical dynamics model.
+\[
+z_t=E(X_t,c_t).
+\]
+
+For an action sequence \(e_{t:t+h-1}\), the predictor estimates the latent future:
+
+\[
+\hat z_{t+h}=F_h(z_t,e_{t:t+h-1},c_t),
+\]
+
+and is trained against a stop-gradient/EMA encoding of the actual future state reached by executable rollout.
+
+The useful object is not one-step reconstruction but the future reachable region
+
+\[
+\mathcal R_h(X_t,e_t),
+\]
+
+including whether a branch remains productive, reaches a target, enters a dead end, produces a competing product, closes a catalytic cycle or explains observed fragments.
+
+### 2.1 Counterfactual learning
+
+At the same state, generate multiple executor-legal events
+
+\[
+\{e_t^{(1)},e_t^{(2)},\ldots,e_t^{(K)}\}.
+\]
+
+Execute each event and short rollout to create local CRN branches. The model must distinguish futures caused by different events rather than merely imitate the reference trajectory.
+
+This leads to the central capability:
+
+> Given several chemically legal electron-transfer decisions, predict which future region of the reaction network each decision opens or closes.
+
+### 2.2 Multi-scale latent targets
+
+Graph-level targets alone can ignore the local bond-order, charge or radical change defining an elementary event. The JEPA therefore uses:
+
+- atom-local latent targets;
+- bond/electron-container-local latent targets;
+- graph/state-level targets;
+- multi-horizon targets, initially \(h=1,2,4\), later testing \(h=8\).
+
+Anti-collapse regularization and action-conditioned controls are required. A shuffled-action or shuffled-future target should fail if the model is genuinely learning dynamics.
+
+## 3. One world, multiple queries
+
+The same CRN supports several tasks without redefining the underlying world.
+
+| Query | World-model interpretation |
+|---|---|
+| Forward reaction simulation | Given \(X_0\), expand the reachable forward CRN and rank product branches |
+| 2D mechanism exploration | Given endpoints or a current state, search elementary electron-event paths |
+| Retrosynthesis | Navigate backward/goal-condition the CRN toward available precursor states |
+| Catalytic-cycle analysis | Search cycles that regenerate catalyst while converting substrate to product |
+| Gas-phase fragmentation | Expand a gas-phase ion/fragment CRN under ionization and collision context |
+
+The shared object is the chemical state/electron-event representation. Dynamics may be domain-conditioned. In particular,
+
+\[
+F_{\mathrm{solution}}\neq F_{\mathrm{gas}}
+\]
+
+is allowed and expected. Sharing a representation does not imply identical solution-phase and collision-induced dynamics.
+
+### 3.1 Forward simulation
+
+Forward prediction becomes local reaction-network expansion rather than direct reactant-to-product translation. Evaluation should include product recovery, branch coverage, conservation, pathway recovery and search cost.
+
+### 3.2 2D mechanistic transition search
+
+The core model does **not** claim to locate a conventional 3D quantum-chemical transition state. Its task is to identify elementary mechanistic topology: which electron containers change, which bonds form or break, how charges/radicals move, which intermediate state follows and which competing event sequences exist.
+
+A later external QM module may verify selected paths or barriers, but that is evidence attached to a graph pathway, not the definition of the CRN-JEPA task.
+
+### 3.3 Catalytic cycles
+
+Catalysis is naturally expressed as a cycle in the CRN. A valid candidate cycle must regenerate the catalyst state while converting substrate to product. With topology alone the claim is "possible catalytic-cycle topology"; dominant cycle, turnover frequency or rate-limiting claims require kinetic/barrier evidence.
+
+### 3.4 Retrosynthesis
+
+Retrosynthesis becomes goal-conditioned CRN navigation. Endpoint teachers may suggest desirable precursor states, but the CRN model must still find an executable elementary-event path to those endpoints.
+
+### 3.5 Gas-phase fragmentation
+
+MS/MS is a transfer domain over the same species/electron bookkeeping but a different physical regime. The gas-phase head must account for precursor ion/adduct, charge localization, radicals, hydrogen transfer, collision energy, complementary neutral losses and spectrum intensity. A fragment formula or mass match is not by itself a mechanistic proof.
+
+## 4. Supervision hierarchy
+
+Only data that actually support an elementary mechanism may supervise CRN edges. Overall reaction edits are not treated as mechanism labels.
+
+### 4.1 Strong elementary-event supervision
+
+Candidate sources include:
+
+- **FlowER-derived mechanistic trajectories** for large-scale electron redistribution paths;
+- **PMechDB** for curated polar elementary steps and arrow-pushing supervision;
+- **RMechDB** for radical elementary steps;
+- carefully filtered **proton-transfer elementary-step corpora**;
+- selected **RMG** reaction-family/elementary-step data where the semantics and domain are compatible;
+- future curated textbook/literature mechanisms with explicit provenance.
+
+Each source must be normalized into the same executable schema and audited independently before mixing.
+
+### 4.2 Endpoint grounding, not mechanism supervision
+
+Large reaction corpora such as USPTO and ORD provide experimentally reported reaction endpoints. They may supervise
+
+\[
+X_{\mathrm{start}}\rightsquigarrow X_{\mathrm{end}},
+\]
+
+endpoint reachability, terminal constraints and task heads, but they do not define the hidden elementary path.
+
+**ReactSeq-style overall molecular edit sequences are deliberately excluded from CRN-edge supervision.** They may describe net transformations but are not sufficiently reliable evidence of an elementary mechanism for this project.
+
+### 4.3 Endpoint teacher
+
+RetroChimera is treated as an **endpoint-preference teacher only**. It may provide ranked precursor sets for product-only retrosynthesis. It does not provide electron-event labels or physical mechanisms.
+
+The student may ask whether a teacher endpoint is reachable through an executable CRN path. Teacher omission is unknown, not impossible. Teacher-only, student-only and combined results must be reported separately, with source-overlap/leakage audits.
+
+### 4.4 Physical and empirical evidence
+
+Additional datasets constrain branches without pretending to supply elementary mechanism labels:
+
+- QM reaction paths/barriers and kinetic data for selected transition/path plausibility;
+- condition, yield and selectivity records for context-conditioned branch utility;
+- reference mass spectra for gas-phase fragmentation outcomes;
+- curated catalytic-mechanism literature for cycle/path evidence.
+
+These labels should attach to events, paths or terminal outcomes with explicit provenance.
+
+## 5. Unified evidence schema
+
+Every ingested item should distinguish **what was observed** from **what was inferred**.
+
+Suggested provenance classes:
+
+\`\`\`text
+mechanism_edge:
+  expert_curated
+  literature_proposed
+  template_imputed
+  qm_supported
+  executor_counterfactual
+
+endpoint:
+  experimental_endpoint
+  literature_endpoint
+  teacher_endpoint
+
+physical_label:
+  experimental
+  calculated
+  kinetic_fit
+  spectral_observation
+\`\`\`
+
+No pseudo-mechanism is silently promoted to experimental mechanism ground truth.
+
+## 6. Training program
+
+### Stage A — elementary chemical world pretraining
+
+Train the shared 2D encoder and event representation on mechanistically supported elementary transitions. Objectives include event prediction, state-transition consistency, atom/bond-local targets and source/domain discrimination.
+
+### Stage B — CRN-JEPA world learning
+
+Construct local branching CRNs from observed trajectories plus executor-legal counterfactual actions. Learn action-conditioned future representations at multiple horizons and future reachability/risk.
+
+Matched controls:
+
+1. graph policy only;
+2. graph policy + one-step future prediction;
+3. graph policy + multi-horizon JEPA;
+4. graph policy + counterfactual multi-horizon JEPA.
+
+### Stage C — endpoint-scale grounding
+
+Add experimentally reported reaction endpoints and optional RetroChimera endpoint preference without inventing hidden mechanisms. Use endpoints as terminal/reachability supervision.
+
+### Stage D — domain-specific grounding
+
+Add context/outcome heads only where labels exist: conditions/yield/selectivity, catalytic cycles, gas-phase fragmentation and optional energetic evidence.
+
+Large-scale parameter growth is conditional on Stage-B evidence. A larger model is not justified if multi-horizon reachability and closed-loop decisions do not improve.
+
+## 7. Phase-0 seed from MechET
+
+This spin-off may reuse MechET assets only as an initial controlled seed experiment.
+
+For any MechET-derived Phase-0 comparison, the authority is:
+
+- \`docs/PAPER_EXPERIMENT_PROTOCOL.md\`;
+- \`configs/datasets/flower_artifacts.json\`;
+- artifact \`flower_action_delta_v1\` at \`data/flower_inverse_tool_sft_action_delta_v1\`.
+
+The frozen strict-executable reaction universe is:
+
+| split | reactions |
+|---|---:|
+| train | 257,167 |
+| valid | 2,890 |
+| test | 28,967 |
+
+This is explicitly distinct from the unqualified FlowER endpoint split of 257,171 / 2,890 / 28,971. The four excluded train and four excluded test rows are upstream-corrupt for the strict executable view.
+
+The Phase-0 JEPA comparison must use the exact same reaction IDs, event compiler, executor contract, graph policy capacity and training budget across JEPA/no-JEPA conditions. It is a feasibility experiment, not the final dataset definition of the independent project.
+
+## 8. Result design
+
+The paper should not be organized as unrelated leaderboards. Results should establish a capability ladder.
+
+### R1. An executable chemical reaction world can be assembled
+
+Report:
+
+- unique species and elementary transitions;
+- trajectory/path counts;
+- branching-factor and path-length distributions;
+- connected components and cycles;
+- polar/radical/proton-transfer coverage;
+- cross-source executor replay/consistency;
+- provenance composition.
+
+### R2. CRN-JEPA learns multi-horizon future reachability
+
+Evaluate \(h=1,2,4,8\) with:
+
+- future-state retrieval Recall@K / MRR;
+- reachable-endpoint AUROC/AUPRC;
+- calibration/Brier/ECE;
+- horizon degradation.
+
+### R3. Future prediction improves counterfactual chemical decisions
+
+At a state with multiple executor-legal actions, rank branches by future productivity/reachability.
+
+Headline metrics:
+
+- counterfactual pairwise ranking accuracy / NDCG;
+- closed-loop endpoint success;
+- search nodes or executor calls per solved reaction;
+- success-vs-search-budget curves.
+
+A JEPA that improves latent loss but not executed decisions fails this gate.
+
+### R4. Reaction-level OOD becomes elementary-mechanism composition
+
+Construct splits where complete reaction classes or scaffolds are unseen but elementary motifs/events overlap with training. Measure whether the learned world supports compositional generalization rather than reaction-template memorization.
+
+### R5. One chemical world supports multiple queries
+
+Use one pretrained CRN-JEPA backbone for at least:
+
+1. forward simulation;
+2. 2D mechanism search;
+3. retrosynthesis.
+
+Task heads/planners may differ, but the underlying world representation is shared. Compare frozen-backbone, lightweight-adapter and from-scratch controls.
+
+### R6. Transfer beyond the initial solution-phase synthesis domain
+
+Treat catalytic-cycle analysis and gas-phase fragmentation as stringent transfer studies, not automatic inherited capabilities. Report transfer against domain-specific from-scratch baselines and maintain separate dynamics heads where required.
+
+## 9. Three primary go/no-go numbers
+
+Before broadening the project, require convincing gains in:
+
+\[
+\boxed{\text{Future Reachability@4}}
+\]
+
+\[
+\boxed{\text{Counterfactual Action Ranking}}
+\]
+
+\[
+\boxed{\text{Closed-loop Endpoint Success under matched search budget}}
+\]
+
+If these do not improve over the graph-policy baseline, the JEPA does not yet justify a chemical world-model claim.
+
+## 10. Repository boundary
+
+This direction should ultimately live outside the MechET repository.
+
+MechET is a retrosynthetic executable electron-flow project with an ICLR-specific protocol, paper contracts and historical artifacts. CRN-JEPA instead targets a task-general 2D chemical reaction world spanning forward dynamics, mechanism exploration, retrosynthesis, catalytic cycles and gas-phase fragmentation. Keeping both in one repository would create misleading authority, dataset and evaluation coupling.
+
+Recommended transition:
+
+1. keep PR #68 as the historical spin-off proposal and Phase-0 bridge;
+2. freeze the CRN schema, evidence schema and first Phase-0 benchmark here;
+3. create a new independent repository with its own datasets, provenance registry, model code and evaluation contracts;
+4. import only reusable MechET executor/graph components with explicit lineage rather than inheriting the full MechET protocol.
+
+Working project name: **CRN-JEPA**. A final public repository name should be chosen before implementation begins.
+
+## Decision rule
+
+This project succeeds only if the learned representation captures actionable future structure of the chemical reaction network.
+
+- If JEPA predicts latent futures but does not improve counterfactual decisions, it is not yet a useful world model.
+- If an endpoint teacher improves ranking but the CRN cannot reach those endpoints through executable paths, it remains an endpoint teacher rather than a mechanism teacher.
+- If a shared representation fails controlled transfer between domains, retain domain-specific dynamics instead of weakening the evaluation.
+- If a task lacks mechanistic supervision, use endpoint/physical supervision honestly rather than fabricating mechanism labels.
