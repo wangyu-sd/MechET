@@ -35,6 +35,11 @@ Dataset-specific implementation notes, including
 [`MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](MECH_USPTO_31K_INVERSE_TOOL_SFT.md),
 inherit these contracts and do not override the authority order above.
 
+The [mechanism-conditioned reaction-state JEPA proposal](CHEMICAL_REACTION_NETWORK_JEPA_PROPOSAL.md)
+is a future research design for graph world models, endpoint-teacher distillation,
+and separately validated condition, transition-state, and mass-spectrometry tasks.
+It is not part of the current ICLR method or evidence hierarchy.
+
 [`STATUS_MATRIX.md`](STATUS_MATRIX.md) is a living implementation/evidence status page, not a competing scientific source of truth.
 
 When documents disagree, update the lower-authority document. Do not create a parallel source of truth.
