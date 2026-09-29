@@ -164,6 +164,23 @@ chemical-negative evidence. This is evaluator readiness, not a measured R5
 model result; the diagnostic G2S archive remains forbidden as R5 input.
 No collaborator-owned R-SMILES/ReactSeq prediction artifact was found.
 
+An additional archive audit of the sibling `reflow/outputs/paper_results/`
+found no replacement R5 Top-5 precursor-set source. On the fixed 200 products,
+archived LocalRetro covers all query strings but has a nonempty precursor on
+only **4 distinct products** (two are Pd-containing, outside this campaign's
+closed-shell polar scope); its file also has duplicate product rows and at
+most two saved candidate slots. Archived NeuralSym has **0/200** nonempty
+products. These files are hashed respectively
+`de98eeb05309bff92a3a3e0288e5116309aad7e769327d350fbcbc081b6e67a4`
+and `348a778d0b93b2df95bee39afd9fd3291e4bda56910889159f126af9b4eab20f`.
+Retroformer predicts the **full reaction world** and covers only its 9,153-row
+length-filtered test subset. `rxngraphormer_retro` instead sees the full
+mechanistic mixture and predicts a previous state; neither is product-only
+precursor-set retrosynthesis. This audit does not promote a sparse Top-1
+archive to R5's ~1,000-proposal Top-5 condition. The official PMechDB portal
+still presents a user-side CC-BY-NC-ND agreement; no licensed PMechDB or
+PMechRP files have been imported into this campaign.
+
 The R2 **recorded-positive proposal source** is frozen at
 `outputs/autoresearch/prepared_eval/r2_flower_recorded_positive_test_20260929/`:
 400 product/precursor proposals from the official FlowER test records, split
