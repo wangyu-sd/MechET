@@ -74,9 +74,9 @@ def validate_matched_v2_args(args: argparse.Namespace) -> None:
         return
     if bool(getattr(args, "legacy_dual_prompt", False)):
         raise ValueError("matched v2 forbids the legacy dual prompt")
-    if int(getattr(args, "max_decisions", 0)) < 40:
+    if int(getattr(args, "max_decisions", 0)) != 40:
         raise ValueError("matched v2 requires the frozen 40 decisions budget")
-    if int(getattr(args, "max_imports", 0)) < 32:
+    if int(getattr(args, "max_imports", 0)) != 32:
         raise ValueError("matched v2 requires the frozen 32 imports budget")
     if int(getattr(args, "branching", 0)) != 1:
         raise ValueError("matched v2 pure-policy evaluation requires branching=1")
@@ -718,6 +718,8 @@ def main() -> int:
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
     validate_matched_v2_args(args)
+    if not args.matched_v2 and not str(args.value_adapter or "").strip():
+        parser.error("--value-adapter is required unless --matched-v2 is used")
     if args.matched_v2:
         validate_v2_adapter_manifest(
             Path(args.policy_adapter), compact_history=args.compact_history
