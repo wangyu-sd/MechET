@@ -68,11 +68,18 @@ python scripts/submit_taiji_with_donor_init.py submit \
 The Taiji job first runs the parity audit on 256 deterministic FlowER validation
 reactions. Only if that passes does it evaluate:
 
-- **State-SFT v2:** product-start, no history;
-- **Trajectory-SFT v2:** product-start, runtime-reconstructed compact history.
+1. **State-SFT v2 oracle-state local K=1:** every decision starts from the
+   authoritative reference state, using the SFT-aligned tool-call prefix. This
+   measures local inverse-electron-flow competence without autonomous state
+   drift.
+2. **State-SFT v2 product-start:** no compact history.
+3. **Trajectory-SFT v2 product-start:** runtime-reconstructed compact history.
 
-Both conditions use the same 256 reaction IDs, Qwen revision, executor,
-40/32 budget, greedy K=1 generation and no search/value critic.
+The two autonomous conditions use the same 256 reaction IDs, Qwen revision,
+executor, 40/32 budget, greedy K=1 generation and no search/value critic.
+The oracle-state condition uses the same State-SFT adapter and generation
+prefix, so the local-to-autonomous gap isolates sequential state-distribution
+effects rather than a prompt change.
 
 The result is written to:
 
@@ -87,8 +94,15 @@ The first question is not whether a new RL method improves MechET. It is:
 > under a truly matched protocol-v2 runtime, how large is the autonomous
 > product-start gap and does compact history help?
 
-If the matched State-SFT policy is already strong, Stage-II history may be
-unnecessary. If Trajectory-SFT gives a reproducible gain, history is useful.
-Only if both local/oracle-state competence is high and matched autonomous
-rollouts still collapse with horizon is an on-policy recovery method such as
-EARHO justified by the evidence.
+The interpretation order is fixed:
+
+- if oracle-state local competence is weak, the bottleneck is still local
+  action/grounding and RL is premature;
+- if local competence is high but product-start State-SFT collapses, the gap is
+  genuine sequential state-distribution shift;
+- if Trajectory-SFT closes that gap, compact history is useful;
+- if matched State-SFT is already strong and Trajectory-SFT adds little,
+  Stage-II history may be unnecessary;
+- only if local competence is high and both matched autonomous policies still
+  deteriorate materially with trajectory length is on-policy recovery such as
+  EARHO justified by the evidence.
