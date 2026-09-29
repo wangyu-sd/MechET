@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 from typing import Any
@@ -16,7 +17,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.autoresearch.stratified_manifest import digest, freeze, resolve
-from scripts.autoresearch.taiji_backend import render_job, submit
+from scripts.autoresearch.taiji_backend import poll, render_job, submit
 from scripts.autoresearch.ledger import append as append_ledger
 
 
@@ -162,7 +163,8 @@ def prepare_engineering(config: dict[str, Any], root: Path, repo: Path, output: 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("plan", "reconcile", "freeze-engineering", "freeze-scientific",
-                                          "prepare-engineering", "render-engineering", "submit-engineering"))
+                                          "prepare-engineering", "render-engineering", "submit-engineering",
+                                          "poll-engineering"))
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -170,6 +172,10 @@ def main() -> int:
     parser.add_argument("--gpu", choices=("H20", "A100", "V100"))
     parser.add_argument("--task-flag")
     parser.add_argument("--donor-task")
+    parser.add_argument("--model-cache", type=Path)
+    parser.add_argument("--job-config", type=Path)
+    parser.add_argument("--retry-reason", choices=("model_cache_unavailable", "ceph_bootstrap",
+                                                   "transient_runtime", "oom_equivalent"))
     parser.add_argument("--client", type=Path, default=Path("/usr/local/bin/taiji_client"))
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
@@ -196,18 +202,55 @@ def main() -> int:
         if not args.template or not args.gpu or not args.task_flag:
             parser.error("render-engineering requires template, gpu, task-flag")
         prepared = prepare_engineering(config, args.data_root, repo, args.output)
-        result = render_job(args.template, args.output / "jobs/engineering_taiji.json",
+        job_config = args.job_config or args.output / "jobs/engineering_taiji.json"
+        result = render_job(args.template, job_config,
                             task_flag=args.task_flag,
                             readable_name=f"meteor MechET PR69 engineering smoke ({args.gpu})",
                             repo=repo, training_config=Path(prepared["training_config"]),
-                            gpu_name=args.gpu)
-    else:
+                            gpu_name=args.gpu, model_cache=args.model_cache,
+                            model_revision=config["model"]["revision"])
+    elif args.action == "submit-engineering":
         if not args.donor_task:
             parser.error("submit-engineering requires a proven donor task")
-        rendered = args.output / "jobs/engineering_taiji.json"
+        state_path = args.output / "campaign_state.json"
+        state = json.loads(state_path.read_text()) if state_path.is_file() else {"events": []}
+        previous = [event for event in state["events"] if event["action"] == "submit-engineering"]
+        if len(previous) >= 3:
+            raise ValueError("engineering smoke exceeded two infrastructure retries")
+        if previous:
+            if not args.retry_reason:
+                raise ValueError("repeat submission requires an infrastructure retry reason")
+            polls = [event["evidence"] for event in state["events"]
+                     if event["action"] == "poll-engineering"]
+            if not polls or polls[-1]["state"] != "END":
+                raise ValueError("previous Taiji instance is not confirmed terminal")
+            if polls[-1]["adapter_exists"]:
+                raise ValueError("previous engineering run has a checkpoint; do not retry")
+            if args.retry_reason == "model_cache_unavailable" and not any(
+                "couldn't connect to 'https://huggingface.co'" in line.lower()
+                for line in polls[-1]["pod_log_tail"]
+            ):
+                raise ValueError("model-cache retry does not match the recorded failure")
+        rendered = args.job_config or args.output / "jobs/engineering_taiji.json"
         if not rendered.is_file():
             raise FileNotFoundError("render-engineering before submission")
-        result = {"submission_output": submit(repo, rendered, args.donor_task, args.client)}
+        result = {"submission_output": submit(repo, rendered, args.donor_task, args.client),
+                  "job_config": str(rendered), "retry_reason": args.retry_reason,
+                  "attempt": len(previous) + 1}
+    else:
+        state = json.loads((args.output / "campaign_state.json").read_text())
+        submissions = [event["evidence"]
+                       for event in state["events"] if event["action"] == "submit-engineering"]
+        if not submissions:
+            raise ValueError("no recorded engineering submission")
+        submission = submissions[-1]
+        job_path = Path(submission.get("job_config") or args.output / "jobs/engineering_taiji.json")
+        job = json.loads(job_path.read_text())
+        found = re.search(r"instance_id:\s*([0-9a-f]{32})", submission["submission_output"])
+        if not found:
+            raise ValueError("submission did not record a Taiji instance ID")
+        result = poll(args.client, job["task_flag"], found.group(1),
+                      args.output / "jobs/engineering_model")
     if args.action != "plan":
         stage = ("FREEZE_MANIFESTS" if args.action in {"reconcile", "freeze-engineering", "freeze-scientific"}
                  else "ENGINEERING_SMOKE")

@@ -275,10 +275,19 @@ def freeze(config: dict[str, Any], root: Path, output: Path, *, engineering: boo
         if max(needed.values(), default=0) == 0:
             continue
         assert path is not None
+        status_path = path.parent / "ARTIFACT_STATUS.json"
+        if status_path.is_file():
+            status = json.loads(status_path.read_text())
+            if not bool(status.get("training_allowed")):
+                raise ValueError(f"{source} artifact explicitly forbids training")
+        elif source == "curated":
+            raise ValueError("curated source needs an ARTIFACT_STATUS.json replay audit")
         counts, heaps, audit = candidates(path, source, seed, max(needed.values()),
                                            excluded_ids, excluded_products)
         source_hash = digest(path)
         sidecar = resolve(root, sources[source].get("manifest"))
+        if source == "curated" and sidecar is None:
+            raise ValueError("curated source needs a frozen source manifest")
         if sidecar is not None:
             if not sidecar.is_file():
                 raise FileNotFoundError(f"source manifest missing: {sidecar}")

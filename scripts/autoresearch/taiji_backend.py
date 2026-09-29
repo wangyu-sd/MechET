@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import re
 import shlex
 import subprocess
 
@@ -14,6 +15,7 @@ PRIVATE_INIT_PLACEHOLDER = "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK"
 def render_job(
     template: Path, output: Path, *, task_flag: str, readable_name: str,
     repo: Path, training_config: Path, gpu_name: str,
+    model_cache: Path | None = None, model_revision: str | None = None,
 ) -> dict:
     if not task_flag.startswith("meteor"):
         raise ValueError("all Taiji jobs must begin with meteor")
@@ -37,9 +39,19 @@ def render_job(
     job["init_cmd"] = PRIVATE_INIT_PLACEHOLDER
     job["is_elasticity"] = False
     job["is_resource_waiting"] = True
+    cache_environment = ""
+    if model_cache is not None:
+        snapshot = (model_cache / "models--Qwen--Qwen3-0.6B" /
+                    "snapshots" / str(model_revision or ""))
+        if not (snapshot / "model.safetensors").is_file():
+            raise FileNotFoundError(f"pinned model snapshot is incomplete: {snapshot}")
+        cache_environment = (
+            f"HF_HUB_CACHE={shlex.quote(str(model_cache))} "
+            "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 "
+        )
     command = (
         f"cd {shlex.quote(str(repo))} && "
-        "export PYTHONUNBUFFERED=1 TAIJI_HEARTBEAT_SECONDS=60 && "
+        f"export PYTHONUNBUFFERED=1 TAIJI_HEARTBEAT_SECONDS=60 {cache_environment}&& "
         "bash scripts/taiji_run_with_heartbeat.sh "
         "/root/miniconda3/envs/meteor/bin/python -u scripts/train_tool_sft.py "
         f"--config {shlex.quote(str(training_config))}"
@@ -50,6 +62,7 @@ def render_job(
     return {"task_flag": task_flag, "readable_name": readable_name,
             "business_flag": job["business_flag"], "location": job["location"],
             "GPUName": job["GPUName"], "template": str(template),
+            "model_cache": str(model_cache) if model_cache else None,
             "rendered_template": str(output), "start_cmd": job["start_cmd"]}
 
 
@@ -62,3 +75,20 @@ def submit(repo: Path, config: Path, donor_task: str, client: Path) -> str:
         raise RuntimeError("validated Taiji submission helper failed: " +
                            (result.stderr or result.stdout)[-1000:])
     return result.stdout
+
+
+def poll(client: Path, task_flag: str, instance_id: str, model_output: Path) -> dict:
+    detail = subprocess.run([str(client), "instance_detail", task_flag, instance_id],
+                            text=True, capture_output=True, check=False)
+    if detail.returncode:
+        raise RuntimeError("could not inspect Taiji instance")
+    match = re.search(r'"state"\s*:\s*"([A-Z_]+)"', detail.stdout)
+    if not match:
+        raise ValueError("Taiji instance detail has no state")
+    logs = subprocess.run([str(client), "logs", "--tail", "30", task_flag, instance_id],
+                          text=True, capture_output=True, check=False)
+    adapter = model_output / "adapter_model.safetensors"
+    return {"task_flag": task_flag, "instance_id": instance_id,
+            "state": match.group(1), "pod_log_tail": logs.stdout.splitlines()[-30:],
+            "adapter_exists": adapter.is_file(),
+            "model_output": str(model_output)}

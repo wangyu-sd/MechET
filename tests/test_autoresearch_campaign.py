@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from scripts.autoresearch.run_campaign import plan
-from scripts.autoresearch.taiji_backend import render_job
+from scripts.autoresearch.taiji_backend import poll, render_job
 from scripts.autoresearch.evaluate_gate import promotion_evidence
 from scripts.autoresearch.ledger import append
 
@@ -74,3 +74,15 @@ def test_ledger_resume_is_idempotent_and_config_bound(tmp_path: Path) -> None:
         append(tmp_path / "campaign", campaign_id="toy", config_path=config,
                repo=repo, action="freeze-engineering", stage="FREEZE_MANIFESTS",
                evidence={"sha256": "fixed"})
+
+
+def test_poll_requires_authoritative_instance_state(tmp_path: Path, monkeypatch) -> None:
+    class Result:
+        returncode = 0
+        stdout = '{"state": "TRAINING_RUNNING"}'
+
+    monkeypatch.setattr("scripts.autoresearch.taiji_backend.subprocess.run",
+                        lambda *args, **kwargs: Result())
+    result = poll(tmp_path / "client", "meteor_toy", "a" * 32, tmp_path / "model")
+    assert result["state"] == "TRAINING_RUNNING"
+    assert result["adapter_exists"] is False

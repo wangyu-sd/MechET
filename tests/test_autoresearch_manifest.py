@@ -60,3 +60,18 @@ def test_engineering_freeze_deterministic_and_immutable(tmp_path: Path) -> None:
         freeze(config, tmp_path, tmp_path / "first", engineering=True)
     with pytest.raises(FileNotFoundError, match="evaluation source"):
         freeze(config, tmp_path, tmp_path / "scientific", engineering=False)
+
+
+def test_deprecated_source_is_rejected(tmp_path: Path) -> None:
+    flower = tmp_path / "flower" / "train.jsonl"
+    mech = tmp_path / "mech" / "train.jsonl"
+    _write(flower, [_row(f"f{i}", 0, "event") for i in range(20)])
+    _write(mech, [_row(f"m{i}", 0, "event") for i in range(20)])
+    (mech.parent / "ARTIFACT_STATUS.json").write_text(json.dumps({"training_allowed": False}))
+    config = {"campaign_id": "toy", "seed": 17,
+              "sources": {"flower": {"train": str(flower)},
+                          "mech_uspto_31k": {"train": str(mech)},
+                          "curated": {"train": None}},
+              "evaluation_sources": {}}
+    with pytest.raises(ValueError, match="forbids training"):
+        freeze(config, tmp_path, tmp_path / "out", engineering=True)
