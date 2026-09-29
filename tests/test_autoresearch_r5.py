@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from scripts.autoresearch.build_r5_products import balanced_products, build
+from scripts.autoresearch.freeze_r5_external_predictions import freeze
 from scripts.autoresearch.stratified_manifest import digest, product_key
 
 
@@ -57,3 +58,69 @@ def test_r5_query_cohort_has_private_references_but_product_only_input(tmp_path:
     with pytest.raises(FileExistsError):
         build(source, official_manifest, r1_cohort, r1_manifest, output,
               per_cohort=4)
+
+
+def test_r5_external_intake_preserves_missing_ranks_and_nonreference_uncertainty(tmp_path: Path) -> None:
+    query = tmp_path / "r5_products.jsonl"
+    _jsonl(query, [{
+        "product_smiles": product, "source_dataset": "FlowER official full endpoint",
+        "source_split": "test", "model_input": {"product_smiles": product},
+        "strata": {"heavy_atom_quartile": "Q1"},
+        "private_reference": {"recorded_precursor_sets": [
+            {"precursor_smiles": "C", "support_record_ids": ["r1"]}]},
+    } for product in ("CC", "CO")])
+    query_manifest = tmp_path / "query_manifest.json"
+    query_manifest.write_text(json.dumps({"cohort_sha256": digest(query), "products": 2}))
+    raw = tmp_path / "external.jsonl"
+    _jsonl(raw, [
+        {"product_smiles": "CC", "inference_status": "completed",
+         "candidates": [{"rank": 1, "precursors": "O"},
+                        {"rank": 2, "precursors": "C"},
+                        {"rank": 3, "precursors": "not-smiles"}]},
+        {"product_smiles": "CO", "inference_status": "failed", "candidates": []},
+    ])
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text(json.dumps({
+        "model_name": "external-toy", "checkpoint_identifier": "toy-revision",
+        "checkpoint_source": "https://example.org/toy", "training_corpus": "toy",
+        "license_or_terms": "toy", "input_fields": ["product_smiles"],
+        "inference_status": "completed", "inference_config": {"beam": 5},
+        "training_overlap_audited": True,
+    }))
+    output = tmp_path / "frozen"
+    report = freeze(query, query_manifest, raw, provenance, output,
+                    expected_products=2, top_k=5)
+    rows = [json.loads(line) for line in (output / "r5_external_predictions.jsonl").open()]
+    assert report["products"] == 2
+    assert report["counts"]["missing"] == 7
+    assert report["counts"]["invalid_smiles"] == 1
+    assert rows[0]["candidates"][0]["recorded_reference_status"] == "not_recorded_not_proven_invalid"
+    assert rows[0]["candidates"][1]["recorded_reference_status"] == "recorded_reference"
+    assert all(len(row["candidates"]) == 5 for row in rows)
+    assert all(row["model_input"] == {"product_smiles": row["product_smiles"]}
+               for row in rows)
+    status = json.loads((output / "ARTIFACT_STATUS.json").read_text())
+    assert status["evaluation_allowed"] is True
+    assert status["training_allowed"] is False
+    assert status["headline_allowed"] is False
+
+
+def test_r5_external_intake_rejects_missing_product(tmp_path: Path) -> None:
+    query = tmp_path / "r5_products.jsonl"
+    _jsonl(query, [{"product_smiles": "CC", "model_input": {"product_smiles": "CC"},
+                    "source_dataset": "FlowER", "source_split": "test",
+                    "strata": {}, "private_reference": {"recorded_precursor_sets": []}}])
+    query_manifest = tmp_path / "manifest.json"
+    query_manifest.write_text(json.dumps({"cohort_sha256": digest(query), "products": 1}))
+    raw = tmp_path / "external.jsonl"
+    _jsonl(raw, [])
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text(json.dumps({
+        "model_name": "toy", "checkpoint_identifier": "toy", "checkpoint_source": "toy",
+        "training_corpus": "toy", "license_or_terms": "toy",
+        "input_fields": ["product_smiles"], "inference_status": "completed",
+        "inference_config": {"beam": 5},
+    }))
+    with pytest.raises(ValueError, match="every frozen product"):
+        freeze(query, query_manifest, raw, provenance, tmp_path / "out",
+               expected_products=1)

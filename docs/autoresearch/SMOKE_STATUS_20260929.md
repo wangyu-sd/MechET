@@ -88,6 +88,14 @@ query list must not be configured as `r5_external_predictions`.
 The official RetroChimera checkpoint links currently return HTTP 403 from
 this workspace (read-only HEAD check on 2026-09-29). No model weights have
 been downloaded or substituted from an unverified mirror.
+The R5 external-prediction intake is now implemented and tested in
+`scripts/autoresearch/freeze_r5_external_predictions.py`. It requires actual
+model provenance and exactly the frozen 200 product rows, preserves all five
+rank positions including invalid/missing predictions, and marks non-reference
+proposals as **unrecorded, not proven invalid**. It has not been run on a real
+external prediction file; `evaluation_sources.r5_external_predictions` remains
+unset. No collaborator-owned R-SMILES/ReactSeq prediction artifact was found
+in this workspace during the current audit.
 
 The R2 **recorded-positive proposal source** is frozen at
 `outputs/autoresearch/prepared_eval/r2_flower_recorded_positive_test_20260929/`:

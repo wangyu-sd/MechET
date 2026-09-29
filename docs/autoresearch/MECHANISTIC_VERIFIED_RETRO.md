@@ -201,3 +201,32 @@ in the denominator. RetroChimera is the initial candidate source; its
 Pistachio-, USPTO-50K-, and USPTO-FULL-trained checkpoints. Any overlap of
 those training universes with the FlowER test chemistry must be reported;
 without that audit, the result is diagnostic rather than leakage-clean.
+
+When real RetroChimera or collaborator-owned R-SMILES/ReactSeq predictions
+become available, normalize them with the frozen intake script. The raw
+prediction JSONL has exactly one row per frozen query product, with
+`product_smiles`, `inference_status` (`completed` or `failed`), and a `candidates`
+list of `{rank, precursors}` entries for ranks 1–5. Missing ranks are allowed
+but are explicitly retained as missing in the five-rank denominator. A
+separate provenance JSON records `model_name`, `checkpoint_identifier`,
+`checkpoint_source`, `training_corpus`, `license_or_terms`,
+`input_fields: ["product_smiles"]`, `inference_status: "completed"`, and a
+nonempty `inference_config` object.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/freeze_r5_external_predictions.py \
+  --query /absolute/path/to/outputs/autoresearch/prepared_eval/r5_flower_products_20260929/r5_products.jsonl \
+  --query-manifest /absolute/path/to/outputs/autoresearch/prepared_eval/r5_flower_products_20260929/manifest.json \
+  --predictions /absolute/path/to/external_model_raw_predictions.jsonl \
+  --provenance /absolute/path/to/external_model_provenance.json \
+  --output /absolute/path/to/outputs/autoresearch/prepared_eval/r5_external_model_frozen
+```
+
+The intake checks all 200 product IDs, source hashes, rank uniqueness, and
+SMILES parseability; it never drops a failed product or invalid candidate.
+Absence from the recorded-reference list is labeled
+`not_recorded_not_proven_invalid`, not "unsupported chemistry". The frozen
+source may enter R5 evaluation, but its `headline_allowed` remains false until
+MechET verification, external-model training-overlap audit, and full scorecard
+gates are completed. The script cannot substitute for actually obtaining and
+running the external model.
