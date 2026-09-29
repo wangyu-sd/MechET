@@ -501,7 +501,8 @@ python scripts/autoresearch/prepare_r3_repair_prompts.py \
 
 `scripts/autoresearch/run_r3_repair_inference.py` loads the pinned Stage-II
 adapter, verifies its directory hash and the local offline Qwen3-8B release
-metadata/weight SHA-256, and generates one greedy action per case. It writes
+metadata/content hashes (Git-blob SHA-1 or LFS SHA-256), and generates one
+greedy action per case. It writes
 all 288 rows, including failed tool-call parses, with the provenance sidecar
 required by the separate scorer below. The ordinary one-A100 launcher is
 `scripts/autoresearch/run_taiji_r3_repair.sh`; its Taiji task is configured at
@@ -529,6 +530,13 @@ PYTHONPATH=src:. python scripts/autoresearch/score_r3_repair.py \
   --predictions /absolute/path/to/predictions.jsonl \
   --output /absolute/path/to/r3_model_repair_score
 ```
+
+After the complete 288-row score exists, optionally run the hash-bound
+`scripts/autoresearch/analyze_r3_repair_failures.py` on its `result.json` and
+`repair_details.jsonl`. It partitions all rows into generation failure,
+replacement rejection, executor-accepted/reference-relative endpoint mismatch,
+and oracle-suffix-assisted endpoint recovery. The last-but-one category is
+**not** a chemical-impossibility label.
 
 This yields an **oracle-suffix-assisted one-action repair** score, not an
 autonomous trajectory success rate or first-failure localization result. The

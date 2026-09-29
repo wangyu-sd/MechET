@@ -187,6 +187,9 @@ per-case lines, although the process and PID 1 share stdout; continuous CLI
 log capture is therefore not yet verified. Its future endpoint rate must be labelled
 **oracle-suffix-assisted repair at an exposed failure**, not autonomous
 trajectory recovery or failure localization.
+The post-score error-taxonomy script is now implemented and synthetic-tested;
+it requires the complete, hash-bound R3 scorer result and has **not** produced
+a model failure breakdown while inference remains incomplete.
 An answer-free Stage-II repair-prompt artifact is frozen separately at
 `outputs/autoresearch/prepared_eval/r3_repair_prompts_v1_20260929/`:
 **288/288** query IDs, no private correct action or endpoint fields, prompt
