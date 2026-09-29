@@ -494,6 +494,24 @@ PYTHONPATH=src:. python scripts/autoresearch/score_r3_localization.py \
   --output /absolute/path/to/r3_model_localization_score
 ```
 
+A second deterministic baseline replays the unmarked candidate actions until
+the first executor rejection. Run under the frozen RDKit 2026.03.4:
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/audit_r3_executor_rejection_baseline.py \
+  --source /absolute/path/to/r3_corruptions.jsonl \
+  --trace-source /absolute/path/to/flower_inverse_tool_sft_action_delta_v1/test.jsonl \
+  --output /absolute/path/to/r3_executor_rejection_audit
+```
+
+On the frozen cohort, the first rejection identifies the mutated action in
+**43/288** cases (all 43 executor-rejected mutations). In the 245
+executor-accepted cases it never identifies the mutation: **127** first reject
+later in the unchanged reference suffix and **118** have no rejected action.
+This proves that executor rejection is an incomplete *localization signal*;
+it does not establish whether accepted alternative successors are chemically
+valid or invalid. No model prediction enters this baseline.
+
 ## R5 external-model query cohort
 
 Before querying an external retrosynthesis model, freeze 200 unique products

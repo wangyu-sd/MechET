@@ -136,6 +136,14 @@ its fixed input-only "first electron event" shortcut scores **96/288** on the
 frozen cohort. This is a heuristic baseline, not a model result. A private
 oracle-only integration check of the scorer reached 288/288 and was deleted
 afterward; it must not be quoted as localization performance.
+The pinned executor-only replay audit at
+`outputs/autoresearch/prepared_eval/r3_executor_rejection_audit_pinned_20260929/`
+finds the mutated action as the first rejected step in **43/288** cases
+(14.9%). In the remaining 245 executor-accepted mutations, first rejection
+occurs **later in 127** and **never in 118**. This is a deterministic shortcut,
+not a model result or a judgment that all accepted successors are chemically
+plausible. The replay-details SHA-256 is
+`9e61f077df1f39f9fa43861f95b439a367aba94241e13127bd8eec0a732c8a22`.
 
 The private R3 one-action oracle was independently replayed through the
 unchanged executor with the frozen mapped test source. Under the source
