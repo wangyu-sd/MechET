@@ -9,6 +9,10 @@ from scripts.run_natural_language_value_search import (
     validate_matched_v2_args,
     validate_v2_adapter_manifest,
 )
+from scripts.audit_stage2_v2_protocol_parity import (
+    assert_tool_prefix_matches_sft,
+    reconstruct_history_user_prompt,
+)
 
 
 class ThinkingTemplate:
@@ -141,3 +145,54 @@ def test_v2_adapter_manifest_rejects_v1_checkpoint(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="protocol-v2"):
         validate_v2_adapter_manifest(adapter, compact_history=True)
+
+
+def test_runtime_history_prompt_is_exact_history_sft_transform():
+    base = (
+        "TARGET PRODUCT SMILES: CC=O\n"
+        "CURRENT STATE SMILES: CC=O\n\n"
+        "MOLECULAR INVENTORY\nA01 ...\n"
+        "\nChoose the single next retrosynthetic action."
+    )
+    actions = [
+        {
+            "name": "import_fragments",
+            "arguments": {"fragments": [{"smiles": "O", "count": 1}]},
+            "result": {"ok": True, "code": "PASS", "current_state": "CC=O.O"},
+        }
+    ]
+    prompt = reconstruct_history_user_prompt(base, actions)
+    assert "TRAJECTORY HISTORY" in prompt
+    assert "accepted_action_types: import_fragments" in prompt
+    assert prompt.endswith("Choose the single next retrosynthetic action.")
+
+
+def test_prefix_audit_detects_generation_template_drift():
+    tok = ThinkingTemplate()
+    row = {
+        "messages": [
+            {"role": "system", "content": "S"},
+            {"role": "user", "content": "U"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "x",
+                        "type": "function",
+                        "function": {"name": "flow", "arguments": {"a": 1}},
+                    }
+                ],
+            },
+            {"role": "tool", "name": "flow", "content": "OK"},
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {"name": "flow", "parameters": {"type": "object"}},
+            }
+        ],
+    }
+    report = assert_tool_prefix_matches_sft(tok, row)
+    assert report["prefix_match"] is True
+    assert report["generation_template_match"] is False
