@@ -27,8 +27,8 @@ sources:
     train: data/mech_uspto_31k_natural_language_event_v2/train.jsonl
     manifest: data/mech_uspto_31k_natural_language_event_v2/manifest.json
   curated:
-    train: null
-    manifest: null
+    train: outputs/autoresearch/prepared_train/synepd_curated_v041_public_replay_20260929/train.jsonl
+    manifest: outputs/autoresearch/prepared_train/synepd_curated_v041_public_replay_20260929/manifest.json
 evaluation_sources:
   r1_multi_reference: outputs/autoresearch/prepared_eval/r1_flower_official_test_20260929/r1_multi_reference.jsonl
   r2_plausibility: null

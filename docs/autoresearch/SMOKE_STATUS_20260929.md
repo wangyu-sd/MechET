@@ -240,8 +240,9 @@ exist, so this is an evaluator readiness result, not a chemical result.
 
 ## Gates not yet satisfied
 
-No curated mechanism State-SFT source is configured in the scientific campaign yet. The
-official [PMechDB download](https://deeprxn.ics.uci.edu/pmechdb/download)
+The pinned SynEPD training candidate is configured locally, but scientific
+sampling remains unavailable until every R1–R5 evaluation source is frozen.
+The official [PMechDB download](https://deeprxn.ics.uci.edu/pmechdb/download)
 requires a user-side license/registration step, and the public
 [elementary-step mirror](https://huggingface.co/datasets/SchwallerGroup/pmechdb_elem)
 has no machine-readable license field.
@@ -286,7 +287,8 @@ with no underfill. This is a **training-source qualification**, not an
 independent R4 result or a Mech-vs-Base outcome. The official PMechDB
 challenging and PMechRP pathway R4 sources remain separately required; all
 R1–R5 evaluation inputs must freeze before either scientific training mix is
-sampled.
+sampled. The read-only campaign plan now recognizes the curated source as
+available; it does not interpret that as permission to start training.
 
 The complete R2 and R4 evaluation cohorts are not frozen. R5 has an archived
 full-reaction-world **diagnostic** but no target-compatible precursor-set source,

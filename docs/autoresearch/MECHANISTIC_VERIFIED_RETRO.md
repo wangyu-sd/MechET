@@ -51,9 +51,11 @@ Scientific selection of 3,000 curated decisions applies a predeclared
 
 This is a **training candidate only**. It neither replaces PMechDB challenging
 or PMechRP pathways in R4 nor permits scientific sampling before all seven
-evaluation sources are frozen and product-decontaminated. Configure its
-`train.jsonl` and `manifest.json` under `sources.curated` only when those gates
-are satisfied; the default config leaves them null intentionally.
+evaluation sources are frozen and product-decontaminated. The default config
+now names this hash-audited local artifact under `sources.curated`. On a new
+machine the plan correctly reports it as unavailable until the exact release
+has been rebuilt; an available curated source alone does not unlock either
+scientific training condition.
 
 ## Freeze and prepare engineering smoke
 
