@@ -479,8 +479,8 @@ This export is suitable only for **repair at an exposed corruption**. In all
 100% by counting actions. Its status therefore sets
 `localization_evaluation_allowed: false`. R3's localization objective needs a
 separately frozen, unmarked candidate trajectory with no gold-action/suffix
-leakage; it must not be scored on this repair query. Neither localization nor
-repair has yet been measured.
+leakage; it must not be scored on this repair query. The existing Stage-II
+repair diagnostic has now been measured; localization remains unmeasured.
 
 The existing Stage-II compact-history Qwen3-8B can be tested as an **existing-
 checkpoint diagnostic**, without changing training. The answer-free prompt

@@ -124,15 +124,16 @@ that each is chemically impossible. Model-visible feedback contains only the
 real execution result, never the reference-relative wrongness label. The
 cohort SHA256 is `521920c7d8d6dec2a52330bcb51f0131b60b91ad772bf0a4f00988d3cad67116`.
 Earlier R3 diagnostic versions are explicitly marked evaluation-forbidden.
-No model localization or repair score has been measured yet.
+The exposed-failure repair diagnostic below has now been measured; model
+first-failure localization remains unmeasured.
 The answer-free R3 inference export is frozen separately at
 `outputs/autoresearch/prepared_eval/r3_flower_queries_v1_20260929/`:
 288 queries, SHA-256
 `05c4d8db8cf7eb2ca6b08f1be418b8f3f93d06ea894a4fbf73d91f89953edc38`.
 It retains the corrupted action, reference prefix and real executor feedback
 but removes every `private_reference` field and expected endpoint. This is a
-**repair-at-exposed-failure** input, not a localization test or measured R3
-result. A protocol audit found that the frozen first-failure index is exactly
+**repair-at-exposed-failure** input, not a localization test. A protocol audit
+found that the frozen first-failure index is exactly
 the visible prefix length in **288/288** cases; counting prefix actions would
 give a vacuous 100% localization Top-1. The query status now forbids localization
 scoring. A separate unmarked-candidate-trajectory cohort is required to assess
@@ -147,7 +148,7 @@ An audit found a 93/288 global majority-position shortcut and a 122/288
 in-sample, label-informed action-count-majority shortcut. Neither is a model
 result, and the latter is not a held-out baseline. This cohort tests first
 divergence from the recorded path, not chemical impossibility; model
-localization and repair scores are still missing. The new unmarked-query
+localization is still unmeasured. The new unmarked-query
 localization scorer requires all 288 checkpoint- and query-hashed predictions;
 its fixed input-only "first electron event" shortcut scores **96/288** on the
 frozen cohort. This is a heuristic baseline, not a model result. A private
@@ -173,23 +174,39 @@ Using RDKit 2024.09.6 instead produced 30 false replay failures due to
 representation/atom-alias drift; the new auditor now rejects that runtime
 before scoring. **288/288 is an oracle data-quality ceiling, not a model repair
 rate or localization result.**
-The separate model-prediction scorer is implemented at
-`scripts/autoresearch/score_r3_repair.py`: it requires all 288 frozen query IDs,
+The separate model-prediction scorer at
+`scripts/autoresearch/score_r3_repair.py` requires all 288 frozen query IDs,
 a checkpoint- and query-hashed prediction sidecar, and replays one predicted
-electron event before the private reference suffix. No model predictions have
-been completely generated or scored. An existing Stage-II Qwen3-8B diagnostic
-was submitted as `meteor_mechet_pr69_r3_stageii_repair_1a100_qy_20260929_01`
-(instance `8b1d80eea0d297ec01a0ed45586527b9`); a real A100 POD, Ceph mount,
-model process, non-idle GPU and growing partial prediction file were verified.
-No complete 288-row sidecar or model repair score exists yet. The default POD
-log endpoint returned launcher/initial-heartbeat lines but not the ongoing
-per-case lines, although the process and PID 1 share stdout; continuous CLI
-log capture is therefore not yet verified. Its future endpoint rate must be labelled
+electron event before the private reference suffix. The existing Stage-II
+Qwen3-8B task `meteor_mechet_pr69_r3_stageii_repair_1a100_qy_20260929_01`
+(instance `8b1d80eea0d297ec01a0ed45586527b9`) ended successfully after
+writing all 288 predictions (287 parsed actions, one failed generation).
+The prediction SHA-256 is
+`9791f541f37d0c2bce9d920b783ea79b18cf7d20439eded9a981e2bba80fa290`.
+Under the frozen RDKit 2026.03.4 replay, **148/288 (51.4%)** proposed
+replacement actions were accepted. **12/288 (4.2%)** reached the recorded
+precursor after replaying the private *reference suffix*. The 288/288 oracle
+data-quality ceiling is not a model result. The model result is
 **oracle-suffix-assisted repair at an exposed failure**, not autonomous
-trajectory recovery or failure localization.
-The post-score error-taxonomy script is now implemented and synthetic-tested;
-it requires the complete, hash-bound R3 scorer result and has **not** produced
-a model failure breakdown while inference remains incomplete.
+trajectory recovery or failure localization. The score and per-case evidence
+are at `outputs/autoresearch/prepared_eval/r3_stageii_repair_score_v1_20260929/`
+(`result.json` SHA-256
+`d598f6a65727563a3c13c789df1dd93ee93d31fcf4d43c9a475614512a419e26`).
+The default POD-log endpoint returned launcher/initial-heartbeat lines but
+not ongoing per-case lines despite the process/PID 1 sharing stdout; continuous
+CLI log capture remains unverified, though the completed artifact and terminal
+task state were checked.
+
+The hash-bound post-score taxonomy (`error_taxonomy_v2.json`) partitions all
+288 cases: **139** replacement actions rejected, **75** accepted replacements
+whose subsequent private reference suffix failed, **61** accepted terminal
+endpoints that differed from the recorded reference, **12** recovered, and
+**1** generation failed. These are replay locations and reference-relative
+outcomes, not independent judgments of chemical plausibility. Exact recovery
+by corruption depth was early **1/96**, middle **0/96**, late **11/96**;
+the deliberately balanced selected cohort does not estimate natural-test
+prevalence. The model changed the corrupted action in 218/288 cases, but
+acceptance alone was not enough to recover the endpoint.
 An answer-free Stage-II repair-prompt artifact is frozen separately at
 `outputs/autoresearch/prepared_eval/r3_repair_prompts_v1_20260929/`:
 **288/288** query IDs, no private correct action or endpoint fields, prompt

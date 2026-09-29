@@ -7,6 +7,7 @@ import argparse
 from collections import Counter, defaultdict
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any
 
@@ -21,7 +22,15 @@ def _category(row: dict[str, Any]) -> str:
         return "oracle_suffix_endpoint_recovered"
     if not row["repair_action_accepted"]:
         return "replacement_action_rejected"
-    return "accepted_reference_relative_wrong_endpoint"
+    if row.get("error"):
+        return "accepted_then_reference_suffix_failed"
+    return "accepted_terminal_reference_relative_mismatch"
+
+
+def _error_signature(error: str) -> str:
+    """Remove ephemeral atom aliases without hiding the executor failure mode."""
+
+    return re.sub(r"A\d+", "A#", error)
 
 
 def analyze(result: Path, details: Path, output: Path,
@@ -35,6 +44,7 @@ def analyze(result: Path, details: Path, output: Path,
         raise ValueError("R3 scored result/details provenance mismatch")
     counts: Counter[str] = Counter()
     errors: Counter[str] = Counter()
+    errors_by_category: dict[str, Counter[str]] = defaultdict(Counter)
     strata: dict[str, Counter[str]] = defaultdict(Counter)
     seen: set[str] = set()
     for line in details.read_text().splitlines():
@@ -49,11 +59,14 @@ def analyze(result: Path, details: Path, output: Path,
         strata[stratum][category] += 1
         error = row.get("error")
         if error:
-            errors[str(error).split(":", 1)[0]] += 1
+            signature = _error_signature(str(error))
+            errors[signature] += 1
+            errors_by_category[category][signature] += 1
     if (len(seen) != expected_cases
             or counts["oracle_suffix_endpoint_recovered"] != report["endpoint_exact"]
             or (counts["oracle_suffix_endpoint_recovered"]
-                + counts["accepted_reference_relative_wrong_endpoint"])
+                + counts["accepted_then_reference_suffix_failed"]
+                + counts["accepted_terminal_reference_relative_mismatch"])
             != report["repair_action_accepted"]):
         raise ValueError("R3 failure categories do not reconstruct frozen totals")
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -64,12 +77,16 @@ def analyze(result: Path, details: Path, output: Path,
         "cases": expected_cases,
         "categories": dict(sorted(counts.items())),
         "error_families": dict(sorted(errors.items())),
+        "error_families_by_category": {
+            name: dict(sorted(bucket.items()))
+            for name, bucket in sorted(errors_by_category.items())},
         "by_stratum": {name: dict(sorted(bucket.items()))
                        for name, bucket in sorted(strata.items())},
         "claim_boundary": (
             "Existing Stage-II model at an exposed failure, with a private oracle "
-            "suffix after one proposed replacement. An accepted nonmatching endpoint "
-            "is reference-relative and is not proof of chemical impossibility."
+            "suffix after one proposed replacement. An accepted terminal but "
+            "nonmatching endpoint is reference-relative and is not proof of "
+            "chemical impossibility."
         ),
     }
     output.write_text(json.dumps(analysis, indent=2, sort_keys=True) + "\n")
