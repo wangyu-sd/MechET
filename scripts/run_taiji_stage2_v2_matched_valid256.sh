@@ -69,6 +69,33 @@ common_args=(
   --matched-v2
 )
 
+echo "[stage2-v2] phase=oracle-state-local state-sft"
+mkdir -p "$output/local_state_sft"
+torchrun --standalone --nproc_per_node=8 \
+  scripts/eval_natural_language_event_local.py run \
+  --data "$data" \
+  --output "$output/local_state_sft" \
+  --model Qwen/Qwen3-8B \
+  --adapter "$state_adapter" \
+  --sample-reactions 256 \
+  --seed 17 \
+  --batch-size 2 \
+  --max-new-tokens 512 \
+  --max-context 4096 \
+  --dtype bfloat16 \
+  --no-4bit \
+  --sft-aligned-prefix
+python -u scripts/eval_natural_language_event_local.py aggregate \
+  --data "$data" \
+  --output "$output/local_state_sft" \
+  --model Qwen/Qwen3-8B \
+  --adapter "$state_adapter" \
+  --sample-reactions 256 \
+  --seed 17 \
+  --dtype bfloat16 \
+  --no-4bit \
+  --sft-aligned-prefix
+
 echo "[stage2-v2] phase=matched-product-start state=GPUs0-3 trajectory=GPUs4-7"
 mkdir -p "$output/state_sft" "$output/trajectory_sft"
 
@@ -91,11 +118,12 @@ fi
 
 python -u scripts/summarize_natural_language_history_smoke.py   --state-sft "$output/state_sft"   --trajectory-sft "$output/trajectory_sft"   --output "$output/evaluation.json"
 
-python - "$output/evaluation.json" "$output/parity_audit.json" "$output/matched_v2_evaluation.json" <<'PY'
+python - "$output/evaluation.json" "$output/parity_audit.json" "$output/local_state_sft/evaluation.json" "$output/matched_v2_evaluation.json" <<'PY'
 import json, sys
 from pathlib import Path
 evaluation = json.loads(Path(sys.argv[1]).read_text())
 parity = json.loads(Path(sys.argv[2]).read_text())
+local = json.loads(Path(sys.argv[3]).read_text())
 evaluation["artifact_type"] = "stage2_protocol_v2_matched_pure_policy_valid256"
 evaluation["protocol"] = {
     **dict(evaluation.get("protocol") or {}),
@@ -123,7 +151,8 @@ evaluation["claim_boundary"] = (
     "use identical product-start pure-policy K=1 execution; the only policy "
     "observation difference is compact accepted-action history."
 )
-Path(sys.argv[3]).write_text(json.dumps(evaluation, indent=2) + "\n")
+evaluation["oracle_state_local"] = local
+Path(sys.argv[4]).write_text(json.dumps(evaluation, indent=2) + "\n")
 print(json.dumps({
     "state_sft": evaluation["state_sft"],
     "trajectory_sft": evaluation["trajectory_sft"],
