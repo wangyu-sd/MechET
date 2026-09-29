@@ -140,6 +140,16 @@ quartile. SHA256:
 `2eb2b3083ddf9819b145d54be36ae68d41662df6d68676ce6cc5a62c5c1f57e4`.
 No **R5-qualified precursor-set** Top-5 predictions or MechET reranking
 results exist yet; this query list alone is not `r5_external_predictions`.
+An official RetroBridge checkpoint was subsequently downloaded and hash-checked
+from the authors' Zenodo release. The pinned wrapper
+`scripts/autoresearch/run_retrobridge_r5.py` passed a one-product GPU runtime
+smoke and is generating the same fixed 200-product cohort with the official
+500 bridge steps and ten samples per product. The authors' metric ranks by
+sample frequency; their raw `score` is not a model confidence. An exact-product
+audit found 8/200 query products in the official USPTO-50K train CSV, and
+four Ru/Pd queries are outside the checkpoint's atom vocabulary. The source
+is a **diagnostic**, not a leakage-clean 200-product headline result. Generation
+in progress is not a completed R5 source or any MechET reranking result.
 The official RetroChimera checkpoint links currently return HTTP 403 from
 this workspace (read-only HEAD check on 2026-09-29). No model weights have
 been downloaded or substituted from an unverified mirror.

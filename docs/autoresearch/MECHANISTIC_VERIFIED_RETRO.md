@@ -447,6 +447,39 @@ Pistachio-, USPTO-50K-, and USPTO-FULL-trained checkpoints. Any overlap of
 those training universes with the FlowER test chemistry must be reported;
 without that audit, the result is diagnostic rather than leakage-clean.
 
+An additional **diagnostic** precursor-set source is the authors'
+[RetroBridge implementation](https://github.com/igashov/retrobridge), pinned at
+commit `5442b4f45edc2e956f1d1c1763bb94cefd4a3a13`, with the
+[official Zenodo checkpoint](https://zenodo.org/records/10688201) pinned by
+SHA-256 `a78b9e251770e72a53b280fe0f19924e70f52098b2e7b1178538bf8d29bc70cc`.
+Its standard inference uses 500 bridge steps and ten independent samples per
+product. The repository's raw `score` field is always zero; its evaluation
+instead ranks distinct predictions by empirical sample frequency. Our wrapper
+uses that frequency, breaking ties by first sample occurrence, and never uses
+the recorded precursors to rank. The fixed 200-product cohort has eight exact
+product overlaps with RetroBridge's official USPTO-50K training CSV and four
+products with Ru/Pd, outside the released checkpoint's atom vocabulary. These
+remain in the 200-product denominator as marked overlap or failed inference;
+this source cannot support a leakage-clean 200-product headline claim.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/run_retrobridge_r5.py \
+  --query /absolute/path/to/r5_flower_products_20260929/r5_products.jsonl \
+  --query-manifest /absolute/path/to/r5_flower_products_20260929/manifest.json \
+  --source /absolute/path/to/pinned/official/retrobridge \
+  --checkpoint /absolute/path/to/retrobridge.ckpt \
+  --output /absolute/path/to/r5_retrobridge_official_diagnostic \
+  --samples 10 --steps 500 --seed 17 --device cuda:0
+```
+
+The wrapper checks the official source commit, checkpoint hash, frozen query
+hash and source-train overlap before inference. It writes every product row
+immediately, can continue an interrupted identical run with `--resume`, and
+emits raw predictions, provenance, a run configuration and an overlap audit.
+`--limit` and reduced bridge steps are engineering tests only. Once all 200
+rows exist, the raw prediction/provenance files can enter the same frozen R5
+intake as any other external source, still labeled diagnostic.
+
 When real RetroChimera or collaborator-owned R-SMILES/ReactSeq predictions
 become available, normalize them with the frozen intake script. The raw
 prediction JSONL has exactly one row per frozen query product, with

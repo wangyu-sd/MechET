@@ -57,15 +57,18 @@ def freeze(query: Path, query_manifest: Path, predictions: Path,
         raise ValueError("R5 source requires a recorded inference configuration")
 
     products: dict[str, dict[str, Any]] = {}
+    canonical_products: set[str] = set()
     with query.open(encoding="utf-8") as stream:
         for line in stream:
             row = json.loads(line)
             product = str(row["product_smiles"])
-            if product_key(product) != product or product in products:
-                raise ValueError("R5 query has noncanonical or duplicate products")
+            canonical = product_key(product)
+            if product in products or canonical in canonical_products:
+                raise ValueError("R5 query has duplicate chemical products")
             if row["model_input"] != {"product_smiles": product}:
                 raise ValueError("R5 query exposes more than its frozen product input")
             products[product] = row
+            canonical_products.add(canonical)
     if len(products) != expected_products:
         raise ValueError("R5 query row count changed")
 

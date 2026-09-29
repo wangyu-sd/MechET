@@ -149,3 +149,30 @@ def test_r5_external_intake_rejects_full_reaction_world_target(tmp_path: Path) -
     with pytest.raises(ValueError, match="precursor-set predictions"):
         freeze(query, manifest, raw, provenance, tmp_path / "frozen",
                expected_products=1)
+
+
+def test_r5_external_intake_preserves_frozen_noncanonical_spelling(tmp_path: Path) -> None:
+    product = "C(C)O"
+    assert product_key(product) == "CCO"
+    query = tmp_path / "query.jsonl"
+    _jsonl(query, [{"product_smiles": product, "model_input": {"product_smiles": product},
+                    "source_dataset": "FlowER", "source_split": "test",
+                    "strata": {}, "private_reference": {"recorded_precursor_sets": []}}])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"cohort_sha256": digest(query), "products": 1}))
+    predictions = tmp_path / "predictions.jsonl"
+    _jsonl(predictions, [{"product_smiles": product, "inference_status": "completed",
+                          "candidates": [{"rank": 1, "precursors": "C.O"}]}])
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text(json.dumps({
+        "model_name": "toy", "checkpoint_identifier": "toy", "checkpoint_source": "toy",
+        "training_corpus": "toy", "license_or_terms": "toy",
+        "input_fields": ["product_smiles"], "inference_status": "completed",
+        "target_semantics": "retrosynthetic_precursor_set",
+        "inference_config": {"ranking": "frequency"},
+    }))
+    output = tmp_path / "frozen"
+    freeze(query, manifest, predictions, provenance, output,
+           expected_products=1)
+    row = json.loads((output / "r5_external_predictions.jsonl").read_text().splitlines()[0])
+    assert row["product_smiles"] == product
