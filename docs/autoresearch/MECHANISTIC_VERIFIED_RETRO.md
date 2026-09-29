@@ -482,6 +482,22 @@ separately frozen, unmarked candidate trajectory with no gold-action/suffix
 leakage; it must not be scored on this repair query. The existing Stage-II
 repair diagnostic has now been measured; localization remains unmeasured.
 
+The separate unmarked localization query is frozen at
+`outputs/autoresearch/prepared_eval/r3_flower_unmarked_localization_v1_20260929/`.
+`scripts/autoresearch/prepare_r3_localization_prompts.py` reads only that
+answer-free query and freezes a product-plus-flat-actions index-selection
+prompt. The 288-row prompt SHA-256 is
+`021bb08c3f5b0956da1e82ac4b6ef78fb7ad0d04e27385141f94d71d18f32716`.
+The existing Stage-II adapter inference entry point is
+`scripts/autoresearch/run_r3_localization_inference.py`; its one-A100 launcher
+and task template are `scripts/autoresearch/run_taiji_r3_localization.sh` and
+`configs/taiji/meteor_mechet_pr69_r3_stageii_localization_1a100_qy_20260929.json`.
+The scorer is `scripts/autoresearch/score_r3_localization.py`. It counts all
+288 cases, including invalid/missing JSON generations, and compares with the
+predeclared first-electron-action shortcut. Run the scorer only after the
+prediction sidecar is complete; no localization accuracy follows from prompt
+construction or task submission.
+
 The existing Stage-II compact-history Qwen3-8B can be tested as an **existing-
 checkpoint diagnostic**, without changing training. The answer-free prompt
 builder reads only the frozen query JSONL, reconstructs temporary atom aliases

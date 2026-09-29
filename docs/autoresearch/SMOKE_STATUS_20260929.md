@@ -163,6 +163,19 @@ not a model result or a judgment that all accepted successors are chemically
 plausible. The replay-details SHA-256 is
 `9e61f077df1f39f9fa43861f95b439a367aba94241e13127bd8eec0a732c8a22`.
 
+An answer-free Stage-II **unmarked localization prompt** is now frozen at
+`outputs/autoresearch/prepared_eval/r3_localization_prompts_v1_20260929/`.
+It is derived only from the 288 public unmarked queries: product SMILES plus
+the complete flat candidate-action list. No reference action, failure index,
+executor feedback, or intermediate reference state is included. Prompt SHA-256
+`021bb08c3f5b0956da1e82ac4b6ef78fb7ad0d04e27385141f94d71d18f32716`;
+the Stage-II Qwen3-8B tokenizer gives 594–2,020 input tokens, all within the
+8,192-token context after reserving 64 generation tokens. The frozen prompt
+asks for one zero-based action index. This is a new *existing-checkpoint*
+diagnostic of reference-divergence localization, not a trained localization
+policy or chemical-impossibility classifier. No model localization score is
+claimed before the 288-row prediction sidecar and separate scorer finish.
+
 The private R3 one-action oracle was independently replayed through the
 unchanged executor with the frozen mapped test source. Under the source
 runtime's **RDKit 2026.03.4**, all **288/288** rows reach their frozen precursor,
