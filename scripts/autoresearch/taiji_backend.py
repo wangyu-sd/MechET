@@ -66,6 +66,45 @@ def render_job(
             "rendered_template": str(output), "start_cmd": job["start_cmd"]}
 
 
+def render_heldout_job(
+    template: Path, output: Path, *, task_flag: str, repo: Path,
+    model_cache: Path, model_revision: str, data: Path,
+    adapter: Path, evaluation_output: Path,
+) -> dict:
+    if not task_flag.startswith("meteor") or output.exists():
+        raise ValueError("held-out job needs a new meteor task flag/output")
+    if not (model_cache / "models--Qwen--Qwen3-0.6B" / "snapshots" /
+            model_revision / "model.safetensors").is_file():
+        raise FileNotFoundError("held-out job lacks the pinned shared model snapshot")
+    if not data.is_file() or not (adapter / "adapter_model.safetensors").is_file():
+        raise FileNotFoundError("held-out data or completed smoke adapter missing")
+    job = json.loads(template.read_text())
+    if job.get("GPUName") != "A100" or int(job.get("host_num", 0)) != 1 or int(job.get("host_gpu_num", 0)) != 1:
+        raise ValueError("held-out template must be one validated A100")
+    job.update(task_flag=task_flag,
+               readable_name="meteor MechET PR69 engineering held-out local diagnostic (1xA100)",
+               task_category="fine_tuning",
+               task_description="PR69 engineering held-out 4-reaction one-step inference/scoring; no scientific claim",
+               init_cmd=PRIVATE_INIT_PLACEHOLDER,
+               is_elasticity=False, is_resource_waiting=True)
+    command = (
+        f"cd {shlex.quote(str(repo))} && "
+        f"export PYTHONUNBUFFERED=1 TAIJI_HEARTBEAT_SECONDS=60 "
+        f"HF_HUB_CACHE={shlex.quote(str(model_cache))} "
+        "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 && "
+        "bash scripts/taiji_run_with_heartbeat.sh "
+        "bash scripts/autoresearch/run_engineering_heldout.sh "
+        f"{shlex.quote(str(data))} {shlex.quote(str(adapter))} "
+        f"{shlex.quote(str(evaluation_output))} {shlex.quote(model_revision)}"
+    )
+    job["start_cmd"] = "bash -lc " + shlex.quote(command)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(job, indent=2, ensure_ascii=False) + "\n")
+    return {"task_flag": task_flag, "job_config": str(output),
+            "data": str(data), "adapter": str(adapter),
+            "output": str(evaluation_output), "start_cmd": job["start_cmd"]}
+
+
 def submit(repo: Path, config: Path, donor_task: str, client: Path) -> str:
     helper = repo / "scripts/submit_taiji_with_donor_init.py"
     command = ["python", str(helper), "submit", "--config", str(config),

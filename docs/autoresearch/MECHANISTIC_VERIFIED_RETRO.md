@@ -81,3 +81,13 @@ All R1–R5 packages are independent. Each evaluator writes `rN/result.json`
 with `package: rN`, `status: complete|failed`, an immutable manifest hash,
 denominators, and metrics. Missing/negative packages remain visible in the
 scorecard; no test-driven resampling or silent exclusion is permitted.
+
+The initial R1 source builder uses only the official FlowER **test** endpoint
+records. A product enters the cohort only when distinct held-out records
+support at least two distinct canonical structural precursor sets. It stores
+the supporting record IDs rather than assuming a model-generated alternative
+is known-valid. The predeclared overlap stratum is the minimum, over reference
+sets, of the maximum radius-2/2048-bit Morgan Tanimoto similarity between the
+product and any precursor component; `high` is >=0.6. Disconnection agreement
+is computed from mapped product bonds absent from each precursor set. These
+are descriptive strata, not physical feasibility labels.

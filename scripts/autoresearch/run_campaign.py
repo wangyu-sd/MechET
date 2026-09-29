@@ -17,7 +17,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.autoresearch.stratified_manifest import digest, freeze, resolve
-from scripts.autoresearch.taiji_backend import poll, render_job, submit
+from scripts.autoresearch.taiji_backend import poll, render_heldout_job, render_job, submit
 from scripts.autoresearch.ledger import append as append_ledger
 
 
@@ -164,7 +164,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("plan", "reconcile", "freeze-engineering", "freeze-scientific",
                                           "prepare-engineering", "render-engineering", "submit-engineering",
-                                          "poll-engineering"))
+                                          "poll-engineering", "render-heldout", "submit-heldout",
+                                          "poll-heldout"))
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -209,6 +210,17 @@ def main() -> int:
                             repo=repo, training_config=Path(prepared["training_config"]),
                             gpu_name=args.gpu, model_cache=args.model_cache,
                             model_revision=config["model"]["revision"])
+    elif args.action == "render-heldout":
+        if not args.template or not args.model_cache or not args.task_flag:
+            parser.error("render-heldout requires template, model-cache, task-flag")
+        result = render_heldout_job(
+            args.template, args.job_config or args.output / "jobs/heldout_taiji.json",
+            task_flag=args.task_flag, repo=repo, model_cache=args.model_cache,
+            model_revision=config["model"]["revision"],
+            data=args.data_root / "data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl",
+            adapter=args.output / "jobs/engineering_model",
+            evaluation_output=args.output / "jobs/engineering_heldout",
+        )
     elif args.action == "submit-engineering":
         if not args.donor_task:
             parser.error("submit-engineering requires a proven donor task")
@@ -237,6 +249,31 @@ def main() -> int:
         result = {"submission_output": submit(repo, rendered, args.donor_task, args.client),
                   "job_config": str(rendered), "retry_reason": args.retry_reason,
                   "attempt": len(previous) + 1}
+    elif args.action == "submit-heldout":
+        if not args.donor_task:
+            parser.error("submit-heldout requires a proven donor task")
+        rendered = args.job_config or args.output / "jobs/heldout_taiji.json"
+        if not rendered.is_file():
+            raise FileNotFoundError("render-heldout before submission")
+        state = json.loads((args.output / "campaign_state.json").read_text())
+        if any(event["action"] == "submit-heldout" for event in state["events"]):
+            raise ValueError("held-out smoke already submitted; inspect the existing instance")
+        result = {"submission_output": submit(repo, rendered, args.donor_task, args.client),
+                  "job_config": str(rendered)}
+    elif args.action == "poll-heldout":
+        state = json.loads((args.output / "campaign_state.json").read_text())
+        submissions = [event["evidence"] for event in state["events"]
+                       if event["action"] == "submit-heldout"]
+        if not submissions:
+            raise ValueError("no recorded held-out submission")
+        submission = submissions[-1]
+        job = json.loads(Path(submission["job_config"]).read_text())
+        found = re.search(r"instance_id:\s*([0-9a-f]{32})", submission["submission_output"])
+        if not found:
+            raise ValueError("held-out submission has no instance ID")
+        result = poll(args.client, job["task_flag"], found.group(1),
+                      args.output / "jobs/engineering_model")
+        result["evaluation_exists"] = (args.output / "jobs/engineering_heldout/evaluation.json").is_file()
     else:
         state = json.loads((args.output / "campaign_state.json").read_text())
         submissions = [event["evidence"]
