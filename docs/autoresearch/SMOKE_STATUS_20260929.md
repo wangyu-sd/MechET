@@ -174,3 +174,14 @@ has no machine-readable license field.
 The complete R2/R4/R5 evaluation cohorts are not frozen, so scientific Base/Mech
 sampling and all R1–R5 result claims remain blocked by their stated
 prerequisites. The controller has not launched 8B/full-data retraining.
+The scorecard now distinguishes missing science from a measured negative
+result: absent training/metrics yields `INCOMPLETE`. A package merely claiming
+`status: complete` is rejected unless its frozen evaluation hashes, scientific
+manifest hash, denominators, metrics and paired checkpoint fingerprints are
+present and consistent. This is a reporting gate, not evidence that R1–R5
+have been run.
+An actual collection against the current campaign wrote immutable preview
+`outputs/autoresearch/mechanistic_verified_retro_smoke/scorecards/18894a8b079aa5360a4041367bea18b084cfb46321bbe4abb96a6b5ad1234562.json`
+with all R1–R5 packages `missing` and recommendation `INCOMPLETE`.
+It deliberately did **not** create `scorecard.json`, so later scientific
+results can be added without overwriting this progress record.

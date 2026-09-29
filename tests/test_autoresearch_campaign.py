@@ -65,6 +65,15 @@ def test_negative_result_does_not_cancel_other_packages() -> None:
     assert evidence["automatic_full_scale_launch_allowed"] is False
 
 
+def test_missing_science_is_incomplete_not_a_negative_result() -> None:
+    scorecard = {"packages": {f"r{i}": {"status": "missing"} for i in range(1, 6)},
+                 "training": None, "train_eval_overlap_count": None}
+    evidence = promotion_evidence(scorecard)
+    assert evidence["checks"]["mechanism_augmentation_identifiable"] is None
+    assert evidence["recommendation"] == "INCOMPLETE"
+    assert evidence["automatic_full_scale_launch_allowed"] is False
+
+
 def test_ledger_resume_is_idempotent_and_config_bound(tmp_path: Path) -> None:
     config = tmp_path / "config.yaml"
     config.write_text("seed: 17\n")

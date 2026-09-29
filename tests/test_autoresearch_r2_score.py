@@ -16,7 +16,7 @@ def _jsonl(path: Path, rows: list[dict]) -> None:
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
 
 
-def _inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
+def _inputs(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     cohort_dir = tmp_path / "cohort"
     cohort_dir.mkdir()
     cohort = cohort_dir / "r2_plausibility.jsonl"
@@ -62,7 +62,13 @@ def _inputs(tmp_path: Path) -> tuple[Path, Path, Path]:
             "checkpoint_sha256": ("a" if condition == "base" else "b") * 64,
         }))
         paths.append(path)
-    return cohort, paths[0], paths[1]
+    scientific = tmp_path / "scientific_freeze.json"
+    scientific.write_text(json.dumps({
+        "engineering_only": False,
+        "mech_comparison_identifiable": True,
+        "evaluation_hashes": {"r2_plausibility": digest(cohort)},
+    }))
+    return cohort, paths[0], paths[1], scientific
 
 
 def test_auc_ties_and_average_precision() -> None:
@@ -73,9 +79,9 @@ def test_auc_ties_and_average_precision() -> None:
 
 
 def test_r2_scores_complete_pair_and_retains_failed_executor(tmp_path: Path) -> None:
-    cohort, base, mech = _inputs(tmp_path)
+    cohort, base, mech, scientific = _inputs(tmp_path)
     output = tmp_path / "result"
-    result = score(cohort, base, mech, output, bootstrap_replicates=20)
+    result = score(cohort, base, mech, output, scientific, bootstrap_replicates=20)
     assert result["package"] == "r2" and result["status"] == "complete"
     assert result["base"]["rows"] == result["mech"]["rows"] == 800
     assert result["base"]["compile_fraction"] == 799 / 800
@@ -87,18 +93,18 @@ def test_r2_scores_complete_pair_and_retains_failed_executor(tmp_path: Path) -> 
     assert result["paired_delta"]["auroc_product_cluster_bootstrap_95ci"][0] > 0
     assert (output / "result.json").is_file()
     with pytest.raises(FileExistsError):
-        score(cohort, base, mech, output, bootstrap_replicates=20)
+        score(cohort, base, mech, output, scientific, bootstrap_replicates=20)
 
 
 def test_r2_rejects_missing_score_and_hash_drift(tmp_path: Path) -> None:
-    cohort, base, mech = _inputs(tmp_path)
+    cohort, base, mech, scientific = _inputs(tmp_path)
     base.write_text("\n".join(base.read_text().splitlines()[:-1]) + "\n")
     with pytest.raises(ValueError, match="provenance/hash mismatch"):
-        score(cohort, base, mech, tmp_path / "bad", bootstrap_replicates=2)
+        score(cohort, base, mech, tmp_path / "bad", scientific, bootstrap_replicates=2)
     metadata = base.with_suffix(".jsonl.manifest.json")
     data = json.loads(metadata.read_text())
     data["scores_sha256"] = digest(base)
     metadata.write_text(json.dumps(data))
     with pytest.raises(ValueError, match="all 800"):
-        score(cohort, base, mech, tmp_path / "bad", bootstrap_replicates=2)
+        score(cohort, base, mech, tmp_path / "bad", scientific, bootstrap_replicates=2)
     assert not (tmp_path / "bad").exists()

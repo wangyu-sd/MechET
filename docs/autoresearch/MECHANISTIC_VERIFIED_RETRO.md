@@ -171,9 +171,18 @@ creating/starting a task is not evidence that optimization ran. No scientific
 job is currently rendered or submitted under this campaign.
 
 All R1–R5 packages are independent. Each evaluator writes `rN/result.json`
-with `package: rN`, `status: complete|failed`, an immutable manifest hash,
-denominators, and metrics. Missing/negative packages remain visible in the
-scorecard; no test-driven resampling or silent exclusion is permitted.
+with `package: rN`, `status: complete|failed`, exact
+`scientific_freeze_sha256` and `evaluation_source_hashes`, positive integer
+denominators, metrics, zero-or-explicit data-contract errors, and paired Base/
+Mech checkpoint SHA-256s. The collector rejects a `complete` file whose
+source hashes differ from the scientific freeze; a failed package needs a
+reason. Missing/negative packages remain visible in the scorecard; no
+test-driven resampling or silent exclusion is permitted. If training metrics
+are not yet present, the promotion state is `INCOMPLETE`, not a negative result.
+Early collection writes only an immutable `scorecards/<evidence-hash>.json`
+snapshot. It does not create `scorecard.json` until all five packages and the
+training/overlap evidence are sufficient for a final recommendation; thus an
+early status check cannot lock out the later scientific result.
 
 The initial R1 source builder uses only the official FlowER **test** endpoint
 records. A product enters the cohort only when distinct held-out records
@@ -274,6 +283,7 @@ insufficient, so the final R2 file has not been generated.
 Once the cohort and paired model scores exist, run
 `scripts/autoresearch/score_r2_plausibility.py --cohort .../r2_plausibility.jsonl
 --base-scores .../base.jsonl --mech-scores .../mech.jsonl
+--scientific-freeze .../scientific_freeze/manifests/freeze.json
 --output .../r2`. Each score JSONL must contain exactly one row per frozen
 `proposal_id`, with `support_probability` in `[0,1]`, `compile_status`
 (`success`/`failed`) and `execute_status` (`success`/`failed`/`not_run`).

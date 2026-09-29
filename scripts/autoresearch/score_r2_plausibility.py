@@ -183,6 +183,7 @@ def _condition_metrics(rows: list[dict[str, Any]],
 
 
 def score(cohort: Path, base_scores: Path, mech_scores: Path, output: Path,
+          scientific_freeze: Path,
           *, bootstrap_replicates: int = 1000, seed: int = 17) -> dict[str, Any]:
     if output.exists():
         raise FileExistsError(f"R2 score package already exists: {output}")
@@ -190,6 +191,13 @@ def score(cohort: Path, base_scores: Path, mech_scores: Path, output: Path,
         raise ValueError("R2 paired bootstrap requires a positive replicate count")
     rows, classes = _read_cohort(cohort)
     cohort_hash = digest(cohort)
+    if not scientific_freeze.is_file():
+        raise FileNotFoundError("R2 scoring requires the matched scientific freeze")
+    frozen = json.loads(scientific_freeze.read_text())
+    if (frozen.get("engineering_only") is not False
+            or frozen.get("evaluation_hashes", {}).get("r2_plausibility") != cohort_hash
+            or not frozen.get("mech_comparison_identifiable")):
+        raise ValueError("R2 scoring is not bound to an identifiable scientific freeze")
     ids = {row["proposal_id"] for row in rows}
     base, base_provenance = _read_scores(base_scores, condition="base",
                                          cohort_hash=cohort_hash, proposal_ids=ids)
@@ -220,6 +228,18 @@ def score(cohort: Path, base_scores: Path, mech_scores: Path, output: Path,
     result = {
         "artifact_type": "r2_paired_plausibility_result_v1", "package": "r2", "status": "complete",
         "cohort_sha256": cohort_hash, "cohort_manifest_sha256": digest(cohort.parent / "manifest.json"),
+        "scientific_freeze_sha256": digest(scientific_freeze),
+        "evaluation_source_hashes": {"r2_plausibility": cohort_hash},
+        "model_checkpoint_sha256": {
+            "base": base_provenance["checkpoint_sha256"],
+            "mech": mech_provenance["checkpoint_sha256"],
+        },
+        "denominators": {"proposals": 800, "positives": 400, "negatives": 400,
+                         "executor_valid_hard_negatives": 50},
+        "metrics": {"base_auroc": base_metrics["auroc"],
+                    "mech_auroc": mech_metrics["auroc"],
+                    "base_auprc": base_metrics["auprc_average_precision"],
+                    "mech_auprc": mech_metrics["auprc_average_precision"]},
         "source_provenance": {"base": base_provenance, "mech": mech_provenance},
         "negative_strata": classes,
         "base": base_metrics, "mech": mech_metrics,
@@ -243,12 +263,14 @@ def main() -> int:
     parser.add_argument("--cohort", type=Path, required=True)
     parser.add_argument("--base-scores", type=Path, required=True)
     parser.add_argument("--mech-scores", type=Path, required=True)
+    parser.add_argument("--scientific-freeze", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--bootstrap-replicates", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=17)
     args = parser.parse_args()
     print(json.dumps(score(args.cohort, args.base_scores, args.mech_scores,
-                           args.output, bootstrap_replicates=args.bootstrap_replicates,
+                           args.output, args.scientific_freeze,
+                           bootstrap_replicates=args.bootstrap_replicates,
                            seed=args.seed), indent=2), flush=True)
     return 0
 
