@@ -139,6 +139,12 @@ evidence-audited. A non-reference but executor-accepted successor from R3
 does not automatically qualify as an R2 chemical negative.
 The earlier map-label-only R2 negative diagnostic is marked
 `evidence_audited: false` and superseded; it must never be counted.
+The R2 final-cohort intake (`scripts/autoresearch/freeze_r2_plausibility.py`)
+now enforces eight 50-row audited negative sources against the frozen 400-row
+positive source. Its tests cover a complete synthetic 800-row intake,
+missing-class/hash-drift rejection, and rejection of an executor-valid negative
+without independent evidence. **No scientific R2 800-row cohort exists yet**;
+the seven missing negative classes have not been created or audited.
 
 ## Gates not yet satisfied
 

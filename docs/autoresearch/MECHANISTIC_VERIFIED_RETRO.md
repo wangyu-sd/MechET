@@ -246,6 +246,31 @@ Both prepared R2 directories remain `evaluation_allowed: false` until a
 complete, audited 400-positive/400-negative source is assembled. Do not
 compute AUROC/AUPRC on these partial sources as if they were the R2 smoke.
 
+The final R2 intake is `scripts/autoresearch/freeze_r2_plausibility.py`.
+Supply the recorded-positive JSONL with `--positives`, and repeat
+`--negative-class CLASS=/absolute/path/to/class.jsonl` for **each** of the
+eight class identifiers: `wrong_nucleophile`, `wrong_electrophile`,
+`wrong_leaving_group`, `formal_charge_corruption`,
+`regioisomeric_disconnection`, `bond_order_corruption`,
+`missing_necessary_fragment`, and `executor_valid_wrong_successor`.
+The output path is passed with `--output`. The intake requires immutable
+component manifests/statuses, exactly 400 positives (200/200 strata) and
+50 evidence-audited negatives per class. It rejects hash drift, duplicate
+proposals, noncanonical model inputs, and any negative product without a
+matched recorded positive. A final `r2_plausibility.jsonl`, manifest and
+`evaluation_allowed: true` status are written only after all gates pass.
+The final cohort still keeps evidence and labels in private fields; only
+`model_input` is supplied to a scoring model.
+
+For seven non-inventory classes, each source row must carry an independently
+reviewed evidence reference (`independent_negative_evidence`: kind, locator,
+SHA-256 and reviewer ID). The executor-valid/wrong-successor class additionally
+requires an accepted replay and its successor. This intake checks the evidence
+contract and source attestation; it **does not itself adjudicate chemical
+truth**. Source maintainers must retain the cited evidence for manual audit.
+The existing 400-positive/50-missing-fragment inputs are intentionally
+insufficient, so the final R2 file has not been generated.
+
 ## R3 controlled-corruption source
 
 The R3 builder uses the frozen strict-executable FlowER test trace and its
