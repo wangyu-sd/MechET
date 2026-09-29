@@ -91,3 +91,33 @@ sets, of the maximum radius-2/2048-bit Morgan Tanimoto similarity between the
 product and any precursor component; `high` is >=0.6. Disconnection agreement
 is computed from mapped product bonds absent from each precursor set. These
 are descriptive strata, not physical feasibility labels.
+
+## R3 controlled-corruption source
+
+The R3 builder uses the frozen strict-executable FlowER test trace and its
+Stage-II compressed-history decisions. It independently replays each selected
+reference prefix, changes **one electron-flow decision**, and verifies that
+the executor either rejects that action or accepts a different successor.
+Only explicit closed-shell two-electron source/sink trajectories enter this
+cohort; radical-pair and aggregate BE-delta trajectories and any recorded
+state with RDKit radical electrons are excluded. The
+coordination stratum counts moves in the **corrupted event**, not the maximum
+over a whole reaction.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/build_r3_corruptions.py \
+  --trace-source /absolute/path/to/MechET/data/flower_inverse_tool_sft_action_delta_v1/test.jsonl \
+  --trace-manifest /absolute/path/to/MechET/data/flower_inverse_tool_sft_action_delta_v1/training_manifest.json \
+  --history-source /absolute/path/to/MechET/data/flower_natural_language_event_history_v2/test.jsonl \
+  --history-manifest /absolute/path/to/MechET/data/flower_natural_language_event_history_v2/manifest.json \
+  --output /absolute/path/to/outputs/autoresearch/prepared_eval/r3_flower_polar_event
+```
+
+The frozen JSONL separates `model_visible` execution feedback from
+`private_reference` localization/repair labels. An accepted wrong successor
+appears to the policy only as `PASS` plus the actual successor, not as a gold-
+relative error flag. The 288 target rows are 32 per early/middle/late ×
+1/2/3+-move cell; reaction IDs may recur between cells, so uncertainty must
+be clustered by reaction. This builder produces an evaluation **source**, not
+R3 localization or repair scores. Older R3 diagnostic cohorts marked
+`evaluation_allowed: false` must not be used.

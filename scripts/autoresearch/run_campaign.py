@@ -16,7 +16,9 @@ from typing import Any
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from scripts.autoresearch.stratified_manifest import digest, freeze, resolve
+from scripts.autoresearch.stratified_manifest import (
+    digest, freeze, resolve, verify_evaluation_source,
+)
 from scripts.autoresearch.taiji_backend import poll, render_heldout_job, render_job, submit
 from scripts.autoresearch.ledger import append as append_ledger
 
@@ -59,8 +61,15 @@ def plan(config: dict[str, Any], root: Path, output: Path) -> dict[str, Any]:
     eval_status = {}
     for name, raw in config["evaluation_sources"].items():
         path = resolve(root, raw)
-        eval_status[name] = {"path": str(path) if path else None,
-                             "available": bool(path and path.is_file())}
+        status = {"path": str(path) if path else None,
+                  "available": bool(path and path.is_file())}
+        if status["available"]:
+            try:
+                status["sha256"] = verify_evaluation_source(path)
+            except ValueError as exc:
+                status["available"] = False
+                status["invalid_reason"] = str(exc)
+        eval_status[name] = status
     engineering = output / "engineering_freeze/manifests/freeze.json"
     scientific = output / "scientific_freeze/manifests/freeze.json"
     stages = []

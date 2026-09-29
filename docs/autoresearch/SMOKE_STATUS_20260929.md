@@ -47,6 +47,22 @@ and 135 cannot be classified as a product-bond cut by that rule. This is an
 independent-record alternative-reference cohort, not proof that every route is
 physically feasible. The evaluator still needs to run.
 
+The R3 controlled-corruption **evaluation source** is now frozen at
+`outputs/autoresearch/prepared_eval/r3_flower_closed_shell_event_test_v5_20260929/`.
+It contains 288 replay-audited perturbations: 32 in each early/middle/late ×
+1/2/3+-move event cell, from 286 distinct FlowER strict-executable test
+reactions. The selected event is classified by its own move count, not the
+reaction maximum. All selected trajectories use explicit two-electron
+source/sink actions and all recorded states have zero RDKit radical electrons;
+radical-pair and BE-delta trajectories are excluded. Of 288 corruptions,
+245 execute to a non-reference successor and 43 are rejected by the executor.
+The accepted 245 are **reference-relative wrong successors**, not evidence
+that each is chemically impossible. Model-visible feedback contains only the
+real execution result, never the reference-relative wrongness label. The
+cohort SHA256 is `521920c7d8d6dec2a52330bcb51f0131b60b91ad772bf0a4f00988d3cad67116`.
+Earlier R3 diagnostic versions are explicitly marked evaluation-forbidden.
+No model localization or repair score has been measured yet.
+
 ## Gates not yet satisfied
 
 No replay-compatible curated mechanism State-SFT rows are configured. The
@@ -54,6 +70,6 @@ official [PMechDB download](https://deeprxn.ics.uci.edu/pmechdb/download)
 requires a user-side license/registration step, and the public
 [elementary-step mirror](https://huggingface.co/datasets/SchwallerGroup/pmechdb_elem)
 has no machine-readable license field.
-R2/R3/R4/R5 evaluation cohorts are not frozen, so scientific Base/Mech
+R2/R4/R5 evaluation cohorts are not frozen, so scientific Base/Mech
 sampling and all R1–R5 result claims remain blocked by their stated
 prerequisites. The controller has not launched 8B/full-data retraining.

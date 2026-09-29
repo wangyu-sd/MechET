@@ -152,7 +152,7 @@ def eval_exclusions(config: dict[str, Any], root: Path) -> tuple[set[str], set[s
         path = resolve(root, raw)
         if path is None or not path.is_file():
             raise FileNotFoundError(f"scientific freeze requires evaluation source {name}: {raw}")
-        hashes[name] = digest(path)
+        hashes[name] = verify_evaluation_source(path)
         with path.open(encoding="utf-8") as stream:
             for line in stream:
                 row = json.loads(line)
@@ -164,6 +164,26 @@ def eval_exclusions(config: dict[str, Any], root: Path) -> tuple[set[str], set[s
                     ids.add(str(reaction))
                 products.add(product_key(str(product)))
     return ids, products, hashes
+
+
+def verify_evaluation_source(path: Path) -> str:
+    """Fail closed on known superseded cohorts or a drifted cohort sidecar."""
+    source_hash = digest(path)
+    status_path = path.parent / "ARTIFACT_STATUS.json"
+    if status_path.is_file():
+        status = json.loads(status_path.read_text())
+        if status.get("evaluation_allowed") is False:
+            raise ValueError(f"evaluation source is forbidden by {status_path}")
+        expected = status.get("cohort_sha256")
+        if expected and source_hash != expected:
+            raise ValueError(f"evaluation source hash differs from {status_path}")
+    manifest_path = path.parent / "manifest.json"
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text())
+        expected = manifest.get("cohort_sha256")
+        if expected and source_hash != expected:
+            raise ValueError(f"evaluation source hash differs from {manifest_path}")
+    return source_hash
 
 
 def candidates(

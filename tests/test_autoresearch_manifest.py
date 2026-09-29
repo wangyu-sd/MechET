@@ -3,7 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from scripts.autoresearch.stratified_manifest import allocate, freeze, grouped_decisions
+from scripts.autoresearch.stratified_manifest import (
+    allocate, digest, freeze, grouped_decisions, verify_evaluation_source,
+)
 
 
 def _row(reaction: str, decision: int, kind: str) -> dict:
@@ -75,3 +77,19 @@ def test_deprecated_source_is_rejected(tmp_path: Path) -> None:
               "evaluation_sources": {}}
     with pytest.raises(ValueError, match="forbids training"):
         freeze(config, tmp_path, tmp_path / "out", engineering=True)
+
+
+def test_eval_source_rejects_superseded_or_drifted_cohort(tmp_path: Path) -> None:
+    cohort = tmp_path / "r3_corruptions.jsonl"
+    _write(cohort, [{"reaction_id": "r0", "target_smiles": "CCO"}])
+    (tmp_path / "manifest.json").write_text(json.dumps({"cohort_sha256": digest(cohort)}))
+    status = tmp_path / "ARTIFACT_STATUS.json"
+    status.write_text(json.dumps({"evaluation_allowed": False}))
+    with pytest.raises(ValueError, match="forbidden"):
+        verify_evaluation_source(cohort)
+    status.write_text(json.dumps({"evaluation_allowed": True,
+                                  "cohort_sha256": digest(cohort)}))
+    assert verify_evaluation_source(cohort) == digest(cohort)
+    _write(cohort, [{"reaction_id": "r1", "target_smiles": "CCN"}])
+    with pytest.raises(ValueError, match="hash differs"):
+        verify_evaluation_source(cohort)

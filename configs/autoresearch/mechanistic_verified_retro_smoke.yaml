@@ -30,9 +30,9 @@ sources:
     train: null
     manifest: null
 evaluation_sources:
-  r1_multi_reference: null
+  r1_multi_reference: outputs/autoresearch/prepared_eval/r1_flower_official_test_20260929/r1_multi_reference.jsonl
   r2_plausibility: null
-  r3_corruptions: null
+  r3_corruptions: outputs/autoresearch/prepared_eval/r3_flower_closed_shell_event_test_v5_20260929/r3_corruptions.jsonl
   r4_pmechdb_challenging: null
   r4_pmechrp_pathways: null
   r4_literature_cycles: null
