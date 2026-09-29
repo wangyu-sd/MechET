@@ -93,6 +93,23 @@ across ten samples, so it cannot yet demonstrate the proposed verification
 benefit. These old checkpoints were not compute/protocol matched and no
 forward round-trip or independent chemical-validity adjudication was run.
 
+An exact-product audit against all **257,171 official FlowER training rows**
+found **75/220** R1 products in that train split and **145/220** with no exact
+canonical-product match. The hash-bound report is
+`outputs/autoresearch/prepared_eval/r1_official_train_product_overlap_20260929/report.json`
+(SHA-256 `16f49f84929573b8d9880981d077707750b63c029ca96fad3903c38ee8f385f8`).
+Partitioning the existing Direct diagnostic by this audit, multi-reference
+scoring recovers **20/145** first candidates and **23/145** Pass@10 products in
+the exact-product-disjoint stratum; the corresponding overlapping counts are
+**6/75** and **7/75**. This supports the existence of a single-reference
+scoring artifact even among exact-product-disjoint products, but it is still a
+selected multi-reference diagnostic, not a leakage-clean scientific-smoke
+result: reaction near-duplicates and backbone pretraining exposure were not
+excluded. The partition is frozen at
+`outputs/autoresearch/prepared_eval/r1_existing_direct_overlap_partition_20260929/result.json`.
+The future Base/Mech scientific training mix must independently exclude all
+R1 evaluation products by the campaign's selected-row overlap audit.
+
 The R3 controlled-corruption **evaluation source** is now frozen at
 `outputs/autoresearch/prepared_eval/r3_flower_closed_shell_event_test_v5_20260929/`.
 It contains 288 replay-audited perturbations: 32 in each early/middle/late ×

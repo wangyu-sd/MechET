@@ -157,6 +157,24 @@ row counts alone must not be reported as equal token budgets. Preparation does
 campaign has no scientific freeze, so this command intentionally fails before
 creating any scientific training config.
 
+For existing full-FlowER-trained Direct R1 diagnostics, an independent
+exact-product overlap audit is available before interpreting the selected
+multi-reference cohort:
+
+```bash
+python scripts/autoresearch/audit_r1_train_product_overlap.py \
+  --cohort outputs/autoresearch/prepared_eval/r1_flower_official_test_20260929/r1_multi_reference.jsonl \
+  --cohort-manifest outputs/autoresearch/prepared_eval/r1_flower_official_test_20260929/manifest.json \
+  --train data/flower_full_endpoint_sft/train.jsonl \
+  --official-manifest data/flower_full_endpoint_sft/manifest.json \
+  --output outputs/autoresearch/prepared_eval/r1_official_train_product_overlap_20260929/report.json
+```
+
+`scripts/autoresearch/analyze_r1_overlap_diagnostic.py` partitions the frozen
+existing-Direct diagnostic by that report. These are provenance diagnostics,
+not substitutes for the scientific campaign's *selected-training-row* product
+exclusion and not proof of chemical novelty.
+
 After successful preparation, render each one-GPU job separately using the
 same pinned offline model snapshot and an independently checked Taiji template:
 
