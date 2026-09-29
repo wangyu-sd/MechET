@@ -115,14 +115,23 @@ query list must not be configured as `r5_external_predictions`.
 The official RetroChimera checkpoint links currently return HTTP 403 from
 this workspace (read-only HEAD check on 2026-09-29). No model weights have
 been downloaded or substituted from an unverified mirror.
-The R5 external-prediction intake is now implemented and tested in
-`scripts/autoresearch/freeze_r5_external_predictions.py`. It requires actual
-model provenance and exactly the frozen 200 product rows, preserves all five
-rank positions including invalid/missing predictions, and marks non-reference
-proposals as **unrecorded, not proven invalid**. It has not been run on a real
-external prediction file; `evaluation_sources.r5_external_predictions` remains
-unset. No collaborator-owned R-SMILES/ReactSeq prediction artifact was found
-in this workspace during the current audit.
+The R5 external-prediction intake is implemented in
+`scripts/autoresearch/freeze_r5_external_predictions.py`. A real collaborator
+Graph2SMILES archive was found under `reflow/outputs/paper_results/baseline_benchmark/g2s/test/`.
+`scripts/autoresearch/import_r5_orbit_g2s.py` imports its hashed predictions
+without using recorded precursors to choose among duplicate product rows. The
+archived file has 28,970 rows (its provenance describes 28,971); all **200/200**
+frozen R5 products are covered. Of these, 102 match more than one archived row,
+but their first five predictions agree across duplicates. The frozen cohort at
+`outputs/autoresearch/prepared_eval/r5_orbit_g2s_frozen_20260929/` contains
+**1,000/1,000 syntactically valid Top-5 SMILES**; cohort SHA256
+`0d9bf45fb29ac2d0ae36c74e2be3c985a198fb23e1a3f3df78cd018b7b396505`.
+The campaign config now names this real R5 diagnostic input. This is **not**
+RetroChimera: the G2S archive was trained for only 5,000 updates, its original
+checkpoint is not locally available for independent verification, and product
+overlap with its training set has not yet been audited. The source is therefore
+not headline evidence; no MechET verification/reranking score exists yet.
+No collaborator-owned R-SMILES/ReactSeq prediction artifact was found.
 
 The R2 **recorded-positive proposal source** is frozen at
 `outputs/autoresearch/prepared_eval/r2_flower_recorded_positive_test_20260929/`:
@@ -171,9 +180,11 @@ official [PMechDB download](https://deeprxn.ics.uci.edu/pmechdb/download)
 requires a user-side license/registration step, and the public
 [elementary-step mirror](https://huggingface.co/datasets/SchwallerGroup/pmechdb_elem)
 has no machine-readable license field.
-The complete R2/R4/R5 evaluation cohorts are not frozen, so scientific Base/Mech
-sampling and all R1–R5 result claims remain blocked by their stated
-prerequisites. The controller has not launched 8B/full-data retraining.
+The complete R2 and R4 evaluation cohorts are not frozen. R5 now has a frozen
+external **diagnostic** proposal cohort but no MechET scores or leakage-clean
+headline source. Scientific Base/Mech sampling and all R1–R5 result claims
+remain blocked by their stated prerequisites. The controller has not launched
+8B/full-data retraining.
 The scorecard now distinguishes missing science from a measured negative
 result: absent training/metrics yields `INCOMPLETE`. A package merely claiming
 `status: complete` is rejected unless its frozen evaluation hashes, scientific
