@@ -36,8 +36,10 @@ evaluation_sources:
   r4_pmechdb_challenging: null
   r4_pmechrp_pathways: null
   r4_literature_cycles: null
-  # Archived G2S predicts a full reaction world, not an R5 precursor set.
-  r5_external_predictions: null
+  # Official RetroBridge precursor-set source; diagnostic only because its
+  # USPTO-50K training set overlaps 8/200 exact query products and 4 Ru/Pd
+  # queries are outside its atom vocabulary. The archived G2S source is not R5.
+  r5_external_predictions: outputs/autoresearch/prepared_eval/r5_retrobridge_official_frozen_20260929/r5_external_predictions.jsonl
 resources:
   order: [h20_1, a100_1, v100_1]
   max_infrastructure_retries: 2

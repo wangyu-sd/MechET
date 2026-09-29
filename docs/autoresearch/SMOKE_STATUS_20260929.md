@@ -170,18 +170,34 @@ official-test products, comprising 100 with independently recorded alternatives
 and 100 other products, with 50 products in each empirical heavy-atom-size
 quartile. SHA256:
 `2eb2b3083ddf9819b145d54be36ae68d41662df6d68676ce6cc5a62c5c1f57e4`.
-No **R5-qualified precursor-set** Top-5 predictions or MechET reranking
-results exist yet; this query list alone is not `r5_external_predictions`.
-An official RetroBridge checkpoint was subsequently downloaded and hash-checked
-from the authors' Zenodo release. The pinned wrapper
-`scripts/autoresearch/run_retrobridge_r5.py` passed a one-product GPU runtime
-smoke and is generating the same fixed 200-product cohort with the official
-500 bridge steps and ten samples per product. The authors' metric ranks by
-sample frequency; their raw `score` is not a model confidence. An exact-product
-audit found 8/200 query products in the official USPTO-50K train CSV, and
-four Ru/Pd queries are outside the checkpoint's atom vocabulary. The source
-is a **diagnostic**, not a leakage-clean 200-product headline result. Generation
-in progress is not a completed R5 source or any MechET reranking result.
+An official RetroBridge checkpoint was downloaded and hash-checked from the
+authors' [Zenodo release](https://zenodo.org/records/10688201). The pinned
+wrapper `scripts/autoresearch/run_retrobridge_r5.py` completed the fixed
+200-product cohort with 500 bridge steps and ten samples per product; its
+raw-prediction SHA-256 is
+`5cbb7fe905aa54dc9fd05ea3f0870ab6280f3711bd18606776019470762b045e`.
+The authors' ranking uses sample frequency with first-occurrence tie-breaking,
+not their raw `score` as a model confidence. Inference completed for **196/200**
+products; **2 Pd and 2 Ru** products were retained as explicit failures because
+those atom types are outside the official checkpoint vocabulary. The frozen
+precursor-set Top-5 source is
+`outputs/autoresearch/prepared_eval/r5_retrobridge_official_frozen_20260929/`
+(cohort SHA-256
+`cfaf303992fbed8b096949c405c26d51b46325be30894ed10b34d4cadbbd74a9`).
+It preserves all **1,000** rank slots: **536 valid SMILES, 181 invalid SMILES,
+283 missing slots**. The separate hash-bound source diagnostic at
+`outputs/autoresearch/prepared_eval/r5_retrobridge_source_diagnostic_20260929/report.json`
+(SHA-256 `dc9c86b783ae31c6752b432b9a4b75a6e1e0bf6b287f95fc351c34e0a14dc1c8`)
+finds **52/200** Top-1 and **79/200** Top-5 hits against any independently
+recorded precursor set for each frozen product. Among the 192 products with no
+*exact product* in the official RetroBridge train CSV, the counts are **50/192**
+and **75/192**; exact-product disjointness is not proof of broader molecular or
+reaction-level decontamination. Eight products have exact-product train overlap.
+This is an external-model source diagnostic, **not** MechET verification,
+reranking, chemical-validity adjudication, or a leakage-clean R5 headline result.
+The campaign now points `r5_external_predictions` at this frozen source solely
+for a **diagnostic** R5 run; its artifact status forbids headline promotion.
+No Base/Mech candidate-conditioned trace-support result has been measured.
 The official RetroChimera checkpoint links currently return HTTP 403 from
 this workspace (read-only HEAD check on 2026-09-29). No model weights have
 been downloaded or substituted from an unverified mirror.
@@ -224,7 +240,9 @@ model result; the diagnostic G2S archive remains forbidden as R5 input.
 No collaborator-owned R-SMILES/ReactSeq prediction artifact was found.
 
 An additional archive audit of the sibling `reflow/outputs/paper_results/`
-found no replacement R5 Top-5 precursor-set source. On the fixed 200 products,
+found no replacement R5 Top-5 precursor-set source **in that archive**; the
+separately run official RetroBridge diagnostic above now fills that source role.
+On the fixed 200 products,
 archived LocalRetro covers all query strings but has a nonempty precursor on
 only **4 distinct products** (two are Pd-containing, outside this campaign's
 closed-shell polar scope); its file also has duplicate product rows and at
@@ -332,9 +350,10 @@ R1–R5 evaluation inputs must freeze before either scientific training mix is
 sampled. The read-only campaign plan now recognizes the curated source as
 available; it does not interpret that as permission to start training.
 
-The complete R2 and R4 evaluation cohorts are not frozen. R5 has an archived
-full-reaction-world **diagnostic** but no target-compatible precursor-set source,
-MechET scores, or leakage-clean headline source. Scientific Base/Mech sampling and all R1–R5 result claims
+The complete R2 and R4 evaluation cohorts are not frozen. R5 now has an official,
+target-compatible RetroBridge **diagnostic** precursor-set source but no MechET
+scores or leakage-clean 200-product headline source; the archived G2S source
+still predicts a different full-reaction-world target. Scientific Base/Mech sampling and all paired scientific R1–R5 result claims
 remain blocked by their stated prerequisites. The controller has not launched
 8B/full-data retraining.
 The scorecard now distinguishes missing science from a measured negative
