@@ -163,6 +163,20 @@ electron event before the private reference suffix. No model predictions have
 been generated or scored. Its future endpoint rate must be labelled
 **oracle-suffix-assisted repair at an exposed failure**, not autonomous
 trajectory recovery or failure localization.
+An answer-free Stage-II repair-prompt artifact is frozen separately at
+`outputs/autoresearch/prepared_eval/r3_repair_prompts_v1_20260929/`:
+**288/288** query IDs, no private correct action or endpoint fields, prompt
+SHA-256 `e9928f72df0d90e8348be43c55e59aae7931d6e491d4f23f96243ef88a8c80d5`.
+The prompt uses only the public query's pre-action state and accepted-prefix
+history capsule plus the corrupted action and actual tool feedback. With the
+Stage-II adapter tokenizer, the 288 rendered system/user/tool-schema inputs
+span 1,124–2,691 tokens; none exceed the 8,192-token inference budget with
+512 generated tokens. The Stage-II adapter-directory SHA-256 is
+`652855af46f4d55a47cba174cf2d2ed898e03f9334a81de0f52e4042744c117c`;
+the locally available complete Qwen3-8B offline snapshot has revision
+`b968826d9c46dd6066d109eabc6255188de91218` and its five weight shards
+passed their release-metadata SHA-256 checks. This is inference preparation,
+not a model repair result.
 
 The R5 **product query** cohort is frozen at
 `outputs/autoresearch/prepared_eval/r5_flower_products_20260929/`: 200 unique

@@ -448,6 +448,34 @@ separately frozen, unmarked candidate trajectory with no gold-action/suffix
 leakage; it must not be scored on this repair query. Neither localization nor
 repair has yet been measured.
 
+The existing Stage-II compact-history Qwen3-8B can be tested as an **existing-
+checkpoint diagnostic**, without changing training. The answer-free prompt
+builder reads only the frozen query JSONL, reconstructs temporary atom aliases
+from the visible pre-action state, retains the Stage-II compressed history,
+and shows the submitted action plus real executor result. An executor `PASS`
+is explicitly not described as chemical correctness. The prompt is frozen
+before model sampling and does not read the mapped source trace or private
+reference action/endpoint. The 288-row v1 prompt artifact has SHA-256
+`e9928f72df0d90e8348be43c55e59aae7931d6e491d4f23f96243ef88a8c80d5`;
+actual Qwen3-8B tokenizer inputs range from 1,124 to 2,691 tokens.
+
+```bash
+python scripts/autoresearch/prepare_r3_repair_prompts.py \
+  --queries outputs/autoresearch/prepared_eval/r3_flower_queries_v1_20260929/r3_queries.jsonl \
+  --output outputs/autoresearch/prepared_eval/r3_repair_prompts_v1_20260929
+```
+
+`scripts/autoresearch/run_r3_repair_inference.py` loads the pinned Stage-II
+adapter, verifies its directory hash and the local offline Qwen3-8B release
+metadata/weight SHA-256, and generates one greedy action per case. It writes
+all 288 rows, including failed tool-call parses, with the provenance sidecar
+required by the separate scorer below. The ordinary one-A100 launcher is
+`scripts/autoresearch/run_taiji_r3_repair.sh`; its Taiji task is configured at
+`configs/taiji/meteor_mechet_pr69_r3_stageii_repair_1a100_qy_20260929.json`.
+This is an exposed-failure **repair diagnostic** of an existing SFT checkpoint,
+not the new matched Base-smoke/Mech-smoke R3 result, autonomous recovery, or
+first-error localization.
+
 Once a policy has generated one `apply_electron_flow` replacement per case,
 score it with `scripts/autoresearch/score_r3_repair.py`. Predictions must cover
 all 288 query IDs, including failed generations (with `repair_action: null`).
@@ -470,7 +498,8 @@ PYTHONPATH=src:. python scripts/autoresearch/score_r3_repair.py \
 
 This yields an **oracle-suffix-assisted one-action repair** score, not an
 autonomous trajectory success rate or first-failure localization result. The
-private correct action is never model input. No prediction artifact exists yet.
+private correct action is never model input. A submitted or running inference
+task is not a scored prediction artifact; check its complete manifest first.
 
 For a nontrivial **synthetic first-reference-divergence localization** input,
 `scripts/autoresearch/export_r3_unmarked_localization.py` derives a second
