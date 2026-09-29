@@ -240,7 +240,7 @@ exist, so this is an evaluator readiness result, not a chemical result.
 
 ## Gates not yet satisfied
 
-No replay-compatible curated mechanism State-SFT rows are configured. The
+No curated mechanism State-SFT source is configured in the scientific campaign yet. The
 official [PMechDB download](https://deeprxn.ics.uci.edu/pmechdb/download)
 requires a user-side license/registration step, and the public
 [elementary-step mirror](https://huggingface.co/datasets/SchwallerGroup/pmechdb_elem)
@@ -256,25 +256,37 @@ mapped-atom set when explicit hydrogens are retained. Reversing each arrow and
 applying the whole coupled event with the **unchanged** MechET executor recovers
 the source reactant mixture exactly in 1,754/1,926; 121 fail the executor's
 lone-pair precondition, 2 have invalid bond order, and 49 execute to a different
-successor. Those 172 are quarantined, not repaired by changing the executor.
+successor. Those 172 are excluded at this preliminary complete-mixture gate,
+not repaired by changing the executor.
 The 1,754 figure is only a complete-mixture replay diagnostic, **not** a count
 of product-only, training-ready State-SFT reactions. Canonical unmapped
 product overlap with the official FlowER train/valid/test products is 2/0/0;
 the frozen R1 and R5 product cohorts have zero overlap.
 
-Only 1,050 of the exactly replayed SynEPD records have a single product
-component and therefore admit an unambiguous product-only input without
-inventing a principal-product selector or importing byproducts. A 20-record
-conversion probe using the existing natural-language v2 builder produced
-one event and one finish decision per record, but the complete 1,050-record
-conversion and independent runtime replay are **not yet done**. Moreover,
-917/1,050 of these clean records belong to POLAR family 03. Enforcing the
-PR's no-majority-class rule would limit a balanced single-product selection
-to at most 266 reactions (532 decision rows) before any other exclusions.
-SynEPD is therefore a promising **supplementary source or independent transfer
-diagnostic**, not a silent substitute for PMechDB or a justification to launch
-the 12k-row paired scientific smoke. The official PMechDB challenging and
-PMechRP pathway R4 sources remain separately required.
+The new pinned converter `scripts/autoresearch/build_synepd_curated.py` applies
+the existing largest-organic-principal-product policy but rejects tied
+principals, imports the other final-mixture components before their first
+electron use, converts reversed arrows through the **existing** natural-
+language v2 builder, and independently replays every emitted public tool call
+without reading the private source moves. It accepted **1,674 reactions / 3,975
+State-SFT decisions** and quarantined all remaining **252** records: 170
+complete-mixture replay mismatches, 66 public actions that refer to an absent
+temporary bond, and 16 ambiguous principal products. The local frozen artifact
+is `outputs/autoresearch/prepared_train/synepd_curated_v041_public_replay_20260929/`
+with train SHA-256
+`a798b6086cfe4157895bd39ac69eaf56afe10ffe56d408f645507608189dfaf2`.
+This artifact is not committed as raw data; its source, license, manifest and
+quarantine hashes are recorded alongside it.
+
+The largest POLAR family supplies 2,137/3,975 candidate decisions, so naive
+proportional selection would violate the PR's no-majority-class rule. The
+scientific sampler now allocates by family before joint strata: a 3,000-row
+dry selection yields 1,500 POLAR.03 and 1,500 across the seven other families,
+with no underfill. This is a **training-source qualification**, not an
+independent R4 result or a Mech-vs-Base outcome. The official PMechDB
+challenging and PMechRP pathway R4 sources remain separately required; all
+R1–R5 evaluation inputs must freeze before either scientific training mix is
+sampled.
 
 The complete R2 and R4 evaluation cohorts are not frozen. R5 has an archived
 full-reaction-world **diagnostic** but no target-compatible precursor-set source,

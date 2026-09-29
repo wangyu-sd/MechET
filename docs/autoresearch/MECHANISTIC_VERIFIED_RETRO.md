@@ -26,6 +26,35 @@ requires agreement and registration for the full curated dataset; the small
 Hugging Face `pmechdb_elem` mirror is a separate provenance/coverage question,
 not automatically the licensed complete challenging test.
 
+## Candidate curated training source: SynEPD
+
+The independently released [SynEPD](https://github.com/TieuLongPhan/SynEPD)
+v0.4.1 data declares CC BY 4.0 in its release manifest. It can be prepared
+without changing the executor or the three public tools:
+
+```bash
+git clone https://github.com/TieuLongPhan/SynEPD.git /absolute/path/to/SynEPD
+git -C /absolute/path/to/SynEPD checkout 4fefc016fd4d4e4305dec92586e593bafe3b3e5b
+python scripts/autoresearch/build_synepd_curated.py \
+  --source /absolute/path/to/SynEPD/data/polar.json \
+  --release-manifest /absolute/path/to/SynEPD/data/release-manifest.json \
+  --output /absolute/path/to/outputs/autoresearch/prepared_train/synepd_v041
+```
+
+The builder refuses unpinned input hashes and an existing output directory.
+It records every rejected source ID, verifies every accepted inverse transition
+with the frozen executor, then independently replays the emitted *public* tool
+calls. The audited run accepted 1,674 reactions / 3,975 decision rows and
+quarantined 252 reactions; see `docs/autoresearch/SMOKE_STATUS_20260929.md`.
+Scientific selection of 3,000 curated decisions applies a predeclared
+50%-per-family cap before the other strata, with deterministic seed 17.
+
+This is a **training candidate only**. It neither replaces PMechDB challenging
+or PMechRP pathways in R4 nor permits scientific sampling before all seven
+evaluation sources are frozen and product-decontaminated. Configure its
+`train.jsonl` and `manifest.json` under `sources.curated` only when those gates
+are satisfied; the default config leaves them null intentionally.
+
 ## Freeze and prepare engineering smoke
 
 ```bash

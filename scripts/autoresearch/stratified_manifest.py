@@ -258,20 +258,76 @@ def candidates(
 
 def selected_ids(
     counts: dict[tuple[str, ...], int], heaps: dict[tuple[str, ...], list[tuple[int, str]]],
-    quota: int,
+    quota: int, *, class_index: int | None = None,
 ) -> tuple[dict[str, tuple[str, ...]], dict[str, Any]]:
-    allocation = allocate(counts, quota)
+    if class_index is None:
+        allocation = allocate(counts, quota)
+        class_quotas: dict[str, int] | None = None
+    else:
+        # First allocate by mechanism family and cap each family at half the
+        # curated budget. Then preserve minimum-per-cell/proportional sampling
+        # *within* each family. A post-hoc majority rejection would discard an
+        # otherwise usable, replayed source without constructing the matched
+        # scientific smoke that the frozen PR explicitly requests.
+        available = sum(counts.values())
+        target = min(quota, available)
+        maximum = target // 2
+        class_counts: Counter[tuple[str, ...]] = Counter()
+        for cell, count in counts.items():
+            class_counts[(cell[class_index],)] += count
+        grouped = allocate(dict(class_counts), target)
+        while any(number > maximum for number in grouped.values()):
+            excess = 0
+            for family in sorted(grouped):
+                if grouped[family] > maximum:
+                    excess += grouped[family] - maximum
+                    grouped[family] = maximum
+            capacity = {
+                family: min(class_counts[family], maximum) - grouped[family]
+                for family in grouped
+            }
+            if sum(capacity.values()) < excess:
+                raise ValueError("curated source cannot satisfy no-majority-class quota")
+            extra = allocate(capacity, excess)
+            for family, number in extra.items():
+                grouped[family] += number
+        allocation = {}
+        for family, family_quota in grouped.items():
+            subcounts = {cell: count for cell, count in counts.items()
+                         if cell[class_index] == family[0]}
+            allocation.update(allocate(subcounts, family_quota))
+        class_quotas = {family[0]: number for family, number in grouped.items()}
     selected: dict[str, tuple[str, ...]] = {}
     for cell, number in allocation.items():
         ranked = sorted(heaps[cell], key=lambda item: (-item[0], item[1]))
         for _, row_id in ranked[:number]:
             selected[row_id] = cell
-    return selected, {
+    report = {
         "requested": quota, "selected": len(selected), "underfilled": quota - len(selected),
         "cells": [{"stratum": cell, "available": counts[cell], "selected": allocation[cell],
                    "underfilled": max(0, allocation[cell] - counts[cell])}
                   for cell in sorted(allocation)],
     }
+    if class_quotas is not None:
+        report["mechanism_class_quotas"] = dict(sorted(class_quotas.items()))
+    return selected, report
+
+
+def class_balanced_capacity(
+    counts: dict[tuple[str, ...], int], maximum: int, *, class_index: int,
+) -> int:
+    """Largest no-majority-class budget available after eval exclusions."""
+
+    families: Counter[str] = Counter()
+    for cell, number in counts.items():
+        families[cell[class_index]] += number
+    if len(families) < 2:
+        return 0
+    for quota in range(min(maximum, sum(families.values())), 1, -1):
+        cap = quota // 2
+        if sum(min(number, cap) for number in families.values()) >= quota:
+            return quota
+    return 0
 
 
 def freeze(config: dict[str, Any], root: Path, output: Path, *, engineering: bool) -> dict[str, Any]:
@@ -300,7 +356,7 @@ def freeze(config: dict[str, Any], root: Path, output: Path, *, engineering: boo
     if curated and not engineering:
         curated_counts, _, _ = candidates(curated, "curated", seed, 3000,
                                            excluded_ids, excluded_products)
-        curated_available = sum(curated_counts.values())
+        curated_available = class_balanced_capacity(curated_counts, 3000, class_index=4)
     if not engineering:
         target = int(quotas["mech"]["curated"])
         shortfall = max(0, target - curated_available)
@@ -341,12 +397,15 @@ def freeze(config: dict[str, Any], root: Path, output: Path, *, engineering: boo
                                   **audit}
         for condition, requested in needed.items():
             if requested:
-                picked, report = selected_ids(counts, heaps, requested)
+                picked, report = selected_ids(
+                    counts, heaps, requested,
+                    class_index=4 if source == "curated" else None,
+                )
                 if report["underfilled"]:
                     raise ValueError(f"{source}/{condition} cannot meet fixed quota: {report}")
                 if source == "curated" and picked:
                     by_class = Counter(cell[4] for cell in picked.values())
-                    if max(by_class.values()) > (len(picked) + 1) // 2:
+                    if max(by_class.values()) > len(picked) // 2:
                         raise ValueError("curated sample is dominated by one mechanism class")
                 selected_by_condition.setdefault(condition, {})[source] = picked
                 source_results[source][condition] = report

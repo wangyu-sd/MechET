@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 
 from scripts.autoresearch.stratified_manifest import (
-    allocate, digest, freeze, grouped_decisions, verify_evaluation_source,
+    allocate, class_balanced_capacity, digest, freeze, grouped_decisions,
+    selected_ids, verify_evaluation_source,
 )
 
 
@@ -32,6 +33,29 @@ def test_allocation_minimum_then_proportional() -> None:
     assert sum(result.values()) == 8
     assert all(result[cell] >= 1 for cell in counts)
     assert all(result[cell] <= counts[cell] for cell in counts)
+
+
+def test_curated_selection_enforces_family_balance_without_dropping_quota() -> None:
+    cells = {("Q1", "1", "unavailable", "unavailable", "POLAR.03"): 8,
+             ("Q2", "2", "unavailable", "unavailable", "POLAR.02"): 4,
+             ("Q3", "3+", "unavailable", "unavailable", "POLAR.01"): 4}
+    heaps = {cell: [(-index, f"{cell[4]}:{index}") for index in range(count)]
+             for cell, count in cells.items()}
+    selected, report = selected_ids(cells, heaps, 12, class_index=4)
+    assert len(selected) == 12
+    assert report["underfilled"] == 0
+    assert report["mechanism_class_quotas"]["POLAR.03"] == 6
+    assert max(report["mechanism_class_quotas"].values()) <= 6
+
+
+def test_curated_selection_rejects_impossible_family_balance() -> None:
+    cells = {("Q1", "1", "u", "u", "POLAR.03"): 8,
+             ("Q2", "1", "u", "u", "POLAR.02"): 2}
+    heaps = {cell: [(-index, f"{cell[4]}:{index}") for index in range(count)]
+             for cell, count in cells.items()}
+    with pytest.raises(ValueError, match="no-majority-class"):
+        selected_ids(cells, heaps, 8, class_index=4)
+    assert class_balanced_capacity(cells, 8, class_index=4) == 4
 
 
 def test_noncontiguous_reaction_rejected(tmp_path: Path) -> None:
