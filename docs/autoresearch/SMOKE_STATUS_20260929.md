@@ -304,18 +304,25 @@ reranking, chemical-validity adjudication, or a leakage-clean R5 headline result
 The campaign now points `r5_external_predictions` at this frozen source solely
 for a **diagnostic** R5 run; its artifact status forbids headline promotion.
 No Base/Mech candidate-conditioned trace-support result has been measured.
-There is also a concrete **R5 producer gap**: the current
-`score_r5_external.py` requires one verification record for every
-product/rank slot with `input_fields: [product_smiles, proposed_precursors]`
-and `verification_semantics: candidate_conditioned_executor_trace_v1`, but
-the repository has no inference producer for that contract. The existing A7
-K=10 trajectories were generated from product-only inputs and cannot be
-relabelled candidate-conditioned. A frozen candidate-conditioned inference
-protocol and its training/inference compatibility must be specified before
-R5 scientific scoring. A separate product-only trace-pool intersection may
-be useful as a diagnostic, but it is not the scorer's R5 condition and a
-non-match does not establish chemical invalidity. This gap does not affect
-the frozen 200-product RetroBridge source or its external-only diagnostic.
+The R5 **producer interface gap is now closed in code** by
+`run_r5_candidate_verification.py` and `r5_candidate_trace.py`, after the user
+authorized a separate evaluation-only product-plus-candidate prompt. The
+candidate is visible to the policy but never enters the executor's expected
+precursor field. The producer preserves all 200×5 slots, executes accepted
+events in `TraceOwnedAgentEnv`, records raw generations and provenance, and
+pins RDKit 2026.03.4 to the frozen source. Six focused tests pass. A real
+one-product/5-slot/4-valid-slot engineering run with the existing **0.6B**
+adapter completed; all four valid proposals terminated on rejected first
+electron actions (`SOURCE_HAS_NO_ELECTRON_PAIR`), with **zero formal terminal
+traces**. This is a producer/runtime diagnostic, not a MechET scientific R5
+result or evidence that those candidates are chemically invalid. The artifact
+is under `outputs/autoresearch/prepared_eval/r5_candidate_producer_engineering_diag_v1_20260929/`,
+with verification SHA-256
+`f36e8041869e00b873380e32b998c2632d105fd48ea4f290dea36483560c3f17`.
+Its sidecar says `candidate_conditioned_diagnostic_partial_v1`, so the paired
+R5 scorer rejects it. Product-only A7 K=10 archives remain ineligible for R5.
+Full R5 still lacks the scientific Base/Mech checkpoint pair and frozen
+scientific sampling; a non-match means unverified, not chemically impossible.
 The official RetroChimera checkpoint links currently return HTTP 403 from
 this workspace (read-only HEAD check on 2026-09-29). No model weights have
 been downloaded or substituted from an unverified mirror.

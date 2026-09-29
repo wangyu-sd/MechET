@@ -743,12 +743,26 @@ executor `final_result` if it reached one. The sidecar
 `input_fields: ["product_smiles", "proposed_precursors"]`, and
 `verification_semantics: "candidate_conditioned_executor_trace_v1"`.
 
-No producer for that candidate-conditioned inference contract exists yet.
-Product-only A7 rollout archives cannot be repackaged with these input fields.
-The interface and its model-visible input audit must be frozen before R5
-scientific scoring; if this changes the smoke campaign's frozen prompt
-boundary, obtain a protocol decision first. A product-only trace-pool
-coincidence analysis has different semantics and is diagnostic only.
+The user authorized a separate, evaluation-only candidate-conditioned prompt
+for this contract on 2026-09-29. The producer is
+`scripts/autoresearch/run_r5_candidate_verification.py`. It reads only the
+frozen public candidate slots, shows the candidate to the policy, but resets
+the actual `TraceOwnedAgentEnv` with an **empty** expected precursor. The
+executor compiles every accepted inverse electron event and owns the terminal
+precursor; no recorded reference or candidate endpoint is injected into it.
+It preserves all five slots for every product and records raw generations,
+rejections, context-limit failures and provenance. RDKit 2026.03.4 is pinned
+to the frozen cohort's canonicalization. The current formal executor does not
+support endpoint-only spectator imports through this adapter; such a request
+is recorded as a rejection, never as a formally executed trace. Product-only
+A7 archives cannot be repackaged as candidate-conditioned evidence.
+
+For a one-product **engineering diagnostic only**, use the existing 0.6B
+engineering adapter, pinned local base and `--diagnostic-products 1` with a
+new output directory. This writes `candidate_conditioned_diagnostic_partial_v1`,
+which the paired R5 scorer deliberately rejects. Full scientific scoring
+still requires the frozen Base and Mech checkpoints, the complete 200×5
+verification rows, and the scientific freeze. A non-match is merely unverified.
 
 `scripts/autoresearch/score_r5_external.py` scores only an executor-owned,
 formally executed, trace-bound terminal result whose *structural precursor*
