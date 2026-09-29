@@ -61,6 +61,21 @@ result is at `outputs/autoresearch/prepared_eval/r1_existing_direct_diagnostic_2
 its selected prediction-row SHA256 is
 `27c3d583d99c20e92061b096eea8d52e24d14c3a38d53157bd3ec6e8005748da`.
 
+The same 220 R1 products were also rescored against the **existing legacy
+compact-full-state MechET K=10** strict-test predictions, requiring an
+executor-owned `finish_trace` result with `ok`, `formal_execute`, and
+`trace_bound` all true. All 220 products had ten candidate slots. The first
+candidate was formally executable for 7/220 and matched a recorded precursor
+for 0/220; across ten candidates, 81/220 products had at least one formally
+executable proposal and 6/220 had at least one recorded-precursor match.
+There were 127 formally executed candidate slots outside the recorded
+reference sets; **unrecorded is not chemically invalid**. The frozen
+diagnostic rows SHA256 is
+`d4029fc14cd778d1905987b10ef2bf10e02c5eba4e34cc474c969b1a0e8c524d`.
+This old A7 run is neither the new Base/Mech scientific smoke nor a matched
+head-to-head comparison with Direct; these numbers do not establish an R1
+mechanistic advantage and must not be used as its headline result.
+
 The R3 controlled-corruption **evaluation source** is now frozen at
 `outputs/autoresearch/prepared_eval/r3_flower_closed_shell_event_test_v5_20260929/`.
 It contains 288 replay-audited perturbations: 32 in each early/middle/late ×

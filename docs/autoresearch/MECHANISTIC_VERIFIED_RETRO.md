@@ -102,6 +102,14 @@ and all independently recorded precursor sets. It does not run the forward
 model or MechET verifier, audit Direct train overlap, or constitute the R1
 Base-vs-Mech scientific-smoke result.
 
+The parallel diagnostic `scripts/autoresearch/score_r1_existing_trace.py`
+reads the existing legacy compact-full-state MechET K=10 strict-test file and
+scores the same 220 products. It counts a candidate only when the actual
+`finish_trace` result is executor-owned, formally executed and trace-bound;
+`expected_precursor` or free-form text is never substituted. Its executable
+non-reference outputs are labeled *unrecorded*, not chemically invalid.
+Neither diagnostic replaces the new paired R1 scientific-smoke evaluation.
+
 ## R2 recorded proposals and negative-evidence boundary
 
 Freeze 400 positive proposals from the same official held-out endpoint source:
