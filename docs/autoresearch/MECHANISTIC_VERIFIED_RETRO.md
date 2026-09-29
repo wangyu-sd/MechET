@@ -121,3 +121,30 @@ relative error flag. The 288 target rows are 32 per early/middle/late ×
 be clustered by reaction. This builder produces an evaluation **source**, not
 R3 localization or repair scores. Older R3 diagnostic cohorts marked
 `evaluation_allowed: false` must not be used.
+
+## R5 external-model query cohort
+
+Before querying an external retrosynthesis model, freeze 200 unique products
+from the official FlowER full-endpoint test split: 100 sampled from the R1
+multi-recorded-alternative products and 100 from other official test products.
+Each half is evenly sampled across empirical product heavy-atom-size quartiles
+using the fixed campaign seed. The external model receives only the canonical
+unmapped product; all recorded precursor sets remain under `private_reference`.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/build_r5_products.py \
+  --source /absolute/path/to/MechET/data/flower_full_endpoint_sft/test.jsonl \
+  --official-manifest /absolute/path/to/MechET/data/flower_full_endpoint_sft/manifest.json \
+  --r1-cohort /absolute/path/to/outputs/autoresearch/prepared_eval/r1_flower_official_test_20260929/r1_multi_reference.jsonl \
+  --r1-manifest /absolute/path/to/outputs/autoresearch/prepared_eval/r1_flower_official_test_20260929/manifest.json \
+  --output /absolute/path/to/outputs/autoresearch/prepared_eval/r5_flower_products
+```
+
+This is a **query cohort only**, not the `r5_external_predictions` evaluation
+source. The latter remains missing until an external checkpoint produces
+ranked Top-5 candidates for all frozen products, with missing ranks retained
+in the denominator. RetroChimera is the initial candidate source; its
+[official repository](https://github.com/microsoft/retrochimera) offers
+Pistachio-, USPTO-50K-, and USPTO-FULL-trained checkpoints. Any overlap of
+those training universes with the FlowER test chemistry must be reported;
+without that audit, the result is diagnostic rather than leakage-clean.

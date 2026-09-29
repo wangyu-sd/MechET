@@ -63,6 +63,18 @@ cohort SHA256 is `521920c7d8d6dec2a52330bcb51f0131b60b91ad772bf0a4f00988d3cad671
 Earlier R3 diagnostic versions are explicitly marked evaluation-forbidden.
 No model localization or repair score has been measured yet.
 
+The R5 **product query** cohort is frozen at
+`outputs/autoresearch/prepared_eval/r5_flower_products_20260929/`: 200 unique
+official-test products, comprising 100 with independently recorded alternatives
+and 100 other products, with 50 products in each empirical heavy-atom-size
+quartile. SHA256:
+`2eb2b3083ddf9819b145d54be36ae68d41662df6d68676ce6cc5a62c5c1f57e4`.
+No external Top-5 predictions or MechET reranking results exist yet; this
+query list must not be configured as `r5_external_predictions`.
+The official RetroChimera checkpoint links currently return HTTP 403 from
+this workspace (read-only HEAD check on 2026-09-29). No model weights have
+been downloaded or substituted from an unverified mirror.
+
 ## Gates not yet satisfied
 
 No replay-compatible curated mechanism State-SFT rows are configured. The
