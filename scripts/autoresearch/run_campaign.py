@@ -22,6 +22,7 @@ from scripts.autoresearch.stratified_manifest import (
 from scripts.autoresearch.scientific_training import (
     prepare as prepare_scientific, render_scientific_job,
 )
+from scripts.autoresearch.audit_overlap import audit as audit_overlap
 from scripts.autoresearch.taiji_backend import poll, render_heldout_job, render_job, submit
 from scripts.autoresearch.ledger import append as append_ledger
 
@@ -264,7 +265,7 @@ def check_scientific_submission(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("plan", "reconcile", "freeze-engineering", "freeze-scientific",
-                                          "prepare-engineering", "prepare-scientific",
+                                          "prepare-engineering", "audit-overlap", "prepare-scientific",
                                           "render-engineering", "render-scientific", "submit-scientific",
                                           "poll-scientific", "submit-engineering",
                                           "poll-engineering", "render-heldout", "submit-heldout",
@@ -304,6 +305,8 @@ def main() -> int:
                         engineering=engineering)
     elif args.action == "prepare-engineering":
         result = prepare_engineering(config, args.data_root, repo, args.output)
+    elif args.action == "audit-overlap":
+        result = audit_overlap(config, args.data_root, args.output)
     elif args.action == "prepare-scientific":
         result = prepare_scientific(config, args.data_root, repo, args.output,
                                     model_cache=args.model_cache)
@@ -453,7 +456,7 @@ def main() -> int:
     if args.action != "plan":
         stage = ("FREEZE_MANIFESTS" if args.action in {"reconcile", "freeze-engineering", "freeze-scientific"}
                  else "TRAIN_MECH_SMOKE" if args.action in {"render-scientific", "submit-scientific", "poll-scientific"} and args.condition == "mech"
-                 else "TRAIN_BASE_SMOKE" if args.action in {"prepare-scientific", "render-scientific", "submit-scientific", "poll-scientific"}
+                 else "TRAIN_BASE_SMOKE" if args.action in {"audit-overlap", "prepare-scientific", "render-scientific", "submit-scientific", "poll-scientific"}
                  else "ENGINEERING_SMOKE")
         append_ledger(args.output, campaign_id=config["campaign_id"],
                       config_path=args.config, repo=repo, action=args.action,

@@ -17,6 +17,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.autoresearch.stratified_manifest import digest, resolve, verify_evaluation_source
 from scripts.autoresearch.taiji_backend import render_job
+from scripts.autoresearch.audit_overlap import audit as audit_overlap
 
 
 def _same_or_write(path: Path, content: str) -> None:
@@ -157,6 +158,10 @@ def build_configs(config: dict[str, Any], root: Path, repo: Path,
 def prepare(config: dict[str, Any], root: Path, repo: Path,
             output: Path, *, model_cache: Path | None = None) -> dict[str, Any]:
     configs, report = build_configs(config, root, repo, output)
+    overlap = audit_overlap(config, root, output)
+    if not overlap["passed"]:
+        raise ValueError("scientific train/evaluation reaction or product overlap detected")
+    report["overlap_audit_sha256"] = digest(output / "manifests/train_eval_overlap_audit.json")
     prepared_path = output / "jobs/scientific_prepared.json"
     if prepared_path.exists():
         existing = json.loads(prepared_path.read_text())

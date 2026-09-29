@@ -93,6 +93,10 @@ python scripts/autoresearch/run_campaign.py freeze-scientific \
   --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
   --data-root /absolute/path/to/MechET \
   --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke
+python scripts/autoresearch/run_campaign.py audit-overlap \
+  --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
+  --data-root /absolute/path/to/MechET \
+  --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke
 python scripts/autoresearch/run_campaign.py prepare-scientific \
   --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
   --data-root /absolute/path/to/MechET \
@@ -103,6 +107,11 @@ python scripts/autoresearch/run_campaign.py prepare-scientific \
 `prepare-scientific` refuses the 32-row engineering manifest, missing/changed
 evaluation inputs, zero compatible curated rows, changed source files, unequal
 12,000-decision quotas, changed selected-row hashes and an unpinned backbone.
+The overlap audit independently re-reads both selected train files and every
+frozen evaluation cohort, records reaction-ID and canonical-product overlap
+for each condition, and must report zero before preparation can continue.
+`prepare-scientific` reruns this audit itself, so skipping the explicit command
+cannot bypass the gate. The same report feeds the final scorecard.
 It writes separate frozen Base/Mech one-epoch Qwen3-0.6B LoRA configs only
 after verifying their common 256-decision validation source. The trainer
 dry-run validates all selected rows and both configurations undergo exact

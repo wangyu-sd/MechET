@@ -9,6 +9,7 @@ from scripts.autoresearch.scientific_training import (
 )
 from scripts.autoresearch.stratified_manifest import digest
 from scripts.autoresearch.run_campaign import check_scientific_submission
+from scripts.autoresearch.audit_overlap import audit as audit_overlap
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -47,7 +48,9 @@ def fixture(tmp_path: Path):
     files = {}
     for condition in ("base", "mech"):
         train = manifests / f"{condition}_state_sft.jsonl"
-        train.write_text("".join(json.dumps({"id": f"{condition}_{index}"}) + "\n"
+        train.write_text("".join(json.dumps({"id": f"{condition}_{index}",
+                                             "source_id": f"{condition}_reaction_{index}",
+                                             "target_smiles": "CCO"}) + "\n"
                                  for index in range(4)))
         strata = manifests / f"{condition}_strata.jsonl"
         strata.write_text("".join(json.dumps({"stable_id": f"{condition}_{index}"}) + "\n"
@@ -92,6 +95,28 @@ def test_scientific_conditions_have_matched_full_length_configs(tmp_path: Path) 
     assert configs["base"]["training"]["num_train_epochs"] == 1.0
     assert configs["base"]["contract"]["expected_train_rows"] == 4
     assert "reaction_denominator" not in configs["base"]["contract"]
+
+
+def test_independent_overlap_audit_detects_product_overlap(tmp_path: Path) -> None:
+    config, root, output = fixture(tmp_path)
+    clean = audit_overlap(config, root, output)
+    assert clean["passed"] is True
+    assert clean["overlap_count"] == 0
+    (output / "manifests/train_eval_overlap_audit.json").unlink()
+    frozen_path = output / "scientific_freeze/manifests/freeze.json"
+    frozen = json.loads(frozen_path.read_text())
+    selected = Path(frozen["files"]["mech"]["train"])
+    rows = [json.loads(line) for line in selected.read_text().splitlines()]
+    rows[0]["target_smiles"] = "C"
+    selected.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    frozen["files"]["mech"]["train_sha256"] = digest(selected)
+    frozen_path.write_text(json.dumps(frozen))
+    compromised = audit_overlap(config, root, output)
+    assert compromised["passed"] is False
+    assert compromised["conditions"]["mech"]["product_overlap_count"] == 1
+    with pytest.raises(ValueError, match="overlap detected"):
+        prepare(config, root, REPO, output)
+    assert not (output / "jobs/scientific_prepared.json").exists()
 
 
 @pytest.mark.parametrize("change,reason", [
