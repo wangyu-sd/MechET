@@ -130,7 +130,12 @@ An audit found a 93/288 global majority-position shortcut and a 122/288
 in-sample, label-informed action-count-majority shortcut. Neither is a model
 result, and the latter is not a held-out baseline. This cohort tests first
 divergence from the recorded path, not chemical impossibility; model
-localization and repair scores are still missing.
+localization and repair scores are still missing. The new unmarked-query
+localization scorer requires all 288 checkpoint- and query-hashed predictions;
+its fixed input-only "first electron event" shortcut scores **96/288** on the
+frozen cohort. This is a heuristic baseline, not a model result. A private
+oracle-only integration check of the scorer reached 288/288 and was deleted
+afterward; it must not be quoted as localization performance.
 
 The private R3 one-action oracle was independently replayed through the
 unchanged executor with the frozen mapped test source. Under the source

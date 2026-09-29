@@ -469,6 +469,31 @@ held-out baseline. Localization results must report a predeclared shortcut
 baseline and separately stratify executor-rejected versus reference-relative
 accepted mutations. No localization model has been run.
 
+`scripts/autoresearch/score_r3_localization.py` scores **only** this unmarked
+query. Its prediction JSONL must contain each of the 288 frozen `case_id`s
+once, with `generation_status` (`completed`/`failed`) and a zero-based
+`predicted_failure_index` (null on failed generation). Its sibling
+`<predictions.jsonl>.manifest.json` binds `predictions_sha256`, the exact
+`query_sha256`, a checkpoint identifier/SHA-256,
+`input_fields: ["model_input"]`, and
+`prediction_semantics: "zero_based_first_reference_divergence_index_v1"`.
+The scorer independently rebuilds every flat query from the private frozen
+source, keeps failed generations in the 288 denominator, and reports Top-1,
+distance and coverage by depth/coordination and executor feedback status.
+The fixed label-free shortcut selects the first `apply_electron_flow` action
+in the unmarked candidate list; it obtains **96/288** on this frozen cohort.
+That is a heuristic baseline, not a model result or evidence of chemical
+impossibility. A private-oracle integration run verified scorer alignment
+at 288/288; its temporary prediction file was deleted.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/score_r3_localization.py \
+  --source /absolute/path/to/r3_corruptions.jsonl \
+  --queries /absolute/path/to/r3_unmarked_queries.jsonl \
+  --predictions /absolute/path/to/predictions.jsonl \
+  --output /absolute/path/to/r3_model_localization_score
+```
+
 ## R5 external-model query cohort
 
 Before querying an external retrosynthesis model, freeze 200 unique products
