@@ -72,6 +72,14 @@ Set all seven `evaluation_sources` to product-bearing JSONL manifests before
 `freeze-scientific`. Their IDs and canonical products are excluded from
 State-SFT mixtures. The command fails closed if any source is missing, if an
 input sidecar hash disagrees or if an accepted decision lacks executor replay.
+Each evaluation JSONL must have a sibling `manifest.json` with its exact
+`cohort_sha256`; an `ARTIFACT_STATUS.json`, when present, must explicitly set
+`evaluation_allowed: true`. A path to a raw or partial JSONL alone is not a
+frozen evaluation source. The controller also checks the predeclared smoke
+denominators (R1 200–300, R2 800, R3 288, PMechRP 350, literature cycles
+12–20, and R5 200 products); a one-row hash-matched placeholder cannot unlock
+scientific sampling. PMechDB challenging must be nonempty, with its official
+split-completeness established separately in the source manifest.
 Curated rows must additionally carry source/license provenance and prove
 replay compatibility before being configured; a file that merely exists is
 insufficient. If zero curated rows survive, backfill is recorded but no

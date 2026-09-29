@@ -45,7 +45,7 @@ def build_configs(config: dict[str, Any], root: Path, repo: Path,
         path = resolve(root, raw)
         if path is None or not path.is_file():
             raise FileNotFoundError(f"scientific evaluation source missing: {name}")
-        if verify_evaluation_source(path) != frozen["evaluation_hashes"][name]:
+        if verify_evaluation_source(path, name=name) != frozen["evaluation_hashes"][name]:
             raise ValueError(f"scientific evaluation source drifted: {name}")
     if not frozen.get("mech_comparison_identifiable") or int(frozen.get("curated_accepted_rows") or 0) == 0:
         raise ValueError("Mech-vs-Base contrast needs replay-compatible curated rows")

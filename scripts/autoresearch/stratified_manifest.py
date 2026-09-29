@@ -19,6 +19,17 @@ from typing import Any, Iterator
 import yaml
 
 
+EVALUATION_ROW_BOUNDS = {
+    "r1_multi_reference": (200, 300),
+    "r2_plausibility": (800, 800),
+    "r3_corruptions": (288, 288),
+    "r4_pmechdb_challenging": (1, None),
+    "r4_pmechrp_pathways": (350, 350),
+    "r4_literature_cycles": (12, 20),
+    "r5_external_predictions": (200, 200),
+}
+
+
 def digest(path: Path) -> str:
     value = hashlib.sha256()
     with path.open("rb") as stream:
@@ -152,7 +163,7 @@ def eval_exclusions(config: dict[str, Any], root: Path) -> tuple[set[str], set[s
         path = resolve(root, raw)
         if path is None or not path.is_file():
             raise FileNotFoundError(f"scientific freeze requires evaluation source {name}: {raw}")
-        hashes[name] = verify_evaluation_source(path)
+        hashes[name] = verify_evaluation_source(path, name=name)
         with path.open(encoding="utf-8") as stream:
             for line in stream:
                 row = json.loads(line)
@@ -166,23 +177,31 @@ def eval_exclusions(config: dict[str, Any], root: Path) -> tuple[set[str], set[s
     return ids, products, hashes
 
 
-def verify_evaluation_source(path: Path) -> str:
-    """Fail closed on known superseded cohorts or a drifted cohort sidecar."""
+def verify_evaluation_source(path: Path, *, name: str | None = None) -> str:
+    """Require a frozen cohort manifest; reject superseded or drifted sources."""
     source_hash = digest(path)
+    manifest_path = path.parent / "manifest.json"
+    if not manifest_path.is_file():
+        raise ValueError(f"evaluation source lacks a frozen cohort manifest: {path}")
+    manifest = json.loads(manifest_path.read_text())
+    expected = manifest.get("cohort_sha256")
+    if not expected or source_hash != expected:
+        raise ValueError(f"evaluation source hash differs from {manifest_path}")
     status_path = path.parent / "ARTIFACT_STATUS.json"
     if status_path.is_file():
         status = json.loads(status_path.read_text())
-        if status.get("evaluation_allowed") is False:
+        if status.get("evaluation_allowed") is not True:
             raise ValueError(f"evaluation source is forbidden by {status_path}")
         expected = status.get("cohort_sha256")
         if expected and source_hash != expected:
             raise ValueError(f"evaluation source hash differs from {status_path}")
-    manifest_path = path.parent / "manifest.json"
-    if manifest_path.is_file():
-        manifest = json.loads(manifest_path.read_text())
-        expected = manifest.get("cohort_sha256")
-        if expected and source_hash != expected:
-            raise ValueError(f"evaluation source hash differs from {manifest_path}")
+    if name in EVALUATION_ROW_BOUNDS:
+        minimum, maximum = EVALUATION_ROW_BOUNDS[name]
+        with path.open(encoding="utf-8") as stream:
+            rows = sum(bool(line.strip()) for line in stream)
+        if rows < minimum or (maximum is not None and rows > maximum):
+            raise ValueError(f"{name} evaluation cohort has {rows} rows; expected {minimum}"
+                             + (f"–{maximum}" if maximum != minimum and maximum is not None else ""))
     return source_hash
 
 

@@ -22,11 +22,21 @@ def fixture(tmp_path: Path):
     manifests.mkdir(parents=True)
     evaluation_sources = {}
     evaluation_hashes = {}
+    source_rows = {"r1_multi_reference": 220, "r2_plausibility": 800,
+                   "r3_corruptions": 288, "r4_pmechdb_challenging": 1,
+                   "r4_pmechrp_pathways": 350, "r4_literature_cycles": 12,
+                   "r5_external_predictions": 200}
     for name in ("r1_multi_reference", "r2_plausibility", "r3_corruptions",
                  "r4_pmechdb_challenging", "r4_pmechrp_pathways",
                  "r4_literature_cycles", "r5_external_predictions"):
-        path = root / f"{name}.jsonl"
-        path.write_text('{"product_smiles":"C"}\n')
+        directory = root / name
+        directory.mkdir()
+        path = directory / f"{name}.jsonl"
+        path.write_text('{"product_smiles":"C"}\n' * source_rows[name])
+        (directory / "manifest.json").write_text(json.dumps({
+            "artifact_type": f"{name}_frozen_manifest",
+            "cohort_sha256": digest(path),
+        }))
         evaluation_sources[name] = str(path)
         evaluation_hashes[name] = digest(path)
     validation = root / "valid.jsonl"
@@ -88,7 +98,7 @@ def test_scientific_conditions_have_matched_full_length_configs(tmp_path: Path) 
     ("engineering_only", "engineering rows"),
     ("zero_curated", "curated rows"),
     ("quota_mismatch", "source quotas"),
-    ("eval_drift", "evaluation source drifted"),
+    ("eval_drift", "evaluation source hash differs"),
     ("train_drift", "training file hash drifted"),
 ])
 def test_scientific_preparation_fails_closed(tmp_path: Path, change: str, reason: str) -> None:

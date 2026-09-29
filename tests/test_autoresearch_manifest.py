@@ -82,9 +82,14 @@ def test_deprecated_source_is_rejected(tmp_path: Path) -> None:
 def test_eval_source_rejects_superseded_or_drifted_cohort(tmp_path: Path) -> None:
     cohort = tmp_path / "r3_corruptions.jsonl"
     _write(cohort, [{"reaction_id": "r0", "target_smiles": "CCO"}])
+    with pytest.raises(ValueError, match="frozen cohort manifest"):
+        verify_evaluation_source(cohort)
     (tmp_path / "manifest.json").write_text(json.dumps({"cohort_sha256": digest(cohort)}))
     status = tmp_path / "ARTIFACT_STATUS.json"
     status.write_text(json.dumps({"evaluation_allowed": False}))
+    with pytest.raises(ValueError, match="forbidden"):
+        verify_evaluation_source(cohort)
+    status.write_text(json.dumps({"cohort_sha256": digest(cohort)}))
     with pytest.raises(ValueError, match="forbidden"):
         verify_evaluation_source(cohort)
     status.write_text(json.dumps({"evaluation_allowed": True,
@@ -93,3 +98,11 @@ def test_eval_source_rejects_superseded_or_drifted_cohort(tmp_path: Path) -> Non
     _write(cohort, [{"reaction_id": "r1", "target_smiles": "CCN"}])
     with pytest.raises(ValueError, match="hash differs"):
         verify_evaluation_source(cohort)
+
+
+def test_eval_source_rejects_partial_scientific_cohort(tmp_path: Path) -> None:
+    cohort = tmp_path / "r3_corruptions.jsonl"
+    _write(cohort, [{"reaction_id": "r0", "target_smiles": "CCO"}])
+    (tmp_path / "manifest.json").write_text(json.dumps({"cohort_sha256": digest(cohort)}))
+    with pytest.raises(ValueError, match="expected 288"):
+        verify_evaluation_source(cohort, name="r3_corruptions")

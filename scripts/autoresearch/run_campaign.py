@@ -68,7 +68,7 @@ def plan(config: dict[str, Any], root: Path, output: Path) -> dict[str, Any]:
                   "available": bool(path and path.is_file())}
         if status["available"]:
             try:
-                status["sha256"] = verify_evaluation_source(path)
+                status["sha256"] = verify_evaluation_source(path, name=name)
             except ValueError as exc:
                 status["available"] = False
                 status["invalid_reason"] = str(exc)
