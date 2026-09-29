@@ -92,6 +92,49 @@ product and any precursor component; `high` is >=0.6. Disconnection agreement
 is computed from mapped product bonds absent from each precursor set. These
 are descriptive strata, not physical feasibility labels.
 
+## R2 recorded proposals and negative-evidence boundary
+
+Freeze 400 positive proposals from the same official held-out endpoint source:
+200 ordinary recorded precursor sets and 200 alternative precursor sets with
+an independent second record for the product. Inputs contain the product and
+proposed precursor set; the supporting record IDs and positive label are kept
+in `private_label`. This is a record-backed positive source, not a statement
+that the route is the unique physical mechanism.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/build_r2_positives.py \
+  --source /absolute/path/to/MechET/data/flower_full_endpoint_sft/test.jsonl \
+  --official-manifest /absolute/path/to/MechET/data/flower_full_endpoint_sft/manifest.json \
+  --r1-cohort /absolute/path/to/outputs/autoresearch/prepared_eval/r1_flower_official_test_20260929/r1_multi_reference.jsonl \
+  --r1-manifest /absolute/path/to/outputs/autoresearch/prepared_eval/r1_flower_official_test_20260929/manifest.json \
+  --output /absolute/path/to/outputs/autoresearch/prepared_eval/r2_recorded_positives
+```
+
+One negative class can be generated with a formal witness: omit a precursor
+component, then verify that the remaining **unmapped elemental inventory**
+lacks at least one element required by the product. A missing map label alone
+is insufficient because equivalent atoms could be remapped. The 50-row
+source balances 25 original-record and 25 alternative-record positives.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/build_r2_missing_fragment_negatives.py \
+  --source /absolute/path/to/MechET/data/flower_full_endpoint_sft/test.jsonl \
+  --official-manifest /absolute/path/to/MechET/data/flower_full_endpoint_sft/manifest.json \
+  --positives /absolute/path/to/outputs/autoresearch/prepared_eval/r2_recorded_positives/r2_positives.jsonl \
+  --positive-manifest /absolute/path/to/outputs/autoresearch/prepared_eval/r2_recorded_positives/manifest.json \
+  --output /absolute/path/to/outputs/autoresearch/prepared_eval/r2_missing_fragment_negatives
+```
+
+This proves only that the **stated closed precursor inventory** is
+element-insufficient under the frozen executor. It does not rule out an unlisted
+external reagent. The other negative classes need separate auditable support;
+neither a GT-different endpoint nor an R3 executor-accepted non-reference
+successor is automatically chemically impossible. In particular, the
+executor-valid chemistry-inconsistent class must have independent evidence.
+Both prepared R2 directories remain `evaluation_allowed: false` until a
+complete, audited 400-positive/400-negative source is assembled. Do not
+compute AUROC/AUPRC on these partial sources as if they were the R2 smoke.
+
 ## R3 controlled-corruption source
 
 The R3 builder uses the frozen strict-executable FlowER test trace and its

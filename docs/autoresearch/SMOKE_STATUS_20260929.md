@@ -75,6 +75,34 @@ The official RetroChimera checkpoint links currently return HTTP 403 from
 this workspace (read-only HEAD check on 2026-09-29). No model weights have
 been downloaded or substituted from an unverified mirror.
 
+The R2 **recorded-positive proposal source** is frozen at
+`outputs/autoresearch/prepared_eval/r2_flower_recorded_positive_test_20260929/`:
+400 product/precursor proposals from the official FlowER test records, split
+into 200 recorded precursors and 200 alternatives with a second independent
+held-out record for the same product. Each positive stratum contributes 50
+products to each empirical product-size quartile. The cohort SHA256 is
+`4fef676bd9c7b12edde7a5507f1630e1e6f5a927a27202f0f60941edd1cb380a`.
+Record IDs and evidence are private labels, not model-visible inputs. A
+recorded route is not a claim of unique physical mechanism.
+
+One R2 **evidence-audited negative class** is frozen separately at
+`outputs/autoresearch/prepared_eval/r2_flower_missing_fragment_negative_elemental_v2_20260929/`:
+50 proposals (25 from each positive source stratum) created by omitting a
+precursor component so the remaining **unmapped elemental inventory** lacks
+at least one product element. Every row stores the missing element counts and
+the supporting atom maps; the elemental deficit, not map-label difference,
+makes the stated precursor inventory insufficient under atom conservation.
+The cohort SHA256 is
+`de0fc5bfbd385f620929bd342cf4dbff88aa429a79494926b6ede499ab74fe87`.
+This is a closed-inventory contradiction, **not** a claim that an unlisted
+external reagent could never supply the atom. Both R2 source directories have
+`evaluation_allowed: false`: the other 350 hard negatives, including the
+mandatory executor-valid chemistry-inconsistent class, have not been
+evidence-audited. A non-reference but executor-accepted successor from R3
+does not automatically qualify as an R2 chemical negative.
+The earlier map-label-only R2 negative diagnostic is marked
+`evidence_audited: false` and superseded; it must never be counted.
+
 ## Gates not yet satisfied
 
 No replay-compatible curated mechanism State-SFT rows are configured. The
@@ -82,6 +110,6 @@ official [PMechDB download](https://deeprxn.ics.uci.edu/pmechdb/download)
 requires a user-side license/registration step, and the public
 [elementary-step mirror](https://huggingface.co/datasets/SchwallerGroup/pmechdb_elem)
 has no machine-readable license field.
-R2/R4/R5 evaluation cohorts are not frozen, so scientific Base/Mech
+The complete R2/R4/R5 evaluation cohorts are not frozen, so scientific Base/Mech
 sampling and all R1–R5 result claims remain blocked by their stated
 prerequisites. The controller has not launched 8B/full-data retraining.
