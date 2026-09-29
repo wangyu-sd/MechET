@@ -194,11 +194,79 @@ def prepare_engineering(config: dict[str, Any], root: Path, repo: Path, output: 
     return ready
 
 
+def check_scientific_submission(
+    config: dict[str, Any], config_path: Path, root: Path, repo: Path,
+    output: Path, *, condition: str, job_config: Path,
+    retry_reason: str | None,
+) -> dict[str, Any]:
+    if condition not in {"base", "mech"}:
+        raise ValueError("scientific submission needs a base or mech condition")
+    prepared_path = output / "jobs/scientific_prepared.json"
+    if not prepared_path.is_file():
+        raise FileNotFoundError("prepare-scientific before submission")
+    prepared = prepare_scientific(config, root, repo, output)
+    if not job_config.is_file():
+        raise FileNotFoundError("render-scientific before submission")
+    state_path = output / "campaign_state.json"
+    if not state_path.is_file():
+        raise FileNotFoundError("scientific submission needs the campaign ledger")
+    state = json.loads(state_path.read_text())
+    if state.get("campaign_id") != config["campaign_id"] or \
+       state.get("config_sha256") != digest(config_path):
+        raise ValueError("scientific campaign/config identity drift")
+    renders = [event["evidence"] for event in state["events"]
+               if event["action"] == "render-scientific" and
+               event["evidence"].get("scientific_condition") == condition and
+               event["evidence"].get("rendered_template") == str(job_config)]
+    if not renders:
+        raise ValueError(f"{condition} job has no audited render event")
+    rendered = renders[-1]
+    job_hash = digest(job_config)
+    if rendered["job_config_sha256"] != job_hash or \
+       rendered["scientific_freeze_sha256"] != prepared["scientific_freeze_sha256"] or \
+       rendered["training_config_sha256"] != prepared["files"][condition]["training_config_sha256"] or \
+       rendered["token_audit_sha256"] != prepared["files"][condition]["token_audit_sha256"]:
+        raise ValueError(f"{condition} rendered job differs from audited scientific inputs")
+    job = json.loads(job_config.read_text())
+    if job.get("task_flag") != rendered["task_flag"] or \
+       not str(job.get("task_flag", "")).startswith("meteor") or \
+       not str(job.get("readable_name", "")).startswith("meteor") or \
+       "taiji_run_with_heartbeat.sh" not in str(job.get("start_cmd", "")):
+        raise ValueError(f"{condition} rendered Taiji task violates launch policy")
+    submissions = [event["evidence"] for event in state["events"]
+                   if event["action"] == "submit-scientific" and
+                   event["evidence"].get("scientific_condition") == condition]
+    if len(submissions) >= 3:
+        raise ValueError(f"{condition} exceeded two infrastructure retries")
+    if any(item.get("task_flag") == job["task_flag"] for item in submissions):
+        raise ValueError(f"{condition} task flag was already submitted")
+    if submissions:
+        previous = submissions[-1]
+        polls = [event["evidence"] for event in state["events"]
+                 if event["action"] == "poll-scientific" and
+                 event["evidence"].get("scientific_condition") == condition and
+                 event["evidence"].get("instance_id") == previous.get("instance_id")]
+        if not retry_reason or not polls or polls[-1]["state"] != "END":
+            raise ValueError("scientific retry needs a terminal instance and infrastructure reason")
+        if polls[-1]["adapter_exists"]:
+            raise ValueError("scientific checkpoint exists; do not retry a science result")
+    elif retry_reason:
+        raise ValueError("first scientific submission must not claim an infrastructure retry")
+    return {"scientific_condition": condition, "task_flag": job["task_flag"],
+            "job_config": str(job_config), "job_config_sha256": job_hash,
+            "scientific_freeze_sha256": prepared["scientific_freeze_sha256"],
+            "train_sha256": prepared["files"][condition]["train_sha256"],
+            "token_audit_sha256": prepared["files"][condition]["token_audit_sha256"],
+            "model_revision": prepared["model_revision"],
+            "attempt": len(submissions) + 1, "retry_reason": retry_reason}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("plan", "reconcile", "freeze-engineering", "freeze-scientific",
                                           "prepare-engineering", "prepare-scientific",
-                                          "render-engineering", "render-scientific", "submit-engineering",
+                                          "render-engineering", "render-scientific", "submit-scientific",
+                                          "poll-scientific", "submit-engineering",
                                           "poll-engineering", "render-heldout", "submit-heldout",
                                           "poll-heldout"))
     parser.add_argument("--config", type=Path, required=True)
@@ -298,6 +366,38 @@ def main() -> int:
         result = {"submission_output": submit(repo, rendered, args.donor_task, args.client),
                   "job_config": str(rendered), "retry_reason": args.retry_reason,
                   "attempt": len(previous) + 1}
+    elif args.action == "submit-scientific":
+        if not args.condition or not args.donor_task:
+            parser.error("submit-scientific requires condition and proven donor-task")
+        rendered = args.job_config or args.output / f"jobs/scientific_{args.condition}_taiji.json"
+        result = check_scientific_submission(
+            config, args.config, args.data_root, repo, args.output,
+            condition=args.condition, job_config=rendered,
+            retry_reason=args.retry_reason,
+        )
+        result["submission_output"] = submit(repo, rendered, args.donor_task, args.client)
+        found = re.search(r"instance_id:\s*([0-9a-f]{32})", result["submission_output"])
+        result["instance_id"] = found.group(1) if found else None
+    elif args.action == "poll-scientific":
+        if not args.condition:
+            parser.error("poll-scientific requires condition")
+        state_path = args.output / "campaign_state.json"
+        if not state_path.is_file():
+            raise FileNotFoundError("no scientific campaign submission ledger")
+        state = json.loads(state_path.read_text())
+        submissions = [event["evidence"] for event in state["events"]
+                       if event["action"] == "submit-scientific" and
+                       event["evidence"].get("scientific_condition") == args.condition]
+        if not submissions:
+            raise ValueError(f"no {args.condition} scientific submission")
+        submission = submissions[-1]
+        instance_id = submission.get("instance_id")
+        if not instance_id:
+            raise ValueError("submission did not record an instance ID; inspect task manually")
+        result = poll(args.client, submission["task_flag"], instance_id,
+                      args.output / f"jobs/scientific_{args.condition}_model")
+        result["scientific_condition"] = args.condition
+        result["scientific_freeze_sha256"] = submission["scientific_freeze_sha256"]
     elif args.action == "submit-heldout":
         if not args.donor_task:
             parser.error("submit-heldout requires a proven donor task")
@@ -352,8 +452,8 @@ def main() -> int:
                       args.output / "jobs/engineering_model")
     if args.action != "plan":
         stage = ("FREEZE_MANIFESTS" if args.action in {"reconcile", "freeze-engineering", "freeze-scientific"}
-                 else "TRAIN_MECH_SMOKE" if args.action == "render-scientific" and args.condition == "mech"
-                 else "TRAIN_BASE_SMOKE" if args.action in {"prepare-scientific", "render-scientific"}
+                 else "TRAIN_MECH_SMOKE" if args.action in {"render-scientific", "submit-scientific", "poll-scientific"} and args.condition == "mech"
+                 else "TRAIN_BASE_SMOKE" if args.action in {"prepare-scientific", "render-scientific", "submit-scientific", "poll-scientific"}
                  else "ENGINEERING_SMOKE")
         append_ledger(args.output, campaign_id=config["campaign_id"],
                       config_path=args.config, repo=repo, action=args.action,

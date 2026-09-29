@@ -263,6 +263,7 @@ def render_scientific_job(
         ),
     )
     return {**result, "scientific_condition": condition,
+            "job_config_sha256": digest(job_config),
             "scientific_freeze_sha256": prepared["scientific_freeze_sha256"],
             "training_config_sha256": selected["training_config_sha256"],
             "train_sha256": selected["train_sha256"],

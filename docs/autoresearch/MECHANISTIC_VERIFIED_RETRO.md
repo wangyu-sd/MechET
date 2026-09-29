@@ -127,8 +127,31 @@ rechecks the scientific freeze, both token audits, the selected condition's
 training config and the pinned offline model snapshot. It labels the job as
 12,000-row scientific State-SFT, not the 32-row/100-step engineering smoke;
 the resulting JSON still has a private-init placeholder. A rendered JSON is
-not a submitted or running Taiji task. No scientific job is currently rendered
-or submitted under this campaign.
+not a submitted or running Taiji task. Submit only after inspecting the rendered
+config and selecting a proven successful Ceph donor:
+
+```bash
+python scripts/autoresearch/run_campaign.py submit-scientific \
+  --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
+  --data-root /absolute/path/to/MechET \
+  --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke \
+  --condition base --donor-task meteor_proven_successful_ceph_task \
+  --client /absolute/path/to/taiji_client
+python scripts/autoresearch/run_campaign.py poll-scientific \
+  --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
+  --data-root /absolute/path/to/MechET \
+  --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke \
+  --condition base --client /absolute/path/to/taiji_client
+```
+
+Submission requires the exact audited render event in the campaign ledger;
+the helper fills private Ceph init at runtime without committing it. A repeat
+submission requires a *new rendered job path and meteor task flag*, a recorded
+terminal previous instance with no adapter, and a named infrastructure retry
+reason. At most two such retries are allowed. Low accuracy is not a retry
+reason. Poll records the actual Taiji instance state and default POD log tail;
+creating/starting a task is not evidence that optimization ran. No scientific
+job is currently rendered or submitted under this campaign.
 
 All R1–R5 packages are independent. Each evaluator writes `rN/result.json`
 with `package: rN`, `status: complete|failed`, an immutable manifest hash,

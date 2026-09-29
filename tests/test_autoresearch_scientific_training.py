@@ -8,6 +8,7 @@ from scripts.autoresearch.scientific_training import (
     build_configs, prepare, render_scientific_job,
 )
 from scripts.autoresearch.stratified_manifest import digest
+from scripts.autoresearch.run_campaign import check_scientific_submission
 
 
 REPO = Path(__file__).resolve().parents[1]
@@ -210,3 +211,72 @@ def test_scientific_job_render_requires_freeze_before_template(
             task_flag="meteor_toy", gpu_name="A100", model_cache=tmp_path,
         )
     assert not (tmp_path / "job.json").exists()
+
+
+def test_scientific_submit_gate_requires_render_and_terminal_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config, root, output = fixture(tmp_path)
+    config_path = tmp_path / "campaign.yaml"
+    config_path.write_text("campaign_id: toy\n")
+    (output / "jobs").mkdir(exist_ok=True)
+    (output / "jobs/scientific_prepared.json").write_text("{}\n")
+    prepared = {
+        "scientific_freeze_sha256": digest(output / "scientific_freeze/manifests/freeze.json"),
+        "model_revision": "c" * 40,
+        "files": {"base": {"training_config_sha256": "a" * 64,
+                           "token_audit_sha256": "b" * 64,
+                           "train_sha256": "d" * 64}},
+    }
+    monkeypatch.setattr("scripts.autoresearch.run_campaign.prepare_scientific",
+                        lambda *_args, **_kwargs: prepared)
+    job = output / "jobs/scientific_base_taiji.json"
+
+    def write_job(flag: str) -> dict:
+        job.write_text(json.dumps({
+            "task_flag": flag, "readable_name": "meteor scientific base",
+            "start_cmd": "bash scripts/taiji_run_with_heartbeat.sh train",
+        }))
+        return {"scientific_condition": "base", "rendered_template": str(job),
+                "task_flag": flag, "job_config_sha256": digest(job),
+                "scientific_freeze_sha256": prepared["scientific_freeze_sha256"],
+                "training_config_sha256": "a" * 64,
+                "token_audit_sha256": "b" * 64}
+
+    state = {"campaign_id": "toy", "config_sha256": digest(config_path),
+             "events": []}
+    first_render = write_job("meteor_base_01")
+    (output / "campaign_state.json").write_text(json.dumps(state))
+    with pytest.raises(ValueError, match="no audited render"):
+        check_scientific_submission(config, config_path, root, REPO, output,
+                                    condition="base", job_config=job,
+                                    retry_reason=None)
+    state["events"].append({"action": "render-scientific", "evidence": first_render})
+    (output / "campaign_state.json").write_text(json.dumps(state))
+    first = check_scientific_submission(config, config_path, root, REPO, output,
+                                        condition="base", job_config=job,
+                                        retry_reason=None)
+    assert first["attempt"] == 1
+    state["events"].append({"action": "submit-scientific", "evidence": {
+        **first, "instance_id": "1" * 32}})
+    second_render = write_job("meteor_base_02")
+    state["events"].append({"action": "render-scientific", "evidence": second_render})
+    (output / "campaign_state.json").write_text(json.dumps(state))
+    with pytest.raises(ValueError, match="terminal instance"):
+        check_scientific_submission(config, config_path, root, REPO, output,
+                                    condition="base", job_config=job,
+                                    retry_reason="transient_runtime")
+    state["events"].append({"action": "poll-scientific", "evidence": {
+        "scientific_condition": "base", "instance_id": "1" * 32,
+        "state": "END", "adapter_exists": False}})
+    (output / "campaign_state.json").write_text(json.dumps(state))
+    second = check_scientific_submission(config, config_path, root, REPO, output,
+                                         condition="base", job_config=job,
+                                         retry_reason="transient_runtime")
+    assert second["attempt"] == 2
+    state["events"][-1]["evidence"]["adapter_exists"] = True
+    (output / "campaign_state.json").write_text(json.dumps(state))
+    with pytest.raises(ValueError, match="checkpoint exists"):
+        check_scientific_submission(config, config_path, root, REPO, output,
+                                    condition="base", job_config=job,
+                                    retry_reason="transient_runtime")
