@@ -92,7 +92,56 @@ def _validate_proposal(row: dict[str, Any]) -> tuple[str, str, str]:
     return proposal_id, product, precursors
 
 
-def _validate_negative(row: dict[str, Any], negative_class: str) -> None:
+def _review_record(row: dict[str, Any], negative_class: str, evidence: dict[str, Any],
+                   source_dir: Path,
+                   review_cache: dict[Path, tuple[str, dict[str, dict[str, Any]]]]) -> None:
+    relative = evidence.get("artifact_path")
+    record_id = evidence.get("record_id")
+    if (not isinstance(relative, str) or not relative.strip()
+            or Path(relative).is_absolute() or not isinstance(record_id, str)
+            or not record_id.strip()):
+        raise ValueError(f"R2 independent evidence has no local review record: {row['proposal_id']}")
+    root = source_dir.resolve()
+    artifact = (root / relative).resolve()
+    if not artifact.is_relative_to(root) or not artifact.is_file():
+        raise ValueError(f"R2 independent evidence artifact is absent/outside source: {row['proposal_id']}")
+    if artifact not in review_cache:
+        actual_hash = digest(artifact)
+        if actual_hash != evidence["sha256"]:
+            raise ValueError(f"R2 independent evidence artifact hash drifted: {row['proposal_id']}")
+        records: dict[str, dict[str, Any]] = {}
+        for line in artifact.read_text(encoding="utf-8").splitlines():
+            review = json.loads(line)
+            key = review.get("record_id")
+            if not isinstance(key, str) or not key or key in records:
+                raise ValueError(f"R2 review bundle has missing/duplicate record ID: {artifact}")
+            records[key] = review
+        review_cache[artifact] = (actual_hash, records)
+    artifact_hash, records = review_cache[artifact]
+    if artifact_hash != evidence["sha256"]:
+        raise ValueError(f"R2 independent evidence artifact hash drifted: {row['proposal_id']}")
+    review = records.get(record_id)
+    if (not isinstance(review, dict)
+            or review.get("proposal_id") != row["proposal_id"]
+            or review.get("negative_class") != negative_class
+            or review.get("product_smiles") != row["model_input"]["product_smiles"]
+            or review.get("proposed_precursors") != row["model_input"]["proposed_precursors"]
+            or review.get("evidence_kind") != evidence["kind"]
+            or review.get("evidence_locator") != evidence["locator"]
+            or review.get("reviewer_id") != evidence["reviewer_id"]
+            or review.get("finding") != "inconsistent_under_stated_conditions"
+            or not isinstance(review.get("rationale"), str)
+            or not review["rationale"].strip()):
+        raise ValueError(f"R2 independent review record does not substantiate proposal: {row['proposal_id']}")
+    if negative_class == "executor_valid_wrong_successor" and review.get(
+        "executor_successor"
+    ) != row["private_label"].get("executor_replay", {}).get("successor_smiles"):
+        raise ValueError(f"R2 executor-valid review record has wrong successor: {row['proposal_id']}")
+
+
+def _validate_negative(row: dict[str, Any], negative_class: str,
+                       source_dir: Path,
+                       review_cache: dict[Path, tuple[str, dict[str, dict[str, Any]]]]) -> None:
     label = row["private_label"]
     if label.get("negative_class") != negative_class or row.get("strata", {}).get(
         "negative_class"
@@ -127,6 +176,7 @@ def _validate_negative(row: dict[str, Any], negative_class: str) -> None:
                 or not isinstance(evidence.get("reviewer_id"), str)
                 or not evidence["reviewer_id"].strip()):
             raise ValueError(f"R2 independent evidence is incomplete: {row['proposal_id']}")
+        _review_record(row, negative_class, evidence, source_dir, review_cache)
     if negative_class == "executor_valid_wrong_successor":
         replay = label.get("executor_replay")
         if not isinstance(replay, dict) or replay.get("accepted") is not True or not replay.get(
@@ -147,6 +197,7 @@ def freeze(positives: Path, negatives: dict[str, Path], output: Path) -> dict[st
     seen_pairs: set[tuple[str, str]] = set()
     positive_products: set[str] = set()
     positive_counts: Counter[str] = Counter()
+    review_cache: dict[Path, tuple[str, dict[str, dict[str, Any]]]] = {}
     for row in positive_rows:
         proposal_id, product, precursors = _validate_proposal(row)
         label = row["private_label"]
@@ -182,7 +233,7 @@ def freeze(positives: Path, negatives: dict[str, Path], output: Path) -> dict[st
         sources[negative_class] = source
         for row in negative_rows:
             proposal_id, product, precursors = _validate_proposal(row)
-            _validate_negative(row, negative_class)
+            _validate_negative(row, negative_class, path.parent, review_cache)
             if product not in positive_products:
                 raise ValueError(f"R2 negative product lacks a matched positive: {proposal_id}")
             if proposal_id in seen_ids or (product, precursors) in seen_pairs:
@@ -192,6 +243,9 @@ def freeze(positives: Path, negatives: dict[str, Path], output: Path) -> dict[st
             rows.append(row)
     if len(rows) != 800:
         raise AssertionError("R2 frozen denominator must be 800")
+    if any(digest(path) != frozen_hash
+           for path, (frozen_hash, _) in review_cache.items()):
+        raise ValueError("R2 independent review bundle changed during intake")
     rows.sort(key=lambda row: row["proposal_id"])
     output.mkdir(parents=True)
     cohort = output / "r2_plausibility.jsonl"
@@ -205,6 +259,9 @@ def freeze(positives: Path, negatives: dict[str, Path], output: Path) -> dict[st
         "positive_strata": dict(positive_counts),
         "negative_strata": {name: 50 for name in NEGATIVE_CLASSES},
         "sources": sources,
+        "independent_review_artifacts": {
+            str(path): {"sha256": artifact_hash, "records": len(records)}
+            for path, (artifact_hash, records) in sorted(review_cache.items())},
         "claim_boundary": "Recorded positives and independently audited negative proposals; source evidence is preserved privately. Formal execution alone is not chemical truth.",
     }
     (output / "manifest.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")

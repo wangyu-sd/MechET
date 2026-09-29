@@ -314,10 +314,17 @@ The final cohort still keeps evidence and labels in private fields; only
 
 For seven non-inventory classes, each source row must carry an independently
 reviewed evidence reference (`independent_negative_evidence`: kind, locator,
-SHA-256 and reviewer ID). The executor-valid/wrong-successor class additionally
-requires an accepted replay and its successor. This intake checks the evidence
-contract and source attestation; it **does not itself adjudicate chemical
-truth**. Source maintainers must retain the cited evidence for manual audit.
+SHA-256 and reviewer ID). The reference must also name a local, source-relative
+`artifact_path` and `record_id`. The content-addressed JSONL review record must
+bind the proposal ID, negative class, exact product and precursor SMILES,
+evidence kind/locator, reviewer ID, an explicit
+`finding: inconsistent_under_stated_conditions`, and a nonempty rationale.
+The executor-valid/wrong-successor class additionally requires an accepted
+replay and the same successor in the review record. The intake reads and
+hash-checks the actual review bundle rather than accepting a syntactically
+plausible SHA-256 string. This still checks provenance and reviewer attestation;
+it **does not itself adjudicate chemical truth**. Source maintainers must
+retain the cited independent source for manual audit.
 The existing 400-positive/50-missing-fragment inputs are intentionally
 insufficient, so the final R2 file has not been generated.
 

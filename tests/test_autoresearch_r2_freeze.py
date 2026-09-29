@@ -13,7 +13,7 @@ from scripts.autoresearch.stratified_manifest import digest, verify_evaluation_s
 
 def _source(directory: Path, filename: str, rows: list[dict], *, positive: bool,
             negative_class: str | None = None, audited: bool = True) -> Path:
-    directory.mkdir()
+    directory.mkdir(exist_ok=True)
     path = directory / filename
     path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
     manifest = {"cohort_sha256": digest(path)}
@@ -57,6 +57,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
     negatives = {}
     for class_index, name in enumerate(NEGATIVE_CLASSES):
         rows = []
+        review_rows = []
         for index in range(1, 51):
             product = f"[{index}CH4]"
             label = {"negative_class": name, "evidence_kind": "mechanistic_contradiction"}
@@ -70,7 +71,9 @@ def _fixture(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
                 label["independent_negative_evidence"] = {
                     "kind": "literature_mechanistic_constraint",
                     "locator": f"fixture-record:{name}:{index}",
-                    "sha256": "a" * 64, "reviewer_id": "fixture-reviewer",
+                    "sha256": "", "reviewer_id": "fixture-reviewer",
+                    "artifact_path": "review.jsonl",
+                    "record_id": f"review:{name}:{index}",
                 }
             if name == "executor_valid_wrong_successor":
                 label["executor_replay"] = {"accepted": True, "successor_smiles": "CC"}
@@ -82,6 +85,30 @@ def _fixture(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
                 "private_label": label,
                 "strata": {"negative_class": name},
             })
+            if name != "missing_necessary_fragment":
+                review_rows.append({
+                    "record_id": f"review:{name}:{index}",
+                    "proposal_id": f"negative:{name}:{index}",
+                    "negative_class": name,
+                    "product_smiles": product,
+                    "proposed_precursors": "N" * (class_index + 1),
+                    "evidence_kind": "literature_mechanistic_constraint",
+                    "evidence_locator": f"fixture-record:{name}:{index}",
+                    "reviewer_id": "fixture-reviewer",
+                    "finding": "inconsistent_under_stated_conditions",
+                    "rationale": "Unit fixture only; not chemical evidence.",
+                    **({"executor_successor": "CC"}
+                       if name == "executor_valid_wrong_successor" else {}),
+                })
+        if review_rows:
+            directory = tmp_path / name
+            directory.mkdir()
+            review = directory / "review.jsonl"
+            review.write_text("".join(json.dumps(item, sort_keys=True) + "\n"
+                                      for item in review_rows))
+            review_hash = digest(review)
+            for row in rows:
+                row["private_label"]["independent_negative_evidence"]["sha256"] = review_hash
         negatives[name] = _source(tmp_path / name, f"{name}.jsonl", rows,
                                   positive=False, negative_class=name)
     return positive_path, negatives
@@ -115,6 +142,36 @@ def test_r2_freeze_rejects_unsubstantiated_executor_valid_negative(tmp_path: Pat
     with pytest.raises(ValueError, match="independent evidence"):
         freeze(positives, negatives, tmp_path / "unsubstantiated")
     assert not (tmp_path / "unsubstantiated").exists()
+
+
+def test_r2_freeze_rejects_drifted_review_bundle(tmp_path: Path) -> None:
+    positives, negatives = _fixture(tmp_path)
+    review = negatives["wrong_nucleophile"].parent / "review.jsonl"
+    review.write_text(review.read_text() + "\n")
+    with pytest.raises(ValueError, match="artifact hash drifted"):
+        freeze(positives, negatives, tmp_path / "drifted_review")
+    assert not (tmp_path / "drifted_review").exists()
+
+
+def test_r2_freeze_rejects_review_record_for_other_proposal(tmp_path: Path) -> None:
+    positives, negatives = _fixture(tmp_path)
+    path = negatives["wrong_nucleophile"]
+    review = path.parent / "review.jsonl"
+    review_rows = [json.loads(line) for line in review.read_text().splitlines()]
+    review_rows[0]["proposed_precursors"] = "C"
+    review.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in review_rows))
+    rows = [json.loads(line) for line in path.read_text().splitlines()]
+    for row in rows:
+        row["private_label"]["independent_negative_evidence"]["sha256"] = digest(review)
+    path.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    for filename in ("manifest.json", "ARTIFACT_STATUS.json"):
+        metadata = path.parent / filename
+        value = json.loads(metadata.read_text())
+        value["cohort_sha256"] = digest(path)
+        metadata.write_text(json.dumps(value))
+    with pytest.raises(ValueError, match="does not substantiate proposal"):
+        freeze(positives, negatives, tmp_path / "wrong_review")
+    assert not (tmp_path / "wrong_review").exists()
 
 
 def test_r2_complete_fixture_freezes_800_without_exposing_labels_to_model(tmp_path: Path) -> None:
