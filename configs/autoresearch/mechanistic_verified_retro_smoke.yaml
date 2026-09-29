@@ -36,6 +36,7 @@ evaluation_sources:
   r4_pmechdb_challenging: null
   r4_pmechrp_pathways: null
   r4_literature_cycles: null
+  # Archived G2S diagnostic only: 47/200 products overlap its training inputs.
   r5_external_predictions: outputs/autoresearch/prepared_eval/r5_orbit_g2s_frozen_20260929/r5_external_predictions.jsonl
 resources:
   order: [h20_1, a100_1, v100_1]

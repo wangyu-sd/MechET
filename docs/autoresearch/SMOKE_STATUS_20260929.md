@@ -127,10 +127,16 @@ but their first five predictions agree across duplicates. The frozen cohort at
 **1,000/1,000 syntactically valid Top-5 SMILES**; cohort SHA256
 `0d9bf45fb29ac2d0ae36c74e2be3c985a198fb23e1a3f3df78cd018b7b396505`.
 The campaign config now names this real R5 diagnostic input. This is **not**
-RetroChimera: the G2S archive was trained for only 5,000 updates, its original
-checkpoint is not locally available for independent verification, and product
-overlap with its training set has not yet been audited. The source is therefore
-not headline evidence; no MechET verification/reranking score exists yet.
+RetroChimera: the G2S archive was trained for only 5,000 updates and its
+original checkpoint is not locally available for independent verification.
+An exact-product audit against the archived G2S `flower_completion/train.txt`
+(257,171 rows; SHA256 `a258b8137eb38dfca552c223ae73c908d6e3bff0199384469629085c899621df`)
+found **47/200 R5 query products present in the G2S training input**. The other
+153 are exact-product-disjoint, not necessarily chemically novel. The audit is
+at `outputs/autoresearch/prepared_eval/r5_orbit_g2s_frozen_20260929/external_train_product_overlap.json`.
+The 200-product source is therefore not leakage-clean headline evidence; report
+all 200 and the overlap strata separately. No MechET verification/reranking
+score exists yet.
 No collaborator-owned R-SMILES/ReactSeq prediction artifact was found.
 
 The R2 **recorded-positive proposal source** is frozen at
