@@ -199,7 +199,14 @@ span 1,124–2,691 tokens; none exceed the 8,192-token inference budget with
 `652855af46f4d55a47cba174cf2d2ed898e03f9334a81de0f52e4042744c117c`;
 the locally available complete Qwen3-8B offline snapshot has revision
 `b968826d9c46dd6066d109eabc6255188de91218` and its five weight shards
-passed their release-metadata SHA-256 checks. This is inference preparation,
+passed their release-metadata SHA-256 checks. A subsequent read-only audit
+also matched the release ETags of `config.json`, `tokenizer.json`,
+`tokenizer_config.json` and the weight index (Git-blob SHA-1 for small files,
+SHA-256 for the LFS tokenizer). The verifier and regression tests now check
+**all** of these files, not just revision metadata for nonweight files.
+The running task started from the earlier code commit, but the actual local
+snapshot bytes used by that task matched the pinned release at audit time.
+This is inference preparation,
 not a model repair result.
 
 The R5 **product query** cohort is frozen at

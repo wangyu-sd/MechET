@@ -48,15 +48,21 @@ def verify_local_base(path: Path, revision: str) -> None:
         if len(lines) < 2 or lines[0] != revision:
             raise ValueError(f"R3 offline base-model revision drifted: {name}")
         etag = lines[1]
-        if name.endswith(".safetensors"):
-            if len(etag) != 64 or any(char not in "0123456789abcdef" for char in etag):
-                raise ValueError(f"R3 offline weight lacks SHA-256 ETag: {name}")
+        if (len(etag) not in (40, 64)
+                or any(char not in "0123456789abcdef" for char in etag)
+                or (name.endswith(".safetensors") and len(etag) != 64)):
+            raise ValueError(f"R3 offline file lacks a verifiable ETag: {name}")
+        if len(etag) == 64:
             actual = hashlib.sha256()
-            with model_file.open("rb") as stream:
-                for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
-                    actual.update(chunk)
-            if actual.hexdigest() != etag:
-                raise ValueError(f"R3 offline weight hash drifted: {name}")
+        else:
+            # Hugging Face stores Git-blob SHA-1 ETags for small repository
+            # files and SHA-256 ETags for LFS objects such as weight shards.
+            actual = hashlib.sha1(f"blob {model_file.stat().st_size}\0".encode())
+        with model_file.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(8 * 1024 * 1024), b""):
+                actual.update(chunk)
+        if actual.hexdigest() != etag:
+            raise ValueError(f"R3 offline file hash drifted: {name}")
 
 
 def load_inputs(prompts: Path, queries: Path, adapter: Path,

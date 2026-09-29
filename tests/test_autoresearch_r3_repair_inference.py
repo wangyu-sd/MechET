@@ -90,12 +90,21 @@ def test_r3_offline_base_checks_revision_and_weight_hash(tmp_path: Path) -> None
         (tmp_path / name).write_text("{}")
     for name in ("config.json", "tokenizer.json", "tokenizer_config.json",
                  "model.safetensors.index.json", "model-00001-of-00001.safetensors"):
-        etag = (hashlib.sha256(weight).hexdigest()
-                if name.endswith(".safetensors") else "etag")
+        content = (tmp_path / name).read_bytes()
+        etag = (hashlib.sha256(content).hexdigest() if name.endswith(".safetensors")
+                else hashlib.sha1(f"blob {len(content)}\0".encode() + content).hexdigest())
         (metadata / f"{name}.metadata").write_text(f"{revision}\n{etag}\n0\n")
     verify_local_base(tmp_path, revision)
     with pytest.raises(ValueError, match="revision drifted"):
         verify_local_base(tmp_path, "c" * 40)
+    (tmp_path / "config.json").write_text('{"drifted":true}')
+    with pytest.raises(ValueError, match="file hash drifted: config.json"):
+        verify_local_base(tmp_path, revision)
+    (tmp_path / "config.json").write_text("{}")
+    (tmp_path / "tokenizer.json").write_text('{"drifted":true}')
+    with pytest.raises(ValueError, match="file hash drifted: tokenizer.json"):
+        verify_local_base(tmp_path, revision)
+    (tmp_path / "tokenizer.json").write_text("{}")
     (tmp_path / "model-00001-of-00001.safetensors").write_bytes(b"corrupt")
-    with pytest.raises(ValueError, match="weight hash drifted"):
+    with pytest.raises(ValueError, match="file hash drifted"):
         verify_local_base(tmp_path, revision)
