@@ -58,6 +58,13 @@ The rendered config contains only a private-init placeholder. Submission uses
 `scripts/submit_taiji_with_donor_init.py`; a successful historical donor task
 must be provided. Check actual POD state, Ceph mount, live stdout heartbeat,
 GPU process and a completed checkpoint. A `start` response is not a run result.
+If the Taiji image cannot reach Hugging Face, download the **same pinned
+revision** to a Ceph HF cache, verify the safetensors SHA256, and render an
+infrastructure-only retry with `--model-cache /absolute/shared/cache` and a
+new `meteor` task flag. The backend sets offline mode but keeps the configured
+Hub model ID/revision and the frozen training data unchanged. Use
+`poll-engineering` to record the previous terminal failure before passing
+`--retry-reason model_cache_unavailable`; the controller caps retries at two.
 
 ## Scientific freeze
 
