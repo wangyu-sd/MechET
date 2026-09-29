@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-29  
 **Repository:** `wangyu-sd/MechET`  
-**Status:** approved in-chat design, implementation not yet started
+**Status:** design frozen; initial campaign machinery and engineering smoke implemented (see `docs/autoresearch/SMOKE_STATUS_20260929.md`); scientific R1–R5 campaign pending source gates
 
 ## 1. Goal
 
