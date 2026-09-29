@@ -212,6 +212,16 @@ scores the same 220 products. It counts a candidate only when the actual
 non-reference outputs are labeled *unrecorded*, not chemically invalid.
 Neither diagnostic replaces the new paired R1 scientific-smoke evaluation.
 
+`scripts/autoresearch/analyze_r1_existing_diagnostics.py` joins those two
+hash-bound diagnostic outputs to the original 220-product cohort and reports
+the single-to-multiple-reference recovery by reference count, mapped
+disconnection signature and structural-overlap stratum. It includes a fixed-
+seed product bootstrap interval, which describes uncertainty *within this
+selected multi-record cohort only*. The existing Direct and legacy trace
+models are unmatched, so the script deliberately computes no Direct-vs-MechET
+effect size. The output is separate from `r1/result.json` and cannot satisfy
+the scientific Base-vs-Mech package gate.
+
 ## R2 recorded proposals and negative-evidence boundary
 
 Freeze 400 positive proposals from the same official held-out endpoint source:

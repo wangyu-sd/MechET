@@ -76,6 +76,23 @@ This old A7 run is neither the new Base/Mech scientific smoke nor a matched
 head-to-head comparison with Direct; these numbers do not establish an R1
 mechanistic advantage and must not be used as its headline result.
 
+The hash-checked **stratified R1 diagnostic** is frozen at
+`outputs/autoresearch/prepared_eval/r1_existing_stratified_diagnostic_20260929/result.json`
+(SHA-256 `3b5ee8f93727691e5303466d6a6ee0f4d037a9fd486fe5223e116b4f5f883e00`).
+Among these deliberately multi-recorded 220 products, accepting all recorded
+references recovers **26/220 (11.8 percentage points)** additional first
+candidates and **30/220 (13.6 points)** additional Pass@10 products relative
+to the selected single reference. The fixed-seed product-bootstrap intervals
+for those cohort fractions are 7.7–16.4% and 9.5–18.2%, respectively; they do
+not generalize to the complete test population. Of the 26 first-candidate
+recoveries, only **4/75** occur in the stratum with a classified *different*
+mapped disconnection; **20/135** are in the `disconnection=unavailable` stratum.
+That unavailable category is not evidence of a different chemical route.
+The legacy trace run has a recorded-reference hit on only **6/220** products
+across ten samples, so it cannot yet demonstrate the proposed verification
+benefit. These old checkpoints were not compute/protocol matched and no
+forward round-trip or independent chemical-validity adjudication was run.
+
 The R3 controlled-corruption **evaluation source** is now frozen at
 `outputs/autoresearch/prepared_eval/r3_flower_closed_shell_event_test_v5_20260929/`.
 It contains 288 replay-audited perturbations: 32 in each early/middle/late ×
