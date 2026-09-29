@@ -145,6 +145,12 @@ positive source. Its tests cover a complete synthetic 800-row intake,
 missing-class/hash-drift rejection, and rejection of an executor-valid negative
 without independent evidence. **No scientific R2 800-row cohort exists yet**;
 the seven missing negative classes have not been created or audited.
+The paired R2 scorer (`scripts/autoresearch/score_r2_plausibility.py`) is
+implemented and tested against synthetic complete scores. It preserves all
+800 frozen proposal IDs, including failed executions, and computes AUROC,
+AUPRC, calibration, executor coverage, mandatory class-8 performance and a
+paired product-cluster bootstrap interval. Real Base/Mech R2 scores do not
+exist, so this is an evaluator readiness result, not a chemical result.
 
 ## Gates not yet satisfied
 

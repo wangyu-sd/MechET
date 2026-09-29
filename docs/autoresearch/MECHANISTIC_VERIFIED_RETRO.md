@@ -271,6 +271,25 @@ truth**. Source maintainers must retain the cited evidence for manual audit.
 The existing 400-positive/50-missing-fragment inputs are intentionally
 insufficient, so the final R2 file has not been generated.
 
+Once the cohort and paired model scores exist, run
+`scripts/autoresearch/score_r2_plausibility.py --cohort .../r2_plausibility.jsonl
+--base-scores .../base.jsonl --mech-scores .../mech.jsonl
+--output .../r2`. Each score JSONL must contain exactly one row per frozen
+`proposal_id`, with `support_probability` in `[0,1]`, `compile_status`
+(`success`/`failed`) and `execute_status` (`success`/`failed`/`not_run`).
+Its sibling `base.jsonl.manifest.json` or `mech.jsonl.manifest.json` must
+record `scores_sha256`, the exact R2 `cohort_sha256`, `condition`,
+`checkpoint_identifier`, `checkpoint_sha256`,
+`input_fields: [product_smiles, proposed_precursors]`, and
+`score_semantics: probability_known_valid_proposal`. The evaluator refuses
+missing/duplicate IDs, drifted hashes and invalid probabilities; neither
+compilation nor execution failure removes a proposal from the denominator.
+It writes a `r2/result.json` package with paired AUROC difference and
+product-cluster bootstrap interval, AUPRC, 10-bin reliability, execution
+coverage and separate executor-valid-negative statistics. It **does not
+generate model scores**, and no R2 metrics can be claimed before real Base
+and Mech scoring artifacts exist.
+
 ## R3 controlled-corruption source
 
 The R3 builder uses the frozen strict-executable FlowER test trace and its
