@@ -28,6 +28,12 @@ def render_job(
         raise ValueError("template lacks application group or location")
     job["task_flag"] = task_flag
     job["readable_name"] = readable_name
+    job["task_category"] = "fine_tuning"
+    job["task_description"] = (
+        "PR69 engineering smoke: 32 frozen State-SFT decision rows "
+        "(16 strict-executable FlowER, 16 current-compiler mech-USPTO); "
+        "Qwen3-0.6B, 100 updates, no scientific result."
+    )
     job["init_cmd"] = PRIVATE_INIT_PLACEHOLDER
     job["is_elasticity"] = False
     job["is_resource_waiting"] = True
