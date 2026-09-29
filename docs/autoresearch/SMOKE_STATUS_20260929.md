@@ -175,6 +175,15 @@ asks for one zero-based action index. This is a new *existing-checkpoint*
 diagnostic of reference-divergence localization, not a trained localization
 policy or chemical-impossibility classifier. No model localization score is
 claimed before the 288-row prediction sidecar and separate scorer finish.
+The initial `_01` A100 inference instance was deliberately stopped after 75
+partial rows: its process started before a ChatML stop-token parsing correction,
+so valid JSON such as `{"first_error_index":1}<|im_end|>` was counted as a failed
+generation. This is an infrastructure/parser failure, not a zero-accuracy
+localization result. The partial v1 directory is preserved, never scored.
+The `_02` retry keeps the query, prompt, adapter, seed, decoding and context
+budgets unchanged; only the stop-token stripping and output path differ. Its
+launcher checks the corrected inference script SHA-256 before loading the
+model. No valid 288-row model score is claimed until that retry completes.
 
 The private R3 one-action oracle was independently replayed through the
 unchanged executor with the frozen mapped test source. Under the source
