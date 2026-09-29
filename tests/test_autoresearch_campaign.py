@@ -23,6 +23,10 @@ def test_plan_keeps_all_scientific_packages_visible(tmp_path: Path) -> None:
     assert all(f"RUN_R{i}" in stages for i in range(1, 6))
     assert "r4_literature_cycles" in stages["RUN_R4"]["prerequisites_missing"]
     assert "curated_augmentation_unavailable" in stages["TRAIN_MECH_SMOKE"]["prerequisites_missing"]
+    assert "scientific_prepared_token_audited_configs" in stages["TRAIN_BASE_SMOKE"]["prerequisites_missing"]
+    assert "scientific_base_trained_adapter" in stages["RUN_R1"]["prerequisites_missing"]
+    assert "r5_result" in stages["COLLECT_SCORECARD"]["prerequisites_missing"]
+    assert "complete_scorecard" in stages["RECOMMEND_SCALE"]["prerequisites_missing"]
 
 
 def test_taiji_render_enforces_single_gpu_meteor_and_stdout(tmp_path: Path) -> None:

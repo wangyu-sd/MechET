@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.autoresearch.stratified_manifest import (
     digest, freeze, resolve, verify_evaluation_source,
 )
+from scripts.autoresearch.scientific_training import prepare as prepare_scientific
 from scripts.autoresearch.taiji_backend import poll, render_heldout_job, render_job, submit
 from scripts.autoresearch.ledger import append as append_ledger
 
@@ -72,6 +73,13 @@ def plan(config: dict[str, Any], root: Path, output: Path) -> dict[str, Any]:
         eval_status[name] = status
     engineering = output / "engineering_freeze/manifests/freeze.json"
     scientific = output / "scientific_freeze/manifests/freeze.json"
+    scientific_prepared = output / "jobs/scientific_prepared.json"
+    scientific_adapters = {
+        condition: output / f"jobs/scientific_{condition}_model/adapter_model.safetensors"
+        for condition in ("base", "mech")
+    }
+    package_results = {f"r{index}": output / f"r{index}/result.json"
+                       for index in range(1, 6)}
     stages = []
     for stage in STAGES:
         prerequisites: list[str] = []
@@ -86,6 +94,8 @@ def plan(config: dict[str, Any], root: Path, output: Path) -> dict[str, Any]:
         elif stage in {"TRAIN_BASE_SMOKE", "TRAIN_MECH_SMOKE"}:
             if not scientific.is_file():
                 prerequisites.append("scientific_freeze")
+            if not scientific_prepared.is_file():
+                prerequisites.append("scientific_prepared_token_audited_configs")
             if stage == "TRAIN_MECH_SMOKE" and not source_status["curated"]["available"]:
                 prerequisites.append("curated_augmentation_unavailable")
         elif stage in EVAL_STAGE_INPUTS:
@@ -93,6 +103,19 @@ def plan(config: dict[str, Any], root: Path, output: Path) -> dict[str, Any]:
                              if not eval_status[name]["available"]]
             if not scientific.is_file():
                 prerequisites.append("scientific_freeze")
+            for condition, adapter in scientific_adapters.items():
+                if not adapter.is_file():
+                    prerequisites.append(f"scientific_{condition}_trained_adapter")
+        elif stage == "COLLECT_SCORECARD":
+            prerequisites = [f"{name}_result" for name, path in package_results.items()
+                             if not path.is_file()]
+            if not (output / "jobs/scientific_training_metrics.json").is_file():
+                prerequisites.append("scientific_training_metrics")
+            if not (output / "manifests/train_eval_overlap_audit.json").is_file():
+                prerequisites.append("train_eval_overlap_audit")
+        elif stage == "RECOMMEND_SCALE":
+            if not (output / "scorecard.json").is_file():
+                prerequisites.append("complete_scorecard")
         stages.append({"stage": stage, "prerequisites_missing": prerequisites,
                        "ready": not prerequisites})
     return {"campaign_id": config["campaign_id"], "stages": stages,
@@ -172,7 +195,8 @@ def prepare_engineering(config: dict[str, Any], root: Path, repo: Path, output: 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("plan", "reconcile", "freeze-engineering", "freeze-scientific",
-                                          "prepare-engineering", "render-engineering", "submit-engineering",
+                                          "prepare-engineering", "prepare-scientific",
+                                          "render-engineering", "submit-engineering",
                                           "poll-engineering", "render-heldout", "submit-heldout",
                                           "poll-heldout"))
     parser.add_argument("--config", type=Path, required=True)
@@ -209,6 +233,8 @@ def main() -> int:
                         engineering=engineering)
     elif args.action == "prepare-engineering":
         result = prepare_engineering(config, args.data_root, repo, args.output)
+    elif args.action == "prepare-scientific":
+        result = prepare_scientific(config, args.data_root, repo, args.output)
     elif args.action == "render-engineering":
         if not args.template or not args.gpu or not args.task_flag:
             parser.error("render-engineering requires template, gpu, task-flag")
@@ -313,6 +339,7 @@ def main() -> int:
                       args.output / "jobs/engineering_model")
     if args.action != "plan":
         stage = ("FREEZE_MANIFESTS" if args.action in {"reconcile", "freeze-engineering", "freeze-scientific"}
+                 else "TRAIN_BASE_SMOKE" if args.action == "prepare-scientific"
                  else "ENGINEERING_SMOKE")
         append_ledger(args.output, campaign_id=config["campaign_id"],
                       config_path=args.config, repo=repo, action=args.action,

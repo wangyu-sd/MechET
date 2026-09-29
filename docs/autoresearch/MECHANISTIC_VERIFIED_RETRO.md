@@ -77,6 +77,34 @@ replay compatibility before being configured; a file that merely exists is
 insufficient. If zero curated rows survive, backfill is recorded but no
 Mech-vs-Base scientific contrast is identifiable.
 
+Once the seven R1–R5 evaluation sources and a replay-audited curated training
+source are configured, freeze once, then prepare both scientific conditions:
+
+```bash
+python scripts/autoresearch/run_campaign.py freeze-scientific \
+  --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
+  --data-root /absolute/path/to/MechET \
+  --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke
+python scripts/autoresearch/run_campaign.py prepare-scientific \
+  --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
+  --data-root /absolute/path/to/MechET \
+  --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke
+```
+
+`prepare-scientific` refuses the 32-row engineering manifest, missing/changed
+evaluation inputs, zero compatible curated rows, changed source files, unequal
+12,000-decision quotas, changed selected-row hashes and an unpinned backbone.
+It writes separate frozen Base/Mech one-epoch Qwen3-0.6B LoRA configs only
+after verifying their common 256-decision validation source. The trainer
+dry-run validates all selected rows and both configurations undergo exact
+assistant-mask/token-length audits; preparation is recorded only if both pass.
+The two conditions share the optimizer configuration and update budget. Their
+measured input/supervised token totals are recorded separately; equal decision
+row counts alone must not be reported as equal token budgets. Preparation does
+**not** submit a GPU task or establish a scientific result. The current
+campaign has no scientific freeze, so this command intentionally fails before
+creating any scientific training config.
+
 All R1–R5 packages are independent. Each evaluator writes `rN/result.json`
 with `package: rN`, `status: complete|failed`, an immutable manifest hash,
 denominators, and metrics. Missing/negative packages remain visible in the
