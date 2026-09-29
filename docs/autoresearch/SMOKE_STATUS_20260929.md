@@ -437,6 +437,22 @@ evidence and rationale fields remain empty; it supplies **zero** chemical
 negative labels and does not unlock R2 evaluation. Reviewers should copy the
 worksheet for annotation, retain independent evidence, and use the stricter
 R2 final-intake record format before any label is accepted.
+After the user requested agent-side judgment rather than arranging a human
+reviewer, an initial **AI triage** inspected the frozen 119 proposals. Simple
+string flags identify 45 proposals containing `[H-]` and 47 containing an
+explicit `[CH...+]` carbocation token, with 29 in both groups. These are
+review priorities, **not 45 or 47 negative labels**: ionic intermediates can
+be real, and a parseable SMILES or unusual charge alone does not establish
+reaction impossibility. For example, queue IDs `02945dae...` and
+`03f45457...` contain a proposed hydride-linked halogen motif and a separate
+carbon cation, respectively; without reaction-condition or forward-chemistry
+evidence they remain `unresolved`, not formal class-8 negatives. IUPAC defines
+hydride as H− and recognizes real or hypothetical carbocations, including
+multicentre bonding; those definitions cannot prove a candidate invalid:
+[hydride](https://goldbook.iupac.org/terms/view/H02904),
+[carbenium ion](https://goldbook.iupac.org/terms/view/C00812),
+[bridged carbocation](https://goldbook.iupac.org/terms/view/B00737).
+No queue label or `evaluation_allowed` flag was changed by this triage.
 The R2 final-cohort intake (`scripts/autoresearch/freeze_r2_plausibility.py`)
 now enforces eight 50-row audited negative sources against the frozen 400-row
 positive source. Its tests cover a complete synthetic 800-row intake,
