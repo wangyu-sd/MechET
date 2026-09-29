@@ -696,6 +696,13 @@ executor `final_result` if it reached one. The sidecar
 `input_fields: ["product_smiles", "proposed_precursors"]`, and
 `verification_semantics: "candidate_conditioned_executor_trace_v1"`.
 
+No producer for that candidate-conditioned inference contract exists yet.
+Product-only A7 rollout archives cannot be repackaged with these input fields.
+The interface and its model-visible input audit must be frozen before R5
+scientific scoring; if this changes the smoke campaign's frozen prompt
+boundary, obtain a protocol decision first. A product-only trace-pool
+coincidence analysis has different semantics and is diagnostic only.
+
 `scripts/autoresearch/score_r5_external.py` scores only an executor-owned,
 formally executed, trace-bound terminal result whose *structural precursor*
 equals the proposed candidate. It moves trace-supported candidates ahead of

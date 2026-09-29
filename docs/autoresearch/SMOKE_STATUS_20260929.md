@@ -236,6 +236,18 @@ reranking, chemical-validity adjudication, or a leakage-clean R5 headline result
 The campaign now points `r5_external_predictions` at this frozen source solely
 for a **diagnostic** R5 run; its artifact status forbids headline promotion.
 No Base/Mech candidate-conditioned trace-support result has been measured.
+There is also a concrete **R5 producer gap**: the current
+`score_r5_external.py` requires one verification record for every
+product/rank slot with `input_fields: [product_smiles, proposed_precursors]`
+and `verification_semantics: candidate_conditioned_executor_trace_v1`, but
+the repository has no inference producer for that contract. The existing A7
+K=10 trajectories were generated from product-only inputs and cannot be
+relabelled candidate-conditioned. A frozen candidate-conditioned inference
+protocol and its training/inference compatibility must be specified before
+R5 scientific scoring. A separate product-only trace-pool intersection may
+be useful as a diagnostic, but it is not the scorer's R5 condition and a
+non-match does not establish chemical invalidity. This gap does not affect
+the frozen 200-product RetroBridge source or its external-only diagnostic.
 The official RetroChimera checkpoint links currently return HTTP 403 from
 this workspace (read-only HEAD check on 2026-09-29). No model weights have
 been downloaded or substituted from an unverified mirror.
