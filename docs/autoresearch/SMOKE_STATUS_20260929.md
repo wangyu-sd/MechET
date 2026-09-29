@@ -353,6 +353,15 @@ Every row has `chemical_negative_label: null` and
 `evidence_audited: false`. An executor-accepted non-reference endpoint is only
 a candidate for review, not proof of chemical inconsistency. The required 50
 independently evidenced class-8 negatives have **not** been established.
+For independent chemical review, the 119 unlabeled executor-valid candidates
+now have a self-contained RDKit depiction packet and blank CSV worksheet at
+`outputs/autoresearch/prepared_eval/r2_executor_valid_review_packet_v1_20260929/`.
+The packet has **119/119** cards and worksheet rows, binds the frozen queue
+SHA-256 and records HTML/CSV hashes in its manifest. All finding, reviewer,
+evidence and rationale fields remain empty; it supplies **zero** chemical
+negative labels and does not unlock R2 evaluation. Reviewers should copy the
+worksheet for annotation, retain independent evidence, and use the stricter
+R2 final-intake record format before any label is accepted.
 The R2 final-cohort intake (`scripts/autoresearch/freeze_r2_plausibility.py`)
 now enforces eight 50-row audited negative sources against the frozen 400-row
 positive source. Its tests cover a complete synthetic 800-row intake,

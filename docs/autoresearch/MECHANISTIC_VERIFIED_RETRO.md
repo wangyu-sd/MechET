@@ -346,6 +346,19 @@ python scripts/autoresearch/prepare_r2_executor_valid_review_queue.py \
 The output directory is immutable by default: choose a new versioned path for
 any deliberate rerun rather than overwriting the frozen queue.
 
+For reviewer handoff, render molecule depictions and a **blank** annotation
+worksheet from that frozen, unlabeled queue:
+
+```bash
+python scripts/autoresearch/prepare_r2_review_packet.py \
+  --source outputs/autoresearch/prepared_eval/r2_executor_valid_review_queue_v1_20260929/review_candidates.jsonl \
+  --output outputs/autoresearch/prepared_eval/r2_executor_valid_review_packet_v1_20260929
+```
+
+The HTML and CSV are hash-bound convenience artifacts, not independent
+chemical evidence; they neither assign negative labels nor replace the
+content-addressed review bundle required below.
+
 The final R2 intake is `scripts/autoresearch/freeze_r2_plausibility.py`.
 Supply the recorded-positive JSONL with `--positives`, and repeat
 `--negative-class CLASS=/absolute/path/to/class.jsonl` for **each** of the
