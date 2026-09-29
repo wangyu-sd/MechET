@@ -19,7 +19,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.autoresearch.stratified_manifest import (
     digest, freeze, resolve, verify_evaluation_source,
 )
-from scripts.autoresearch.scientific_training import prepare as prepare_scientific
+from scripts.autoresearch.scientific_training import (
+    prepare as prepare_scientific, render_scientific_job,
+)
 from scripts.autoresearch.taiji_backend import poll, render_heldout_job, render_job, submit
 from scripts.autoresearch.ledger import append as append_ledger
 
@@ -196,7 +198,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("plan", "reconcile", "freeze-engineering", "freeze-scientific",
                                           "prepare-engineering", "prepare-scientific",
-                                          "render-engineering", "submit-engineering",
+                                          "render-engineering", "render-scientific", "submit-engineering",
                                           "poll-engineering", "render-heldout", "submit-heldout",
                                           "poll-heldout"))
     parser.add_argument("--config", type=Path, required=True)
@@ -204,6 +206,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--template", type=Path)
     parser.add_argument("--gpu", choices=("H20", "A100", "V100"))
+    parser.add_argument("--condition", choices=("base", "mech"))
     parser.add_argument("--task-flag")
     parser.add_argument("--donor-task")
     parser.add_argument("--model-cache", type=Path)
@@ -234,7 +237,8 @@ def main() -> int:
     elif args.action == "prepare-engineering":
         result = prepare_engineering(config, args.data_root, repo, args.output)
     elif args.action == "prepare-scientific":
-        result = prepare_scientific(config, args.data_root, repo, args.output)
+        result = prepare_scientific(config, args.data_root, repo, args.output,
+                                    model_cache=args.model_cache)
     elif args.action == "render-engineering":
         if not args.template or not args.gpu or not args.task_flag:
             parser.error("render-engineering requires template, gpu, task-flag")
@@ -246,6 +250,15 @@ def main() -> int:
                             repo=repo, training_config=Path(prepared["training_config"]),
                             gpu_name=args.gpu, model_cache=args.model_cache,
                             model_revision=config["model"]["revision"])
+    elif args.action == "render-scientific":
+        if not all((args.condition, args.template, args.gpu, args.task_flag, args.model_cache)):
+            parser.error("render-scientific requires condition, template, gpu, task-flag, model-cache")
+        result = render_scientific_job(
+            config, args.data_root, repo, args.output,
+            condition=args.condition, template=args.template,
+            job_config=args.job_config or args.output / f"jobs/scientific_{args.condition}_taiji.json",
+            task_flag=args.task_flag, gpu_name=args.gpu, model_cache=args.model_cache,
+        )
     elif args.action == "render-heldout":
         if not args.template or not args.model_cache or not args.task_flag:
             parser.error("render-heldout requires template, model-cache, task-flag")
@@ -339,7 +352,8 @@ def main() -> int:
                       args.output / "jobs/engineering_model")
     if args.action != "plan":
         stage = ("FREEZE_MANIFESTS" if args.action in {"reconcile", "freeze-engineering", "freeze-scientific"}
-                 else "TRAIN_BASE_SMOKE" if args.action == "prepare-scientific"
+                 else "TRAIN_MECH_SMOKE" if args.action == "render-scientific" and args.condition == "mech"
+                 else "TRAIN_BASE_SMOKE" if args.action in {"prepare-scientific", "render-scientific"}
                  else "ENGINEERING_SMOKE")
         append_ledger(args.output, campaign_id=config["campaign_id"],
                       config_path=args.config, repo=repo, action=args.action,

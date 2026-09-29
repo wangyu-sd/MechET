@@ -88,7 +88,8 @@ python scripts/autoresearch/run_campaign.py freeze-scientific \
 python scripts/autoresearch/run_campaign.py prepare-scientific \
   --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
   --data-root /absolute/path/to/MechET \
-  --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke
+  --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke \
+  --model-cache /absolute/path/to/pinned_hf_cache
 ```
 
 `prepare-scientific` refuses the 32-row engineering manifest, missing/changed
@@ -98,12 +99,36 @@ It writes separate frozen Base/Mech one-epoch Qwen3-0.6B LoRA configs only
 after verifying their common 256-decision validation source. The trainer
 dry-run validates all selected rows and both configurations undergo exact
 assistant-mask/token-length audits; preparation is recorded only if both pass.
+The optional model-cache argument runs the audit against the same pinned
+offline snapshot later used by Taiji; in the network-isolated deployment it
+should be supplied.
 The two conditions share the optimizer configuration and update budget. Their
 measured input/supervised token totals are recorded separately; equal decision
 row counts alone must not be reported as equal token budgets. Preparation does
 **not** submit a GPU task or establish a scientific result. The current
 campaign has no scientific freeze, so this command intentionally fails before
 creating any scientific training config.
+
+After successful preparation, render each one-GPU job separately using the
+same pinned offline model snapshot and an independently checked Taiji template:
+
+```bash
+python scripts/autoresearch/run_campaign.py render-scientific \
+  --config configs/autoresearch/mechanistic_verified_retro_smoke.yaml \
+  --data-root /absolute/path/to/MechET \
+  --output /absolute/path/to/outputs/autoresearch/mechanistic_verified_retro_smoke \
+  --condition base --template /absolute/path/to/validated_1gpu_template.json \
+  --gpu A100 --model-cache /absolute/path/to/pinned_hf_cache \
+  --task-flag meteor_mechet_pr69_base_scientific_1a100_YYYYMMDD_01
+```
+
+Repeat with `--condition mech` and a distinct `meteor` task flag. Rendering
+rechecks the scientific freeze, both token audits, the selected condition's
+training config and the pinned offline model snapshot. It labels the job as
+12,000-row scientific State-SFT, not the 32-row/100-step engineering smoke;
+the resulting JSON still has a private-init placeholder. A rendered JSON is
+not a submitted or running Taiji task. No scientific job is currently rendered
+or submitted under this campaign.
 
 All R1–R5 packages are independent. Each evaluator writes `rN/result.json`
 with `package: rN`, `status: complete|failed`, an immutable manifest hash,

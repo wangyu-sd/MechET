@@ -4,7 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from scripts.autoresearch.scientific_training import build_configs, prepare
+from scripts.autoresearch.scientific_training import (
+    build_configs, prepare, render_scientific_job,
+)
 from scripts.autoresearch.stratified_manifest import digest
 
 
@@ -113,6 +115,10 @@ def test_scientific_prepare_audits_both_conditions_and_is_idempotent(
 ) -> None:
     config, root, output = fixture(tmp_path)
     calls = []
+    cache = tmp_path / "cache"
+    snapshot = cache / "models--Qwen--Qwen3-0.6B/snapshots" / ("c" * 40)
+    snapshot.mkdir(parents=True)
+    (snapshot / "model.safetensors").write_bytes(b"toy")
 
     def run(command, **_kwargs):
         calls.append(command)
@@ -128,6 +134,8 @@ def test_scientific_prepare_audits_both_conditions_and_is_idempotent(
                 "num_train_epochs": 1.0,
                 "model_name_or_path": "Qwen/Qwen3-0.6B",
             }))
+        assert _kwargs["env"]["HF_HUB_CACHE"] == str(cache)
+        assert _kwargs["env"]["HF_HUB_OFFLINE"] == "1"
         audit = Path(command[command.index("--output") + 1])
         audit.write_text(json.dumps({
             "passed": True, "rows": 4, "input_sha256": digest(selected),
@@ -137,12 +145,68 @@ def test_scientific_prepare_audits_both_conditions_and_is_idempotent(
         return SimpleNamespace(returncode=0, stderr="", stdout="")
 
     monkeypatch.setattr("scripts.autoresearch.scientific_training.subprocess.run", run)
-    first = prepare(config, root, REPO, output)
+    first = prepare(config, root, REPO, output, model_cache=cache)
     assert len(calls) == 4
     assert first["files"]["base"]["total_supervised_tokens"] == 20
     assert first["files"]["mech"]["total_supervised_tokens"] == 20
-    assert prepare(config, root, REPO, output) == first
+    assert prepare(config, root, REPO, output, model_cache=cache) == first
     assert len(calls) == 4
     Path(first["files"]["mech"]["token_audit"]).write_text("drift\n")
     with pytest.raises(ValueError, match="token audit drifted"):
-        prepare(config, root, REPO, output)
+        prepare(config, root, REPO, output, model_cache=cache)
+
+
+def test_scientific_job_render_never_reuses_engineering_description(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config, root, output = fixture(tmp_path)
+    frozen = output / "scientific_freeze/manifests/freeze.json"
+    training_config = output / "jobs/scientific_base_training.yaml"
+    training_config.parent.mkdir(parents=True)
+    training_config.write_text("condition_name: toy_base\n")
+    prepared = {
+        "scientific_freeze": str(frozen), "scientific_freeze_sha256": digest(frozen),
+        "model_revision": "c" * 40, "rows_per_condition": 4,
+        "expected_optimizer_updates_per_condition": 1,
+        "files": {"base": {"training_config": str(training_config),
+                           "training_config_sha256": digest(training_config),
+                           "train_sha256": "a" * 64, "token_audit_sha256": "b" * 64}},
+    }
+    monkeypatch.setattr("scripts.autoresearch.scientific_training.prepare",
+                        lambda *_args, **_kwargs: prepared)
+    template = tmp_path / "template.json"
+    template.write_text(json.dumps({"GPUName": "A100", "host_num": 1,
+                                    "host_gpu_num": 1, "business_flag": "group",
+                                    "location": "qy"}))
+    cache = tmp_path / "cache"
+    snapshot = cache / "models--Qwen--Qwen3-0.6B/snapshots" / ("c" * 40)
+    snapshot.mkdir(parents=True)
+    (snapshot / "model.safetensors").write_bytes(b"toy")
+    rendered = output / "jobs/scientific_base_taiji.json"
+    result = render_scientific_job(
+        config, root, REPO, output, condition="base", template=template,
+        job_config=rendered, task_flag="meteor_toy_base", gpu_name="A100",
+        model_cache=cache,
+    )
+    job = json.loads(rendered.read_text())
+    assert result["scientific_freeze_sha256"] == digest(frozen)
+    assert result["rows"] == 4
+    assert "scientific base condition: 4" in job["task_description"]
+    assert "engineering smoke" not in job["task_description"]
+    assert "taiji_run_with_heartbeat.sh" in job["start_cmd"]
+    assert "HF_HUB_OFFLINE=1" in job["start_cmd"]
+    assert ">" not in job["start_cmd"]
+
+
+def test_scientific_job_render_requires_freeze_before_template(
+    tmp_path: Path,
+) -> None:
+    config, root, output = fixture(tmp_path)
+    (output / "scientific_freeze/manifests/freeze.json").unlink()
+    with pytest.raises(FileNotFoundError, match="scientific freeze"):
+        render_scientific_job(
+            config, root, REPO, output, condition="base",
+            template=tmp_path / "not_used.json", job_config=tmp_path / "job.json",
+            task_flag="meteor_toy", gpu_name="A100", model_cache=tmp_path,
+        )
+    assert not (tmp_path / "job.json").exists()

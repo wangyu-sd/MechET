@@ -38,6 +38,9 @@ def test_taiji_render_enforces_single_gpu_meteor_and_stdout(tmp_path: Path) -> N
     with pytest.raises(ValueError, match="meteor"):
         render_job(template, output, task_flag="wrong", readable_name="x",
                    repo=tmp_path, training_config=tmp_path / "train.yaml", gpu_name="A100")
+    with pytest.raises(ValueError, match="meteor"):
+        render_job(template, output, task_flag="meteor_toy", readable_name="wrong",
+                   repo=tmp_path, training_config=tmp_path / "train.yaml", gpu_name="A100")
     render_job(template, output, task_flag="meteor_toy", readable_name="meteor toy",
                repo=tmp_path, training_config=tmp_path / "train.yaml", gpu_name="A100")
     job = json.loads(output.read_text())

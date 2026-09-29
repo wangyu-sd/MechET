@@ -16,9 +16,10 @@ def render_job(
     template: Path, output: Path, *, task_flag: str, readable_name: str,
     repo: Path, training_config: Path, gpu_name: str,
     model_cache: Path | None = None, model_revision: str | None = None,
+    description: str | None = None,
 ) -> dict:
-    if not task_flag.startswith("meteor"):
-        raise ValueError("all Taiji jobs must begin with meteor")
+    if not task_flag.startswith("meteor") or not readable_name.startswith("meteor"):
+        raise ValueError("all Taiji task flags and readable names must begin with meteor")
     if not template.is_file() or output.exists():
         raise FileExistsError("Taiji template missing or output already exists")
     job = json.loads(template.read_text())
@@ -31,7 +32,7 @@ def render_job(
     job["task_flag"] = task_flag
     job["readable_name"] = readable_name
     job["task_category"] = "fine_tuning"
-    job["task_description"] = (
+    job["task_description"] = description or (
         "PR69 engineering smoke: 32 frozen State-SFT decision rows "
         "(16 strict-executable FlowER, 16 current-compiler mech-USPTO); "
         "Qwen3-0.6B, 100 updates, no scientific result."
@@ -60,6 +61,7 @@ def render_job(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(job, indent=2, ensure_ascii=False) + "\n")
     return {"task_flag": task_flag, "readable_name": readable_name,
+            "task_description": job["task_description"],
             "business_flag": job["business_flag"], "location": job["location"],
             "GPUName": job["GPUName"], "template": str(template),
             "model_cache": str(model_cache) if model_cache else None,

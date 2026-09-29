@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 from copy import deepcopy
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -15,6 +16,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from scripts.autoresearch.stratified_manifest import digest, resolve, verify_evaluation_source
+from scripts.autoresearch.taiji_backend import render_job
 
 
 def _same_or_write(path: Path, content: str) -> None:
@@ -153,7 +155,7 @@ def build_configs(config: dict[str, Any], root: Path, repo: Path,
 
 
 def prepare(config: dict[str, Any], root: Path, repo: Path,
-            output: Path) -> dict[str, Any]:
+            output: Path, *, model_cache: Path | None = None) -> dict[str, Any]:
     configs, report = build_configs(config, root, repo, output)
     prepared_path = output / "jobs/scientific_prepared.json"
     if prepared_path.exists():
@@ -185,6 +187,14 @@ def prepare(config: dict[str, Any], root: Path, repo: Path,
                audit.get("resolved_model_revision") != report["model_revision"]:
                 raise ValueError(f"{condition} prepared token audit is invalid")
         return existing
+    audit_environment = None
+    if model_cache is not None:
+        snapshot = (model_cache / "models--Qwen--Qwen3-0.6B" / "snapshots" /
+                    report["model_revision"])
+        if not (snapshot / "model.safetensors").is_file():
+            raise FileNotFoundError(f"pinned scientific model snapshot is incomplete: {snapshot}")
+        audit_environment = {**os.environ, "HF_HUB_CACHE": str(model_cache),
+                             "HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"}
     for condition, cfg in configs.items():
         config_path = output / f"jobs/scientific_{condition}_training.yaml"
         _same_or_write(config_path, yaml.safe_dump(cfg, sort_keys=False))
@@ -207,7 +217,8 @@ def prepare(config: dict[str, Any], root: Path, repo: Path,
         audit = subprocess.run(
             [sys.executable, str(repo / "scripts/audit_tool_sft_token_lengths.py"),
              "--config", str(config_path), "--output", str(audit_path)],
-            cwd=repo, text=True, capture_output=True, check=False)
+            cwd=repo, text=True, capture_output=True, check=False,
+            env=audit_environment)
         if audit.returncode:
             raise RuntimeError(f"{condition} token audit failed: {(audit.stderr or audit.stdout)[-1500:]}")
         audit_report = json.loads(audit_path.read_text())
@@ -225,15 +236,53 @@ def prepare(config: dict[str, Any], root: Path, repo: Path,
     return report
 
 
+def render_scientific_job(
+    config: dict[str, Any], root: Path, repo: Path, output: Path,
+    *, condition: str, template: Path, job_config: Path, task_flag: str,
+    gpu_name: str, model_cache: Path,
+) -> dict[str, Any]:
+    if condition not in {"base", "mech"}:
+        raise ValueError("scientific training condition must be base or mech")
+    prepared = prepare(config, root, repo, output, model_cache=model_cache)
+    selected = prepared["files"][condition]
+    training_config = Path(selected["training_config"])
+    if digest(training_config) != selected["training_config_sha256"]:
+        raise ValueError("scientific training config drifted after token audit")
+    frozen_path = Path(prepared["scientific_freeze"])
+    if digest(frozen_path) != prepared["scientific_freeze_sha256"]:
+        raise ValueError("scientific freeze drifted after training preparation")
+    result = render_job(
+        template, job_config, task_flag=task_flag,
+        readable_name=f"meteor MechET PR69 {condition} scientific State-SFT (1x{gpu_name})",
+        repo=repo, training_config=training_config, gpu_name=gpu_name,
+        model_cache=model_cache, model_revision=prepared["model_revision"],
+        description=(
+            f"PR69 scientific {condition} condition: {prepared['rows_per_condition']} "
+            "frozen State-SFT decision rows; Qwen3-0.6B pinned revision; "
+            "one epoch, shared frozen validation, R1-R5 remain held out."
+        ),
+    )
+    return {**result, "scientific_condition": condition,
+            "scientific_freeze_sha256": prepared["scientific_freeze_sha256"],
+            "training_config_sha256": selected["training_config_sha256"],
+            "train_sha256": selected["train_sha256"],
+            "token_audit_sha256": selected["token_audit_sha256"],
+            "model_revision": prepared["model_revision"],
+            "rows": prepared["rows_per_condition"],
+            "expected_optimizer_updates": prepared["expected_optimizer_updates_per_condition"]}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--model-cache", type=Path)
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
     config = yaml.safe_load(args.config.read_text())
-    print(json.dumps(prepare(config, args.data_root, repo, args.output),
+    print(json.dumps(prepare(config, args.data_root, repo, args.output,
+                             model_cache=args.model_cache),
                      indent=2, sort_keys=True), flush=True)
     return 0
 
