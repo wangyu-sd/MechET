@@ -103,6 +103,17 @@ the visible prefix length in **288/288** cases; counting prefix actions would
 give a vacuous 100% localization Top-1. The query status now forbids localization
 scoring. A separate unmarked-candidate-trajectory cohort is required to assess
 first-error localization without revealing its position.
+That second, unmarked **query view** is now frozen at
+`outputs/autoresearch/prepared_eval/r3_flower_unmarked_localization_v1_20260929/`:
+288 flat candidate trajectories, query SHA-256
+`2002816ab898061defe6401dbad828538a8e9fa17639663f234d833c29c8e0eb`.
+It strips per-action feedback and does not expose which action was mutated;
+the original R3 source remains the private label/evaluation authority.
+An audit found a 93/288 global majority-position shortcut and a 122/288
+in-sample, label-informed action-count-majority shortcut. Neither is a model
+result, and the latter is not a held-out baseline. This cohort tests first
+divergence from the recorded path, not chemical impossibility; model
+localization and repair scores are still missing.
 
 The R5 **product query** cohort is frozen at
 `outputs/autoresearch/prepared_eval/r5_flower_products_20260929/`: 200 unique

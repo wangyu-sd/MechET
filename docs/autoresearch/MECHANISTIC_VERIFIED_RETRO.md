@@ -353,6 +353,32 @@ separately frozen, unmarked candidate trajectory with no gold-action/suffix
 leakage; it must not be scored on this repair query. Neither localization nor
 repair has yet been measured.
 
+For a nontrivial **synthetic first-reference-divergence localization** input,
+`scripts/autoresearch/export_r3_unmarked_localization.py` derives a second
+model-facing view from the same 288 frozen source rows. It concatenates the
+known prefix, mutated action and reference suffix into one `candidate_actions`
+list, then strips every action result. The prompt has only `target_smiles` and
+the flat actions—no named prefix, corrupted-action field, feedback, reference
+state or per-row failure index. The original frozen source remains the private
+label authority. This is not equivalent to proving chemical impossibility:
+245 mutations were executor-accepted wrong *relative to the reference*, and
+the reference suffix may not execute after a changed step.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/export_r3_unmarked_localization.py \
+  --source /absolute/path/to/outputs/autoresearch/prepared_eval/r3_flower_closed_shell_event_test_v5_20260929/r3_corruptions.jsonl \
+  --output /absolute/path/to/outputs/autoresearch/prepared_eval/r3_flower_unmarked_localization_v1_20260929
+```
+
+The frozen query SHA-256 is
+`2002816ab898061defe6401dbad828538a8e9fa17639663f234d833c29c8e0eb`.
+There are still statistical shortcuts: the most frequent private index is
+1 (93/288), and an **in-sample, label-informed** per-action-count majority
+rule would reach 122/288. The latter is an optimistic audit, not a legitimate
+held-out baseline. Localization results must report a predeclared shortcut
+baseline and separately stratify executor-rejected versus reference-relative
+accepted mutations. No localization model has been run.
+
 ## R5 external-model query cohort
 
 Before querying an external retrosynthesis model, freeze 200 unique products
