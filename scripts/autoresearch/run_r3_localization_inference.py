@@ -153,7 +153,9 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                     eos_token_id=tokenizer.eos_token_id)
             ids = _trim_completion(
                 [int(item) for item in generated[0, input_tokens:].tolist()], tokenizer)
-            completion = tokenizer.decode(ids, skip_special_tokens=False)
+            # _trim_completion retains its stop token. Strip that ChatML token
+            # before strict JSON parsing, while preserving the raw text itself.
+            completion = tokenizer.decode(ids, skip_special_tokens=True)
             prediction = prediction_row(
                 row["case_id"], completion, row["candidate_action_count"])
             counts[prediction["generation_status"]] += 1
