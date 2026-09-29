@@ -32,14 +32,15 @@ def require_frozen_rdkit(version: str) -> None:
             "A different RDKit serialization changes atom aliases and can create false failures.")
 
 
-def replay_repaired(row: dict[str, Any], mapped_target: str,
-                    *, max_imports: int = 64) -> dict[str, Any]:
+def replay_with_action(row: dict[str, Any], mapped_target: str,
+                       replacement_action: dict[str, Any],
+                       *, max_imports: int = 64) -> dict[str, Any]:
     public = row["model_visible"]
     private = row["private_reference"]
     target = str(public["target_smiles"])
     if visible(mapped_target) != target:
         raise ValueError("R3 mapped trace target differs from frozen visible target")
-    actions = public["prefix_actions"] + [private["correct_action"]] + private["suffix_actions"]
+    actions = public["prefix_actions"] + [replacement_action] + private["suffix_actions"]
     if len(public["prefix_actions"]) != private["first_failure_index"]:
         raise ValueError("R3 private failure index differs from prefix length")
     node = Node(target=target, state=mapped_target,
@@ -79,6 +80,14 @@ def replay_repaired(row: dict[str, Any], mapped_target: str,
             "expected_precursor": expected, "executed_actions": len(actions),
             "first_reference_divergence": first_reference_divergence,
             "first_reference_divergence_detail": first_reference_divergence_detail}
+
+
+def replay_repaired(row: dict[str, Any], mapped_target: str,
+                    *, max_imports: int = 64) -> dict[str, Any]:
+    """Replay the private oracle action; never use this for model predictions."""
+    return replay_with_action(row, mapped_target,
+                              row["private_reference"]["correct_action"],
+                              max_imports=max_imports)
 
 
 def audit(source: Path, trace_source: Path, output: Path,

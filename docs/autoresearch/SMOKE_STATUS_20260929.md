@@ -143,6 +143,13 @@ Using RDKit 2024.09.6 instead produced 30 false replay failures due to
 representation/atom-alias drift; the new auditor now rejects that runtime
 before scoring. **288/288 is an oracle data-quality ceiling, not a model repair
 rate or localization result.**
+The separate model-prediction scorer is implemented at
+`scripts/autoresearch/score_r3_repair.py`: it requires all 288 frozen query IDs,
+a checkpoint- and query-hashed prediction sidecar, and replays one predicted
+electron event before the private reference suffix. No model predictions have
+been generated or scored. Its future endpoint rate must be labelled
+**oracle-suffix-assisted repair at an exposed failure**, not autonomous
+trajectory recovery or failure localization.
 
 The R5 **product query** cohort is frozen at
 `outputs/autoresearch/prepared_eval/r5_flower_products_20260929/`: 200 unique

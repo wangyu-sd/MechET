@@ -412,6 +412,30 @@ separately frozen, unmarked candidate trajectory with no gold-action/suffix
 leakage; it must not be scored on this repair query. Neither localization nor
 repair has yet been measured.
 
+Once a policy has generated one `apply_electron_flow` replacement per case,
+score it with `scripts/autoresearch/score_r3_repair.py`. Predictions must cover
+all 288 query IDs, including failed generations (with `repair_action: null`).
+The prediction sidecar `<predictions.jsonl>.manifest.json` binds the exact
+query SHA-256, prediction-file SHA-256, checkpoint identifier/SHA-256,
+`input_fields: ["model_input"]`, and
+`prediction_semantics: "one_replacement_action_at_exposed_failure_v1"`.
+The scorer rejects other tool names, replays the unchanged private reference
+suffix, and counts every missing, malformed, or rejected prediction as a
+failure. It must use the frozen RDKit 2026.03.4 and mapped source trace.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/score_r3_repair.py \
+  --source /absolute/path/to/r3_corruptions.jsonl \
+  --queries /absolute/path/to/r3_queries.jsonl \
+  --trace-source /absolute/path/to/flower_inverse_tool_sft_action_delta_v1/test.jsonl \
+  --predictions /absolute/path/to/predictions.jsonl \
+  --output /absolute/path/to/r3_model_repair_score
+```
+
+This yields an **oracle-suffix-assisted one-action repair** score, not an
+autonomous trajectory success rate or first-failure localization result. The
+private correct action is never model input. No prediction artifact exists yet.
+
 For a nontrivial **synthetic first-reference-divergence localization** input,
 `scripts/autoresearch/export_r3_unmarked_localization.py` derives a second
 model-facing view from the same 288 frozen source rows. It concatenates the
