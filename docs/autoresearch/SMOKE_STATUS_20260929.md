@@ -285,6 +285,24 @@ evidence-audited. A non-reference but executor-accepted successor from R3
 does not automatically qualify as an R2 chemical negative.
 The earlier map-label-only R2 negative diagnostic is marked
 `evidence_audited: false` and superseded; it must never be counted.
+An **unlabelled class-8 review queue** is now prepared at
+`outputs/autoresearch/prepared_eval/r2_executor_valid_review_queue_v1_20260929/`.
+The frozen, hash-checked builder considered 1,897 strict test trace rows whose
+product matched a positive proposal, selected at most five same-precursor
+traces per product, and examined 318 selected traces (47 were outside the
+closed-shell scope). Mutating the last electron event yielded 158
+executor-accepted, reference-divergent
+terminal candidates; 37 matched another recorded precursor and two duplicated
+an existing product/precursor pair. The remaining **119 distinct products**
+(53 recorded-precursor and 66 documented-alternative source products) form the
+review queue, SHA-256
+`a99b4b8303a80c2e44ffa2ed99b061a3eb60fea0b9d6ffd506c57defce9321cf`.
+Every row has `chemical_negative_label: null` and
+`review_status: pending_independent_chemistry_review`; the queue has
+`evaluation_allowed: false`, `training_allowed: false`, and
+`evidence_audited: false`. An executor-accepted non-reference endpoint is only
+a candidate for review, not proof of chemical inconsistency. The required 50
+independently evidenced class-8 negatives have **not** been established.
 The R2 final-cohort intake (`scripts/autoresearch/freeze_r2_plausibility.py`)
 now enforces eight 50-row audited negative sources against the frozen 400-row
 positive source. Its tests cover a complete synthetic 800-row intake,

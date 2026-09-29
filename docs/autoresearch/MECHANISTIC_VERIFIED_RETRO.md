@@ -296,6 +296,35 @@ Both prepared R2 directories remain `evaluation_allowed: false` until a
 complete, audited 400-positive/400-negative source is assembled. Do not
 compute AUROC/AUPRC on these partial sources as if they were the R2 smoke.
 
+For class 8, `scripts/autoresearch/prepare_r2_executor_valid_review_queue.py`
+can produce a **review queue only**. It verifies the frozen official-test,
+strict-trace and Stage-II-history SHA-256 contracts, selects at most five
+same-precursor traces per frozen R2 positive product, replays the reference,
+changes its final electron event, and executes the mutated event plus remaining
+reference tail. It excludes any resulting structural precursor already
+recorded for that product. The resulting `review_candidates.jsonl` records the
+action, successor states and endpoint for an independent reviewer; it does not
+assign a chemical-negative label. Its manifest and status explicitly forbid
+training or evaluation. On the 2026-09-29 frozen inputs this produced 119
+unlabelled candidates, not 119 class-8 negatives. To create the required 50
+negatives, an independent reviewer must substantiate each proposed precursor
+under stated conditions using a permitted evidence kind and the content-addressed
+review bundle required by the final intake below.
+
+```bash
+python scripts/autoresearch/prepare_r2_executor_valid_review_queue.py \
+  --positives outputs/autoresearch/prepared_eval/r2_flower_recorded_positive_test_20260929/r2_positives.jsonl \
+  --official-test data/flower_full_endpoint_sft/test.jsonl \
+  --official-manifest data/flower_full_endpoint_sft/manifest.json \
+  --trace-source data/flower_inverse_tool_sft_action_delta_v1/test.jsonl \
+  --history-source data/flower_natural_language_event_history_v2/test.jsonl \
+  --r3-manifest outputs/autoresearch/prepared_eval/r3_flower_closed_shell_event_test_v5_20260929/manifest.json \
+  --output outputs/autoresearch/prepared_eval/r2_executor_valid_review_queue_v1_20260929
+```
+
+The output directory is immutable by default: choose a new versioned path for
+any deliberate rerun rather than overwriting the frozen queue.
+
 The final R2 intake is `scripts/autoresearch/freeze_r2_plausibility.py`.
 Supply the recorded-positive JSONL with `--positives`, and repeat
 `--negative-class CLASS=/absolute/path/to/class.jsonl` for **each** of the
