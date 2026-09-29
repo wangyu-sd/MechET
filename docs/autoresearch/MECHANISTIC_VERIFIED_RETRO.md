@@ -25,6 +25,9 @@ request/download terms are not bypassed. The public PMechDB download page
 requires agreement and registration for the full curated dataset; the small
 Hugging Face `pmechdb_elem` mirror is a separate provenance/coverage question,
 not automatically the licensed complete challenging test.
+See `docs/autoresearch/R4_OFFICIAL_DATA_HANDOFF.md` for the recipient-side
+acquisition and intake checklist covering the official challenging split,
+350-pathway package and separate literature-cycle mini-set.
 
 ## Candidate curated training source: SynEPD
 
