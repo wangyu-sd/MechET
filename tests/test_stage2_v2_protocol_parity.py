@@ -1,8 +1,12 @@
 import argparse
 import json
 from pathlib import Path
+import sys
 
 import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from mechet.assistant_masking import render_chat, render_qwen_sft_tool_prefix
 from scripts.run_natural_language_value_search import (
