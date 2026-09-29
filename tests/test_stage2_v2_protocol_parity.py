@@ -13,6 +13,7 @@ from scripts.audit_stage2_v2_protocol_parity import (
     assert_tool_prefix_matches_sft,
     reconstruct_history_user_prompt,
 )
+from scripts.eval_natural_language_event_local import render_policy_prompt
 
 
 class ThinkingTemplate:
@@ -196,3 +197,24 @@ def test_prefix_audit_detects_generation_template_drift():
     report = assert_tool_prefix_matches_sft(tok, row)
     assert report["prefix_match"] is True
     assert report["generation_template_match"] is False
+
+
+def test_local_oracle_evaluator_can_use_sft_aligned_tool_prefix():
+    tok = ThinkingTemplate()
+    task = {
+        "messages": [
+            {"role": "system", "content": "S"},
+            {"role": "user", "content": "U"},
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {"name": "flow", "parameters": {"type": "object"}},
+            }
+        ],
+    }
+    aligned = render_policy_prompt(tok, task, sft_aligned=True)
+    legacy = render_policy_prompt(tok, task, sft_aligned=False)
+    assert aligned.endswith("<|im_start|>assistant\n")
+    assert "<think>" not in aligned
+    assert "<think>" in legacy
