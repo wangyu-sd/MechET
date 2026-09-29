@@ -351,13 +351,22 @@ def run(args: argparse.Namespace) -> int:
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
     dtype = torch.float16
-    try:
-        bnb_version = importlib.metadata.version("bitsandbytes")
-    except importlib.metadata.PackageNotFoundError as exc:
-        raise RuntimeError("bitsandbytes is required for the matched NF4 evaluation") from exc
+    bnb_version = "not_used"
+    quantization = None
+    if args.load_mode == "nf4":
+        try:
+            bnb_version = importlib.metadata.version("bitsandbytes")
+        except importlib.metadata.PackageNotFoundError as exc:
+            raise RuntimeError("bitsandbytes is required for the matched NF4 evaluation") from exc
+        quantization = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_compute_dtype=dtype,
+        )
     print(
         f"[meteor-nl-event-eval] rank={rank}/{world} gpu={torch.cuda.get_device_name(local_rank)} "
-        f"tasks={len(selected)} bnb={bnb_version}",
+        f"tasks={len(selected)} load_mode={args.load_mode} bnb={bnb_version}",
         flush=True,
     )
     base = AutoModelForCausalLM.from_pretrained(
@@ -367,12 +376,7 @@ def run(args: argparse.Namespace) -> int:
         torch_dtype=dtype,
         device_map={"": local_rank},
         attn_implementation="sdpa",
-        quantization_config=BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_quant_type="nf4",
-            bnb_4bit_use_double_quant=True,
-            bnb_4bit_compute_dtype=dtype,
-        ),
+        quantization_config=quantization,
     )
     model = PeftModel.from_pretrained(base, args.adapter, is_trainable=False).eval()
     device = next(model.parameters()).device
@@ -515,6 +519,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "model": args.model,
         "model_revision": args.model_revision,
+        "load_mode": args.load_mode,
         "overall": _summary(rows),
         "by_type": by_type,
         "event_by_stratum": {
@@ -548,6 +553,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--model-revision", default=MODEL_REVISION)
+    parser.add_argument("--load-mode", choices=("nf4", "fp16"), default="nf4")
     parser.add_argument("--adapter", type=Path, required=True)
     parser.add_argument("--sample-reactions", type=int, default=256)
     parser.add_argument("--seed", type=int, default=17)

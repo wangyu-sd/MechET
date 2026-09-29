@@ -176,7 +176,8 @@ def main() -> int:
     parser.add_argument("--model-cache", type=Path)
     parser.add_argument("--job-config", type=Path)
     parser.add_argument("--retry-reason", choices=("model_cache_unavailable", "ceph_bootstrap",
-                                                   "transient_runtime", "oom_equivalent"))
+                                                   "transient_runtime", "oom_equivalent",
+                                                   "runtime_dependency_missing"))
     parser.add_argument("--client", type=Path, default=Path("/usr/local/bin/taiji_client"))
     args = parser.parse_args()
     repo = Path(__file__).resolve().parents[2]
@@ -256,10 +257,23 @@ def main() -> int:
         if not rendered.is_file():
             raise FileNotFoundError("render-heldout before submission")
         state = json.loads((args.output / "campaign_state.json").read_text())
-        if any(event["action"] == "submit-heldout" for event in state["events"]):
-            raise ValueError("held-out smoke already submitted; inspect the existing instance")
+        previous = [event for event in state["events"] if event["action"] == "submit-heldout"]
+        if len(previous) >= 3:
+            raise ValueError("held-out smoke exceeded two infrastructure retries")
+        if previous:
+            polls = [event["evidence"] for event in state["events"]
+                     if event["action"] == "poll-heldout"]
+            if not args.retry_reason or not polls or polls[-1]["state"] != "END":
+                raise ValueError("held-out retry requires a confirmed terminal infrastructure failure")
+            if polls[-1]["evaluation_exists"]:
+                raise ValueError("held-out evaluation exists; no retry")
+            if args.retry_reason == "runtime_dependency_missing" and not any(
+                "bitsandbytes is required" in line for line in polls[-1]["pod_log_tail"]
+            ):
+                raise ValueError("dependency retry does not match recorded failure")
         result = {"submission_output": submit(repo, rendered, args.donor_task, args.client),
-                  "job_config": str(rendered)}
+                  "job_config": str(rendered), "retry_reason": args.retry_reason,
+                  "attempt": len(previous) + 1}
     elif args.action == "poll-heldout":
         state = json.loads((args.output / "campaign_state.json").read_text())
         submissions = [event["evidence"] for event in state["events"]
