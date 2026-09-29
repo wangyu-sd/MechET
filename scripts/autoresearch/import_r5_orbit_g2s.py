@@ -97,6 +97,7 @@ def convert(query: Path, query_manifest: Path, source: Path,
         "training_corpus": "FlowER flower_completion train; archived record says 257171 rows, 5000 updates",
         "license_or_terms": "Collaborator-produced local archive; redistribution and original model terms not independently verified",
         "input_fields": ["product_smiles"],
+        "target_semantics": "full_reaction_world",
         "inference_status": "completed",
         "inference_config": {
             "beam_size": 10, "n_best": 10, "retained_top_k": top_k,

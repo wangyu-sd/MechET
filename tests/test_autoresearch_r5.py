@@ -84,6 +84,7 @@ def test_r5_external_intake_preserves_missing_ranks_and_nonreference_uncertainty
         "model_name": "external-toy", "checkpoint_identifier": "toy-revision",
         "checkpoint_source": "https://example.org/toy", "training_corpus": "toy",
         "license_or_terms": "toy", "input_fields": ["product_smiles"],
+        "target_semantics": "retrosynthetic_precursor_set",
         "inference_status": "completed", "inference_config": {"beam": 5},
         "training_overlap_audited": True,
     }))
@@ -119,8 +120,32 @@ def test_r5_external_intake_rejects_missing_product(tmp_path: Path) -> None:
         "model_name": "toy", "checkpoint_identifier": "toy", "checkpoint_source": "toy",
         "training_corpus": "toy", "license_or_terms": "toy",
         "input_fields": ["product_smiles"], "inference_status": "completed",
+        "target_semantics": "retrosynthetic_precursor_set",
         "inference_config": {"beam": 5},
     }))
     with pytest.raises(ValueError, match="every frozen product"):
         freeze(query, query_manifest, raw, provenance, tmp_path / "out",
+               expected_products=1)
+
+
+def test_r5_external_intake_rejects_full_reaction_world_target(tmp_path: Path) -> None:
+    query = tmp_path / "query.jsonl"
+    _jsonl(query, [{"product_smiles": "CC", "model_input": {"product_smiles": "CC"},
+                    "source_dataset": "FlowER", "source_split": "test",
+                    "strata": {}, "private_reference": {"recorded_precursor_sets": []}}])
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({"cohort_sha256": digest(query), "products": 1}))
+    raw = tmp_path / "predictions.jsonl"
+    _jsonl(raw, [{"product_smiles": "CC", "inference_status": "completed",
+                  "candidates": [{"rank": 1, "precursors": "CC.O.[Na+]"}]}])
+    provenance = tmp_path / "provenance.json"
+    provenance.write_text(json.dumps({
+        "model_name": "world-generator", "checkpoint_identifier": "toy",
+        "checkpoint_source": "toy", "training_corpus": "toy",
+        "license_or_terms": "toy", "input_fields": ["product_smiles"],
+        "target_semantics": "full_reaction_world",
+        "inference_status": "completed", "inference_config": {"beam": 5},
+    }))
+    with pytest.raises(ValueError, match="precursor-set predictions"):
+        freeze(query, manifest, raw, provenance, tmp_path / "frozen",
                expected_products=1)

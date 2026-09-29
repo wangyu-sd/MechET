@@ -51,13 +51,12 @@ def test_import_preserves_top5_and_first_archived_duplicate(tmp_path: Path) -> N
     assert rows[0]["canonical_product_match_count"] == 2
     meta = json.loads((output / "provenance.json").read_text())
     assert meta["training_overlap_audited"] is False
+    assert meta["target_semantics"] == "full_reaction_world"
     assert "unavailable" in meta["checkpoint_identifier"]
-    frozen = freeze(query, manifest, output / "predictions.jsonl",
-                    output / "provenance.json", tmp_path / "frozen",
-                    expected_products=2)
-    assert frozen["products"] == 2
-    assert frozen["counts"]["valid_smiles"] == 4
-    assert frozen["counts"]["missing"] == 6
+    with pytest.raises(ValueError, match="precursor-set predictions"):
+        freeze(query, manifest, output / "predictions.jsonl",
+               output / "provenance.json", tmp_path / "frozen",
+               expected_products=2)
 
 
 def test_import_fails_closed_on_hash_or_coverage_drift(tmp_path: Path) -> None:

@@ -49,6 +49,8 @@ def freeze(query: Path, query_manifest: Path, predictions: Path,
         _required_text(model, field)
     if model.get("input_fields") != ["product_smiles"]:
         raise ValueError("R5 external model provenance must attest product-only input")
+    if model.get("target_semantics") != "retrosynthetic_precursor_set":
+        raise ValueError("R5 scientific intake requires retrosynthetic precursor-set predictions, not a full reaction world")
     if model.get("inference_status") != "completed":
         raise ValueError("R5 source requires a completed external inference run")
     if not isinstance(model.get("inference_config"), dict) or not model["inference_config"]:
@@ -151,6 +153,7 @@ def freeze(query: Path, query_manifest: Path, predictions: Path,
         "checkpoint_identifier": model["checkpoint_identifier"],
         "checkpoint_source": model["checkpoint_source"],
         "training_corpus": model["training_corpus"],
+        "target_semantics": model["target_semantics"],
         "cohort": str(cohort), "cohort_sha256": digest(cohort),
         "products": len(frozen), "ranks_per_product": top_k,
         "counts": dict(sorted(counts.items())),
