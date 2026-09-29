@@ -91,6 +91,13 @@ real execution result, never the reference-relative wrongness label. The
 cohort SHA256 is `521920c7d8d6dec2a52330bcb51f0131b60b91ad772bf0a4f00988d3cad67116`.
 Earlier R3 diagnostic versions are explicitly marked evaluation-forbidden.
 No model localization or repair score has been measured yet.
+The answer-free R3 inference export is frozen separately at
+`outputs/autoresearch/prepared_eval/r3_flower_queries_v1_20260929/`:
+288 queries, SHA-256
+`05c4d8db8cf7eb2ca6b08f1be418b8f3f93d06ea894a4fbf73d91f89953edc38`.
+It retains the corrupted action, reference prefix and real executor feedback
+but removes every `private_reference` field and expected endpoint. This is a
+query-preparation artifact, not a measured R3 result.
 
 The R5 **product query** cohort is frozen at
 `outputs/autoresearch/prepared_eval/r5_flower_products_20260929/`: 200 unique

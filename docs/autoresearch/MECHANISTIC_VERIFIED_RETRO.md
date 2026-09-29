@@ -320,6 +320,21 @@ be clustered by reaction. This builder produces an evaluation **source**, not
 R3 localization or repair scores. Older R3 diagnostic cohorts marked
 `evaluation_allowed: false` must not be used.
 
+`scripts/autoresearch/export_r3_queries.py` exports the frozen 288-row
+`r3_corruptions.jsonl` as model-facing queries. Run it with `--source` pointing
+to that frozen evaluation source and `--output` pointing to a new directory.
+Each query has a SHA-256 case ID and exactly the source's `model_visible`
+fields: product, prefix actions, corrupted action and observed executor
+result. The correct action, reference successor, suffix, expected precursor,
+first-failure index and stratification labels remain in the private frozen
+source, not in `model_input`. The export is immutable and inference-only;
+its status explicitly forbids training and using the query file as a new
+evaluation authority. On 2026-09-29 the actual export was frozen at
+`outputs/autoresearch/prepared_eval/r3_flower_queries_v1_20260929/`, with 288
+queries and SHA-256
+`05c4d8db8cf7eb2ca6b08f1be418b8f3f93d06ea894a4fbf73d91f89953edc38`.
+No localization or repair model has been scored on these queries.
+
 ## R5 external-model query cohort
 
 Before querying an external retrosynthesis model, freeze 200 unique products
