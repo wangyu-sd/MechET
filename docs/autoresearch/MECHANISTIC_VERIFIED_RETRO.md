@@ -490,15 +490,25 @@ prompt. The 288-row prompt SHA-256 is
 `021bb08c3f5b0956da1e82ac4b6ef78fb7ad0d04e27385141f94d71d18f32716`.
 The existing Stage-II adapter inference entry point is
 `scripts/autoresearch/run_r3_localization_inference.py`; its one-A100 launcher
-and task template are `scripts/autoresearch/run_taiji_r3_localization.sh` and
-`configs/taiji/meteor_mechet_pr69_r3_stageii_localization_1a100_qy_20260929.json`.
+and task template for the completed parser retry are
+`scripts/autoresearch/run_taiji_r3_localization_v2.sh` and
+`configs/taiji/meteor_mechet_pr69_r3_stageii_localization_1a100_qy_20260929_02.json`.
+The original launcher/config remain as the preserved, stopped `_01` attempt.
 The scorer is `scripts/autoresearch/score_r3_localization.py`. It counts all
 288 cases, including invalid/missing JSON generations, and compares with the
 predeclared first-electron-action shortcut. Run the scorer only after the
 prediction sidecar is complete; no localization accuracy follows from prompt
 construction or task submission.
 
-The existing Stage-II compact-history Qwen3-8B can be tested as an **existing-
+The existing-checkpoint diagnostic completed in the `_02` parser retry:
+288/288 outputs, 87/288 model localization Top-1 versus 96/288 for the
+predeclared first-electron-action shortcut. See
+`docs/autoresearch/SMOKE_STATUS_20260929.md` for the prediction/result hashes,
+position bias and the crucial missing-intermediate-state claim boundary.
+Neither this negative diagnostic nor the exposed-failure repair score changes
+the frozen PR #69 scientific-smoke architecture, executor, reward or prompt.
+
+The existing Stage-II compact-history Qwen3-8B was tested as an **existing-
 checkpoint diagnostic**, without changing training. The answer-free prompt
 builder reads only the frozen query JSONL, reconstructs temporary atom aliases
 from the visible pre-action state, retains the Stage-II compressed history,

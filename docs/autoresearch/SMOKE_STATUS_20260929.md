@@ -180,10 +180,29 @@ partial rows: its process started before a ChatML stop-token parsing correction,
 so valid JSON such as `{"first_error_index":1}<|im_end|>` was counted as a failed
 generation. This is an infrastructure/parser failure, not a zero-accuracy
 localization result. The partial v1 directory is preserved, never scored.
-The `_02` retry keeps the query, prompt, adapter, seed, decoding and context
-budgets unchanged; only the stop-token stripping and output path differ. Its
-launcher checks the corrected inference script SHA-256 before loading the
-model. No valid 288-row model score is claimed until that retry completes.
+The `_02` retry kept the query, prompt, adapter, seed, decoding and context
+budgets unchanged; only the stop-token stripping and output path differed. Its
+launcher checked the corrected inference script SHA-256 before loading the
+model. Task `meteor_mechet_pr69_r3_stageii_localization_1a100_qy_20260929_02`
+(instance `8b1d89f7a0d297d901a0ed8510302730`) ended successfully on a real
+A100 with **288/288** valid index generations and zero missing rows. Its
+prediction SHA-256 is
+`c021dd39b7df3ffb3937477f3b4b4ac742307f58789dab837a04f398d299c894`.
+The hash-bound scorer at
+`outputs/autoresearch/prepared_eval/r3_stageii_localization_score_v1_20260929/`
+reports **87/288 (30.2%)** synthetic first-reference-divergence Top-1 and
+**3.38** mean absolute action-index distance. The predeclared, label-free
+first-electron-action shortcut scores **96/288 (33.3%)**, distance **3.33**;
+the existing Stage-II model does not beat it. The model predicted index 0
+for 90 cases and index 1 for 185, i.e. **275/288** predictions concentrate
+at the first two positions. It found 76/96 early, 5/96 middle and 6/96 late
+mutations. The result SHA-256 is
+`dae56a0f3389daa608f68c64f0b685d2e63cddc8a85c96728a6454404d857824`.
+This flat input has no per-step intermediate state or regenerated inventory,
+although the Axx names in actions are local to each state. It is therefore
+an intentionally minimal localization diagnostic, **not** evidence that the
+model can or cannot identify a chemically impossible step when given full
+state observations. It is also not the future paired Base-vs-Mech R3 result.
 
 The private R3 one-action oracle was independently replayed through the
 unchanged executor with the frozen mapped test source. Under the source
