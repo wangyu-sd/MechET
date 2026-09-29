@@ -170,9 +170,13 @@ def test_r5_external_intake_preserves_frozen_noncanonical_spelling(tmp_path: Pat
         "input_fields": ["product_smiles"], "inference_status": "completed",
         "target_semantics": "retrosynthetic_precursor_set",
         "inference_config": {"ranking": "frequency"},
+        "training_exact_product_overlap_count": 1,
+        "training_exact_product_overlap": {product: True},
     }))
     output = tmp_path / "frozen"
     freeze(query, manifest, predictions, provenance, output,
            expected_products=1)
     row = json.loads((output / "r5_external_predictions.jsonl").read_text().splitlines()[0])
     assert row["product_smiles"] == product
+    assert row["external_training_exact_product_overlap"] is True
+    assert json.loads((output / "manifest.json").read_text())["ranking_semantics"] == "frequency"

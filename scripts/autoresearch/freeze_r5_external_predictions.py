@@ -71,6 +71,14 @@ def freeze(query: Path, query_manifest: Path, predictions: Path,
             canonical_products.add(canonical)
     if len(products) != expected_products:
         raise ValueError("R5 query row count changed")
+    overlap_map = model.get("training_exact_product_overlap")
+    if overlap_map is not None:
+        if not isinstance(overlap_map, dict) or set(overlap_map) != set(products):
+            raise ValueError("R5 external training-overlap map must cover every frozen product")
+        if any(type(value) is not bool for value in overlap_map.values()):
+            raise ValueError("R5 external training-overlap map must contain booleans")
+        if model.get("training_exact_product_overlap_count") != sum(overlap_map.values()):
+            raise ValueError("R5 external training-overlap count differs from the map")
 
     raw: dict[str, dict[str, Any]] = {}
     with predictions.open(encoding="utf-8") as stream:
@@ -105,6 +113,11 @@ def freeze(query: Path, query_manifest: Path, predictions: Path,
             precursor = candidate.get("precursors")
             if not isinstance(precursor, str):
                 raise ValueError("R5 precursor proposal must be a string")
+            frequency = candidate.get("frequency_confidence")
+            if frequency is not None and (not isinstance(frequency, (int, float))
+                                          or isinstance(frequency, bool)
+                                          or not 0 <= frequency <= 1):
+                raise ValueError("R5 source frequency confidence must be in [0,1]")
             by_rank[rank] = precursor
         references = {str(item["precursor_smiles"])
                       for item in query_row["private_reference"]["recorded_precursor_sets"]}
@@ -119,6 +132,9 @@ def freeze(query: Path, query_manifest: Path, predictions: Path,
                 "raw_precursors": raw_precursor or None,
                 "canonical_precursors": canonical,
                 "smiles_status": validity,
+                "source_frequency_confidence": (
+                    next((candidate.get("frequency_confidence") for candidate in candidates
+                          if candidate["rank"] == rank), None)),
                 "recorded_reference_status": (
                     "recorded_reference" if canonical in references
                     else "not_recorded_not_proven_invalid" if canonical
@@ -133,6 +149,8 @@ def freeze(query: Path, query_manifest: Path, predictions: Path,
             "external_model": model["model_name"],
             "model_input": {"product_smiles": product},
             "inference_status": status,
+            "external_training_exact_product_overlap": (
+                overlap_map[product] if overlap_map is not None else None),
             "candidates": normalized,
             "strata": {**query_row["strata"], "model_agreement": "unavailable_one_model"},
             "private_reference": query_row["private_reference"],
@@ -161,6 +179,8 @@ def freeze(query: Path, query_manifest: Path, predictions: Path,
         "products": len(frozen), "ranks_per_product": top_k,
         "counts": dict(sorted(counts.items())),
         "training_overlap_audited": bool(model.get("training_overlap_audited")),
+        "training_exact_product_overlap_count": model.get("training_exact_product_overlap_count"),
+        "ranking_semantics": model.get("inference_config", {}).get("ranking"),
         "claim_boundary": "Frozen external proposals only; recorded-reference absence does not prove chemical invalidity, and no MechET reranking has run.",
     }
     (output / "manifest.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")

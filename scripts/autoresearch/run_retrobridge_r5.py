@@ -227,6 +227,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
                                        "ranking": report["ranking_semantics"]},
                   "training_overlap_audited": True,
                   "training_exact_product_overlap_count": sum(overlap.values()),
+                  "training_exact_product_overlap": overlap,
                   "source_commit": SOURCE_COMMIT, "source_train_csv_sha256": train_csv_hash}
     (args.output / "provenance.json").write_text(json.dumps(provenance, indent=2, sort_keys=True) + "\n")
     return report
