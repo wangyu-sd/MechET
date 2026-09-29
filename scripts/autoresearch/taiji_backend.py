@@ -1,0 +1,135 @@
+"""Render smoke jobs and delegate submission to the validated Ceph helper."""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+import re
+import shlex
+import subprocess
+
+
+PRIVATE_INIT_PLACEHOLDER = "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK"
+
+
+def render_job(
+    template: Path, output: Path, *, task_flag: str, readable_name: str,
+    repo: Path, training_config: Path, gpu_name: str,
+    model_cache: Path | None = None, model_revision: str | None = None,
+    description: str | None = None,
+) -> dict:
+    if not task_flag.startswith("meteor") or not readable_name.startswith("meteor"):
+        raise ValueError("all Taiji task flags and readable names must begin with meteor")
+    if not template.is_file() or output.exists():
+        raise FileExistsError("Taiji template missing or output already exists")
+    job = json.loads(template.read_text())
+    if str(job.get("GPUName", "")).lower() != gpu_name.lower():
+        raise ValueError("template GPU does not match approved resource profile")
+    if int(job.get("host_num", 0)) != 1 or int(job.get("host_gpu_num", 0)) != 1:
+        raise ValueError("scientific smoke must use a validated single-GPU template")
+    if not job.get("business_flag") or not job.get("location"):
+        raise ValueError("template lacks application group or location")
+    job["task_flag"] = task_flag
+    job["readable_name"] = readable_name
+    job["task_category"] = "fine_tuning"
+    job["task_description"] = description or (
+        "PR69 engineering smoke: 32 frozen State-SFT decision rows "
+        "(16 strict-executable FlowER, 16 current-compiler mech-USPTO); "
+        "Qwen3-0.6B, 100 updates, no scientific result."
+    )
+    job["init_cmd"] = PRIVATE_INIT_PLACEHOLDER
+    job["is_elasticity"] = False
+    job["is_resource_waiting"] = True
+    cache_environment = ""
+    if model_cache is not None:
+        snapshot = (model_cache / "models--Qwen--Qwen3-0.6B" /
+                    "snapshots" / str(model_revision or ""))
+        if not (snapshot / "model.safetensors").is_file():
+            raise FileNotFoundError(f"pinned model snapshot is incomplete: {snapshot}")
+        cache_environment = (
+            f"HF_HUB_CACHE={shlex.quote(str(model_cache))} "
+            "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 "
+        )
+    command = (
+        f"cd {shlex.quote(str(repo))} && "
+        f"export PYTHONUNBUFFERED=1 TAIJI_HEARTBEAT_SECONDS=60 {cache_environment}&& "
+        "bash scripts/taiji_run_with_heartbeat.sh "
+        "/root/miniconda3/envs/meteor/bin/python -u scripts/train_tool_sft.py "
+        f"--config {shlex.quote(str(training_config))}"
+    )
+    job["start_cmd"] = "bash -lc " + shlex.quote(command)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(job, indent=2, ensure_ascii=False) + "\n")
+    return {"task_flag": task_flag, "readable_name": readable_name,
+            "task_description": job["task_description"],
+            "business_flag": job["business_flag"], "location": job["location"],
+            "GPUName": job["GPUName"], "template": str(template),
+            "model_cache": str(model_cache) if model_cache else None,
+            "rendered_template": str(output), "start_cmd": job["start_cmd"]}
+
+
+def render_heldout_job(
+    template: Path, output: Path, *, task_flag: str, repo: Path,
+    model_cache: Path, model_revision: str, data: Path,
+    adapter: Path, evaluation_output: Path,
+) -> dict:
+    if not task_flag.startswith("meteor") or output.exists():
+        raise ValueError("held-out job needs a new meteor task flag/output")
+    if not (model_cache / "models--Qwen--Qwen3-0.6B" / "snapshots" /
+            model_revision / "model.safetensors").is_file():
+        raise FileNotFoundError("held-out job lacks the pinned shared model snapshot")
+    if not data.is_file() or not (adapter / "adapter_model.safetensors").is_file():
+        raise FileNotFoundError("held-out data or completed smoke adapter missing")
+    job = json.loads(template.read_text())
+    if job.get("GPUName") != "A100" or int(job.get("host_num", 0)) != 1 or int(job.get("host_gpu_num", 0)) != 1:
+        raise ValueError("held-out template must be one validated A100")
+    job.update(task_flag=task_flag,
+               readable_name="meteor MechET PR69 engineering held-out local diagnostic (1xA100)",
+               task_category="fine_tuning",
+               task_description="PR69 engineering held-out 4-reaction one-step inference/scoring; no scientific claim",
+               init_cmd=PRIVATE_INIT_PLACEHOLDER,
+               is_elasticity=False, is_resource_waiting=True)
+    command = (
+        f"cd {shlex.quote(str(repo))} && "
+        f"export PYTHONUNBUFFERED=1 TAIJI_HEARTBEAT_SECONDS=60 "
+        f"HF_HUB_CACHE={shlex.quote(str(model_cache))} "
+        "HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 && "
+        "bash scripts/taiji_run_with_heartbeat.sh "
+        "bash scripts/autoresearch/run_engineering_heldout.sh "
+        f"{shlex.quote(str(data))} {shlex.quote(str(adapter))} "
+        f"{shlex.quote(str(evaluation_output))} {shlex.quote(model_revision)}"
+    )
+    job["start_cmd"] = "bash -lc " + shlex.quote(command)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(job, indent=2, ensure_ascii=False) + "\n")
+    return {"task_flag": task_flag, "job_config": str(output),
+            "data": str(data), "adapter": str(adapter),
+            "output": str(evaluation_output), "start_cmd": job["start_cmd"]}
+
+
+def submit(repo: Path, config: Path, donor_task: str, client: Path) -> str:
+    helper = repo / "scripts/submit_taiji_with_donor_init.py"
+    command = ["python", str(helper), "submit", "--config", str(config),
+               "--donor-task", donor_task, "--client", str(client)]
+    result = subprocess.run(command, text=True, capture_output=True, check=False)
+    if result.returncode or "[error]" in result.stdout.lower():
+        raise RuntimeError("validated Taiji submission helper failed: " +
+                           (result.stderr or result.stdout)[-1000:])
+    return result.stdout
+
+
+def poll(client: Path, task_flag: str, instance_id: str, model_output: Path) -> dict:
+    detail = subprocess.run([str(client), "instance_detail", task_flag, instance_id],
+                            text=True, capture_output=True, check=False)
+    if detail.returncode:
+        raise RuntimeError("could not inspect Taiji instance")
+    match = re.search(r'"state"\s*:\s*"([A-Z_]+)"', detail.stdout)
+    if not match:
+        raise ValueError("Taiji instance detail has no state")
+    logs = subprocess.run([str(client), "logs", "--tail", "30", task_flag, instance_id],
+                          text=True, capture_output=True, check=False)
+    adapter = model_output / "adapter_model.safetensors"
+    return {"task_flag": task_flag, "instance_id": instance_id,
+            "state": match.group(1), "pod_log_tail": logs.stdout.splitlines()[-30:],
+            "adapter_exists": adapter.is_file(),
+            "model_output": str(model_output)}

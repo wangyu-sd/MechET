@@ -12,7 +12,7 @@ historical v1 State-SFT adapter.
    24,959/3,120/3,120 and is not relabelled as program coverage. No test rows
    are loaded for post-training.
 2. Each collector performs a product-start v2 policy rollout with the real
-   executor. `scripts/earho_v2_protocol.py` independently replays the private
+   executor. The `earho_v2_protocol` module under `scripts/` independently replays the private
    reference decisions, compares *executed* canonical successors, and returns
    the first consequential divergence. An exact terminal precursor creates no
    correction frontier.
