@@ -92,6 +92,16 @@ product and any precursor component; `high` is >=0.6. Disconnection agreement
 is computed from mapped product bonds absent from each precursor set. These
 are descriptive strata, not physical feasibility labels.
 
+Before new scientific-smoke models are trained, the existing full-test Direct
+Qwen3-8B predictions can be rescored **diagnostically** against this frozen
+multi-reference cohort using `scripts/autoresearch/score_r1_existing_direct.py`.
+It verifies the R1, official test, and prediction hashes; selects one
+deterministic official-test prediction row per product; and reports sample-0
+exact match plus generation-order Pass@K against the single recorded reference
+and all independently recorded precursor sets. It does not run the forward
+model or MechET verifier, audit Direct train overlap, or constitute the R1
+Base-vs-Mech scientific-smoke result.
+
 ## R2 recorded proposals and negative-evidence boundary
 
 Freeze 400 positive proposals from the same official held-out endpoint source:

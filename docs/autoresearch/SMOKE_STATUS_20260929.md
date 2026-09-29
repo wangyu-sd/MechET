@@ -47,6 +47,20 @@ and 135 cannot be classified as a product-bond cut by that rule. This is an
 independent-record alternative-reference cohort, not proof that every route is
 physically feasible. The evaluator still needs to run.
 
+An **existing-model R1 diagnostic** now rescored the already completed
+FlowER-full-test Direct Qwen3-8B K=10 predictions on these 220 products. With
+one deterministic official-test reaction row per product, sample-0 exact
+matches 52/220 single recorded references versus 78/220 when *all independently
+recorded* precursor sets for that product are accepted: 26 additional
+record-supported matches. Generation-order Pass@10 is 95/220 versus 125/220,
+respectively (30 additional matches). This is **not** the PR #69 scientific
+R1 Base-vs-Mech result: the checkpoint is an existing FlowER-trained Direct
+baseline, product-level train overlap has not been audited for this diagnostic,
+and no forward or executor-based chemical support is asserted. The diagnostic
+result is at `outputs/autoresearch/prepared_eval/r1_existing_direct_diagnostic_20260929/`;
+its selected prediction-row SHA256 is
+`27c3d583d99c20e92061b096eea8d52e24d14c3a38d53157bd3ec6e8005748da`.
+
 The R3 controlled-corruption **evaluation source** is now frozen at
 `outputs/autoresearch/prepared_eval/r3_flower_closed_shell_event_test_v5_20260929/`.
 It contains 288 replay-audited perturbations: 32 in each early/middle/late ×
