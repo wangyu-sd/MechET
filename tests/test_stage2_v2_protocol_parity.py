@@ -91,7 +91,9 @@ def test_qwen_tool_prefix_matches_completed_sft_tool_call_without_thinking():
     [
         ({"legacy_dual_prompt": True}, "legacy dual prompt"),
         ({"max_decisions": 12}, "40 decisions"),
+        ({"max_decisions": 41}, "40 decisions"),
         ({"max_imports": 8}, "32 imports"),
+        ({"max_imports": 33}, "32 imports"),
         ({"branching": 2}, "branching=1"),
         ({"early_beam": 2}, "beam width 1"),
         ({"late_beam": 2}, "beam width 1"),
