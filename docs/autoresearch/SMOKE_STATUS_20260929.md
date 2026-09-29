@@ -245,6 +245,37 @@ official [PMechDB download](https://deeprxn.ics.uci.edu/pmechdb/download)
 requires a user-side license/registration step, and the public
 [elementary-step mirror](https://huggingface.co/datasets/SchwallerGroup/pmechdb_elem)
 has no machine-readable license field.
+
+An independently released candidate, [SynEPD](https://github.com/TieuLongPhan/SynEPD),
+was source-audited at Git commit `4fefc016fd4d4e4305dec92586e593bafe3b3e5b`
+(`data/polar.json` SHA-256
+`84b3d907cc1595269e34ba34be0163c4863f4314f646cd768b44967648210a29`).
+Its release manifest declares CC BY 4.0 and 1,926 mapped, closed-shell polar
+records with ordered two-electron arrows. All 1,926 preserve the complete
+mapped-atom set when explicit hydrogens are retained. Reversing each arrow and
+applying the whole coupled event with the **unchanged** MechET executor recovers
+the source reactant mixture exactly in 1,754/1,926; 121 fail the executor's
+lone-pair precondition, 2 have invalid bond order, and 49 execute to a different
+successor. Those 172 are quarantined, not repaired by changing the executor.
+The 1,754 figure is only a complete-mixture replay diagnostic, **not** a count
+of product-only, training-ready State-SFT reactions. Canonical unmapped
+product overlap with the official FlowER train/valid/test products is 2/0/0;
+the frozen R1 and R5 product cohorts have zero overlap.
+
+Only 1,050 of the exactly replayed SynEPD records have a single product
+component and therefore admit an unambiguous product-only input without
+inventing a principal-product selector or importing byproducts. A 20-record
+conversion probe using the existing natural-language v2 builder produced
+one event and one finish decision per record, but the complete 1,050-record
+conversion and independent runtime replay are **not yet done**. Moreover,
+917/1,050 of these clean records belong to POLAR family 03. Enforcing the
+PR's no-majority-class rule would limit a balanced single-product selection
+to at most 266 reactions (532 decision rows) before any other exclusions.
+SynEPD is therefore a promising **supplementary source or independent transfer
+diagnostic**, not a silent substitute for PMechDB or a justification to launch
+the 12k-row paired scientific smoke. The official PMechDB challenging and
+PMechRP pathway R4 sources remain separately required.
+
 The complete R2 and R4 evaluation cohorts are not frozen. R5 has an archived
 full-reaction-world **diagnostic** but no target-compatible precursor-set source,
 MechET scores, or leakage-clean headline source. Scientific Base/Mech sampling and all R1–R5 result claims
