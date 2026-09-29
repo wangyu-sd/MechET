@@ -29,11 +29,16 @@ on:
       - "scripts/run_h3_suite.py"
       - "scripts/train_inverse_agent_*.py"
       - "scripts/train_tool_sft.py"
+      - "scripts/run_natural_language_value_search.py"
+      - "scripts/eval_natural_language_event_local.py"
+      - "scripts/audit_stage2_v2_protocol_parity.py"
+      - "scripts/run_taiji_stage2_v2_matched_valid256.sh"
       - "scripts/build_textbook_tool_sft.py"
       - "configs/agent/**"
       - "configs/knowledge/**"
       - "configs/experiments/**"
       - "tests/test_agent_*.py"
+      - "tests/test_stage2_v2_protocol_parity.py"
       - "tests/test_runtime_data_contract_repairs.py"
       - "tests/test_statistical_evaluation.py"
       - "tests/test_evaluation_seed_aggregation.py"
@@ -108,7 +113,10 @@ jobs:
             scripts/train_inverse_agent_trl.py \
             scripts/train_inverse_agent_trace.py \
             scripts/train_inverse_agent_knowledge.py \
-            scripts/train_tool_sft.py
+            scripts/train_tool_sft.py \
+            scripts/run_natural_language_value_search.py \
+            scripts/eval_natural_language_event_local.py \
+            scripts/audit_stage2_v2_protocol_parity.py
       - name: Run runtime and regression tests
         run: |
           pytest -q \
@@ -120,7 +128,12 @@ jobs:
             tests/test_runtime_closure.py \
             tests/test_runtime_data_contract_repairs.py \
             tests/test_statistical_evaluation.py \
-            tests/test_evaluation_seed_aggregation.py
+            tests/test_evaluation_seed_aggregation.py \
+            tests/test_stage2_v2_protocol_parity.py
+      - name: Validate Stage-II v2 launcher/config syntax
+        run: |
+          bash -n scripts/run_taiji_stage2_v2_matched_valid256.sh
+          python -m json.tool configs/taiji/meteor_mechet_stage2_v2_matched_valid256_8a100_qy_20260929.json >/dev/null
       - name: Build root-import Tool-SFT supervision
         run: |
           mkdir -p /tmp/mechet-runtime
