@@ -177,7 +177,14 @@ The separate model-prediction scorer is implemented at
 `scripts/autoresearch/score_r3_repair.py`: it requires all 288 frozen query IDs,
 a checkpoint- and query-hashed prediction sidecar, and replays one predicted
 electron event before the private reference suffix. No model predictions have
-been generated or scored. Its future endpoint rate must be labelled
+been completely generated or scored. An existing Stage-II Qwen3-8B diagnostic
+was submitted as `meteor_mechet_pr69_r3_stageii_repair_1a100_qy_20260929_01`
+(instance `8b1d80eea0d297ec01a0ed45586527b9`); a real A100 POD, Ceph mount,
+model process, non-idle GPU and growing partial prediction file were verified.
+No complete 288-row sidecar or model repair score exists yet. The default POD
+log endpoint returned launcher/initial-heartbeat lines but not the ongoing
+per-case lines, although the process and PID 1 share stdout; continuous CLI
+log capture is therefore not yet verified. Its future endpoint rate must be labelled
 **oracle-suffix-assisted repair at an exposed failure**, not autonomous
 trajectory recovery or failure localization.
 An answer-free Stage-II repair-prompt artifact is frozen separately at
