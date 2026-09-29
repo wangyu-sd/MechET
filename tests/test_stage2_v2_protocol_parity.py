@@ -21,6 +21,15 @@ from scripts.eval_natural_language_event_local import render_policy_prompt
 
 
 class ThinkingTemplate:
+    eos_token_id = None
+
+    def __call__(
+        self, text, *, add_special_tokens=False, truncation=False, **_kwargs
+    ):
+        assert add_special_tokens is False
+        assert truncation is False
+        return {"input_ids": [ord(char) for char in str(text)]}
+
     def apply_chat_template(
         self, messages, *, tokenize, add_generation_prompt,
         enable_thinking=True, tools=None,
