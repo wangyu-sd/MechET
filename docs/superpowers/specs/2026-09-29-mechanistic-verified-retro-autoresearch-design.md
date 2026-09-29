@@ -221,6 +221,16 @@ No proposal that fails compilation is silently dropped; compilation status is pa
 
 EARHO may be reused as the repair policy. The smoke campaign does not redesign the EARHO objective.
 
+**Localization input audit (2026-09-29):** the currently frozen R3 source
+exposes a known-good prefix followed by a separately named corrupted action.
+In all 288 rows, the private first-failure index equals the visible prefix
+length. Therefore that source supports repair-at-known-failure but **cannot**
+support a nontrivial first-failure localization Top-1 result. Before reporting
+localization, freeze a separate unmarked candidate-trajectory cohort where the
+failure position is not recoverable from input structure; do not expose the
+correct action or reference suffix as a model-visible hint. Preserve the
+existing 288-row source and its repair scores as a distinct diagnostic.
+
 ### R4 — Independent mechanism and pathway validation
 
 **Problem:** a model trained on mechanistically derived reaction corpora may still be learning source-specific conventions rather than transferable chemistry.

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Export frozen R3 corruptions as answer-free localization/repair queries."""
+"""Export frozen R3 corruptions as answer-free *repair* queries.
+
+The current source explicitly shows the corrupted action after a known-good
+prefix. Its failure index is therefore recoverable by counting prefix actions;
+it must not be used to claim first-failure localization accuracy.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +30,7 @@ def export(source: Path, output: Path) -> dict[str, Any]:
     source_hash = verify_evaluation_source(source, name="r3_corruptions")
     queries: list[dict[str, Any]] = []
     seen: set[str] = set()
+    trivial_location_rows = 0
     with source.open(encoding="utf-8") as stream:
         for number, line in enumerate(stream, 1):
             if not line.strip():
@@ -49,6 +55,10 @@ def export(source: Path, output: Path) -> dict[str, Any]:
                     for child in value:
                         reject_nested_keys(child)
             reject_nested_keys(visible)
+            failure_index = row["private_reference"].get("first_failure_index")
+            if not isinstance(failure_index, int) or isinstance(failure_index, bool):
+                raise ValueError(f"R3 source lacks a valid failure index at row {number}")
+            trivial_location_rows += failure_index == len(visible["prefix_actions"])
             case_id = hashlib.sha256(line.rstrip("\r\n").encode("utf-8")).hexdigest()
             if case_id in seen:
                 raise ValueError("R3 source has duplicate corruption rows")
@@ -73,17 +83,20 @@ def export(source: Path, output: Path) -> dict[str, Any]:
         "query": str(query_path.resolve()),
         "query_sha256": digest(query_path),
         "cases": len(queries),
+        "localization_trivial_from_prefix_count_rows": trivial_location_rows,
         "model_input_fields": sorted(VISIBLE_KEYS),
-        "claim_boundary": "Reference action, successor, suffix and endpoint are absent from model_input; no model inference or repair has been run.",
+        "claim_boundary": "Repair-at-exposed-failure queries only. Failure-location Top-1 is degenerate because the corrupted action is singled out after a known-good prefix; no model inference or repair has been run.",
     }
     (output / "manifest.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     (output / "ARTIFACT_STATUS.json").write_text(json.dumps({
         "artifact_type": "r3_query_status_v1",
         "query_sha256": report["query_sha256"],
         "inference_allowed": True,
+        "repair_inference_allowed": True,
+        "localization_evaluation_allowed": False,
         "training_allowed": False,
         "evaluation_allowed": False,
-        "reason": "Model input export only; private frozen R3 source remains the evaluation authority",
+        "reason": "Repair input only; current failure index is exposed by prefix length, so localization scoring is forbidden",
     }, indent=2, sort_keys=True) + "\n")
     return report
 

@@ -28,7 +28,7 @@ def _source(tmp_path: Path) -> Path:
                 "private_reference": {
                     "correct_action": {"name": "apply_electron_flow"},
                     "expected_precursor": "CC.O",
-                    "first_failure_index": 1,
+                    "first_failure_index": 0,
                 },
             }, sort_keys=True) + "\n")
     (directory / "manifest.json").write_text(json.dumps({"cohort_sha256": digest(path)}))
@@ -43,11 +43,13 @@ def test_r3_queries_preserve_all_cases_without_reference_leak(tmp_path: Path) ->
     report = export(source, output)
     rows = [json.loads(line) for line in (output / "r3_queries.jsonl").read_text().splitlines()]
     assert report["cases"] == len({row["case_id"] for row in rows}) == 288
+    assert report["localization_trivial_from_prefix_count_rows"] == 288
     assert all(set(row) == {"artifact_type", "case_id", "model_input"} for row in rows)
     assert all("private_reference" not in json.dumps(row) for row in rows)
     assert all("expected_precursor" not in json.dumps(row) for row in rows)
     status = json.loads((output / "ARTIFACT_STATUS.json").read_text())
-    assert status["inference_allowed"] and not status["training_allowed"]
+    assert status["inference_allowed"] and status["repair_inference_allowed"]
+    assert not status["training_allowed"] and not status["localization_evaluation_allowed"]
     with pytest.raises(FileExistsError):
         export(source, output)
 

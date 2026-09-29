@@ -333,7 +333,15 @@ evaluation authority. On 2026-09-29 the actual export was frozen at
 `outputs/autoresearch/prepared_eval/r3_flower_queries_v1_20260929/`, with 288
 queries and SHA-256
 `05c4d8db8cf7eb2ca6b08f1be418b8f3f93d06ea894a4fbf73d91f89953edc38`.
-No localization or repair model has been scored on these queries.
+This export is suitable only for **repair at an exposed corruption**. In all
+288 frozen cases, `private_reference.first_failure_index` equals the visible
+`prefix_actions` length, and the next field is explicitly named
+`corrupted_action`. A localization Top-1 score on this input would be trivially
+100% by counting actions. Its status therefore sets
+`localization_evaluation_allowed: false`. R3's localization objective needs a
+separately frozen, unmarked candidate trajectory with no gold-action/suffix
+leakage; it must not be scored on this repair query. Neither localization nor
+repair has yet been measured.
 
 ## R5 external-model query cohort
 
