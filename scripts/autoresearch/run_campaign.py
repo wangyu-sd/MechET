@@ -1,0 +1,222 @@
+#!/usr/bin/env python3
+"""Auditable finite-state entry point for the PR #69 smoke campaign."""
+
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+import subprocess
+import sys
+from typing import Any
+
+import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from scripts.autoresearch.stratified_manifest import digest, freeze, resolve
+from scripts.autoresearch.taiji_backend import render_job, submit
+from scripts.autoresearch.ledger import append as append_ledger
+
+
+STAGES = (
+    "FREEZE_MANIFESTS", "ENGINEERING_SMOKE", "MECHANISM_COMPATIBILITY_AUDIT",
+    "TRAIN_BASE_SMOKE", "TRAIN_MECH_SMOKE", "RUN_R1", "RUN_R2", "RUN_R3",
+    "RUN_R4", "RUN_R5", "COLLECT_SCORECARD", "RECOMMEND_SCALE",
+)
+EVAL_STAGE_INPUTS = {
+    "RUN_R1": ("r1_multi_reference",),
+    "RUN_R2": ("r2_plausibility",),
+    "RUN_R3": ("r3_corruptions",),
+    "RUN_R4": ("r4_pmechdb_challenging", "r4_pmechrp_pathways", "r4_literature_cycles"),
+    "RUN_R5": ("r5_external_predictions",),
+}
+
+
+def timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def git_commit(repo: Path) -> str:
+    return subprocess.check_output(["git", "-C", str(repo), "rev-parse", "HEAD"], text=True).strip()
+
+
+def save_new(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("x", encoding="utf-8") as stream:
+        json.dump(data, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+
+
+def plan(config: dict[str, Any], root: Path, output: Path) -> dict[str, Any]:
+    source_status = {}
+    for name, spec in config["sources"].items():
+        path = resolve(root, spec.get("train"))
+        source_status[name] = {"path": str(path) if path else None,
+                               "available": bool(path and path.is_file())}
+    eval_status = {}
+    for name, raw in config["evaluation_sources"].items():
+        path = resolve(root, raw)
+        eval_status[name] = {"path": str(path) if path else None,
+                             "available": bool(path and path.is_file())}
+    engineering = output / "engineering_freeze/manifests/freeze.json"
+    scientific = output / "scientific_freeze/manifests/freeze.json"
+    stages = []
+    for stage in STAGES:
+        prerequisites: list[str] = []
+        if stage == "FREEZE_MANIFESTS":
+            prerequisites = [name for name, entry in eval_status.items() if not entry["available"]]
+        elif stage == "ENGINEERING_SMOKE":
+            if not engineering.is_file():
+                prerequisites.append("engineering_freeze")
+        elif stage == "MECHANISM_COMPATIBILITY_AUDIT":
+            if not source_status["curated"]["available"]:
+                prerequisites.append("curated_replay_compatible_rows")
+        elif stage in {"TRAIN_BASE_SMOKE", "TRAIN_MECH_SMOKE"}:
+            if not scientific.is_file():
+                prerequisites.append("scientific_freeze")
+            if stage == "TRAIN_MECH_SMOKE" and not source_status["curated"]["available"]:
+                prerequisites.append("curated_augmentation_unavailable")
+        elif stage in EVAL_STAGE_INPUTS:
+            prerequisites = [name for name in EVAL_STAGE_INPUTS[stage]
+                             if not eval_status[name]["available"]]
+            if not scientific.is_file():
+                prerequisites.append("scientific_freeze")
+        stages.append({"stage": stage, "prerequisites_missing": prerequisites,
+                       "ready": not prerequisites})
+    return {"campaign_id": config["campaign_id"], "stages": stages,
+            "source_status": source_status, "evaluation_status": eval_status,
+            "engineering_freeze": engineering.is_file(),
+            "scientific_freeze": scientific.is_file()}
+
+
+def prepare_engineering(config: dict[str, Any], root: Path, repo: Path, output: Path) -> dict[str, Any]:
+    frozen = output / "engineering_freeze/manifests/freeze.json"
+    if not frozen.is_file():
+        raise FileNotFoundError("freeze the engineering manifest first")
+    manifest = json.loads(frozen.read_text())
+    if not manifest.get("engineering_only") or manifest["files"]["engineering"]["rows"] != 32:
+        raise ValueError("engineering manifest is not the approved 32-row sample")
+    template = repo / config["model"]["training_template"]
+    training = yaml.safe_load(template.read_text())
+    training.pop("pretokenized_cache_dir", None)
+    training.pop("pretokenization_world_size", None)
+    training["condition_name"] = config["campaign_id"] + "_engineering"
+    training["model_name_or_path"] = config["model"]["name"]
+    training["train_file"] = manifest["files"]["engineering"]["train"]
+    training["validation_file"] = str(resolve(root, config["sources"]["flower"].get("valid")
+        or "data/flower_natural_language_event_sft_v2/valid.jsonl"))
+    training["test_file"] = None
+    training["output_dir"] = str(output / "jobs/engineering_model")
+    training["limit_examples"] = 0
+    settings = training["training"]
+    settings.update({"qlora": False, "bf16": True, "fp16": False,
+                     "require_flash_sdp": False, "use_liger_kernel": False,
+                     "max_steps": int(config["engineering_smoke"]["max_steps"]),
+                     "num_train_epochs": 1.0, "per_device_train_batch_size": 1,
+                     "per_device_eval_batch_size": 1,
+                     "gradient_accumulation_steps": 8,
+                     "validation_limit": 16, "save_steps": 100,
+                     "dataloader_num_workers": 2,
+                     "model_revision": config["model"]["revision"]})
+    contract = training["contract"]
+    contract["stable_id_manifest"] = str(frozen)
+    contract["validation_report"] = str(frozen)
+    contract["expected_train_rows"] = 32
+    contract["expected_validation_rows"] = -1
+    contract["expected_test_rows"] = -1
+    contract["source_dataset"] = "autoresearch_frozen_engineering_smoke"
+    config_path = output / "jobs/engineering_training.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    if config_path.exists():
+        old = yaml.safe_load(config_path.read_text())
+        if old != training:
+            raise ValueError("existing engineering training config differs; no silent rewrite")
+    else:
+        config_path.write_text(yaml.safe_dump(training, sort_keys=False))
+    command = [sys.executable, str(repo / "scripts/train_tool_sft.py"),
+               "--config", str(config_path), "--dry-run"]
+    dry = subprocess.run(command, cwd=repo, text=True, capture_output=True, check=False)
+    if dry.returncode:
+        raise RuntimeError("engineering trainer contract dry-run failed: " + dry.stderr[-1500:])
+    report = json.loads(dry.stdout)
+    if int(report["n_rows"]) != 32:
+        raise ValueError("trainer did not validate 32 frozen rows")
+    ready = {"campaign_id": config["campaign_id"], "prepared_at": timestamp(),
+             "git_commit": git_commit(repo), "training_config": str(config_path),
+             "training_config_sha256": digest(config_path),
+             "manifest_sha256": digest(frozen), "trainer_dry_run": report,
+             "command": ["python", "scripts/train_tool_sft.py", "--config", str(config_path)]}
+    prepared = output / "jobs/engineering_prepared.json"
+    if prepared.exists():
+        previous = json.loads(prepared.read_text())
+        for key in ("training_config_sha256", "manifest_sha256", "command"):
+            if ready[key] != previous[key]:
+                raise ValueError("prepared engineering job drifted")
+        return previous
+    save_new(prepared, ready)
+    return ready
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("action", choices=("plan", "reconcile", "freeze-engineering", "freeze-scientific",
+                                          "prepare-engineering", "render-engineering", "submit-engineering"))
+    parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--data-root", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--template", type=Path)
+    parser.add_argument("--gpu", choices=("H20", "A100", "V100"))
+    parser.add_argument("--task-flag")
+    parser.add_argument("--donor-task")
+    parser.add_argument("--client", type=Path, default=Path("/usr/local/bin/taiji_client"))
+    args = parser.parse_args()
+    repo = Path(__file__).resolve().parents[2]
+    config = yaml.safe_load(args.config.read_text())
+    if args.action == "plan":
+        result = plan(config, args.data_root, args.output)
+    elif args.action == "reconcile":
+        existing = []
+        for kind in ("engineering", "scientific"):
+            path = args.output / f"{kind}_freeze/manifests/freeze.json"
+            if path.is_file():
+                existing.append({"kind": kind, "path": str(path), "sha256": digest(path)})
+        if not existing:
+            raise FileNotFoundError("no frozen campaign artifact to reconcile")
+        result = {"frozen": existing}
+    elif args.action.startswith("freeze-"):
+        engineering = args.action == "freeze-engineering"
+        result = freeze(config, args.data_root,
+                        args.output / ("engineering_freeze" if engineering else "scientific_freeze"),
+                        engineering=engineering)
+    elif args.action == "prepare-engineering":
+        result = prepare_engineering(config, args.data_root, repo, args.output)
+    elif args.action == "render-engineering":
+        if not args.template or not args.gpu or not args.task_flag:
+            parser.error("render-engineering requires template, gpu, task-flag")
+        prepared = prepare_engineering(config, args.data_root, repo, args.output)
+        result = render_job(args.template, args.output / "jobs/engineering_taiji.json",
+                            task_flag=args.task_flag,
+                            readable_name=f"meteor MechET PR69 engineering smoke ({args.gpu})",
+                            repo=repo, training_config=Path(prepared["training_config"]),
+                            gpu_name=args.gpu)
+    else:
+        if not args.donor_task:
+            parser.error("submit-engineering requires a proven donor task")
+        rendered = args.output / "jobs/engineering_taiji.json"
+        if not rendered.is_file():
+            raise FileNotFoundError("render-engineering before submission")
+        result = {"submission_output": submit(repo, rendered, args.donor_task, args.client)}
+    if args.action != "plan":
+        stage = ("FREEZE_MANIFESTS" if args.action in {"reconcile", "freeze-engineering", "freeze-scientific"}
+                 else "ENGINEERING_SMOKE")
+        append_ledger(args.output, campaign_id=config["campaign_id"],
+                      config_path=args.config, repo=repo, action=args.action,
+                      stage=stage, evidence=result)
+    print(json.dumps(result, indent=2, sort_keys=True), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
