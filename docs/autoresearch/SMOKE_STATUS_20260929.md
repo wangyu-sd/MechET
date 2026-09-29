@@ -132,6 +132,18 @@ result, and the latter is not a held-out baseline. This cohort tests first
 divergence from the recorded path, not chemical impossibility; model
 localization and repair scores are still missing.
 
+The private R3 one-action oracle was independently replayed through the
+unchanged executor with the frozen mapped test source. Under the source
+runtime's **RDKit 2026.03.4**, all **288/288** rows reach their frozen precursor,
+with zero prefix/correct-step successor divergence. The audit report is
+`outputs/autoresearch/prepared_eval/r3_oracle_repair_audit_pinned_20260929/report.json`
+(replay-details SHA-256
+`1533f51cb541fcd14ed801def078f2c0714b7e5cc877ee0bcac84636f928dbc6`).
+Using RDKit 2024.09.6 instead produced 30 false replay failures due to
+representation/atom-alias drift; the new auditor now rejects that runtime
+before scoring. **288/288 is an oracle data-quality ceiling, not a model repair
+rate or localization result.**
+
 The R5 **product query** cohort is frozen at
 `outputs/autoresearch/prepared_eval/r5_flower_products_20260929/`: 200 unique
 official-test products, comprising 100 with independently recorded alternatives

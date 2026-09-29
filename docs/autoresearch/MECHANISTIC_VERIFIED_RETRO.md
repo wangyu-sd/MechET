@@ -343,6 +343,24 @@ and Mech scoring artifacts exist.
 
 ## R3 controlled-corruption source
 
+After freezing the 288-row source, run the private one-action oracle audit
+before interpreting any repair metric. It replaces only the corrupted action
+with the frozen correct action, then replays the unchanged reference suffix
+through the same executor. The command deliberately requires RDKit 2026.03.4;
+other RDKit versions can serialize mapped states differently and change the
+meaning of temporary atom aliases.
+
+```bash
+PYTHONPATH=src:. python scripts/autoresearch/audit_r3_oracle_repair.py \
+  --source /absolute/path/to/r3_corruptions.jsonl \
+  --trace-source /absolute/path/to/flower_inverse_tool_sft_action_delta_v1/test.jsonl \
+  --output /absolute/path/to/r3_oracle_repair_audit
+```
+
+The audit must show all 288 oracle repairs reaching the frozen precursor and
+zero reference-successor divergence. This uses private labels and is an
+upper-bound/data-integrity check, never a model result.
+
 The R3 builder uses the frozen strict-executable FlowER test trace and its
 Stage-II compressed-history decisions. It independently replays each selected
 reference prefix, changes **one electron-flow decision**, and verifies that
