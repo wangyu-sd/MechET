@@ -56,6 +56,29 @@ def render_chat(
     raise TypeError(f"chat template rendering failed{suffix}: {last_error}")
 
 
+def render_qwen_sft_tool_prefix(
+    tokenizer: Any,
+    messages: list[dict[str, Any]],
+    *,
+    tools: list[dict[str, Any]],
+) -> str:
+    """Render the exact Qwen3 prefix that precedes an SFT tool call.
+
+    Qwen3's ordinary generation template may insert an empty thinking block
+    before a fresh assistant turn. Completed Tool-SFT conversations do not use
+    that boundary for assistant tool calls. Matched inference therefore renders
+    the completed history and appends only the ChatML assistant marker.
+    """
+    if not tools:
+        raise ValueError("tool-call prefix requires tool schemas")
+    history = render_chat(
+        tokenizer, messages, tools=tools, add_generation_prompt=False
+    )
+    if not history.endswith("<|im_end|>\n"):
+        raise ValueError("Qwen SFT prefix does not end at a completed message")
+    return history + "<|im_start|>assistant\n"
+
+
 def tokenize_text(tokenizer: Any, text: str) -> list[int]:
     encoded = tokenizer(text, add_special_tokens=False, truncation=False)
     if not isinstance(encoded, Mapping) or "input_ids" not in encoded:
