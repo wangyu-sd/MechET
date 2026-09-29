@@ -388,8 +388,11 @@ list of `{rank, precursors}` entries for ranks 1–5. Missing ranks are allowed
 but are explicitly retained as missing in the five-rank denominator. A
 separate provenance JSON records `model_name`, `checkpoint_identifier`,
 `checkpoint_source`, `training_corpus`, `license_or_terms`,
-`input_fields: ["product_smiles"]`, `inference_status: "completed"`, and a
-nonempty `inference_config` object.
+`input_fields: ["product_smiles"]`,
+`target_semantics: "retrosynthetic_precursor_set"`,
+`inference_status: "completed"`, and a nonempty `inference_config` object.
+Predictions of a complete reaction world, including environment components,
+fail this target contract even when every SMILES parses.
 
 ```bash
 PYTHONPATH=src:. python scripts/autoresearch/freeze_r5_external_predictions.py \
@@ -408,3 +411,29 @@ source may enter R5 evaluation, but its `headline_allowed` remains false until
 MechET verification, external-model training-overlap audit, and full scorecard
 gates are completed. The script cannot substitute for actually obtaining and
 running the external model.
+
+Once both scientific-smoke checkpoints exist, each valid external candidate
+needs candidate-conditioned MechET verification. The model-visible input is
+exactly `{product_smiles, proposed_precursors}`; recorded references and
+chemical-validity labels remain private. Keep **one row for every product and
+rank slot**, including missing/invalid/failed candidates. A verification row
+contains `product_smiles`, `rank`, `model_input`, `verification_status`, and
+`attempts`. Each attempt records its `termination_reason` and the actual
+executor `final_result` if it reached one. The sidecar
+`<condition>.jsonl.manifest.json` binds its file SHA, frozen R5 cohort SHA,
+`condition` (`base` or `mech`), checkpoint identifier/SHA, `max_attempts`,
+`input_fields: ["product_smiles", "proposed_precursors"]`, and
+`verification_semantics: "candidate_conditioned_executor_trace_v1"`.
+
+`scripts/autoresearch/score_r5_external.py` scores only an executor-owned,
+formally executed, trace-bound terminal result whose *structural precursor*
+equals the proposed candidate. It moves trace-supported candidates ahead of
+others while preserving original rank within each group. Its outputs include
+support by original external rank and known-recorded-reference Top-1 before
+and after reranking. A candidate without a matching sampled trace is
+**unverified**, not chemically impossible; therefore `unsupported@1` is
+explicitly unavailable without independent negative evidence. The scorer
+refuses a diagnostic/forbidden source, incomplete product×rank coverage,
+source/checkpoint hash drift, and absent scientific freeze. It does not run
+candidate-conditioned inference and currently has no real Base/Mech inputs;
+synthetic scorer tests are not an R5 result.

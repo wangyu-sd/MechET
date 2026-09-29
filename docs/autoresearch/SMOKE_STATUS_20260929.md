@@ -143,6 +143,14 @@ at `outputs/autoresearch/prepared_eval/r5_orbit_g2s_frozen_20260929/external_tra
 The archived 200-product source is also not leakage-clean headline evidence.
 If analyzed as a separate completion-task diagnostic, report all 200 and the
 overlap strata separately. No MechET verification/reranking score exists yet.
+The paired R5 scoring interface is implemented in
+`scripts/autoresearch/score_r5_external.py` and covered by synthetic tests.
+It requires Base/Mech candidate-conditioned executor traces for every frozen
+product/rank slot, preserves missing/failed slots, and ranks only candidates
+with a matching formally executed endpoint ahead of unverified candidates.
+It deliberately reports `unsupported@1` as unavailable without independent
+chemical-negative evidence. This is evaluator readiness, not a measured R5
+model result; the diagnostic G2S archive remains forbidden as R5 input.
 No collaborator-owned R-SMILES/ReactSeq prediction artifact was found.
 
 The R2 **recorded-positive proposal source** is frozen at
