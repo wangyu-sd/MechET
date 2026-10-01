@@ -69,6 +69,18 @@ def structural_handle_ok(name: str, arguments: dict[str, Any], example) -> bool:
         return False
 
 
+def shard_assignment() -> tuple[int, int]:
+    """Require one visible GPU for each independent vLLM benchmark worker."""
+    rank = int(os.environ.get("VNEXT_RANK", "0"))
+    world = int(os.environ.get("VNEXT_WORLD_SIZE", "1"))
+    if world < 1 or not 0 <= rank < world:
+        raise ValueError(f"invalid vNext shard assignment: rank={rank}, world={world}")
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "")
+    if world > 1 and (not visible or len(visible.split(",")) != 1):
+        raise ValueError("distributed vLLM benchmark requires exactly one visible GPU per worker")
+    return rank, world
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--data", type=Path, required=True)
@@ -83,6 +95,7 @@ def main() -> int:
     args = p.parse_args()
     if args.count < 1 or args.max_new_tokens < 1:
         raise ValueError("positive count/token budgets required")
+    rank, world = shard_assignment()
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
     from vllm.sampling_params import GuidedDecodingParams
@@ -90,8 +103,6 @@ def main() -> int:
 
     if vllm.__version__ != "0.8.5":
         raise RuntimeError(f"validated benchmark uses vLLM 0.8.5, not {vllm.__version__}")
-    rank = int(os.environ.get("RANK", "0"))
-    world = int(os.environ.get("WORLD_SIZE", "1"))
     examples = fixed_examples(args.data, count=args.count, seed=args.seed, rank=rank, world=world)
     args.output.mkdir(parents=True, exist_ok=True)
     lora = LoRARequest("pr71_stage2", 1, str(args.adapter.resolve()))

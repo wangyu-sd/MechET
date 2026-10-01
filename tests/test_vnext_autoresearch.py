@@ -196,3 +196,20 @@ def test_pointer_recovery_campaign_preserves_gates_and_isolates_tasks(monkeypatc
     for stage_id in ("runtime_benchmark", "packing_benchmark"):
         assert repaired[stage_id]["kind"] == "artifact"
         assert repaired[stage_id]["gates"] == prior[stage_id]["gates"]
+
+
+def test_runtime_rankfix_preserves_scientific_gates(monkeypatch):
+    monkeypatch.setenv("MECHET_AUTORESEARCH_CODE_MIRROR", "/tmp/runtime-rankfix-mirror")
+    monkeypatch.setenv("MECHET_TAIJI_CLIENT", "/tmp/taiji-client")
+    monkeypatch.setenv("MECHET_TAIJI_DONOR_TASK", "donor-success")
+    original, _ = MODULE.load_campaign(ROOT / "configs/autoresearch/vnext_p0_20261001.yaml")
+    rankfix, _ = MODULE.load_campaign(ROOT / "configs/autoresearch/vnext_runtime_rankfix_20261001.yaml")
+    prior = next(stage for stage in original["stages"] if stage["id"] == "runtime_benchmark")
+    current = rankfix["stages"][0]
+    assert current["gates"] == prior["gates"]
+    assert current["metrics"] == prior["metrics"]
+    assert current["task_flag_suffix"] == "_rankfix1"
+    config = json.loads((ROOT / current["taiji_config"]).read_text())
+    for old, new in current["config_replacements"].items():
+        config = MODULE.replace_token(config, old, new)
+    assert "vnext-runtime-rankfix" in config["start_cmd"]

@@ -11,6 +11,9 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--input-dir", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--expected-ranks", type=int, default=0)
+    p.add_argument("--expected-states", type=int, default=0)
+    p.add_argument("--expected-modes", nargs="*", default=[])
     args = p.parse_args()
     if args.output.exists():
         raise FileExistsError(args.output)
@@ -20,9 +23,16 @@ def main() -> int:
         grouped.setdefault(row["mode"], []).append(row)
     if not grouped:
         raise ValueError("no runtime benchmark reports")
+    if args.expected_modes and set(grouped) != set(args.expected_modes):
+        raise ValueError(f"wrong runtime mode coverage: {sorted(grouped)}")
     report = {"artifact_type": "vnext_vllm_runtime_summary_v1", "modes": {}}
     for mode, rows in sorted(grouped.items()):
+        if args.expected_ranks and (len(rows) != args.expected_ranks or
+                                    {int(r["rank"]) for r in rows} != set(range(args.expected_ranks))):
+            raise ValueError(f"incomplete or duplicate rank coverage for {mode}")
         n = sum(int(r["n_states"]) for r in rows)
+        if args.expected_states and n != args.expected_states:
+            raise ValueError(f"wrong state denominator for {mode}: {n}")
         max_wall = max(float(r["wall_seconds"]) for r in rows)
         if n <= 0 or max_wall <= 0:
             raise ValueError(f"invalid benchmark accounting for {mode}")
