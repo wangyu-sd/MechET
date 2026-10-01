@@ -33,6 +33,13 @@ on:
       - "scripts/eval_natural_language_event_local.py"
       - "scripts/audit_stage2_v2_protocol_parity.py"
       - "scripts/run_taiji_stage2_v2_matched_valid256.sh"
+      - "scripts/run_vnext_autoresearch.py"
+      - "scripts/run_taiji_vnext_*.sh"
+      - "scripts/summarize_vnext_*.py"
+      - "scripts/benchmark_vnext_*.py"
+      - "configs/autoresearch/**"
+      - "configs/taiji/meteor_mechet_vnext_*.json"
+      - "tests/test_vnext_autoresearch.py"
       - "scripts/build_textbook_tool_sft.py"
       - "configs/agent/**"
       - "configs/knowledge/**"
@@ -116,7 +123,12 @@ jobs:
             scripts/train_tool_sft.py \
             scripts/run_natural_language_value_search.py \
             scripts/eval_natural_language_event_local.py \
-            scripts/audit_stage2_v2_protocol_parity.py
+            scripts/audit_stage2_v2_protocol_parity.py \
+            scripts/run_vnext_autoresearch.py \
+            scripts/summarize_vnext_pointer_search.py \
+            scripts/summarize_vnext_runtime_benchmark.py \
+            scripts/benchmark_vnext_structured_vllm.py \
+            scripts/benchmark_vnext_packing.py
       - name: Run runtime and regression tests
         run: |
           pytest -q \
@@ -129,11 +141,30 @@ jobs:
             tests/test_runtime_data_contract_repairs.py \
             tests/test_statistical_evaluation.py \
             tests/test_evaluation_seed_aggregation.py \
-            tests/test_stage2_v2_protocol_parity.py
+            tests/test_stage2_v2_protocol_parity.py \
+            tests/test_vnext_autoresearch.py
       - name: Validate Stage-II v2 launcher/config syntax
         run: |
           bash -n scripts/run_taiji_stage2_v2_matched_valid256.sh
           python -m json.tool configs/taiji/meteor_mechet_stage2_v2_matched_valid256_8a100_qy_20260929.json >/dev/null
+      - name: Validate vNext AutoResearch configs and launchers
+        run: |
+          bash -n scripts/run_taiji_vnext_pointer_search.sh
+          bash -n scripts/run_taiji_vnext_runtime_benchmark.sh
+          bash -n scripts/run_taiji_vnext_packing_benchmark.sh
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import yaml
+
+          campaign = yaml.safe_load(Path("configs/autoresearch/vnext_p0_20261001.yaml").read_text())
+          assert campaign["schema_version"] == 1
+          assert len(campaign["stages"]) == 5
+          for path in Path("configs/taiji").glob("meteor_mechet_vnext_*_20261001.json"):
+              payload = json.loads(path.read_text())
+              assert payload["init_cmd"] == "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK"
+              assert "__AUTORESEARCH_GIT_HEAD__" in payload["start_cmd"]
+          PY
       - name: Build root-import Tool-SFT supervision
         run: |
           mkdir -p /tmp/mechet-runtime

@@ -1,0 +1,124 @@
+schema_version: 1
+campaign: mechet_vnext_p0_pointer_recovery_20261001
+poll_seconds: 300
+# Recovery is frozen separately: the first smoke task failed before sampling
+# because its data gate used the history-v2 manifest schema for action-delta data.
+code_mirror: ${MECHET_AUTORESEARCH_CODE_MIRROR}
+taiji:
+  client: ${MECHET_TAIJI_CLIENT}
+  donor_task: ${MECHET_TAIJI_DONOR_TASK}
+
+stages:
+  - id: pointer_smoke16
+    kind: taiji
+    taiji_config: configs/taiji/meteor_mechet_vnext_pointer_smoke16_8a100_qy_20261001.json
+    task_flag_suffix: _repair1
+    config_replacements:
+      MechET-autoresearch-vnext-20261001: MechET-autoresearch-vnext-pointer-recovery-20261001
+      vnext_pointer_smoke16_20261001: vnext_pointer_smoke16_repair1_20261001
+    max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_smoke16_repair1_20261001
+    required_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_smoke16_repair1_20261001/paired_summary.json
+    metrics:
+      invalid_handles:
+        type: json
+        path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_smoke16_repair1_20261001/paired_summary.json
+        field: pointer_invalid_handles
+      delta_top1:
+        type: json
+        path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_smoke16_repair1_20261001/paired_summary.json
+        field: delta_top1
+    gates:
+      - {name: no_invalid_pointer_handles, lhs: invalid_handles, op: '==', rhs: 0}
+      - {name: no_catastrophic_smoke_regression, lhs: delta_top1, op: '>=' , rhs: -0.0625}
+
+  - id: pointer_valid256
+    kind: taiji
+    depends_on: [pointer_smoke16]
+    taiji_config: configs/taiji/meteor_mechet_vnext_pointer_valid256_8a100_qy_20261001.json
+    task_flag_suffix: _repair1
+    config_replacements:
+      MechET-autoresearch-vnext-20261001: MechET-autoresearch-vnext-pointer-recovery-20261001
+      vnext_pointer_valid256_20261001: vnext_pointer_valid256_repair1_20261001
+    max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid256_repair1_20261001
+    required_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid256_repair1_20261001/paired_summary.json
+    metrics:
+      invalid_handles:
+        type: json
+        path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid256_repair1_20261001/paired_summary.json
+        field: pointer_invalid_handles
+      delta_top1:
+        type: json
+        path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid256_repair1_20261001/paired_summary.json
+        field: delta_top1
+    gates:
+      - {name: no_invalid_pointer_handles, lhs: invalid_handles, op: '==', rhs: 0}
+      - {name: no_material_valid256_regression, lhs: delta_top1, op: '>=', rhs: -0.02}
+
+  - id: pointer_valid1319
+    kind: taiji
+    depends_on: [pointer_valid256]
+    taiji_config: configs/taiji/meteor_mechet_vnext_pointer_valid1319_8a100_qy_20261001.json
+    task_flag_suffix: _repair1
+    config_replacements:
+      MechET-autoresearch-vnext-20261001: MechET-autoresearch-vnext-pointer-recovery-20261001
+      vnext_pointer_valid1319_20261001: vnext_pointer_valid1319_repair1_20261001
+    max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid1319_repair1_20261001
+    required_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid1319_repair1_20261001/paired_summary.json
+    metrics:
+      invalid_handles:
+        type: json
+        path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid1319_repair1_20261001/paired_summary.json
+        field: pointer_invalid_handles
+      delta_top1:
+        type: json
+        path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid1319_repair1_20261001/paired_summary.json
+        field: delta_top1
+      delta_ci_low:
+        type: json
+        path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid1319_repair1_20261001/paired_summary.json
+        field: delta_top1_ci95_low
+      mcnemar_p:
+        type: json
+        path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid1319_repair1_20261001/paired_summary.json
+        field: mcnemar_top1.two_sided_exact_p
+    gates:
+      - {name: no_invalid_pointer_handles, lhs: invalid_handles, op: '==', rhs: 0}
+      - {name: positive_full_validation_direction, lhs: delta_top1, op: '>', rhs: 0}
+
+  - id: runtime_benchmark
+    kind: artifact
+    # Reuse the independent, unchanged runtime experiment from the first campaign.
+    required_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json
+    metrics:
+      graph_prefix_speedup: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json, field: modes.graph_prefix.speedup_vs_eager_prefix}
+      graph_prefix_exact: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json, field: modes.graph_prefix.exact_action_vs_eager_prefix}
+      inventory_parse_success: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json, field: modes.graph_inventory.parse_success}
+      inventory_handle_valid: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json, field: modes.graph_inventory.handle_valid}
+    gates:
+      - {name: cuda_graph_not_slower, lhs: graph_prefix_speedup, op: '>=', rhs: 1.0}
+      - {name: deterministic_graph_equivalence, lhs: graph_prefix_exact, op: '>=', rhs: 0.99}
+      - {name: structured_parse_reliable, lhs: inventory_parse_success, op: '>=', rhs: 0.99}
+      - {name: structured_handles_reliable, lhs: inventory_handle_valid, op: '>=', rhs: 0.99}
+
+  - id: packing_benchmark
+    kind: artifact
+    # Completed on the first campaign and intentionally not rerun.
+    required_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_packing_a100_20261001/summary.json
+    metrics:
+      loss_difference: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_packing_a100_20261001/summary.json, field: loss_absolute_difference}
+      packing_speedup: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_packing_a100_20261001/summary.json, field: block_packed_speedup_vs_independent}
+      packing_memory_ratio: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_packing_a100_20261001/summary.json, field: block_packed_peak_memory_ratio}
+    gates:
+      - {name: packed_loss_parity, lhs: loss_difference, op: '<=', rhs: 0.03}
+      - {name: packing_has_throughput_gain, lhs: packing_speedup, op: '>', rhs: 1.0}
