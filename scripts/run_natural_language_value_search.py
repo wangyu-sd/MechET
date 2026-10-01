@@ -12,6 +12,7 @@ import argparse
 from dataclasses import dataclass, field
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import sys
@@ -28,6 +29,10 @@ from mechet.endpoints import (
     split_precursor_endpoints,
     structural_exact,
 )
+from mechet.electron_pointer_runtime import (
+    FrozenPointerScorer,
+    action_pointer_log_likelihood_ratio,
+)
 from mechet.forward_expert import verify_electron_step
 from mechet.in_place_grounded_flow import (
     append_mapped_fragments_verbatim,
@@ -37,24 +42,37 @@ from mechet.in_place_grounded_flow import (
 )
 from mechet.natural_language_electron_flow import compile_event_arguments
 from mechet.natural_language_anchor_branch_rl import contains_unchanged_target
-from mechet.successor_value import SUCCESSOR_VALUE_SYSTEM, successor_value_prompt
+from mechet.successor_value import (
+    REACHABILITY_VALUE_SYSTEM, SUCCESSOR_VALUE_SYSTEM,
+    reachability_value_prompt, successor_value_prompt,
+)
 from mechet.trajectory_history import TrajectoryHistory
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS, _decision_row, _prompt
 from scripts.build_natural_language_state_value import VALUE_SYSTEM, value_prompt
 from scripts.eval_natural_language_event_local import MODEL_REVISION, prediction_call
 
 
-def read_selected(path: Path, size: int, seed: int) -> list[dict[str, Any]]:
+def read_selected(
+    path: Path, size: int, seed: int, *, unique_source: bool = False
+) -> list[dict[str, Any]]:
     """Streaming deterministic bottom-k selection."""
     import heapq
 
     heap: list[tuple[int, int, dict[str, Any]]] = []
+    seen_sources: set[str] = set()
     with path.open(encoding="utf-8") as handle:
         for line_number, line in enumerate(handle):
             if not line.strip():
                 continue
             row = json.loads(line)
-            digest = hashlib.sha256(f"{seed}:{row['id']}".encode()).digest()
+            identifier = str(row.get("source_id") or row["id"]) if unique_source else str(row["id"])
+            if unique_source:
+                if identifier in seen_sources:
+                    continue
+                if int((row.get("metadata") or {}).get("decision_index", 0)) != 0:
+                    raise ValueError(f"first row for {identifier} is not the product-start decision")
+                seen_sources.add(identifier)
+            digest = hashlib.sha256(f"{seed}:{identifier}".encode()).digest()
             key = int.from_bytes(digest, "big")
             item = (-key, -line_number, row)
             if len(heap) < size:
@@ -65,7 +83,36 @@ def read_selected(path: Path, size: int, seed: int) -> list[dict[str, Any]]:
 
 
 def visible(state: str) -> str:
-    return deterministic_unmapped_state(state).text
+    from rdkit import Chem
+
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(str(state or ""), params)
+    if mol is None:
+        raise ValueError("invalid molecular state")
+    maps = [atom.GetAtomMapNum() for atom in mol.GetAtoms()]
+    if all(value == 0 for value in maps):
+        return Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True)
+    if all(value > 0 for value in maps) and len(set(maps)) == len(maps):
+        return deterministic_unmapped_state(state).text
+    raise ValueError("partially or multiply mapped molecular state")
+
+
+def private_product_state(product: str) -> str:
+    """Map a product-only input deterministically, without reference reactants."""
+    from rdkit import Chem
+
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(str(product or ""), params)
+    if mol is None:
+        raise ValueError("invalid product SMILES")
+    maps = [atom.GetAtomMapNum() for atom in mol.GetAtoms()]
+    if all(value == 0 for value in maps):
+        return map_unmapped_fragment(product, first_map=1)[0]
+    if any(value <= 0 for value in maps) or len(set(maps)) != len(maps):
+        raise ValueError("partially or multiply mapped product")
+    return product
 
 
 def validate_matched_v2_args(args: argparse.Namespace) -> None:
@@ -91,7 +138,7 @@ def validate_matched_v2_args(args: argparse.Namespace) -> None:
 
 
 def validate_v2_adapter_manifest(
-    adapter: Path, *, compact_history: bool
+    adapter: Path, *, compact_history: bool, vnext: bool = False
 ) -> dict[str, Any]:
     """Require an adapter produced by the clean protocol-v2 SFT lineage."""
     manifest_path = adapter / "adapter_manifest.json"
@@ -109,8 +156,11 @@ def validate_v2_adapter_manifest(
             f"expected environment_revision={expected_environment}, "
             f"observed={manifest.get('environment_revision')}"
         )
-    if manifest.get("executor_revision") != "MECH_PROOF_v1_full_coverage_v4":
-        raise ValueError("matched protocol-v2 evaluation requires the frozen executor")
+    allowed_executors = {"MECH_PROOF_v1_full_coverage_v4"}
+    if vnext:
+        allowed_executors.add("mech_uspto31k_current_compiler_20260824")
+    if manifest.get("executor_revision") not in allowed_executors:
+        raise ValueError("protocol-v2 adapter executor lineage is not recognized")
     revision = str(manifest.get("base_model_revision") or "")
     if len(revision) != 40 or any(ch not in "0123456789abcdef" for ch in revision):
         raise ValueError("matched protocol-v2 adapter must pin an immutable base revision")
@@ -141,6 +191,7 @@ class Action:
     raw: str
     logprob: float
     tokens: int
+    pointer_score: float = 0.0
 
 
 @dataclass
@@ -154,14 +205,16 @@ class Node:
     logprob: float = 0.0
     tokens: int = 0
     value: float = 0.0
+    pointer_score: float = 0.0
     terminal: bool = False
 
     @property
     def policy_score(self) -> float:
         return self.logprob / max(self.tokens, 1)
 
-    def score(self, weight: float) -> float:
-        return self.policy_score + weight * self.value
+    def score(self, weight: float, pointer_weight: float = 0.0) -> float:
+        pointer_mean = self.pointer_score / max(len(self.actions), 1)
+        return self.policy_score + weight * self.value + pointer_weight * pointer_mean
 
 
 class Runtime:
@@ -204,10 +257,18 @@ class Runtime:
             )
         self.model.eval()
         self.device = next(self.model.parameters()).device
+        self.pointer_invalid_handles = 0
+        self.pointer = (
+            FrozenPointerScorer(
+                Path(args.pointer_head), model=self.model,
+                tokenizer=self.tokenizer, adapter=Path(args.policy_adapter),
+            )
+            if str(args.pointer_head or "").strip() else None
+        )
         self.value_kind = str(args.value_kind)
         self.label_ids: dict[str, list[int]] = {}
         if self.has_value:
-            labels = "PN" if self.value_kind == "successor_pn" else "ABC"
+            labels = "PN" if self.value_kind in {"successor_pn", "reachability_pn"} else "ABC"
             self.label_ids = {
                 label: self.tokenizer(label, add_special_tokens=False)["input_ids"]
                 for label in labels
@@ -251,7 +312,7 @@ class Runtime:
                 render_qwen_sft_tool_prefix(
                     self.tokenizer, messages, tools=TOOLS
                 )
-                if self.args.matched_v2
+                if self.args.matched_v2 or self.args.vnext_v2_prefix
                 else render_chat(
                     self.tokenizer,
                     messages,
@@ -266,18 +327,27 @@ class Runtime:
         )
         width = int(encoded["input_ids"].shape[1])
         encoded = {key: value.to(self.device) for key, value in encoded.items()}
+        pointer_logits = (
+            [
+                self.pointer.logits(prompt, messages[-1]["content"])
+                for prompt, messages in zip(prompts, message_sets, strict=True)
+            ]
+            if self.pointer is not None else []
+        )
         with torch.inference_mode():
             generation = {
                 "max_new_tokens": max_new_tokens,
-                "do_sample": not self.args.matched_v2,
                 "num_return_sequences": candidates,
                 "return_dict_in_generate": True,
                 "output_scores": True,
                 "pad_token_id": self.tokenizer.pad_token_id,
                 "eos_token_id": self.tokenizer.eos_token_id,
             }
-            if not self.args.matched_v2:
-                generation.update({"temperature": 0.7, "top_p": 0.95})
+            generation.update(generation_sampling_policy(
+                matched_v2=bool(self.args.matched_v2),
+                vnext_v2_prefix=bool(self.args.vnext_v2_prefix),
+                candidates=candidates,
+            ))
             output = self.model.generate(**encoded, **generation)
         scores = self.model.compute_transition_scores(
             output.sequences, output.scores, normalize_logits=True
@@ -300,6 +370,17 @@ class Runtime:
                     continue
                 if prompt_kind == 1 and name != "apply_electron_flow":
                     continue
+            pointer_score = 0.0
+            if self.pointer is not None:
+                pointer_output = pointer_logits[prompt_kind]
+                observation, src_logits, sink_logits = pointer_output[:3]
+                pointer_score = action_pointer_log_likelihood_ratio(
+                    src_logits, sink_logits, observation, name, arguments,
+                    pair_logits=pointer_output[3] if len(pointer_output) > 3 else None,
+                )
+                if not math.isfinite(pointer_score):
+                    self.pointer_invalid_handles += 1
+                    continue
             signature = json.dumps([name, arguments], sort_keys=True, ensure_ascii=False)
             if signature in seen:
                 continue
@@ -312,6 +393,7 @@ class Runtime:
                     raw=raw,
                     logprob=float(scores[index, :stop].sum().item()),
                     tokens=token_count,
+                    pointer_score=pointer_score,
                 )
             )
         return actions
@@ -323,6 +405,7 @@ class Runtime:
         *,
         current_states: list[str] | None = None,
         terminal: bool = False,
+        remaining_decisions: int | None = None,
         batch_size: int = 16,
     ) -> list[float]:
         if not self.has_value:
@@ -330,25 +413,38 @@ class Runtime:
         torch = self.torch
         self.model.set_adapter("value")
         output_values: list[float] = []
-        labels = "PN" if self.value_kind == "successor_pn" else "ABC"
+        labels = "PN" if self.value_kind in {"successor_pn", "reachability_pn"} else "ABC"
         label_tokens = [self.label_ids[label][0] for label in labels]
-        if self.value_kind == "successor_pn" and (
+        if self.value_kind in {"successor_pn", "reachability_pn"} and (
             current_states is None or len(current_states) != len(states)
         ):
             raise ValueError("successor critic requires one parent state per successor")
+        if self.value_kind == "reachability_pn" and remaining_decisions is None:
+            raise ValueError("reachability critic requires remaining decision budget")
         for start in range(0, len(states), batch_size):
             batch_states = states[start : start + batch_size]
-            if self.value_kind == "successor_pn":
+            if self.value_kind in {"successor_pn", "reachability_pn"}:
                 batch_parents = current_states[start : start + batch_size]
                 prompts = [
                     render_chat(
                         self.tokenizer,
                         [
-                            {"role": "system", "content": SUCCESSOR_VALUE_SYSTEM},
+                            {"role": "system", "content": (
+                                REACHABILITY_VALUE_SYSTEM if self.value_kind == "reachability_pn"
+                                else SUCCESSOR_VALUE_SYSTEM
+                            )},
                             {
                                 "role": "user",
-                                "content": successor_value_prompt(
-                                    target, parent, state, terminal=terminal
+                                "content": (
+                                    reachability_value_prompt(
+                                        target, parent, state,
+                                        terminal=terminal,
+                                        remaining_decisions=int(remaining_decisions),
+                                    )
+                                    if self.value_kind == "reachability_pn"
+                                    else successor_value_prompt(
+                                        target, parent, state, terminal=terminal
+                                    )
                                 ),
                             },
                         ],
@@ -377,7 +473,7 @@ class Runtime:
             with torch.inference_mode():
                 logits = self.model(**encoded).logits[:, -1, label_tokens].float()
                 logp = torch.log_softmax(logits, dim=-1)
-                if self.value_kind == "successor_pn":
+                if self.value_kind in {"successor_pn", "reachability_pn"}:
                     useful = logp[:, 0] - logp[:, 1]
                 else:
                     useful = (
@@ -475,6 +571,7 @@ def execute(
         imported=imported,
         logprob=node.logprob + action.logprob,
         tokens=node.tokens + action.tokens,
+        pointer_score=node.pointer_score + action.pointer_score,
         terminal=terminal,
     ), ""
 
@@ -520,14 +617,41 @@ def policy_prompt(
     )
 
 
+def select_successful_terminals(terminals: list[Node], structural_match, expected_full: str):
+    """Keep full-endpoint teachers separate from structural-only hits."""
+    structural = next((node for node in terminals if structural_match(node)), None)
+    full = next(
+        (node for node in terminals if node.terminal and visible(node.state) == expected_full),
+        None,
+    )
+    return structural, full
+
+
+def generation_sampling_policy(*, matched_v2: bool, vnext_v2_prefix: bool, candidates: int) -> dict:
+    """K=1 vNext is genuinely greedy; K>1 remains stochastic expansion."""
+    if candidates < 1:
+        raise ValueError("candidate count must be positive")
+    greedy = matched_v2 or (vnext_v2_prefix and candidates == 1)
+    return {"do_sample": False} if greedy else {
+        "do_sample": True, "temperature": 0.7, "top_p": 0.95,
+    }
+
+
 def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) -> dict[str, Any]:
-    target_mapped = str(row["target_smiles"])
+    pointer_rejected_before = runtime.pointer_invalid_handles
+    if getattr(args, "vnext_v2_prefix", False) and not mapped_atom_numbers(str(row["target_smiles"])):
+        raise ValueError(
+            "vNext matched search requires the frozen privately mapped trace source; "
+            "unmapped decision rows can reassign stereochemical graph addresses"
+        )
+    target_mapped = private_product_state(str(row["target_smiles"]))
     target = visible(target_mapped)
     expected_full_mapped = str(
         row.get("full_precursor_state") or row["expected_precursor"]
     )
     expected_full = visible(expected_full_mapped)
     expected_structural = reference_structural_precursor(dict(row))
+    has_structural_reference = bool(expected_structural)
     root = Node(
         target=target,
         state=target_mapped,
@@ -563,8 +687,9 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
             terminal_values = runtime.values(
                 target,
                 [child.state for child in new_terminals],
-                current_states=[child.actions[-1]["state_before"] for child in new_terminals],
-                terminal=True,
+            current_states=[child.actions[-1]["state_before"] for child in new_terminals],
+            terminal=True,
+            remaining_decisions=args.max_decisions - depth - 1,
             )
             for child, value in zip(new_terminals, terminal_values, strict=True):
                 child.value = value
@@ -583,30 +708,36 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
             target,
             [child.state for child in children],
             current_states=[child.actions[-1]["state_before"] for child in children],
+            remaining_decisions=args.max_decisions - depth - 1,
         )
         for child, value in zip(children, values, strict=True):
             child.value = value
         width = args.early_beam if depth < args.early_depth else args.late_beam
         beam = sorted(
             children,
-            key=lambda child: child.score(args.value_weight),
+            key=lambda child: child.score(args.value_weight, args.pointer_weight),
             reverse=True,
         )[:width]
-    terminals.sort(key=lambda node: node.score(args.value_weight), reverse=True)
+    terminals.sort(key=lambda node: node.score(args.value_weight, args.pointer_weight), reverse=True)
     top = terminals[0] if terminals else (beam[0] if beam else root)
     def is_structural_match(node: Node) -> bool:
         if not node.terminal:
             return False
+        if not has_structural_reference:
+            return visible(node.state) == expected_full
         predicted = split_precursor_endpoints(node.state, target_mapped).structural
         return structural_exact(predicted, expected_structural)
 
     any_exact = any(is_structural_match(node) for node in terminals)
     top_exact = is_structural_match(top)
     top_full_exact = bool(top.terminal and visible(top.state) == expected_full)
-    successful = next((node for node in terminals if is_structural_match(node)), None)
+    successful, successful_full = select_successful_terminals(
+        terminals, is_structural_match, expected_full
+    )
+    successful_full_exact = successful_full is not None
     top_structural = (
         visible(split_precursor_endpoints(top.state, target_mapped).structural)
-        if top.terminal
+        if top.terminal and has_structural_reference
         else ""
     )
     return {
@@ -614,7 +745,8 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         "source_id": str(row["source_id"]),
         "target": target,
         "expected_precursor": expected_full,
-        "expected_structural_precursor": visible(expected_structural),
+        "expected_structural_precursor": visible(expected_structural) if has_structural_reference else "",
+        "endpoint_metric": "structural" if has_structural_reference else "full_unmapped",
         "top_precursor": visible(top.state),
         "top_structural_precursor": top_structural,
         "top_terminal": top.terminal,
@@ -625,10 +757,16 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         "n_terminals": len(terminals),
         "top_policy_score": top.policy_score,
         "top_value": top.value,
+        "top_pointer_score": top.pointer_score,
+        "pointer_invalid_handles": runtime.pointer_invalid_handles - pointer_rejected_before,
         "n_actions": len(top.actions),
         "rejected": rejected,
         "top_actions": top.actions,
-        "successful_actions": successful.actions if successful is not None else [],
+        "successful_actions": (
+            successful_full.actions if successful_full is not None
+            else successful.actions if successful is not None else []
+        ),
+        "successful_full_exact": successful_full_exact,
     }
 
 
@@ -666,9 +804,11 @@ def main() -> int:
     parser.add_argument("--policy-adapter", required=True)
     parser.add_argument("--value-adapter", default="")
     parser.add_argument(
-        "--value-kind", choices=["state_abc", "successor_pn"], default="state_abc"
+        "--value-kind", choices=["state_abc", "successor_pn", "reachability_pn"], default="state_abc"
     )
     parser.add_argument("--sample-reactions", type=int, default=128)
+    parser.add_argument("--reaction-level", action="store_true",
+                        help="sample one product-start row per source reaction")
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--branching", type=int, default=4)
     parser.add_argument("--early-beam", type=int, default=4)
@@ -688,6 +828,10 @@ def main() -> int:
     )
     parser.add_argument("--max-new-tokens", type=int, default=384)
     parser.add_argument("--value-weight", type=float, default=0.20)
+    parser.add_argument("--pointer-head", default="")
+    parser.add_argument("--pointer-weight", type=float, default=0.0)
+    parser.add_argument("--vnext-v2-prefix", action="store_true")
+    parser.add_argument("--search-no-value", action="store_true")
     parser.add_argument(
         "--no-4bit",
         action="store_true",
@@ -718,16 +862,33 @@ def main() -> int:
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
     validate_matched_v2_args(args)
-    if not args.matched_v2 and not str(args.value_adapter or "").strip():
-        parser.error("--value-adapter is required unless --matched-v2 is used")
+    if args.pointer_head and not args.no_4bit:
+        parser.error("the BF16-trained pointer requires --no-4bit")
+    if args.pointer_head and (args.legacy_dual_prompt or not args.vnext_v2_prefix):
+        parser.error("the pointer requires a unified --vnext-v2-prefix prompt")
+    if args.vnext_v2_prefix and (args.legacy_dual_prompt or not args.compact_history):
+        parser.error("vNext v2 prefix requires unified compact-history prompts")
+    if args.search_no_value and (args.value_adapter or abs(args.value_weight) > 1e-12):
+        parser.error("--search-no-value requires no critic and --value-weight 0")
+    if not args.matched_v2 and not args.search_no_value and not str(args.value_adapter or "").strip():
+        parser.error("--value-adapter is required unless --matched-v2 or --search-no-value")
     if args.matched_v2:
         validate_v2_adapter_manifest(
             Path(args.policy_adapter), compact_history=args.compact_history
         )
+    elif args.vnext_v2_prefix:
+        validate_v2_adapter_manifest(
+            Path(args.policy_adapter), compact_history=True, vnext=True
+        )
     rank = int(os.environ.get("RANK", "0"))
     world = int(os.environ.get("WORLD_SIZE", "1"))
     local_rank = int(os.environ.get("LOCAL_RANK", str(rank)))
-    rows = read_selected(args.data, args.sample_reactions, args.seed)
+    if args.reaction_level and not args.vnext_v2_prefix:
+        parser.error("reaction-level vNext search requires --vnext-v2-prefix")
+    rows = read_selected(
+        args.data, args.sample_reactions, args.seed,
+        unique_source=args.reaction_level,
+    )
     selected = [row for index, row in enumerate(rows) if index % world == rank]
     args.output.mkdir(parents=True, exist_ok=True)
     output = args.output / f"results.shard-{rank:02d}-of-{world:02d}.jsonl"
