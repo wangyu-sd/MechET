@@ -19,7 +19,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
-from mechet.electron_pointer import action_pointer_targets, candidate_keys, parse_pointer_example
+from mechet.electron_pointer import (
+    UnsupportedPointerEvent,
+    action_pointer_targets,
+    candidate_keys,
+    parse_pointer_example,
+)
 from mechet.vnext_structured_actions import parse_structured_action, structured_action_schema
 from scripts.eval_natural_language_event_local import prediction_call
 
@@ -38,7 +43,10 @@ def fixed_examples(path: Path, *, count: int, seed: int, rank: int, world: int):
     with path.open() as handle:
         for line in handle:
             row = json.loads(line)
-            example = parse_pointer_example(row)
+            try:
+                example = parse_pointer_example(row)
+            except UnsupportedPointerEvent:
+                continue
             if example is None:
                 continue
             digest = hashlib.sha256(f"{seed}:{example.row_id}".encode()).digest()
