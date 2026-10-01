@@ -326,7 +326,7 @@ def taiji_rows(client: Path, task: str) -> list[dict[str, Any]]:
         check=False,
     )
     if result.returncode != 0:
-        return []
+        raise RuntimeError(f"Taiji instance_list failed (exit {result.returncode})")
     rows = []
     for line in result.stdout.splitlines():
         ids = re.findall(r"\b[0-9a-f]{32}\b", line, re.I)
@@ -344,8 +344,12 @@ def sync_code_mirror(repo: Path, mirror: Path, sha: str) -> None:
     if mirror.resolve() == repo.resolve():
         if git_head(repo) != sha:
             raise ValueError("campaign repository moved away from frozen git head")
+        if subprocess.run(["git", "status", "--porcelain"], cwd=repo,
+                          capture_output=True, text=True, check=True).stdout.strip():
+            raise ValueError("campaign repository has uncommitted changes")
         return
-    if not mirror.exists():
+    created = not mirror.exists()
+    if created:
         mirror.parent.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
             ["git", "clone", "--no-checkout", str(repo), str(mirror)],
@@ -355,14 +359,13 @@ def sync_code_mirror(repo: Path, mirror: Path, sha: str) -> None:
             raise RuntimeError(f"failed to create code mirror: {result.stderr.strip()}")
     if not (mirror / ".git").exists():
         raise ValueError(f"code mirror is not a git clone: {mirror}")
-    fetch = subprocess.run(
-        ["git", "fetch", str(repo), sha],
-        cwd=mirror, capture_output=True, text=True, check=False,
-    )
-    if fetch.returncode != 0:
-        raise RuntimeError(f"failed to fetch frozen commit into code mirror: {fetch.stderr.strip()}")
-    subprocess.run(["git", "reset", "--hard", sha], cwd=mirror, check=True)
-    subprocess.run(["git", "clean", "-fd"], cwd=mirror, check=True)
+    if created:
+        subprocess.run(["git", "checkout", "--detach", sha], cwd=mirror, check=True)
+    elif git_head(mirror) != sha:
+        raise ValueError(f"existing code mirror has a different commit: {mirror}")
+    if subprocess.run(["git", "status", "--porcelain"], cwd=mirror,
+                      capture_output=True, text=True, check=True).stdout.strip():
+        raise ValueError(f"code mirror has uncommitted changes: {mirror}")
     if git_head(mirror) != sha:
         raise RuntimeError("code mirror did not land on frozen campaign commit")
 
@@ -509,7 +512,11 @@ def process_stage(
                 return False
             submit_taiji(stage, campaign, record, repo, workdir)
             return True
-        platform = poll_taiji(stage, campaign, record)
+        try:
+            platform = poll_taiji(stage, campaign, record)
+        except RuntimeError as exc:
+            append_history(record, "taiji_observation_failed", error=str(exc))
+            return True
         record["platform_state"] = platform
         append_history(record, "taiji_poll", platform_state=platform)
         if platform == "PLATFORM_SUCCESS":
@@ -563,7 +570,7 @@ def summary(campaign: Mapping[str, Any], ledger: Mapping[str, Any]) -> dict[str,
         "stages": stages,
         "complete": all(item["state"] in TERMINAL for item in stages),
         "all_passed_or_skipped": all(
-            item["state"] in {"PASSED", "SKIPPED", "BLOCKED"} for item in stages
+            item["state"] in {"PASSED", "SKIPPED"} for item in stages
         ),
     }
 

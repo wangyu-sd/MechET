@@ -17,6 +17,10 @@ ANNOTATED = re.compile(r"^ANNOTATED CURRENT STATE: (.+)$", re.MULTILINE)
 PHRASE_ATOMS = re.compile(r"A(\d+)")
 
 
+class UnsupportedPointerEvent(ValueError):
+    """Electron-flow label outside the frozen pointer candidate universe."""
+
+
 @dataclass(frozen=True)
 class PointerObservation:
     row_id: str

@@ -5,7 +5,7 @@ repo=${MECHET_AUTORESEARCH_CODE_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET-au
 artifact_root=${MECHET_ARTIFACT_ROOT:-/aaa/fionafyang/buddy1/whaleywang/MechET}
 source_data=${VNEXT_SOURCE_DATA:-$artifact_root/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/valid.jsonl}
 adapter=${VNEXT_POLICY_ADAPTER:-$artifact_root/outputs/agent/mech_uspto31k_nl_history_v2_qwen3_8b_h20_seed17_20260922}
-pointer=${VNEXT_POINTER_HEAD:-$artifact_root/outputs/agent/pr71_conditional_pointer_31k_stage2_8a100_qy_20261001/pointer_head_epoch1.pt}
+pointer=${VNEXT_POINTER_HEAD:-$artifact_root/outputs/agent/pr71_conditional_pointer_31k_stage2_8a100_20261001/pointer_head_epoch1.pt}
 output_base=${VNEXT_OUTPUT_BASE:?VNEXT_OUTPUT_BASE is required}
 sample_reactions=${VNEXT_SAMPLE_REACTIONS:?VNEXT_SAMPLE_REACTIONS is required}
 model_cache=${VNEXT_MODEL_CACHE:-/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache}
@@ -46,9 +46,9 @@ from pathlib import Path
 source = Path("$source_data")
 manifest = json.loads((source.parent / "manifest.json").read_text())
 assert source.is_file() and Path("$pointer").is_file()
-assert manifest["splits"]["valid"]["rows"] == 1319
-assert manifest["validation_passed"] and manifest["tokenizer_audit_passed"]
-assert hashlib.sha256(source.read_bytes()).hexdigest() == manifest["splits"]["valid"]["sha256"]
+assert manifest["splits"]["valid"]["reactions"] == 1319
+assert manifest["status"] == "validated_trace_view" and manifest["failed_actions"] == 0
+assert hashlib.sha256(source.read_bytes()).hexdigest() == manifest["splits"]["valid"]["output_sha256"]
 print({"phase": "data_gate", "sample_reactions": int("$sample_reactions")}, flush=True)
 PY
 

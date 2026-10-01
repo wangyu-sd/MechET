@@ -141,3 +141,35 @@ def test_scientific_gate_failure_is_not_infrastructure_retry(tmp_path):
     MODULE.finalize_scientific_stage(stage, record)
     assert record["state"] == "SCIENTIFIC_STOP"
     assert record["attempt"] == 1
+
+
+def test_existing_code_mirror_is_never_reset_or_cleaned(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=repo, check=True)
+    (repo / "tracked").write_text("frozen")
+    subprocess.run(["git", "add", "tracked"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "frozen"], cwd=repo, check=True)
+    sha = MODULE.git_head(repo)
+    mirror = tmp_path / "mirror"
+    MODULE.sync_code_mirror(repo, mirror, sha)
+    assert (mirror / "tracked").read_text() == "frozen"
+
+    (mirror / "private-note").write_text("preserve")
+    with pytest.raises(ValueError, match="uncommitted changes"):
+        MODULE.sync_code_mirror(repo, mirror, sha)
+    assert (mirror / "private-note").read_text() == "preserve"
+
+
+def test_taiji_query_failure_does_not_look_like_pending(monkeypatch, tmp_path):
+    class Failed:
+        returncode = 2
+        stdout = ""
+
+    monkeypatch.setattr(MODULE.subprocess, "run", lambda *args, **kwargs: Failed())
+    with pytest.raises(RuntimeError, match="instance_list failed"):
+        MODULE.taiji_rows(tmp_path / "client", "meteor_task")

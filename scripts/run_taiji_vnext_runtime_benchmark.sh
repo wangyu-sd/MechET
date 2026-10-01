@@ -3,7 +3,7 @@ set -Eeuo pipefail
 
 repo=${MECHET_AUTORESEARCH_CODE_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET-autoresearch-vnext-20261001}
 artifact_root=${MECHET_ARTIFACT_ROOT:-/aaa/fionafyang/buddy1/whaleywang/MechET}
-data=${VNEXT_RUNTIME_DATA:-$artifact_root/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/valid.jsonl}
+data=${VNEXT_RUNTIME_DATA:-$artifact_root/data/mech_uspto_31k_natural_language_history_v2/valid.jsonl}
 adapter=${VNEXT_POLICY_ADAPTER:-$artifact_root/outputs/agent/mech_uspto31k_nl_history_v2_qwen3_8b_h20_seed17_20260922}
 output=${VNEXT_RUNTIME_OUTPUT:-$artifact_root/outputs/autoresearch/vnext_runtime_a100_20261001}
 model_cache=${VNEXT_MODEL_CACHE:-/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache}
@@ -35,6 +35,16 @@ PY
 wheels=$(mktemp -d /tmp/mechet_vnext_runtime_wheels.XXXXXX)
 python -m pip install --quiet --no-deps --target "$wheels"   "$artifact_root/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl"
 export PYTHONPATH="$wheels:$PYTHONPATH"
+
+python - <<PY
+import hashlib, json
+from pathlib import Path
+source = Path("$data")
+manifest = json.loads((source.parent / "manifest.json").read_text())
+assert source.is_file() and manifest["splits"]["valid"]["event_decisions"] >= 128
+assert hashlib.sha256(source.read_bytes()).hexdigest() == manifest["splits"]["valid"]["output_sha256"]
+print({"phase": "data_gate", "event_decisions": manifest["splits"]["valid"]["event_decisions"]}, flush=True)
+PY
 
 [[ -f "$ceph_vllm_runtime/.mechet_vllm_runtime_complete" ]] || {
   echo "[vnext-runtime] missing pinned vLLM runtime" >&2; exit 2;
