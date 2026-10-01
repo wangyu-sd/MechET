@@ -213,3 +213,24 @@ def test_runtime_rankfix_preserves_scientific_gates(monkeypatch):
     for old, new in current["config_replacements"].items():
         config = MODULE.replace_token(config, old, new)
     assert "vnext-runtime-rankfix" in config["start_cmd"]
+
+
+def test_runtime_cpufix_preserves_scientific_gates_and_caps_worker_threads(monkeypatch):
+    monkeypatch.setenv("MECHET_AUTORESEARCH_CODE_MIRROR", "/tmp/runtime-cpufix-mirror")
+    monkeypatch.setenv("MECHET_TAIJI_CLIENT", "/tmp/taiji-client")
+    monkeypatch.setenv("MECHET_TAIJI_DONOR_TASK", "donor-success")
+    original, _ = MODULE.load_campaign(ROOT / "configs/autoresearch/vnext_p0_20261001.yaml")
+    cpufix, _ = MODULE.load_campaign(ROOT / "configs/autoresearch/vnext_runtime_cpufix_20261001.yaml")
+    prior = next(stage for stage in original["stages"] if stage["id"] == "runtime_benchmark")
+    current = cpufix["stages"][0]
+    assert current["gates"] == prior["gates"]
+    assert current["metrics"] == prior["metrics"]
+    assert current["task_flag_suffix"] == "_cpufix1"
+    config = json.loads((ROOT / current["taiji_config"]).read_text())
+    for old, new in current["config_replacements"].items():
+        config = MODULE.replace_token(config, old, new)
+    assert "vnext-runtime-cpufix" in config["start_cmd"]
+    launcher = (ROOT / "scripts/run_taiji_vnext_runtime_benchmark.sh").read_text()
+    assert 'OMP_NUM_THREADS="${VNEXT_CPU_THREADS_PER_WORKER:-2}"' in launcher
+    assert 'MKL_NUM_THREADS="$OMP_NUM_THREADS"' in launcher
+    assert 'OPENBLAS_NUM_THREADS="$OMP_NUM_THREADS"' in launcher
