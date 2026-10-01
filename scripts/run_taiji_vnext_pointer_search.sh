@@ -46,9 +46,9 @@ from pathlib import Path
 source = Path("$source_data")
 manifest = json.loads((source.parent / "manifest.json").read_text())
 assert source.is_file() and Path("$pointer").is_file()
-assert manifest["splits"]["valid"]["reactions"] == 1319
-assert manifest["status"] == "validated_trace_view" and manifest["failed_actions"] == 0
-assert hashlib.sha256(source.read_bytes()).hexdigest() == manifest["splits"]["valid"]["output_sha256"]
+assert manifest["splits"]["valid"]["rows"] == 1319
+assert manifest["validation_passed"] and manifest["tokenizer_audit_passed"]
+assert hashlib.sha256(source.read_bytes()).hexdigest() == manifest["splits"]["valid"]["sha256"]
 print({"phase": "data_gate", "sample_reactions": int("$sample_reactions")}, flush=True)
 PY
 

@@ -383,8 +383,10 @@ def submit_taiji(
         sync_code_mirror(repo, Path(str(campaign["code_mirror"])), git_head(repo))
     config = json.loads(base_config.read_text())
     config = replace_token(config, "__AUTORESEARCH_GIT_HEAD__", git_head(repo))
+    for old, new in (stage.get("config_replacements") or {}).items():
+        config = replace_token(config, str(old), str(new))
     attempt = int(record["attempt"]) + 1
-    base_flag = str(config["task_flag"])
+    base_flag = str(config["task_flag"]) + str(stage.get("task_flag_suffix") or "")
     task_flag = f"{base_flag}_ar{attempt}"
     config["task_flag"] = task_flag
     rendered = workdir / "taiji" / f"{stage['id']}.attempt{attempt}.json"

@@ -65,6 +65,22 @@ The controller fails closed if either the campaign file hash or git commit chang
 
 ## P0 campaign
 
+### 2026-10-01 pointer smoke recovery
+
+The first `pointer_smoke16` POD stopped at its data gate before sampling:
+the job reads the frozen action-delta reaction file, but its gate had been
+changed to expect history-v2 decision-manifest fields. The original ledger and
+failed task remain intact. `configs/autoresearch/vnext_p0_pointer_recovery_20261001.yaml`
+pins a corrected commit, new pointer task flags and output directories, and
+the **unchanged** 16 → 256 → 1,319 scientific thresholds. It imports the
+original runtime/packing reports as artifact stages instead of rerunning those
+GPU jobs. The packing report failed its throughput gate; that result remains
+visible as `SCIENTIFIC_STOP` in the recovery ledger.
+
+Use a distinct `MECHET_AUTORESEARCH_CODE_MIRROR` ending in
+`MechET-autoresearch-vnext-pointer-recovery-20261001` for this recovery. Do not
+resume the original pointer stage against its frozen, incorrect code commit.
+
 ### Pointer arm
 
 The pointer arm uses the same Stage-II policy, current deterministic executor, product-only model-visible information boundary, and matched K=4 proposal budget.
