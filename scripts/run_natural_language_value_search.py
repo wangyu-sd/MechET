@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from mechet.assistant_masking import render_chat
+from mechet.assistant_masking import render_chat, render_qwen_sft_tool_prefix
 from mechet.endpoints import (
     reference_structural_precursor,
     split_precursor_endpoints,
@@ -66,6 +66,55 @@ def read_selected(path: Path, size: int, seed: int) -> list[dict[str, Any]]:
 
 def visible(state: str) -> str:
     return deterministic_unmapped_state(state).text
+
+
+def validate_matched_v2_args(args: argparse.Namespace) -> None:
+    """Fail closed unless inference matches the frozen protocol-v2 policy."""
+    if not bool(getattr(args, "matched_v2", False)):
+        return
+    if bool(getattr(args, "legacy_dual_prompt", False)):
+        raise ValueError("matched v2 forbids the legacy dual prompt")
+    if int(getattr(args, "max_decisions", 0)) != 40:
+        raise ValueError("matched v2 requires the frozen 40 decisions budget")
+    if int(getattr(args, "max_imports", 0)) != 32:
+        raise ValueError("matched v2 requires the frozen 32 imports budget")
+    if int(getattr(args, "branching", 0)) != 1:
+        raise ValueError("matched v2 pure-policy evaluation requires branching=1")
+    if int(getattr(args, "early_beam", 0)) != 1 or int(
+        getattr(args, "late_beam", 0)
+    ) != 1:
+        raise ValueError("matched v2 pure-policy evaluation requires beam width 1")
+    if str(getattr(args, "value_adapter", "") or "") or abs(
+        float(getattr(args, "value_weight", 0.0) or 0.0)
+    ) > 1e-12:
+        raise ValueError("matched v2 pure-policy evaluation forbids a value critic")
+
+
+def validate_v2_adapter_manifest(
+    adapter: Path, *, compact_history: bool
+) -> dict[str, Any]:
+    """Require an adapter produced by the clean protocol-v2 SFT lineage."""
+    manifest_path = adapter / "adapter_manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"adapter manifest is missing: {manifest_path}")
+    manifest = dict(json.loads(manifest_path.read_text(encoding="utf-8")))
+    expected_environment = (
+        "natural_language_electron_event_history_v2"
+        if compact_history
+        else "natural_language_electron_event_v2"
+    )
+    if manifest.get("environment_revision") != expected_environment:
+        raise ValueError(
+            "matched protocol-v2 evaluation refuses this adapter: "
+            f"expected environment_revision={expected_environment}, "
+            f"observed={manifest.get('environment_revision')}"
+        )
+    if manifest.get("executor_revision") != "MECH_PROOF_v1_full_coverage_v4":
+        raise ValueError("matched protocol-v2 evaluation requires the frozen executor")
+    revision = str(manifest.get("base_model_revision") or "")
+    if len(revision) != 40 or any(ch not in "0123456789abcdef" for ch in revision):
+        raise ValueError("matched protocol-v2 adapter must pin an immutable base revision")
+    return manifest
 
 
 def normal_smiles(value: str) -> str:
@@ -148,17 +197,25 @@ class Runtime:
         self.model = PeftModel.from_pretrained(
             base, args.policy_adapter, adapter_name="policy", is_trainable=False
         )
-        self.model.load_adapter(args.value_adapter, adapter_name="value", is_trainable=False)
+        self.has_value = bool(str(args.value_adapter or "").strip())
+        if self.has_value:
+            self.model.load_adapter(
+                args.value_adapter, adapter_name="value", is_trainable=False
+            )
         self.model.eval()
         self.device = next(self.model.parameters()).device
         self.value_kind = str(args.value_kind)
-        labels = "PN" if self.value_kind == "successor_pn" else "ABC"
-        self.label_ids = {
-            label: self.tokenizer(label, add_special_tokens=False)["input_ids"]
-            for label in labels
-        }
-        if any(len(ids) != 1 for ids in self.label_ids.values()):
-            raise RuntimeError(f"value labels must each be one token: {self.label_ids}")
+        self.label_ids: dict[str, list[int]] = {}
+        if self.has_value:
+            labels = "PN" if self.value_kind == "successor_pn" else "ABC"
+            self.label_ids = {
+                label: self.tokenizer(label, add_special_tokens=False)["input_ids"]
+                for label in labels
+            }
+            if any(len(ids) != 1 for ids in self.label_ids.values()):
+                raise RuntimeError(
+                    f"value labels must each be one token: {self.label_ids}"
+                )
 
     def proposals(
         self,
@@ -173,26 +230,36 @@ class Runtime:
         target = node.target
         state = node.state
         inventory_modes = [False, True] if self.args.legacy_dual_prompt else [True]
-        prompts = [
-            render_chat(
-                self.tokenizer,
-                [
-                    {"role": "system", "content": SYSTEM},
-                    {
-                        "role": "user",
-                        "content": policy_prompt(
-                            target,
-                            state,
-                            include_inventory=include_inventory,
-                            actions=node.actions,
-                            compact_history=compact_history,
-                        ),
-                    },
-                ],
-                tools=TOOLS,
-                add_generation_prompt=True,
-            )
+        message_sets = [
+            [
+                {"role": "system", "content": SYSTEM},
+                {
+                    "role": "user",
+                    "content": policy_prompt(
+                        target,
+                        state,
+                        include_inventory=include_inventory,
+                        actions=node.actions,
+                        compact_history=compact_history,
+                    ),
+                },
+            ]
             for include_inventory in inventory_modes
+        ]
+        prompts = [
+            (
+                render_qwen_sft_tool_prefix(
+                    self.tokenizer, messages, tools=TOOLS
+                )
+                if self.args.matched_v2
+                else render_chat(
+                    self.tokenizer,
+                    messages,
+                    tools=TOOLS,
+                    add_generation_prompt=True,
+                )
+            )
+            for messages in message_sets
         ]
         encoded = self.tokenizer(
             prompts, return_tensors="pt", padding=True, add_special_tokens=False
@@ -200,18 +267,18 @@ class Runtime:
         width = int(encoded["input_ids"].shape[1])
         encoded = {key: value.to(self.device) for key, value in encoded.items()}
         with torch.inference_mode():
-            output = self.model.generate(
-                **encoded,
-                max_new_tokens=max_new_tokens,
-                do_sample=True,
-                temperature=0.7,
-                top_p=0.95,
-                num_return_sequences=candidates,
-                return_dict_in_generate=True,
-                output_scores=True,
-                pad_token_id=self.tokenizer.pad_token_id,
-                eos_token_id=self.tokenizer.eos_token_id,
-            )
+            generation = {
+                "max_new_tokens": max_new_tokens,
+                "do_sample": not self.args.matched_v2,
+                "num_return_sequences": candidates,
+                "return_dict_in_generate": True,
+                "output_scores": True,
+                "pad_token_id": self.tokenizer.pad_token_id,
+                "eos_token_id": self.tokenizer.eos_token_id,
+            }
+            if not self.args.matched_v2:
+                generation.update({"temperature": 0.7, "top_p": 0.95})
+            output = self.model.generate(**encoded, **generation)
         scores = self.model.compute_transition_scores(
             output.sequences, output.scores, normalize_logits=True
         )
@@ -258,6 +325,8 @@ class Runtime:
         terminal: bool = False,
         batch_size: int = 16,
     ) -> list[float]:
+        if not self.has_value:
+            return [0.0] * len(states)
         torch = self.torch
         self.model.set_adapter("value")
         output_values: list[float] = []
@@ -595,7 +664,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--policy-adapter", required=True)
-    parser.add_argument("--value-adapter", required=True)
+    parser.add_argument("--value-adapter", default="")
     parser.add_argument(
         "--value-kind", choices=["state_abc", "successor_pn"], default="state_abc"
     )
@@ -626,6 +695,14 @@ def main() -> int:
     )
     parser.add_argument("--reject-target-retained-finish", action="store_true")
     parser.add_argument(
+        "--matched-v2",
+        action="store_true",
+        help=(
+            "fail closed on protocol-v2 parity and run a greedy pure-policy "
+            "evaluation with the SFT-aligned Qwen tool-call prefix"
+        ),
+    )
+    parser.add_argument(
         "--legacy-dual-prompt",
         action="store_true",
         help=(
@@ -640,6 +717,13 @@ def main() -> int:
     )
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
+    validate_matched_v2_args(args)
+    if not args.matched_v2 and not str(args.value_adapter or "").strip():
+        parser.error("--value-adapter is required unless --matched-v2 is used")
+    if args.matched_v2:
+        validate_v2_adapter_manifest(
+            Path(args.policy_adapter), compact_history=args.compact_history
+        )
     rank = int(os.environ.get("RANK", "0"))
     world = int(os.environ.get("WORLD_SIZE", "1"))
     local_rank = int(os.environ.get("LOCAL_RANK", str(rank)))

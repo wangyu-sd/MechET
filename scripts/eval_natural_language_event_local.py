@@ -26,7 +26,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 from mechet.a7_rescue import canonical_event, mechanism_length_stratum, stratified_sample
 from mechet.agent_inference import parse_tool_calls
-from mechet.assistant_masking import render_chat
+from mechet.assistant_masking import render_chat, render_qwen_sft_tool_prefix
 from mechet.forward_expert import ElectronMove, verify_electron_step
 from mechet.in_place_grounded_flow import (
     append_mapped_fragments_verbatim,
@@ -64,6 +64,18 @@ def distributed_coordinates() -> tuple[int, int, int]:
     if not 0 <= rank < world:
         raise ValueError("invalid rank/world size")
     return rank, world, local_rank
+
+
+def render_policy_prompt(
+    tokenizer: Any, task: Mapping[str, Any], *, sft_aligned: bool
+) -> str:
+    messages = [dict(message) for message in task["messages"]]
+    tools = [dict(tool) for tool in task["tools"]]
+    if sft_aligned:
+        return render_qwen_sft_tool_prefix(tokenizer, messages, tools=tools)
+    return render_chat(
+        tokenizer, messages, tools=tools, add_generation_prompt=True
+    )
 
 
 def _private_states(row: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -350,30 +362,35 @@ def run(args: argparse.Namespace) -> int:
     tokenizer.padding_side = "left"
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
-    dtype = torch.float16
-    try:
-        bnb_version = importlib.metadata.version("bitsandbytes")
-    except importlib.metadata.PackageNotFoundError as exc:
-        raise RuntimeError("bitsandbytes is required for the matched NF4 evaluation") from exc
-    print(
-        f"[meteor-nl-event-eval] rank={rank}/{world} gpu={torch.cuda.get_device_name(local_rank)} "
-        f"tasks={len(selected)} bnb={bnb_version}",
-        flush=True,
-    )
-    base = AutoModelForCausalLM.from_pretrained(
-        args.model,
-        revision=MODEL_REVISION,
-        trust_remote_code=True,
-        torch_dtype=dtype,
-        device_map={"": local_rank},
-        attn_implementation="sdpa",
-        quantization_config=BitsAndBytesConfig(
+    dtype = torch.bfloat16 if args.dtype == "bfloat16" else torch.float16
+    model_kwargs: dict[str, Any] = {
+        "revision": MODEL_REVISION,
+        "trust_remote_code": True,
+        "torch_dtype": dtype,
+        "device_map": {"": local_rank},
+        "attn_implementation": "sdpa",
+    }
+    bnb_version = "disabled"
+    if not args.no_4bit:
+        try:
+            bnb_version = importlib.metadata.version("bitsandbytes")
+        except importlib.metadata.PackageNotFoundError as exc:
+            raise RuntimeError(
+                "bitsandbytes is required unless --no-4bit is used"
+            ) from exc
+        model_kwargs["quantization_config"] = BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",
             bnb_4bit_use_double_quant=True,
             bnb_4bit_compute_dtype=dtype,
-        ),
+        )
+    print(
+        f"[meteor-nl-event-eval] rank={rank}/{world} gpu={torch.cuda.get_device_name(local_rank)} "
+        f"tasks={len(selected)} bnb={bnb_version} dtype={args.dtype} "
+        f"sft_aligned={args.sft_aligned_prefix}",
+        flush=True,
     )
+    base = AutoModelForCausalLM.from_pretrained(args.model, **model_kwargs)
     model = PeftModel.from_pretrained(base, args.adapter, is_trainable=False).eval()
     device = next(model.parameters()).device
     with shard.open("a", encoding="utf-8") as sink:
@@ -381,11 +398,8 @@ def run(args: argparse.Namespace) -> int:
         for batch in _batches(selected, args.batch_size):
             started = time.time()
             prompts = [
-                render_chat(
-                    tokenizer,
-                    list(task["messages"]),
-                    tools=list(task["tools"]),
-                    add_generation_prompt=True,
+                render_policy_prompt(
+                    tokenizer, task, sft_aligned=args.sft_aligned_prefix
                 )
                 for task in batch
             ]
@@ -496,7 +510,11 @@ def aggregate(args: argparse.Namespace) -> int:
         for name in ("import", "event", "finish")
     }
     report = {
-        "artifact_type": "natural_language_event_gold_state_local_k1_v1",
+        "artifact_type": (
+            "natural_language_event_gold_state_local_k1_v2"
+            if args.sft_aligned_prefix
+            else "natural_language_event_gold_state_local_k1_v1"
+        ),
         "claim_boundary": (
             "Fixed validation F-oracle one-decision diagnostic; not product-only "
             "closed-loop rollout and not test endpoint accuracy."
@@ -515,6 +533,9 @@ def aggregate(args: argparse.Namespace) -> int:
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "model": args.model,
         "model_revision": MODEL_REVISION,
+        "compute_dtype": args.dtype,
+        "sft_aligned_tool_prefix": bool(args.sft_aligned_prefix),
+        "quantization": "bf16_or_fp16" if args.no_4bit else "bnb_nf4",
         "overall": _summary(rows),
         "by_type": by_type,
         "event_by_stratum": {
@@ -553,6 +574,17 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--max-context", type=int, default=4096)
+    parser.add_argument(
+        "--dtype", choices=("float16", "bfloat16"), default="float16"
+    )
+    parser.add_argument(
+        "--no-4bit", action="store_true",
+        help="load the base model without NF4 quantization",
+    )
+    parser.add_argument(
+        "--sft-aligned-prefix", action="store_true",
+        help="use the exact Qwen assistant boundary preceding Tool-SFT calls",
+    )
     args = parser.parse_args()
     return run(args) if args.command == "run" else aggregate(args)
 
