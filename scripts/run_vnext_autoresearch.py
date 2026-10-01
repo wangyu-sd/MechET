@@ -516,7 +516,7 @@ def process_stage(
             platform = poll_taiji(stage, campaign, record)
         except RuntimeError as exc:
             append_history(record, "taiji_observation_failed", error=str(exc))
-            return True
+            return False
         record["platform_state"] = platform
         append_history(record, "taiji_poll", platform_state=platform)
         if platform == "PLATFORM_SUCCESS":
