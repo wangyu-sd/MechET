@@ -254,20 +254,20 @@ Search may improve accuracy but should not become a permanent inference tax.
 
 Use tree search / value-guided branching as a training-time teacher, then distill the selected action distribution back into the policy:
 
-[
-q_{mathrm{search}}(amid S)
-ightarrow
-pi_	heta(amid S).
-]
+```math
+q_{\mathrm{search}}(a\mid S)
+\rightarrow
+\pi_\theta(a\mid S).
+```
 
 Candidate losses:
 
-[
-mathcal L_{mathrm{distill}}
+```math
+\mathcal L_{\mathrm{distill}}
 =
-D_{mathrm{KL}}
-(q_{mathrm{search}}|pi_	heta),
-]
+D_{\mathrm{KL}}
+(q_{\mathrm{search}}\|\pi_\theta),
+```
 
 or selected-action NLL.
 
