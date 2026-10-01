@@ -162,6 +162,50 @@ def required_artifacts(stage: Mapping[str, Any]) -> tuple[bool, dict[str, int]]:
     return True, counts
 
 
+def quarantine_retry_outputs(stage: Mapping[str, Any], attempt: int) -> list[str]:
+    """Preserve partial infrastructure outputs before a declared retry."""
+    moved: list[str] = []
+    stamp = int(time.time())
+    for pattern in stage.get("retry_cleanup_globs") or []:
+        for raw in sorted(glob.glob(str(pattern))):
+            path = Path(raw)
+            if not path.exists():
+                continue
+            target = path.with_name(
+                f"{path.name}.infra-failed-attempt{attempt}-{stamp}"
+            )
+            if target.exists():
+                raise FileExistsError(target)
+            path.rename(target)
+            moved.append(str(target))
+    return moved
+
+
+def schedule_retry_or_fail(
+    stage: Mapping[str, Any],
+    record: dict[str, Any],
+    *,
+    event: str,
+    **fields: Any,
+) -> None:
+    retries = int(stage.get("max_infra_retries", 0))
+    attempt = int(record.get("attempt", 0))
+    if attempt <= retries:
+        moved = quarantine_retry_outputs(stage, attempt)
+        record["state"] = "PENDING"
+        append_history(
+            record,
+            "retry_scheduled",
+            failed_event=event,
+            attempts=attempt,
+            quarantined_outputs=moved,
+            **fields,
+        )
+    else:
+        record["state"] = "INFRA_FAILED"
+        append_history(record, event, attempts=attempt, **fields)
+
+
 def dot_get(payload: Any, key: str) -> Any:
     current = payload
     for part in key.split("."):
@@ -471,19 +515,16 @@ def process_stage(
         if platform == "PLATFORM_SUCCESS":
             artifacts_ok, counts = required_artifacts(stage)
             if not artifacts_ok:
-                record["state"] = "INFRA_FAILED"
-                append_history(record, "platform_success_missing_artifacts", counts=counts)
+                schedule_retry_or_fail(
+                    stage, record,
+                    event="platform_success_missing_artifacts",
+                    counts=counts,
+                )
             else:
                 finalize_scientific_stage(stage, record)
             return True
         if platform == "PLATFORM_FAILURE":
-            retries = int(stage.get("max_infra_retries", 0))
-            if int(record["attempt"]) <= retries:
-                record["state"] = "PENDING"
-                append_history(record, "retry_scheduled", attempts=record["attempt"])
-            else:
-                record["state"] = "INFRA_FAILED"
-                append_history(record, "taiji_failed", attempts=record["attempt"])
+            schedule_retry_or_fail(stage, record, event="taiji_failed")
             return True
         return False
 
