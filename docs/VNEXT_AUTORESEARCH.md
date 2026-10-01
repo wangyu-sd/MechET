@@ -91,6 +91,30 @@ the summarizer now requires all eight ranks, all 128 states and all five modes.
 It retains the original runtime metric definitions and gates. The pointer
 recovery ledger imports the corrected runtime report as an artifact stage.
 
+### 2026-10-01 runtime compatibility recoveries
+
+The rank-fixed attempt proved the eight GPU bindings, but its first CUDA-graph
+warmup created roughly 124 host CPU threads per worker while vLLM constructed
+dummy LoRA weights. It was stopped after producing only the eager reports; its
+partial output is preserved under the
+`vnext_runtime_a100_20261001.cpufix-predecessor-rankfix1` suffix. PR #75 capped
+OpenMP, MKL, and OpenBLAS at two threads per independent worker. The CPU-fixed
+attempt completed all three unconstrained modes, then the pinned vLLM 0.8.5
+rejected request-level `xgrammar:no-fallback` backend selection before the
+structured modes could generate. Its partial output is preserved under the
+`vnext_runtime_a100_20261001.backendfix-predecessor-cpufix1` suffix.
+
+PR #76 sets the same strict XGrammar backend at **engine initialization** for
+the two structured modes, as required by vLLM V1. The recovery campaign is
+`configs/autoresearch/vnext_runtime_backendfix_20261001.yaml`; use a code mirror
+ending in `MechET-autoresearch-vnext-runtime-backendfix-20261001` and a separate
+ledger. It retains the same frozen 128 oracle states, Stage-II adapter, five
+modes, metric definitions, and numerical gates. Neither previous incomplete
+attempt is a benchmark result, and neither should be resumed against its old
+code commit. The pinned XGrammar package successfully compiled all 128 frozen
+inventory schemas offline (maximum 74 atoms); this checks schema compilation,
+not vLLM generation or endpoint quality.
+
 ### Pointer arm
 
 The pointer arm uses the same Stage-II policy, current deterministic executor, product-only model-visible information boundary, and matched K=4 proposal budget.
