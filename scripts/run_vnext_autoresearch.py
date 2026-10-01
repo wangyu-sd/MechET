@@ -295,6 +295,34 @@ def taiji_rows(client: Path, task: str) -> list[dict[str, Any]]:
     return rows
 
 
+def sync_code_mirror(repo: Path, mirror: Path, sha: str) -> None:
+    """Materialize the frozen campaign commit into a dedicated Taiji-visible clone."""
+    if mirror.resolve() == repo.resolve():
+        if git_head(repo) != sha:
+            raise ValueError("campaign repository moved away from frozen git head")
+        return
+    if not mirror.exists():
+        mirror.parent.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(
+            ["git", "clone", "--no-checkout", str(repo), str(mirror)],
+            capture_output=True, text=True, check=False,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"failed to create code mirror: {result.stderr.strip()}")
+    if not (mirror / ".git").exists():
+        raise ValueError(f"code mirror is not a git clone: {mirror}")
+    fetch = subprocess.run(
+        ["git", "fetch", str(repo), sha],
+        cwd=mirror, capture_output=True, text=True, check=False,
+    )
+    if fetch.returncode != 0:
+        raise RuntimeError(f"failed to fetch frozen commit into code mirror: {fetch.stderr.strip()}")
+    subprocess.run(["git", "reset", "--hard", sha], cwd=mirror, check=True)
+    subprocess.run(["git", "clean", "-fd"], cwd=mirror, check=True)
+    if git_head(mirror) != sha:
+        raise RuntimeError("code mirror did not land on frozen campaign commit")
+
+
 def submit_taiji(
     stage: Mapping[str, Any],
     campaign: Mapping[str, Any],
@@ -303,6 +331,10 @@ def submit_taiji(
     workdir: Path,
 ) -> None:
     base_config = Path(str(stage["taiji_config"]))
+    if not base_config.is_absolute():
+        base_config = repo / base_config
+    if campaign.get("code_mirror"):
+        sync_code_mirror(repo, Path(str(campaign["code_mirror"])), git_head(repo))
     config = json.loads(base_config.read_text())
     config = replace_token(config, "__AUTORESEARCH_GIT_HEAD__", git_head(repo))
     attempt = int(record["attempt"]) + 1
