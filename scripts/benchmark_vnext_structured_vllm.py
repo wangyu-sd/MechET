@@ -115,6 +115,7 @@ def main() -> int:
             trust_remote_code=True, dtype="bfloat16", tensor_parallel_size=1,
             gpu_memory_utilization=0.84, max_model_len=4096, max_num_seqs=16,
             enable_prefix_caching=prefix_cache, enforce_eager=eager,
+            guided_decoding_backend="xgrammar:no-fallback" if guidance != "none" else "auto",
             enable_lora=True, max_lora_rank=16, seed=args.seed + rank,
         )
         tokenizer = engine.get_tokenizer()

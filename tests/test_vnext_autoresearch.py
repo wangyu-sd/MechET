@@ -234,3 +234,22 @@ def test_runtime_cpufix_preserves_scientific_gates_and_caps_worker_threads(monke
     assert 'OMP_NUM_THREADS="${VNEXT_CPU_THREADS_PER_WORKER:-2}"' in launcher
     assert 'MKL_NUM_THREADS="$OMP_NUM_THREADS"' in launcher
     assert 'OPENBLAS_NUM_THREADS="$OMP_NUM_THREADS"' in launcher
+
+
+def test_runtime_backendfix_preserves_gates_and_sets_engine_level_backend(monkeypatch):
+    monkeypatch.setenv("MECHET_AUTORESEARCH_CODE_MIRROR", "/tmp/runtime-backendfix-mirror")
+    monkeypatch.setenv("MECHET_TAIJI_CLIENT", "/tmp/taiji-client")
+    monkeypatch.setenv("MECHET_TAIJI_DONOR_TASK", "donor-success")
+    original, _ = MODULE.load_campaign(ROOT / "configs/autoresearch/vnext_p0_20261001.yaml")
+    repaired, _ = MODULE.load_campaign(ROOT / "configs/autoresearch/vnext_runtime_backendfix_20261001.yaml")
+    prior = next(stage for stage in original["stages"] if stage["id"] == "runtime_benchmark")
+    current = repaired["stages"][0]
+    assert current["gates"] == prior["gates"]
+    assert current["metrics"] == prior["metrics"]
+    assert current["task_flag_suffix"] == "_backendfix1"
+    config = json.loads((ROOT / current["taiji_config"]).read_text())
+    for old, new in current["config_replacements"].items():
+        config = MODULE.replace_token(config, old, new)
+    assert "vnext-runtime-backendfix" in config["start_cmd"]
+    benchmark = (ROOT / "scripts/benchmark_vnext_structured_vllm.py").read_text()
+    assert 'guided_decoding_backend="xgrammar:no-fallback" if guidance != "none" else "auto"' in benchmark
