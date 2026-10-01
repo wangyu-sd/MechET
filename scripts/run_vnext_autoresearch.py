@@ -340,7 +340,7 @@ def taiji_rows(client: Path, task: str) -> list[dict[str, Any]]:
 
 
 def sync_code_mirror(repo: Path, mirror: Path, sha: str) -> None:
-    """Materialize the frozen campaign commit into a dedicated Taiji-visible clone."""
+    """Materialize the frozen commit in a dedicated, non-destructive worktree."""
     if mirror.resolve() == repo.resolve():
         if git_head(repo) != sha:
             raise ValueError("campaign repository moved away from frozen git head")
@@ -352,16 +352,15 @@ def sync_code_mirror(repo: Path, mirror: Path, sha: str) -> None:
     if created:
         mirror.parent.mkdir(parents=True, exist_ok=True)
         result = subprocess.run(
-            ["git", "clone", "--no-checkout", str(repo), str(mirror)],
+            ["git", "worktree", "add", "--detach", str(mirror), sha],
+            cwd=repo,
             capture_output=True, text=True, check=False,
         )
         if result.returncode != 0:
-            raise RuntimeError(f"failed to create code mirror: {result.stderr.strip()}")
+            raise RuntimeError(f"failed to create code worktree: {result.stderr.strip()}")
     if not (mirror / ".git").exists():
         raise ValueError(f"code mirror is not a git clone: {mirror}")
-    if created:
-        subprocess.run(["git", "checkout", "--detach", sha], cwd=mirror, check=True)
-    elif git_head(mirror) != sha:
+    if git_head(mirror) != sha:
         raise ValueError(f"existing code mirror has a different commit: {mirror}")
     if subprocess.run(["git", "status", "--porcelain"], cwd=mirror,
                       capture_output=True, text=True, check=True).stdout.strip():
