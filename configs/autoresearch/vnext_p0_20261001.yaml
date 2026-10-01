@@ -14,6 +14,8 @@ stages:
     kind: taiji
     taiji_config: configs/taiji/meteor_mechet_vnext_pointer_smoke16_8a100_qy_20261001.json
     max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_smoke16_20261001
     required_globs:
       - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_smoke16_20261001/paired_summary.json
     metrics:
@@ -40,6 +42,8 @@ stages:
     depends_on: [pointer_smoke16]
     taiji_config: configs/taiji/meteor_mechet_vnext_pointer_valid256_8a100_qy_20261001.json
     max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid256_20261001
     required_globs:
       - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid256_20261001/paired_summary.json
     metrics:
@@ -66,6 +70,8 @@ stages:
     depends_on: [pointer_valid256]
     taiji_config: configs/taiji/meteor_mechet_vnext_pointer_valid1319_8a100_qy_20261001.json
     max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid1319_20261001
     required_globs:
       - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_pointer_valid1319_20261001/paired_summary.json
     metrics:
@@ -99,6 +105,8 @@ stages:
     kind: taiji
     taiji_config: configs/taiji/meteor_mechet_vnext_runtime_8a100_qy_20261001.json
     max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001
     required_globs:
       - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json
     metrics:
@@ -140,6 +148,8 @@ stages:
     kind: taiji
     taiji_config: configs/taiji/meteor_mechet_vnext_packing_1a100_qy_20261001.json
     max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_packing_a100_20261001
     required_globs:
       - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_packing_a100_20261001/summary.json
     metrics:
