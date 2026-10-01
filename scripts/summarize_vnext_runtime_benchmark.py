@@ -42,6 +42,14 @@ def main() -> int:
             "handle_valid": weighted("handle_valid"),
             "exact_action_vs_eager_prefix": exact,
         }
+    eager = report["modes"].get("eager_prefix")
+    if eager is None:
+        raise ValueError("runtime benchmark requires eager_prefix reference")
+    eager_rate = max(float(eager["parallel_states_per_second"]), 1e-12)
+    for mode, values in report["modes"].items():
+        values["speedup_vs_eager_prefix"] = (
+            float(values["parallel_states_per_second"]) / eager_rate
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, sort_keys=True), flush=True)
