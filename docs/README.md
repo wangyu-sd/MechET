@@ -183,6 +183,7 @@ A later level cannot rescue an earlier failure.
 
 ## Companion documents
 
+- [`MECHET_VNEXT_EFFICIENT_LLM_ROADMAP.md`](MECHET_VNEXT_EFFICIENT_LLM_ROADMAP.md) — forward-looking, evidence-gated roadmap for pointer-grounded chemical actions, chemical-state tree credit, search-to-policy distillation, and efficient Qwen training/inference; it does not override the frozen paper protocol.
 - [`STATUS_MATRIX.md`](STATUS_MATRIX.md) — implementation status versus unestablished scientific results.
 - [`EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md`](EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md) — the active State-SFT → compressed-history Trajectory-SFT → EARHO learning curriculum and its long-horizon evidence gates.
 - [`A7_STATE_TRACE_DESIGN.md`](A7_STATE_TRACE_DESIGN.md) — proposed state-visible, history-queryable A7 trajectory redesign and its adoption gates; it is not an approved main condition.
