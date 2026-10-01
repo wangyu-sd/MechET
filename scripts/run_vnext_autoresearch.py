@@ -59,6 +59,16 @@ def expand(value: Any) -> Any:
     return value
 
 
+def replace_token(value: Any, token: str, replacement: str) -> Any:
+    if isinstance(value, str):
+        return value.replace(token, replacement)
+    if isinstance(value, list):
+        return [replace_token(item, token, replacement) for item in value]
+    if isinstance(value, dict):
+        return {key: replace_token(item, token, replacement) for key, item in value.items()}
+    return value
+
+
 def load_campaign(path: Path) -> tuple[dict[str, Any], str]:
     raw = path.read_bytes()
     payload = yaml.safe_load(raw) or {}
@@ -294,6 +304,7 @@ def submit_taiji(
 ) -> None:
     base_config = Path(str(stage["taiji_config"]))
     config = json.loads(base_config.read_text())
+    config = replace_token(config, "__AUTORESEARCH_GIT_HEAD__", git_head(repo))
     attempt = int(record["attempt"]) + 1
     base_flag = str(config["task_flag"])
     task_flag = f"{base_flag}_ar{attempt}"
@@ -383,6 +394,10 @@ def process_stage(
         return True
     if stage.get("uses_test"):
         unlock = Path(str(stage["requires_test_unlock"]))
+        if not unlock.is_file():
+            return False
+    if stage.get("requires_unlock"):
+        unlock = Path(str(stage["requires_unlock"]))
         if not unlock.is_file():
             return False
 
