@@ -92,37 +92,37 @@ Current aliases such as `A01`, `A17`, and bond handles are not open-vocabulary t
 
 Factorize the action distribution as
 
-[
-P(a mid S)
+```math
+P(a \mid S)
 =
-P(	ext{type}mid S)
-P(	ext{source}mid S,	ext{type})
-P(	ext{sink}mid S,	ext{type},	ext{source})
-P(	ext{event extras}mid cdots).
-]
+P(\mathrm{type}\mid S)
+P(\mathrm{source}\mid S,\mathrm{type})
+P(\mathrm{sink}\mid S,\mathrm{type},\mathrm{source})
+P(\mathrm{event\ extras}\mid \cdots).
+```
 
 The first implementation should reuse Qwen hidden states for visible atom/bond handles rather than adding a second graph model immediately.
 
-For atom handle representation (h_i),
+For atom handle representation \(h_i\),
 
-[
-p_{mathrm{src}}(imid S)
+```math
+p_{\mathrm{src}}(i\mid S)
 =
-mathrm{softmax}(q_s^	op h_i),
-]
+\mathrm{softmax}(q_s^\top h_i),
+```
 
 and similarly for sink selection.
 
 Training objective:
 
-[
-mathcal L =
-mathcal L_{mathrm{LM}}
+```math
+\mathcal L =
+\mathcal L_{\mathrm{LM}}
 +
-lambda_{mathrm{src}}mathcal L_{mathrm{src}}
+\lambda_{\mathrm{src}}\mathcal L_{\mathrm{src}}
 +
-lambda_{mathrm{sink}}mathcal L_{mathrm{sink}}.
-]
+\lambda_{\mathrm{sink}}\mathcal L_{\mathrm{sink}}.
+```
 
 ### 4.2 Promotion gate
 
@@ -145,9 +145,9 @@ The runtime already knows the legal inventory at each state. The decoder should 
 
 Use per-state structured decoding:
 
-[
-a in mathcal A_{mathrm{structural}}(S_t).
-]
+```math
+a \in \mathcal A_{\mathrm{structural}}(S_t).
+```
 
 Candidate implementations:
 
@@ -221,17 +221,17 @@ Formal executability is only a hard feasibility filter; it must not be treated a
 
 Learn
 
-[
-V_phi(P,S_t)
+```math
+V_\phi(P,S_t)
 =
-P(	ext{successful endpoint}mid P,S_t)
-]
+P(\mathrm{successful\ endpoint}\mid P,S_t)
+```
 
 or transition value
 
-[
-Q_phi(P,S_t,a_t,S_{t+1}).
-]
+```math
+Q_\phi(P,S_t,a_t,S_{t+1}).
+```
 
 The preferred target is **future endpoint reachability**, not generic molecular plausibility.
 
