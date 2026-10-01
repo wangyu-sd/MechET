@@ -108,3 +108,36 @@ def test_task_config_token_replacement_is_recursive():
     replaced = MODULE.replace_token(payload, "__AUTORESEARCH_GIT_HEAD__", "abc123")
     assert replaced["start_cmd"] == "run abc123"
     assert replaced["nested"] == ["abc123"]
+
+
+def test_retry_quarantines_partial_outputs(tmp_path):
+    partial = tmp_path / "partial-output"
+    partial.mkdir()
+    (partial / "x").write_text("partial")
+    stage = {
+        "max_infra_retries": 1,
+        "retry_cleanup_globs": [str(partial)],
+    }
+    record = {"state": "RUNNING", "attempt": 1, "history": []}
+    MODULE.schedule_retry_or_fail(stage, record, event="taiji_failed")
+    assert record["state"] == "PENDING"
+    assert not partial.exists()
+    moved = record["history"][-1]["quarantined_outputs"]
+    assert len(moved) == 1
+    quarantined = Path(moved[0])
+    assert quarantined.is_dir()
+    assert (quarantined / "x").read_text() == "partial"
+
+
+def test_scientific_gate_failure_is_not_infrastructure_retry(tmp_path):
+    report = tmp_path / "metric.json"
+    report.write_text(json.dumps({"delta": -0.1}))
+    stage = {
+        "required_globs": [str(report)],
+        "metrics": {"delta": {"type": "json", "path": str(report), "field": "delta"}},
+        "gates": [{"lhs": "delta", "op": ">", "rhs": 0}],
+    }
+    record = {"state": "RUNNING", "attempt": 1, "history": []}
+    MODULE.finalize_scientific_stage(stage, record)
+    assert record["state"] == "SCIENTIFIC_STOP"
+    assert record["attempt"] == 1
