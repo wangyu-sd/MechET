@@ -23,6 +23,17 @@ source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
 export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+# Eight independent vLLM workers share the host CPUs. Without this bound,
+# each graph-capture warmup spawns the host-wide default (~124 threads) while
+# constructing dummy LoRA weights, and all eight workers contend indefinitely.
+export OMP_NUM_THREADS="${VNEXT_CPU_THREADS_PER_WORKER:-2}"
+export MKL_NUM_THREADS="$OMP_NUM_THREADS"
+export OPENBLAS_NUM_THREADS="$OMP_NUM_THREADS"
+[[ "$OMP_NUM_THREADS" =~ ^[1-9][0-9]*$ ]] || {
+  echo "[vnext-runtime] invalid VNEXT_CPU_THREADS_PER_WORKER=$OMP_NUM_THREADS" >&2
+  exit 2
+}
+echo "[vnext-runtime] cpu_threads_per_worker=$OMP_NUM_THREADS" >&2
 export PYTHONPATH="$repo/src:$repo"
 
 python - <<'PY'
