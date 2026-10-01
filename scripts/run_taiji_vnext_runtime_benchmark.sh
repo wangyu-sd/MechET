@@ -58,8 +58,30 @@ cp -a "$model_cache/models--Qwen--Qwen3-8B" "$staged_cache/"
 export HF_HUB_CACHE="$staged_cache"
 
 mkdir -p "$output"
-torchrun --standalone --nproc_per_node=8 scripts/benchmark_vnext_structured_vllm.py   --data "$data" --adapter "$adapter" --output "$output/raw"   --count 128 --max-new-tokens 384   --modes eager_prefix graph_no_prefix graph_prefix graph_schema graph_inventory
+worker_pids=()
+stop_workers() {
+  for pid in "${worker_pids[@]}"; do kill "$pid" 2>/dev/null || true; done
+}
+trap stop_workers TERM INT HUP
+for gpu in {0..7}; do
+  echo "[vnext-runtime] start shard=$gpu visible_gpu=$gpu" >&2
+  CUDA_VISIBLE_DEVICES="$gpu" VNEXT_RANK="$gpu" VNEXT_WORLD_SIZE=8 \
+    python -u scripts/benchmark_vnext_structured_vllm.py \
+      --data "$data" --adapter "$adapter" --output "$output/raw" \
+      --count 128 --max-new-tokens 384 \
+      --modes eager_prefix graph_no_prefix graph_prefix graph_schema graph_inventory &
+  worker_pids+=("$!")
+done
+worker_failed=0
+for pid in "${worker_pids[@]}"; do
+  if ! wait "$pid"; then worker_failed=1; fi
+done
+trap - TERM INT HUP
+(( worker_failed == 0 )) || { echo "[vnext-runtime] at least one shard failed" >&2; exit 1; }
 
-python scripts/summarize_vnext_runtime_benchmark.py   --input-dir "$output/raw" --output "$output/summary.json"
+python scripts/summarize_vnext_runtime_benchmark.py \
+  --input-dir "$output/raw" --output "$output/summary.json" \
+  --expected-ranks 8 --expected-states 128 \
+  --expected-modes eager_prefix graph_no_prefix graph_prefix graph_schema graph_inventory
 
 echo "[vnext-runtime] complete: $output/summary.json" >&2

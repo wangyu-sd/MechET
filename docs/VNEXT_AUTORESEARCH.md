@@ -81,6 +81,16 @@ Use a distinct `MECHET_AUTORESEARCH_CODE_MIRROR` ending in
 `MechET-autoresearch-vnext-pointer-recovery-20261001` for this recovery. Do not
 resume the original pointer stage against its frozen, incorrect code commit.
 
+The original runtime task was later found to place all eight vLLM worker
+processes on GPU 0 under `torchrun`; the other seven GPUs were idle and no
+benchmark report was produced. That instance was stopped and its empty output
+directory was retained with a `.gpu0-collision-attempt1` suffix. The isolated
+`configs/autoresearch/vnext_runtime_rankfix_20261001.yaml` reruns only this arm:
+eight independent workers each see one GPU through `CUDA_VISIBLE_DEVICES`, and
+the summarizer now requires all eight ranks, all 128 states and all five modes.
+It retains the original runtime metric definitions and gates. The pointer
+recovery ledger imports the corrected runtime report as an artifact stage.
+
 ### Pointer arm
 
 The pointer arm uses the same Stage-II policy, current deterministic executor, product-only model-visible information boundary, and matched K=4 proposal budget.
