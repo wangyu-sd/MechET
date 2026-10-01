@@ -143,8 +143,22 @@ def main() -> int:
             "peak_allocated_bytes": torch.cuda.max_memory_allocated(),
         }
         print(json.dumps({"mode": mode, **report["modes"][mode]}), flush=True)
+    independent_mode = report["modes"]["independent"]
+    packed_mode = report["modes"]["block_packed"]
+    report["block_packed_speedup_vs_independent"] = (
+        packed_mode["supervised_tokens_per_second"]
+        / max(independent_mode["supervised_tokens_per_second"], 1e-12)
+    )
+    report["block_packed_peak_memory_ratio"] = (
+        packed_mode["peak_allocated_bytes"]
+        / max(independent_mode["peak_allocated_bytes"], 1)
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2))
+    print(json.dumps({
+        "block_packed_speedup_vs_independent": report["block_packed_speedup_vs_independent"],
+        "block_packed_peak_memory_ratio": report["block_packed_peak_memory_ratio"],
+    }), flush=True)
     return 0
 
 
