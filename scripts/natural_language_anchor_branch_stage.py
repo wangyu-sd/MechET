@@ -29,6 +29,7 @@ from mechet.natural_language_anchor_branch_rl import (
     task_from_episode,
     task_record,
 )
+from mechet.vnext_tree_credit import assign_sibling_advantages, search_teacher_distribution
 from mechet.successor_value import (
     SUCCESSOR_VALUE_SYSTEM,
     successor_value_margin,
@@ -698,7 +699,7 @@ def collect(args):
         max_lora_rank=16,
         max_loras=2 if args.value_adapter else 1,
         max_cpu_loras=2 if args.value_adapter else 1,
-        enforce_eager=True,
+        enforce_eager=args.engine_mode == "eager",
         seed=(args.seed + args.rank) % (2**32),
         trust_remote_code=True,
     )
@@ -954,9 +955,22 @@ def collect(args):
                             raise ValueError("rollout token/mask/logprob misalignment")
                         records.append(record)
                         candidate_index += 1
-                summary = assign_local_advantages(
-                    records, success_gated=args.success_gated_advantages
+                summary = (
+                    assign_sibling_advantages(
+                        records,
+                        method=args.vnext_credit,
+                        dynamic_all_negative=True,
+                        allow_private_reference=args.vnext_private_reference_credit,
+                    )
+                    if args.vnext_credit
+                    else assign_local_advantages(
+                        records, success_gated=args.success_gated_advantages
+                    )
                 )
+                if args.vnext_credit:
+                    teacher = search_teacher_distribution(records)
+                    for record in records:
+                        record["search_teacher"] = teacher
                 if no_correction_frontier and not args.evaluation:
                     for record in records:
                         record["advantage"] = 0.0
@@ -1065,9 +1079,16 @@ def main():
         help="reproduce the historical gold-action-conditioned prompt split",
     )
     parser.add_argument("--protocol-v2", action="store_true")
+    parser.add_argument("--vnext-credit", choices=["grpo", "gspo", "tree"])
+    parser.add_argument("--vnext-private-reference-credit", action="store_true")
+    parser.add_argument("--engine-mode", choices=["eager", "cuda_graph"], default="eager")
     args = parser.parse_args()
     if args.protocol_v2 and (args.legacy_dual_prompt or not args.success_gated_advantages):
         raise ValueError("EARHO v2 requires unified history prompts and success-gated advantages")
+    if args.vnext_credit and not args.protocol_v2:
+        raise ValueError("vNext sibling credit requires protocol-v2 unified prompts")
+    if args.vnext_credit == "gspo" and args.mode == "train":
+        args.ratio_mode = "sequence"
     args.memory_efficient_logps = True
     (collect if args.mode == "collect" else train)(args)
 

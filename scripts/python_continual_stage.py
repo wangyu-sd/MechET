@@ -160,16 +160,22 @@ def train(args):
     from peft import PeftModel
     from python_repair_grpo import frozen_sft_adapter
     from trl.trainer.utils import selective_log_softmax
+    from mechet.group_policy_objective import clipped_group_policy_loss
     rank = int(os.environ.get("LOCAL_RANK", 0))
     cpu_smoke = bool(getattr(args, "cpu_smoke", False))
     if not cpu_smoke:
         torch.cuda.set_device(rank)
     rows = read_rows(args.data)
+    ratio_mode = str(getattr(args, "ratio_mode", "token"))
+    if ratio_mode not in {"token", "sequence"}:
+        raise ValueError("ratio_mode must be token or sequence")
     for r in rows:
         if not (len(r["input_ids"]) == len(r["loss_mask"]) == len(r["old_logps"])):
             raise ValueError("Trajectory mask/logprob misalignment")
         if len(r["input_ids"]) > 12288:
             raise ValueError("Training trajectory exceeds context (no silent truncation)")
+        if r["kind"] == "rl" and r.get("ratio_mode", ratio_mode) != ratio_mode:
+            raise ValueError("rollout ratio mode does not match optimizer")
     tok = AutoTokenizer.from_pretrained(args.model, local_files_only=True)
     base = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32 if cpu_smoke else torch.bfloat16,
             attn_implementation="sdpa", local_files_only=True)
@@ -208,18 +214,11 @@ def train(args):
             actor = self.accelerator.unwrap_model(model)
             with torch.no_grad(), frozen_sft_adapter(actor):
                 ref = self.policy_logps(actor, ids, inputs)
-            old = inputs["old_logps"][:, 1:]
-            ratio = torch.exp(logps - old)
-            advantage = inputs["advantage"][:, None]
-            objective = torch.minimum(ratio * advantage, ratio.clamp(.8, 1.2) * advantage)
-            delta = ref - logps
-            # Squared log-ratio is a bounded-cost reference regularizer. Importance
-            # ratios use recorded vLLM behavior probabilities, not recomputed new ones.
-            per_token = -objective + .01 * delta.square()
-            loss = (per_token * mask).sum() / mask.sum().clamp(min=1)
-            if not torch.isfinite(loss):
-                raise RuntimeError("Nonfinite continual PPO loss")
-            return loss
+            return clipped_group_policy_loss(
+                logps, inputs["old_logps"][:, 1:], mask,
+                inputs["advantage"], mode=ratio_mode,
+                reference_logps=ref, reference_weight=0.01,
+            )
 
     def collate(batch):
         if len(batch) != 1:
@@ -268,6 +267,7 @@ def train(args):
         (output / "stage_done.json").write_text(json.dumps({"adapter": str(output / "adapter"),
             "initial_adapter": args.adapter, "reference": args.reference, "updates": updates,
             "rows": len(rows), "algorithm": "group_relative_clipped_policy_update_then_verified_supervised_replay",
+            "importance_ratio_mode": ratio_mode,
             "memory_efficient_logps": memory_efficient}, indent=2))
     trainer.accelerator.wait_for_everyone()
     if torch.distributed.is_initialized():
