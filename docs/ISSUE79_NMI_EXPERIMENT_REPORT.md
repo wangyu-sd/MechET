@@ -297,6 +297,19 @@ underlying H20 resources; the ordinary Qingyuan A100 group had 41 GPUs
 waiting at this check, so the original A100 queue was not a clear faster
 replacement.
 
+At 05:03 CST, Closed-Loop finally saved complete `checkpoint-250`: verified
+global step **250/10,494** (2.38%), epoch 0.06918, 99,751,766 input tokens
+seen, and 14,570.8 seconds of trainer runtime. Loss fell from 0.8627 at the
+first logged step to 0.1215 at step 250; no validation result exists yet.
+The 288 LoRA tensors (15,335,424 parameters) were independently read and are
+all finite and nonzero. The 50-step runtime intervals were approximately
+2,880–2,990 seconds, or about 58 seconds/update. Naively extrapolating the
+remaining 10,244 updates gives roughly seven more days **if throughput stays
+constant**, excluding validation, saving and scheduling effects. This is an
+operational estimate, not an accuracy result or a commitment to alter the
+frozen update budget. Direct had reached complete `checkpoint-3000` at 04:59;
+Open-Flow remained resource-waiting.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
