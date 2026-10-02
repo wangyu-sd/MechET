@@ -168,6 +168,18 @@ these are not the final three-epoch presented-token totals. The Pod next
 launched eight GPU processes with about 7.6 GiB reserved per H20, but no
 optimizer step was yet verified at this observation.
 
+The replacement Direct H20 task subsequently reached `TRAINING_RUNNING` on
+a real 8×H20 Pod with Ceph config visible. Its tokenizer cache also completed:
+223,863/223,863 train rows/windows, 6,200/6,200 validation rows/windows,
+zero truncation, 91,654,571 natural train input tokens and 45,230,044
+assistant-supervised tokens. Thus Closed-Loop has about 15.8× Direct's natural
+input-token count before repetition across optimizer steps. E3 is matched on
+IDs, backbone, seed and optimizer updates, **not** on token or FLOP budget;
+any method comparison must state this limitation explicitly. At this check
+the two H20 Pods had model processes and GPU memory allocations, but neither
+had a verified optimizer step or saved checkpoint; Open-Flow A100 was still
+waiting for resources.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
