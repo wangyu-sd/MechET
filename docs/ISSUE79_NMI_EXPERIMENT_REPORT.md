@@ -192,6 +192,17 @@ train-only evidence, before model test. Submission must wait for completed,
 lineage-verified adapters and resource reinspection. No eval task or held-out
 model result is claimed here.
 
+Resource-only Open-Flow replacement on 2026-10-03: the original Qingyuan A100
+instance `8b1d80eea0d297ec01a0fd748a9c41b5` remained
+`TRAINING_RESOURCE_WAITING` for about 35 minutes, then was stopped and verified
+`END` without training output. The same frozen Open-Flow data/config/seed/output
+was submitted to ordinary Zhangjiakou 8×H20 as task
+`meteor_mechet_nmi_h2_open_flow_8h20_zjk_20261003_01`, instance
+`8b1d8064a0d2977501a0fd957208409d`; its first observed state was
+`TRAINING_RESOURCE_WAITING`. The H20 group then reported quota 136, using 123,
+waiting 8. No duplicate Open-Flow instance remains active. The H20 task must
+still obtain a real Pod before training is claimed.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
