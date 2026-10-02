@@ -278,6 +278,15 @@ after about 76 minutes. The Qingyuan A100 ordinary group simultaneously had
 33 waiting GPUs, so moving the same task back to its earlier A100 queue had
 no evidence-backed scheduling advantage at this check.
 
+At 02:35 CST the Open-Flow H20 instance detail gave the explicit scheduler
+message `底层资源不足，请稍侯重试或排队等待。` (insufficient underlying resources; retry
+or queue). Its transition history repeatedly showed
+`TRAINING_RESOURCE_WAITING → RESOURCE_WAIT_TRANSITION → TRAINING_INIT →
+TRAINING_RESOURCE_WAITING`, with no allocated Pod. Thus the short
+`RESOURCE_WAIT_TRANSITION` states are scheduler retry cycles, not training
+startup or a user-program failure. Do not duplicate or rewrite the task in
+response to those transient states.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
