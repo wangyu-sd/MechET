@@ -288,3 +288,8 @@ known primitive, holding scaffold, local-center, near-duplicate, trajectory
 length and import count covariates fixed? It uses reaction-level bootstrap
 intervals and is descriptive, not a causal estimate. This supplements—not
 replaces—the primary paired accuracy contrast.
+The label-free 27,104-row H2 test covariates give full rank 7/7 for the
+intercept-plus-six-feature design matrix (condition number 69.6), 185 distinct
+log-frequency values, and full rank in 30/30 seeded reaction bootstrap
+resamples. This is a feasibility check of the predeclared model, **not** an
+estimate of any model's accuracy or primitive-frequency effect.
