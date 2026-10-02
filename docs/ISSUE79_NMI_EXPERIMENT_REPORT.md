@@ -310,6 +310,15 @@ operational estimate, not an accuracy result or a commitment to alter the
 frozen update budget. Direct had reached complete `checkpoint-3000` at 04:59;
 Open-Flow remained resource-waiting.
 
+At 06:05 CST Direct had reached `checkpoint-3750` (epoch 1.0720). The first
+scheduled teacher-forced validation at step 3,498/epoch 1 completed with
+`eval_loss=0.0345774` on all 6,200 **narrow, all-three-step H2 validation**
+rows; this is not autonomous endpoint recovery and must not be used as a
+stand-in for the held-out H2 test. The most recent training loss was 0.0208.
+Closed-Loop's latest complete state remained `checkpoint-250`; the Open-Flow
+H20 scheduler handle remained in `TRAINING_RESOURCE_WAITING` after about five
+hours, with no Pod and no model output.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
