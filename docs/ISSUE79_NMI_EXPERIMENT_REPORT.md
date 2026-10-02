@@ -228,6 +228,16 @@ not evidence that the task's application group or location is mistyped. The
 earlier Qingyuan A100 Open-Flow instance is terminal, so there is no active
 duplicate to consume capacity.
 
+At 01:33 CST, Direct had a complete, nonzero `checkpoint-250` containing
+`trainer_state.json`, LoRA adapter weights, optimizer and scheduler states.
+The trainer state records global step **250/10,494** (2.38% of the fixed update
+budget), epoch 0.07147, 1,147.9 seconds of trainer runtime and recent
+teacher-forced loss 0.0673 at step 250. This is the first verified optimizer
+progress, **not** endpoint accuracy or a finished adapter. The three task
+handles were rechecked: Direct and Closed-Loop remained `TRAINING_RUNNING`,
+Open-Flow remained `TRAINING_RESOURCE_WAITING`. No Closed-Loop trainer state or
+weights were present yet, so its actual step count remains unverified.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
