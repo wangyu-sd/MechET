@@ -54,6 +54,11 @@ The largest composition/reaction connected component has 208,178 reactions;
 only 6,200 validation reactions could be selected from the remaining feasible
 components. This is a property of the grouping constraint, **not** the official
 FlowER validation size and not a reason to silently change the split. The
+6,200 held-out validation reactions all have three recorded execution steps;
+the held-out test spans one to fifteen steps. Thus validation is a narrow
+monitor, not a representative proxy for H2 test performance. The matched SFT
+configs use the fixed terminal update count rather than selecting a best
+checkpoint on this skewed validation set. The
 revised local-center structural audit has completed. A separate
 negative-control scan of the official 2,890-row strict
 validation set found **zero** reactions containing primitives unseen in the
