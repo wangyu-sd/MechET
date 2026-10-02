@@ -216,6 +216,14 @@ prompt, one frozen tool schema, one 40-call budget, one
 27,104/27,104 user prompts began with their own frozen product target and
 zero had malformed initial-observation JSON. This validates launch-format
 uniformity only, not prediction quality or complete gold replay.
+The Direct and Open-Flow H2 test files were also streamed in full: each has
+27,104 unique IDs, one system prompt, exactly system/user/assistant message
+roles, no tool schema, and zero rows whose user text differs from
+`TARGET: <that row's product SMILES>`. The direct inference path's
+`_direct_messages` retains only system/user roles and discards the stored
+assistant gold continuation. These checks exclude an accidental answer-bearing
+test prompt; they do not address information potentially encoded in mapped
+product atom labels or predict model accuracy.
 
 Resource-only Open-Flow replacement on 2026-10-03: the original Qingyuan A100
 instance `8b1d80eea0d297ec01a0fd748a9c41b5` remained
