@@ -1,0 +1,55 @@
+{
+  "artifact_type": "graph_policy_protocol_v2_smoke",
+  "date": "2026-09-20",
+  "source": "frozen strict-executable FlowER train prefix",
+  "reaction_count": 1000,
+  "reaction_denominator_contract": {
+    "train": 257167,
+    "valid": 2890,
+    "test": 28967
+  },
+  "compiled_decisions": 10224,
+  "family_counts": {
+    "IMPORT_REACTIVE": 2340,
+    "FLOW": 4033,
+    "IMPORT_ENV": 2844,
+    "FINISH": 1000,
+    "BE_DELTA": 7
+  },
+  "first_use_import_audit": {
+    "mean_imports_before_first_electron_event": 1.12,
+    "maximum_imports_before_first_electron_event": 3,
+    "old_prefix_20000_mean_initial_imports": 5.221,
+    "all_terminal_states_match_expected_precursor": true,
+    "all_electron_event_maps_present_in_current_state": true
+  },
+  "flow_legality_audit": {
+    "reaction_prefix": 100,
+    "flow_events": 404,
+    "covered_by_reference_independent_masks": 404,
+    "failed": 0
+  },
+  "active_site_counts": {
+    "0": 2844,
+    "1": 1015,
+    "2": 1255,
+    "3": 50,
+    "4": 19,
+    "6": 1
+  },
+  "training_smoke": {
+    "real_decisions": 16,
+    "finite_forward_backward": true,
+    "product_alignment_gradient_nonzero": true,
+    "trajectory_history_gate_gradient_nonzero": true
+  },
+  "tests": {
+    "passed": 429,
+    "skipped": 1,
+    "documentation_integrity_passed": true
+  },
+  "notes": [
+    "This is a compiler/model/runtime smoke, not a retrosynthesis accuracy result.",
+    "The previously running schema-v2 upfront-import task is a legacy baseline and is not this repaired protocol."
+  ]
+}

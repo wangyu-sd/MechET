@@ -503,6 +503,7 @@ data, compute, inference, multi-seed and frozen-evaluation contracts pass.
 | [`docs/EXECUTION_PLAN.md`](docs/EXECUTION_PLAN.md) | Ordered commands, artifacts, gates, and stopping rules |
 | [`docs/TOOL_SFT.md`](docs/TOOL_SFT.md) | Replay-verified supervision, Qwen3 assistant masking, and checkpoint lineage |
 | [`docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md`](docs/EXECUTION_ANCHORED_RECEDING_HORIZON_OPTIMIZATION.md) | State-SFT, compressed-history Trajectory-SFT and EARHO algorithm flow |
+| [`docs/TWO_TRACK_THREE_STAGE_ELECTRON_POLICY.md`](docs/TWO_TRACK_THREE_STAGE_ELECTRON_POLICY.md) | Shared LLM/graph next-event protocol: state BC, compressed-trajectory BC, and candidate-free online RL |
 | [`docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md`](docs/MECH_USPTO_31K_INVERSE_TOOL_SFT.md) | mech-USPTO source identity, inverse v2 protocol, coverage, validation, and reproduction commands |
 | [`docs/PROOF_EQUIVALENCE.md`](docs/PROOF_EQUIVALENCE.md) | H2 execution-primitive signatures and composition splits |
 | [`docs/KNOWLEDGE_ABLATIONS.md`](docs/KNOWLEDGE_ABLATIONS.md) | Future textbook/RAG evidence conditions and interventions |
