@@ -180,6 +180,18 @@ the two H20 Pods had model processes and GPU memory allocations, but neither
 had a verified optimizer step or saved checkpoint; Open-Flow A100 was still
 waiting for resources.
 
+Frozen **K=10 evaluation task configs are prepared but not submitted** under
+`configs/taiji/meteor_mechet_nmi_h2_{direct,open_flow,closed_loop}_k10_*`.
+They retain all 27,104 H2 held-out reactions, the same stochastic candidate
+budget, strict adapter/train-test SHA guards, and default terminal heartbeat.
+Direct/Open-Flow use ordinary Qingyuan A100; Closed-Loop uses ordinary
+Zhangjiakou H20. The Direct completion cap 2,560 exceeds the maximum 2,330
+total train-sequence tokens, and the Open-Flow cap 4,096 exceeds the maximum
+3,989 gold assistant characters in H2 train; these caps were chosen from
+train-only evidence, before model test. Submission must wait for completed,
+lineage-verified adapters and resource reinspection. No eval task or held-out
+model result is claimed here.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.

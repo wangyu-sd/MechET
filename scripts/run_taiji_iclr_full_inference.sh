@@ -89,6 +89,14 @@ case "$baseline" in
     ;;
 esac
 
+max_new_tokens=${MECHET_MAX_NEW_TOKENS:-$max_new_tokens}
+nll_max_length=${MECHET_NLL_MAX_LENGTH:-$nll_max_length}
+if [[ ! "$max_new_tokens" =~ ^[1-9][0-9]*$ ]] || \
+   [[ ! "$nll_max_length" =~ ^[1-9][0-9]*$ ]]; then
+  echo >&2 "MECHET_MAX_NEW_TOKENS and MECHET_NLL_MAX_LENGTH must be positive integers"
+  exit 2
+fi
+
 dataset_manifest=${MECHET_DATASET_MANIFEST:-${dataset_manifest:-data/iclr_full_v4/manifest.json}}
 manifest_task=${MECHET_MANIFEST_TASK:-${manifest_task:-$baseline}}
 config=${MECHET_TRAINING_CONFIG:-$config}
