@@ -2,8 +2,9 @@ import hashlib
 import json
 
 import pytest
+import numpy as np
 
-from scripts.analyze_nmi_h2_results import analyze
+from scripts.analyze_nmi_h2_results import analyze, _adjusted_paired_primitive_advantage
 
 
 def _write_jsonl(path, rows):
@@ -71,6 +72,7 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
     assert result["methods"]["closed_loop"]["selected_endpoint_at_1"]["estimate"] == 0.0
     assert result["lineage"]["direct"]["selected_candidate_rule"] == "assistant_mean_nll"
     assert "not matched" in result["comparison_semantics"]["selected_top1"]
+    assert result["adjusted_paired_primitive_advantage"]["closed_minus_open_flow"]["status"] == "unidentifiable_design_rank"
 
 
 def test_h2_analysis_rejects_missing_ranked_order(tmp_path):
@@ -94,3 +96,20 @@ def test_h2_analysis_rejects_missing_ranked_order(tmp_path):
     }))
     with pytest.raises(ValueError, match="missing/invalid frozen ranking"):
         _row_results("direct", evaluation, matched.parent, expected_k=2)
+
+
+def test_paired_familiarity_advantage_bootstraps_reaction_differences():
+    features = np.array([
+        [i / 10, i % 2, (i * 7 % 11) / 10, int(i % 5 == 0),
+         np.log2(2 + i % 7), i % 4]
+        for i in range(40)
+    ], dtype=float)
+    closed = np.array([int(i % 3 == 0) for i in range(40)], dtype=float)
+    open_flow = np.array([int(i % 5 == 0) for i in range(40)], dtype=float)
+    result = _adjusted_paired_primitive_advantage(
+        features, closed, open_flow, np.random.default_rng(17), draws=100,
+    )
+    assert result["status"] == "estimated"
+    assert np.isfinite(result["slope"])
+    assert len(result["slope_ci95"]) == 2
+    assert result["reaction_bootstrap_draws_used"] >= 50

@@ -143,6 +143,42 @@ def _adjusted_primitive_association(
     }
 
 
+def _adjusted_paired_primitive_advantage(
+    features: np.ndarray, closed_outcome: np.ndarray, other_outcome: np.ndarray,
+    rng: np.random.Generator, *, draws: int,
+) -> dict[str, Any]:
+    """Descriptive slope of the reaction-paired accuracy gap versus familiarity."""
+    difference = closed_outcome - other_outcome
+    design = np.column_stack((np.ones(len(features)), features))
+
+    def fit(indices: np.ndarray) -> float | None:
+        coefficients, _, rank, _ = np.linalg.lstsq(design[indices], difference[indices], rcond=None)
+        return float(coefficients[1]) if rank == design.shape[1] else None
+
+    full = fit(np.arange(len(difference)))
+    if full is None:
+        return {"status": "unidentifiable_design_rank"}
+    estimates = []
+    for _ in range(draws):
+        value = fit(rng.integers(0, len(difference), size=len(difference)))
+        if value is not None:
+            estimates.append(value)
+    if len(estimates) < max(20, draws // 2):
+        return {"status": "bootstrap_design_rank_too_low", "slope": full}
+    return {
+        "status": "estimated",
+        "outcome": "reaction_paired_closed_minus_comparator_generation_top1",
+        "feature": "log2(1+minimum_primitive_train_frequency)",
+        "adjusted_for": ["scaffold_seen", "local_center_fraction_seen", "near_duplicate",
+                         "log2(1+trajectory_steps)", "fragment_imports"],
+        "complete_program_novelty_control": "all H2 test program_train_frequency == 0",
+        "model": "linear probability difference; descriptive association, not causal effect",
+        "slope": full,
+        "slope_ci95": [float(value) for value in np.quantile(estimates, [0.025, 0.975])],
+        "reaction_bootstrap_draws_used": len(estimates),
+    }
+
+
 def analyze(
     covariates: Path, matched_dir: Path, evaluations: dict[str, Path], output: Path,
     *, k: int = 10, bootstrap_draws: int = 2000,
@@ -204,6 +240,12 @@ def analyze(
             features, success[condition]["endpoint_at_1"], rng, draws=regression_draws,
         ) for condition in CONDITIONS
     }
+    paired_familiarity_advantage = {
+        f"closed_minus_{other}": _adjusted_paired_primitive_advantage(
+            features, success["closed_loop"]["endpoint_at_1"],
+            success[other]["endpoint_at_1"], rng, draws=regression_draws,
+        ) for other in ("open_flow", "direct")
+    }
     strata = {}
     for name, selector in (
         ("scaffold_seen", features[:, 1] == 1),
@@ -236,6 +278,7 @@ def analyze(
         "paired_contrasts": contrasts,
         "structural_strata": strata,
         "adjusted_primitive_familiarity_association": adjusted,
+        "adjusted_paired_primitive_advantage": paired_familiarity_advantage,
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2) + "\n")

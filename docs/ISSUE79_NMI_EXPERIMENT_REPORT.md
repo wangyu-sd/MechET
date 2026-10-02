@@ -263,3 +263,10 @@ different and their selected Top-1 numbers must not be presented as an
 isolated effect of closed-loop feedback. The analyzer requires complete K=10
 row-level candidate results and valid ranking permutations before producing
 any model result; no such H2 outcome is available yet.
+Before inspecting any model H2 outcome, E4 additionally froze a
+reaction-paired adjusted slope: does the **Closed-Loop minus Open-Flow**
+generation-order Top-1 gap change with the log frequency of the least-common
+known primitive, holding scaffold, local-center, near-duplicate, trajectory
+length and import count covariates fixed? It uses reaction-level bootstrap
+intervals and is descriptive, not a causal estimate. This supplements—not
+replaces—the primary paired accuracy contrast.
