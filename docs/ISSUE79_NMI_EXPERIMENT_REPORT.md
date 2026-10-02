@@ -209,6 +209,14 @@ train-only evidence, before model test. Submission must wait for completed,
 lineage-verified adapters and resource reinspection. No eval task or held-out
 model result is claimed here.
 
+The Closed-Loop test launcher received a full **reference-prompt contract
+preflight** over all 27,104 H2 test rows (no model generation): one system
+prompt, one frozen tool schema, one 40-call budget, one
+`compact_full_state` observation mode and `finish_trace` terminal tool;
+27,104/27,104 user prompts began with their own frozen product target and
+zero had malformed initial-observation JSON. This validates launch-format
+uniformity only, not prediction quality or complete gold replay.
+
 Resource-only Open-Flow replacement on 2026-10-03: the original Qingyuan A100
 instance `8b1d80eea0d297ec01a0fd748a9c41b5` remained
 `TRAINING_RESOURCE_WAITING` for about 35 minutes, then was stopped and verified
