@@ -112,6 +112,21 @@ optimizer updates each. This does **not** equalize token/computation budgets;
 token counts and wall time must be reported separately. Three-row training
 schema checks passed for each representation.
 
+Three ordinary, non-elastic Taiji SFT tasks were submitted on 2026-10-03:
+
+| Condition | Task / instance | Requested resource | First observed state |
+|---|---|---|---|
+| Direct | `meteor_mechet_nmi_h2_direct_8a100_qy_20261003_01` / `8b1d8047a0d27a4401a0fd745edb4230` | 8×A100, Qingyuan | `TRAINING_RESOURCE_WAITING` |
+| Open-Flow | `meteor_mechet_nmi_h2_open_flow_8a100_qy_20261003_01` / `8b1d80eea0d297ec01a0fd748a9c41b5` | 8×A100, Qingyuan | `TRAINING_RESOURCE_WAITING` |
+| Closed-Loop | `meteor_mechet_nmi_h2_closed_loop_8h20_zjk_20261003_01` / `8b1d89f7a0d297d901a0fd74a67941de` | 8×H20, Zhangjiakou | `TRAINING_INIT` |
+
+Submission/start acknowledgement is **not** a training result. Resource
+allocation, Ceph mount, terminal heartbeat, tokenization, optimizer progress,
+and checkpoint lineage must each be checked after admission. First resource
+snapshot showed ordinary Qingyuan A100 quota 112/using 75/waiting 27 after the
+two new 8-GPU requests; ordinary Zhangjiakou H20 quota 136/using 107/applying
+8. The queue may reflect whole-node scheduling despite numerical quota room.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
