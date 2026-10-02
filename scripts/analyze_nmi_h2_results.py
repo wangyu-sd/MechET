@@ -62,6 +62,8 @@ def _row_results(
         candidates = list(row.get("candidates") or [])
         if len(candidates) != expected_k:
             raise ValueError(f"{condition} row has wrong K: {source_id}")
+        if [item.get("candidate_index") for item in candidates] != list(range(expected_k)):
+            raise ValueError(f"{condition} candidate indices do not match generation order: {source_id}")
         order = list(row.get("generation_order") or range(expected_k))
         if order != list(range(expected_k)):
             raise ValueError(f"{condition} generation order not canonical: {source_id}")
@@ -77,6 +79,11 @@ def _row_results(
             selector = "assistant_mean_nll" if condition == "direct" else "execution_gated_assistant_mean_nll"
         if not isinstance(selected_index, int) or not 0 <= selected_index < expected_k:
             raise ValueError(f"{condition} invalid selected candidate index: {source_id}")
+        if condition == "closed_loop":
+            if row.get("selected_structural_exact") is not bool(candidates[selected_index]["structural_exact"]):
+                raise ValueError(f"{condition} selected endpoint disagrees with candidate: {source_id}")
+            if row.get("selected_formal_execute") is not bool(candidates[selected_index].get("execute_ok")):
+                raise ValueError(f"{condition} selected execution disagrees with candidate: {source_id}")
         outcomes[source_id] = {
             "endpoint_at_1": bool(candidates[0]["structural_exact"]),
             "endpoint_at_k": any(bool(item["structural_exact"]) for item in candidates),

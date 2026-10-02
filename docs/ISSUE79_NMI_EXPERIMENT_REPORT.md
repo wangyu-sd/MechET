@@ -344,7 +344,12 @@ and Closed-Loop uses its own executor selector. These three selectors are
 different and their selected Top-1 numbers must not be presented as an
 isolated effect of closed-loop feedback. The analyzer requires complete K=10
 row-level candidate results and valid ranking permutations before producing
-any model result; no such H2 outcome is available yet.
+any model result; it additionally checks that candidate indices preserve
+generation order and that the Closed-Loop parent-selected outcome agrees with
+the indexed candidate. This prevents an index/selection bookkeeping mismatch
+from silently contaminating the supplementary selected Top-1. All 25 NMI
+regression tests passed after the gate was added. No H2 model outcome is
+available yet.
 Before inspecting any model H2 outcome, E4 additionally froze a
 reaction-paired adjusted slope: does the **Closed-Loop minus Open-Flow**
 generation-order Top-1 gap change with the log frequency of the least-common

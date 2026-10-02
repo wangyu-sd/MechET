@@ -37,12 +37,15 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
         row_sha = _write_jsonl(evaluation_rows, [
             {"id": f"id_{i}", "source_id": identifier,
              "generation_order": [0, 1],
-             **({"selected_candidate_index": 1} if condition == "closed_loop" else
+             **({"selected_candidate_index": 1, "selected_structural_exact": False,
+                 "selected_formal_execute": True} if condition == "closed_loop" else
                 {"nll_ranked_order": [1, 0]} if condition == "direct" else
                 {"formal_nll_ranked_order": [1, 0]}),
              "candidates": [
-                 {"structural_exact": bool(hits[i]), "execute_ok": condition != "direct"},
-                 {"structural_exact": False, "execute_ok": condition != "direct"},
+                 {"candidate_index": 0, "structural_exact": bool(hits[i]),
+                  "execute_ok": condition != "direct"},
+                 {"candidate_index": 1, "structural_exact": False,
+                  "execute_ok": condition != "direct"},
              ]} for i, identifier in enumerate(identifiers)
         ])
         report = {"reference_sha256": reference_sha, "n_reference_rows": 4,
@@ -87,7 +90,8 @@ def test_h2_analysis_rejects_missing_ranked_order(tmp_path):
     evaluation = tmp_path / "direct.json"
     _write_jsonl(tmp_path / "direct.rows.jsonl", [{
         "id": "id_0", "source_id": "r0", "candidates": [
-            {"structural_exact": False}, {"structural_exact": True},
+            {"candidate_index": 0, "structural_exact": False},
+            {"candidate_index": 1, "structural_exact": True},
         ],
     }])
     evaluation.write_text(json.dumps({
@@ -96,6 +100,34 @@ def test_h2_analysis_rejects_missing_ranked_order(tmp_path):
     }))
     with pytest.raises(ValueError, match="missing/invalid frozen ranking"):
         _row_results("direct", evaluation, matched.parent, expected_k=2)
+
+
+def test_h2_analysis_rejects_closed_loop_selected_candidate_mismatch(tmp_path):
+    from scripts.analyze_nmi_h2_results import _row_results
+
+    matched = tmp_path / "matched" / "closed_loop"
+    matched.mkdir(parents=True)
+    reference_sha = _write_jsonl(matched / "test.jsonl", [
+        {"id": "id_0", "source_id": "r0"},
+    ])
+    (matched / "manifest.json").write_text(json.dumps({
+        "rows": {"test": 1}, "output_sha256": {"test": reference_sha},
+    }))
+    evaluation = tmp_path / "closed_loop.json"
+    _write_jsonl(tmp_path / "closed_loop.rows.jsonl", [{
+        "id": "id_0", "source_id": "r0", "selected_candidate_index": 1,
+        "selected_structural_exact": True, "selected_formal_execute": True,
+        "candidates": [
+            {"candidate_index": 0, "structural_exact": True, "execute_ok": True},
+            {"candidate_index": 1, "structural_exact": False, "execute_ok": True},
+        ],
+    }])
+    evaluation.write_text(json.dumps({
+        "reference_sha256": reference_sha, "n_reference_rows": 1,
+        "candidate_count_min": 2, "candidate_count_max": 2,
+    }))
+    with pytest.raises(ValueError, match="selected endpoint disagrees"):
+        _row_results("closed_loop", evaluation, matched.parent, expected_k=2)
 
 
 def test_paired_familiarity_advantage_bootstraps_reaction_differences():
