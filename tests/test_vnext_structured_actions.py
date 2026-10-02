@@ -28,3 +28,23 @@ def test_schema_only_and_plain_json_envelope():
         parse_structured_action('{"name":"finish_trace","arguments":{},"extra":1}')
     with pytest.raises(ValueError):
         parse_structured_action('{"name":"bad","arguments":{}}')
+
+
+def test_vllm_array_compatibility_preserves_cardinality_after_decode():
+    schema = structured_action_schema(None, inventory_handles=False)
+
+    def arrays(value):
+        if isinstance(value, dict):
+            if value.get("type") == "array":
+                yield value
+            for nested in value.values():
+                yield from arrays(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                yield from arrays(nested)
+
+    assert all("minItems" not in field and "maxItems" not in field for field in arrays(schema))
+    with pytest.raises(ValueError, match="at least one fragment"):
+        parse_structured_action('{"name":"import_fragments","arguments":{"fragments":[]}}')
+    with pytest.raises(ValueError, match="exactly two atoms"):
+        parse_structured_action('{"name":"apply_electron_flow","arguments":{"bond_order_changes":[{"atoms":["A01"]}]}}')

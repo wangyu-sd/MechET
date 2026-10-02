@@ -1,0 +1,33 @@
+schema_version: 1
+campaign: mechet_vnext_runtime_schemavalidator_20261002
+poll_seconds: 300
+# Operational compatibility recovery only: pinned vLLM 0.8.5 V1 rejects
+# minItems/maxItems. The generation schema omits those keywords and validates
+# the identical cardinalities after decoding. Frozen states, adapter, modes,
+# metrics and scientific thresholds are identical to PR #73.
+code_mirror: ${MECHET_AUTORESEARCH_CODE_MIRROR}
+taiji:
+  client: ${MECHET_TAIJI_CLIENT}
+  donor_task: ${MECHET_TAIJI_DONOR_TASK}
+stages:
+  - id: runtime_benchmark
+    kind: taiji
+    taiji_config: configs/taiji/meteor_mechet_vnext_runtime_8a100_qy_20261001.json
+    task_flag_suffix: _schemavalidator1
+    config_replacements:
+      MechET-autoresearch-vnext-20261001: MechET-autoresearch-vnext-runtime-schemavalidator-20261002
+    max_infra_retries: 1
+    retry_cleanup_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001
+    required_globs:
+      - /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json
+    metrics:
+      graph_prefix_speedup: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json, field: modes.graph_prefix.speedup_vs_eager_prefix}
+      graph_prefix_exact: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json, field: modes.graph_prefix.exact_action_vs_eager_prefix}
+      inventory_parse_success: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json, field: modes.graph_inventory.parse_success}
+      inventory_handle_valid: {type: json, path: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/autoresearch/vnext_runtime_a100_20261001/summary.json, field: modes.graph_inventory.handle_valid}
+    gates:
+      - {name: cuda_graph_not_slower, lhs: graph_prefix_speedup, op: '>=', rhs: 1.0}
+      - {name: deterministic_graph_equivalence, lhs: graph_prefix_exact, op: '>=', rhs: 0.99}
+      - {name: structured_parse_reliable, lhs: inventory_parse_success, op: '>=', rhs: 0.99}
+      - {name: structured_handles_reliable, lhs: inventory_handle_valid, op: '>=', rhs: 0.99}
