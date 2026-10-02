@@ -45,7 +45,7 @@ def structured_action_schema(
         ["source", "destination", "instruction"],
     )
     bond_delta = _object(
-        {"atoms": {"type": "array", "items": atom_field, "minItems": 2, "maxItems": 2},
+        {"atoms": {"type": "array", "items": atom_field},
          "delta": {"type": "integer", "minimum": -3, "maximum": 3},
          "instruction": {"type": "string"}},
         ["atoms", "delta", "instruction"],
@@ -69,7 +69,7 @@ def structured_action_schema(
         ["smiles", "count", "purpose"],
     )
     import_args = _object(
-        {"fragments": {"type": "array", "items": fragment, "minItems": 1}},
+        {"fragments": {"type": "array", "items": fragment}},
         ["fragments"],
     )
     variants = [
@@ -89,4 +89,18 @@ def parse_structured_action(text: str) -> tuple[str, dict[str, Any]]:
     args = value["arguments"]
     if name not in {"import_fragments", "apply_electron_flow", "finish_trace"} or not isinstance(args, dict):
         raise ValueError("invalid structured action envelope")
+    # vLLM 0.8.5 rejects minItems/maxItems before xgrammar compilation. Keep
+    # those cardinality constraints here instead of silently weakening the
+    # action contract for its generated JSON.
+    if name == "import_fragments":
+        fragments = args.get("fragments")
+        if not isinstance(fragments, list) or not fragments:
+            raise ValueError("import_fragments requires at least one fragment")
+    elif name == "apply_electron_flow":
+        changes = args.get("bond_order_changes")
+        if not isinstance(changes, list):
+            raise ValueError("bond_order_changes must be an array")
+        for change in changes:
+            if not isinstance(change, dict) or not isinstance(change.get("atoms"), list) or len(change["atoms"]) != 2:
+                raise ValueError("bond_order_changes atoms must contain exactly two atoms")
     return str(name), args

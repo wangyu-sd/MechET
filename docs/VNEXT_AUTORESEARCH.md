@@ -115,6 +115,17 @@ code commit. The pinned XGrammar package successfully compiled all 128 frozen
 inventory schemas offline (maximum 74 atoms); this checks schema compilation,
 not vLLM generation or endpoint quality.
 
+On 2026-10-02 both backend-fixed retries reached the structured mode but ended
+inside vLLM 0.8.5's *additional* V1 schema validator: it rejects `minItems`
+and `maxItems` even when XGrammar itself compiles the schema. These are user
+program compatibility failures, not evidence of a platform allocation failure
+or a completed five-mode benchmark. The recovery removes only those unsupported
+array keywords from the generation schema and checks the same cardinality
+requirements after JSON decoding. All 128 frozen schema-only and 128 inventory
+schemas pass both pinned XGrammar compilation and the pinned vLLM validator.
+This is a separate code-compatibility recovery; the states, adapter, five modes,
+metric definitions, and numerical gates remain unchanged.
+
 ### Pointer arm
 
 The pointer arm uses the same Stage-II policy, current deterministic executor, product-only model-visible information boundary, and matched K=4 proposal budget.
