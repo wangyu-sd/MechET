@@ -268,6 +268,16 @@ were at 99–100% utilization with roughly 25–26 GiB allocated per card.
 This supports ongoing compute, not a verified Closed-Loop step count. The
 Open-Flow handle remained `TRAINING_RESOURCE_WAITING`.
 
+At 02:23 CST, Direct had reached complete `checkpoint-1000` (9.53% of
+10,494 updates; epoch 0.28589), with trainer runtime 4,644.4 seconds,
+26,183,079 input tokens seen and recent training loss 0.0319. There was no
+validation loss or endpoint evaluation yet. Closed-Loop remained
+`TRAINING_RUNNING` but still had no first checkpoint, so its step count cannot
+be inferred from GPU utilization. Open-Flow remained in H20 resource waiting
+after about 76 minutes. The Qingyuan A100 ordinary group simultaneously had
+33 waiting GPUs, so moving the same task back to its earlier A100 queue had
+no evidence-backed scheduling advantage at this check.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
