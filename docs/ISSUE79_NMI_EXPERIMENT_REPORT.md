@@ -232,6 +232,11 @@ roles, no tool schema, and zero rows whose user text differs from
 assistant gold continuation. These checks exclude an accidental answer-bearing
 test prompt; they do not address information potentially encoded in mapped
 product atom labels or predict model accuracy.
+An additional prompt-isolation regression poisons the stored reference
+assistant/tool messages, structural endpoint, compiled proof and trace plan;
+neither the Direct/Open-Flow direct prompt nor the Closed-Loop runtime-generated
+prompt includes that poison. This checks the generation-side code path, while
+the reference answers remain available only to the later evaluator.
 
 Resource-only Open-Flow replacement on 2026-10-03: the original Qingyuan A100
 instance `8b1d80eea0d297ec01a0fd748a9c41b5` remained
