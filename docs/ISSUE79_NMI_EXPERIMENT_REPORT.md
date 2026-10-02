@@ -38,8 +38,10 @@ Of the primitives, 53 occur in one reaction, while 435 occur in at least ten;
 
 A **non-frozen exploratory** 10% reaction hash probe held out 25,738 reactions:
 only 317 had an unseen complete move composition, and 316 of these used only
-seen primitives. This is 1.23% of the random held-out reactions. Thus a random
-split would mostly retest familiar programs; E2 must hold out composition
+seen primitives. This is 316/25,738 = **1.23%** of the random held-out
+reactions. The remaining 1/25,738 = **0.0039%** required at least one unseen
+primitive; these two strata exhaust the 317 unseen-composition probe cases.
+Thus a random split would mostly retest familiar programs; E2 must hold out composition
 groups. The v1 composition digest does not separately normalize the schedule
 of fragment imports; it must be described as an ordered **move composition**,
 not a unique physical mechanism or reagent program.
