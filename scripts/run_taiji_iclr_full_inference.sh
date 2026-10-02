@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
+repo_dir=${MECHET_REPO_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET}
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 baseline=${MECHET_BASELINE:?set MECHET_BASELINE to outcome_only, free_cot, state_cot, net_edit, proof, or open_flow}
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
@@ -89,8 +89,14 @@ case "$baseline" in
     ;;
 esac
 
-dataset_manifest=${dataset_manifest:-data/iclr_full_v4/manifest.json}
-manifest_task=${manifest_task:-$baseline}
+dataset_manifest=${MECHET_DATASET_MANIFEST:-${dataset_manifest:-data/iclr_full_v4/manifest.json}}
+manifest_task=${MECHET_MANIFEST_TASK:-${manifest_task:-$baseline}}
+config=${MECHET_TRAINING_CONFIG:-$config}
+adapter=${MECHET_ADAPTER:-$adapter}
+test_file=${MECHET_TEST_FILE:-$test_file}
+expected_rows=${MECHET_EXPECTED_ROWS:-$expected_rows}
+condition_name=${MECHET_CONDITION_NAME:-iclr_full_${baseline}_seed17_k${samples_per_target}}
+evaluation_scope=${MECHET_EVALUATION_SCOPE:-full_official_test}
 
 output_dir=${MECHET_INFERENCE_OUTPUT:-outputs/eval/iclr_full/${baseline}_seed17_k${samples_per_target}}
 gpu_count=8
@@ -214,7 +220,7 @@ for worker in $(seq 0 $((generation_shards - 1))); do
     --data "$test_file" \
     --output "$output_dir/generation/predictions.shard-${shard}.jsonl" \
     --mode direct \
-    --condition-name "iclr_full_${baseline}_seed17_k${samples_per_target}" \
+    --condition-name "$condition_name" \
     --adapter "$adapter" \
     --backend "$inference_backend" \
     --shard-count "$generation_shards" \
@@ -255,7 +261,7 @@ if [[ "$status" -ne 0 ]]; then
   exit "$status"
 fi
 
-python - "$baseline" "$samples_per_target" "$expected_rows" "$generation_shards" "$direct_sample_batch_size" "$output_dir" <<'PY'
+python - "$baseline" "$samples_per_target" "$expected_rows" "$generation_shards" "$direct_sample_batch_size" "$output_dir" "$evaluation_scope" <<'PY'
 import hashlib
 import json
 from pathlib import Path
@@ -267,6 +273,7 @@ expected = int(sys.argv[3])
 expected_shards = int(sys.argv[4])
 direct_sample_batch_size = int(sys.argv[5])
 root = Path(sys.argv[6])
+evaluation_scope = sys.argv[7]
 shards = sorted((root / "generation").glob("predictions.shard-*.jsonl"))
 if len(shards) != expected_shards:
     raise SystemExit(f"expected {expected_shards} prediction shards, got {len(shards)}")
@@ -284,8 +291,8 @@ with output.open("w", encoding="utf-8") as handle:
     for row in rows:
         handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 manifest = {
-    "artifact_type": "iclr_full_baseline_sampled_test_manifest",
-    "paper_status": "full-test evaluation; compare methods on the shared 28,967-ID universe",
+    "artifact_type": "iclr_full_baseline_sampled_test_manifest" if evaluation_scope == "full_official_test" else "nmi_h2_sampled_test_manifest",
+    "paper_status": "full-test evaluation; compare methods on the shared 28,967-ID universe" if evaluation_scope == "full_official_test" else "frozen Issue #79 H2 composition-heldout evaluation",
     "baseline": baseline,
     "n_targets": len(rows),
     "samples_per_target": k,

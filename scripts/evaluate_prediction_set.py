@@ -23,6 +23,8 @@ def main() -> int:
     parser.add_argument("--condition-name", required=True)
     parser.add_argument("--expected-rows", type=int, default=0)
     parser.add_argument("--expected-candidates", type=int, default=0)
+    parser.add_argument("--write-rows", action="store_true",
+                        help="write per-reaction candidate outcomes for paired H2 analysis")
     args = parser.parse_args()
 
     references = read_jsonl(args.reference)
@@ -49,6 +51,22 @@ def main() -> int:
     aligned = align_prediction_artifact(
         references, predictions, condition_name=args.condition_name
     )
+    row_path = args.output.with_suffix(".rows.jsonl")
+    row_handle = None
+    if args.write_rows:
+        row_path.parent.mkdir(parents=True, exist_ok=True)
+        row_handle = row_path.open("w", encoding="utf-8")
+
+    def emit_row(value):
+        assert row_handle is not None
+        row_handle.write(json.dumps(value, ensure_ascii=False) + "\n")
+
+    try:
+        sampled_metrics = prediction_set_metrics(aligned, row_sink=emit_row if args.write_rows else None)
+    finally:
+        if row_handle is not None:
+            row_handle.close()
+
     report = {
         "artifact_type": "sampled_prediction_evaluation",
         "condition_name": args.condition_name,
@@ -62,12 +80,15 @@ def main() -> int:
         "candidate_count_max": max(candidate_counts, default=0),
         "headline": {
             **condition_metrics(aligned),
-            **prediction_set_metrics(aligned),
+            **sampled_metrics,
         },
         "runtime_contract": prediction_runtime_contract(
             predictions, include_adapter=True
         ),
     }
+    if args.write_rows:
+        report["row_evaluation"] = str(row_path.resolve())
+        report["row_evaluation_sha256"] = file_sha256(row_path)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

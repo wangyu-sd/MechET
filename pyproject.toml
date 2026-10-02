@@ -73,6 +73,9 @@ knowledge = [
 planning = [
   "syntheseus>=0.7.2,<0.8",
 ]
+analysis = [
+  "scikit-learn>=1.5,<2",
+]
 dev = [
   "pytest",
   "mechet[train,forward,knowledge]",
