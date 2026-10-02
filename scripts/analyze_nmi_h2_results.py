@@ -65,11 +65,25 @@ def _row_results(
         order = list(row.get("generation_order") or range(expected_k))
         if order != list(range(expected_k)):
             raise ValueError(f"{condition} generation order not canonical: {source_id}")
+        if condition == "closed_loop":
+            selected_index = row.get("selected_candidate_index")
+            selector = "closed_loop_executor_selector"
+        else:
+            rank_key = "nll_ranked_order" if condition == "direct" else "formal_nll_ranked_order"
+            ranked_order = row.get(rank_key)
+            if not isinstance(ranked_order, list) or sorted(ranked_order) != order:
+                raise ValueError(f"{condition} missing/invalid frozen ranking: {source_id}")
+            selected_index = ranked_order[0]
+            selector = "assistant_mean_nll" if condition == "direct" else "execution_gated_assistant_mean_nll"
+        if not isinstance(selected_index, int) or not 0 <= selected_index < expected_k:
+            raise ValueError(f"{condition} invalid selected candidate index: {source_id}")
         outcomes[source_id] = {
             "endpoint_at_1": bool(candidates[0]["structural_exact"]),
             "endpoint_at_k": any(bool(item["structural_exact"]) for item in candidates),
+            "selected_endpoint_at_1": bool(candidates[selected_index]["structural_exact"]),
             "execute_at_1": bool(candidates[0].get("execute_ok")) if condition != "direct" else False,
             "execute_at_k": any(bool(item.get("execute_ok")) for item in candidates) if condition != "direct" else False,
+            "selected_execute_at_1": bool(candidates[selected_index].get("execute_ok")) if condition != "direct" else False,
         }
     if len(outcomes) != len(references):
         raise ValueError(f"{condition} per-reaction outcome coverage mismatch")
@@ -79,6 +93,7 @@ def _row_results(
         "row_evaluation_sha256": _sha(row_path),
         "test_sha256": manifest["output_sha256"]["test"],
         "n": len(outcomes),
+        "selected_candidate_rule": selector,
     }
 
 
@@ -157,7 +172,8 @@ def analyze(
     success = {
         condition: {
             metric: np.array([int(outcomes[condition][identifier][metric]) for identifier in ids], dtype=float)
-            for metric in ("endpoint_at_1", "endpoint_at_k", "execute_at_1", "execute_at_k")
+            for metric in ("endpoint_at_1", "endpoint_at_k", "selected_endpoint_at_1",
+                           "execute_at_1", "execute_at_k", "selected_execute_at_1")
         } for condition in CONDITIONS
     }
     methods = {
@@ -211,6 +227,10 @@ def analyze(
         "lineage": lineage,
         "n_reactions": len(ids),
         "candidate_budget_k": k,
+        "comparison_semantics": {
+            "paired_contrasts": "same generation-order first candidate and Pass@K; paired by reaction",
+            "selected_top1": "supplementary only: Direct uses NLL, Open-Flow execution-gated NLL, Closed-Loop its executor selector; these selectors are not matched",
+        },
         "bootstrap_seed": seed,
         "methods": methods,
         "paired_contrasts": contrasts,

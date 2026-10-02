@@ -1,6 +1,8 @@
 import hashlib
 import json
 
+import pytest
+
 from scripts.analyze_nmi_h2_results import analyze
 
 
@@ -34,6 +36,9 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
         row_sha = _write_jsonl(evaluation_rows, [
             {"id": f"id_{i}", "source_id": identifier,
              "generation_order": [0, 1],
+             **({"selected_candidate_index": 1} if condition == "closed_loop" else
+                {"nll_ranked_order": [1, 0]} if condition == "direct" else
+                {"formal_nll_ranked_order": [1, 0]}),
              "candidates": [
                  {"structural_exact": bool(hits[i]), "execute_ok": condition != "direct"},
                  {"structural_exact": False, "execute_ok": condition != "direct"},
@@ -63,3 +68,29 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
     assert result["n_reactions"] == 4
     assert result["paired_contrasts"]["closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.25
     assert result["methods"]["closed_loop"]["endpoint_at_1"]["estimate"] == 0.5
+    assert result["methods"]["closed_loop"]["selected_endpoint_at_1"]["estimate"] == 0.0
+    assert result["lineage"]["direct"]["selected_candidate_rule"] == "assistant_mean_nll"
+    assert "not matched" in result["comparison_semantics"]["selected_top1"]
+
+
+def test_h2_analysis_rejects_missing_ranked_order(tmp_path):
+    from scripts.analyze_nmi_h2_results import _row_results
+
+    matched = tmp_path / "matched" / "direct"
+    matched.mkdir(parents=True)
+    reference_sha = _write_jsonl(matched / "test.jsonl", [{"id": "id_0", "source_id": "r0"}])
+    (matched / "manifest.json").write_text(json.dumps({
+        "rows": {"test": 1}, "output_sha256": {"test": reference_sha},
+    }))
+    evaluation = tmp_path / "direct.json"
+    _write_jsonl(tmp_path / "direct.rows.jsonl", [{
+        "id": "id_0", "source_id": "r0", "candidates": [
+            {"structural_exact": False}, {"structural_exact": True},
+        ],
+    }])
+    evaluation.write_text(json.dumps({
+        "reference_sha256": reference_sha, "n_reference_rows": 1,
+        "candidates_per_target": 2,
+    }))
+    with pytest.raises(ValueError, match="missing/invalid frozen ranking"):
+        _row_results("direct", evaluation, matched.parent, expected_k=2)

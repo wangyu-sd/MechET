@@ -215,3 +215,13 @@ still obtain a real Pod before training is claimed.
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
+
+The frozen E4 paired-analysis code reports generation-order first-candidate
+accuracy and Pass@10 as the matched primary comparison. It also reports a
+**separate, supplementary selected Top-1**: Direct uses assistant mean-NLL,
+Open-Flow first gates on formal execution and then uses assistant mean-NLL,
+and Closed-Loop uses its own executor selector. These three selectors are
+different and their selected Top-1 numbers must not be presented as an
+isolated effect of closed-loop feedback. The analyzer requires complete K=10
+row-level candidate results and valid ranking permutations before producing
+any model result; no such H2 outcome is available yet.
