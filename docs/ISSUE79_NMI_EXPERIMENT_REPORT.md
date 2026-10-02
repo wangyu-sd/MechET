@@ -189,6 +189,14 @@ the two H20 Pods had model processes and GPU memory allocations, but neither
 had a verified optimizer step or saved checkpoint; Open-Flow A100 was still
 waiting for resources.
 
+At 01:19 CST the Closed-Loop Pod showed 100% utilization on all eight H20s
+(about 25–26 GiB per GPU); Direct showed 76–96% utilization (about 14–16 GiB
+per GPU). Neither output directory yet contained `trainer_state.json` or
+adapter weights. This confirms sustained GPU work but does not by itself
+prove a completed update, epoch, or usable checkpoint. The Taiji CLI's log
+endpoint still displayed only launcher/precheck text, so any loss/step claim
+must come from a saved trainer state or another direct Pod observation.
+
 Frozen **K=10 evaluation task configs are prepared but not submitted** under
 `configs/taiji/meteor_mechet_nmi_h2_{direct,open_flow,closed_loop}_k10_*`.
 They retain all 27,104 H2 held-out reactions, the same stochastic candidate
@@ -211,6 +219,14 @@ was submitted to ordinary Zhangjiakou 8×H20 as task
 `TRAINING_RESOURCE_WAITING`. The H20 group then reported quota 136, using 123,
 waiting 8. No duplicate Open-Flow instance remains active. The H20 task must
 still obtain a real Pod before training is claimed.
+
+At 01:29 CST, the same ordinary H20 group still reported quota 136, using
+123, waiting 8, with exactly the Open-Flow task in its waiting list; the
+cluster-wide resource display showed no currently available Zhangjiakou H20
+host. This is evidence of an allocation wait despite nominal quota headroom,
+not evidence that the task's application group or location is mistyped. The
+earlier Qingyuan A100 Open-Flow instance is terminal, so there is no active
+duplicate to consume capacity.
 
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
