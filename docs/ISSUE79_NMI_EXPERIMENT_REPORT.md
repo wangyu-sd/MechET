@@ -111,6 +111,11 @@ The three equal-update Qwen3-8B configs are frozen at
 optimizer updates each. This does **not** equalize token/computation budgets;
 token counts and wall time must be reported separately. Three-row training
 schema checks passed for each representation.
+As a preflight of the post-generation Open-Flow scorer, the first 200 frozen
+H2 **validation** gold programs replayed 200/200 and reproduced the structural
+endpoint 200/200 using the frozen 40-call execution budget. This checks the
+scorer path, not model accuracy, and does not inspect the H2 test labels for
+model selection.
 
 Three ordinary, non-elastic Taiji SFT tasks were submitted on 2026-10-03:
 
