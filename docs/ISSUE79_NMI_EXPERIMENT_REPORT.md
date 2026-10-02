@@ -137,6 +137,16 @@ snapshot showed ordinary Qingyuan A100 quota 112/using 75/waiting 27 after the
 two new 8-GPU requests; ordinary Zhangjiakou H20 quota 136/using 107/applying
 8. The queue may reflect whole-node scheduling despite numerical quota room.
 
+At the next live check, Closed-Loop reached `TRAINING_RUNNING` on a real 8×H20
+Pod. The Ceph-mounted code and frozen config were both readable inside the
+Pod; eight `python3.11` workers and a `pt_elastic` parent were active in the
+pretokenization stage. GPU memory was still 0 MiB, so **no optimizer training
+or checkpoint is claimed yet**. Direct and Open-Flow remained in
+`TRAINING_RESOURCE_WAITING`. The Taiji CLI log endpoint still showed only
+startup/precheck lines despite the launcher heartbeat and shared PID-1 stdout
+pipe; keep checking both Pod processes and platform logs rather than treating
+the platform state alone as evidence of progress.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
