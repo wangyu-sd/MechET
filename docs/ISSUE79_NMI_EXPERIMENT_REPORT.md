@@ -287,6 +287,16 @@ TRAINING_RESOURCE_WAITING`, with no allocated Pod. Thus the short
 startup or a user-program failure. Do not duplicate or rewrite the task in
 response to those transient states.
 
+At 04:31 CST, Direct had advanced to complete `checkpoint-2500` (23.82% of
+the fixed updates). Closed-Loop still had no `trainer_state.json`, but all
+eight `train_tool_sft.py` processes had run for about 3 h 42 min, each H20
+remained at 100% utilization with roughly 25–26 GiB allocated, and no
+terminal task state was observed. This is sustained computation, not evidence
+of a particular step count or convergence. Open-Flow remained queued for
+underlying H20 resources; the ordinary Qingyuan A100 group had 41 GPUs
+waiting at this check, so the original A100 queue was not a clear faster
+replacement.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
