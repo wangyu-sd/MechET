@@ -147,6 +147,17 @@ startup/precheck lines despite the launcher heartbeat and shared PID-1 stdout
 pipe; keep checking both Pod processes and platform logs rather than treating
 the platform state alone as evidence of progress.
 
+Resource-only replacement on 2026-10-03: the Direct Qingyuan A100 instance
+`8b1d8047a0d27a4401a0fd745edb4230` remained in
+`TRAINING_RESOURCE_WAITING` for roughly 19 minutes and was explicitly stopped;
+it reached `END` without creating a training output. The same frozen Direct
+config/data/seed/output contract was resubmitted on ordinary Zhangjiakou
+8×H20 as task `meteor_mechet_nmi_h2_direct_8h20_zjk_20261003_01`, instance
+`8b1d89f7a0d297d901a0fd8659de41ea`, initially `PENDING`. The Closed-Loop
+H20 and Open-Flow A100 instances were not stopped. This is not a change to
+the split, model, optimizer or scientific comparison; GPU type and wall time
+must be reported separately.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
