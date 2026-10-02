@@ -319,6 +319,19 @@ Closed-Loop's latest complete state remained `checkpoint-250`; the Open-Flow
 H20 scheduler handle remained in `TRAINING_RESOURCE_WAITING` after about five
 hours, with no Pod and no model output.
 
+At 07:11 CST Direct and Closed-Loop were still `TRAINING_RUNNING`; their latest
+complete checkpoints were steps **4,500/10,494** and **250/10,494**, respectively.
+Open-Flow was still `TRAINING_RESOURCE_WAITING` with no allocated Pod after
+roughly six hours. A seemingly shorter AILab A100 queue is not a verified
+drop-in alternative: the historical AILab task
+`meteor_mechet_a4_open_flow_infer_k1_8a100_ailab_20260829_01` ended before
+the user program because the Tencent `taiji7` image required `cuda>=12.2` and
+the host failed the NVIDIA prestart check. An older CUDA 11.8 image probe on
+AILab also ended unsuccessfully; it did not establish a compatible eight-GPU
+training runtime. Moving Open-Flow to that group with the known-failing image
+would trade a resource wait for a predictable container failure. The H20 task
+therefore remains queued while a compatible alternative is not yet proven.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
