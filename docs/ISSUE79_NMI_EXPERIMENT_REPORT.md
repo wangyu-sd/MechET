@@ -65,6 +65,15 @@ validation set found **zero** reactions containing primitives unseen in the
 candidate H2 train split. A primitive-unseen control therefore cannot be
 formed from that set without changing the training split; it is marked
 unavailable rather than relabeling familiar-primitive reactions.
+The separately frozen official-validation support audit at
+`outputs/issue79/nmi_official_valid_program_support_20261003/manifest.json`
+verified the source and H2 train-ID SHA contracts. Of 2,890 official
+validation reactions, 2,442 have a program composition seen in H2 train and
+448 have an unseen composition using only seen primitives; none requires a
+train-unseen primitive. These are **not** H2 headline test rows or a substitute
+for the unavailable primitive-unseen negative control. They establish that a
+program-seen diagnostic stratum exists without opening the final H2 test for
+checkpoint selection.
 
 The first structural smoke revealed an inherited audit implementation defect:
 RDKit's default SMILES parser removes mapped explicit hydrogen, and the old
