@@ -158,6 +158,16 @@ H20 and Open-Flow A100 instances were not stopped. This is not a change to
 the split, model, optimizer or scientific comparison; GPU type and wall time
 must be reported separately.
 
+The Closed-Loop distributed tokenizer then completed its frozen cache
+manifest: **223,863** train reactions became **231,270** lossless training
+windows (7,286 rows windowed); validation was 6,200 reactions/windows.
+Recorded truncation is zero, and independently checked train/valid source
+SHA-256 values match the representation manifest. Natural train exposure is
+1,443,677,982 input tokens and 170,411,040 assistant-supervised tokens;
+these are not the final three-epoch presented-token totals. The Pod next
+launched eight GPU processes with about 7.6 GiB reserved per H20, but no
+optimizer step was yet verified at this observation.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
