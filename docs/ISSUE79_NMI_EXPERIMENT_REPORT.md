@@ -237,6 +237,10 @@ progress, **not** endpoint accuracy or a finished adapter. The three task
 handles were rechecked: Direct and Closed-Loop remained `TRAINING_RUNNING`,
 Open-Flow remained `TRAINING_RESOURCE_WAITING`. No Closed-Loop trainer state or
 weights were present yet, so its actual step count remains unverified.
+The saved Direct adapter has 288 tensors / 15,335,424 parameters, all finite
+and nonzero in a read-only safetensors audit. Logged training loss fell from
+0.6376 at the first recorded step to 0.0673 at step 250; this only checks
+training health and cannot establish held-out chemistry performance.
 
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
