@@ -258,6 +258,16 @@ and nonzero in a read-only safetensors audit. Logged training loss fell from
 0.6376 at the first recorded step to 0.0673 at step 250; this only checks
 training health and cannot establish held-out chemistry performance.
 
+At 01:43 CST the Direct task had advanced to a complete `checkpoint-500`,
+global step **500/10,494** (4.76%), epoch 0.14294, trainer runtime 2,307.7
+seconds and recent teacher-forced loss 0.0423. The earlier checkpoint was at
+01:21, so progress is real rather than a static active-state label. The
+Closed-Loop task still had no saved checkpoint, but its eight actual
+`train_tool_sft.py` workers had been alive about 55 minutes and all eight H20s
+were at 99–100% utilization with roughly 25–26 GiB allocated per card.
+This supports ongoing compute, not a verified Closed-Loop step count. The
+Open-Flow handle remained `TRAINING_RESOURCE_WAITING`.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
