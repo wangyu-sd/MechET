@@ -704,10 +704,11 @@ splitting the later Closed-Loop evaluation over multiple ordinary 8-GPU tasks.
 The inference worker derives each candidate seed from the stable reaction ID
 and sample index, independent of task partitioning. The merger checks one
 complete modulo task shard per index, the full and selected-reference hashes,
-all task prediction hashes, every reaction ID in original order, K distinct
-candidate indices and identical adapter/runtime metadata. It copies candidate
+all task prediction hashes, every reaction ID and product in original order,
+K distinct candidate indices, the same condition name and identical
+adapter/runtime/full-reference metadata. It copies candidate
 rows without selecting or editing them; the existing full-reference evaluator
-must still be run on its output. Six synthetic corruption/order tests pass.
+must still be run on its output. Nine synthetic corruption/order tests pass.
 This does **not** change the frozen 27,104-reaction denominator or establish a
 model result, and no additional GPU task was submitted by this preparation.
 The frozen endpoint evaluator now constructs each candidate's read-only view

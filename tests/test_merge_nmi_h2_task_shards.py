@@ -36,7 +36,9 @@ def _fixture(tmp_path: Path) -> tuple[Path, list[Path], Path]:
         predictions.write_text("".join(json.dumps({
             "id": row["id"],
             "source_id": row["source_id"],
+            "target_smiles": row["target_smiles"],
             "prediction_mode": "trace",
+            "condition_name": "nmi_h2_closed_loop_seed17_k2",
             "candidates": [{"sample_index": 0}, {"sample_index": 1}],
             "model": model,
         }) + "\n" for row in selected))
@@ -80,7 +82,10 @@ def test_validate_only_checks_without_creating_output(tmp_path: Path) -> None:
     assert not output.exists()
 
 
-@pytest.mark.parametrize("corruption", ["duplicate_index", "wrong_adapter", "missing_row", "wrong_reference"])
+@pytest.mark.parametrize("corruption", [
+    "duplicate_index", "wrong_adapter", "missing_row", "wrong_reference",
+    "wrong_product", "wrong_condition", "wrong_model_reference",
+])
 def test_rejects_incomplete_or_mismatched_task_shards(tmp_path: Path, corruption: str) -> None:
     reference, directories, output = _fixture(tmp_path)
     manifest_path = directories[1] / "manifest.json"
@@ -95,6 +100,17 @@ def test_rejects_incomplete_or_mismatched_task_shards(tmp_path: Path, corruption
         manifest["predictions_sha256"] = _sha(predictions)
     elif corruption == "wrong_reference":
         manifest["reference_sha256"] = "wrong-selected-reference"
+    elif corruption in ("wrong_product", "wrong_condition", "wrong_model_reference"):
+        predictions = directories[1] / "predictions.jsonl"
+        rows = [json.loads(line) for line in predictions.read_text().splitlines()]
+        if corruption == "wrong_product":
+            rows[0]["target_smiles"] = "O"
+        elif corruption == "wrong_condition":
+            rows[0]["condition_name"] = "different-condition"
+        else:
+            rows[0]["model"]["data_sha256"] = "wrong-reference"
+        predictions.write_text("".join(json.dumps(row) + "\n" for row in rows))
+        manifest["predictions_sha256"] = _sha(predictions)
     manifest_path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError):
         merge_task_shards(

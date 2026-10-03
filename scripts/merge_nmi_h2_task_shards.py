@@ -81,6 +81,7 @@ def merge_task_shards(
     digest = hashlib.sha256()
     count = 0
     first_model: str | None = None
+    first_condition: str | None = None
     try:
         sink = open(os.devnull, "wb") if validate_only else temporary.open("wb")
         with reference.open("rb") as source, sink:
@@ -95,9 +96,13 @@ def merge_task_shards(
                 prediction_line = handles[shard_index].readline()
                 if not prediction_line:
                     raise ValueError(f"missing prediction at reference row {row_index}")
+                if not prediction_line.endswith(b"\n"):
+                    raise ValueError(f"unterminated prediction at reference row {row_index}")
                 row = json.loads(prediction_line)
                 if row.get("id") != reference_row.get("id") or row.get("prediction_mode") != "trace":
                     raise ValueError(f"prediction/reference ID or mode mismatch at row {row_index}")
+                if row.get("target_smiles") != reference_row.get("target_smiles"):
+                    raise ValueError(f"prediction/reference product mismatch at row {row_index}")
                 if (row.get("source_id") is not None and reference_row.get("source_id") is not None
                         and row["source_id"] != reference_row["source_id"]):
                     raise ValueError(f"source ID mismatch at row {row_index}")
@@ -110,8 +115,16 @@ def merge_task_shards(
                 manifest = shards[shard_index][1]
                 if (model.get("adapter_sha256") != manifest["shard_adapter_sha256"]
                         or model.get("model_revision") != manifest["shard_model_revision"]
+                        or model.get("data_sha256") != full_reference_sha
                         or int(model.get("samples_per_target") or 0) != k):
                     raise ValueError(f"row/model lineage mismatch at row {row_index}")
+                condition = str(row.get("condition_name") or "")
+                if not condition:
+                    raise ValueError(f"missing condition name at row {row_index}")
+                if first_condition is None:
+                    first_condition = condition
+                elif condition != first_condition:
+                    raise ValueError(f"condition name differs at row {row_index}")
                 serialized_model = json.dumps(model, sort_keys=True, separators=(",", ":"))
                 if first_model is None:
                     first_model = serialized_model
@@ -143,7 +156,8 @@ def merge_task_shards(
         "samples_per_target": k,
         "n_candidates": count * k,
         "task_shard_count": task_shard_count,
-        "task_outputs": [str(shards[index][0].parent.resolve()) for index in shards],
+        "task_outputs": [str(shards[index][0].parent.resolve()) for index in range(task_shard_count)],
+        "condition_name": first_condition,
         "predictions": str(output.resolve()),
         "predictions_sha256": digest.hexdigest(),
         "reference_sha256": full_reference_sha,
