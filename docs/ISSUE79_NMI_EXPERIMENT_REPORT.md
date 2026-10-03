@@ -428,6 +428,23 @@ Its model adapter, H2 reference, K=10, seed, temperature, top-p, token cap and
 NLL ranking settings are byte-identical to the first config. The repair does
 not reinterpret the first failure as an endpoint result.
 
+The repaired Direct evaluation was submitted after checking ordinary Qingyuan
+A100 resources (quota 112, using 71, waiting 22): task
+`meteor_mechet_nmi_h2_direct_k10_vllm_runtime_8a100_qy_20261003_02`, instance
+`8b1d89c4a0d297dc01a1009d39184465`. Its Pod mounted the Ceph adapter and
+versioned runtime, started eight vLLM 0.8.5 engines on eight 40-GiB A100s,
+completed model loading/compilation and began writing prediction shards by
+15:42 CST. A format-only sample across all eight shards has exactly ten
+independent candidates per row, `backend=vllm`, and one shared adapter hash;
+no test answers or endpoint scores were examined. This is ongoing generation,
+not a completed 27,104-row evaluation. The first failed task's output remains
+separate from the retry.
+
+Open-Flow also advanced beyond initialization: by 15:51 CST it had saved a
+complete `checkpoint-250` (250/10,494 updates, epoch 0.07147). Its eight H20
+GPUs showed active compute before the checkpoint. The recent teacher-forced
+loss of 0.1849 is a training-health observation, not H2 endpoint recovery.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
