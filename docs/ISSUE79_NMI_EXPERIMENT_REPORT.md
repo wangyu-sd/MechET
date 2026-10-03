@@ -351,6 +351,15 @@ training runtime. Moving Open-Flow to that group with the known-failing image
 would trade a resource wait for a predictable container failure. The H20 task
 therefore remains queued while a compatible alternative is not yet proven.
 
+At 09:05 CST Closed-Loop saved a second complete checkpoint, step
+**500/10,494**, epoch 0.13837, with 199,212,576 input tokens seen and recent
+teacher-forced loss 0.0771. The interval from step 250 to 500 was about
+4 h 2 min, confirming sustained optimizer progress at roughly 58 s/update;
+there is still no validation or endpoint result. Direct had reached complete
+`checkpoint-6000` at 08:59 (57.2% of its fixed updates). Open-Flow remained
+in H20 resource waiting. These are training and scheduler observations, not
+H2 model-effect estimates.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
