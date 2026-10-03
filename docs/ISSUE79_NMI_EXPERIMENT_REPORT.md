@@ -439,6 +439,14 @@ independent candidates per row, `backend=vllm`, and one shared adapter hash;
 no test answers or endpoint scores were examined. This is ongoing generation,
 not a completed 27,104-row evaluation. The first failed task's output remains
 separate from the retry.
+The primary metric's candidate-order contract was checked without reading
+test answers: installed vLLM 0.8.5 documents that offline `LLM.generate`
+returns requests in input-prompt order and sorts completed requests by numeric
+request ID. In the first 40 written rows from each of eight running shards
+(320 partial rows), all candidate lists had indices 0–9 in order, ten distinct
+candidate seeds, `selected_candidate_index=0`, and `backend=vllm`; zero
+generation errors were recorded. This is a partial runtime integrity check,
+not the final candidate-coverage gate or a model-accuracy result.
 
 Open-Flow also advanced beyond initialization: by 15:51 CST it had saved a
 complete `checkpoint-250` (250/10,494 updates, epoch 0.07147). Its eight H20
