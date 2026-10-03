@@ -105,11 +105,26 @@ def score(args: argparse.Namespace) -> int:
     device = next(model.parameters()).device
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    with args.predictions.open() as source, args.output.open("w", encoding="utf-8") as sink:
+    completed_ids: set[str] = set()
+    if args.resume and args.output.exists():
+        with args.output.open(encoding="utf-8") as previous:
+            for line in previous:
+                if not line.strip():
+                    raise ValueError("blank row in existing NLL shard")
+                identifier = str(json.loads(line)["id"])
+                if identifier in completed_ids:
+                    raise ValueError(f"duplicate existing NLL row: {identifier}")
+                completed_ids.add(identifier)
+    seen_existing: set[str] = set()
+    mode = "a" if args.resume else "w"
+    with args.predictions.open() as source, args.output.open(mode, encoding="utf-8") as sink:
         for row_index, line in enumerate(source):
             if not line.strip() or row_index % args.shard_count != args.shard_index:
                 continue
             row = json.loads(line)
+            if row["id"] in completed_ids:
+                seen_existing.add(row["id"])
+                continue
             scores: list[dict[str, Any]] = []
             for candidate in row.get("candidates") or []:
                 messages = candidate.get("messages") or []
@@ -224,6 +239,8 @@ def score(args: argparse.Namespace) -> int:
                 + "\n"
             )
             sink.flush()
+    if seen_existing != completed_ids:
+        raise ValueError(f"existing NLL shard has {len(completed_ids - seen_existing)} unexpected IDs")
     return 0
 
 
@@ -358,6 +375,7 @@ def main() -> int:
     scorer.add_argument("--shard-count", type=int, required=True)
     scorer.add_argument("--shard-index", type=int, required=True)
     scorer.add_argument("--max-length", type=int, default=24576)
+    scorer.add_argument("--resume", action="store_true")
     scorer.set_defaults(func=score)
     aggregator = sub.add_parser("aggregate")
     aggregator.add_argument("--reference", type=Path, required=True)

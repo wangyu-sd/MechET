@@ -627,6 +627,34 @@ PYTHONPATH=src:. python scripts/analyze_nmi_h2_results.py \
   --output /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/nmi_h2_matched_analysis_seed42.json
 ```
 
+### 2026-10-03 evening: Open-Flow replay and Direct postprocessing recovery
+
+The corrected Open-Flow v2 reference programs passed strict execution and
+structural-endpoint replay on **every** H2 train/valid/test row:
+223,863/223,863, 6,200/6,200, and 27,104/27,104, with zero failures. The
+three output JSON files are
+`outputs/issue79/nmi_open_flow_v2_reference_replay_{train,valid,test}_20261003.json`.
+This is a reference-data audit, not model accuracy. The v2 Open-Flow task is
+training; its latest observed complete checkpoint was 2,750/10,494. The
+Closed-Loop task was also training, with latest complete checkpoint
+1,250/10,494 at this inspection.
+
+The Direct 8×A100 vLLM retry completed all 8 generation shards: 27,104
+targets × 10 candidates. The Taiji instance
+`8b1d89c4a0d297dc01a1009d39184465` nevertheless ended unsuccessfully
+after generation because the long-running Bash launcher reported a syntax
+error in its inline merge block; **no NLL ranking or endpoint evaluation was
+performed by that task**. Do not treat the task's `END/IsSuccess=false` as a
+model failure. A separate strict streaming merge verified the frozen
+reference ID order, eight shard manifests, 10 distinct sample indices per
+reaction, the test hash, adapter hash, and pinned base-model revision. The
+lossless merged file is
+`outputs/issue79/eval_h2_direct_k10_seed17_vllm02/predictions.jsonl`, SHA-256
+`f881ca50b317249f474dc55e8e895d708c218d1c9070ccea9ffd7d3407686c53`.
+The recovery launcher runs only frozen assistant mean-NLL scoring and the
+already-defined endpoint evaluator; it never regenerates or edits candidates.
+Until it finishes, there is no Direct Top-1/Top-10 result to report.
+
 ## Provisional paper Results structure (no paper edit yet)
 
 1. **Operator support and the testable regime.** Report the observed 604 local
