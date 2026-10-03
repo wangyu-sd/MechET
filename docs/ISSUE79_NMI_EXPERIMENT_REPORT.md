@@ -360,6 +360,13 @@ there is still no validation or endpoint result. Direct had reached complete
 in H20 resource waiting. These are training and scheduler observations, not
 H2 model-effect estimates.
 
+At 10:25 CST Direct was still `TRAINING_RUNNING` and had saved complete
+`checkpoint-7000` (epoch 2.0011). Its second scheduled teacher-forced H2
+validation was `eval_loss=0.0338372` at step 6,996 versus `0.0345774` at
+step 3,498/epoch 1. The small decrease indicates continued fit on the narrow
+6,200-row validation monitor, **not** endpoint recovery or H2 test accuracy.
+Closed-Loop remained `TRAINING_RUNNING`; Open-Flow remained in resource wait.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
