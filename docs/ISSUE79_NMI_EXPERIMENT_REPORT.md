@@ -653,7 +653,13 @@ lossless merged file is
 `f881ca50b317249f474dc55e8e895d708c218d1c9070ccea9ffd7d3407686c53`.
 The recovery launcher runs only frozen assistant mean-NLL scoring and the
 already-defined endpoint evaluator; it never regenerates or edits candidates.
-Until it finishes, there is no Direct Top-1/Top-10 result to report.
+The recovery task
+`meteor_mechet_nmi_h2_direct_nll_recovery_8a100_qy_20261003_01`
+(instance `8b1d8922a0d2976301a1023460fd4617`) was submitted to ordinary
+Qingyuan 8×A100 at 22:39 CST, with a successful Ceph donor and live default-log
+heartbeat. It reached Taiji `TRAINING_RUNNING` shortly after submission, but
+POD preflight, actual NLL score rows and final evaluation must still be
+verified. Until it finishes, there is no Direct Top-1/Top-10 result to report.
 
 ## Provisional paper Results structure (no paper edit yet)
 
