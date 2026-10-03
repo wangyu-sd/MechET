@@ -496,11 +496,16 @@ copied byte-for-byte. The independent v2 artifact is
 and `77b70a2df2b6c455acd801b0c790c8078986ce8d6a578533d1c3f05d5e82f3d8`.
 Its config preserves the same Qwen3-8B revision, seed 17 and 10,494 update
 budget. The first packaging-only preflight directory was archived with
-`training_allowed: false`; no job used it. The old Open-Flow H20 training
-instance is still running at this record's timestamp and must be stopped
-only after replacement submission readiness is verified. Its adapter is
-superseded and ineligible for the headline H2 comparison. Direct and
-Closed-Loop artifacts/tasks remain unchanged.
+`training_allowed: false`; no job used it. After the repaired data and runner
+contracts passed, replacement task
+`meteor_mechet_nmi_h2_open_flow_imports_v2_8h20_zjk_20261003_01`
+(instance `8b1d89c4a0d297dc01a1010c9c4e45b4`) was submitted. Only the old
+Open-Flow task `meteor_mechet_nmi_h2_open_flow_8h20_zjk_20261003_01` was
+stopped; Taiji reports `END`, and its partial checkpoint-1000 remains archived.
+That old adapter is superseded and ineligible for the headline H2 comparison.
+The replacement initially reached `TRAINING_RUNNING` with a real eight-H20
+POD and passed host prechecks; tokenizer/optimizer activity must be verified
+separately. Direct and Closed-Loop artifacts/tasks remain unchanged.
 
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
