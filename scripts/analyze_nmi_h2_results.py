@@ -307,6 +307,14 @@ def analyze(
                 condition: float(success[condition]["endpoint_at_1"][selector].mean())
                 if selector.any() else None for condition in CONDITIONS
             },
+            "paired_closed_minus_open_flow": {
+                metric: _bootstrap_mean(
+                    success["closed_loop"][metric][selector]
+                    - success["open_flow"][metric][selector],
+                    rng, bootstrap_draws,
+                ) if selector.any() else None
+                for metric in ("endpoint_at_1", "endpoint_at_k")
+            },
         }
     # Declared from label-free H2 covariates before model outcomes: the five
     # log-scale support ranges contain 1,572 / 2,334 / 1,932 / 7,342 / 13,924

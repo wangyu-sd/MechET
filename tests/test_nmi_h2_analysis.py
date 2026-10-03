@@ -108,6 +108,8 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
     assert support["generation_order_endpoint_at_1"]["closed_loop"] == 0.5
     assert support["paired_closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.25
     assert result["primitive_frequency_strata"]["1000_plus"]["n"] == 0
+    assert result["structural_strata"]["scaffold_unseen"]["paired_closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.5
+    assert result["structural_strata"]["scaffold_seen"]["paired_closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.0
 
 
 def test_h2_analysis_rejects_missing_ranked_order(tmp_path):
