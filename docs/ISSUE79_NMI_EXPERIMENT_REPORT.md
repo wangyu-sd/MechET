@@ -473,6 +473,12 @@ single-pass natural train input tokens are 91,654,571 / 150,873,337 /
 1,443,677,982, and assistant-supervised tokens are 45,230,044 / 102,434,043 /
 170,411,040. All three target 10,494 optimizer updates, but these counts are
 not measured three-epoch FLOPs or a claim of equal token budgets.
+At global batch 64, that cap nominally presents 671,616 training windows.
+Direct and corrected Open-Flow each have 223,863 windows, or about 3.00
+window-epochs; Closed-Loop has 231,270 lossless windows from the same 223,863
+reactions, or about 2.90 window-epochs. Actual sampler repetition/padding can
+change exact per-window exposure. Thus matched update count is not an
+identical per-window or per-token exposure claim.
 The not-yet-submitted Open-Flow and Closed-Loop K=10 configs were updated to
 activate the same frozen vLLM runtime at launch, preventing the Direct image's
 missing-module failure from recurring by construction. Their dataset, model,
