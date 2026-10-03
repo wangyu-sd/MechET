@@ -514,6 +514,16 @@ the old Open-Flow data `training_allowed: false` and
 sidecars without changing frozen source manifests. Direct and Closed-Loop
 artifacts/tasks remain unchanged.
 
+An independent full-reference replay audit (not model evaluation) now checks
+each v2 Open-Flow program against its frozen structural endpoint while
+rechecking the split-file SHA-256 and denominator. The **entire 6,200-row
+validation split passed 6,200/6,200 strict execution plus structural endpoint
+match**, audit SHA-256
+`3a88a3e8cf75e549715907dae81446b67a7430ee0575dd78290ab0df532a55a6`
+at `outputs/issue79/nmi_open_flow_v2_reference_replay_valid_20261003.json`.
+The full 27,104-row H2 test reference audit is still running; no test model
+outcome is inspected or used for selection.
+
 The three frozen inference launchers all specify the same Qwen3-8B revision,
 vLLM backend, seed 17, temperature 0.7, top-p 0.95 and **K=10** candidates
 per reaction. Their representation-specific output ceilings are intentionally
