@@ -1,5 +1,21 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-03 Issue #79 NMI experiment lineage:** the current compositional-
+> generalization experiment is tracked in `docs/ISSUE79_NMI_EXPERIMENT_REPORT.md`
+> and draft PR #80. Its source is the 257,167-reaction **strict-executable
+> FlowER training pool**, not unqualified FlowER full (257,171 / 2,890 /
+> 28,971 official reaction rows). The frozen H2 composition-disjoint split has
+> 223,863 train / 6,200 valid / 27,104 test reactions; split manifest SHA-256
+> `c48adf8fd4dfaf18984ab63f15a71d43b7278c4227b610ac8c8aed6b2e55d73b`.
+> E1/E2 audits are complete. Direct Qwen3-8B training and all 27,104 x 10
+> candidate generations are complete, but NLL recovery/evaluation is ongoing;
+> corrected Open-Flow v2 and Closed-Loop matched training are ongoing. The
+> original Open-Flow v1 data/checkpoint omitted later imports and is barred
+> from headline use. No matched H2 model accuracy, E4 analysis, or GO/NO-GO
+> is established yet. E5 lacks authorized PMechDB/PMechRP assets. Check live
+> Taiji instances and the report before claiming a later status; do not use
+> historical full-data adapters for the H2 headline comparison.
+
 > **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
 > compact-history task was stopped because its action-conditioned observation
 > and private-map replay contract are diagnostic only.  The first clean v2

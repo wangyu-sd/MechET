@@ -1,5 +1,20 @@
 # Active ICLR status
 
+## 2026-10-03: Issue #79 NMI compositional-generalization experiment
+
+For the current #79 experiment, the execution authority is
+`docs/ISSUE79_NMI_EXPERIMENT_REPORT.md` and draft PR #80. E1 operator-basis and
+E2 composition-disjoint split audits are complete on the strict-executable
+257,167-reaction FlowER train pool. The frozen H2 split is 223,863 / 6,200 /
+27,104 reactions, **not** the official FlowER-full split. E3 has a completed
+matched Direct adapter and all K=10 Direct generations, with NLL recovery
+running; corrected Open-Flow v2 and Closed-Loop adapters are still training.
+Open-Flow v1 is training-forbidden because later imports were omitted. E4
+waits for complete three-condition evaluation rows; E5 is access-blocked by
+missing authorized external data. No H2 model outcome or GO/NO-GO is yet
+established. This #79 status does not retroactively change the historical A7
+observation choice recorded below.
+
 ## 2026-09-18: natural-language protocol v2 repair
 
 Keep the agreed mechanism-first method.  The current implementation authority
@@ -25,7 +40,7 @@ that either training stage has started or completed.
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-09-17.
+Last updated: 2026-10-03.
 
 ## Current three-stage method decision
 
