@@ -418,3 +418,27 @@ the three matched generation-order endpoint rates and the reaction-bootstrap
 Closed-Loop minus Open-Flow difference within each stratum. These boundaries
 were set from the frozen covariates before any H2 prediction result and do not
 replace the adjusted regression or the primary all-test contrast.
+
+## Provisional paper Results structure (no paper edit yet)
+
+1. **Operator support and the testable regime.** Report the observed 604 local
+   primitives, 6,553 ordered move compositions, vocabulary-growth curve and
+   the 1.23% random-holdout program-unseen/primitive-seen rate. Describe these
+   as properties of the strict-executable training pool, not all official
+   FlowER reactions or a claim about physical mechanism uniqueness.
+2. **Frozen composition holdout and structural audit.** State the 223,863 /
+   6,200 / 27,104 candidate H2 split, zero exact reaction/composition overlap,
+   full primitive support, scaffold/local-center/near-duplicate overlap, and
+   the all-three-step validation limitation. Separate this new split from the
+   official FlowER 257,171 / 2,890 / 28,971 reaction-level split.
+3. **Matched generation and execution outcomes — pending.** Once all three
+   adapters finish, show generation-order first-candidate endpoint recovery and
+   Pass@10 with reaction-paired intervals, emphasizing Closed-Loop versus
+   Open-Flow. Put condition-specific NLL/executor selected Top-1 in a clearly
+   separate supplement; report executable and trace-bound rates with their
+   non-GT-successor semantics. Include token/FLOP and wall-time differences.
+4. **Familiarity analysis and decision — pending.** Report the predeclared
+   primitive-frequency strata, adjusted structural-overlap-controlled
+   association and paired Closed-Loop-minus-Open-Flow slope; then issue the
+   specified GO/NO-GO judgment. Do not write a positive Results claim or edit
+   `MechET-paper` before those model outcomes exist.
