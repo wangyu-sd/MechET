@@ -372,6 +372,15 @@ step 3,498/epoch 1. The small decrease indicates continued fit on the narrow
 6,200-row validation monitor, **not** endpoint recovery or H2 test accuracy.
 Closed-Loop remained `TRAINING_RUNNING`; Open-Flow remained in resource wait.
 
+At 13:19 CST Direct had saved complete `checkpoint-9250` (88.1% of the fixed
+10,494 updates; epoch 2.6444, 242,411,945 cumulative input tokens). The
+step-9,250 training loss was 0.0191, not a model-evaluation metric. Closed-Loop
+had saved complete `checkpoint-750` (7.15%; epoch 0.2075, 299,670,544 input
+tokens), after roughly 4 h 4 min since its step-500 checkpoint. Its recent
+training loss was 0.0614. The Open-Flow H20 scheduler handle remained in
+resource wait. These task/checkpoint observations confirm continuing
+optimization but do not establish a held-out endpoint result.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
