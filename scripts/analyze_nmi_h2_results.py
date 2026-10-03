@@ -10,6 +10,7 @@ from typing import Any
 
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from threadpoolctl import threadpool_limits
 
 
 CONDITIONS = ("direct", "open_flow", "closed_loop")
@@ -154,13 +155,17 @@ def _adjusted_primitive_association(
         model.fit(x, y)
         return float(model.coef_[0, 0])
 
-    coefficient = fit(features, outcome)
-    estimates = []
-    for _ in range(draws):
-        indices = rng.integers(0, len(outcome), size=len(outcome))
-        if len(np.unique(outcome[indices])) < 2:
-            continue
-        estimates.append(fit(features[indices], outcome[indices]))
+    # The frozen H2 design has only six features. Multi-threaded BLAS spends
+    # more time scheduling workers than fitting each bootstrap replicate.
+    # Limit BLAS threads without changing the predeclared regression or draws.
+    with threadpool_limits(limits=1, user_api="blas"):
+        coefficient = fit(features, outcome)
+        estimates = []
+        for _ in range(draws):
+            indices = rng.integers(0, len(outcome), size=len(outcome))
+            if len(np.unique(outcome[indices])) < 2:
+                continue
+            estimates.append(fit(features[indices], outcome[indices]))
     if len(estimates) < max(20, draws // 2):
         return {"status": "bootstrap_outcome_too_sparse", "fit_log_odds_coefficient": coefficient}
     lo, hi = np.quantile(estimates, [0.025, 0.975])

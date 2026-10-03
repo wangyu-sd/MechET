@@ -507,6 +507,12 @@ intercept-plus-six-feature design matrix (condition number 69.6), 185 distinct
 log-frequency values, and full rank in 30/30 seeded reaction bootstrap
 resamples. This is a feasibility check of the predeclared model, **not** an
 estimate of any model's accuracy or primitive-frequency effect.
+An analysis-runtime preflight used these same covariates with **synthetic**
+binary outcomes, never model predictions. Twenty bootstrap logistic fits took
+49.2 seconds with the host's default BLAS threading and 2.0 seconds with
+BLAS limited to one thread. The analyzer now applies that thread limit around
+the unchanged predeclared fits; this is only a CPU scheduling optimization,
+not a different regression, draw count, seed or scientific result.
 For an interpretable, pre-outcome display, the E4 analyzer also freezes five
 minimum-primitive-train-frequency strata: 5–9 (1,572 reactions), 10–24
 (2,334), 25–99 (1,932), 100–999 (7,342), and ≥1,000 (13,924). It will report

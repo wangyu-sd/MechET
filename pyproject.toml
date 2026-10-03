@@ -75,6 +75,7 @@ planning = [
 ]
 analysis = [
   "scikit-learn>=1.5,<2",
+  "threadpoolctl>=3,<4",
 ]
 dev = [
   "pytest",
