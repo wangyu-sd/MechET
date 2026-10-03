@@ -717,6 +717,22 @@ their future selected Top-1 numbers as an isolated execution effect. The
 primary cross-method comparison remains generation-order first-candidate
 accuracy and Pass@10 on these same IDs. This Direct result alone does not
 support or refute the NMI GO/NO-GO criteria.
+
+### 2026-10-04: Open-Flow / Closed-Loop training-throughput check
+
+At the latest complete checkpoints, corrected Open-Flow v2 had reached
+4,500/10,494 updates in 29,279 s (about 6.51 s/update; 194,080,830 input
+tokens seen), while Closed-Loop had reached 1,500/10,494 in 87,356 s
+(about 58.24 s/update; 599,564,675 input tokens seen). Their measured
+throughput is similar, about 6.6–6.9k input tokens/s; Closed-Loop simply
+presents roughly 9.3 times as many tokens per update at these checkpoints.
+All eight Closed-Loop H20 GPUs showed 100% instantaneous utilization and the
+configuration already uses fused SDPA and Liger kernels. This supports a
+compute/sequence-length bottleneck, not a diagnosed CPU/data-loader stall.
+Extrapolating the observed average gives roughly 11 h remaining for
+Open-Flow and 6 days for Closed-Loop **if throughput stays constant**; these
+are operational estimates, not a reason to alter the frozen update count or
+the test protocol. Both jobs remain running, and neither has a final adapter.
 The future shared inference launcher now invokes the separately tested
 streaming shard merger instead of a long inline Bash heredoc. It validates
 reference order, resumed-shard counts, candidate indices and per-row model
