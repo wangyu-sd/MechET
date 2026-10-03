@@ -84,6 +84,8 @@ def _row_results(
                 raise ValueError(f"{condition} selected endpoint disagrees with candidate: {source_id}")
             if row.get("selected_formal_execute") is not bool(candidates[selected_index].get("execute_ok")):
                 raise ValueError(f"{condition} selected execution disagrees with candidate: {source_id}")
+            if any(not isinstance(item.get("trace_bound"), bool) for item in candidates):
+                raise ValueError(f"{condition} missing trace-bound candidate result: {source_id}")
         outcomes[source_id] = {
             "endpoint_at_1": bool(candidates[0]["structural_exact"]),
             "endpoint_at_k": any(bool(item["structural_exact"]) for item in candidates),
@@ -91,6 +93,9 @@ def _row_results(
             "execute_at_1": bool(candidates[0].get("execute_ok")) if condition != "direct" else False,
             "execute_at_k": any(bool(item.get("execute_ok")) for item in candidates) if condition != "direct" else False,
             "selected_execute_at_1": bool(candidates[selected_index].get("execute_ok")) if condition != "direct" else False,
+            "trace_bound_at_1": bool(candidates[0]["trace_bound"]) if condition == "closed_loop" else False,
+            "trace_bound_at_k": any(bool(item["trace_bound"]) for item in candidates) if condition == "closed_loop" else False,
+            "selected_trace_bound_at_1": bool(candidates[selected_index]["trace_bound"]) if condition == "closed_loop" else False,
         }
     if len(outcomes) != len(references):
         raise ValueError(f"{condition} per-reaction outcome coverage mismatch")
@@ -216,13 +221,16 @@ def analyze(
         condition: {
             metric: np.array([int(outcomes[condition][identifier][metric]) for identifier in ids], dtype=float)
             for metric in ("endpoint_at_1", "endpoint_at_k", "selected_endpoint_at_1",
-                           "execute_at_1", "execute_at_k", "selected_execute_at_1")
+                           "execute_at_1", "execute_at_k", "selected_execute_at_1",
+                           "trace_bound_at_1", "trace_bound_at_k", "selected_trace_bound_at_1")
         } for condition in CONDITIONS
     }
     methods = {
         condition: {metric: _bootstrap_mean(values, rng, bootstrap_draws)
                     for metric, values in success[condition].items()
-                    if condition != "direct" or not metric.startswith("execute")}
+                    if (condition != "direct" or not metric.startswith("execute"))
+                    and (condition == "closed_loop" or not metric.startswith("trace_bound")
+                         and not metric.startswith("selected_trace_bound"))}
         for condition in CONDITIONS
     }
     contrasts = {}
@@ -328,6 +336,7 @@ def analyze(
         "comparison_semantics": {
             "paired_contrasts": "same generation-order first candidate and Pass@K; paired by reaction",
             "selected_top1": "supplementary only: Direct uses NLL, Open-Flow execution-gated NLL, Closed-Loop its executor selector; these selectors are not matched",
+            "closed_loop_trace_bound": "strictly replayed, digest-bound electron chain ending in finish_trace; not exact agreement with the recorded reference successor states",
         },
         "bootstrap_seed": seed,
         "methods": methods,

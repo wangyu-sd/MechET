@@ -390,6 +390,15 @@ the indexed candidate. This prevents an index/selection bookkeeping mismatch
 from silently contaminating the supplementary selected Top-1. All 25 NMI
 regression tests passed after the gate was added. No H2 model outcome is
 available yet.
+For the method-specific process metrics, Open-Flow and Closed-Loop report
+formal execution, while Closed-Loop additionally reports generation-order,
+Pass@10 and selected-candidate **trace-bound** rates. The latter requires a
+finished, digest-bound electron chain that independently replays, but it is
+**not** exact agreement with the recorded reference's intermediate successor
+states. The analyzer rejects Closed-Loop row artifacts missing per-candidate
+trace-bound fields rather than silently treating them as failures. This field
+and its semantic label were frozen before any H2 model outcomes; six focused
+analysis/row-sink regression tests pass.
 Before inspecting any model H2 outcome, E4 additionally froze a
 reaction-paired adjusted slope: does the **Closed-Loop minus Open-Flow**
 generation-order Top-1 gap change with the log frequency of the least-common

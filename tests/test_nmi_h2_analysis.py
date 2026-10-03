@@ -43,9 +43,11 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
                 {"formal_nll_ranked_order": [1, 0]}),
              "candidates": [
                  {"candidate_index": 0, "structural_exact": bool(hits[i]),
-                  "execute_ok": condition != "direct"},
+                  "execute_ok": condition != "direct",
+                  "trace_bound": condition == "closed_loop"},
                  {"candidate_index": 1, "structural_exact": False,
-                  "execute_ok": condition != "direct"},
+                  "execute_ok": condition != "direct",
+                  "trace_bound": condition == "closed_loop"},
              ]} for i, identifier in enumerate(identifiers)
         ])
         report = {"reference_sha256": reference_sha, "n_reference_rows": 4,
@@ -73,6 +75,9 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
     assert result["paired_contrasts"]["closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.25
     assert result["methods"]["closed_loop"]["endpoint_at_1"]["estimate"] == 0.5
     assert result["methods"]["closed_loop"]["selected_endpoint_at_1"]["estimate"] == 0.0
+    assert result["methods"]["closed_loop"]["trace_bound_at_1"]["estimate"] == 1.0
+    assert "trace_bound_at_1" not in result["methods"]["open_flow"]
+    assert "not exact agreement" in result["comparison_semantics"]["closed_loop_trace_bound"]
     assert result["lineage"]["direct"]["selected_candidate_rule"] == "assistant_mean_nll"
     assert "not matched" in result["comparison_semantics"]["selected_top1"]
     assert result["adjusted_paired_primitive_advantage"]["closed_minus_open_flow"]["status"] == "unidentifiable_design_rank"
@@ -132,6 +137,36 @@ def test_h2_analysis_rejects_closed_loop_selected_candidate_mismatch(tmp_path):
         "candidate_count_min": 2, "candidate_count_max": 2,
     }))
     with pytest.raises(ValueError, match="selected endpoint disagrees"):
+        _row_results("closed_loop", evaluation, matched.parent, expected_k=2)
+
+
+def test_h2_analysis_requires_closed_loop_trace_bound_field(tmp_path):
+    from scripts.analyze_nmi_h2_results import _row_results
+
+    matched = tmp_path / "matched" / "closed_loop"
+    matched.mkdir(parents=True)
+    reference_sha = _write_jsonl(matched / "test.jsonl", [
+        {"id": "id_0", "source_id": "r0"},
+    ])
+    (matched / "manifest.json").write_text(json.dumps({
+        "rows": {"test": 1}, "output_sha256": {"test": reference_sha},
+    }))
+    rows = tmp_path / "closed_loop.rows.jsonl"
+    row_sha = _write_jsonl(rows, [{
+        "id": "id_0", "source_id": "r0", "selected_candidate_index": 0,
+        "selected_structural_exact": False, "selected_formal_execute": True,
+        "candidates": [
+            {"candidate_index": 0, "structural_exact": False, "execute_ok": True},
+            {"candidate_index": 1, "structural_exact": False, "execute_ok": True},
+        ],
+    }])
+    evaluation = tmp_path / "closed_loop.json"
+    evaluation.write_text(json.dumps({
+        "reference_sha256": reference_sha, "n_reference_rows": 1,
+        "row_evaluation": str(rows), "row_evaluation_sha256": row_sha,
+        "candidate_count_min": 2, "candidate_count_max": 2,
+    }))
+    with pytest.raises(ValueError, match="missing trace-bound candidate"):
         _row_results("closed_loop", evaluation, matched.parent, expected_k=2)
 
 
