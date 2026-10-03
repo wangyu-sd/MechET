@@ -507,8 +507,11 @@ The replacement initially reached `TRAINING_RUNNING` with a real eight-H20
 POD and passed host prechecks. Its distributed token-cache manifest records
 223,863/6,200 train/valid rows, no dropped/windowed/truncated source rows,
 150,873,337 train input tokens and 102,434,043 supervised tokens, with the
-v2 train and valid SHA-256 values. Eight model processes have loaded GPU
-memory, but no optimizer step has yet been verified. A sidecar now labels
+v2 train and valid SHA-256 values. Eight H20s executed real optimizer work:
+`outputs/issue79/h2_open_flow_imports_v2_seed17/checkpoint-250/` contains a
+complete adapter and trainer state at **250/10,494 updates** (epoch 0.07147,
+latest teacher-forced loss 0.1842, finite gradients). This proves training
+started, not an H2 endpoint result. A sidecar now labels
 the old Open-Flow data `training_allowed: false` and
 `headline_evaluation_allowed: false`; both Taiji launchers enforce such
 sidecars without changing frozen source manifests. Direct and Closed-Loop
