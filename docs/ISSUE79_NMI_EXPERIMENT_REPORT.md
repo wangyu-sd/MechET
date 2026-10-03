@@ -514,6 +514,16 @@ the old Open-Flow data `training_allowed: false` and
 sidecars without changing frozen source manifests. Direct and Closed-Loop
 artifacts/tasks remain unchanged.
 
+The three frozen inference launchers all specify the same Qwen3-8B revision,
+vLLM backend, seed 17, temperature 0.7, top-p 0.95 and **K=10** candidates
+per reaction. Their representation-specific output ceilings are intentionally
+different: Direct 2,560 generated tokens, Open-Flow 4,096, and Closed-Loop at
+most 40 tool iterations with 512 tokens per iteration. Direct/Open-Flow use
+eight A100s while Closed-Loop is configured for eight H20s; endpoint accuracy
+is comparable under the matched IDs/candidate budget, but raw latency or GPU
+throughput is **not** a matched-hardware contrast. This runtime distinction
+must accompany any later efficiency claim.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
