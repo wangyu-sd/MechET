@@ -280,48 +280,20 @@ if [[ "$status" -ne 0 ]]; then
   exit "$status"
 fi
 
-python - "$samples_per_target" "$task_expected_rows" "$generation_shards" "$output_dir" "$task_shard_count" "$task_shard_index" "$evaluation_scope" <<'PY'
-import hashlib
-import json
-from pathlib import Path
-import sys
-
-k, expected, expected_shards = map(int, sys.argv[1:4])
-root = Path(sys.argv[4])
-task_shards, task_index = map(int, sys.argv[5:7])
-evaluation_scope = sys.argv[7]
-shards = sorted((root / "generation").glob("predictions.shard-*.jsonl"))
-if len(shards) != expected_shards:
-    raise SystemExit(f"expected {expected_shards} shards, got {len(shards)}")
-rows = []
-for path in shards:
-    rows.extend(json.loads(line) for line in path.open() if line.strip())
-rows.sort(key=lambda row: str(row.get("id") or ""))
-if len(rows) != expected or len({row["id"] for row in rows}) != expected:
-    raise SystemExit(f"expected {expected} unique predictions, got {len(rows)}")
-bad = [row["id"] for row in rows if len(row.get("candidates") or []) != k]
-if bad:
-    raise SystemExit(f"incomplete A7 candidate sets: {bad[:10]}")
-output = root / "predictions.jsonl"
-with output.open("w", encoding="utf-8") as handle:
-    for row in rows:
-        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-manifest = {
-    "artifact_type": "flower_a7_compact_full_state_sampled_test_manifest" if evaluation_scope == "full_official_test" else "nmi_h2_closed_loop_sampled_test_manifest",
-    "paper_condition": "A7",
-    "headline_eligible": True,
-    "n_targets": len(rows),
-    "samples_per_target": k,
-    "n_candidates": len(rows) * k,
-    "task_shard_count": task_shards,
-    "task_shard_index": task_index,
-    "candidate_selection": "formal-execution/reward rank; no ground truth used",
-    "predictions": str(output.resolve()),
-    "predictions_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-}
-(root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-print(json.dumps(manifest, indent=2), flush=True)
-PY
+python scripts/merge_iclr_sampled_shards.py \
+  --reference "$selected_reference" \
+  --generation-dir "$output_dir/generation" \
+  --output-dir "$output_dir" \
+  --baseline closed_loop \
+  --expected-rows "$task_expected_rows" \
+  --k "$samples_per_target" \
+  --shards "$generation_shards" \
+  --evaluation-scope "$evaluation_scope" \
+  --prediction-mode trace \
+  --shard-layout prepartitioned \
+  --manifest-data-sha256 "$reference_sha256" \
+  --task-shard-count "$task_shard_count" \
+  --task-shard-index "$task_shard_index"
 
 eval_rows_args=()
 if [[ "$evaluation_scope" == nmi_h2 ]]; then

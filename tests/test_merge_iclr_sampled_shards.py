@@ -28,6 +28,7 @@ def _fixture(tmp_path: Path) -> tuple[Path, Path, Path]:
         rows = [
             {
                 "id": f"r{index}",
+                "prediction_mode": "direct",
                 "model": {
                     "adapter_sha256": "adapter-hash",
                     "model_revision": "revision",
@@ -113,3 +114,65 @@ def test_merge_rejects_candidate_model_lineage_mismatch(tmp_path: Path) -> None:
     assert completed.returncode != 0
     assert "row/model lineage differs" in completed.stderr
     assert not (output / "predictions.jsonl").exists()
+
+
+def test_merge_prepartitioned_trace_shards(tmp_path: Path) -> None:
+    reference, generation, output = _fixture(tmp_path)
+    full_reference_sha = "full-test-hash"
+    for shard in range(2):
+        path = generation / f"predictions.shard-{shard:03d}.jsonl"
+        rows = [json.loads(line) for line in path.read_text().splitlines()]
+        for row in rows:
+            row["prediction_mode"] = "trace"
+        _write_jsonl(path, rows)
+        manifest_path = generation / f"predictions.shard-{shard:03d}.jsonl.manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        manifest.update({
+            "shard_index": 0,
+            "shard_count": 1,
+            "data_sha256": full_reference_sha,
+            "mode": "trace",
+        })
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    completed = subprocess.run(
+        [
+            sys.executable, str(SCRIPT),
+            "--reference", str(reference),
+            "--generation-dir", str(generation),
+            "--output-dir", str(output),
+            "--baseline", "closed_loop",
+            "--expected-rows", "4", "--k", "2", "--shards", "2",
+            "--evaluation-scope", "nmi_h2",
+            "--prediction-mode", "trace",
+            "--shard-layout", "prepartitioned",
+            "--manifest-data-sha256", full_reference_sha,
+            "--task-shard-count", "2", "--task-shard-index", "1",
+        ],
+        capture_output=True, text=True, check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    merged = [json.loads(line) for line in (output / "predictions.jsonl").read_text().splitlines()]
+    assert [row["id"] for row in merged] == ["r0", "r1", "r2", "r3"]
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["artifact_type"] == "nmi_h2_closed_loop_sampled_test_manifest"
+    assert manifest["task_shard_index"] == 1
+
+
+def test_validate_only_checks_rows_without_writing_output(tmp_path: Path) -> None:
+    reference, generation, output = _fixture(tmp_path)
+    completed = subprocess.run(
+        [
+            sys.executable, str(SCRIPT),
+            "--reference", str(reference),
+            "--generation-dir", str(generation),
+            "--output-dir", str(output),
+            "--baseline", "outcome_only",
+            "--expected-rows", "4", "--k", "2", "--shards", "2",
+            "--evaluation-scope", "nmi_h2",
+            "--validate-only",
+        ],
+        capture_output=True, text=True, check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout)["validation_only"] is True
+    assert not output.exists()

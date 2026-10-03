@@ -668,6 +668,17 @@ streaming shard merger instead of a long inline Bash heredoc. It validates
 reference order, resumed-shard counts, candidate indices and per-row model
 lineage before NLL scoring. This is a postprocessing reliability change;
 sampling, ranking formula and scientific denominators are unchanged.
+The same merger is now used by the planned Closed-Loop K=10 launcher. Its
+previous inline block would have loaded all 27,104 × 10 complete interaction
+trajectories into one Python list after generation. The stream merger instead
+interleaves the eight prepartitioned shard files against the frozen selected
+reference order, verifies the original full-test SHA supplied by the parent
+launcher and preserves the old manifest semantics. This removes a late
+memory-failure risk without changing any trajectory or metric.
+The new prepartitioned trace path was exercised in read-only mode on an
+existing completed 28,967-row A7 K=1 artifact: all 8 shard manifests and
+28,967 row/model-lineage/order contracts passed; no prediction or evaluation
+file was written. This is a runtime integration check, not an H2 model result.
 
 ## Provisional paper Results structure (no paper edit yet)
 

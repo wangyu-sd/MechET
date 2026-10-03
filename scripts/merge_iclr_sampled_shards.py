@@ -32,11 +32,20 @@ def main() -> None:
     parser.add_argument("--k", required=True, type=int)
     parser.add_argument("--shards", required=True, type=int)
     parser.add_argument("--evaluation-scope", required=True)
-    parser.add_argument("--direct-sample-batch-size", required=True, type=int)
+    parser.add_argument("--prediction-mode", choices=("direct", "trace"), default="direct")
+    parser.add_argument("--shard-layout", choices=("modulo", "prepartitioned"), default="modulo")
+    parser.add_argument("--manifest-data-sha256", default="")
+    parser.add_argument("--task-shard-count", type=int, default=1)
+    parser.add_argument("--task-shard-index", type=int, default=0)
+    parser.add_argument("--direct-sample-batch-size", type=int, default=1)
+    parser.add_argument("--validate-only", action="store_true")
     args = parser.parse_args()
     if min(args.expected_rows, args.k, args.shards) < 1:
         parser.error("expected rows, K and shards must be positive")
+    if args.task_shard_count < 1 or not 0 <= args.task_shard_index < args.task_shard_count:
+        parser.error("task shard index must be in [0, task shard count)")
     reference_sha = sha256_file(args.reference)
+    manifest_data_sha = args.manifest_data_sha256 or reference_sha
     shard_paths = [
         args.generation_dir / f"predictions.shard-{index:03d}.jsonl"
         for index in range(args.shards)
@@ -47,32 +56,39 @@ def main() -> None:
     for index, path in enumerate(shard_paths):
         manifest_path = Path(str(path) + ".manifest.json")
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        if int(manifest["shard_index"]) != index or int(manifest["shard_count"]) != args.shards:
+        expected_shard_index = index if args.shard_layout == "modulo" else 0
+        expected_shard_count = args.shards if args.shard_layout == "modulo" else 1
+        if (
+            int(manifest["shard_index"]) != expected_shard_index
+            or int(manifest["shard_count"]) != expected_shard_count
+        ):
             raise ValueError(f"invalid shard assignment: {manifest_path}")
-        if manifest["data_sha256"] != reference_sha:
+        if manifest["data_sha256"] != manifest_data_sha:
             raise ValueError(f"reference hash mismatch: {manifest_path}")
         completed = int(manifest["n_predictions_written"]) + int(
             manifest.get("n_predictions_skipped_by_resume") or 0
         )
         if completed != len(range(index, args.expected_rows, args.shards)):
             raise ValueError(f"incomplete shard: {manifest_path}")
-        if manifest["mode"] != "direct":
+        if manifest["mode"] != args.prediction_mode:
             raise ValueError(f"unexpected inference mode: {manifest_path}")
         manifests.append(manifest)
     for key in ("condition_name", "model_revision", "tokenizer_revision", "adapter_sha256", "seed", "backend"):
-        if len({json.dumps(manifest[key], sort_keys=True) for manifest in manifests}) != 1:
+        if len({json.dumps(manifest.get(key), sort_keys=True) for manifest in manifests}) != 1:
             raise ValueError(f"inconsistent shard {key}")
 
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    if not args.validate_only:
+        args.output_dir.mkdir(parents=True, exist_ok=True)
     output = args.output_dir / "predictions.jsonl"
     temporary = args.output_dir / "predictions.jsonl.merge-in-progress"
-    if output.exists() or temporary.exists():
+    if not args.validate_only and (output.exists() or temporary.exists()):
         raise FileExistsError("merged prediction output already exists; refusing to overwrite")
     sources = [path.open(encoding="utf-8") for path in shard_paths]
     digest = hashlib.sha256()
     count = 0
     try:
-        with args.reference.open(encoding="utf-8") as reference, temporary.open("wb") as sink:
+        sink_context = open(os.devnull, "wb") if args.validate_only else temporary.open("wb")
+        with args.reference.open(encoding="utf-8") as reference, sink_context as sink:
             for index, reference_line in enumerate(reference):
                 if not reference_line.strip():
                     raise ValueError(f"blank reference row at {index}")
@@ -84,6 +100,8 @@ def main() -> None:
                 row = json.loads(prediction_line)
                 if row.get("id") != identifier:
                     raise ValueError(f"shard/reference ID mismatch at {index}")
+                if row.get("prediction_mode") != args.prediction_mode:
+                    raise ValueError(f"{identifier}: prediction mode mismatch")
                 model = row.get("model") or {}
                 shard_manifest = manifests[index % args.shards]
                 if (
@@ -107,38 +125,60 @@ def main() -> None:
                     raise ValueError(f"extra predictions in shard {index}")
         if count != args.expected_rows:
             raise ValueError(f"merged {count} rows, expected {args.expected_rows}")
-        os.replace(temporary, output)
+        if not args.validate_only:
+            os.replace(temporary, output)
     except Exception:
-        temporary.unlink(missing_ok=True)
+        if not args.validate_only:
+            temporary.unlink(missing_ok=True)
         raise
     finally:
         for source in sources:
             source.close()
 
     report = {
-        "artifact_type": (
-            "iclr_full_baseline_sampled_test_manifest"
-            if args.evaluation_scope == "full_official_test"
-            else "nmi_h2_sampled_test_manifest"
-        ),
-        "paper_status": (
-            "full-test evaluation; compare methods on the shared 28,967-ID universe"
-            if args.evaluation_scope == "full_official_test"
-            else "frozen Issue #79 H2 composition-heldout evaluation"
-        ),
-        "baseline": args.baseline,
         "n_targets": count,
         "samples_per_target": args.k,
         "n_candidates": count * args.k,
-        "candidate_semantics": "stochastic samples; generation-order Success@K and separately frozen ranking",
-        "direct_sample_batch_size": args.direct_sample_batch_size,
         "predictions": str(output.resolve()),
         "predictions_sha256": digest.hexdigest(),
         "reference_sha256": reference_sha,
+        "shard_data_sha256": manifest_data_sha,
         "shard_adapter_sha256": manifests[0]["adapter_sha256"],
         "shard_model_revision": manifests[0]["model_revision"],
     }
-    (args.output_dir / "manifest.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    if args.prediction_mode == "trace":
+        report.update({
+            "artifact_type": (
+                "flower_a7_compact_full_state_sampled_test_manifest"
+                if args.evaluation_scope == "full_official_test"
+                else "nmi_h2_closed_loop_sampled_test_manifest"
+            ),
+            "paper_condition": "A7",
+            "headline_eligible": True,
+            "task_shard_count": args.task_shard_count,
+            "task_shard_index": args.task_shard_index,
+            "candidate_selection": "formal-execution/reward rank; no ground truth used",
+        })
+    else:
+        report.update({
+            "artifact_type": (
+                "iclr_full_baseline_sampled_test_manifest"
+                if args.evaluation_scope == "full_official_test"
+                else "nmi_h2_sampled_test_manifest"
+            ),
+            "paper_status": (
+                "full-test evaluation; compare methods on the shared 28,967-ID universe"
+                if args.evaluation_scope == "full_official_test"
+                else "frozen Issue #79 H2 composition-heldout evaluation"
+            ),
+            "baseline": args.baseline,
+            "candidate_semantics": "stochastic samples; generation-order Success@K and separately frozen ranking",
+            "direct_sample_batch_size": args.direct_sample_batch_size,
+        })
+    if not args.validate_only:
+        (args.output_dir / "manifest.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    else:
+        report["validation_only"] = True
     print(json.dumps(report, indent=2))
 
 
