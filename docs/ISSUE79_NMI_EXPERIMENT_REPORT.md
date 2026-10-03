@@ -679,6 +679,13 @@ The new prepartitioned trace path was exercised in read-only mode on an
 existing completed 28,967-row A7 K=1 artifact: all 8 shard manifests and
 28,967 row/model-lineage/order contracts passed; no prediction or evaluation
 file was written. This is a runtime integration check, not an H2 model result.
+The frozen endpoint evaluator now constructs each candidate's read-only view
+without deep-copying the entire K-candidate parent. The prior implementation
+duplicated all sibling histories for every K=10 candidate, a quadratic
+evaluation-time cost unrelated to chemistry. Candidate fields, endpoint
+execution and metric definitions are unchanged; 32 relevant regression tests
+passed after this change. This does not alter any submitted training or
+sampling job.
 
 ## Provisional paper Results structure (no paper edit yet)
 

@@ -1,7 +1,6 @@
 """Prediction-set, abstention, recovery, and runtime-contract metrics."""
 from __future__ import annotations
 
-from copy import deepcopy
 import hashlib
 import json
 from typing import Any, Callable, Iterable, Mapping
@@ -88,8 +87,12 @@ def _candidate_rows(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     if not candidates:
         return [dict(row)]
     output: list[dict[str, Any]] = []
+    # Endpoint evaluation reads but never mutates the row. Copying the entire
+    # K-candidate parent once per candidate recursively duplicates every
+    # trajectory K times and makes full K=10 trace evaluation quadratic in K.
+    parent = {key: value for key, value in row.items() if key != "candidates"}
     for candidate in candidates:
-        value = deepcopy(dict(row))
+        value = dict(parent)
         value["messages"] = candidate.get("messages") or []
         value["rollout_state"] = candidate.get("rollout_state") or {}
         value["terminal_result"] = (
@@ -99,7 +102,6 @@ def _candidate_rows(row: Mapping[str, Any]) -> list[dict[str, Any]]:
         )
         value["prediction"] = candidate.get("prediction") or ""
         value["prediction_status"] = "completed"
-        value.pop("candidates", None)
         output.append(value)
     return output
 
