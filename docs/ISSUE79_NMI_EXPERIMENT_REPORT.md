@@ -524,8 +524,15 @@ validation split passed 6,200/6,200 strict execution plus structural endpoint
 match**, audit SHA-256
 `3a88a3e8cf75e549715907dae81446b67a7430ee0575dd78290ab0df532a55a6`
 at `outputs/issue79/nmi_open_flow_v2_reference_replay_valid_20261003.json`.
-The full 27,104-row H2 test reference audit is still running; no test model
-outcome is inspected or used for selection.
+The **entire 27,104-row H2 test reference split also passed 27,104/27,104**
+strict execution plus structural endpoint match, with zero failures. Its
+source-file SHA-256 is
+`77b70a2df2b6c455acd801b0c790c8078986ce8d6a578533d1c3f05d5e82f3d8`
+and audit-result SHA-256 is
+`accaeee0dfd3f7f9a5ed8ff5d28c31df915e0bf8dee5f7daa859505049834dec`
+at `outputs/issue79/nmi_open_flow_v2_reference_replay_test_20261003.json`.
+This is a complete **gold-reference data audit**, not a model prediction or a
+checkpoint-selection signal.
 
 The three frozen inference launchers all specify the same Qwen3-8B revision,
 vLLM backend, seed 17, temperature 0.7, top-p 0.95 and **K=10** candidates
