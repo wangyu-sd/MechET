@@ -444,6 +444,11 @@ Open-Flow also advanced beyond initialization: by 15:51 CST it had saved a
 complete `checkpoint-250` (250/10,494 updates, epoch 0.07147). Its eight H20
 GPUs showed active compute before the checkpoint. The recent teacher-forced
 loss of 0.1849 is a training-health observation, not H2 endpoint recovery.
+The not-yet-submitted Open-Flow and Closed-Loop K=10 configs were updated to
+activate the same frozen vLLM runtime at launch, preventing the Direct image's
+missing-module failure from recurring by construction. Their dataset, model,
+candidate and ranking contracts remain unchanged; neither is submitted before
+its own final adapter exists.
 
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting

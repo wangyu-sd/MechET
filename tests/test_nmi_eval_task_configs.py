@@ -33,9 +33,12 @@ def test_h2_evaluation_tasks_are_frozen_and_not_prematurely_submitted():
         if condition == "closed_loop":
             assert "MECHET_MAX_ITERATIONS=40" in command
             assert "run_taiji_flower_a7_inference.sh" in command
+            assert "activate_taiji_vllm_runtime.sh" in command
         else:
             assert f"MECHET_MANIFEST_TASK={condition}" in command
             assert "run_taiji_iclr_full_inference.sh" in command
+            if condition == "open_flow":
+                assert "activate_taiji_vllm_runtime.sh" in command
 
 
 def test_direct_vllm_runtime_retry_preserves_scientific_contract():
