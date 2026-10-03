@@ -444,6 +444,16 @@ Open-Flow also advanced beyond initialization: by 15:51 CST it had saved a
 complete `checkpoint-250` (250/10,494 updates, epoch 0.07147). Its eight H20
 GPUs showed active compute before the checkpoint. The recent teacher-forced
 loss of 0.1849 is a training-health observation, not H2 endpoint recovery.
+The completed Open-Flow token-cache manifest verifies 223,863/223,863
+train reactions/windows, zero truncation, and source SHA-256
+`67ee365386b16a7c9896c2ba63f1c770acc6284ce2eb4d6e71c04c2c5e9c3996`
+against its frozen representation manifest. Natural train exposure is
+150,871,377 input tokens and 102,432,083 assistant-supervised tokens.
+Together with the Direct and Closed-Loop cache audits above, this makes the
+compute asymmetry explicit: all three use the same 10,494 optimizer updates,
+but their natural input-token totals are 91,654,571 / 150,871,377 /
+1,443,677,982, respectively. These are single-pass cache totals, not
+measured three-epoch FLOPs or a claim of equal token budgets.
 The not-yet-submitted Open-Flow and Closed-Loop K=10 configs were updated to
 activate the same frozen vLLM runtime at launch, preventing the Direct image's
 missing-module failure from recurring by construction. Their dataset, model,
