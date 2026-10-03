@@ -408,6 +408,26 @@ per card with zero instantaneous utilization; this is initialization, not yet
 verified optimizer progress or a checkpoint. Closed-Loop continues on its own
 eight H20s.
 
+The first Direct K=10 evaluation allocated eight Qingyuan A100s but ended
+unsuccessfully at 15:06 CST **before any prediction row**: all eight generation
+workers raised `ModuleNotFoundError: No module named 'vllm'` in the base image.
+The default Taiji log captured the worker stack traces, progress 0/27,104,
+and the terminal heartbeat. The failure directory contains only eight shard
+logs; no evaluation or candidate artifact exists. This is a runtime dependency
+failure, not a scientific negative result. The failed instance and logs remain
+untouched at `outputs/issue79/eval_h2_direct_k10_seed17/`.
+
+A resource-only/runtime repair uses the already installed, versioned Ceph
+runtime `artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311`,
+which imported locally as vLLM 0.8.5 / PyTorch 2.6.0+cu124 and was used by
+the successfully completed historical eight-A100 vLLM task
+`meteor_mechet_a7_infer_k10_vllm_8a100_qy_20260831_03`. The retry has a
+new task flag, a separate output directory, and a bootstrap preflight that
+fails before generation if this frozen runtime is missing or CUDA-incompatible.
+Its model adapter, H2 reference, K=10, seed, temperature, top-p, token cap and
+NLL ranking settings are byte-identical to the first config. The repair does
+not reinterpret the first failure as an endpoint result.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
