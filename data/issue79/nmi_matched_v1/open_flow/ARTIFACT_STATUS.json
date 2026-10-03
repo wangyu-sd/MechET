@@ -1,0 +1,8 @@
+{
+  "status": "superseded_open_flow_import_supervision_v1",
+  "training_allowed": false,
+  "headline_evaluation_allowed": false,
+  "reason": "The frozen v1 OPEN_FLOW target omits trace_plan.steps[*].imports on 77 train and 603 H2 test rows. Electron steps and reaction IDs are unchanged.",
+  "replacement": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/issue79/nmi_open_flow_all_step_imports_v2_20261003",
+  "note": "This sidecar does not modify the frozen v1 manifest or source hashes; retain v1 only for provenance."
+}

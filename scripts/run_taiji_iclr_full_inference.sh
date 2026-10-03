@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
+repo_dir=${MECHET_REPO_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET}
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 baseline=${MECHET_BASELINE:?set MECHET_BASELINE to outcome_only, free_cot, state_cot, net_edit, proof, or open_flow}
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
@@ -89,8 +89,22 @@ case "$baseline" in
     ;;
 esac
 
-dataset_manifest=${dataset_manifest:-data/iclr_full_v4/manifest.json}
-manifest_task=${manifest_task:-$baseline}
+max_new_tokens=${MECHET_MAX_NEW_TOKENS:-$max_new_tokens}
+nll_max_length=${MECHET_NLL_MAX_LENGTH:-$nll_max_length}
+if [[ ! "$max_new_tokens" =~ ^[1-9][0-9]*$ ]] || \
+   [[ ! "$nll_max_length" =~ ^[1-9][0-9]*$ ]]; then
+  echo >&2 "MECHET_MAX_NEW_TOKENS and MECHET_NLL_MAX_LENGTH must be positive integers"
+  exit 2
+fi
+
+dataset_manifest=${MECHET_DATASET_MANIFEST:-${dataset_manifest:-data/iclr_full_v4/manifest.json}}
+manifest_task=${MECHET_MANIFEST_TASK:-${manifest_task:-$baseline}}
+config=${MECHET_TRAINING_CONFIG:-$config}
+adapter=${MECHET_ADAPTER:-$adapter}
+test_file=${MECHET_TEST_FILE:-$test_file}
+expected_rows=${MECHET_EXPECTED_ROWS:-$expected_rows}
+condition_name=${MECHET_CONDITION_NAME:-iclr_full_${baseline}_seed17_k${samples_per_target}}
+evaluation_scope=${MECHET_EVALUATION_SCOPE:-full_official_test}
 
 output_dir=${MECHET_INFERENCE_OUTPUT:-outputs/eval/iclr_full/${baseline}_seed17_k${samples_per_target}}
 gpu_count=8
@@ -157,6 +171,7 @@ import sys
 
 import torch
 import yaml
+from scripts.nmi_artifact_status import require_artifact_status
 
 baseline, manifest_task, manifest_path, config_path, adapter_path, test_path, expected_rows, expected_gpu, revision, samples_per_target = sys.argv[1:]
 config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
@@ -174,6 +189,7 @@ missing = [str(path) for path in required if not path.is_file()]
 if missing:
     raise SystemExit(f"missing frozen inference artifacts: {missing}")
 manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+require_artifact_status(Path(manifest_path), operation="headline_evaluation")
 actual_rows = int(manifest["tasks"][manifest_task]["test"]["rows"])
 if actual_rows != int(expected_rows):
     raise SystemExit(f"{baseline} test rows {actual_rows} != {expected_rows}")
@@ -214,7 +230,7 @@ for worker in $(seq 0 $((generation_shards - 1))); do
     --data "$test_file" \
     --output "$output_dir/generation/predictions.shard-${shard}.jsonl" \
     --mode direct \
-    --condition-name "iclr_full_${baseline}_seed17_k${samples_per_target}" \
+    --condition-name "$condition_name" \
     --adapter "$adapter" \
     --backend "$inference_backend" \
     --shard-count "$generation_shards" \
@@ -255,49 +271,16 @@ if [[ "$status" -ne 0 ]]; then
   exit "$status"
 fi
 
-python - "$baseline" "$samples_per_target" "$expected_rows" "$generation_shards" "$direct_sample_batch_size" "$output_dir" <<'PY'
-import hashlib
-import json
-from pathlib import Path
-import sys
-
-baseline = sys.argv[1]
-k = int(sys.argv[2])
-expected = int(sys.argv[3])
-expected_shards = int(sys.argv[4])
-direct_sample_batch_size = int(sys.argv[5])
-root = Path(sys.argv[6])
-shards = sorted((root / "generation").glob("predictions.shard-*.jsonl"))
-if len(shards) != expected_shards:
-    raise SystemExit(f"expected {expected_shards} prediction shards, got {len(shards)}")
-rows = []
-for path in shards:
-    rows.extend(json.loads(line) for line in path.open() if line.strip())
-rows.sort(key=lambda row: str(row.get("id") or ""))
-if len(rows) != expected or len({row["id"] for row in rows}) != expected:
-    raise SystemExit(f"expected {expected} unique predictions, got {len(rows)}")
-bad = [row["id"] for row in rows if len(row.get("candidates") or []) != k]
-if bad:
-    raise SystemExit(f"incomplete candidate sets: {bad[:10]}")
-output = root / "predictions.jsonl"
-with output.open("w", encoding="utf-8") as handle:
-    for row in rows:
-        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-manifest = {
-    "artifact_type": "iclr_full_baseline_sampled_test_manifest",
-    "paper_status": "full-test evaluation; compare methods on the shared 28,967-ID universe",
-    "baseline": baseline,
-    "n_targets": len(rows),
-    "samples_per_target": k,
-    "n_candidates": len(rows) * k,
-    "candidate_semantics": "stochastic samples; generation-order Success@K and separately frozen ranking",
-    "direct_sample_batch_size": direct_sample_batch_size,
-    "predictions": str(output.resolve()),
-    "predictions_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-}
-(root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-print(json.dumps(manifest, indent=2))
-PY
+python scripts/merge_iclr_sampled_shards.py \
+  --reference "$test_file" \
+  --generation-dir "$output_dir/generation" \
+  --output-dir "$output_dir" \
+  --baseline "$baseline" \
+  --expected-rows "$expected_rows" \
+  --k "$samples_per_target" \
+  --shards "$generation_shards" \
+  --evaluation-scope "$evaluation_scope" \
+  --direct-sample-batch-size "$direct_sample_batch_size"
 
 if [[ "$samples_per_target" -eq 1 ]]; then
   echo "[meteor-progress] stage=${baseline}-evaluation reason=k1-needs-no-ranking time=$(date --iso-8601=seconds)"

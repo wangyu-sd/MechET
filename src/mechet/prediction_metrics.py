@@ -1,10 +1,9 @@
 """Prediction-set, abstention, recovery, and runtime-contract metrics."""
 from __future__ import annotations
 
-from copy import deepcopy
 import hashlib
 import json
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from .strict_prediction_evaluation import endpoint_evaluation
 
@@ -88,8 +87,12 @@ def _candidate_rows(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     if not candidates:
         return [dict(row)]
     output: list[dict[str, Any]] = []
+    # Endpoint evaluation reads but never mutates the row. Copying the entire
+    # K-candidate parent once per candidate recursively duplicates every
+    # trajectory K times and makes full K=10 trace evaluation quadratic in K.
+    parent = {key: value for key, value in row.items() if key != "candidates"}
     for candidate in candidates:
-        value = deepcopy(dict(row))
+        value = dict(parent)
         value["messages"] = candidate.get("messages") or []
         value["rollout_state"] = candidate.get("rollout_state") or {}
         value["terminal_result"] = (
@@ -99,7 +102,6 @@ def _candidate_rows(row: Mapping[str, Any]) -> list[dict[str, Any]]:
         )
         value["prediction"] = candidate.get("prediction") or ""
         value["prediction_status"] = "completed"
-        value.pop("candidates", None)
         output.append(value)
     return output
 
@@ -119,6 +121,7 @@ def prediction_set_metrics(
     rows: Iterable[Mapping[str, Any]],
     *,
     ks: tuple[int, ...] = (1, 5, 10),
+    row_sink: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     """Compute generation-order Pass@K, selective risk, and recovery metrics.
 
@@ -151,6 +154,22 @@ def prediction_set_metrics(
             trace_pass[k] += int(any(item.get("trace_bound") for item in prefix))
 
         selected = endpoint_evaluation(row)
+        if row_sink is not None:
+            row_sink({
+                "id": str(row.get("id") or ""),
+                "source_id": str((row.get("metadata") or {}).get("reference_source_id") or row.get("source_id") or ""),
+                "selected_candidate_index": row.get("selected_candidate_index"),
+                "selected_structural_exact": bool(selected.get("structural_exact")),
+                "selected_formal_execute": bool(selected.get("formal_execute")),
+                "candidates": [{
+                    "candidate_index": index,
+                    "structural_exact": bool(item.get("structural_exact")),
+                    "mapped_exact": bool(item.get("mapped_exact")),
+                    "execute_ok": bool(item.get("formal_execute")),
+                    "trace_bound": bool(item.get("trace_bound")),
+                    "failure_code": str(item.get("completion_failure") or ""),
+                } for index, item in enumerate(evaluations)],
+            })
         state = dict(row.get("rollout_state") or {})
         is_abstained = bool(state.get("abstained"))
         abstained += int(is_abstained)
