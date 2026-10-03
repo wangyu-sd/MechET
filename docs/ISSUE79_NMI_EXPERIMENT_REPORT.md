@@ -239,6 +239,10 @@ assistant/tool messages, structural endpoint, compiled proof and trace plan;
 neither the Direct/Open-Flow direct prompt nor the Closed-Loop runtime-generated
 prompt includes that poison. This checks the generation-side code path, while
 the reference answers remain available only to the later evaluator.
+An independent full 27,104-row scan of each condition's H2 test JSONL found
+zero non-null top-level or metadata `conditions` and `competitor_products`
+fields. Therefore the environment reset cannot introduce these two auxiliary
+inputs on this test; this scan does not certify the model's chemistry.
 
 Resource-only Open-Flow replacement on 2026-10-03: the original Qingyuan A100
 instance `8b1d80eea0d297ec01a0fd748a9c41b5` remained
