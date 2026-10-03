@@ -563,9 +563,10 @@ is comparable under the matched IDs/candidate budget, but raw latency or GPU
 throughput is **not** a matched-hardware contrast. This runtime distinction
 must accompany any later efficiency claim.
 
-No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
-model checkpoint lineage; historical full-data results remain supporting
-evidence only.
+The Direct condition now has a complete H2 K=10 result, documented below;
+Open-Flow and Closed-Loop remain pending. Every result must be tied to frozen
+source/split hashes and its own model checkpoint lineage; historical full-data
+results remain supporting evidence only.
 
 The frozen E4 paired-analysis code reports generation-order first-candidate
 accuracy and Pass@10 as the matched primary comparison. It also reports a
@@ -579,8 +580,8 @@ any model result; it additionally checks that candidate indices preserve
 generation order and that the Closed-Loop parent-selected outcome agrees with
 the indexed candidate. This prevents an index/selection bookkeeping mismatch
 from silently contaminating the supplementary selected Top-1. All 25 NMI
-regression tests passed after the gate was added. No H2 model outcome is
-available yet.
+regression tests passed after the gate was added. The Direct-only result below
+does not establish the matched three-condition contrast.
 For the method-specific process metrics, Open-Flow and Closed-Loop report
 formal execution, while Closed-Loop additionally reports generation-order,
 Pass@10 and selected-candidate **trace-bound** rates. The latter requires a
@@ -679,9 +680,43 @@ Qingyuan 8×A100 at 22:39 CST, with a successful Ceph donor and a configured
 default-log heartbeat. It reached Taiji `TRAINING_RUNNING`; eight NLL shard
 files began accumulating actual score rows (95/27,104 at the first post-start
 inspection), confirming scoring rather than merely resource allocation. The
-CLI log endpoint had not yet exposed the runner's heartbeat, so continuous
-platform-log capture remains to be checked. Until final evaluation finishes,
-there is no Direct Top-1/Top-10 result to report.
+CLI log endpoint had not yet exposed the runner's heartbeat at that initial
+inspection, so continuous platform-log capture was not verified by it. The
+recovery subsequently completed successfully; its result is recorded below.
+
+### 2026-10-04: completed Direct H2 K=10 evaluation (one condition only)
+
+The NLL-only recovery instance `8b1d8922a0d2976301a1023460fd4617`
+ended `END/IsSuccess=true` at 01:38 CST. Its frozen evaluation is
+`outputs/issue79/eval_h2_direct_k10_seed17_vllm02/evaluation.json`
+(SHA-256 `0b707b84cdc54c3cdfce91726fff39476b715a7fea9c0494706287ec953d237b`).
+The row-level file `evaluation.rows.jsonl` has SHA-256
+`28be400f47d9dcda708a6326110c890d88e255a72d9d7cbde4783c583593d339`.
+The E4 row loader independently accepted all **27,104/27,104** source IDs,
+exactly **10 candidates each**, canonical generation order, a complete NLL
+ranking and a single pinned adapter/runtime contract. The test SHA-256 is
+`d5b5d238c89371f969d4dcda0a4ee8d87584ad479223e222de3aa6ccacbf524e`;
+the adapter SHA-256 is
+`7eac4182629a14283eae7cf9071ca32b321c893c597211de3cb229564666ec47`,
+trained from the frozen Direct train SHA-256
+`009d624447d8f36441a3885cfd61c357be7687e1edc17e2d9ffa18eaca311df9`.
+The model/tokenizer revision is the pinned
+`b968826d9c46dd6066d109eabc6255188de91218`. No candidate was regenerated
+in the recovery task.
+
+| Direct endpoint metric on H2 test | Hits / reactions | Rate | 95% reaction-bootstrap interval |
+|---|---:|---:|---:|
+| Generation-order first candidate | 4,030 / 27,104 | 14.87% | 14.48–15.29% |
+| Generation-order Pass@10 | 7,629 / 27,104 | 28.15% | 27.62–28.67% |
+| Assistant mean-NLL selected Top-1, supplementary | 5,018 / 27,104 | 18.51% | 18.04–18.98% |
+
+Intervals use 2,000 reaction-level bootstrap resamples with seed 42. The
+NLL selector is gold-independent, but it differs from the Open-Flow and
+Closed-Loop selectors; therefore its 18.51% must **not** be contrasted with
+their future selected Top-1 numbers as an isolated execution effect. The
+primary cross-method comparison remains generation-order first-candidate
+accuracy and Pass@10 on these same IDs. This Direct result alone does not
+support or refute the NMI GO/NO-GO criteria.
 The future shared inference launcher now invokes the separately tested
 streaming shard merger instead of a long inline Bash heredoc. It validates
 reference order, resumed-shard counts, candidate indices and per-row model
@@ -731,7 +766,7 @@ sampling job.
    full primitive support, scaffold/local-center/near-duplicate overlap, and
    the all-three-step validation limitation. Separate this new split from the
    official FlowER 257,171 / 2,890 / 28,971 reaction-level split.
-3. **Matched generation and execution outcomes — pending.** Once all three
+3. **Matched generation and execution outcomes — Direct complete; paired comparison pending.** Once all three
    adapters finish, show generation-order first-candidate endpoint recovery and
    Pass@10 with reaction-paired intervals, emphasizing Closed-Loop versus
    Open-Flow. Put condition-specific NLL/executor selected Top-1 in a clearly
