@@ -663,6 +663,11 @@ inspection), confirming scoring rather than merely resource allocation. The
 CLI log endpoint had not yet exposed the runner's heartbeat, so continuous
 platform-log capture remains to be checked. Until final evaluation finishes,
 there is no Direct Top-1/Top-10 result to report.
+The future shared inference launcher now invokes the separately tested
+streaming shard merger instead of a long inline Bash heredoc. It validates
+reference order, resumed-shard counts, candidate indices and per-row model
+lineage before NLL scoring. This is a postprocessing reliability change;
+sampling, ranking formula and scientific denominators are unchanged.
 
 ## Provisional paper Results structure (no paper edit yet)
 

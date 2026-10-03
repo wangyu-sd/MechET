@@ -271,50 +271,16 @@ if [[ "$status" -ne 0 ]]; then
   exit "$status"
 fi
 
-python - "$baseline" "$samples_per_target" "$expected_rows" "$generation_shards" "$direct_sample_batch_size" "$output_dir" "$evaluation_scope" <<'PY'
-import hashlib
-import json
-from pathlib import Path
-import sys
-
-baseline = sys.argv[1]
-k = int(sys.argv[2])
-expected = int(sys.argv[3])
-expected_shards = int(sys.argv[4])
-direct_sample_batch_size = int(sys.argv[5])
-root = Path(sys.argv[6])
-evaluation_scope = sys.argv[7]
-shards = sorted((root / "generation").glob("predictions.shard-*.jsonl"))
-if len(shards) != expected_shards:
-    raise SystemExit(f"expected {expected_shards} prediction shards, got {len(shards)}")
-rows = []
-for path in shards:
-    rows.extend(json.loads(line) for line in path.open() if line.strip())
-rows.sort(key=lambda row: str(row.get("id") or ""))
-if len(rows) != expected or len({row["id"] for row in rows}) != expected:
-    raise SystemExit(f"expected {expected} unique predictions, got {len(rows)}")
-bad = [row["id"] for row in rows if len(row.get("candidates") or []) != k]
-if bad:
-    raise SystemExit(f"incomplete candidate sets: {bad[:10]}")
-output = root / "predictions.jsonl"
-with output.open("w", encoding="utf-8") as handle:
-    for row in rows:
-        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-manifest = {
-    "artifact_type": "iclr_full_baseline_sampled_test_manifest" if evaluation_scope == "full_official_test" else "nmi_h2_sampled_test_manifest",
-    "paper_status": "full-test evaluation; compare methods on the shared 28,967-ID universe" if evaluation_scope == "full_official_test" else "frozen Issue #79 H2 composition-heldout evaluation",
-    "baseline": baseline,
-    "n_targets": len(rows),
-    "samples_per_target": k,
-    "n_candidates": len(rows) * k,
-    "candidate_semantics": "stochastic samples; generation-order Success@K and separately frozen ranking",
-    "direct_sample_batch_size": direct_sample_batch_size,
-    "predictions": str(output.resolve()),
-    "predictions_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-}
-(root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-print(json.dumps(manifest, indent=2))
-PY
+python scripts/merge_iclr_sampled_shards.py \
+  --reference "$test_file" \
+  --generation-dir "$output_dir/generation" \
+  --output-dir "$output_dir" \
+  --baseline "$baseline" \
+  --expected-rows "$expected_rows" \
+  --k "$samples_per_target" \
+  --shards "$generation_shards" \
+  --evaluation-scope "$evaluation_scope" \
+  --direct-sample-batch-size "$direct_sample_batch_size"
 
 if [[ "$samples_per_target" -eq 1 ]]; then
   echo "[meteor-progress] stage=${baseline}-evaluation reason=k1-needs-no-ranking time=$(date --iso-8601=seconds)"

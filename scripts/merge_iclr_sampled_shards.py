@@ -51,7 +51,10 @@ def main() -> None:
             raise ValueError(f"invalid shard assignment: {manifest_path}")
         if manifest["data_sha256"] != reference_sha:
             raise ValueError(f"reference hash mismatch: {manifest_path}")
-        if int(manifest["n_predictions_written"]) != len(range(index, args.expected_rows, args.shards)):
+        completed = int(manifest["n_predictions_written"]) + int(
+            manifest.get("n_predictions_skipped_by_resume") or 0
+        )
+        if completed != len(range(index, args.expected_rows, args.shards)):
             raise ValueError(f"incomplete shard: {manifest_path}")
         if manifest["mode"] != "direct":
             raise ValueError(f"unexpected inference mode: {manifest_path}")
@@ -81,6 +84,15 @@ def main() -> None:
                 row = json.loads(prediction_line)
                 if row.get("id") != identifier:
                     raise ValueError(f"shard/reference ID mismatch at {index}")
+                model = row.get("model") or {}
+                shard_manifest = manifests[index % args.shards]
+                if (
+                    model.get("adapter_sha256") != shard_manifest["adapter_sha256"]
+                    or model.get("model_revision") != shard_manifest["model_revision"]
+                    or model.get("seed") != shard_manifest["seed"]
+                    or int(model.get("samples_per_target") or 0) != args.k
+                ):
+                    raise ValueError(f"{identifier}: row/model lineage differs from shard manifest")
                 candidates = row.get("candidates") or []
                 if len(candidates) != args.k:
                     raise ValueError(f"{identifier}: {len(candidates)} candidates, expected {args.k}")
