@@ -7,6 +7,26 @@ import numpy as np
 from scripts.analyze_nmi_h2_results import analyze, _adjusted_paired_primitive_advantage
 
 
+def _runtime_contract(condition, n, k, *, seed=17):
+    revision = "b968826d9c46dd6066d109eabc6255188de91218"
+    return {
+        "n_rows": n,
+        "n_unique_adapters": 1,
+        "runtime_contract_consistent": True,
+        "runtime_contract_complete": True,
+        "runtime_contract_sha256": "test-contract",
+        "runtime_contracts": [{
+            "model_revision": revision,
+            "tokenizer_revision": revision,
+            "adapter_sha256": f"adapter-{condition}",
+            "samples_per_target": k,
+            "seed": seed,
+            "temperature": 0.7,
+            "top_p": 0.95,
+        }],
+    }
+
+
 def _write_jsonl(path, rows):
     data = b"".join((json.dumps(row) + "\n").encode() for row in rows)
     path.write_bytes(data)
@@ -51,7 +71,8 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
              ]} for i, identifier in enumerate(identifiers)
         ])
         report = {"reference_sha256": reference_sha, "n_reference_rows": 4,
-                  "row_evaluation": str(evaluation_rows), "row_evaluation_sha256": row_sha}
+                  "row_evaluation": str(evaluation_rows), "row_evaluation_sha256": row_sha,
+                  "runtime_contract": _runtime_contract(condition, 4, 2)}
         if condition == "closed_loop":
             report.update({"candidate_count_min": 2, "candidate_count_max": 2})
         else:
@@ -79,6 +100,7 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
     assert "trace_bound_at_1" not in result["methods"]["open_flow"]
     assert "not exact agreement" in result["comparison_semantics"]["closed_loop_trace_bound"]
     assert result["lineage"]["direct"]["selected_candidate_rule"] == "assistant_mean_nll"
+    assert result["lineage"]["direct"]["adapter_sha256"] == "adapter-direct"
     assert "not matched" in result["comparison_semantics"]["selected_top1"]
     assert result["adjusted_paired_primitive_advantage"]["closed_minus_open_flow"]["status"] == "unidentifiable_design_rank"
     support = result["primitive_frequency_strata"]["5_to_9"]
@@ -168,6 +190,35 @@ def test_h2_analysis_requires_closed_loop_trace_bound_field(tmp_path):
     }))
     with pytest.raises(ValueError, match="missing trace-bound candidate"):
         _row_results("closed_loop", evaluation, matched.parent, expected_k=2)
+
+
+def test_h2_analysis_rejects_missing_runtime_lineage(tmp_path):
+    from scripts.analyze_nmi_h2_results import _row_results
+
+    matched = tmp_path / "matched" / "direct"
+    matched.mkdir(parents=True)
+    reference_sha = _write_jsonl(matched / "test.jsonl", [
+        {"id": "id_0", "source_id": "r0"},
+    ])
+    (matched / "manifest.json").write_text(json.dumps({
+        "rows": {"test": 1}, "output_sha256": {"test": reference_sha},
+    }))
+    rows = tmp_path / "direct.rows.jsonl"
+    row_sha = _write_jsonl(rows, [{
+        "id": "id_0", "source_id": "r0", "nll_ranked_order": [0, 1],
+        "candidates": [
+            {"candidate_index": 0, "structural_exact": False},
+            {"candidate_index": 1, "structural_exact": False},
+        ],
+    }])
+    evaluation = tmp_path / "direct.json"
+    evaluation.write_text(json.dumps({
+        "reference_sha256": reference_sha, "n_reference_rows": 1,
+        "row_evaluation": str(rows), "row_evaluation_sha256": row_sha,
+        "candidates_per_target": 2,
+    }))
+    with pytest.raises(ValueError, match="missing/inconsistent inference runtime contract"):
+        _row_results("direct", evaluation, matched.parent, expected_k=2)
 
 
 def test_paired_familiarity_advantage_bootstraps_reaction_differences():

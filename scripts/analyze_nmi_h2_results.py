@@ -13,6 +13,7 @@ from sklearn.linear_model import LogisticRegression
 
 
 CONDITIONS = ("direct", "open_flow", "closed_loop")
+FROZEN_MODEL_REVISION = "b968826d9c46dd6066d109eabc6255188de91218"
 
 
 def _sha(path: Path) -> str:
@@ -99,6 +100,21 @@ def _row_results(
         }
     if len(outcomes) != len(references):
         raise ValueError(f"{condition} per-reaction outcome coverage mismatch")
+    runtime = report.get("runtime_contract")
+    if not isinstance(runtime, dict) or not runtime.get("runtime_contract_consistent") or not runtime.get("runtime_contract_complete"):
+        raise ValueError(f"{condition} missing/inconsistent inference runtime contract")
+    contracts = runtime.get("runtime_contracts")
+    if (int(runtime.get("n_rows") or 0) != len(references)
+            or int(runtime.get("n_unique_adapters") or 0) != 1
+            or not isinstance(contracts, list) or len(contracts) != 1):
+        raise ValueError(f"{condition} inference runtime/adapter coverage mismatch")
+    model = contracts[0]
+    if (not isinstance(model, dict)
+            or int(model.get("samples_per_target") or 0) != expected_k
+            or str(model.get("model_revision") or "") != FROZEN_MODEL_REVISION
+            or str(model.get("tokenizer_revision") or "") != FROZEN_MODEL_REVISION
+            or not str(model.get("adapter_sha256") or "")):
+        raise ValueError(f"{condition} inference model lineage mismatch")
     return outcomes, {
         "evaluation": str(evaluation.resolve()),
         "evaluation_sha256": _sha(evaluation),
@@ -106,6 +122,13 @@ def _row_results(
         "test_sha256": manifest["output_sha256"]["test"],
         "n": len(outcomes),
         "selected_candidate_rule": selector,
+        "model_revision": model["model_revision"],
+        "tokenizer_revision": model["tokenizer_revision"],
+        "adapter_sha256": model["adapter_sha256"],
+        "inference_seed": model.get("seed"),
+        "temperature": model.get("temperature"),
+        "top_p": model.get("top_p"),
+        "runtime_contract_sha256": runtime.get("runtime_contract_sha256"),
     }
 
 
@@ -215,6 +238,9 @@ def analyze(
         )
         if set(outcomes[condition]) != set(cov):
             raise ValueError(f"{condition} differs from H2 test covariate IDs")
+    for field in ("inference_seed", "temperature", "top_p"):
+        if len({lineage[condition][field] for condition in CONDITIONS}) != 1:
+            raise ValueError(f"matched H2 inference {field} differs across conditions")
     ids = sorted(cov)
     rng = np.random.default_rng(seed)
     success = {

@@ -399,6 +399,14 @@ states. The analyzer rejects Closed-Loop row artifacts missing per-candidate
 trace-bound fields rather than silently treating them as failures. This field
 and its semantic label were frozen before any H2 model outcomes; six focused
 analysis/row-sink regression tests pass.
+The Direct and Open-Flow evaluators now embed the same inference runtime
+contract already recorded for Closed-Loop. Before paired analysis, the H2
+analyzer requires complete, single-adapter runtime lineage for all three,
+the pinned Qwen3-8B model/tokenizer revision, and the same seed, temperature,
+top-p and K. It records each generated adapter hash with the result instead
+of relying only on a task name. This is an analysis provenance gate, not a
+change to generation or endpoint scoring; 37 NMI/evaluator regression tests
+pass after the addition.
 Before inspecting any model H2 outcome, E4 additionally froze a
 reaction-paired adjusted slope: does the **Closed-Loop minus Open-Flow**
 generation-order Top-1 gap change with the log frequency of the least-common

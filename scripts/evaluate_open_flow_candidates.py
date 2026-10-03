@@ -18,6 +18,7 @@ from mechet.endpoints import (
     structural_exact,
 )
 from mechet.open_flow_program import execute_open_flow
+from mechet.prediction_metrics import prediction_runtime_contract
 from mechet.proof_program import sides_equal
 from scripts.evaluate_proof_candidates import (
     _formal_nll_order, _full_precursor, _hit, _index, _load_rankings,
@@ -133,6 +134,9 @@ def main() -> int:
         "predictions_sha256": sha256_file(args.predictions),
         "n_reference_rows": denominator,
         "candidates_per_target": args.expected_candidates,
+        "runtime_contract": prediction_runtime_contract(
+            list(predictions.values()), include_adapter=True,
+        ),
         "max_tool_calls": args.max_tool_calls,
         "generation_order": {"semantics": "independent-sample Pass@K; not ranked Top-K", **block("generation")},
         "formal_nll_ranked": None,
