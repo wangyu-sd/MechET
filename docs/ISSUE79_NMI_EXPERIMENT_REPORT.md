@@ -381,6 +381,33 @@ training loss was 0.0614. The Open-Flow H20 scheduler handle remained in
 resource wait. These task/checkpoint observations confirm continuing
 optimization but do not establish a held-out endpoint result.
 
+At 14:58 CST Direct's H20 training instance
+`8b1d89f7a0d297d901a0fd8659de41ea` reached successful `END`. Its final
+checkpoint records exactly **10,494/10,494 updates** and epoch 3.0. The
+root adapter has 288 finite, nonzero LoRA tensors (15,335,424 parameters);
+its recomputed directory digest matches `adapter_manifest.json`:
+`7eac4182629a14283eae7cf9071ca32b321c893c597211de3cb229564666ec47`.
+The adapter and data contract both bind training SHA-256
+`009d624447d8f36441a3885cfd61c357be7687e1edc17e2d9ffa18eaca311df9`
+to the frozen Direct train manifest, with the pinned Qwen3-8B revision. The
+last logged teacher-forced loss remains a training diagnostic, not H2 accuracy.
+
+After this lineage gate and an A100 resource check (ordinary Qingyuan quota
+112, using 72, waiting 23), one full **K=10 / 27,104-row Direct evaluation**
+was submitted as `meteor_mechet_nmi_h2_direct_k10_8a100_qy_20261003_01`,
+instance `8b1d8064a0d2977501a10092fffa4356`. The initial state was
+`PENDING`; there is no generated prediction or evaluation result yet. Its
+rendered config uses the successful A100 private Ceph donor, default terminal
+heartbeat, and the immutable final adapter path. Submission is not a result.
+
+The waiting Open-Flow H20 task obtained the H20 allocation released by
+Direct. At 15:03 CST instance `8b1d8064a0d2977501a0fd957208409d` was
+`TRAINING_RUNNING`: the frozen data were visible on the Pod's Ceph mount and
+eight `train_tool_sft.py` workers were present. GPU memory was about 7.6 GiB
+per card with zero instantaneous utilization; this is initialization, not yet
+verified optimizer progress or a checkpoint. Closed-Loop continues on its own
+eight H20s.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
