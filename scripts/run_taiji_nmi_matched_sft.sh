@@ -36,6 +36,7 @@ import sys
 
 import torch
 import yaml
+from scripts.nmi_artifact_status import require_artifact_status
 
 config_path = Path(sys.argv[1])
 config = yaml.safe_load(config_path.read_text())
@@ -50,6 +51,7 @@ verification_path = config_path.parent.parent / 'verification.json'
 if hashlib.sha256(verification_path.read_bytes()).hexdigest() != config_manifest['representation_verification_sha256']:
     raise SystemExit('H2 mapped-product/endpoint parity verification SHA mismatch')
 data_manifest = json.loads(Path(config['contract']['stable_id_manifest']).read_text())
+require_artifact_status(Path(config['contract']['stable_id_manifest']), operation='training')
 if data_manifest['condition'] != condition or not data_manifest['training_allowed']:
     raise SystemExit('H2 condition/data manifest mismatch')
 if data_manifest['parent_split_manifest_sha256'] != config_manifest['split_manifest_sha256']:

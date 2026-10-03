@@ -504,8 +504,15 @@ Open-Flow task `meteor_mechet_nmi_h2_open_flow_8h20_zjk_20261003_01` was
 stopped; Taiji reports `END`, and its partial checkpoint-1000 remains archived.
 That old adapter is superseded and ineligible for the headline H2 comparison.
 The replacement initially reached `TRAINING_RUNNING` with a real eight-H20
-POD and passed host prechecks; tokenizer/optimizer activity must be verified
-separately. Direct and Closed-Loop artifacts/tasks remain unchanged.
+POD and passed host prechecks. Its distributed token-cache manifest records
+223,863/6,200 train/valid rows, no dropped/windowed/truncated source rows,
+150,873,337 train input tokens and 102,434,043 supervised tokens, with the
+v2 train and valid SHA-256 values. Eight model processes have loaded GPU
+memory, but no optimizer step has yet been verified. A sidecar now labels
+the old Open-Flow data `training_allowed: false` and
+`headline_evaluation_allowed: false`; both Taiji launchers enforce such
+sidecars without changing frozen source manifests. Direct and Closed-Loop
+artifacts/tasks remain unchanged.
 
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting

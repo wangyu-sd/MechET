@@ -171,6 +171,7 @@ import sys
 
 import torch
 import yaml
+from scripts.nmi_artifact_status import require_artifact_status
 
 baseline, manifest_task, manifest_path, config_path, adapter_path, test_path, expected_rows, expected_gpu, revision, samples_per_target = sys.argv[1:]
 config = yaml.safe_load(Path(config_path).read_text(encoding="utf-8"))
@@ -188,6 +189,7 @@ missing = [str(path) for path in required if not path.is_file()]
 if missing:
     raise SystemExit(f"missing frozen inference artifacts: {missing}")
 manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+require_artifact_status(Path(manifest_path), operation="headline_evaluation")
 actual_rows = int(manifest["tasks"][manifest_task]["test"]["rows"])
 if actual_rows != int(expected_rows):
     raise SystemExit(f"{baseline} test rows {actual_rows} != {expected_rows}")
