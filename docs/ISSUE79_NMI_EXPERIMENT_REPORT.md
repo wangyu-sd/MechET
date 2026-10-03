@@ -468,6 +468,40 @@ missing-module failure from recurring by construction. Their dataset, model,
 candidate and ranking contracts remain unchanged; neither is submitted before
 its own final adapter exists.
 
+### Open-Flow import-supervision repair (2026-10-03; before H2 model outcomes)
+
+An additional full-data **program-target parity** audit compared Open-Flow
+`<flow>` imports and ordered electron steps with the Closed-Loop tool calls on
+every frozen H2 ID, checking both source-file SHA-256 values. Electron-step
+sequences matched on **223,863/223,863 train, 6,200/6,200 valid and
+27,104/27,104 test**. The older Open-Flow builder, however, serialized only
+`trace_plan.initial_imports`, omitting `steps[*].imports`. Its import lists
+therefore differed on **77 train, zero valid and 603 test** rows; these are
+exactly the rows where Closed-Loop imports fragments after a previous step.
+The audit is `outputs/issue79/nmi_h2_program_parity_20261003.json`. This is
+a real representation bug, not a different electron-move target or a model
+negative result. The 603 affected test references are 2.22% of the frozen
+27,104-row denominator; no row is removed.
+
+The OPEN_FLOW v1 grammar requires all imports before STEP 0. A deterministic
+repair now serializes initial imports plus each later step's imports, in
+recorded order, before the same electron steps. On all **77 train and 603
+test** affected gold programs, this fixed representation strictly executed
+and reproduced the frozen structural endpoint (680/680). Unaffected rows are
+copied byte-for-byte. The independent v2 artifact is
+`data/issue79/nmi_open_flow_all_step_imports_v2_20261003/`, still
+223,863/6,200/27,104 rows, with train/valid/test SHA-256 values
+`ef1a03b880e8cf4a5f43d0df175c7d6ae56a35eb4ca4db51e275aa02653e3f3c`,
+`73d776d30c4506beb76c982b6e0f171f2aa288ed42631bc364f29e50e988d967`,
+and `77b70a2df2b6c455acd801b0c790c8078986ce8d6a578533d1c3f05d5e82f3d8`.
+Its config preserves the same Qwen3-8B revision, seed 17 and 10,494 update
+budget. The first packaging-only preflight directory was archived with
+`training_allowed: false`; no job used it. The old Open-Flow H20 training
+instance is still running at this record's timestamp and must be stopped
+only after replacement submission readiness is verified. Its adapter is
+superseded and ineligible for the headline H2 comparison. Direct and
+Closed-Loop artifacts/tasks remain unchanged.
+
 No H2 model performance result is available yet. Every result must be tied to frozen source/split hashes and its own
 model checkpoint lineage; historical full-data results remain supporting
 evidence only.
@@ -544,8 +578,9 @@ counts/order and runtime contracts before writing the paired result:
 PYTHONPATH=src:. python scripts/analyze_nmi_h2_results.py \
   --covariates /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/nmi_h2_covariates_20261003.jsonl \
   --matched-dir /aaa/fionafyang/buddy1/whaleywang/MechET/data/issue79/nmi_matched_v1 \
+  --open-flow-dir /aaa/fionafyang/buddy1/whaleywang/MechET/data/issue79/nmi_open_flow_all_step_imports_v2_20261003 \
   --direct-evaluation /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/eval_h2_direct_k10_seed17_vllm02/evaluation.json \
-  --open-flow-evaluation /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/eval_h2_open_flow_k10_seed17/evaluation.json \
+  --open-flow-evaluation /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/eval_h2_open_flow_imports_v2_k10_seed17/evaluation.json \
   --closed-loop-evaluation /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/eval_h2_closed_loop_k10_seed17/evaluation.json \
   --output /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/nmi_h2_matched_analysis_seed42.json
 ```

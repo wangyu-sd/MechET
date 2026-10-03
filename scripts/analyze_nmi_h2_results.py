@@ -34,11 +34,12 @@ def _jsonl(path: Path):
 
 def _row_results(
     condition: str, evaluation: Path, matched_dir: Path,
-    *, expected_k: int,
+    *, expected_k: int, condition_dir: Path | None = None,
 ) -> tuple[dict[str, dict[str, bool]], dict[str, Any]]:
     report = json.loads(evaluation.read_text())
-    manifest = json.loads((matched_dir / condition / "manifest.json").read_text())
-    test_path = matched_dir / condition / "test.jsonl"
+    data_dir = condition_dir or matched_dir / condition
+    manifest = json.loads((data_dir / "manifest.json").read_text())
+    test_path = data_dir / "test.jsonl"
     if _sha(test_path) != manifest["output_sha256"]["test"]:
         raise ValueError(f"{condition} frozen test file SHA mismatch")
     if report.get("reference_sha256") != manifest["output_sha256"]["test"]:
@@ -118,6 +119,7 @@ def _row_results(
         raise ValueError(f"{condition} inference model lineage mismatch")
     return outcomes, {
         "evaluation": str(evaluation.resolve()),
+        "condition_data_dir": str(data_dir.resolve()),
         "evaluation_sha256": _sha(evaluation),
         "row_evaluation_sha256": _sha(row_path),
         "test_sha256": manifest["output_sha256"]["test"],
@@ -223,6 +225,7 @@ def analyze(
     covariates: Path, matched_dir: Path, evaluations: dict[str, Path], output: Path,
     *, k: int = 10, bootstrap_draws: int = 2000,
     regression_draws: int = 250, seed: int = 42,
+    open_flow_dir: Path | None = None,
 ) -> dict[str, Any]:
     if output.exists():
         raise FileExistsError(f"refusing existing result: {output}")
@@ -240,6 +243,7 @@ def analyze(
     for condition in CONDITIONS:
         outcomes[condition], lineage[condition] = _row_results(
             condition, evaluations[condition], matched_dir, expected_k=k,
+            condition_dir=open_flow_dir if condition == "open_flow" else None,
         )
         if set(outcomes[condition]) != set(cov):
             raise ValueError(f"{condition} differs from H2 test covariate IDs")
@@ -394,6 +398,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--covariates", type=Path, required=True)
     parser.add_argument("--matched-dir", type=Path, required=True)
+    parser.add_argument("--open-flow-dir", type=Path,
+                        help="versioned Open-Flow data directory; defaults to matched-dir/open_flow")
     for condition in CONDITIONS:
         parser.add_argument(f"--{condition.replace('_', '-')}-evaluation", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -407,6 +413,7 @@ def main() -> int:
         args.covariates, args.matched_dir, evaluations, args.output,
         k=args.k, bootstrap_draws=args.bootstrap_draws,
         regression_draws=args.regression_draws, seed=args.seed,
+        open_flow_dir=args.open_flow_dir,
     ), indent=2))
     return 0
 

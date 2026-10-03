@@ -1,5 +1,6 @@
 import hashlib
 import json
+import shutil
 
 import pytest
 import numpy as np
@@ -110,6 +111,13 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
     assert result["primitive_frequency_strata"]["1000_plus"]["n"] == 0
     assert result["structural_strata"]["scaffold_unseen"]["paired_closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.5
     assert result["structural_strata"]["scaffold_seen"]["paired_closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.0
+    replacement_open = tmp_path / "open_flow_v2"
+    shutil.move(str(matched / "open_flow"), replacement_open)
+    replaced = analyze(covariates, matched, evaluations, tmp_path / "result_v2.json",
+                       k=2, bootstrap_draws=100, regression_draws=20,
+                       open_flow_dir=replacement_open)
+    assert replaced["lineage"]["open_flow"]["condition_data_dir"] == str(replacement_open)
+    assert replaced["paired_contrasts"]["closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.25
 
 
 def test_h2_analysis_rejects_missing_ranked_order(tmp_path):

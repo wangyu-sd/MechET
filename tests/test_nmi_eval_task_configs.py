@@ -12,6 +12,8 @@ CONFIGS = {
     "closed_loop": ROOT / "configs/taiji/meteor_mechet_nmi_h2_closed_loop_k10_8h20_zjk_20261003.json",
 }
 DIRECT_VLLM_RETRY = ROOT / "configs/taiji/meteor_mechet_nmi_h2_direct_k10_vllm_runtime_8a100_qy_20261003_02.json"
+OPEN_IMPORTS_V2 = ROOT / "configs/taiji/meteor_mechet_nmi_h2_open_flow_imports_v2_k10_8a100_qy_20261003.json"
+OPEN_IMPORTS_V2_TRAIN = ROOT / "configs/taiji/meteor_mechet_nmi_h2_open_flow_imports_v2_8h20_zjk_20261003.json"
 
 
 def test_h2_evaluation_tasks_are_frozen_and_not_prematurely_submitted():
@@ -62,3 +64,23 @@ def test_direct_vllm_runtime_retry_preserves_scientific_contract():
     assert "activate_taiji_vllm_runtime.sh" in retry["start_cmd"]
     assert "eval_h2_direct_k10_seed17_vllm02" in retry["start_cmd"]
     subprocess.run(["bash", "-n", str(ROOT / "scripts/activate_taiji_vllm_runtime.sh")], check=True)
+
+
+def test_open_flow_import_repair_tasks_keep_frozen_budget_and_use_v2_only():
+    old_eval = json.loads(CONFIGS["open_flow"].read_text())
+    new_eval = json.loads(OPEN_IMPORTS_V2.read_text())
+    new_train = json.loads(OPEN_IMPORTS_V2_TRAIN.read_text())
+    for path, config in ((OPEN_IMPORTS_V2, new_eval), (OPEN_IMPORTS_V2_TRAIN, new_train)):
+        validate_submission_policy(config, path)
+        assert config["init_cmd"] == "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK"
+    assert new_train["GPUName"] == "H20"
+    assert "nmi_open_flow_all_step_imports_v2_20261003/configs/open_flow.yaml" in new_train["start_cmd"]
+    assert new_eval["GPUName"] == old_eval["GPUName"] == "A100"
+    assert new_eval["business_flag"] == old_eval["business_flag"]
+    for field in ("MECHET_EXPECTED_ROWS=27104", "SAMPLES_PER_TARGET=10",
+                  "MECHET_MAX_NEW_TOKENS=4096", "MECHET_NLL_MAX_LENGTH=8192",
+                  "MECHET_INFERENCE_BACKEND=vllm"):
+        assert field in new_eval["start_cmd"]
+    assert "nmi_open_flow_all_step_imports_v2_20261003/test.jsonl" in new_eval["start_cmd"]
+    assert "h2_open_flow_imports_v2_seed17" in new_eval["start_cmd"]
+    assert "eval_h2_open_flow_imports_v2_k10_seed17" in new_eval["start_cmd"]
