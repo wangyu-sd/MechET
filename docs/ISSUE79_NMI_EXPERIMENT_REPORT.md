@@ -535,6 +535,21 @@ Closed-Loop minus Open-Flow difference within each stratum. These boundaries
 were set from the frozen covariates before any H2 prediction result and do not
 replace the adjusted regression or the primary all-test contrast.
 
+The frozen final-analysis invocation below must run **only after all three
+27,104-row K=10 evaluation reports and row files exist**. The analyzer refuses
+an existing output and rechecks reference hashes, stable IDs, candidate
+counts/order and runtime contracts before writing the paired result:
+
+```bash
+PYTHONPATH=src:. python scripts/analyze_nmi_h2_results.py \
+  --covariates /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/nmi_h2_covariates_20261003.jsonl \
+  --matched-dir /aaa/fionafyang/buddy1/whaleywang/MechET/data/issue79/nmi_matched_v1 \
+  --direct-evaluation /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/eval_h2_direct_k10_seed17_vllm02/evaluation.json \
+  --open-flow-evaluation /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/eval_h2_open_flow_k10_seed17/evaluation.json \
+  --closed-loop-evaluation /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/eval_h2_closed_loop_k10_seed17/evaluation.json \
+  --output /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/issue79/nmi_h2_matched_analysis_seed42.json
+```
+
 ## Provisional paper Results structure (no paper edit yet)
 
 1. **Operator support and the testable regime.** Report the observed 604 local
