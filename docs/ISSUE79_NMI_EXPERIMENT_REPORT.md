@@ -218,6 +218,11 @@ total train-sequence tokens, and the Open-Flow cap 4,096 exceeds the maximum
 train-only evidence, before model test. Submission must wait for completed,
 lineage-verified adapters and resource reinspection. No eval task or held-out
 model result is claimed here.
+The three evaluation configs were independently rendered into private
+mode-0600 Taiji configs using successful A100 and H20 Ceph-init donor tasks;
+each rendered config has the requested eight-GPU type, a Ceph mount command
+and the default-log heartbeat wrapper. Rendering is **not** task creation or
+submission. The private init commands and rendered files are not committed.
 
 The Closed-Loop test launcher received a full **reference-prompt contract
 preflight** over all 27,104 H2 test rows (no model generation): one system
