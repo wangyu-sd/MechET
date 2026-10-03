@@ -269,6 +269,55 @@ def analyze(
                 if selector.any() else None for condition in CONDITIONS
             },
         }
+    # Declared from label-free H2 covariates before model outcomes: the five
+    # log-scale support ranges contain 1,572 / 2,334 / 1,932 / 7,342 / 13,924
+    # reactions in the frozen 27,104-row test, respectively.
+    primitive_frequency = np.array([
+        int(cov[identifier]["minimum_primitive_train_frequency"])
+        for identifier in ids
+    ], dtype=int)
+    if np.any(primitive_frequency < 5):
+        raise ValueError("H2 minimum primitive train frequency fell below frozen gate")
+    primitive_strata = {}
+    for label, low, high in (
+        ("5_to_9", 5, 10),
+        ("10_to_24", 10, 25),
+        ("25_to_99", 25, 100),
+        ("100_to_999", 100, 1000),
+        ("1000_plus", 1000, None),
+    ):
+        selector = primitive_frequency >= low
+        if high is not None:
+            selector &= primitive_frequency < high
+        if not selector.any():
+            primitive_strata[label] = {
+                "n": 0,
+                "minimum_train_frequency_range": [low, high],
+                "generation_order_endpoint_at_1": None,
+                "generation_order_pass_at_k": None,
+                "paired_closed_minus_open_flow": None,
+            }
+            continue
+        primitive_strata[label] = {
+            "n": int(selector.sum()),
+            "minimum_train_frequency_range": [low, high],
+            "generation_order_endpoint_at_1": {
+                condition: float(success[condition]["endpoint_at_1"][selector].mean())
+                for condition in CONDITIONS
+            },
+            "generation_order_pass_at_k": {
+                condition: float(success[condition]["endpoint_at_k"][selector].mean())
+                for condition in CONDITIONS
+            },
+            "paired_closed_minus_open_flow": {
+                metric: _bootstrap_mean(
+                    success["closed_loop"][metric][selector]
+                    - success["open_flow"][metric][selector],
+                    rng, bootstrap_draws,
+                )
+                for metric in ("endpoint_at_1", "endpoint_at_k")
+            },
+        }
     report = {
         "artifact_type": "nmi_h2_matched_reaction_analysis_v1",
         "scope": "frozen composition-unseen primitive-seen H2 test; no model selection",
@@ -284,6 +333,7 @@ def analyze(
         "methods": methods,
         "paired_contrasts": contrasts,
         "structural_strata": strata,
+        "primitive_frequency_strata": primitive_strata,
         "adjusted_primitive_familiarity_association": adjusted,
         "adjusted_paired_primitive_advantage": paired_familiarity_advantage,
     }

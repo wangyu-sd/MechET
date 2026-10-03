@@ -76,6 +76,11 @@ def test_h2_analysis_requires_paired_ids_and_reports_reaction_delta(tmp_path):
     assert result["lineage"]["direct"]["selected_candidate_rule"] == "assistant_mean_nll"
     assert "not matched" in result["comparison_semantics"]["selected_top1"]
     assert result["adjusted_paired_primitive_advantage"]["closed_minus_open_flow"]["status"] == "unidentifiable_design_rank"
+    support = result["primitive_frequency_strata"]["5_to_9"]
+    assert support["n"] == 4
+    assert support["generation_order_endpoint_at_1"]["closed_loop"] == 0.5
+    assert support["paired_closed_minus_open_flow"]["endpoint_at_1"]["estimate"] == 0.25
+    assert result["primitive_frequency_strata"]["1000_plus"]["n"] == 0
 
 
 def test_h2_analysis_rejects_missing_ranked_order(tmp_path):

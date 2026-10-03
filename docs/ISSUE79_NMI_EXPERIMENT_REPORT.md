@@ -381,3 +381,10 @@ intercept-plus-six-feature design matrix (condition number 69.6), 185 distinct
 log-frequency values, and full rank in 30/30 seeded reaction bootstrap
 resamples. This is a feasibility check of the predeclared model, **not** an
 estimate of any model's accuracy or primitive-frequency effect.
+For an interpretable, pre-outcome display, the E4 analyzer also freezes five
+minimum-primitive-train-frequency strata: 5–9 (1,572 reactions), 10–24
+(2,334), 25–99 (1,932), 100–999 (7,342), and ≥1,000 (13,924). It will report
+the three matched generation-order endpoint rates and the reaction-bootstrap
+Closed-Loop minus Open-Flow difference within each stratum. These boundaries
+were set from the frozen covariates before any H2 prediction result and do not
+replace the adjusted regression or the primary all-test contrast.
