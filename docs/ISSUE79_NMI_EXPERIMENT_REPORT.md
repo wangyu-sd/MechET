@@ -1,5 +1,37 @@
 # Issue #79: NMI compositional-generalization experiment record
 
+## Current execution snapshot (2026-10-04 13:00 CST)
+
+E1/E2 are frozen. Direct has a complete 27,104-reaction K=10 endpoint result
+(generation-order Top-1 4,030/27,104; Pass@10 7,629/27,104). Corrected
+Open-Flow v2 training finished successfully on eight H20s at **10,494/10,494
+updates**, epoch 3.0. Its final adapter matches `checkpoint-10494` byte-for-
+byte; the training instance `8b1d89c4a0d297dc01a1010c9c4e45b4` is
+`END/IsSuccess=true`. The frozen v2 train and test file hashes, model
+revision, and final adapter directory hash were independently rechecked.
+The final adapter directory hash is
+`d6683df77adf6c400a710cd7a9aed910b7ac4abdf2b7ff35369e4b720c8e68fc`.
+
+The initial adapter manifest written by the eight training ranks carried a
+transient hash despite correct final weights. The shared artifact manifest was
+corrected **only after successful task completion** to the independently
+recomputed final directory hash; the final weights, checkpoints, data contract,
+and frozen dataset were not changed. The training code now waits for all ranks
+after `save_model()` and lets only world rank zero write the final contract and
+manifest, preventing another concurrent-write race. Five matched-config and
+evaluation-config tests passed; this correction does not change any optimizer
+update or model prediction.
+
+The full Open-Flow v2 K=10 evaluation was submitted as ordinary Qingyuan
+8×A100 task
+`meteor_mechet_nmi_h2_open_flow_imports_v2_k10_8a100_qy_20261003_01`
+(instance `8b1d8047a0d27a4401a1054795244b4d`). At this snapshot it was
+`TRAINING_INIT`/resource-applying, **not** yet a model result. Its config uses
+the repaired v2 adapter and all 27,104 frozen test reactions. Closed-Loop
+training remains active on eight H20s; its latest complete checkpoint observed
+here is **2,000/10,494**. E4 and the matched three-condition GO/NO-GO remain
+pending; E5 remains access-blocked.
+
 ## Step 0 audit (2026-10-02, before experiment-code changes)
 
 | Item | Code / submission / completion / scientific evidence |

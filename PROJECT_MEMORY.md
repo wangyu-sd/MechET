@@ -11,8 +11,9 @@
 > K=10 evaluation are complete: generation-order first-candidate endpoint
 > recovery 4,030/27,104, Pass@10 7,629/27,104, and supplementary NLL-selected
 > Top-1 5,018/27,104. The row-level result and its hashes are frozen in the
-> Issue #79 report. Corrected Open-Flow v2 and Closed-Loop matched training
-> are ongoing. The
+> Issue #79 report. Corrected Open-Flow v2 training completed at 10,494/10,494
+> updates; its full K=10 evaluation was submitted and is not yet a result.
+> Closed-Loop matched training is ongoing. The
 > original Open-Flow v1 data/checkpoint omitted later imports and is barred
 > from headline use. The matched **three-condition** H2 comparison, E4
 > paired analysis, and GO/NO-GO are not established yet. E5 lacks authorized
