@@ -6,6 +6,7 @@ from mechet.system_one_replay import (
     reconstruct_mapped_state,
 )
 from scripts.eval_system_one_successor import select_flow_counts
+from scripts.eval_pr71_pointer_successor import coupled_target_indices
 
 
 def test_visible_state_reconstruction_and_pair_execution():
@@ -34,6 +35,7 @@ def test_visible_state_reconstruction_and_pair_execution():
     # Source A03 has index 2; sink A01-A03 has index 4 among three atoms
     # followed by three unordered atom-pair sinks.
     pair_indices = [2 * 6 + 4, 3 * 6 + 1]
+    assert coupled_target_indices(observation) == sorted(pair_indices)
     generated = pair_indices_to_arguments(observation, pair_indices)
     assert generated["electron_flow"][0]["source"] == "a lone pair on atom A03"
     assert generated["electron_flow"][0]["destination"] == (

@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
-from mechet.electron_pointer import locate_marker_tokens, target_indices
+from mechet.electron_pointer import candidate_keys, locate_marker_tokens
 from mechet.electron_pointer_model import CoupledPointerHead, pairs_for_observation
 from mechet.natural_language_electron_flow import execute_event_arguments
 from mechet.structural_overlap import canonical_unmapped_smiles
@@ -54,6 +54,19 @@ def summarize(bucket: Counter) -> dict:
         "successor_exact_rate": bucket["successor_exact"] / n,
         "codes": {key[5:]: count for key, count in bucket.items() if key.startswith("code_")},
     }
+
+
+def coupled_target_indices(example) -> list[int]:
+    """Preserve the original source-to-sink pairing in multi-flow events."""
+    n = len(example.atom_names)
+    source = candidate_keys(n, example.bonds, source=True)
+    sink = candidate_keys(n, example.bonds, source=False)
+    source_index = {key: index for index, key in enumerate(source)}
+    sink_index = {key: index for index, key in enumerate(sink)}
+    return sorted({
+        source_index[src] * len(sink) + sink_index[dst]
+        for src, dst in zip(example.source_targets, example.sink_targets, strict=True)
+    })
 
 
 def evaluate_split(split, source, examples, policy, head, tokenizer, device,
@@ -92,11 +105,7 @@ def evaluate_split(split, source, examples, policy, head, tokenizer, device,
             ranked = pair_logits.flatten().topk(min(8, pair_logits.numel())).indices.tolist()
             forward_elapsed += time.perf_counter() - forward_start
 
-            sink_count = pair_logits.shape[1]
-            targets = sorted({src * sink_count + dst for src, dst in zip(
-                target_indices(example, source=True), target_indices(example, source=False),
-                strict=True,
-            )})
+            targets = coupled_target_indices(example)
             paired.update(recall_at_k(ranked, targets))
             gold_pairs = execute_pair_indices(mapped, example, targets)
             if gold_pairs != gold:
@@ -229,6 +238,16 @@ def main() -> int:
     print(json.dumps({"phase": "pr71_audit", "checkpoint": checkpoint_info,
                       "splits": {key: len(value[1]) for key, value in selected.items()}}), flush=True)
     if args.audit_only:
+        for split, (_, examples) in selected.items():
+            for example in examples:
+                mapped = reconstruct_mapped_state(example)
+                gold_args = example.assistant_message["tool_calls"][0]["function"]["arguments"]
+                gold = execute_event_arguments(mapped, gold_args)
+                paired = execute_pair_indices(mapped, example, coupled_target_indices(example))
+                if not gold.get("ok") or paired != gold:
+                    raise ValueError(f"{example.row_id}: paired target replay differs from reference")
+            print(json.dumps({"phase": "pr71_gold_replay_audit", "split": split,
+                              "events": len(examples)}), flush=True)
         return 0
 
     import torch
