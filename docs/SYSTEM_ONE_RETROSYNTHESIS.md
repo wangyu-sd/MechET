@@ -106,9 +106,25 @@ Phase 0 should report only metrics that directly test the decision architecture:
 - peak GPU memory.
 
 Current Phase-0 code measures paired localization, latency, tokens and memory.
-It does **not** yet reconstruct a complete multi-flow action or measure executed
-successor agreement; the report records that field as unavailable and forbids
-promotion on localization alone.
+The training report records successor agreement as unavailable rather than
+mistaking site recall for chemical execution. A separate frozen-checkpoint
+evaluator reconstructs temporary executor-only atom maps from the visible
+annotated SMILES, checks that its regenerated public inventory is byte-exact,
+and replays the prediction against the reference successor:
+
+```bash
+python scripts/eval_system_one_successor.py \
+  --checkpoint outputs/agent/system_one_pr81_phase0_31k_20261005_v2/full \
+  --valid data/mech_uspto_31k_natural_language_history_v2/valid.jsonl \
+  --output outputs/agent/system_one_pr81_phase0_successor_valid
+```
+
+The evaluator reports fixed one-flow and two-flow policies that do not use the
+answer, plus an explicitly labelled **oracle move-count diagnostic**. All are
+local evaluations at reference current states; none is product-start endpoint
+accuracy. Executor failure, successor chemistry and move-count strata are kept
+separate, and test is not loaded. Promotion still requires competitive local
+quality before a closed-loop rollout.
 
 Only after local decision quality is competitive should product-start endpoint
 rollout be attempted.  No new RL algorithm is part of Phase 0.
