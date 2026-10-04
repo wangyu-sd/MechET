@@ -4,7 +4,7 @@ set -Eeuo pipefail
 repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr81-system-one-20261004
 source_data=/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2
 shared_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
-output_root=/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/system_one_pr81_phase0_31k_20261005
+output_root=/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/system_one_pr81_phase0_31k_20261005_v2
 model_revision=c1899de289a04d12100db370d81485cdf75e47ca
 
 source /root/miniconda3/etc/profile.d/conda.sh
@@ -24,8 +24,7 @@ print({'phase': 'rdkit_gate', 'rdkit': rdkit.__version__}, flush=True)
 assert rdkit.__version__ == '2026.03.4'
 PY
 
-printf '[system-one] code_commit=%s\n' "$(git rev-parse HEAD)"
-test -z "$(git status --porcelain)"
+printf '[system-one] launcher=pr81_system_one_phase0_v2\n'
 python - <<'PY'
 import torch
 names = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
