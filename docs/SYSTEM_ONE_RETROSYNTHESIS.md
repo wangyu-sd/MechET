@@ -138,6 +138,14 @@ stereochemical changes. These four rows remain in training.
 Only after local decision quality is competitive should product-start endpoint
 rollout be attempted.  No new RL algorithm is part of Phase 0.
 
+For scale, the existing PR71 Qwen3-8B conditional pointer reports paired
+Recall@1 = 0.9178 and all-flow Recall@8 = 0.9241 on the same frozen 2,543-event
+validation source (`valid_sha256=e4b68bd9f52ed5b0c24b2453d1ee6197a3686c354db9aa3f4c3689647d74a995`).
+Its recorded validation wall time is 412.1 s. This is a **quality reference**,
+not a matched-compute causal comparison: its 8B checkpoint, option-state
+format, and eight-GPU execution differ from Phase 0. No successor metric was
+reported for that reference, so it must not be used as a successor baseline.
+
 ## Next extensions
 
 If Phase 0 works, merge IMPORT and FINISH into the same System-One interface via
