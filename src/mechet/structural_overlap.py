@@ -103,13 +103,18 @@ def _trace_plan(row: Mapping[str, Any]) -> ProofTracePlan:
     return ProofTracePlan.from_dict(value)
 
 
-def _step_reaction_center_context(step) -> dict[str, Any]:
+def _step_reaction_center_context(step, *, preserve_mapped_h: bool = False) -> dict[str, Any]:
     """Return a map-independent local context in the state where a move occurs."""
 
     augmented_smiles = ".".join(
         part for part in (step.state_before, *step.imports) if str(part).strip()
     )
-    mol = Chem.MolFromSmiles(augmented_smiles)
+    if preserve_mapped_h:
+        params = Chem.SmilesParserParams()
+        params.removeHs = False
+        mol = Chem.MolFromSmiles(augmented_smiles, params)
+    else:
+        mol = Chem.MolFromSmiles(augmented_smiles)
     if mol is None:
         raise ValueError(
             f"REACTION_CENTER_STEP_STATE_INVALID:step={step.step_index}"
@@ -123,6 +128,22 @@ def _step_reaction_center_context(step) -> dict[str, Any]:
     move_topology: list[dict[str, Any]] = []
     step_primitives: list[str] = []
     for move in step.moves:
+        if preserve_mapped_h and move.get("mode") == "BE_DELTA":
+            bond_deltas = list(move.get("bond_deltas") or [])
+            charge_actions = list(move.get("charge_actions") or [])
+            for item in bond_deltas:
+                involved_maps.update(int(atom) for atom in item.get("atoms") or [])
+            for item in charge_actions:
+                involved_maps.add(int(item["atom_map"]))
+            move_topology.append({
+                "mode": "BE_DELTA",
+                "bond_deltas": sorted(int(item.get("delta", 0)) for item in bond_deltas),
+                "charge_changes": len(charge_actions),
+            })
+            step_primitives.append(
+                execution_primitive_signature(move, step.state_before, step.imports)
+            )
+            continue
         source = dict(move.get("source") or {})
         sink = dict(move.get("sink") or {})
         source_maps = [int(item) for item in source.get("atoms") or []]
@@ -172,8 +193,10 @@ def _step_reaction_center_context(step) -> dict[str, Any]:
     }
 
 
-def reaction_center_context_signature(row: Mapping[str, Any]) -> str:
-    """Hash ordered local contexts at the states where electron moves execute.
+def reaction_center_context_features(
+    row: Mapping[str, Any], *, preserve_mapped_h: bool = False
+) -> dict[str, Any]:
+    """Return both ordered-program and reusable local structural center keys.
 
     The old audit searched every move atom only in ``target_smiles``. That is not
     valid for inverse traces: a legitimate source/sink atom may enter through an
@@ -185,14 +208,39 @@ def reaction_center_context_signature(row: Mapping[str, Any]) -> str:
     plan = _trace_plan(row)
     if not plan.steps:
         raise ValueError("REACTION_CENTER_STEPS_MISSING")
+    step_contexts = [
+        _step_reaction_center_context(step, preserve_mapped_h=preserve_mapped_h)
+        for step in plan.steps
+    ]
     payload = {
-        "context_definition": "step_state_plus_edge_imports_v2",
-        "steps": [_step_reaction_center_context(step) for step in plan.steps],
+        "context_definition": (
+            "step_state_plus_edge_imports_v3_explicit_h"
+            if preserve_mapped_h else "step_state_plus_edge_imports_v2"
+        ),
+        "steps": step_contexts,
         "execution_primitives": list(execution_primitive_signatures(plan)),
     }
-    return hashlib.sha256(
+    ordered_key = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+    return {
+        "ordered_context_key": ordered_key,
+        # Exclude step order, move topology and execution-primitive labels.
+        # Including them makes center overlap tautologically zero under a
+        # composition-disjoint split instead of measuring structural reuse.
+        "local_structural_centers": tuple(
+            context["local_state_context"] for context in step_contexts
+        ),
+    }
+
+
+def reaction_center_context_signature(
+    row: Mapping[str, Any], *, preserve_mapped_h: bool = False
+) -> str:
+    """Hash the ordered move-bearing center context (historical definition)."""
+    return str(reaction_center_context_features(
+        row, preserve_mapped_h=preserve_mapped_h
+    )["ordered_context_key"])
 
 
 def row_overlap_features(row: Mapping[str, Any]) -> dict[str, Any]:

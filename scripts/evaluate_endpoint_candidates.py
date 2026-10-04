@@ -18,6 +18,7 @@ sys.path.insert(0, str(REPO / "src"))
 from mechet.data_audit import sha256_file
 from mechet.endpoints import mapped_exact, reference_structural_precursor, structural_exact
 from mechet.knowledge_ablation import extract_direct_prediction
+from mechet.prediction_metrics import prediction_runtime_contract
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -182,6 +183,9 @@ def main() -> int:
         "n_prediction_rows_ignored_as_superset": len(extras),
         "candidates_per_target": args.expected_candidates,
         "n_candidates": total_candidates,
+        "runtime_contract": prediction_runtime_contract(
+            list(predictions.values()), include_adapter=True,
+        ),
         "candidate_validity_rate": counts["valid_candidates"] / max(total_candidates, 1),
         "generation_order": {
             "semantics": "independent-sample Pass@K; not ranked Top-K",

@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-repo_dir=/aaa/fionafyang/buddy1/whaleywang/MechET
+repo_dir=${MECHET_REPO_DIR:-/aaa/fionafyang/buddy1/whaleywang/MechET}
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 shared_model_snapshot=$shared_hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218
-config=configs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a100.yaml
-reference=data/flower_inverse_tool_sft_compact_full_state_v1/test.jsonl
-dataset_manifest=data/flower_inverse_tool_sft_compact_full_state_v1/training_manifest.json
+config=${MECHET_A7_CONFIG:-configs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a100.yaml}
+reference=${MECHET_A7_REFERENCE:-data/flower_inverse_tool_sft_compact_full_state_v1/test.jsonl}
+dataset_manifest=${MECHET_A7_MANIFEST:-data/flower_inverse_tool_sft_compact_full_state_v1/training_manifest.json}
 adapter=${MECHET_A7_ADAPTER:-outputs/agent/tool_sft_flower_compact_full_state_qwen3_8b_a100_20260826}
-expected_rows=28967
+expected_rows=${MECHET_EXPECTED_ROWS:-28967}
 expected_gpu=${MECHET_EXPECTED_GPU:-A100}
 samples_per_target=${SAMPLES_PER_TARGET:-1}
 inference_backend=${MECHET_INFERENCE_BACKEND:-vllm}
-max_iterations=40
+max_iterations=${MECHET_MAX_ITERATIONS:-40}
 gpu_count=8
 generation_workers_per_gpu=${MECHET_GENERATION_WORKERS_PER_GPU:-1}
 trace_sample_batch_size=${MECHET_TRACE_SAMPLE_BATCH_SIZE:-$samples_per_target}
@@ -20,6 +20,8 @@ task_shard_count=${MECHET_TASK_SHARD_COUNT:-1}
 task_shard_index=${MECHET_TASK_SHARD_INDEX:-0}
 revision=b968826d9c46dd6066d109eabc6255188de91218
 output_dir=${MECHET_INFERENCE_OUTPUT:-outputs/eval/iclr_full/a7_compact_full_state_seed17_k${samples_per_target}}
+condition_name=${MECHET_CONDITION_NAME:-flower_a7_compact_full_state_seed17_k${samples_per_target}}
+evaluation_scope=${MECHET_EVALUATION_SCOPE:-full_official_test}
 
 if [[ "${MECHET_SKIP_CONDA_ACTIVATE:-0}" != "1" ]]; then
   source /root/miniconda3/etc/profile.d/conda.sh
@@ -217,7 +219,7 @@ for worker in $(seq 0 $((generation_shards - 1))); do
     --output "$output_dir/generation/predictions.shard-${shard}.jsonl" \
     --mode trace \
     --observation-mode compact_full_state \
-    --condition-name "flower_a7_compact_full_state_seed17_k${samples_per_target}" \
+    --condition-name "$condition_name" \
     --model-name "$local_model_dir" \
     --adapter "$adapter" \
     --backend "$inference_backend" \
@@ -278,52 +280,30 @@ if [[ "$status" -ne 0 ]]; then
   exit "$status"
 fi
 
-python - "$samples_per_target" "$task_expected_rows" "$generation_shards" "$output_dir" "$task_shard_count" "$task_shard_index" <<'PY'
-import hashlib
-import json
-from pathlib import Path
-import sys
+python scripts/merge_iclr_sampled_shards.py \
+  --reference "$selected_reference" \
+  --generation-dir "$output_dir/generation" \
+  --output-dir "$output_dir" \
+  --baseline closed_loop \
+  --expected-rows "$task_expected_rows" \
+  --k "$samples_per_target" \
+  --shards "$generation_shards" \
+  --evaluation-scope "$evaluation_scope" \
+  --prediction-mode trace \
+  --shard-layout prepartitioned \
+  --manifest-data-sha256 "$reference_sha256" \
+  --task-shard-count "$task_shard_count" \
+  --task-shard-index "$task_shard_index"
 
-k, expected, expected_shards = map(int, sys.argv[1:4])
-root = Path(sys.argv[4])
-task_shards, task_index = map(int, sys.argv[5:7])
-shards = sorted((root / "generation").glob("predictions.shard-*.jsonl"))
-if len(shards) != expected_shards:
-    raise SystemExit(f"expected {expected_shards} shards, got {len(shards)}")
-rows = []
-for path in shards:
-    rows.extend(json.loads(line) for line in path.open() if line.strip())
-rows.sort(key=lambda row: str(row.get("id") or ""))
-if len(rows) != expected or len({row["id"] for row in rows}) != expected:
-    raise SystemExit(f"expected {expected} unique predictions, got {len(rows)}")
-bad = [row["id"] for row in rows if len(row.get("candidates") or []) != k]
-if bad:
-    raise SystemExit(f"incomplete A7 candidate sets: {bad[:10]}")
-output = root / "predictions.jsonl"
-with output.open("w", encoding="utf-8") as handle:
-    for row in rows:
-        handle.write(json.dumps(row, ensure_ascii=False) + "\n")
-manifest = {
-    "artifact_type": "flower_a7_compact_full_state_sampled_test_manifest",
-    "paper_condition": "A7",
-    "headline_eligible": True,
-    "n_targets": len(rows),
-    "samples_per_target": k,
-    "n_candidates": len(rows) * k,
-    "task_shard_count": task_shards,
-    "task_shard_index": task_index,
-    "candidate_selection": "formal-execution/reward rank; no ground truth used",
-    "predictions": str(output.resolve()),
-    "predictions_sha256": hashlib.sha256(output.read_bytes()).hexdigest(),
-}
-(root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-print(json.dumps(manifest, indent=2), flush=True)
-PY
-
+eval_rows_args=()
+if [[ "$evaluation_scope" == nmi_h2 ]]; then
+  eval_rows_args+=(--write-rows)
+fi
 exec python scripts/evaluate_prediction_set.py \
   --reference "$selected_reference" \
   --predictions "$output_dir/predictions.jsonl" \
   --output "$output_dir/evaluation.json" \
-  --condition-name "flower_a7_compact_full_state_seed17_k${samples_per_target}" \
+  --condition-name "$condition_name" \
   --expected-rows "$task_expected_rows" \
-  --expected-candidates "$samples_per_target"
+  --expected-candidates "$samples_per_target" \
+  "${eval_rows_args[@]}"

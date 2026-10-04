@@ -112,14 +112,25 @@ def build_free_cot(row: dict[str, Any]) -> dict[str, Any]:
     return base_row(row, "free_cot", assistant)
 
 
-def build_open_flow(row: dict[str, Any]) -> dict[str, Any]:
-    plan = trace_plan(row)
+def format_open_flow_program(plan: dict[str, Any]) -> str:
+    """Put every frozen import before STEPs in the one-shot grammar.
+
+    The trace plan may introduce fragments just before a later elementary
+    step. OPEN_FLOW v1 has no interleaved-import syntax, so all such fragments
+    must be declared up front; omitting them makes the recorded program fail.
+    """
     lines = ["OPEN_FLOW v1"]
-    lines.extend(f"IMPORT {value}" for value in plan.get("initial_imports") or [])
+    imports = list(plan.get("initial_imports") or [])
+    imports.extend(value for step in plan["steps"] for value in step.get("imports") or [])
+    lines.extend(f"IMPORT {value}" for value in imports)
     for index, step in enumerate(plan["steps"]):
         lines.append(f"STEP {index} {compact(step.get('moves') or [])}")
     lines.append("EXECUTE")
-    return base_row(row, "open_flow", "<flow>\n" + "\n".join(lines) + "\n</flow>")
+    return "<flow>\n" + "\n".join(lines) + "\n</flow>"
+
+
+def build_open_flow(row: dict[str, Any]) -> dict[str, Any]:
+    return base_row(row, "open_flow", format_open_flow_program(trace_plan(row)))
 
 
 def arrow_atom(source_atoms: list[int], sink_atoms: list[int]) -> int:

@@ -935,6 +935,11 @@ def main() -> int:
         )
     )
     trainer.save_model()
+    # All ranks finish saving before the main rank hashes the shared output.
+    # Concurrent manifest writes can otherwise record a transient directory hash.
+    trainer.accelerator.wait_for_everyone()
+    if not trainer.is_world_process_zero():
+        return 0
     output = Path(training_args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     report["base_model_revision"] = resolved_revision or None

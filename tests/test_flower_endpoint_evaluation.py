@@ -67,6 +67,17 @@ def test_endpoint_evaluator_reports_pass_and_nll_ranked_topk(tmp_path: Path):
         "id": "r1",
         "artifact_type": "prediction",
         "prediction_mode": "direct",
+        "model": {
+            "base_model": "Qwen/Qwen3-8B",
+            "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+            "tokenizer_revision": "b968826d9c46dd6066d109eabc6255188de91218",
+            "adapter": "/tmp/frozen-adapter",
+            "adapter_sha256": "frozen-adapter-hash",
+            "temperature": 0.7, "top_p": 0.95,
+            "max_new_tokens": 2560, "max_iterations": 12,
+            "samples_per_target": 2, "seed": 17,
+            "candidate_selector": "sample0_direct__formal_trace_reward_failures_v1",
+        },
         "candidates": [
             {"sample_index": 0, "prediction": "PRECURSOR: C"},
             {
@@ -111,6 +122,8 @@ def test_endpoint_evaluator_reports_pass_and_nll_ranked_topk(tmp_path: Path):
     assert report["generation_order"]["structural_pass_at_3"] == 1.0
     assert report["nll_ranked"]["structural_top_1"] == 1.0
     assert report["nll_ranked"]["selection_uses_ground_truth"] is False
+    assert report["runtime_contract"]["runtime_contract_complete"] is True
+    assert report["runtime_contract"]["adapter_ids"] == ["frozen-adapter-hash"]
 
 
 def test_trace_nll_report_separates_first_mapped_map_free_and_neutralized(tmp_path: Path):

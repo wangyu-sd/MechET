@@ -1,5 +1,26 @@
 # Active ICLR status
 
+## 2026-10-04: Issue #79 NMI compositional-generalization experiment
+
+For the current #79 experiment, the execution authority is
+`docs/ISSUE79_NMI_EXPERIMENT_REPORT.md` and draft PR #80. E1 operator-basis and
+E2 composition-disjoint split audits are complete on the strict-executable
+257,167-reaction FlowER train pool. The frozen H2 split is 223,863 / 6,200 /
+27,104 reactions, **not** the official FlowER-full split. E3 has a completed
+Direct K=10 evaluation on all 27,104 held-out reactions: generation-order
+first-candidate endpoint recovery 4,030/27,104, Pass@10 7,629/27,104, and
+supplementary NLL-selected Top-1 5,018/27,104. Corrected Open-Flow v2 training
+finished successfully at 10,494/10,494 updates; its full 27,104-reaction
+K=10 evaluation is generating on eight Qingyuan A100s (4,329/27,104 rows at
+the 21:45 CST check), with no endpoint-accuracy result yet. Closed-Loop is
+still training on eight H20s (latest complete checkpoint observed:
+2,750/10,494).
+Open-Flow v1 is training-forbidden because later imports were omitted. E4
+waits for complete three-condition evaluation rows; E5 is access-blocked by
+missing authorized external data. The matched three-condition H2 comparison,
+E4 analysis and GO/NO-GO are not yet established. This #79 status does not retroactively change the historical A7
+observation choice recorded below.
+
 ## 2026-09-18: natural-language protocol v2 repair
 
 Keep the agreed mechanism-first method.  The current implementation authority
@@ -25,7 +46,7 @@ that either training stage has started or completed.
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-09-17.
+Last updated: 2026-10-04.
 
 ## Current three-stage method decision
 
