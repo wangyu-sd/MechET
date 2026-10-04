@@ -142,10 +142,14 @@ rollout be attempted.  No new RL algorithm is part of Phase 0.
 For scale, the existing PR71 Qwen3-8B conditional pointer reports paired
 Recall@1 = 0.9178 and all-flow Recall@8 = 0.9241 on the same frozen 2,543-event
 validation source (`valid_sha256=e4b68bd9f52ed5b0c24b2453d1ee6197a3686c354db9aa3f4c3689647d74a995`).
-Its recorded validation wall time is 412.1 s. This is a **quality reference**,
-not a matched-compute causal comparison: its 8B checkpoint, option-state
-format, and eight-GPU execution differ from Phase 0. No successor metric was
-reported for that reference, so it must not be used as a successor baseline.
+Its recorded `elapsed_s=412.1` starts before that script's training loop and
+therefore includes training plus validation; it is **not** validation latency.
+This is a quality reference, not a matched-compute speed comparison: its 8B
+checkpoint, option-state format, and eight-GPU execution differ from Phase 0.
+The frozen PR71 pointer head is evaluated separately on one A100 under the
+same executor and action-count rules to obtain a comparable local successor
+baseline. This still does not isolate the effects of model size, Stage-II
+pretraining, and input representation.
 
 ## Measured Phase-0 validation (2026-10-05)
 
@@ -156,8 +160,8 @@ report gives paired Recall@1 **82.23%**, paired Recall@8 **92.65%**, and all-flo
 Recall@8 **85.88%**. Backbone-plus-head validation took 148.15 s for 2,543
 decisions (58.26 ms/decision) on one A100. The PR71 8B quality reference is
 9.56 percentage points higher at paired Recall@1 and 6.53 points higher at
-all-flow Recall@8; its different architecture and eight-GPU validation runtime
-are not a matched latency comparison.
+all-flow Recall@8. PR71's 412.1 s report includes its preceding training loop,
+so it cannot be compared with the 148.15 s PR81 validation-only wall time.
 
 The separate executor-grounded validation replay succeeded for every GT event
 (2,543/2,543). Results below are **local next-state agreement at reference
@@ -174,10 +178,48 @@ results. It uses only executor validity, not reference flow count, but its
 73.81% validation number is exploratory and must not be presented as a
 pre-registered primary outcome. The oracle-count diagnostic, which reads the
 reference move count, reaches 1,925/2,543 (75.70%) exact successors and is
-not an inference policy. The frozen backoff rule is next evaluated once on the
-2,371-event current-compiler strict trace-view **test** split. That split has
-1,253 reactions and is not the full 3,120-reaction endpoint benchmark. No
-product-start endpoint or end-to-end rollout claim follows from this phase.
+not an inference policy.
+
+The rule was then frozen and evaluated once on the 2,371-event
+current-compiler strict trace-view **test** split (1,253 reactions). The frozen
+PR71 Qwen3-8B conditional pointer was also replayed through the same executor
+and action-count rules on both splits. Its re-evaluated validation pair metrics
+match the originally published PR71 pair metrics to floating-point precision.
+This checks the comparator's model-input and head reconstruction.
+
+| Local metric | Validation: 0.6B / PR71 8B | Test: 0.6B / PR71 8B |
+|---|---:|---:|
+| Paired Recall@1 | 82.23% / 91.78% | 81.74% / 91.44% |
+| All-flow Recall@8 | 85.88% / 92.41% | 85.24% / 92.49% |
+| Frozen executor-validity backoff: strictly executable | 90.68% / 78.10% | 90.38% / 79.59% |
+| Frozen executor-validity backoff: exact next state | 73.81% / 66.38% | **73.85% / 67.44%** |
+| Same one-A100 local evaluation-loop wall time | 186.9 s / 385.3 s | 175.5 s / 360.6 s |
+
+The held-out test next-state difference is +6.41 percentage points in favor of
+the 0.6B policy (reaction-cluster bootstrap 95% interval +4.22 to +8.61 points;
+5,000 resamples, seed 17). On two-flow validation events, the gold pair **set**
+occupies the top two positions in 1,614/2,215 for 0.6B versus 1,422/2,215
+for PR71 8B; on test the counts are 1,514/2,079 versus 1,358/2,079. Thus a
+better *individual* pair Recall@1 need not yield a better executable multi-flow
+action. This is a ranking/set-coherence observation, not causal proof that the
+smaller backbone is inherently better: the two checkpoints also differ in
+Stage-II adaptation, option-state format and training objective. The wall-time
+comparison uses the same A100 and frozen data/executor, but the two evaluator
+implementations have small differences; it is an operational, not controlled
+architecture-only, comparison.
+
+The matched-ID audit, case/report SHA-256 values, paired discordances and
+cluster-bootstrap results are frozen in
+`outputs/agent/pr81_pr71_matched_successor_20261005/comparison.json`; the
+reproducible calculation is `scripts/compare_system_one_pr71_successor.py`.
+
+This evidence supports a **local Phase-0 viability pass** for the spin-off:
+lower compute with stable held-out successor agreement. It does not establish
+product-start retrosynthesis, reaction endpoint accuracy, or superiority over
+the complete MechET system. The 2,371-event test is not the full 3,120-reaction
+endpoint benchmark. The next experiment should add IMPORT/FINISH decisions
+under the same compact interface and then measure autonomous product-start
+rollouts, rather than claiming the local test as a complete task result.
 
 ## Next extensions
 

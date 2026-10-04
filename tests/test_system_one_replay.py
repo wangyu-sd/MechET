@@ -7,6 +7,7 @@ from mechet.system_one_replay import (
 )
 from scripts.eval_system_one_successor import select_flow_counts
 from scripts.eval_pr71_pointer_successor import coupled_target_indices
+from scripts.compare_system_one_pr71_successor import backoff, cluster_bootstrap
 
 
 def test_visible_state_reconstruction_and_pair_execution():
@@ -84,3 +85,13 @@ def test_executor_validity_backoff_does_not_use_reference_count():
             "validity_backoff_2_to_1"
         ] == 2
         assert select_flow_counts(reference_count, valid_two)["oracle_count"] == reference_count
+
+
+def test_paired_comparison_uses_executor_validity_only():
+    one = {"execute_ok": True, "successor_exact": True, "successor": "CO"}
+    two = {"execute_ok": False, "successor_exact": False, "successor": None}
+    row = {"id": "example", "policies": {"fixed1": one, "fixed2": two}}
+    assert backoff(row) is one
+    two["execute_ok"] = True
+    assert backoff(row) is two
+    assert cluster_bootstrap([(1, 1, 0)] * 3, repetitions=100) == (1.0, 1.0)
