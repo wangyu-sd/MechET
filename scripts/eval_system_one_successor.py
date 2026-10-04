@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Evaluate frozen System-One decisions by executing predicted electron flows.
 
-This is a local gold-state evaluation, not product-start retrosynthesis. Fixed-1
-and fixed-2 move-count policies are gold-independent; oracle-count is reported
-only as a diagnostic upper bound and cannot qualify a model for promotion.
+This is a local gold-state evaluation, not product-start retrosynthesis. Fixed-1,
+fixed-2 and executor-validity backoff policies are gold-independent; oracle-count
+is reported only as a diagnostic upper bound and cannot qualify a model for
+promotion. The backoff policy was chosen after inspecting validation results,
+so it is exploratory on validation and must be frozen before held-out testing.
 """
 from __future__ import annotations
 
@@ -31,12 +33,23 @@ from scripts.train_system_one_electron_flow import (
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--valid", type=Path, required=True)
+    parser.add_argument("--valid", "--data", dest="valid", type=Path, required=True)
+    parser.add_argument("--split", choices=("valid", "test"), default="valid")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--epoch", type=int, default=1)
     parser.add_argument("--log-every", type=int, default=100)
     return parser.parse_args()
+
+
+def select_flow_counts(flow_count: int, executed: dict[int, dict]) -> dict[str, int]:
+    """Select execution lengths without reading the reference, except oracle."""
+    return {
+        "fixed1": 1,
+        "fixed2": 2,
+        "validity_backoff_2_to_1": 2 if executed[2].get("ok") else 1,
+        "oracle_count": flow_count,
+    }
 
 
 def main() -> int:
@@ -51,8 +64,18 @@ def main() -> int:
     if manifest.get("artifact_type") != "system_one_phase0_decision_policy":
         raise ValueError("not a System-One decision checkpoint")
     source = verify_source(args.valid)
-    if source["sha256"] != manifest["valid_source"]["sha256"]:
-        raise ValueError("checkpoint validation source differs from evaluation source")
+    if args.valid.stem != args.split:
+        raise ValueError("evaluation path and declared split disagree")
+    if args.split == "valid":
+        if source["sha256"] != manifest["valid_source"]["sha256"]:
+            raise ValueError("checkpoint validation source differs from evaluation source")
+    elif (
+        source["declared_sha256"] != source["sha256"]
+        or source["artifact_id"] != manifest["valid_source"]["artifact_id"]
+        or source["event_decisions"] is None
+        or args.valid.parent.resolve() != Path(manifest["valid_source"]["path"]).parent.resolve()
+    ):
+        raise ValueError("test source is not the frozen checkpoint-lineage trace view")
     adapter = args.checkpoint / f"adapter_epoch{args.epoch}"
     head_path = args.checkpoint / f"decision_head_epoch{args.epoch}.pt"
     if file_sha256(adapter / "adapter_model.safetensors") != manifest["adapter_model_sha256"]:
@@ -62,9 +85,9 @@ def main() -> int:
 
     examples, counts = load(args.valid)
     if source["decision_rows"] is not None and counts["input_rows"] != source["decision_rows"]:
-        raise ValueError("validation decision-row denominator mismatch")
+        raise ValueError(f"{args.split} decision-row denominator mismatch")
     if source["event_decisions"] is not None and counts["flow_events"] != source["event_decisions"]:
-        raise ValueError("validation event denominator mismatch")
+        raise ValueError(f"{args.split} event denominator mismatch")
     if args.limit:
         examples = examples[: args.limit]
     if not examples:
@@ -98,7 +121,7 @@ def main() -> int:
     head.load_state_dict(weights, strict=True)
     head = head.to(device).eval()
 
-    modes = ("fixed1", "fixed2", "oracle_count")
+    modes = ("fixed1", "fixed2", "validity_backoff_2_to_1", "oracle_count")
     metrics: dict[str, Counter] = {mode: Counter() for mode in modes}
     strata: dict[str, dict[str, Counter]] = {mode: {} for mode in modes}
     paired = Counter()
@@ -136,9 +159,14 @@ def main() -> int:
                 "gold_successor": gold_successor,
                 "policies": {},
             }
+            executed = {
+                count: execute_pair_indices(mapped, example, ranked[:count])
+                for count in {1, 2, flow_count}
+            }
+            selected_counts = select_flow_counts(flow_count, executed)
             for mode in modes:
-                chosen = 1 if mode == "fixed1" else 2 if mode == "fixed2" else flow_count
-                result = execute_pair_indices(mapped, example, ranked[:chosen])
+                chosen = selected_counts[mode]
+                result = executed[chosen]
                 executable = bool(result.get("ok"))
                 successor = (
                     canonical_unmapped_smiles(result["state_smiles"])
@@ -151,6 +179,7 @@ def main() -> int:
                     bucket["successor_exact"] += int(match)
                     bucket[f"code_{result.get('code', 'UNKNOWN')}"] += 1
                 row["policies"][mode] = {
+                    "selected_flow_count": chosen,
                     "pair_indices": ranked[:chosen],
                     "execute_ok": executable,
                     "code": result.get("code"),
@@ -177,6 +206,7 @@ def main() -> int:
     report = {
         "artifact_type": "system_one_phase0_local_successor_evaluation",
         "scope": "reference_current_state_not_product_start",
+        "split": args.split,
         "valid_source": source,
         "checkpoint_manifest": str((args.checkpoint / f"run_manifest_epoch{args.epoch}.json").resolve()),
         "checkpoint_adapter_sha256": manifest["adapter_model_sha256"],
@@ -187,7 +217,8 @@ def main() -> int:
         "policies": {
             mode: {"overall": summarize(metrics[mode]),
                    "by_gold_flow_count": {key: summarize(value) for key, value in strata[mode].items()},
-                   "gold_independent": mode != "oracle_count"}
+                   "gold_independent": mode != "oracle_count",
+                   "validation_post_hoc": mode == "validity_backoff_2_to_1"}
             for mode in modes
         },
         "elapsed_s": time.perf_counter() - started,

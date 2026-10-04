@@ -147,6 +147,38 @@ not a matched-compute causal comparison: its 8B checkpoint, option-state
 format, and eight-GPU execution differ from Phase 0. No successor metric was
 reported for that reference, so it must not be used as a successor baseline.
 
+## Measured Phase-0 validation (2026-10-05)
+
+The one-A100, one-epoch Qwen3-0.6B run finished successfully. Its checkpoint
+manifest pins all 19,199 train and 2,543 validation electron events, source
+hashes, model revision, adapter hash and pointer-head hash. The full validation
+report gives paired Recall@1 **82.23%**, paired Recall@8 **92.65%**, and all-flow
+Recall@8 **85.88%**. Backbone-plus-head validation took 148.15 s for 2,543
+decisions (58.26 ms/decision) on one A100. The PR71 8B quality reference is
+9.56 percentage points higher at paired Recall@1 and 6.53 points higher at
+all-flow Recall@8; its different architecture and eight-GPU validation runtime
+are not a matched latency comparison.
+
+The separate executor-grounded validation replay succeeded for every GT event
+(2,543/2,543). Results below are **local next-state agreement at reference
+current states**, not product-start retrosynthesis or reaction endpoint accuracy:
+
+| Gold-independent action selection | Strictly executes | Exact next state |
+|---|---:|---:|
+| fixed one flow | 1,941/2,543 (76.33%) | 308/2,543 (12.11%) |
+| fixed two flows | 1,846/2,543 (72.59%) | 1,617/2,543 (63.59%) |
+| two flows, back off to one only if execution fails | 2,306/2,543 (90.68%) | 1,877/2,543 (73.81%) |
+
+The backoff rule was chosen **after** examining the fixed-count validation
+results. It uses only executor validity, not reference flow count, but its
+73.81% validation number is exploratory and must not be presented as a
+pre-registered primary outcome. The oracle-count diagnostic, which reads the
+reference move count, reaches 1,925/2,543 (75.70%) exact successors and is
+not an inference policy. The frozen backoff rule is next evaluated once on the
+2,371-event current-compiler strict trace-view **test** split. That split has
+1,253 reactions and is not the full 3,120-reaction endpoint benchmark. No
+product-start endpoint or end-to-end rollout claim follows from this phase.
+
 ## Next extensions
 
 If Phase 0 works, merge IMPORT and FINISH into the same System-One interface via

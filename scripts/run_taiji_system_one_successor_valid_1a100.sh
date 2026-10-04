@@ -5,7 +5,9 @@ repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr81-system-one-20261004
 source_data=/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2
 shared_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 checkpoint=/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/system_one_pr81_phase0_31k_20261005_v2/full
-output=/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/system_one_pr81_phase0_successor_valid_20261005
+split=${SYSTEM_ONE_EVAL_SPLIT:-valid}
+case "$split" in valid|test) ;; *) echo "unsupported evaluation split: $split" >&2; exit 2 ;; esac
+output=/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/system_one_pr81_phase0_successor_${split}_20261005
 
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -37,12 +39,13 @@ printf '[system-one-eval] staging pinned 0.6B model\n'
 cp -a "$shared_cache/models--Qwen--Qwen3-0.6B" "$model_cache/"
 export HF_HUB_CACHE="$model_cache"
 
-printf '[system-one-eval] full frozen-valid successor evaluation starting\n'
+printf '[system-one-eval] full frozen-%s successor evaluation starting\n' "$split"
 python scripts/eval_system_one_successor.py \
   --checkpoint "$checkpoint" \
-  --valid "$source_data/valid.jsonl" \
+  --data "$source_data/$split.jsonl" \
+  --split "$split" \
   --output "$output" \
   --log-every 100
 test -s "$output/report.json"
 test -s "$output/cases.jsonl"
-printf '[system-one-eval] full frozen-valid successor evaluation complete\n'
+printf '[system-one-eval] full frozen-%s successor evaluation complete\n' "$split"

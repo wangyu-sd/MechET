@@ -5,6 +5,7 @@ from mechet.system_one_replay import (
     pair_indices_to_arguments,
     reconstruct_mapped_state,
 )
+from scripts.eval_system_one_successor import select_flow_counts
 
 
 def test_visible_state_reconstruction_and_pair_execution():
@@ -68,3 +69,16 @@ def test_reconstruction_accepts_rdkit_equivalent_redundant_stereo_only():
     )
     observation = parse_pointer_observation("ANNOTATED CURRENT STATE: " + annotated)
     assert reconstruct_mapped_state(observation)
+
+
+def test_executor_validity_backoff_does_not_use_reference_count():
+    failed_two = {1: {"ok": True}, 2: {"ok": False}}
+    valid_two = {1: {"ok": True}, 2: {"ok": True}}
+    for reference_count in (1, 2):
+        assert select_flow_counts(reference_count, failed_two)[
+            "validity_backoff_2_to_1"
+        ] == 1
+        assert select_flow_counts(reference_count, valid_two)[
+            "validity_backoff_2_to_1"
+        ] == 2
+        assert select_flow_counts(reference_count, valid_two)["oracle_count"] == reference_count
