@@ -126,6 +126,15 @@ accuracy. Executor failure, successor chemistry and move-count strata are kept
 separate, and test is not loaded. Promotion still requires competitive local
 quality before a closed-loop rollout.
 
+The evaluator's atom-address reconstruction has been independently audited on
+the frozen train and valid event splits: GT pair indices replay to exactly the
+same executor result as the original action for **19,199/19,199 train** and
+**2,543/2,543 valid** events. Four train states acquire a different textual
+`@`/`@@` serialization when RDKit removes temporary maps; their alias-indexed
+graphs and canonical isomeric structures are unchanged. The replay check
+allows only this chemically equivalent normalization, not atom-address or
+stereochemical changes. These four rows remain in training.
+
 Only after local decision quality is competitive should product-start endpoint
 rollout be attempted.  No new RL algorithm is part of Phase 0.
 

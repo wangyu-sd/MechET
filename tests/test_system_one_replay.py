@@ -56,3 +56,15 @@ def test_pair_replay_rejects_duplicates_and_out_of_range():
         pair_indices_to_arguments(observation, [1, 1])
     with pytest.raises(ValueError, match="outside"):
         pair_indices_to_arguments(observation, [1000])
+
+
+def test_reconstruction_accepts_rdkit_equivalent_redundant_stereo_only():
+    # This real train-state serialization flips one @/@@ pair during RDKit's
+    # map-free canonicalization while retaining the same isomer and Axx graph.
+    annotated = (
+        "<A01>C<A02>N(<A03>C<A04>[C@H]1<A05>C<A06>[C@@H](<A07>O<A08>S("
+        "<A09>C)(=<A10>O)(<A11>[O-])<A12>Cl)<A13>C1)<A14>C(=<A15>O)"
+        "<A16>O<A17>C(<A18>C)(<A19>C)<A20>C"
+    )
+    observation = parse_pointer_observation("ANNOTATED CURRENT STATE: " + annotated)
+    assert reconstruct_mapped_state(observation)
