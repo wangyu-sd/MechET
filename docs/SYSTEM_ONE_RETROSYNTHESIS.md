@@ -109,8 +109,9 @@ Current Phase-0 code measures paired localization, latency, tokens and memory.
 The training report records successor agreement as unavailable rather than
 mistaking site recall for chemical execution. A separate frozen-checkpoint
 evaluator reconstructs temporary executor-only atom maps from the visible
-annotated SMILES, checks that its regenerated public inventory is byte-exact,
-and replays the prediction against the reference successor:
+annotated SMILES, checks that the regenerated public inventory preserves atom
+addresses and canonical isomeric chemistry (allowing equivalent RDKit stereo
+text normalization), and replays the prediction against the reference successor:
 
 ```bash
 python scripts/eval_system_one_successor.py \
