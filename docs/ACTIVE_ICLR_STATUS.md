@@ -11,10 +11,10 @@ Direct K=10 evaluation on all 27,104 held-out reactions: generation-order
 first-candidate endpoint recovery 4,030/27,104, Pass@10 7,629/27,104, and
 supplementary NLL-selected Top-1 5,018/27,104. Corrected Open-Flow v2 training
 finished successfully at 10,494/10,494 updates; its full 27,104-reaction
-K=10 evaluation is generating on eight Qingyuan A100s (896/27,104 rows at
-the 15:10 CST check), with no endpoint-accuracy result yet. Closed-Loop is
+K=10 evaluation is generating on eight Qingyuan A100s (4,329/27,104 rows at
+the 21:45 CST check), with no endpoint-accuracy result yet. Closed-Loop is
 still training on eight H20s (latest complete checkpoint observed:
-2,250/10,494).
+2,750/10,494).
 Open-Flow v1 is training-forbidden because later imports were omitted. E4
 waits for complete three-condition evaluation rows; E5 is access-blocked by
 missing authorized external data. The matched three-condition H2 comparison,

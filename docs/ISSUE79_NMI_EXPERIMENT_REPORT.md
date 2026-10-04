@@ -1,6 +1,6 @@
 # Issue #79: NMI compositional-generalization experiment record
 
-## Current execution snapshot (2026-10-04 15:10 CST)
+## Current execution snapshot (2026-10-04 21:45 CST)
 
 E1/E2 are frozen. Direct has a complete 27,104-reaction K=10 endpoint result
 (generation-order Top-1 4,030/27,104; Pass@10 7,629/27,104). Corrected
@@ -27,13 +27,13 @@ The full Open-Flow v2 K=10 evaluation was submitted as ordinary Qingyuan
 `meteor_mechet_nmi_h2_open_flow_imports_v2_k10_8a100_qy_20261003_01`
 (instance `8b1d8047a0d27a4401a1054795244b4d`). It allocated a real
 eight-A100 POD and passed the vLLM startup. The generation files have reached
-**896/27,104** product-only test reactions, each with exactly 10 candidates;
-an earlier 339-row technical audit found unique IDs, completed generation,
-one frozen adapter/data hash, and no generation errors. These are partial
+**4,329/27,104** product-only test reactions; an earlier 339-row technical
+audit found 10 candidates per row, unique IDs, completed generation, one
+frozen adapter/data hash, and no generation errors. These are partial
 generation counts, **not** endpoint-accuracy results or a checkpoint-selection
 signal. Its config uses the repaired v2 adapter and all 27,104 frozen test
 reactions. Closed-Loop training remains active on eight H20s; its latest
-complete checkpoint observed here is **2,250/10,494** (finite loss and
+complete checkpoint observed here is **2,750/10,494** (finite loss and
 gradients). E4 and the matched three-condition GO/NO-GO remain pending; E5
 remains access-blocked.
 
