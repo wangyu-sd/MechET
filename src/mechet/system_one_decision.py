@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any, Sequence
 
 import torch
 from torch import nn
@@ -18,6 +19,70 @@ class DecisionOutput:
     source_logits: torch.Tensor
     sink_logits: torch.Tensor
     pair_logits: torch.Tensor
+
+
+OPTION_ANCHOR = "SYSTEM_ONE_ATOM_OPTIONS: "
+
+
+def append_option_anchors(
+    messages: Sequence[dict[str, Any]], atom_names: Sequence[str]
+) -> list[dict[str, Any]]:
+    """Place gold-independent atom handles after the complete current state.
+
+    A causal LM's hidden state at an in-SMILES marker cannot see the atom text
+    to its right.  Repeating only the handles at the end of the current user
+    observation lets each option state attend to the full chemical state.
+    """
+    if not messages or messages[-1].get("role") != "user":
+        raise ValueError("the decision prefix must end with a user observation")
+    if not atom_names:
+        raise ValueError("at least one atom option is required")
+    result = [dict(message) for message in messages]
+    content = result[-1].get("content")
+    if not isinstance(content, str):
+        raise ValueError("the current user observation must be text")
+    if OPTION_ANCHOR in content:
+        raise ValueError("option anchors are already present")
+    result[-1]["content"] = (
+        content + "\n" + OPTION_ANCHOR
+        + " ".join(f"<{name}>" for name in atom_names)
+    )
+    return result
+
+
+def locate_option_anchor_tokens(
+    tokenizer: Any,
+    prefix: str,
+    atom_names: Sequence[str],
+    *,
+    offsets: Sequence[tuple[int, int]] | None = None,
+) -> list[int]:
+    """Find each post-state handle's final token using tokenizer offsets."""
+    if not getattr(tokenizer, "is_fast", False):
+        raise ValueError("option alignment requires a fast tokenizer")
+    anchor_start = prefix.rfind(OPTION_ANCHOR)
+    if anchor_start < 0:
+        raise ValueError("rendered prefix lost option anchors")
+    start = anchor_start + len(OPTION_ANCHOR)
+    rendered = " ".join(f"<{name}>" for name in atom_names)
+    if prefix[start : start + len(rendered)] != rendered:
+        raise ValueError("rendered atom options do not match the inventory")
+    if offsets is None:
+        offsets = tokenizer(
+            prefix, add_special_tokens=False, return_offsets_mapping=True
+        )["offset_mapping"]
+    output: list[int] = []
+    cursor = start
+    for name in atom_names:
+        end = cursor + len(name) + 2
+        indices = [i for i, (a, b) in enumerate(offsets) if a < end <= b]
+        if len(indices) != 1:
+            raise ValueError(f"cannot locate option handle <{name}>")
+        output.append(indices[0])
+        cursor = end + 1
+    if len(set(output)) != len(output) or output != sorted(output):
+        raise ValueError("option handles do not map to unique ordered tokens")
+    return output
 
 
 class OptionPointerHead(nn.Module):
@@ -84,9 +149,13 @@ class ElectronFlowDecisionHead(nn.Module):
 
 
 def multi_target_nll(logits: torch.Tensor, indices: list[int]) -> torch.Tensor:
-    """Negative log probability mass assigned to one or more valid targets."""
+    """Mean NLL of every required flow, not merely any one flow.
+
+    A multi-flow event is one decision whose entire unordered pair set must be
+    recovered. Summed target probability would reward only its easiest flow.
+    """
     if not indices:
         raise ValueError("at least one target index is required")
     logp = torch.log_softmax(logits.reshape(-1).float(), dim=0)
     target = torch.tensor(sorted(set(indices)), dtype=torch.long, device=logits.device)
-    return -torch.logsumexp(logp[target], dim=0)
+    return -logp[target].mean()

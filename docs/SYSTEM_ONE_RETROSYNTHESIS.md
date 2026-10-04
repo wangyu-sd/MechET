@@ -56,7 +56,11 @@ S_{t+1}
 The model is deliberately hierarchical rather than flattening every complete
 reaction program into one classification problem.  Source candidates are atoms
 and present bonds; sink candidates are atoms and unordered atom pairs.  The
-primary training loss places probability mass on reference source/sink pairs.
+primary training loss requires each reference source/sink pair in a multi-flow
+event. One high-scoring flow is not treated as the whole event. For causal
+atom-option readout, the current observation appends a gold-independent list
+of atom handles *after* the full executor state. This is a derived input
+contract, not byte-identical to the Stage-II text prefix.
 
 ## Why this is deployable on limited compute
 
@@ -78,12 +82,18 @@ python scripts/train_system_one_electron_flow.py \
   --train data/.../train.jsonl \
   --valid data/.../valid.jsonl \
   --model Qwen/Qwen3-0.6B \
+  --revision c1899de289a04d12100db370d81485cdf75e47ca \
   --epochs 1 \
   --output outputs/system_one/qwen3_0p6b
 ```
 
-The exporter is an audit artifact; the trainer reads the original Stage-II rows
-so that the model-visible prefix remains exactly the MechET state/tool prefix.
+The exporter is an audit artifact; the trainer reads the original Stage-II rows,
+verifies frozen split hashes and training permission, and appends only the
+gold-independent option handles. Its `preflight.json` records source hashes,
+decision denominators, token lengths and the exact input contract. The default
+experiment is the mech-USPTO-31k **strict executable trace view** (10,152 /
+1,319 / 1,253 reactions; 19,199 / 2,543 / 2,371 electron-event decisions),
+not the full 24,959 / 3,120 / 3,120 endpoint benchmark.
 
 ## Promotion metrics
 
@@ -94,6 +104,11 @@ Phase 0 should report only metrics that directly test the decision architecture:
 - latency per decision;
 - tokens processed per decision;
 - peak GPU memory.
+
+Current Phase-0 code measures paired localization, latency, tokens and memory.
+It does **not** yet reconstruct a complete multi-flow action or measure executed
+successor agreement; the report records that field as unavailable and forbids
+promotion on localization alone.
 
 Only after local decision quality is competitive should product-start endpoint
 rollout be attempted.  No new RL algorithm is part of Phase 0.
