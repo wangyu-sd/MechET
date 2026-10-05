@@ -1138,3 +1138,17 @@ validation pilot is configured at
 `configs/taiji/meteor_mechet_pr81_equ_proxy_target_focus_valid64_1a100_qy_20261005.json`.
 The strict-trace locality audit outputs are
 `outputs/agent/system_one_pr81_reference_first_event_target_locality_{train,valid,test}_20261005.json`.
+
+The ordinary one-A100 validation pilot
+`meteor_mechet_pr81_equ_proxy_target_focus_valid64_1a100_qy_20261005_01`
+ended successfully. Independent replay and paired scoring on the **same 64
+IDs** found 8 first-event overrides and 12 changed trajectories, but exact
+endpoints remained **12/64 versus 12/64**; formal finishes changed from 60/64
+to 61/64. There were no lost or gained exact cases. Thus first-event
+mislocalization is real, but this particular decoder correction is **not** an
+effective endpoint remedy on the frozen validation pilot. It is retained as
+a negative control and is not promoted to full test or called a model gain.
+The case/report artifact is
+`outputs/agent/system_one_pr81_equ_proxy_target_focus_valid64_20261005/`;
+the independently replayed paired audit is
+`outputs/agent/system_one_pr81_equ_proxy_target_focus_valid64_paired_audit_20261005.json`.
