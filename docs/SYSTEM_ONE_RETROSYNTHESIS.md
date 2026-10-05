@@ -252,3 +252,6 @@ The reproducible entry point is `scripts/train_system_one_action_family.py`;
 the one-A100 launcher is `scripts/run_taiji_system_one_phase1a_1a100.sh`.
 Outputs include the source/checkpoint/code hashes, frozen prefill features,
 selected action-family head, and valid/test confusion matrices.
+`scripts/analyze_system_one_action_family.py` checks those hashes again and
+reproduces the confusion matrix before extracting confidence, trajectory-depth
+strata, IMPORT recall, premature-FINISH rates and high-confidence error cases.
