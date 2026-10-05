@@ -567,7 +567,9 @@ all 700 reproduce the frozen rollout and 509 hit the reference endpoint. Of
 the 619 other inputs, two happen to reach that endpoint. The retrieved
 stereo-agnostic context batch is correct in 837 reactions, but 137 of these
 still do not reproduce the original mixture byte-for-byte, consistent with
-stereochemical information absent from the principal-product input. The
+stereochemical information absent from the principal-product input. In fact,
+all 137 are chemically equal after removing stereochemistry and none is
+isomeric-SMILES equal. The
 retrieval Top-3 contains the reference context in 1,198/1,319 reactions; this
 is **candidate coverage**, not a deployable reranked endpoint result. Full
 bridge report/cases are under
@@ -578,6 +580,23 @@ Their SHA-256 values are respectively
 `1780e5b69b6dffeefbc308d58286d1e51385e4741f5c694ea550b7a8bdb9447a`,
 `4b7a99a80572bb80d790fb3ac18ef23efb44d36e77f7489f75efddb5cf82ab9d`,
 and `4a35985dbba9ee2560f9024dfa1b4affda425fd4e725c9c0c458ad0de915aa47`.
+
+The bridge/ranking rule was then frozen and evaluated once on **all 1,253
+held-out test reactions in the strict trace view**. The one-A100 task ended
+successfully. Strict full-precursor exact is **553/1,253 (44.13%)**, versus
+**943/1,253 (75.26%)** for the same policy given the reference final mixture.
+It reconstructs 696 original inputs exactly; all 696 reproduce the complete
+frozen action traces, and 551 reach the endpoint. Only two of the 557 other
+inputs reach it. Context-batch Top-1 is 800/1,253, while 104 of these 800
+still lack stereochemical annotation required for an isomeric match to the
+strict input; all 104 are otherwise chemically equal without stereo. The
+test report, cases and paired audit are respectively under
+`outputs/agent/system_one_pr81_context_bridge_testfull_20261005/` and
+`outputs/agent/system_one_pr81_context_bridge_testfull_comparison_20261005.json`;
+their SHA-256 values are
+`7604839b22145e199e70e54a8948e5fd62be2c4c58ec46db632433d4c78220a5`,
+`4f821db6b85ea6e5cb97a353ff9de6e7a8751ef0fd4579cadb393f37936fa44a`,
+and `7e25ccbf531ae7f553a6ae62b54b4e6cc2784e8c591d34213967b3c17b9b6510`.
 
 This large observed gap means that the current final-mixture-trained policy
 must not be promoted as a principal-product-only system. In this trace view,
