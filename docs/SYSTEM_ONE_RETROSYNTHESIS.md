@@ -1230,8 +1230,8 @@ runtime checks this mode and the equ-proxy source manifest before rollout.
 The v2 Phase-0 and typed training tasks are
 `meteor_mechet_pr81_principal_phase0_1a100_qy_v2_20261005_01` and
 `meteor_mechet_pr81_principal_typed_1a100_qy_v2_20261005_01`.
-Phase-1a and the 64-case validation rollout have separate prepared configs
-but require completed hash-matched parents before submission. Scores from an
+Phase-1a and the 64-case validation rollout have separate configs and require
+completed hash-matched parents before submission. Scores from an
 old checkpoint under the new prompt are only the
 negative inference-only control above; do not mix those lineages.
 `scripts/compare_system_one_policy_versions.py` is the frozen paired validation
@@ -1239,7 +1239,7 @@ auditor: it requires identical selected reaction IDs, product/context inputs
 and references, independently replays every accepted electron action, rescoring
 the structural endpoint and reporting gained/lost cases. Its baseline-side
 64-case replay check already recovers 12 exact and 60 formal finishes; the v2
-candidate side waits for the three matching checkpoints.
+candidate side waits for the Phase-1a route checkpoint.
 
 Before product-start rollout, the principal-target typed checkpoint also has
 a separate reference-current-state quality gate:
@@ -1250,5 +1250,33 @@ those predictions with the frozen original typed-v2 run by event ID and
 executor-verified gold successor; it deliberately allows different JSONL
 hashes because the target prompt changed. This measures whether principal
 supervision preserves local chemistry and is **not** autonomous endpoint
-accuracy. The one-A100 task config is prepared but must wait for the complete
-v2 typed checkpoint.
+accuracy. Its one-A100 evaluation completed after the v2 typed checkpoint.
+
+### Principal-target v2 training and local successor results (2026-10-06)
+
+The v2 Phase-0 and typed-v2 one-epoch tasks both ended successfully. Their
+adapter/head SHA-256 values and train/valid source hashes match the frozen v2
+manifests. Phase-0 validation pair-any Recall@1 is 2,298/2,543 (90.37%);
+typed-v2 is 2,309/2,543 (90.80%). These are reference-current-state
+localization metrics, not generated precursor accuracy.
+
+The separate typed-v2 successor evaluation ended successfully on all 2,543
+validation and 2,371 test electron events. Under the same previously frozen,
+gold-independent two-flow-then-one-on-execution-failure rule, paired against
+the old-target typed-v2 checkpoint on identical event IDs and reference
+successors:
+
+| Strict trace view | Old-target exact | Principal-target v2 exact | Paired difference | Reaction-cluster 95% bootstrap CI |
+|---|---:|---:|---:|---:|
+| valid | 2,182/2,543 (85.80%) | 2,233/2,543 (87.81%) | +2.01 pp | [+0.79, +3.26] pp |
+| test | 2,075/2,371 (87.52%) | 2,079/2,371 (87.68%) | +0.17 pp | [-1.16, +1.44] pp |
+
+The valid gain does not reliably transfer to the test split; this is evidence
+of largely preserved **local** electron-flow quality, not a proven endpoint
+improvement. The paired auditor independently checks both source hashes,
+complete event IDs, gold successor equality, frozen backoff rule and per-case
+outcomes. Machine-readable report:
+`outputs/agent/system_one_pr81_principal_v2_typed_successor_paired_20261006.json`
+on the shared Ceph workspace. Phase-1a route training is running separately;
+the principal-product-only 64-case autonomous endpoint comparison has not yet
+started and remains the next gate.
