@@ -1355,4 +1355,47 @@ and `outputs/agent/system_one_pr81_principal_v2_equ_valid3120_compiler_strata_20
 Following this frozen validation gate, a complete 3,120-reaction **test** task
 was submitted with the same v2 checkpoints and equ-proxy protocol:
 `meteor_mechet_pr81_principal_v2_equ_test3120_1a100_qy_20261006_01`.
-It is running; no v2 full-test endpoint result is claimed yet.
+It ended successfully; the independent full-denominator paired audit and
+compiler-coverage stratification below are the held-out result.
+
+### Held-out principal-target-v2 test endpoint result (2026-10-06)
+
+On all **3,120** frozen equ-field-proxy test products, using the same
+full-train-only context proposal and one autonomous trajectory per product:
+
+| Same frozen test split | Old target policy | Principal-target v2 |
+|---|---:|---:|
+| Structural precursor exact | 497/3,120 (15.93%) | 521/3,120 (16.70%) |
+| Formal finish | 2,937/3,120 (94.13%) | 2,783/3,120 (89.20%) |
+| Exact within strict-trace coverage | 488/1,253 | 512/1,253 |
+| Exact outside strict-trace coverage | 9/1,867 | 9/1,867 |
+
+The independent paired auditor checked all source, context, case and report
+hashes, replayed every accepted electron action, and re-scored every structural
+endpoint. The new policy gained 59 exact cases and lost 35, for **+24/3,120
+= +0.77 percentage points**; reaction-level bootstrap 95% interval
+**[+0.16, +1.38] points** (seed 17, 5,000 resamples). All net gains are within
+the strict executable trace view. Exact context-batch Top-1 remains
+1,802/3,120 for both runs because the context proposal is frozen.
+
+The endpoint gain is paired with **154 fewer formal finishes**. Relative to
+the old policy, the new terminal distribution has 99 more action-budget
+exhaustions, 35 more electron-execution failures and 20 more pending/premature
+finishes. Of the 35 formerly exact cases lost by the new policy, 32 still
+formally finish but reach a different precursor; this is primarily a changed
+decision-path issue, not only an execution failure. Conversely, 48 of the 59
+newly exact cases had also formally finished under the old policy but with a
+wrong precursor. These observations are consistent with changed chemical
+choices under target-aware supervision, while exposing a robustness cost.
+
+This is a **modest, replicated endpoint improvement on the reconstructed
+product-proxy protocol**, not a claim of original patent desired-product
+accuracy, complete MECH_PROOF correctness, or broad out-of-coverage
+generalization. The v2 weights were trained on 10,152 strict-trace reactions;
+the complete test denominator of 3,120 was not filtered by the compiler.
+
+Machine-readable audited artifacts on shared Ceph:
+`outputs/agent/system_one_pr81_principal_v2_equ_test3120_paired_audit_20261006.json`
+(SHA-256 `874a4f6a589b63ea8ca89e3f25f8f98180a67101a4e1ab720ffb2529b5ba41c4`)
+and `outputs/agent/system_one_pr81_principal_v2_equ_test3120_compiler_strata_20261006.json`
+(SHA-256 `a5dd1f94386d9990423b3eff9083c5801fe1ad7a7e3761d781887ca1f9503136`).
