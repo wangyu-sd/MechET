@@ -598,13 +598,60 @@ their SHA-256 values are
 `4f821db6b85ea6e5cb97a353ff9de6e7a8751ef0fd4579cadb393f37936fa44a`,
 and `7e25ccbf531ae7f553a6ae62b54b4e6cc2784e8c591d34213967b3c17b9b6510`.
 
+### Frozen weighted context proposal follow-up
+
+The input-gap diagnostic also tested whether a slightly stronger **train-only
+proposal**, without changing any System-One weights or electron decisions,
+could raise principal-product bridge success. On validation, weighted voting
+over the 11 nearest training principal products, using squared Morgan
+Tanimoto similarity, was selected from a small k/p grid; that single rule
+was then frozen for test. The procedure never reads held-out reference
+context until scoring. It is still a retrieval component, not a learned
+principal-product-compatible trajectory policy.
+
+| Strict trace-view split | Nearest-context Top-1 | Weighted-context Top-1 | Nearest bridge endpoint | Weighted bridge endpoint |
+|---|---:|---:|---:|---:|
+| Valid, 1,319 reactions | 837 (63.46%) | 922 (69.90%) | 511 (38.74%) | **578 (43.82%)** |
+| Test, 1,253 reactions | 800 (63.85%) | 893 (71.27%) | 553 (44.13%) | **615 (49.08%)** |
+
+Both one-A100 weighted-bridge tasks ended successfully and used the same
+frozen route adapter, typed electron adapter, IMPORT retriever, executor
+rule, reaction IDs and strict full-precursor scorer as the nearest-context
+bridge. On test, endpoint predictions change in both directions: 108
+previously wrong reactions become exact, while 46 previously exact reactions
+become wrong, for a net gain of 62/1,253 (+4.95 points). Validation has
+107 gains and 40 regressions, net +67/1,319 (+5.08 points). The weighted
+bridge reconstructs the original strict input byte-for-byte in 779 valid
+and 780 test reactions. The paired auditor verifies that all such reconstructed
+inputs reproduce the **complete frozen action trace**; 575 valid and 613 test
+reactions in that group reach the exact endpoint. This supports an input
+completion effect, not an improvement to the electron-flow policy itself.
+
+Retrieval reports/cases are under
+`outputs/agent/system_one_pr81_context_knn_{valid,test}_20261005/` and
+weighted bridge reports/cases under
+`outputs/agent/system_one_pr81_context_knn_bridge_{valid,test}full_20261005/`.
+The retrieval report hashes are
+`4278b197aaa44c8957922a5af9a012a74a4ae3275e1ce6f71e3e18871bfa898a`
+and `734afe62e0aa3abf3c37f0366a1f0b00aa70081fd3d161ef2a8d2636b1c43471`.
+The paired bridge audit hashes are
+`14f2ad8e1716e5949ed76c69febe4f58ca3e1680f02604b36edd3b85bb075379`
+and `a67742e3ec3904fc57648cb22b1d243a7224caedec2a1c6413d128a6df6f5e02`.
+These remain strict-trace-view, full-precursor diagnostics, **not** a full
+3,120-row principal-product structural endpoint benchmark.
+
 This large observed gap means that the current final-mixture-trained policy
 must not be promoted as a principal-product-only system. In this trace view,
 extra final-mixture components and sometimes stereochemistry enter its first
 observation, and product-only inference cannot be evaluated by silently
 supplying them. A matched product-only training/evaluation contract or a
 gold-independent multi-context proposal/ranking policy is required before a
-full endpoint claim.
+full endpoint claim. The **output** contract also differs: the frozen
+reaction-ID audit found the strict replay's full precursor equal to the
+full-endpoint dataset's `reactants_unmapped` in only 812/1,319 validation and
+816/1,253 test overlaps. The standard benchmark instead scores structural
+precursors. Consequently, simply extending this strict full-precursor scorer
+to all 3,120 products would still not be the standard endpoint evaluation.
 
 `scripts/eval_system_one_product_start_pilot.py` now composes the frozen v1
 three-way router, the frozen typed-v2 electron policy, and **train-only**
