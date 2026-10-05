@@ -461,6 +461,24 @@ not claim fragment-generation competence. Any subsequent IMPORT argument
 model must be open-vocabulary and evaluated on the broader held-out fragment
 distribution before promoting a full System-One rollout.
 
+As a deliberately limited **oracle-free proposal baseline**, the train-only
+Morgan-fingerprint nearest-state retriever in
+`scripts/eval_system_one_import_retrieval.py` uses the target product and
+current state to retrieve distinct training IMPORT batches. It verifies that
+simple disjoint-fragment composition reproduces every authoritative IMPORT
+successor in this trace view: 3,050/3,050 train, 426/426 valid and 382/382
+test. On reference current states, its exact-chemical-batch Top-1 recall is
+392/426 (92.02%) valid and 345/382 (90.31%) test; test Top-2 is 366/382
+(95.81%). A train-majority batch gives 292/382 (76.44%) on test. No held-out
+IMPORT target product is an exact train product, but **all seven held-out
+batches occur in the eight-batch training support**. The Top-8 recall of 100%
+is consequently trivial and is not evidence of open-vocabulary generalization.
+Results and per-case proposals are under
+`outputs/agent/system_one_pr81_import_retrieval_v2_20261005/`. This
+reference-state candidate recall does not establish off-trajectory robustness
+or product-start endpoint accuracy; it only supplies a transparent pilot
+proposal source for a future closed-loop diagnostic.
+
 ### Runtime-observation parity gate for closed-loop evaluation
 
 `scripts/audit_system_one_observation_parity.py` reconstructs each decision's
