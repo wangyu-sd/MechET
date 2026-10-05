@@ -62,7 +62,12 @@ def parse_pointer_observation(user_content: str, *, row_id: str = "runtime") -> 
     if names != tuple(f"A{i + 1:02d}" for i in range(len(names))):
         raise ValueError(f"{row_id}: nonconsecutive atom inventory")
     smiles = re.sub(r"<A\d+>", "", annotated)
-    mol = Chem.MolFromSmiles(smiles, Chem.SmilesParserParams())
+    params = Chem.SmilesParserParams()
+    # build_inventory() deliberately keeps explicit H atoms when assigning
+    # temporary Axx handles. Dropping them here makes a valid off-reference
+    # state unaddressable after an IMPORT or electron step.
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(smiles, params)
     if mol is None or mol.GetNumAtoms() != len(names):
         raise ValueError(f"{row_id}: inventory does not parse to matching molecule")
     bonds = tuple(sorted(tuple(sorted((b.GetBeginAtomIdx(), b.GetEndAtomIdx()))) for b in mol.GetBonds()))

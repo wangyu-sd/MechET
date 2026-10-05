@@ -88,14 +88,17 @@ def select_main_product(final_mixture: str) -> str:
 
 
 def load_reaction_rows(
-    hf_root: Path, splits: Iterable[str], *, limit_reactions: int = 0
+    hf_root: Path, splits: Iterable[str], *, limit_reactions: int = 0,
+    product_field: str = "rxn_prod_min",
 ) -> list[dict[str, Any]]:
+    if product_field not in {"rxn_prod_min", "rxn_prod_equ"}:
+        raise ValueError(f"unsupported product field: {product_field}")
     output: list[dict[str, Any]] = []
     for split in splits:
         source = hf_root / f"{PARQUET_SPLITS[split]}-00000-of-00001.parquet"
         frame = pd.read_parquet(
             source,
-            columns=["rxn_idx", "step_idx_forward", "elem_reac_spe", "rxn_prod_min"],
+            columns=["rxn_idx", "step_idx_forward", "elem_reac_spe", product_field],
         )
         groups = frame.groupby("rxn_idx", sort=True)
         expected = EXPECTED[split]
@@ -108,7 +111,7 @@ def load_reaction_rows(
                 raise ValueError(f"{split}/{rxn_idx}: missing forward step zero")
             final_mixtures = {
                 canonical_unmapped(value)
-                for value in group["rxn_prod_min"].tolist()
+                for value in group[product_field].tolist()
                 if str(value or "").strip()
             }
             if len(final_mixtures) != 1:
@@ -125,6 +128,7 @@ def load_reaction_rows(
                     "precursor_unmapped": precursor,
                     "product_unmapped": product,
                     "final_mixture_unmapped": final_mixture,
+                    "product_field": product_field,
                     "reaction_unmapped": f"{precursor}>>{product}",
                     "hf_source": str(source.resolve()),
                 }
@@ -151,6 +155,32 @@ def read_mapping_cache(path: Path) -> dict[str, dict[str, Any]]:
             # policy changes during a resumable build.
             output[stable_id] = row
     return output
+
+
+def seed_identical_mapping_pairs(
+    rows: list[dict[str, Any]], *, cache_path: Path, prior_cache_path: Path,
+    prior_sha256: str,
+) -> int:
+    """Reuse only byte-identical reaction pairs in a separate new cache."""
+    if cache_path.exists():
+        print(f"mapping cache already exists; preserving it: {cache_path}", flush=True)
+        return 0
+    if cache_path.resolve() == prior_cache_path.resolve():
+        raise ValueError("new and prior mapping caches must be separate")
+    if sha256_file(prior_cache_path) != prior_sha256:
+        raise ValueError("prior mapping cache SHA-256 mismatch")
+    previous = read_mapping_cache(prior_cache_path)
+    reusable = []
+    for row in rows:
+        candidate = previous.get(row["stable_id"])
+        if candidate is not None and candidate.get("reaction_unmapped") == row["reaction_unmapped"]:
+            reusable.append(candidate)
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    with cache_path.open("x", encoding="utf-8") as handle:
+        for row in reusable:
+            handle.write(json.dumps(row, sort_keys=True) + "\n")
+    print(f"seeded {len(reusable)}/{len(rows)} byte-identical mapping pairs", flush=True)
+    return len(reusable)
 
 
 def map_missing_rows(
@@ -232,6 +262,14 @@ def write_outputs(
     cache_path: Path,
     smoke: bool,
 ) -> dict[str, Any]:
+    fields = {row["product_field"] for row in rows}
+    if len(fields) != 1:
+        raise ValueError("mixed product-field policies in one endpoint artifact")
+    product_field = next(iter(fields))
+    endpoint_policy = (
+        f"elem_reac_spe at step 0 -> deterministic largest organic "
+        f"{product_field} fragment"
+    )
     output_dir.mkdir(parents=True, exist_ok=True)
     localretro_dir.mkdir(parents=True, exist_ok=True)
     reports: dict[str, Any] = {}
@@ -285,7 +323,9 @@ def write_outputs(
                         "source_dataset": "SchwallerGroup/mech_uspto_31k",
                         "source_split": PARQUET_SPLITS[split],
                         "rxn_idx": source["rxn_idx"],
-                        "endpoint_policy": "elem_reac_spe_step_0_to_largest_organic_rxn_prod_min_fragment",
+                        "endpoint_policy": (
+                            f"elem_reac_spe_step_0_to_largest_organic_{product_field}_fragment"
+                        ),
                         "mapping_source": "rxnmapper_recomputed_once_from_hf_endpoint_pair",
                         "mapping_confidence": confidence,
                         "atom_map_policy": "product_only_canonical_reindex_synchronized_to_reactants",
@@ -316,7 +356,11 @@ def write_outputs(
         }
     manifest = {
         "schema_version": 1,
-        "artifact_type": "mech_uspto_31k_full_hf_endpoint_rxnmapper",
+        "artifact_type": (
+            "mech_uspto_31k_full_hf_endpoint_rxnmapper"
+            if product_field == "rxn_prod_min"
+            else "mech_uspto_31k_full_hf_endpoint_rxnmapper_equ_proxy"
+        ),
         "benchmark_universe": "complete_hf_reaction_level_split",
         "source_repository": "SchwallerGroup/mech_uspto_31k",
         "source_files": {
@@ -327,7 +371,9 @@ def write_outputs(
             for name, source in PARQUET_SPLITS.items()
             if name in reports
         },
-        "endpoint_policy": "elem_reac_spe at step 0 -> deterministic largest organic rxn_prod_min fragment",
+        "endpoint_policy": endpoint_policy,
+        "product_source_field": product_field,
+        "product_selection_is_proxy": True,
         "mapping_policy": "one shared RXNMapper mapping then product-only canonical reindex",
         "mapping_runtime": {
             package: importlib_metadata.version(package)
@@ -358,16 +404,46 @@ def main() -> int:
         "--localretro-dir", type=Path, default=Path("data/baselines/localretro_mech_uspto_31k_rxnmapper")
     )
     parser.add_argument("--mapping-cache", type=Path, default=None)
+    parser.add_argument("--reuse-mapping-cache", type=Path)
+    parser.add_argument("--reuse-cache-sha256", type=str)
+    parser.add_argument(
+        "--product-field", choices=("rxn_prod_min", "rxn_prod_equ"),
+        default="rxn_prod_min",
+    )
     parser.add_argument("--splits", nargs="+", choices=tuple(EXPECTED), default=list(EXPECTED))
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--limit-reactions", type=int, default=0)
     args = parser.parse_args()
     if args.batch_size < 1 or args.limit_reactions < 0:
         parser.error("batch size must be positive and limit must be non-negative")
+    if args.product_field == "rxn_prod_equ":
+        if (args.output_dir.resolve()
+                == Path("data/mech_uspto_31k_full_endpoint_rxnmapper").resolve()
+                or args.localretro_dir.resolve()
+                == Path("data/baselines/localretro_mech_uspto_31k_rxnmapper").resolve()):
+            parser.error("rxn_prod_equ requires separate explicit output and LocalRetro dirs")
+        if (args.mapping_cache is not None
+                and args.mapping_cache.parent.resolve() != args.output_dir.resolve()):
+            parser.error("rxn_prod_equ mapping cache must be inside its separate output dir")
+    for directory in (args.output_dir, args.localretro_dir):
+        existing_manifest = directory / "manifest.json"
+        if existing_manifest.exists():
+            existing = json.loads(existing_manifest.read_text())
+            if existing.get("product_source_field", "rxn_prod_min") != args.product_field:
+                parser.error(f"{directory} already contains a different product-field policy")
     cache_path = args.mapping_cache or args.output_dir / "rxnmapper_cache.jsonl"
     rows = load_reaction_rows(
-        args.hf_root, args.splits, limit_reactions=args.limit_reactions
+        args.hf_root, args.splits, limit_reactions=args.limit_reactions,
+        product_field=args.product_field,
     )
+    if args.reuse_mapping_cache or args.reuse_cache_sha256:
+        if (args.product_field != "rxn_prod_equ" or not args.reuse_mapping_cache
+                or not args.reuse_cache_sha256):
+            parser.error("reuse requires equ-field policy, prior cache, and pinned SHA-256")
+        seed_identical_mapping_pairs(
+            rows, cache_path=cache_path, prior_cache_path=args.reuse_mapping_cache,
+            prior_sha256=args.reuse_cache_sha256,
+        )
     cache = map_missing_rows(rows, cache_path, batch_size=args.batch_size)
     manifest = write_outputs(
         rows,
