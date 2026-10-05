@@ -32,9 +32,13 @@ def load_policy_contexts(path: Path, *, split: str, strict_source_sha256: str,
     """Project a scored context artifact to policy-only fields, discarding GT."""
     report = json.loads((path / "report.json").read_text())
     cases_path = path / "cases.jsonl"
+    allowed_methods = {
+        "train_only_morgan_radius2_2048_nearest_reaction_distinct_context_batches",
+        "train_only_morgan_radius2_2048_weighted_knn_k11_p2",
+    }
     if (report["artifact_type"] != "system_one_principal_product_context_retrieval_diagnostic"
             or report["split"] != split
-            or report["method"] != "train_only_morgan_radius2_2048_nearest_reaction_distinct_context_batches"
+            or report["method"] not in allowed_methods
             or report["heldout_source"]["strict_source_sha256"] != strict_source_sha256
             or report["train_source"]["strict_source_sha256"] != train_source_sha256
             or report["cases_sha256"] != sha256(cases_path)):
@@ -162,6 +166,7 @@ def main() -> None:
         "train_import_source": train_source,
         "context_report_sha256": sha256(args.context_run / "report.json"),
         "context_cases_sha256": context_report["cases_sha256"],
+        "context_method": context_report["method"],
         "full_endpoint_source_sha256": context_report["heldout_source"]["full_endpoint_sha256"],
         "strict_reaction_denominator": len(tasks),
         "evaluated_reactions": counts["evaluated"],

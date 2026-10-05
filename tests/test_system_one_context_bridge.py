@@ -4,6 +4,7 @@ import pytest
 from scripts.audit_system_one_full_endpoint_input_gap import sha256
 from scripts.compare_system_one_context_bridge import compare
 from scripts.eval_system_one_context_bridge import inferred_mixture, load_policy_contexts
+from scripts.eval_system_one_context_knn import rank_weighted_batches
 
 
 def test_context_bridge_projects_away_heldout_reference_labels(tmp_path):
@@ -27,11 +28,27 @@ def test_context_bridge_projects_away_heldout_reference_labels(tmp_path):
     )
     assert projected == {"7": ("CCO", ("[Br-]",))}
     assert "[Cl-]" not in str(projected)
+    report = json.loads((tmp_path / "report.json").read_text())
+    report["method"] = "train_only_morgan_radius2_2048_weighted_knn_k11_p2"
+    (tmp_path / "report.json").write_text(json.dumps(report))
+    weighted, _ = load_policy_contexts(
+        tmp_path, split="valid", strict_source_sha256="heldout",
+        train_source_sha256="train",
+    )
+    assert weighted == projected
 
 
 def test_context_bridge_adds_counted_components_without_changing_product():
     assert inferred_mixture("CCO", ()) == "CCO"
     assert inferred_mixture("CCO", ("[Cl-]", "[Cl-]")) == "CCO.[Cl-].[Cl-]"
+
+
+def test_context_knn_votes_over_nearest_training_reactions():
+    similarities = [0.9, 0.8, 0.7] + [0.0] * 8
+    labels = [("[Cl-]",), ("[Br-]",), ("[Br-]",)] + [("[I-]",)] * 8
+    ranked = rank_weighted_batches(similarities, labels)
+    assert ranked[0][0] == ("[Br-]",)
+    assert ranked[1][0] == ("[Cl-]",)
 
 
 def test_context_bridge_pairing_requires_identical_rollout_when_input_identical(tmp_path):

@@ -13,7 +13,7 @@ case "$split" in
   test) denominator=1253 ;;
   *) printf 'invalid MECHET_CONTEXT_BRIDGE_SPLIT=%s\n' "$split" >&2; exit 2 ;;
 esac
-context_run="$shared/outputs/agent/system_one_pr81_context_retrieval_${split}_20261005"
+context_run="${MECHET_CONTEXT_BRIDGE_CONTEXT_RUN:-$shared/outputs/agent/system_one_pr81_context_retrieval_${split}_20261005}"
 output="${MECHET_CONTEXT_BRIDGE_OUTPUT:-$shared/outputs/agent/system_one_pr81_context_bridge_${split}_20261005}"
 limit="${MECHET_CONTEXT_BRIDGE_LIMIT:-64}"
 expected="${MECHET_CONTEXT_BRIDGE_EXPECTED:-64}"
