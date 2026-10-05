@@ -34,6 +34,8 @@ def test_paired_summary_counts_gains_losses_and_executed_changes():
     }
     assert result["gained_ids"] == ["b"]
     assert result["lost_ids"] == ["a"]
+    assert result["candidate_minus_baseline_exact_rate"] == 0
+    assert len(result["reaction_bootstrap_95pct_ci"]) == 2
 
 
 def test_paired_summary_rejects_different_input():

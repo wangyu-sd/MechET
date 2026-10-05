@@ -1316,5 +1316,9 @@ Its source, context and checkpoint preflight selected all 3,120 reactions;
 ordinary one-A100 task
 `meteor_mechet_pr81_principal_v2_equ_valid3120_1a100_qy_20261006_01` was
 submitted on 2026-10-06. The existing old-target 480/3,120 result is the
-paired comparison reference. No v2 test run has yet been submitted; test
+paired comparison reference; an independent full-denominator replay has
+already recovered all 3,120 rows, 480 exact endpoints and 2,944 formal
+finishes. The paired auditor now supports the frozen complete-validation
+selection and reports reaction-level bootstrap intervals, in addition to
+independently replaying each endpoint. No v2 test run has yet been submitted; test
 remains unreported for this policy.

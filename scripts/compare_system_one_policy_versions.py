@@ -13,6 +13,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from mechet.endpoints import structural_exact
 from scripts.audit_system_one_full_endpoint_input_gap import sha256
+from scripts.compare_system_one_pr71_successor import cluster_bootstrap
 from scripts.eval_system_one_full_endpoint import load_policy_contexts, select_ids
 from scripts.score_system_one_structural_bridge import replay_provenance
 
@@ -55,6 +56,7 @@ def summarize_paired(baseline: dict[str, dict], candidate: dict[str, dict]) -> d
     count: Counter[str] = Counter()
     gained = []
     lost = []
+    paired = []
     for reaction_id in sorted(baseline):
         old, new = baseline[reaction_id], candidate[reaction_id]
         for field in ("principal_product_input", "predicted_context_batch",
@@ -67,13 +69,23 @@ def summarize_paired(baseline: dict[str, dict], candidate: dict[str, dict]) -> d
         count["baseline_formal_finish"] += int(old["completed"])
         count["candidate_formal_finish"] += int(new["completed"])
         count["executed_path_changed"] += int(executed_signature(old) != executed_signature(new))
+        paired.append((1, int(new["structural_exact"]), int(old["structural_exact"])))
         if new["structural_exact"] and not old["structural_exact"]:
             gained.append(reaction_id)
         if old["structural_exact"] and not new["structural_exact"]:
             lost.append(reaction_id)
     count["gained_exact"] = len(gained)
     count["lost_exact"] = len(lost)
-    return {"counts": dict(count), "gained_ids": gained, "lost_ids": lost}
+    ci = cluster_bootstrap(paired)
+    return {
+        "counts": dict(count), "gained_ids": gained, "lost_ids": lost,
+        "candidate_minus_baseline_exact_rate": (
+            count["candidate_exact"] - count["baseline_exact"]
+        ) / count["reactions"],
+        "reaction_bootstrap_95pct_ci": list(ci),
+        "bootstrap_seed": 17,
+        "bootstrap_repetitions": 5000,
+    }
 
 
 def audit_run(run_dir: Path, references: dict[str, dict], contexts: dict,
