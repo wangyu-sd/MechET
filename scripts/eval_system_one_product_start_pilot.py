@@ -321,8 +321,87 @@ def execute_ranked_electron_action(
     return ranked[:1], original_result, 1, attempts
 
 
+def principal_component_atom_indices(current: str, principal_product: str) -> set[int]:
+    """Locate the still-intact input product in a pre-first-event state.
+
+    Stereo is ignored only for component localization: the frozen endpoint
+    mapper can omit stereotags that are present in the executable trace view.
+    If symmetry yields multiple identical components, any one is acceptable.
+    """
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    state = Chem.MolFromSmiles(current, params)
+    product = Chem.MolFromSmiles(principal_product, params)
+    if state is None or product is None:
+        raise ValueError("invalid current/principal-product SMILES")
+    key = Chem.MolToSmiles(product, canonical=True, isomericSmiles=False)
+    matches = [set(indices) for indices in Chem.GetMolFrags(state) if
+               Chem.MolFragmentToSmiles(state, atomsToUse=list(indices),
+                                        canonical=True, isomericSmiles=False) == key]
+    if not matches:
+        raise ValueError("principal product is absent before the first electron event")
+    return set().union(*matches)
+
+
+def pair_touches_atoms(observation: PointerObservation, flat: int,
+                       atom_indices: set[int]) -> bool:
+    source = candidate_keys(len(observation.atom_names), observation.bonds, source=True)
+    sink = candidate_keys(len(observation.atom_names), observation.bonds, source=False)
+    if not 0 <= int(flat) < len(source) * len(sink):
+        raise ValueError("electron pair outside current candidate universe")
+    src, dst = source[int(flat) // len(sink)], sink[int(flat) % len(sink)]
+    return bool(atom_indices & {src[1], src[2], dst[1], dst[2]})
+
+
+def execute_first_event_target_focus(
+    mapped: str, observation: PointerObservation, ranked: list[int],
+    principal_atoms: set[int], *, executor=execute_pair_indices,
+) -> tuple[list[int], dict, int | None, int, dict]:
+    """Replace a legal context-only first event only if target-localized replay succeeds.
+
+    The original Top-8 legality policy is computed first and retained whenever
+    it already touches the input product. No reference move or endpoint is read.
+    """
+    selected, result, single_rank, attempts = execute_ranked_electron_action(
+        mapped, observation, ranked, legality_backoff=True, executor=executor,
+    )
+    metadata = {"enabled": True, "overrode_baseline": False,
+                "baseline_selected_pairs": selected, "baseline_execute_ok": bool(result.get("ok"))}
+    if not result.get("ok") or any(pair_touches_atoms(observation, pair, principal_atoms)
+                                   for pair in selected):
+        metadata["reason"] = "baseline_failed_or_already_target_localized"
+        return selected, result, single_rank, attempts, metadata
+    target_ranked = [(rank, pair) for rank, pair in enumerate(ranked, 1)
+                     if pair_touches_atoms(observation, pair, principal_atoms)]
+    if not target_ranked:
+        metadata["reason"] = "no_target_localized_pair_in_top8"
+        return selected, result, single_rank, attempts, metadata
+    best_rank, best_pair = target_ranked[0]
+    if best_pair != ranked[0]:
+        mixed = [best_pair, ranked[0]]
+        alternative = executor(mapped, observation, mixed)
+        attempts += 1
+        if alternative.get("ok"):
+            metadata.update({"overrode_baseline": True, "reason": "legal_mixed_event",
+                             "target_pair_rank": best_rank})
+            return mixed, alternative, None, attempts, metadata
+    for rank, pair in target_ranked:
+        alternative = executor(mapped, observation, [pair])
+        attempts += 1
+        if alternative.get("ok"):
+            metadata.update({"overrode_baseline": True, "reason": "legal_target_single",
+                             "target_pair_rank": rank})
+            return [pair], alternative, rank, attempts, metadata
+    metadata["reason"] = "target_localized_candidates_failed_execution"
+    return selected, result, single_rank, attempts, metadata
+
+
 def rollout(policy_input: ProductInput, policy: HybridPolicy, retriever: TrainImportRetriever,
-            *, max_actions: int, legality_backoff: bool = False) -> dict:
+            *, max_actions: int, legality_backoff: bool = False,
+            principal_product: str | None = None,
+            first_event_target_focus: bool = False) -> dict:
+    if first_event_target_focus and (not legality_backoff or not principal_product):
+        raise ValueError("first-event target focus requires Top-8 legality backoff and input product")
     current = policy_input.target
     history = TrajectoryHistory()
     actions = []
@@ -380,9 +459,18 @@ def rollout(policy_input: ProductInput, policy: HybridPolicy, retriever: TrainIm
             break
         max_typed_tokens = max(max_typed_tokens, typed_tokens)
         mapped = mapped_from_visible(current)
-        selected, result, single_rank, executor_attempts = execute_ranked_electron_action(
-            mapped, observation, ranked, legality_backoff=legality_backoff
-        )
+        if first_event_target_focus and history.electron_events == 0:
+            selected, result, single_rank, executor_attempts, focus = (
+                execute_first_event_target_focus(
+                    mapped, observation, ranked,
+                    principal_component_atom_indices(current, principal_product),
+                )
+            )
+            record["first_event_target_focus"] = focus
+        else:
+            selected, result, single_rank, executor_attempts = execute_ranked_electron_action(
+                mapped, observation, ranked, legality_backoff=legality_backoff
+            )
         record.update({"ranked_top8": ranked, "selected_pairs": selected,
                        "typed_input_tokens": typed_tokens,
                        "execute_ok": bool(result.get("ok")), "code": result.get("code"),

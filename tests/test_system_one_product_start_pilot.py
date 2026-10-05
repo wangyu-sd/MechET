@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import torch
 
 from mechet.electron_pointer import parse_pointer_observation
+from mechet.electron_pointer import candidate_keys
 from mechet.jev_style_decision import FactorizedTypedElectronFlowHead
 from mechet.natural_language_electron_flow import build_inventory
 from scripts.audit_system_one_observation_parity import mapped_from_visible
@@ -12,6 +13,9 @@ from scripts.eval_system_one_product_start_pilot import (
     ReactionTask,
     canonical_visible,
     execute_ranked_electron_action,
+    execute_first_event_target_focus,
+    pair_touches_atoms,
+    principal_component_atom_indices,
     rollout,
     select_tasks,
     typed_runtime_encoding,
@@ -136,3 +140,55 @@ def test_legality_backoff_preserves_baseline_then_uses_ranked_singleton():
     assert selected == [20] and result["ok"] is True
     assert rank == 2 and attempts == 3
     assert calls == [(10, 20), (10,), (20,)]
+
+
+def test_first_event_focus_replaces_only_legal_context_only_action():
+    state = "CC.CO"
+    observation = parse_pointer_observation(build_inventory(mapped_from_visible(state)).prompt)
+    principal = principal_component_atom_indices(state, "CC")
+    sources = candidate_keys(len(observation.atom_names), observation.bonds, source=True)
+    sinks = candidate_keys(len(observation.atom_names), observation.bonds, source=False)
+
+    def flat(src, dst):
+        return sources.index(src) * len(sinks) + sinks.index(dst)
+
+    context1 = flat(("atom", 2, 2), ("atom", 3, 3))
+    context2 = flat(("atom", 3, 3), ("atom", 2, 2))
+    target = flat(("atom", 0, 0), ("atom", 1, 1))
+    assert not pair_touches_atoms(observation, context1, principal)
+    assert pair_touches_atoms(observation, target, principal)
+    calls = []
+
+    def executor(mapped, obs, selected):
+        calls.append(tuple(selected))
+        return {"ok": True, "code": "PASS"}
+
+    selected, result, rank, attempts, metadata = execute_first_event_target_focus(
+        "mapped", observation, [context1, context2, target], principal,
+        executor=executor,
+    )
+    assert result["ok"] is True
+    assert selected == [target, context1] and rank is None
+    assert attempts == 2 and calls == [(context1, context2), (target, context1)]
+    assert metadata["overrode_baseline"] is True
+    assert metadata["target_pair_rank"] == 3
+
+
+def test_first_event_focus_keeps_already_target_localized_baseline():
+    state = "CC.CO"
+    observation = parse_pointer_observation(build_inventory(mapped_from_visible(state)).prompt)
+    principal = principal_component_atom_indices(state, "CC")
+    sources = candidate_keys(len(observation.atom_names), observation.bonds, source=True)
+    sinks = candidate_keys(len(observation.atom_names), observation.bonds, source=False)
+    target = sources.index(("atom", 0, 0)) * len(sinks) + sinks.index(("atom", 1, 1))
+    context = sources.index(("atom", 2, 2)) * len(sinks) + sinks.index(("atom", 3, 3))
+    selected, result, _, attempts, metadata = execute_first_event_target_focus(
+        "mapped", observation, [context, target], principal,
+        executor=lambda *_: {"ok": True, "code": "PASS"},
+    )
+    assert selected == [context, target] and result["ok"] and attempts == 1
+    assert metadata["overrode_baseline"] is False
+
+
+def test_principal_localization_ignores_stereotag_only():
+    assert principal_component_atom_indices("C[C@H](O)F.[Cl-]", "CC(O)F") == {0, 1, 2, 3}

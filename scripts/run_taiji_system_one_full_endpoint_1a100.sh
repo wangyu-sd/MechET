@@ -19,6 +19,11 @@ limit="${MECHET_FULL_ENDPOINT_LIMIT:-64}"
 expected="${MECHET_FULL_ENDPOINT_EXPECTED:-64}"
 expected_field="${MECHET_FULL_ENDPOINT_PRODUCT_FIELD:-rxn_prod_min}"
 log_every="${MECHET_FULL_ENDPOINT_LOG_EVERY:-8}"
+target_focus="${MECHET_FULL_ENDPOINT_FIRST_EVENT_TARGET_FOCUS:-0}"
+case "$target_focus" in
+  0|1) ;;
+  *) printf 'invalid MECHET_FULL_ENDPOINT_FIRST_EVENT_TARGET_FOCUS=%s\n' "$target_focus" >&2; exit 2 ;;
+esac
 shared_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 
 source /root/miniconda3/etc/profile.d/conda.sh
@@ -58,6 +63,10 @@ cp -a "$shared_cache/models--Qwen--Qwen3-0.6B" "$model_cache/"
 export HF_HUB_CACHE="$model_cache"
 
 printf '[system-one-full-endpoint] starting %s limit=%s expected=%s\n' "$split" "$limit" "$expected"
+extra_args=()
+if [[ "$target_focus" == 1 ]]; then
+  extra_args+=(--first-event-target-focus)
+fi
 python scripts/eval_system_one_full_endpoint.py \
   --full-endpoint-dir "$full_data" \
   --strict-dir "$strict_data" \
@@ -70,10 +79,11 @@ python scripts/eval_system_one_full_endpoint.py \
   --limit "$limit" \
   --seed 17 \
   --max-actions 12 \
-  --log-every "$log_every"
+  --log-every "$log_every" \
+  "${extra_args[@]}"
 test -s "$output/report.json"
 test -s "$output/cases.jsonl"
-python - "$output/report.json" "$output/cases.jsonl" "$split" "$expected" "$expected_field" <<'PY'
+python - "$output/report.json" "$output/cases.jsonl" "$split" "$expected" "$expected_field" "$target_focus" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -84,6 +94,7 @@ assert report['split'] == sys.argv[3]
 assert report['full_endpoint_reaction_denominator'] == 3120
 assert report['evaluated_reactions'] == cases == int(sys.argv[4])
 assert report['product_source_field'] == sys.argv[5]
+assert report['first_event_target_focus'] == (sys.argv[6] == '1')
 assert report['input_contract'] == 'principal_product_only_with_train_only_predicted_context'
 assert report['output_contract'] == 'full_endpoint_structural_precursor_product_origin_projection'
 print({'phase': 'validated_full_endpoint_report', 'evaluated_reactions': cases,

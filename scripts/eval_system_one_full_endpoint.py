@@ -94,6 +94,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--max-actions", type=int, default=12)
     parser.add_argument("--log-every", type=int, default=25)
+    parser.add_argument("--first-event-target-focus", action="store_true",
+                        help="validation-only diagnostic: prefer executable first moves touching the input product")
     parser.add_argument("--preflight-only", action="store_true")
     args = parser.parse_args()
     if args.output.exists():
@@ -147,6 +149,7 @@ def main() -> None:
     print(json.dumps({
         "phase": "preflight", "input_contract": "full_endpoint_principal_product_only",
         "product_source_field": product_field,
+        "first_event_target_focus": args.first_event_target_focus,
         "split": args.split, "full_endpoint_reactions": len(references),
         "selected": len(selected), "context_predictions": len(contexts),
         "full_endpoint_sha256": full_source["sha256"],
@@ -174,6 +177,8 @@ def main() -> None:
             result = rollout(
                 policy_input, policy, retriever,
                 max_actions=args.max_actions, legality_backoff=True,
+                principal_product=principal_product,
+                first_event_target_focus=args.first_event_target_focus,
             )
             result.update({
                 "principal_product_input": principal_product,
@@ -221,6 +226,7 @@ def main() -> None:
                       "limit": args.limit},
         "max_actions": args.max_actions,
         "legality_backoff": True,
+        "first_event_target_focus": args.first_event_target_focus,
         "evaluated_reactions": counts["evaluated"],
         "structural_exact": counts["structural_exact"],
         "structural_exact_rate": counts["structural_exact"] / counts["evaluated"],

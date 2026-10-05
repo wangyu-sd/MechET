@@ -1111,3 +1111,30 @@ and `1c00230047e91b79902bdc188f5f93a5ffb3d6708cc8178864056de2b958859d`.
 This remains a deterministic **proxy-product** result; the original intended
 product labels require an independent source check before publication as
 standard mech-USPTO retrosynthesis accuracy.
+
+### First-event target-locality diagnostic (validation gate)
+
+The formal-finish gap suggested a narrow, testable hypothesis: the mixed-state
+policy frequently spends its first electron event entirely on predicted
+context instead of the input product. A hash-bound source audit finds that the
+**first reference electron event** touches the selected principal-product
+component in all 10,152 train, 1,319 validation and 1,253 test reactions of
+the stitched strict-trace view. This is a property of that view, not a proven
+universal chemical rule for the full 31k endpoint split. In the new equ-proxy
+full-test rollout, 304/795 first accepted events on target-changed reactions
+were context-only; 722/798 first Top-8 proposal lists nevertheless contained
+at least one product-touching electron pair. These counts are diagnostic and
+do not use held-out answers to choose actions.
+
+`scripts/eval_system_one_full_endpoint.py --first-event-target-focus` adds a
+separate **validation-only decoder control**. It leaves an executable baseline
+first event untouched if it already touches the input product. If the baseline
+event is context-only, it tries an executor-valid event containing the highest-
+ranked product-touching pair, then product-touching singles. If none executes,
+it retains the baseline; no reaction is dropped. The product component is
+derived from the input SMILES, not from the precursor or reference trajectory.
+All later decisions and model weights remain unchanged. Its frozen 64-reaction
+validation pilot is configured at
+`configs/taiji/meteor_mechet_pr81_equ_proxy_target_focus_valid64_1a100_qy_20261005.json`.
+The strict-trace locality audit outputs are
+`outputs/agent/system_one_pr81_reference_first_event_target_locality_{train,valid,test}_20261005.json`.
