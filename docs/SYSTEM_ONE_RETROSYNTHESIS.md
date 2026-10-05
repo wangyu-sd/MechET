@@ -1053,3 +1053,61 @@ bound report are at
 `outputs/agent/system_one_pr81_equ_proxy_valid64_20261005/`. Full 3,120-row
 valid/test jobs must keep the equ mapping and context outputs separate from
 the historical min-field reports.
+
+### Complete equ-field-proxy endpoint evaluation and paired failure analysis
+
+Both ordinary one-A100 Qingyuan tasks ended successfully:
+`meteor_mechet_pr81_equ_proxy_valid3120_1a100_qy_20261005_01` and
+`meteor_mechet_pr81_equ_proxy_test3120_1a100_qy_20261005_01`. They used the
+same frozen System-One route/typed weights as the historical evaluation, but
+the independently remapped `rxn_prod_equ` largest-organic **proxy** target and
+its own train-only context retriever. Each processed all 3,120 reactions with
+no proof-coverage filtering. A separate auditor rechecked every prediction,
+source hash, reference, context join, and endpoint score before stratification.
+
+| Split / proxy target | Context Top-1 | Formal finish | Structural precursor exact | Unchanged-target finish | Electron-state revisits |
+|---|---:|---:|---:|---:|---:|
+| Valid / historical `rxn_prod_min` | 2,198/3,120 | 3,016/3,120 | 654/3,120 (20.96%) | 174 | 128 reactions |
+| Valid / new `rxn_prod_equ` | 1,800/3,120 | 2,944/3,120 | **480/3,120 (15.38%)** | 949 | 569 reactions |
+| Test / historical `rxn_prod_min` | 2,172/3,120 | 3,017/3,120 | 661/3,120 (21.19%) | 172 | 120 reactions |
+| Test / new `rxn_prod_equ` | 1,802/3,120 | 2,937/3,120 | **497/3,120 (15.93%)** | 918 | 564 reactions |
+
+The target itself changes for 767 valid and 799 test reactions. Both proxy
+versions miss every one of those cases; in the new test evaluation, 572/799
+even have the recorded context batch proposed correctly. Therefore the new
+full score is not an improvement hidden by target relabelling. The complete
+paired audit also finds that the context proposal changes for 1,410/2,353
+valid and 1,352/2,321 test reactions **whose target did not change**: changing
+the train-side proxy alters kNN neighborhoods, so the 654→480 and 661→497
+differences do not isolate a target-label effect or a policy-weight effect.
+No model weights were updated in this comparison.
+
+Compiler coverage still dominates endpoint success. On the new test proxy,
+488/1,253 stitched strict-trace reactions hit, versus 0/774 all-step-executable
+but unstitched and 9/1,093 with incomplete elementary-step compilation. The
+new test has 918 formally finished but structurally unchanged targets and
+1,884 exact executor-state revisit steps across 564 reactions. These measures
+show that formal executability is not equivalent to a productive inverse
+transformation; they do not by themselves identify a unique training cause.
+
+Two auditable test examples illustrate the behavior. Reaction 43 now starts
+from the deprotected amine rather than the old isobutene byproduct, but the
+policy repeatedly modifies the predicted CO2/H+ context and returns to the
+same target; it never reconstructs the recorded Boc-protected precursor.
+Reaction 67 now starts from the large amide rather than dicyclohexylurea; the
+policy changes a sulfonyl bond-order/charge representation and finishes,
+instead of identifying the recorded acid plus dimethylamine precursor. These
+are actual frozen rollout cases, not simulated comparison illustrations.
+
+The separately bound reports and cases are in
+`outputs/agent/system_one_pr81_equ_proxy_{valid3120,test3120}_20261005/`.
+Compiler-stratified audits are
+`outputs/agent/system_one_pr81_equ_proxy_{valid3120,test3120}_product_compiler_strata_20261005.json`,
+and paired min/equ proxy audits are
+`outputs/agent/system_one_pr81_{valid3120,test3120}_min_equ_proxy_paired_20261005.json`.
+The valid/test equ-proxy rollout report SHA-256 values are respectively
+`15be73ec0b461da01641c1e66003cc927bdd72fc6d1c735ee6c4e4156a189403`
+and `1c00230047e91b79902bdc188f5f93a5ffb3d6708cc8178864056de2b958859d`.
+This remains a deterministic **proxy-product** result; the original intended
+product labels require an independent source check before publication as
+standard mech-USPTO retrosynthesis accuracy.

@@ -18,6 +18,13 @@
 > `data/mech_uspto_31k_full_endpoint_rxnmapper_equ_proxy_v1_20261005/`
 > with 24,959/3,120/3,120 rows and zero mapping/filtering exclusions. No
 > corrected System-One endpoint score is established merely by this build.
+> Subsequent complete equ-field **proxy** rollout on the same 3,120 valid/test
+> IDs finished at 480/3,120 and 497/3,120 structural exact, respectively.
+> All 767 valid / 799 test reactions whose target changed from the min-field
+> proxy were missed. These are proxy-protocol results, not desired-product
+> benchmark accuracy. The paired min/equ and compiler-stratified audits are
+> under `outputs/agent/system_one_pr81_*_20261005.json` and documented in
+> `docs/SYSTEM_ONE_RETROSYNTHESIS.md`.
 
 > **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
 > compact-history task was stopped because its action-conditioned observation
