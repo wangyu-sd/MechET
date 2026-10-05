@@ -228,3 +228,27 @@ an action-family head, then add calibrated abstention/branching.  The long-term
 scientific question is whether retrosynthesis is better represented as
 calibrated state-conditioned chemical decisions than as autoregressive text
 generation.
+
+### Phase-1a action-family gate
+
+The next local experiment freezes the completed Phase-0 Qwen3-0.6B adapter and
+learns a three-way `apply_electron_flow` / `import_fragments` / `finish_trace`
+readout from its current-state prefill. It uses **all** current-compiler
+mech-USPTO-31k strict trace-view decisions: 32,401 train, 4,288 valid and
+4,006 test (10,152 / 1,319 / 1,253 reactions). The frozen input hash, Phase-0
+adapter hash and zero-overlength tokenizer preflight are checked before GPU
+work. The completed preflight found maximum lengths 1,946 / 1,787 / 1,743,
+below the 4,096-token cap. A history-count majority baseline accompanies
+accuracy, macro-F1, IMPORT recall and premature-FINISH error.
+
+This is **routing only** at reference executor states. It does not generate
+fragment SMILES, use a closed list of observed fragments, or demonstrate an
+autonomous product-start rollout. The observed eight IMPORT batches in this
+trace view must not be treated as a general fragment vocabulary. A later
+open-vocabulary IMPORT interface and closed-loop endpoint evaluation remain
+separate promotion gates.
+
+The reproducible entry point is `scripts/train_system_one_action_family.py`;
+the one-A100 launcher is `scripts/run_taiji_system_one_phase1a_1a100.sh`.
+Outputs include the source/checkpoint/code hashes, frozen prefill features,
+selected action-family head, and valid/test confusion matrices.
