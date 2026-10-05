@@ -26,10 +26,12 @@ METHOD = "full_train_only_morgan_radius2_2048_weighted_knn_k11_p2"
 
 def load_full_rows(full_dir: Path, split: str) -> tuple[list[dict], dict]:
     manifest = json.loads((full_dir / "manifest.json").read_text())
+    product_field = manifest.get("product_source_field", "rxn_prod_min")
     expected = 24959 if split == "train" else 3120
     declared = manifest["splits"][split]
     path = full_dir / f"{split}.jsonl"
-    if (manifest["benchmark_universe"] != "complete_hf_reaction_level_split"
+    if (product_field not in {"rxn_prod_min", "rxn_prod_equ"}
+            or manifest["benchmark_universe"] != "complete_hf_reaction_level_split"
             or manifest["executor_filtering"] is not False
             or declared["rows"] != expected
             or declared["endpoint_sha256"] != sha256(path)):
@@ -54,7 +56,8 @@ def load_full_rows(full_dir: Path, split: str) -> tuple[list[dict], dict]:
     if len(rows) != expected:
         raise ValueError(f"{split}: full endpoint row denominator mismatch")
     return rows, {"sha256": declared["endpoint_sha256"], "rows": expected,
-                  "benchmark_universe": manifest["benchmark_universe"]}
+                  "benchmark_universe": manifest["benchmark_universe"],
+                  "product_source_field": product_field}
 
 
 def evaluate(train: list[dict], heldout: list[dict]) -> tuple[dict, list[dict]]:
@@ -124,6 +127,7 @@ def main() -> None:
         "split": args.split,
         "train_source": train_source,
         "heldout_source": heldout_source,
+        "product_source_field": train_source["product_source_field"],
         "method": METHOD,
         "selection": "k11_p2_frozen_from_strict_validation_then_applied_to_full_train",
         "cases_sha256": sha256(path),

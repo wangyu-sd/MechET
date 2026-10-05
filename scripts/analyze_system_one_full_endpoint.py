@@ -27,9 +27,11 @@ def analyze(run_dir: Path, context_dir: Path, strict_dir: Path, full_dir: Path) 
     split = report["split"]
     full_path = full_dir / f"{split}.jsonl"
     full_manifest = json.loads((full_dir / "manifest.json").read_text())
+    product_field = full_manifest.get("product_source_field", "rxn_prod_min")
     full_declared = full_manifest["splits"][split]
     if (full_manifest["benchmark_universe"] != "complete_hf_reaction_level_split"
             or full_manifest["executor_filtering"] is not False
+            or report.get("product_source_field", "rxn_prod_min") != product_field
             or full_declared["rows"] != 3120
             or full_declared["endpoint_sha256"] != sha256(full_path)
             or report["full_endpoint_source"]["sha256"] != full_declared["endpoint_sha256"]):
@@ -47,6 +49,7 @@ def analyze(run_dir: Path, context_dir: Path, strict_dir: Path, full_dir: Path) 
     context_path = context_dir / "cases.jsonl"
     if (report["context_report_sha256"] != sha256(context_dir / "report.json")
             or context_report["cases_sha256"] != sha256(context_path)
+            or context_report.get("product_source_field", "rxn_prod_min") != product_field
             or report["context_cases_sha256"] != context_report["cases_sha256"]
             or context_report["split"] != split):
         raise ValueError("context prediction source mismatch")
@@ -107,6 +110,7 @@ def analyze(run_dir: Path, context_dir: Path, strict_dir: Path, full_dir: Path) 
     return {
         "artifact_type": "system_one_pr81_full_endpoint_stratified_audit",
         "split": split,
+        "product_source_field": product_field,
         "rollout_report_sha256": sha256(run_dir / "report.json"),
         "rollout_cases_sha256": sha256(path),
         "context_report_sha256": sha256(context_dir / "report.json"),

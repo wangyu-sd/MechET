@@ -32,7 +32,8 @@ from scripts.train_system_one_electron_flow import verify_source
 
 
 def load_policy_contexts(path: Path, *, split: str, train_sha: str,
-                         heldout_sha: str) -> tuple[dict[str, tuple[str, tuple[str, ...]]], dict]:
+                         heldout_sha: str,
+                         product_field: str = "rxn_prod_min") -> tuple[dict[str, tuple[str, tuple[str, ...]]], dict]:
     """Discard held-out context labels before constructing any policy input."""
     report = json.loads((path / "report.json").read_text())
     cases_path = path / "cases.jsonl"
@@ -40,6 +41,7 @@ def load_policy_contexts(path: Path, *, split: str, train_sha: str,
             or report["method"] != METHOD or report["split"] != split
             or report["train_source"]["sha256"] != train_sha
             or report["heldout_source"]["sha256"] != heldout_sha
+            or report.get("product_source_field", "rxn_prod_min") != product_field
             or report["cases_sha256"] != sha256(cases_path)):
         raise ValueError("full endpoint context predictions/source mismatch")
     projected = {}
@@ -99,11 +101,13 @@ def main() -> None:
     if args.limit < 0 or args.max_actions < 1 or args.log_every < 1:
         raise ValueError("invalid selection/action/log budget")
     full_manifest = json.loads((args.full_endpoint_dir / "manifest.json").read_text())
+    product_field = full_manifest.get("product_source_field", "rxn_prod_min")
     train_path = args.full_endpoint_dir / "train.jsonl"
     full_path = args.full_endpoint_dir / f"{args.split}.jsonl"
     train_declared = full_manifest["splits"]["train"]
     full_declared = full_manifest["splits"][args.split]
-    if (full_manifest["benchmark_universe"] != "complete_hf_reaction_level_split"
+    if (product_field not in {"rxn_prod_min", "rxn_prod_equ"}
+            or full_manifest["benchmark_universe"] != "complete_hf_reaction_level_split"
             or full_manifest["executor_filtering"] is not False
             or train_declared["rows"] != 24959
             or train_declared["endpoint_sha256"] != sha256(train_path)
@@ -115,6 +119,7 @@ def main() -> None:
     contexts, context_report = load_policy_contexts(
         args.context_run, split=args.split,
         train_sha=full_train_source["sha256"], heldout_sha=full_source["sha256"],
+        product_field=product_field,
     )
     references = {}
     for line in full_path.read_text().splitlines():
@@ -141,6 +146,7 @@ def main() -> None:
     selected = select_ids(list(references), seed=args.seed, limit=args.limit)
     print(json.dumps({
         "phase": "preflight", "input_contract": "full_endpoint_principal_product_only",
+        "product_source_field": product_field,
         "split": args.split, "full_endpoint_reactions": len(references),
         "selected": len(selected), "context_predictions": len(contexts),
         "full_endpoint_sha256": full_source["sha256"],
@@ -200,6 +206,8 @@ def main() -> None:
         "artifact_type": "system_one_pr81_complete_hf_principal_product_structural_endpoint_evaluation",
         "split": args.split,
         "input_contract": "principal_product_only_with_train_only_predicted_context",
+        "product_source_field": product_field,
+        "product_selection_is_proxy": True,
         "output_contract": "full_endpoint_structural_precursor_product_origin_projection",
         "policy_training_scope": "strict_executable_trace_view_10152_train_reactions",
         "full_endpoint_source": full_source,
