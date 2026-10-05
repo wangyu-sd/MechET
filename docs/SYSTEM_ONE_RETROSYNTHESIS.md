@@ -477,7 +477,7 @@ Results and per-case proposals are under
 `outputs/agent/system_one_pr81_import_retrieval_v2_20261005/`. This
 reference-state candidate recall does not establish off-trajectory robustness
 or product-start endpoint accuracy; it only supplies a transparent pilot
-proposal source for a future closed-loop diagnostic.
+proposal source for the subsequent closed-loop diagnostic.
 
 ### Product-start hybrid pilot gate
 
@@ -560,7 +560,7 @@ reaction. Of the 204 wrong FINISHED endpoints, 119 made no IMPORT decision;
 10 reactions repeated an IMPORT batch. The analysis is saved as
 `failure_analysis.json` beside the full report. These outcomes motivate a
 separately labelled executor-constrained fallback experiment on the same
-validation IDs; they do not revise the frozen baseline result.
+validation IDs, reported below; they do not revise the frozen baseline result.
 
 A retrospective GT-IMPORT stratification (held-out actions read only after
 rollout, never by the policy) locates a second bottleneck. Of 426 reactions
@@ -570,6 +570,31 @@ and reaches the exact endpoint in 220. Thus 101 reference-IMPORT reactions
 miss IMPORT altogether and 29 import an incorrect first batch. On the 893
 reference trajectories without IMPORT, endpoint exact is 695. This breakdown
 is in `failure_analysis_v2.json`; it is not an oracle-assisted policy result.
+
+The separately frozen validation-only follow-up enables
+`--legality-backoff`: only if the original top-two and top-one electron
+actions both fail the executor, it tries the remaining predicted Top-8
+singletons in rank order and accepts the first executable one. It does not
+use a reference action or endpoint score to choose among alternatives. On
+the same 1,319 validation IDs and identical checkpoint hashes, endpoint exact
+rose from **915/1,319 (69.37%)** to **944/1,319 (71.57%)**, a paired gain of
+**29 reactions / +2.20 percentage points** (reaction bootstrap 95% CI
+[+1.44, +3.03] points; 5,000 resamples, seed 17). The paired auditor verified
+that every episode not stopped by a baseline electron failure was unchanged,
+and that the predicted Top-8 ranking was identical at each failed decision:
+29 reactions improved, none worsened. Of 184 original electron-failure
+episodes, 183 were locally rescued; 173 eventually FINISHED, while only 29
+reached the exact endpoint. Final electron failures fell to 7, with 15
+premature/pending FINISH and 5 action-budget outcomes. Measured rollout time
+after model loading was 381.51 s, versus 334.40 s without the fallback.
+The paired audit is
+`outputs/agent/system_one_pr81_product_start_top8legal_comparison_20261005.json`;
+its SHA-256 is `53e0109660776023f32a960df61c373887d94634b8717df5714cc8ae2c2a3e1b`.
+The candidate report and cases are under
+`outputs/agent/system_one_pr81_product_start_top8legal_validfull_20261005/`.
+This is executor-constrained decoding on the strict trace-view validation set,
+not a learned policy improvement, full 3,120-reaction benchmark, test result,
+or whole-trajectory MECH_PROOF verification.
 
 ### Runtime-observation parity gate for closed-loop evaluation
 
@@ -583,9 +608,10 @@ four train prompts differ only in RDKit's equivalent `@`/`@@` serialization of
 the same alias-indexed stereochemical state; history and all other prompt text
 are byte-identical. A chemical or atom-address mismatch fails the audit.
 
-This establishes teacher-forced observation construction, not autonomous
-product-start rollout. In particular, fragment-argument generation and
-off-reference-state behavior are still unmeasured. Reproduce with:
+This parity audit establishes teacher-forced observation construction, not
+autonomous product-start rollout. Fragment-argument selection and
+off-reference-state behavior are measured separately by the hybrid rollout
+above, not by this parity audit. Reproduce the parity audit with:
 
 ```bash
 PYTHONPATH=.:src python scripts/audit_system_one_observation_parity.py \
