@@ -1234,3 +1234,9 @@ Phase-1a and the 64-case validation rollout have separate prepared configs
 but require completed hash-matched parents before submission. Scores from an
 old checkpoint under the new prompt are only the
 negative inference-only control above; do not mix those lineages.
+`scripts/compare_system_one_policy_versions.py` is the frozen paired validation
+auditor: it requires identical selected reaction IDs, product/context inputs
+and references, independently replays every accepted electron action, rescoring
+the structural endpoint and reporting gained/lost cases. Its baseline-side
+64-case replay check already recovers 12 exact and 60 formal finishes; the v2
+candidate side waits for the three matching checkpoints.
