@@ -1297,4 +1297,24 @@ measure autonomous IMPORT-fragment generation or endpoint accuracy.
 The principal-product-only 64-case autonomous endpoint comparison passed its
 local full-source/context/checkpoint preflight and was submitted as ordinary
 one-A100 task `meteor_mechet_pr81_principal_v2_equ_valid64_1a100_qy_20261005_01`
-on 2026-10-06. At submission it was PENDING, not yet an endpoint result.
+on 2026-10-06. It ended successfully. Independent replay of every accepted
+electron action and re-scoring of all 64 structural endpoints found **14/64**
+exact for principal-target v2 versus **12/64** for the frozen old-target
+policy, on identical products, predicted contexts and references. The new
+policy gained reaction IDs `1400` and `28128`, lost none, and formally finished
+61/64 versus 60/64. This +2-case validation pilot is too small to establish a
+reliable generalization gain. The case-level paired audit is
+`outputs/agent/system_one_pr81_principal_v2_equ_valid64_paired_audit_20261006.json`.
+The auditor was repaired to omit rejected legality-backoff attempts from the
+*executed* action-path signature; it still independently replays and scores
+all cases. A regression test covers the formerly missing `accepted` field on
+such failed attempts.
+
+The next gate is the **complete 3,120-reaction validation** split with the
+same full-train-only context proposal and all three v2 policy checkpoints.
+Its source, context and checkpoint preflight selected all 3,120 reactions;
+ordinary one-A100 task
+`meteor_mechet_pr81_principal_v2_equ_valid3120_1a100_qy_20261006_01` was
+submitted on 2026-10-06. The existing old-target 480/3,120 result is the
+paired comparison reference. No v2 test run has yet been submitted; test
+remains unreported for this policy.

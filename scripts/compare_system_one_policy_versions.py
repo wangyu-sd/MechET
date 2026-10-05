@@ -33,10 +33,20 @@ def read_cases(path: Path) -> dict[str, dict]:
 
 def executed_signature(case: dict) -> tuple:
     """Compare executed paths, excluding token lengths, logits and metadata."""
-    return tuple((action["action"], bool(action["accepted"]),
-                  tuple(action.get("selected_pairs", ())),
-                  tuple(tuple(item) for item in action.get("batch", ())),
-                  action.get("state_after")) for action in case["actions"])
+    accepted = []
+    for action in case["actions"]:
+        # An exhausted legality-backoff attempt records execute_ok=False but
+        # has no accepted field; it never changed the executor state.
+        if "accepted" not in action:
+            if action.get("execute_ok") is False:
+                continue
+            raise ValueError("rollout action lacks execution/acceptance status")
+        if action["accepted"]:
+            accepted.append((action["action"],
+                             tuple(action.get("selected_pairs", ())),
+                             tuple(tuple(item) for item in action.get("batch", ())),
+                             action.get("state_after")))
+    return tuple(accepted)
 
 
 def summarize_paired(baseline: dict[str, dict], candidate: dict[str, dict]) -> dict:
@@ -81,11 +91,12 @@ def audit_run(run_dir: Path, references: dict[str, dict], contexts: dict,
         or report.get("cases_sha256") != sha256(cases_path)):
         raise ValueError(f"rollout report/source/hash mismatch: {run_dir}")
     selection = report.get("selection", {})
+    selection_limit = 0 if expected == 3120 else expected
     if (selection.get("method") != "sha256_seed_reaction_id"
-            or selection.get("seed") != 17 or selection.get("limit") != expected):
+            or selection.get("seed") != 17 or selection.get("limit") != selection_limit):
         raise ValueError(f"rollout selection differs from frozen valid slice: {run_dir}")
     rows = read_cases(cases_path)
-    selected = set(select_ids(list(references), seed=17, limit=expected))
+    selected = set(select_ids(list(references), seed=17, limit=selection_limit))
     if set(rows) != selected:
         raise ValueError(f"rollout IDs differ from deterministic selection: {run_dir}")
     exact = completed = 0
@@ -117,8 +128,8 @@ def audit_run(run_dir: Path, references: dict[str, dict], contexts: dict,
 
 def compare(baseline_dir: Path, candidate_dir: Path, context_dir: Path,
             full_endpoint_dir: Path, *, split: str = "valid", expected: int = 64) -> dict:
-    if split != "valid" or expected != 64:
-        raise ValueError("this paired gate is frozen to the 64-reaction validation slice")
+    if split != "valid" or expected not in (64, 3120):
+        raise ValueError("this paired gate requires the frozen 64- or 3120-reaction validation slice")
     manifest = json.loads((full_endpoint_dir / "manifest.json").read_text())
     full_path = full_endpoint_dir / f"{split}.jsonl"
     train_path = full_endpoint_dir / "train.jsonl"
@@ -148,7 +159,7 @@ def compare(baseline_dir: Path, candidate_dir: Path, context_dir: Path,
             or not candidate_report.get("principal_target_prompt", False)):
         raise ValueError("baseline/candidate prompt or context protocol mismatch")
     return {
-        "artifact_type": "system_one_pr81_paired_principal_training_valid64_audit",
+        "artifact_type": f"system_one_pr81_paired_principal_training_valid{expected}_audit",
         "split": split,
         "frozen_reactions": expected,
         "endpoint_source_sha256": full_sha,
@@ -156,7 +167,7 @@ def compare(baseline_dir: Path, candidate_dir: Path, context_dir: Path,
         "baseline_report_sha256": sha256(baseline_dir / "report.json"),
         "candidate_report_sha256": sha256(candidate_dir / "report.json"),
         "comparison": summarize_paired(baseline, candidate),
-        "limitations": ["64-reaction validation pilot, not full-denominator test",
+        "limitations": ["validation split only; held-out test not evaluated",
                         "old and new policies differ in training target/weights and import target mode"],
     }
 
@@ -167,12 +178,13 @@ def main() -> None:
     parser.add_argument("--candidate-dir", type=Path, required=True)
     parser.add_argument("--context-dir", type=Path, required=True)
     parser.add_argument("--full-endpoint-dir", type=Path, required=True)
+    parser.add_argument("--expected", type=int, choices=(64, 3120), default=64)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(args.output)
     result = compare(args.baseline_dir, args.candidate_dir,
-                     args.context_dir, args.full_endpoint_dir)
+                     args.context_dir, args.full_endpoint_dir, expected=args.expected)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2), flush=True)

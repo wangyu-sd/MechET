@@ -4,7 +4,7 @@ import copy
 
 import pytest
 
-from scripts.compare_system_one_policy_versions import summarize_paired
+from scripts.compare_system_one_policy_versions import executed_signature, summarize_paired
 
 
 def _case(reaction_id: str, *, exact: bool, state: str) -> dict:
@@ -42,3 +42,14 @@ def test_paired_summary_rejects_different_input():
     new["a"]["predicted_context_batch"] = ["N"]
     with pytest.raises(ValueError, match="paired input/reference differs"):
         summarize_paired(old, new)
+
+
+def test_executed_signature_ignores_rejected_legality_backoff_attempt():
+    row = _case("a", exact=True, state="CO")
+    expected = executed_signature(row)
+    row["actions"].append({"action": "apply_electron_flow", "execute_ok": False,
+                           "code": "CHEMICAL_STATE_INVALID", "selected_pairs": [99]})
+    assert executed_signature(row) == expected
+    row["actions"].append({"action": "import_fragments"})
+    with pytest.raises(ValueError, match="lacks execution/acceptance status"):
+        executed_signature(row)
