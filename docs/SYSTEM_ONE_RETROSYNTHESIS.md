@@ -646,12 +646,24 @@ extra final-mixture components and sometimes stereochemistry enter its first
 observation, and product-only inference cannot be evaluated by silently
 supplying them. A matched product-only training/evaluation contract or a
 gold-independent multi-context proposal/ranking policy is required before a
-full endpoint claim. The **output** contract also differs: the frozen
-reaction-ID audit found the strict replay's full precursor equal to the
-full-endpoint dataset's `reactants_unmapped` in only 812/1,319 validation and
-816/1,253 test overlaps. The standard benchmark instead scores structural
-precursors. Consequently, simply extending this strict full-precursor scorer
-to all 3,120 products would still not be the standard endpoint evaluation.
+full endpoint claim. The **output** contract also differs, although the
+distinction is primarily representational. A frozen reaction-ID audit of
+strict full precursors against the full-endpoint dataset's `reactants_unmapped`
+finds byte-equivalent visible SMILES in 812/1,319 validation and 816/1,253
+test overlaps. After the repository's structural normalization removes
+equivalent explicitly represented hydrogen, the counts rise to 1,098/1,319
+and 1,074/1,253; the remaining 221/179 differ only in stereochemical
+annotation, with **all 1,319/1,253 having the same component connectivity
+without stereo**. Thus the earlier 812/816 figures must not be interpreted as
+chemical-connectivity failures. The standard endpoint benchmark scores
+**structural precursors**, excluding auxiliary fragments, so its output
+projection still differs from a full-precursor scorer. The hash-bound output
+audits are under `outputs/agent/system_one_pr81_output_gap_{valid,test}_20261005/`;
+their report SHA-256 values are
+`707186eb97a423c4e41c94f930874d13957d2e17c05ce94fcbaed18df3741e28`
+and `666ee7153f711b48b65d302e2425ed02670d4e5232d50bcacbf714012e8e3ca2`.
+Simply extending the present scorer to all 3,120 products would still not
+be the standard structural endpoint evaluation.
 
 `scripts/eval_system_one_product_start_pilot.py` now composes the frozen v1
 three-way router, the frozen typed-v2 electron policy, and **train-only**
