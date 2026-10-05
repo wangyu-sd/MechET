@@ -419,3 +419,24 @@ off-reference-state behavior are still unmeasured. Reproduce with:
 PYTHONPATH=.:src python scripts/audit_system_one_observation_parity.py \
   --data data/mech_uspto_31k_natural_language_history_v2/test.jsonl
 ```
+
+### Reference-path long-horizon diagnostic (v1, not typed-v2)
+
+`scripts/analyze_system_one_reference_path.py` joins the frozen Phase-1a route
+predictions with the frozen v1 local electron-successor cases by decision ID and
+reaction ID. On held-out strict trace-view test, **1,173/1,253 (93.62%)**
+reactions route every action type correctly, **686/1,253 (54.75%)** have every
+electron event produce the reference next state, and **666/1,253 (53.15%)**
+satisfy both conditions at every recorded decision. Validation gives
+**689/1,319 (52.24%)** for the joint condition. The first recorded mismatch on
+test is an electron successor in 555 reactions, versus 32 action-family routing
+mismatches. Among the 49 test reactions with five electron events, only 2 pass
+all local checks, versus 437/772 with two events.
+
+These are **teacher-forced reference-state** checks. Recorded IMPORT fragments
+are assumed, not generated; a different valid trajectory is counted as a
+mismatch. Therefore 53.15% is neither autonomous endpoint accuracy nor a
+mathematical upper bound on it. It diagnoses long-horizon error accumulation
+and makes improvement in coherent electron-event selection a more immediate
+gate than further fitting the three-way route classifier. Hash-bound reports
+are under `outputs/agent/system_one_pr81_reference_path_20261005/`.
