@@ -67,6 +67,10 @@ def append_import_batch(current: str, batch: tuple[tuple[str, int], ...]) -> str
 def load_imports(path: Path) -> tuple[list[ImportExample], dict]:
     source = verify_source(path)
     manifest = json.loads((path.parent / "manifest.json").read_text())
+    target_is_principal = (
+        manifest.get("artifact_type")
+        == "mech_uspto_31k_natural_language_history_principal_target_v2"
+    )
     declared_imports = int(manifest["splits"][path.stem]["import_decisions"])
     examples = []
     rows = 0
@@ -98,16 +102,20 @@ def load_imports(path: Path) -> tuple[list[ImportExample], dict]:
                 canonical_unmapped_smiles(str(result["current_state"]))
             ):
                 raise ValueError(f"{row_id}: IMPORT composition differs from executor")
+            if target_is_principal and not row.get("principal_product_smiles"):
+                raise ValueError(f"{row_id}: missing principal-product target")
             examples.append(ImportExample(
                 row_id=row_id,
                 reaction_id=str(row["metadata"]["reaction_id"]),
-                target=str(row["target_smiles"]),
+                target=str(row["principal_product_smiles"] if target_is_principal
+                           else row["target_smiles"]),
                 current=match.group(1),
                 batch=batch,
             ))
     if rows != source["decision_rows"] or len(examples) != declared_imports:
         raise ValueError(f"{path}: IMPORT decision denominator mismatch")
     return examples, {**source, "import_decisions": declared_imports,
+                      "import_target_mode": "principal_product" if target_is_principal else "mixture",
                       "import_replay_ok": len(examples)}
 
 

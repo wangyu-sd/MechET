@@ -1224,5 +1224,13 @@ electron-flow scoring must all train on this **same new artifact**. Phase-1a
 checks the new Phase-0 source hashes before using its adapter. Product-only
 rollout must likewise use the new strict source and all three new checkpoints,
 with `--principal-target-prompt` and the frozen equ-proxy endpoint/context
-sources. Scores from an old checkpoint under the new prompt are only the
+sources. For v2, train-only import retrieval indexes and queries the exact
+principal input product, not the historical complete-mixture target; the
+runtime checks this mode and the equ-proxy source manifest before rollout.
+The v2 Phase-0 and typed training tasks are
+`meteor_mechet_pr81_principal_phase0_1a100_qy_v2_20261005_01` and
+`meteor_mechet_pr81_principal_typed_1a100_qy_v2_20261005_01`.
+Phase-1a and the 64-case validation rollout have separate prepared configs
+but require completed hash-matched parents before submission. Scores from an
+old checkpoint under the new prompt are only the
 negative inference-only control above; do not mix those lineages.

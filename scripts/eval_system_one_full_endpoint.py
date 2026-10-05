@@ -140,7 +140,24 @@ def main() -> None:
             or not strict_manifest.get("training_allowed")
             or strict_status.get("artifact_id") != strict_manifest.get("artifact_type")):
         raise ValueError("frozen policy strict-trace training lineage forbidden")
+    principal_trained = (
+        strict_manifest["artifact_type"]
+        == "mech_uspto_31k_natural_language_history_principal_target_v2"
+    )
+    if principal_trained and (
+        product_field != "rxn_prod_equ"
+        or not args.principal_target_prompt
+        or strict_manifest.get("target_prompt_contract")
+           != "endpoint_proxy_product_target_line_with_unchanged_executor_mixture_v2"
+        or strict_manifest.get("full_endpoint_manifest_sha256")
+           != sha256(args.full_endpoint_dir / "manifest.json")
+    ):
+        raise ValueError("principal-target v2 evaluation input contract mismatch")
     train_imports, train_source = load_imports(args.strict_dir / "train.jsonl")
+    if train_source["import_target_mode"] != (
+        "principal_product" if principal_trained else "mixture"
+    ):
+        raise ValueError("import retriever target mode disagrees with training artifact")
     strict_source = verify_source(args.strict_dir / f"{args.split}.jsonl")
     lineage = verify_model_lineage(
         args.route_checkpoint, args.route_run, args.typed_checkpoint,
@@ -164,7 +181,7 @@ def main() -> None:
         route_checkpoint=args.route_checkpoint, route_run=args.route_run,
         typed_checkpoint=args.typed_checkpoint, lineage=lineage,
     )
-    retriever = TrainImportRetriever(train_imports)
+    retriever = TrainImportRetriever(train_imports, target_is_principal=principal_trained)
     args.output.mkdir(parents=True)
     started = time.perf_counter()
     counts: Counter[str] = Counter()

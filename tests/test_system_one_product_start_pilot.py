@@ -215,3 +215,23 @@ def test_principal_target_prompt_changes_only_visible_target_line():
     assert captured[0].startswith(
         "TARGET PRODUCT SMILES: CO.[Cl-]\nCURRENT STATE SMILES: CO.[Cl-]"
     )
+
+
+def test_principal_trained_import_retrieval_queries_input_product():
+    queries = []
+
+    class ImportOnce:
+        def route(self, messages, tools, observation):
+            return "import_fragments", [1.0, 0.0, 0.0], 10
+
+    class CaptureRetriever:
+        target_is_principal = True
+
+        def propose(self, target, current):
+            queries.append((target, current))
+            return (("O", 1),)
+
+    task = ProductInput("example", "CO.[Cl-]", "Infer an electron flow.", [])
+    rollout(task, ImportOnce(), CaptureRetriever(), max_actions=1,
+            principal_product="CO", principal_target_prompt=True)
+    assert queries == [("CO", "CO.[Cl-]")]

@@ -277,8 +277,9 @@ class HybridPolicy:
 
 
 class TrainImportRetriever:
-    def __init__(self, train: list[ImportExample]):
+    def __init__(self, train: list[ImportExample], *, target_is_principal: bool = False):
         self.train = train
+        self.target_is_principal = target_is_principal
         self.generator = rdFingerprintGenerator.GetMorganGenerator(radius=2, fpSize=2048)
         self.target_fps = [fingerprint(row.target, self.generator) for row in train]
         self.current_fps = [fingerprint(row.current, self.generator) for row in train]
@@ -439,7 +440,13 @@ def rollout(policy_input: ProductInput, policy: HybridPolicy, retriever: TrainIm
             actions.append(record)
             break
         if action == "import_fragments":
-            batch = retriever.propose(policy_input.target, current)
+            retrieval_target = (
+                principal_product if getattr(retriever, "target_is_principal", False)
+                else policy_input.target
+            )
+            if not retrieval_target:
+                raise ValueError("principal-product import retrieval requires the input product")
+            batch = retriever.propose(retrieval_target, current)
             successor = append_import_batch(current, batch)
             arguments = {"fragments": [
                 {"smiles": smiles, "count": count, "purpose": "electron_participant"}
