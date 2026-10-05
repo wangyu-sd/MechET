@@ -492,6 +492,16 @@ components in **1,270/1,319 validation** and **1,212/1,253 test** reactions.
 The benchmark principal product is an exact component of the strict mixture
 in only 1,098/1,319 validation and 1,074/1,253 test reactions; merely
 dismissing extra components would therefore still leave unmatched inputs.
+After ignoring stereochemical annotation, however, the principal product is
+a component in **all 10,152/1,319/1,253 train/valid/test** strict-trace
+reactions. Thus the remaining component mismatches are stereochemical, not
+connectivity mismatches under this audit; the principal-product benchmark may
+omit stereo information visible in the strict mixture. The residual
+final-mixture context has only 14 distinct stereo-agnostic component batches
+and 13 distinct fragments in the strict training view; every validation/test
+residual batch occurs in train. This makes a train-only context-completion
+pilot feasible **within this trace view**, but does not establish coverage of
+the 1,867 remaining full-endpoint test reactions without executable traces.
 For example, strict test reaction 4 includes a bromide byproduct in its
 input, whereas the principal-product benchmark input does not. All rollout
 results below must therefore be read as **final-mixture-start, strict-trace-
@@ -504,6 +514,12 @@ accuracy. The audits are
 case target to its strict source row. Their SHA-256 values are
 `3ca787e171f5d4d2dda245043f924d4866bb5cf7cf9f5cb457197d5837cbe879`
 and `10110365ad5a4c5d1f1343529abf624de2d586e4063d4529b55f79b8d1d67c51`.
+The expanded stereo-agnostic context audits are preserved separately as
+`outputs/agent/system_one_pr81_input_gap_{train,valid,test}_v2_20261005.json`.
+Their respective SHA-256 values are
+`9ee126c51f4e9b412b3818cd2416f879ef32346a92770d132f26dd1f8706751a`,
+`e67168ce633970e0ae700b1490f167bb779a3639abe38b5610c765786efceecd`,
+and `45e76fc2ff74fc3c31f0cba09abb04001a10d0d924fb60c141ab9e8dec748843`.
 Each frozen rollout directory also contains an `INPUT_CONTRACT_CORRECTION.json`
 sidecar; report and case hashes were not modified. A genuine full-endpoint experiment needs
 a matched principal-product input/training contract and the full 3,120-row

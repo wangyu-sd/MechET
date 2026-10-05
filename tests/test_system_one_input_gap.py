@@ -16,3 +16,17 @@ def test_input_gap_distinguishes_final_mixture_from_principal_product():
 
 def test_product_component_containment_uses_multisets():
     assert component_counter("C.C") - component_counter("C")
+
+
+def test_stereo_only_gap_and_residual_context_are_separate():
+    strict = {"1": {"target_smiles": "F[C@H](Cl)Br.[I-]",
+                    "expected_precursor": "F[C@H](Cl)Br.[I-]"}}
+    full = {"1": {"product_unmapped": "FC(Cl)Br",
+                  "reactants_unmapped": "FC(Cl)Br.[I-]",
+                  "precursor_unmapped": "FC(Cl)Br"}}
+    result = audit(strict, full)
+    assert result["counts"]["principal_product_components_contained_in_strict_target"] == 0
+    assert result["counts"]["principal_product_components_contained_without_stereo"] == 1
+    assert result["residual_context_batches_without_stereo"] == [
+        {"components": ["[I-]"], "reactions": 1}
+    ]

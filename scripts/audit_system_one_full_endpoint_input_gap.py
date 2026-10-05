@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 import sys
 
+from rdkit import Chem
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
@@ -30,14 +32,24 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def component_counter(smiles: str) -> Counter[str]:
-    return Counter(canonical_visible(smiles).split("."))
+def component_counter(smiles: str, *, isomeric: bool = True) -> Counter[str]:
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    molecule = Chem.MolFromSmiles(smiles, params)
+    if molecule is None:
+        raise ValueError("invalid molecular mixture in input gap audit")
+    for atom in molecule.GetAtoms():
+        atom.SetAtomMapNum(0)
+    return Counter(Chem.MolToSmiles(
+        molecule, canonical=True, isomericSmiles=isomeric
+    ).split("."))
 
 
 def audit(strict_rows: dict[str, dict], full_rows: dict[str, dict]) -> dict:
     if not set(strict_rows) <= set(full_rows):
         raise ValueError("strict trace reaction IDs absent from full endpoint split")
     counts: Counter[str] = Counter()
+    residual_batches: Counter[tuple[str, ...]] = Counter()
     examples = []
     for reaction_id in sorted(strict_rows, key=lambda value: int(value)):
         strict, full = strict_rows[reaction_id], full_rows[reaction_id]
@@ -55,6 +67,16 @@ def audit(strict_rows: dict[str, dict], full_rows: dict[str, dict]) -> dict:
         counts["principal_product_components_contained_in_strict_target"] += int(
             not (component_counter(principal_product) - component_counter(strict_target))
         )
+        strict_nostereo = component_counter(strict_target, isomeric=False)
+        product_nostereo = component_counter(principal_product, isomeric=False)
+        no_stereo_contained = not (product_nostereo - strict_nostereo)
+        counts["principal_product_components_contained_without_stereo"] += int(
+            no_stereo_contained
+        )
+        if no_stereo_contained:
+            batch = tuple(sorted((strict_nostereo - product_nostereo).elements()))
+            residual_batches[batch] += 1
+            counts["nonempty_residual_context_batch_without_stereo"] += int(bool(batch))
         counts["strict_precursor_equals_full_reactants"] += int(
             strict_precursor == full_reactants
         )
@@ -67,14 +89,21 @@ def audit(strict_rows: dict[str, dict], full_rows: dict[str, dict]) -> dict:
                 "strict_final_mixture_target": strict_target,
                 "full_endpoint_principal_product": principal_product,
             })
-    return {"counts": dict(sorted(counts.items())), "examples": examples}
+    return {
+        "counts": dict(sorted(counts.items())),
+        "residual_context_batches_without_stereo": [
+            {"components": list(batch), "reactions": count}
+            for batch, count in residual_batches.most_common()
+        ],
+        "examples": examples,
+    }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--strict-dir", type=Path, required=True)
     parser.add_argument("--full-endpoint-dir", type=Path, required=True)
-    parser.add_argument("--split", choices=("valid", "test"), required=True)
+    parser.add_argument("--split", choices=("train", "valid", "test"), required=True)
     parser.add_argument("--cases", type=Path,
                         help="optional completed PR81 rollout cases.jsonl to bind its input")
     parser.add_argument("--output", type=Path, required=True)
@@ -86,9 +115,10 @@ def main() -> None:
     strict_source = verify_source(strict_path)
     manifest = json.loads((args.full_endpoint_dir / "manifest.json").read_text())
     declared = manifest["splits"][args.split]
+    expected_full_rows = 24959 if args.split == "train" else 3120
     if (manifest["benchmark_universe"] != "complete_hf_reaction_level_split"
             or manifest["executor_filtering"] is not False
-            or declared["rows"] != 3120
+            or declared["rows"] != expected_full_rows
             or sha256(full_path) != declared["endpoint_sha256"]):
         raise ValueError("full endpoint benchmark manifest/hash/denominator mismatch")
     strict_rows = {}
@@ -109,7 +139,7 @@ def main() -> None:
         if reaction_id in full_rows:
             raise ValueError(f"duplicate full endpoint reaction: {reaction_id}")
         full_rows[reaction_id] = row
-    if len(full_rows) != 3120:
+    if len(full_rows) != expected_full_rows:
         raise ValueError("full endpoint reaction count mismatch")
     result = {
         "artifact_type": "system_one_strict_mixture_vs_full_principal_product_audit",
@@ -117,7 +147,7 @@ def main() -> None:
         "strict_source_sha256": strict_source["sha256"],
         "strict_reaction_denominator": strict_source["reaction_denominator"],
         "full_endpoint_sha256": declared["endpoint_sha256"],
-        "full_endpoint_denominator": 3120,
+        "full_endpoint_denominator": expected_full_rows,
         **audit(strict_rows, full_rows),
     }
     if args.cases:
@@ -137,7 +167,8 @@ def main() -> None:
         result["rollout_cases_sha256"] = sha256(args.cases)
         result["rollout_targets_equal_strict_final_mixture"] = len(seen)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
-    print(json.dumps({key: value for key, value in result.items() if key != "examples"}, indent=2))
+    print(json.dumps({key: value for key, value in result.items()
+                      if key not in {"examples", "residual_context_batches_without_stereo"}}, indent=2))
 
 
 if __name__ == "__main__":
