@@ -454,6 +454,7 @@ def main() -> None:
         "import_retriever_sha256": file_sha256(
             ROOT / "scripts/eval_system_one_import_retrieval.py"
         ),
+        "pointer_parser_sha256": file_sha256(ROOT / "src/mechet/electron_pointer.py"),
         "policy": "frozen_v1_route_plus_typed_v2_electrons_plus_train_only_import_retrieval",
         "endpoint_exact": counts["endpoint_exact"],
         "endpoint_exact_rate": counts["endpoint_exact"] / len(selected),

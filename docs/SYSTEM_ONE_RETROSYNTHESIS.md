@@ -506,6 +506,14 @@ passed one extra hidden vector to the four-argument typed head. The wrapper
 now matches the frozen evaluator's call signature, with a regression test that
 executes the actual typed-head forward path. The failed task/output remain
 archived; the replacement uses a distinct task flag and output directory.
+That replacement reached actual closed-loop decisions, then exposed a second
+runtime-only mismatch: the inventory preserves an explicit `[H]` atom while
+the position parser had used RDKit's default hydrogen-removal setting. The
+parser now retains explicit hydrogens. The corrected parser still accepts
+**all** frozen 19,199 / 2,543 / 2,371 train/valid/test electron events with
+zero unsupported records and zero changed reference candidate inventories
+relative to the old parser. The partial second-attempt cases are preserved;
+neither failed launch is reported as an endpoint result.
 
 ### Runtime-observation parity gate for closed-loop evaluation
 

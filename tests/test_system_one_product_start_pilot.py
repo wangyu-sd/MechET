@@ -4,6 +4,8 @@ import torch
 
 from mechet.electron_pointer import parse_pointer_observation
 from mechet.jev_style_decision import FactorizedTypedElectronFlowHead
+from mechet.natural_language_electron_flow import build_inventory
+from scripts.audit_system_one_observation_parity import mapped_from_visible
 from scripts.eval_system_one_product_start_pilot import (
     HybridPolicy,
     ProductInput,
@@ -85,6 +87,12 @@ def test_hash_selection_does_not_depend_on_expected_precursor():
 def test_strict_endpoint_canonicalization_keeps_explicit_hydrogen():
     assert canonical_visible("[H]O") != canonical_visible("O")
     assert canonical_visible("CO.[H][H]") == canonical_visible("[H][H].CO")
+
+
+def test_runtime_inventory_keeps_explicit_hydrogen_atom_handles():
+    prompt = build_inventory(mapped_from_visible("CO.[H]O")).prompt
+    observation = parse_pointer_observation(prompt)
+    assert len(observation.atom_names) == 4
 
 
 def test_premature_finish_is_not_credited_as_executable_endpoint():
