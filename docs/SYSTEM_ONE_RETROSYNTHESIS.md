@@ -1005,3 +1005,28 @@ is `data/mech_uspto_31k_full_endpoint_rxnmapper_equ_proxy_smoke50_20261005/`.
 The full-size job uses a different output directory and reuses old RXNMapper
 rows only when the entire unmapped reaction pair is byte-identical; the
 old cache is read-only and pinned by SHA-256.
+
+The full-size separate equ-field proxy mapping then ended successfully as
+`meteor_mechet_pr81_equ_proxy_mapping_full_1a100_qy_20261005_01` (ordinary
+one-A100 Qingyuan task, 654 s). Its manifest and line counts agree at
+**24,959/3,120/3,120**, the mapping cache has exactly 31,199 reactions, and
+no executor or mapping failure filtering occurred. The new artifact is
+`data/mech_uspto_31k_full_endpoint_rxnmapper_equ_proxy_v1_20261005/` with
+train/valid/test endpoint SHA-256 respectively
+`7838aa1628ce1069b6a95dd24709474de8adc2eeefa940b9b6a2e04523f57048`,
+`cd12231f99b80744d0b55bf0fd60b4e60530832b736f73d78c109b4a7bec62ef`,
+and `3477312d24f1ab635248f086a51d88db72921ed7d6771d95970524ba47e99293`.
+This is a **new proxy version**, not a retroactive correction to any earlier
+full-endpoint score or the original Figshare product labels.
+
+Using only the new equ-proxy **train** split, the previously frozen k=11,
+squared-Tanimoto context rule was rerun without changing its hyperparameters.
+It recovers the recorded final-mixture context for 1,800/3,120 validation
+(57.69%) and 1,802/3,120 test (57.76%) reactions. This is a context-retrieval
+diagnostic, not a retrosynthesis endpoint result; the drop from the old
+min-field context scores is expected when the selected product changes. The
+hash-bound reports are
+`outputs/agent/system_one_pr81_equ_context_knn_{valid,test}_20261005/`
+(report SHA-256
+`95c9f6c412471ac1f69415538a8c2d1a060e4040f636ccd06c007294e9ed4fb4`
+and `919e6148104f47eda0d01c8893b48dc8d033bda0d584f7ad001d7e0ee56a5b64`).

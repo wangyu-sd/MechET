@@ -4,7 +4,7 @@ set -Eeuo pipefail
 repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr81-system-one-20261004
 shared=/aaa/fionafyang/buddy1/whaleywang/MechET
 strict_data="$shared/data/mech_uspto_31k_natural_language_history_v2"
-full_data="$shared/data/mech_uspto_31k_full_endpoint_rxnmapper"
+full_data="${MECHET_FULL_ENDPOINT_SOURCE_DIR:-$shared/data/mech_uspto_31k_full_endpoint_rxnmapper}"
 route_checkpoint="$shared/outputs/agent/system_one_pr81_phase0_31k_20261005_v2/full"
 route_run="$shared/outputs/agent/system_one_pr81_phase1a_route_31k_20261005"
 typed_checkpoint="$shared/outputs/agent/system_one_pr81_jev_typed_v2_31k_20261005/full"
@@ -13,10 +13,11 @@ case "$split" in
   valid|test) ;;
   *) printf 'invalid MECHET_FULL_ENDPOINT_SPLIT=%s\n' "$split" >&2; exit 2 ;;
 esac
-context_run="$shared/outputs/agent/system_one_pr81_full_context_knn_${split}_20261005"
+context_run="${MECHET_FULL_ENDPOINT_CONTEXT_RUN:-$shared/outputs/agent/system_one_pr81_full_context_knn_${split}_20261005}"
 output="${MECHET_FULL_ENDPOINT_OUTPUT:-$shared/outputs/agent/system_one_pr81_full_endpoint_${split}64_20261005}"
 limit="${MECHET_FULL_ENDPOINT_LIMIT:-64}"
 expected="${MECHET_FULL_ENDPOINT_EXPECTED:-64}"
+expected_field="${MECHET_FULL_ENDPOINT_PRODUCT_FIELD:-rxn_prod_min}"
 log_every="${MECHET_FULL_ENDPOINT_LOG_EVERY:-8}"
 shared_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 
@@ -43,6 +44,7 @@ assert torch.cuda.device_count() == 1
 assert 'A100' in torch.cuda.get_device_name(0).upper()
 PY
 
+test -s "$full_data/manifest.json"
 test -s "$context_run/report.json"
 test -s "$context_run/cases.jsonl"
 test -s "$route_checkpoint/run_manifest_epoch1.json"
@@ -71,7 +73,7 @@ python scripts/eval_system_one_full_endpoint.py \
   --log-every "$log_every"
 test -s "$output/report.json"
 test -s "$output/cases.jsonl"
-python - "$output/report.json" "$output/cases.jsonl" "$split" "$expected" <<'PY'
+python - "$output/report.json" "$output/cases.jsonl" "$split" "$expected" "$expected_field" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -81,6 +83,7 @@ cases = sum(1 for line in Path(sys.argv[2]).open() if line.strip())
 assert report['split'] == sys.argv[3]
 assert report['full_endpoint_reaction_denominator'] == 3120
 assert report['evaluated_reactions'] == cases == int(sys.argv[4])
+assert report['product_source_field'] == sys.argv[5]
 assert report['input_contract'] == 'principal_product_only_with_train_only_predicted_context'
 assert report['output_contract'] == 'full_endpoint_structural_precursor_product_origin_projection'
 print({'phase': 'validated_full_endpoint_report', 'evaluated_reactions': cases,

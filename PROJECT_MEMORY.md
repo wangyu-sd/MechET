@@ -13,7 +13,11 @@
 > against its own frozen mapping. Even equ-field largest-organic selection is
 > not yet verified against the original Figshare reaction table. The audit,
 > changed reaction IDs, compiler-coverage stratification and limitations are
-> in `docs/SYSTEM_ONE_RETROSYNTHESIS.md`.
+> in `docs/SYSTEM_ONE_RETROSYNTHESIS.md`. A separate equ-field proxy was fully
+> mapped on 2026-10-05 at
+> `data/mech_uspto_31k_full_endpoint_rxnmapper_equ_proxy_v1_20261005/`
+> with 24,959/3,120/3,120 rows and zero mapping/filtering exclusions. No
+> corrected System-One endpoint score is established merely by this build.
 
 > **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
 > compact-history task was stopped because its action-conditioned observation

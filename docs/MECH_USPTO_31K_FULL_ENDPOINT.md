@@ -124,6 +124,14 @@ requires explicit new output and LocalRetro directories. Run the source audit
 and remap all three splits before training or evaluating on the alternative;
 never mix min-field and equ-field train/test files.
 
+PR #81 completed that separate build at
+`data/mech_uspto_31k_full_endpoint_rxnmapper_equ_proxy_v1_20261005/` with
+24,959/3,120/3,120 rows and RXNMapper 0.4.2/Transformers 4.57.1. The
+newly mapped LocalRetro CSVs have their own directory under
+`data/baselines/localretro_mech_uspto_31k_rxnmapper_equ_proxy_v1_20261005/`.
+The equ-field selection is still explicitly labelled a proxy; its existence
+does not certify desired-product labels or validate old min-field results.
+
 The legacy `data/mech_uspto_31k_full_endpoint_sft/` copied unmapped HF endpoint
 strings into fields named `product_mapped` and `precursor_mapped`. It is invalid
 for LocalRetro and is permanently excluded from new training.
