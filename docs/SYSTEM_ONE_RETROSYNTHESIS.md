@@ -1318,7 +1318,41 @@ ordinary one-A100 task
 submitted on 2026-10-06. The existing old-target 480/3,120 result is the
 paired comparison reference; an independent full-denominator replay has
 already recovered all 3,120 rows, 480 exact endpoints and 2,944 formal
-finishes. The paired auditor now supports the frozen complete-validation
-selection and reports reaction-level bootstrap intervals, in addition to
-independently replaying each endpoint. No v2 test run has yet been submitted; test
-remains unreported for this policy.
+finishes. The paired auditor supports the frozen complete-validation selection
+and reports reaction-level bootstrap intervals, in addition to independently
+replaying each endpoint.
+
+### Complete principal-target-v2 validation endpoint result (2026-10-06)
+
+The one-A100 validation task ended successfully on **all 3,120** frozen
+equ-field-proxy reactions. The case-level auditor independently replayed both
+policies, checked every source/context/reference hash and re-scored every
+structural precursor endpoint:
+
+| Same frozen valid split | Old target policy | Principal-target v2 |
+|---|---:|---:|
+| Structural precursor exact | 480/3,120 (15.38%) | 516/3,120 (16.54%) |
+| Formal finish | 2,944/3,120 (94.36%) | 2,787/3,120 (89.33%) |
+| Exact within strict-trace coverage | 470/1,319 | 510/1,319 |
+| Exact outside strict-trace coverage | 10/1,801 | 6/1,801 |
+
+On the same reaction IDs, the v2 policy gained 70 exact endpoints and lost
+34, for a net **+36/3,120 = +1.15 percentage points**. The reaction-level
+paired bootstrap 95% interval is **[+0.51, +1.79] points** (seed 17, 5,000
+resamples). The gain is concentrated within the strict-trace training view;
+outside it, exact hits fall from 10 to 6. The same full-train-only context
+proposal gives 1,800/3,120 exact context batches for both runs. This supports
+a modest endpoint gain on validation, with a material decline in formal
+completion and poor out-of-coverage generalization; it is not a blanket
+superiority claim. The selected product is still a deterministic `rxn_prod_equ`
+proxy, not an authenticated intended product from the original patent.
+
+Audited artifacts on shared Ceph:
+`outputs/agent/system_one_pr81_principal_v2_equ_valid3120_paired_audit_20261006.json`
+(SHA-256 `9d30f3d628ab324f448f56135ae20b759837057827dfb125937e137801c55c46`)
+and `outputs/agent/system_one_pr81_principal_v2_equ_valid3120_compiler_strata_20261006.json`
+(SHA-256 `22badc8bdc2c617180944bbf4ccf1c93d5516594feca21e8bcc042c4cd971ca3`).
+Following this frozen validation gate, a complete 3,120-reaction **test** task
+was submitted with the same v2 checkpoints and equ-proxy protocol:
+`meteor_mechet_pr81_principal_v2_equ_test3120_1a100_qy_20261006_01`.
+It is running; no v2 full-test endpoint result is claimed yet.

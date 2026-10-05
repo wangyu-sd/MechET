@@ -4,7 +4,11 @@ import copy
 
 import pytest
 
-from scripts.compare_system_one_policy_versions import executed_signature, summarize_paired
+from pathlib import Path
+
+from scripts.compare_system_one_policy_versions import (
+    compare, executed_signature, summarize_paired,
+)
 
 
 def _case(reaction_id: str, *, exact: bool, state: str) -> dict:
@@ -55,3 +59,9 @@ def test_executed_signature_ignores_rejected_legality_backoff_attempt():
     row["actions"].append({"action": "import_fragments"})
     with pytest.raises(ValueError, match="lacks execution/acceptance status"):
         executed_signature(row)
+
+
+def test_paired_gate_rejects_partial_test_denominator():
+    with pytest.raises(ValueError, match="valid64, valid3120 or test3120"):
+        compare(Path("baseline"), Path("candidate"), Path("context"), Path("source"),
+                split="test", expected=64)

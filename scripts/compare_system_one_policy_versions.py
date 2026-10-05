@@ -106,7 +106,7 @@ def audit_run(run_dir: Path, references: dict[str, dict], contexts: dict,
     selection_limit = 0 if expected == 3120 else expected
     if (selection.get("method") != "sha256_seed_reaction_id"
             or selection.get("seed") != 17 or selection.get("limit") != selection_limit):
-        raise ValueError(f"rollout selection differs from frozen valid slice: {run_dir}")
+        raise ValueError(f"rollout selection differs from frozen {split} slice: {run_dir}")
     rows = read_cases(cases_path)
     selected = set(select_ids(list(references), seed=17, limit=selection_limit))
     if set(rows) != selected:
@@ -140,8 +140,8 @@ def audit_run(run_dir: Path, references: dict[str, dict], contexts: dict,
 
 def compare(baseline_dir: Path, candidate_dir: Path, context_dir: Path,
             full_endpoint_dir: Path, *, split: str = "valid", expected: int = 64) -> dict:
-    if split != "valid" or expected not in (64, 3120):
-        raise ValueError("this paired gate requires the frozen 64- or 3120-reaction validation slice")
+    if (split, expected) not in (("valid", 64), ("valid", 3120), ("test", 3120)):
+        raise ValueError("this paired gate requires valid64, valid3120 or test3120")
     manifest = json.loads((full_endpoint_dir / "manifest.json").read_text())
     full_path = full_endpoint_dir / f"{split}.jsonl"
     train_path = full_endpoint_dir / "train.jsonl"
@@ -171,7 +171,7 @@ def compare(baseline_dir: Path, candidate_dir: Path, context_dir: Path,
             or not candidate_report.get("principal_target_prompt", False)):
         raise ValueError("baseline/candidate prompt or context protocol mismatch")
     return {
-        "artifact_type": f"system_one_pr81_paired_principal_training_valid{expected}_audit",
+        "artifact_type": f"system_one_pr81_paired_principal_training_{split}{expected}_audit",
         "split": split,
         "frozen_reactions": expected,
         "endpoint_source_sha256": full_sha,
@@ -179,8 +179,8 @@ def compare(baseline_dir: Path, candidate_dir: Path, context_dir: Path,
         "baseline_report_sha256": sha256(baseline_dir / "report.json"),
         "candidate_report_sha256": sha256(candidate_dir / "report.json"),
         "comparison": summarize_paired(baseline, candidate),
-        "limitations": ["validation split only; held-out test not evaluated",
-                        "old and new policies differ in training target/weights and import target mode"],
+        "limitations": ["old and new policies differ in training target/weights and import target mode",
+                        "equ-field principal product is a deterministic proxy, not an authenticated desired-product label"],
     }
 
 
@@ -190,13 +190,15 @@ def main() -> None:
     parser.add_argument("--candidate-dir", type=Path, required=True)
     parser.add_argument("--context-dir", type=Path, required=True)
     parser.add_argument("--full-endpoint-dir", type=Path, required=True)
+    parser.add_argument("--split", choices=("valid", "test"), default="valid")
     parser.add_argument("--expected", type=int, choices=(64, 3120), default=64)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(args.output)
     result = compare(args.baseline_dir, args.candidate_dir,
-                     args.context_dir, args.full_endpoint_dir, expected=args.expected)
+                     args.context_dir, args.full_endpoint_dir,
+                     split=args.split, expected=args.expected)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2), flush=True)
