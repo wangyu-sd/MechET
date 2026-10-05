@@ -1,4 +1,8 @@
-from scripts.analyze_system_one_action_family import calibration, history_signature
+import json
+
+from scripts.analyze_system_one_action_family import (
+    calibration, history_signature, import_batch_strata,
+)
 
 
 def test_route_calibration_counts_bins_and_selective_accuracy():
@@ -21,3 +25,19 @@ def test_history_signature_uses_past_fields_only():
     assert history_signature(text) == (
         "apply_electron_flow", "0", "1", "apply_electron_flow", "PASS"
     )
+
+
+def test_import_batch_strata_counts_wrong_finish(tmp_path):
+    path = tmp_path / "test.jsonl"
+    rows = [{"id": str(index), "metadata": {"decision_type": "import"},
+             "messages": [{"role": "assistant", "tool_calls": [{"function": {
+                 "name": "import_fragments", "arguments": {"fragments": [{
+                     "smiles": "[Cl-]", "count": 1,
+                     "purpose": "electron_participant"
+                 }]}
+             }}]}]} for index in range(2)]
+    path.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    strata = import_batch_strata(path, [1, 2])
+    assert strata[0]["n"] == 2
+    assert strata[0]["predictions"]["finish_trace"] == 1
+    assert strata[0]["import_recall"] == 0.5

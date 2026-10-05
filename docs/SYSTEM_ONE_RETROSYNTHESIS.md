@@ -334,6 +334,13 @@ but this alone does not establish whether the alternate terminal mixture is
 chemically unacceptable. The next gate still requires open-vocabulary IMPORT
 arguments and product-start executor rollout.
 
+IMPORT recall is not uniform across the seven test batches: the dominant
+`[H][H]` plus `[Na+]` batch is recognized in 277/292 cases (94.86%), while
+`[Cl-]` is recognized in 8/13 (61.54%) and `[Br-]` in 10/13 (76.92%). The
+rare-batch denominators are small, so these are failure-mode indicators rather
+than stable per-chemistry estimates. The hash-checked error-analysis script
+now records every batch's support and full three-way confusion.
+
 ### IMPORT-space generalization boundary
 
 `scripts/audit_system_one_import_space.py` measures observed IMPORT actions

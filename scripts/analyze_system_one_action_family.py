@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from mechet.system_one_action_family import (
     ACTION_NAMES, ACTION_TO_INDEX, DECISION_TO_ACTION, ActionFamilyHead,
 )
+from scripts.audit_system_one_import_space import normalize_batch
 from scripts.train_system_one_action_family import file_sha256, load_split, metrics
 
 
@@ -84,6 +85,35 @@ def history_only_predictions(train_path: Path, selected) -> list[int]:
         bucket = counts.get(signature) or fallback.get(signature[1:3])
         predictions.append(majority(bucket) if bucket else 0)
     return predictions
+
+
+def import_batch_strata(source: Path, predictions: list[int]) -> list[dict]:
+    """Separate common IMPORT batches from rare counterion/fragment errors."""
+    counts = defaultdict(Counter)
+    with source.open() as handle:
+        for line, prediction in zip(handle, predictions, strict=True):
+            row = json.loads(line)
+            if row["metadata"]["decision_type"] != "import":
+                continue
+            calls = [call for message in row["messages"]
+                     if message.get("role") == "assistant"
+                     for call in message.get("tool_calls", ())]
+            if len(calls) != 1 or calls[0]["function"]["name"] != "import_fragments":
+                raise ValueError(f"{row['id']}: IMPORT label disagrees with tool call")
+            batch = normalize_batch(calls[0]["function"]["arguments"])
+            counts[batch][prediction] += 1
+    result = []
+    for batch, choices in sorted(counts.items(), key=lambda item: -sum(item[1].values())):
+        total = sum(choices.values())
+        result.append({
+            "fragments": [{"smiles": smiles, "count": count, "purpose": purpose}
+                          for smiles, count, purpose in batch],
+            "n": total,
+            "predictions": {ACTION_NAMES[index]: choices[index]
+                            for index in range(len(ACTION_NAMES))},
+            "import_recall": choices[ACTION_TO_INDEX["import_fragments"]] / total,
+        })
+    return result
 
 
 def main() -> int:
@@ -176,6 +206,7 @@ def main() -> int:
         "history_only_baseline": metrics(
             labels, history_only_predictions(train_source, examples)
         ),
+        "import_batch_strata": import_batch_strata(source, predictions),
         "calibration": calibration(probabilities, labels),
         "by_accepted_action_count_capped_at_4": dict(sorted(by_history.items())),
         "high_confidence_errors": cases,
