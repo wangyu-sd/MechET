@@ -192,3 +192,26 @@ def test_first_event_focus_keeps_already_target_localized_baseline():
 
 def test_principal_localization_ignores_stereotag_only():
     assert principal_component_atom_indices("C[C@H](O)F.[Cl-]", "CC(O)F") == {0, 1, 2, 3}
+
+
+def test_principal_target_prompt_changes_only_visible_target_line():
+    captured = []
+
+    class CaptureThenFinish:
+        def route(self, messages, tools, observation):
+            captured.append(messages[-1]["content"])
+            return "finish_trace", [0.0, 0.0, 1.0], 10
+
+    class UnusedRetriever:
+        def propose(self, target, current):
+            raise AssertionError("retriever should not be called")
+
+    task = ProductInput("example", "CO.[Cl-]", "Infer an electron flow.", [])
+    rollout(task, CaptureThenFinish(), UnusedRetriever(), max_actions=1,
+            principal_product="CO", principal_target_prompt=True)
+    assert captured[0].startswith("TARGET PRODUCT SMILES: CO\nCURRENT STATE SMILES: CO.[Cl-]")
+    captured.clear()
+    rollout(task, CaptureThenFinish(), UnusedRetriever(), max_actions=1)
+    assert captured[0].startswith(
+        "TARGET PRODUCT SMILES: CO.[Cl-]\nCURRENT STATE SMILES: CO.[Cl-]"
+    )

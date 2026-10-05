@@ -399,17 +399,21 @@ def execute_first_event_target_focus(
 def rollout(policy_input: ProductInput, policy: HybridPolicy, retriever: TrainImportRetriever,
             *, max_actions: int, legality_backoff: bool = False,
             principal_product: str | None = None,
-            first_event_target_focus: bool = False) -> dict:
+            first_event_target_focus: bool = False,
+            principal_target_prompt: bool = False) -> dict:
     if first_event_target_focus and (not legality_backoff or not principal_product):
         raise ValueError("first-event target focus requires Top-8 legality backoff and input product")
+    if principal_target_prompt and not principal_product:
+        raise ValueError("principal-target prompt requires the input product")
     current = policy_input.target
+    target_in_prompt = principal_product if principal_target_prompt else policy_input.target
     history = TrajectoryHistory()
     actions = []
     pending_import = False
     terminal = "ACTION_BUDGET"
     max_route_tokens = max_typed_tokens = 0
     for step in range(max_actions):
-        prompt = runtime_prompt(policy_input.target, current, history)
+        prompt = runtime_prompt(target_in_prompt, current, history)
         messages = [
             {"role": "system", "content": policy_input.system},
             {"role": "user", "content": prompt},
