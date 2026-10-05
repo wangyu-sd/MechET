@@ -8,6 +8,12 @@ route_checkpoint="$shared/outputs/agent/system_one_pr81_phase0_31k_20261005_v2/f
 route_run="$shared/outputs/agent/system_one_pr81_phase1a_route_31k_20261005"
 typed_checkpoint="$shared/outputs/agent/system_one_pr81_jev_typed_v2_31k_20261005/full"
 output="${MECHET_PRODUCT_START_OUTPUT:-$shared/outputs/agent/system_one_pr81_product_start_valid64_20261005}"
+split="${MECHET_PRODUCT_START_SPLIT:-valid}"
+case "$split" in
+  valid) denominator=1319 ;;
+  test) denominator=1253 ;;
+  *) printf 'invalid MECHET_PRODUCT_START_SPLIT=%s\n' "$split" >&2; exit 2 ;;
+esac
 limit="${MECHET_PRODUCT_START_LIMIT:-64}"
 expected="${MECHET_PRODUCT_START_EXPECTED:-64}"
 log_every="${MECHET_PRODUCT_START_LOG_EVERY:-8}"
@@ -52,10 +58,10 @@ printf '[system-one-product-start] staging pinned model\n'
 cp -a "$shared_cache/models--Qwen--Qwen3-0.6B" "$model_cache/"
 export HF_HUB_CACHE="$model_cache"
 
-printf '[system-one-product-start] starting validation rollout limit=%s expected=%s legality_backoff=%s\n' "$limit" "$expected" "$legality_backoff"
+printf '[system-one-product-start] starting %s rollout limit=%s expected=%s legality_backoff=%s\n' "$split" "$limit" "$expected" "$legality_backoff"
 python scripts/eval_system_one_product_start_pilot.py \
   --data-dir "$source_data" \
-  --split valid \
+  --split "$split" \
   --route-checkpoint "$route_checkpoint" \
   --route-run "$route_run" \
   --typed-checkpoint "$typed_checkpoint" \
@@ -67,7 +73,7 @@ python scripts/eval_system_one_product_start_pilot.py \
   "${backoff_args[@]}"
 test -s "$output/report.json"
 test -s "$output/cases.jsonl"
-python - "$output/report.json" "$output/cases.jsonl" "$expected" "$legality_backoff" <<'PY'
+python - "$output/report.json" "$output/cases.jsonl" "$expected" "$legality_backoff" "$split" "$denominator" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -76,9 +82,11 @@ report = json.loads(Path(sys.argv[1]).read_text())
 case_count = sum(1 for line in Path(sys.argv[2]).open() if line.strip())
 expected = int(sys.argv[3])
 legality_backoff = bool(int(sys.argv[4]))
-assert report["split"] == "valid"
+split = sys.argv[5]
+denominator = int(sys.argv[6])
+assert report["split"] == split
 assert report["evaluated_reactions"] == case_count == expected
-assert report["reaction_denominator"] == 1319
+assert report["reaction_denominator"] == denominator
 assert report["legality_backoff"] is legality_backoff
 print({"phase": "validated_report", "evaluated_reactions": case_count,
        "endpoint_exact": report["endpoint_exact"]}, flush=True)
