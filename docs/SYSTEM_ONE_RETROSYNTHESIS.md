@@ -26,41 +26,61 @@ Reference implementations:
 - https://github.com/jaredpalmer/kev
 - https://github.com/hwfengcs/any2jev
 
-## Phase-0 architecture
+## Current architecture: typed Jev-style v2
 
-The first implementation targets electron-flow localization because this is
-already represented as a finite, executor-grounded option set in MechET.
+The canonical implementation in this PR is now a **typed Jev-style decision
+model**, not the earlier post-state marker pointer.  It follows the public
+design pattern used by Kev: one shared state, independent typed question
+branches, explicit option spans, a `<decide>` readout, and option-isolated
+block-causal attention.
 
 ```text
 authoritative state S_t
         |
         v
-small Qwen backbone + LoRA
-(one prefill, no generation)
+      <state>
         |
-        +--> atom/bond option states
-        |
-        v
-Jev-style pointer readout
-        |
-        v
-coupled source/sink distribution
-        |
-        v
-deterministic MechET executor
-        |
-        v
-S_{t+1}
+        +-------------------------------+
+        |                               |
+        v                               v
+ <question: SOURCE>              <question: SINK>
+ <option> atom/bond ...          <option> atom/pair ...
+ <option> ...                    <option> ...
+ <decide>                        <decide>
+        |                               |
+        +-------------+-----------------+
+                      v
+             coupled move score
+                      |
+                      v
+          deterministic executor
+                      |
+                      v
+                    S_{t+1}
 ```
 
-The model is deliberately hierarchical rather than flattening every complete
-reaction program into one classification problem.  Source candidates are atoms
-and present bonds; sink candidates are atoms and unordered atom pairs.  The
-primary training loss requires each reference source/sink pair in a multi-flow
-event. One high-scoring flow is not treated as the whole event. For causal
-atom-option readout, the current observation appends a gold-independent list
-of atom handles *after* the full executor state. This is a derived input
-contract, not byte-identical to the Stage-II text prefix.
+Question branches share the chemical state but cannot attend to one another.
+Within a question, one option span cannot attend to sibling options; only the
+question's `<decide>` token aggregates all of its options. This removes the
+ordering leakage of a plain causal option list and makes the readout much closer
+to the Jev/Kev typed-decision abstraction.
+
+For Qwen3, the implementation reuses existing tokenizer control tokens
+(`fim_prefix`, `fim_middle`, `box_start`, `box_end`, `fim_suffix`)
+as state/question/option/decide delimiters, so it does not add new embedding
+rows. The trainer verifies that every delimiter is a distinct single tokenizer
+token before training.
+
+The electron-flow task remains hierarchical. Source candidates are atoms and
+present bonds; sink candidates are atoms and unordered atom pairs. Separate
+typed SOURCE and SINK distributions are combined by a coupled move head, and
+the loss requires every reference move in a multi-flow event rather than
+rewarding only the easiest move.
+
+The previous 0.6B marker-pointer implementation is retained only as a v1
+baseline because its measured results are already frozen. Its input contract
+(`full_executor_state_plus_gold_independent_post_state_atom_anchors_v1`) is
+not relabelled as Jev-style v2.
 
 ## Why this is deployable on limited compute
 
@@ -78,13 +98,13 @@ python scripts/export_system_one_electron_flow.py \
   --input data/.../train.jsonl \
   --output outputs/system_one/train.decisions.jsonl
 
-python scripts/train_system_one_electron_flow.py \
+python scripts/train_jev_style_electron_flow.py \
   --train data/.../train.jsonl \
   --valid data/.../valid.jsonl \
   --model Qwen/Qwen3-0.6B \
   --revision c1899de289a04d12100db370d81485cdf75e47ca \
   --epochs 1 \
-  --output outputs/system_one/qwen3_0p6b
+  --output outputs/system_one/jev_typed_v2_qwen3_0p6b
 ```
 
 The exporter is an audit artifact; the trainer reads the original Stage-II rows,
@@ -151,7 +171,24 @@ same executor and action-count rules to obtain a comparable local successor
 baseline. This still does not isolate the effects of model size, Stage-II
 pretraining, and input representation.
 
-## Measured Phase-0 validation (2026-10-05)
+## Jev-style v2 evaluation contract
+
+The v2 trainer writes `system_one_jev_typed_v2_decision_policy` manifests and
+is evaluated separately with:
+
+```bash
+python scripts/eval_jev_style_successor.py \
+  --checkpoint outputs/system_one/jev_typed_v2_qwen3_0p6b \
+  --data data/mech_uspto_31k_natural_language_history_v2/valid.jsonl \
+  --split valid \
+  --output outputs/system_one/jev_typed_v2_successor_valid
+```
+
+Primary local metrics remain paired Recall@1/@4/@8, strict execution and exact
+next-state agreement. The typed-v2 model must be retrained before any comparison;
+none of the v1 numbers below are attributed to the new architecture.
+
+## Frozen v1 marker-pointer baseline (2026-10-05)
 
 The one-A100, one-epoch Qwen3-0.6B run finished successfully. Its checkpoint
 manifest pins all 19,199 train and 2,543 validation electron events, source
