@@ -1,6 +1,20 @@
 import pytest
 
-from scripts.analyze_system_one_reference_path import summarize_reference_paths
+from scripts.analyze_system_one_reference_path import (
+    EVENT_ARTIFACT_TYPES,
+    summarize_reference_paths,
+)
+
+
+def test_reference_path_supports_frozen_v1_and_typed_v2_event_artifacts():
+    assert EVENT_ARTIFACT_TYPES == {
+        "system_one_phase0_local_successor_evaluation": (
+            "marker_v1", "system_one_v1_reference_path_local_agreement"
+        ),
+        "system_one_jev_typed_v2_local_successor_evaluation": (
+            "typed_v2", "system_one_typed_v2_reference_path_local_agreement"
+        ),
+    }
 
 
 def _row(reaction, index, action, route=True, event=None):

@@ -50,14 +50,29 @@ def compare_split(split: str, directories: dict[str, Path]) -> dict[str, Any]:
     two_flow_ids = [event_id for event_id, row in reference_cases.items()
                     if row["gold_flow_count"] == 2]
     for name, (report, cases, hashes) in loaded.items():
+        # The frozen marker-v1 evaluator predates the recorded backoff policy.
+        # Its fixed1/fixed2 cases are sufficient to reconstruct that rule, but
+        # we must still check every aggregate that the evaluator did record.
+        for mode in ("fixed1", "fixed2"):
+            recorded = report["policies"][mode]["overall"]
+            count_executed = sum(bool(row["policies"][mode]["execute_ok"])
+                                 for row in cases.values())
+            count_exact = sum(bool(row["policies"][mode]["successor_exact"])
+                              for row in cases.values())
+            if (recorded["n"] != len(cases)
+                    or recorded["execute_ok"] != count_executed
+                    or recorded["successor_exact"] != count_exact):
+                raise ValueError(f"{split}: {name} {mode} report and cases disagree")
         selections = {event_id: backoff(row) for event_id, row in cases.items()}
         results[name] = selections
         executed = sum(bool(row["execute_ok"]) for row in selections.values())
         exact = sum(bool(row["successor_exact"]) for row in selections.values())
-        recorded = report["policies"]["validity_backoff_2_to_1"]["overall"]
-        if (recorded["n"] != len(cases) or recorded["execute_ok"] != executed
-                or recorded["successor_exact"] != exact):
-            raise ValueError(f"{split}: {name} report and cases disagree")
+        recorded_backoff = report["policies"].get("validity_backoff_2_to_1")
+        if recorded_backoff is not None:
+            recorded = recorded_backoff["overall"]
+            if (recorded["n"] != len(cases) or recorded["execute_ok"] != executed
+                    or recorded["successor_exact"] != exact):
+                raise ValueError(f"{split}: {name} backoff report and cases disagree")
         top2_gold_set = sum(
             set(cases[event_id]["ranked_top8"][:2]) == set(cases[event_id]["pair_targets"])
             for event_id in two_flow_ids

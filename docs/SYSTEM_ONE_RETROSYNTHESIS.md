@@ -195,12 +195,16 @@ python scripts/eval_jev_style_successor.py \
 ```
 
 Primary local metrics remain paired Recall@1/@4/@8, strict execution and exact
-next-state agreement. The typed-v2 model must be retrained before any comparison;
-none of the v1 numbers below are attributed to the new architecture.
-After a hash-verified typed-v2 checkpoint exists, the prepared one-A100
-`scripts/run_taiji_jev_style_typed_v2_successor_1a100.sh` evaluates the full
+next-state agreement. The typed-v2 model was trained from the pinned Qwen3-0.6B
+revision for one epoch on all 19,199 training electron events; the completed
+adapter and typed head are under
+`outputs/agent/system_one_pr81_jev_typed_v2_31k_20261005/full/`.
+None of the v1 numbers below are attributed to this new architecture.
+The hash-verified checkpoint was evaluated on one A100 by
+`scripts/run_taiji_jev_style_typed_v2_successor_1a100.sh` on the full
 2,543-event validation and 2,371-event test trace views separately, retaining
-per-event cases. It must not be launched from a merely pending training task.
+per-event cases. The training task had ended successfully before evaluation
+was submitted.
 Before loading weights, the evaluator checks the completed manifest against the
 preflight's source counts, model revision, input contract, zero-overlength audit,
 and exact trainer/encoder SHA-256 values. This prevents a later source-code
@@ -213,8 +217,11 @@ aggregate report totals, and reports typed-v2 minus v1 and typed-v2 minus PR71
 paired successor differences with reaction-cluster bootstrap intervals. It also
 retains one- versus two-flow strata and the two-flow top-two **set** hit rate,
 which distinguishes per-pair recall from coherent multi-flow actions. The
-comparison is ready but has no typed-v2 result until training and both split
-evaluations actually finish.
+completed reports and paired comparison are under
+`outputs/agent/system_one_pr81_jev_typed_v2_successor_20261005/` and
+`outputs/agent/pr81_typed_v2_three_model_comparison_20261005.json`.
+The comparison JSON has SHA-256
+`6ecc1c26b146d6f0c45fe2eb5311679713cb07f4668bf3ccd5b3338056438d3c`.
 
 An independent held-out test tokenizer audit, using the pinned Qwen3-0.6B
 revision and the same typed encoder, covered all **2,371** test electron events:
@@ -234,6 +241,50 @@ PYTHONPATH=.:src python scripts/compare_jev_style_successor.py \
   --pr71-8b-test "$shared/outputs/agent/pr81_pr71_matched_successor_20261005/test" \
   --output "$shared/outputs/agent/pr81_typed_v2_three_model_comparison_20261005.json"
 ```
+
+### Completed typed-v2 local successor results (2026-10-05)
+
+The Taiji training and full valid/test successor-replay tasks both ended
+successfully. Every reference event replayed through the executor, with no
+held-out input exceeding the trained 8,192-token cap. The comparison script
+verified identical event IDs, source hashes and reference successors before
+computing the following **executor-validity-backoff** results. This policy
+tries the top two flows and uses the top one only when that action fails;
+it does not use the reference move count.
+
+| Split | Events | Typed-v2 0.6B exact next state | Marker-v1 0.6B | PR71 8B |
+|---|---:|---:|---:|---:|
+| Valid | 2,543 | 2,182 (85.80%) | 1,877 (73.81%) | 1,688 (66.38%) |
+| Test | 2,371 | 2,075 (87.52%) | 1,751 (73.85%) | 1,599 (67.44%) |
+
+On test, typed-v2 executes strictly in 2,246/2,371 events (94.73%), has
+paired source/sink Recall@1 of 92.91%, and puts both reference flows in its
+top two on 1,810/2,079 two-flow events (87.06%). Exact next-state rates are
+264/292 (90.41%) for one-flow and 1,811/2,079 (87.11%) for two-flow events.
+Against marker-v1, the paired test improvement is **+13.67 percentage points**
+(reaction-cluster bootstrap 95% CI +11.90 to +15.37); against PR71 8B it is
+**+20.08 points** (95% CI +18.29 to +21.93). These are same-event quality
+comparisons, **not** an architecture-only causal ablation: model size,
+pretraining and representations differ. Evaluator wall times likewise do not
+establish a matched-compute speedup.
+
+This establishes stronger *local decisions at reference current states*, not
+autonomous product-start retrosynthesis, generated IMPORT arguments, or a
+3,120-reaction full-endpoint result. Promotion to the latter still requires a
+typed-v2 action-family/IMPORT/FINISH policy and closed-loop executor rollout.
+
+Joining the frozen v1 Phase-1a action-family router with typed-v2 electron
+decisions along every *reference* trajectory gives **927/1,319 (70.28%)**
+validation and **937/1,253 (74.78%)** test reactions with all recorded local
+decisions agreeing. The same router with v1 electrons gave 689/1,319 (52.24%)
+and 666/1,253 (53.15%). On test, the first mismatch is an electron successor
+in 274 reactions versus an action-family route in 42; 35/49 reactions with
+five electron events pass the typed-v2 local checks, compared with 2/49 under
+v1. These gains diagnose reduced reference-path error accumulation, but
+recorded IMPORT fragment arguments and reference current states are still
+assumed. They are **not** autonomous endpoint hit rates. The hash-checked
+valid/test reports are under
+`outputs/agent/system_one_pr81_typed_v2_reference_path_20261005/`.
 
 ## Frozen v1 marker-pointer baseline (2026-10-05)
 

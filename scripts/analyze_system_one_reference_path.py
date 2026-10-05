@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Join PR81 router and v1 local electron results along reference trajectories.
+"""Join PR81 router and local electron results along reference trajectories.
 
 This is a teacher-forced reference-path diagnostic, not product-start rollout.
 IMPORT fragment arguments are assumed to be the recorded ones and are never
@@ -20,6 +20,16 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 from mechet.system_one_action_family import ACTION_NAMES, ActionFamilyHead
 from scripts.compare_system_one_pr71_successor import backoff, load_result
 from scripts.train_system_one_action_family import file_sha256, load_split, metrics
+
+
+EVENT_ARTIFACT_TYPES = {
+    "system_one_phase0_local_successor_evaluation": (
+        "marker_v1", "system_one_v1_reference_path_local_agreement"
+    ),
+    "system_one_jev_typed_v2_local_successor_evaluation": (
+        "typed_v2", "system_one_typed_v2_reference_path_local_agreement"
+    ),
+}
 
 
 def summarize_reference_paths(rows: Iterable[dict[str, Any]]) -> dict[str, Any]:
@@ -130,10 +140,13 @@ def main() -> None:
         raise ValueError("router predictions do not reproduce frozen report")
 
     event_report, event_cases, event_hashes = load_result(args.event_eval, args.split)
-    if (event_report["artifact_type"] != "system_one_phase0_local_successor_evaluation"
+    event_model, output_artifact_type = EVENT_ARTIFACT_TYPES.get(
+        event_report.get("artifact_type"), (None, None)
+    )
+    if (event_model is None
             or (event_report.get("source") or event_report.get("valid_source"))["sha256"]
             != source_sha):
-        raise ValueError("electron evaluator is not the matching frozen v1 result")
+        raise ValueError("electron evaluator is not a matching frozen local result")
 
     joined = []
     seen_events = set()
@@ -158,7 +171,8 @@ def main() -> None:
     if summary["reactions"] != source_counts["reactions"]:
         raise ValueError("reaction denominator mismatch")
     report = {
-        "artifact_type": "system_one_v1_reference_path_local_agreement",
+        "artifact_type": output_artifact_type,
+        "event_model": event_model,
         "scope": "teacher_forced_reference_states_not_product_start_rollout",
         "split": args.split,
         "source_sha256": source_sha,
