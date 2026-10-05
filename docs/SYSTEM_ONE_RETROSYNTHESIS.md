@@ -463,14 +463,14 @@ distribution before promoting a full System-One rollout.
 
 As a deliberately limited **oracle-free proposal baseline**, the train-only
 Morgan-fingerprint nearest-state retriever in
-`scripts/eval_system_one_import_retrieval.py` uses the target product and
+`scripts/eval_system_one_import_retrieval.py` uses the strict final-mixture target and
 current state to retrieve distinct training IMPORT batches. It verifies that
 simple disjoint-fragment composition reproduces every authoritative IMPORT
 successor in this trace view: 3,050/3,050 train, 426/426 valid and 382/382
 test. On reference current states, its exact-chemical-batch Top-1 recall is
 392/426 (92.02%) valid and 345/382 (90.31%) test; test Top-2 is 366/382
 (95.81%). A train-majority batch gives 292/382 (76.44%) on test. No held-out
-IMPORT target product is an exact train product, but **all seven held-out
+IMPORT target mixture is an exact train mixture, but **all seven held-out
 batches occur in the eight-batch training support**. The Top-8 recall of 100%
 is consequently trivial and is not evidence of open-vocabulary generalization.
 Results and per-case proposals are under
@@ -481,13 +481,41 @@ proposal source for the subsequent closed-loop diagnostic.
 
 ### Product-start hybrid pilot gate
 
+**Input-contract correction (2026-10-05):** In this strict natural-language
+trace view, `target_smiles` is the executor's **final molecular mixture**,
+which often contains salts or byproducts. It is not the selected principal
+product used as input by the separate 3,120-reaction mech-USPTO full-endpoint
+benchmark. A hash-verified, reaction-ID-matched audit against that benchmark
+found exact equality of the two input SMILES in only **45/1,319 validation**
+and **37/1,253 test** reactions. The strict input has more molecular
+components in **1,270/1,319 validation** and **1,212/1,253 test** reactions.
+The benchmark principal product is an exact component of the strict mixture
+in only 1,098/1,319 validation and 1,074/1,253 test reactions; merely
+dismissing extra components would therefore still leave unmatched inputs.
+For example, strict test reaction 4 includes a bromide byproduct in its
+input, whereas the principal-product benchmark input does not. All rollout
+results below must therefore be read as **final-mixture-start, strict-trace-
+view diagnostics**, despite the historical `product_start` path and
+`product_only` report-scope strings. Neither the 75.26% result nor any other
+number in this section is a standard principal-product-only retrosynthesis
+accuracy. The audits are
+`outputs/agent/system_one_pr81_input_gap_{valid,test}_20261005.json`, made by
+`scripts/audit_system_one_full_endpoint_input_gap.py`, and bind every rollout
+case target to its strict source row. Their SHA-256 values are
+`3ca787e171f5d4d2dda245043f924d4866bb5cf7cf9f5cb457197d5837cbe879`
+and `10110365ad5a4c5d1f1343529abf624de2d586e4063d4529b55f79b8d1d67c51`.
+Each frozen rollout directory also contains an `INPUT_CONTRACT_CORRECTION.json`
+sidecar; report and case hashes were not modified. A genuine full-endpoint experiment needs
+a matched principal-product input/training contract and the full 3,120-row
+denominator; simply renaming these artifacts cannot provide one.
+
 `scripts/eval_system_one_product_start_pilot.py` now composes the frozen v1
 three-way router, the frozen typed-v2 electron policy, and **train-only**
-IMPORT retrieval into a product-start executor loop. Every next prompt is
-built from the product, the policy's own accepted state and compact action
+IMPORT retrieval into a final-mixture-start executor loop. Every next prompt is
+built from that mixture, the policy's own accepted state and compact action
 history; neither action type, fragment choice, electron pair nor stopping uses
 the held-out answer. A deterministic SHA-256 reaction-ID sample selects 64
-validation products for the first GPU pilot. The typed and route inputs were
+validation mixtures for the first GPU pilot. The typed and route inputs were
 checked with the pinned Qwen tokenizer against their teacher-forced training
 encodings; the first decision is byte-identical in each format. Rebuilt IMPORT
 states match all 3,858 authoritative IMPORT successors across the three splits,
@@ -518,7 +546,7 @@ neither failed launch is reported as an endpoint result.
 The corrected third launch ended successfully and wrote all 64 selected
 validation cases to
 `outputs/agent/system_one_pr81_product_start_valid64_v3_20261005/`.
-Starting from the product with no reference actions in the policy input, the
+Starting from the final mixture with no reference actions in the policy input, the
 hybrid policy reaches an exact, component-preserving precursor endpoint in
 **48/64 (75.00%)** cases. It finishes with the wrong endpoint in 8 cases,
 encounters a strict electron-event executor failure in 7, and finishes early
@@ -615,13 +643,13 @@ selection. The full test artifacts are
 the paired comparison is
 `outputs/agent/system_one_pr81_product_start_top8legal_test_comparison_20261005.json`
 (SHA-256 `9688593637e1a60fb07477cf9f9344edda7773ddcdaa5f7e9aee9ec4f4e87f1d`).
-These are product-only **strict-trace-view** endpoint results, not the full
+These are **final-mixture-start strict-trace-view** endpoint results, not the full
 3,120-reaction mech-USPTO-31k endpoint benchmark or formal proof success.
 
 ### Runtime-observation parity gate for closed-loop evaluation
 
 `scripts/audit_system_one_observation_parity.py` reconstructs each decision's
-model-visible prompt from the target product, the **previous accepted tool
+model-visible prompt from the strict final-mixture target, the **previous accepted tool
 result**, and the accumulated compact history. It never uses the current or a
 future reference action to construct that decision's input. On the frozen
 mech-USPTO-31k trace view, 32,397/32,401 train prompts, all 4,288 validation

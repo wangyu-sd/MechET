@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Oracle-free product-start pilot: v1 route + typed-v2 electrons + train retrieval.
+"""Oracle-free final-mixture-start pilot: route + electrons + train retrieval.
 
 This is a deliberately labelled hybrid diagnostic on the strict 31k trace
 view, not the final typed-v2 unified policy or a full 3,120-reaction benchmark.
-The policy receives only product, its own current state/history, and training
-IMPORT examples. Held-out answers are loaded solely by the terminal scorer.
+Its target is the executor's final molecular mixture (often with byproducts),
+NOT the principal product molecule in the full-endpoint benchmark. The policy
+receives that mixture, its own current state/history, and training IMPORT
+examples. Held-out answers are loaded solely by the terminal scorer.
 """
 from __future__ import annotations
 
@@ -46,6 +48,8 @@ from scripts.train_system_one_electron_flow import file_sha256, verify_source
 
 @dataclass(frozen=True)
 class ProductInput:
+    """Policy-visible strict-trace input; ``target`` is a final mixture."""
+
     reaction_id: str
     target: str
     system: str
@@ -444,6 +448,7 @@ def main() -> None:
         args.route_checkpoint, args.route_run, args.typed_checkpoint, source, train_source
     )
     print(json.dumps({"phase": "preflight", "split": args.split,
+                      "input_contract": "strict_trace_view_final_molecular_mixture",
                       "all_reactions": len(tasks), "selected": len(selected),
                       "train_imports": len(train_imports),
                       "train_distinct_import_batches": len({row.batch for row in train_imports}),
@@ -477,8 +482,9 @@ def main() -> None:
                                                 if key != "endpoint_exact"},
                                   "elapsed_s": round(time.perf_counter() - started, 1)}), flush=True)
     report = {
-        "artifact_type": "system_one_pr81_hybrid_product_start_retrieval_pilot",
-        "scope": "product_only_autonomous_decisions_strict_step_executor_no_formal_proof_compilation",
+        "artifact_type": "system_one_pr81_hybrid_final_mixture_start_retrieval_pilot",
+        "scope": "final_mixture_start_autonomous_decisions_strict_step_executor_no_formal_proof_compilation",
+        "input_contract": "strict_trace_view_final_molecular_mixture_not_principal_product",
         "split": args.split,
         "source": source,
         "train_import_source": train_source,
@@ -508,6 +514,7 @@ def main() -> None:
             "typed_head_sha256": lineage["typed_manifest"]["decision_head_sha256"],
         },
         "limitations": [
+            "input is the strict trace's final molecular mixture, often with byproducts; not the principal product in the full 3120-row benchmark",
             "strict per-event execution only; whole-trajectory formal proof not compiled",
             "train-retrieval import support contains only eight batches on this trace view",
             "not the full 3120-reaction mech-USPTO endpoint benchmark",
