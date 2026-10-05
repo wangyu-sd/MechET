@@ -262,7 +262,6 @@ class HybridPolicy:
             ).last_hidden_state[0]
             decision = self.typed_head(
                 states[encoding.decide_indices[0]],
-                states[encoding.decide_indices[0]],
                 states[list(encoding.option_indices[0])],
                 states[encoding.decide_indices[1]],
                 states[list(encoding.option_indices[1])],

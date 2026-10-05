@@ -7,7 +7,7 @@ source_data="$shared/data/mech_uspto_31k_natural_language_history_v2"
 route_checkpoint="$shared/outputs/agent/system_one_pr81_phase0_31k_20261005_v2/full"
 route_run="$shared/outputs/agent/system_one_pr81_phase1a_route_31k_20261005"
 typed_checkpoint="$shared/outputs/agent/system_one_pr81_jev_typed_v2_31k_20261005/full"
-output="$shared/outputs/agent/system_one_pr81_product_start_valid64_20261005"
+output="${MECHET_PRODUCT_START_OUTPUT:-$shared/outputs/agent/system_one_pr81_product_start_valid64_20261005}"
 shared_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 
 source /root/miniconda3/etc/profile.d/conda.sh

@@ -501,6 +501,11 @@ to MECH_PROOF. A completed pilot must report all 64 reactions, failure modes
 and latency before any larger run; an allocated Taiji task alone is not a
 result. Its configured one-A100 runner is
 `scripts/run_taiji_system_one_product_start_valid64_1a100.sh`.
+The first launch failed before producing any case because the new wrapper
+passed one extra hidden vector to the four-argument typed head. The wrapper
+now matches the frozen evaluator's call signature, with a regression test that
+executes the actual typed-head forward path. The failed task/output remain
+archived; the replacement uses a distinct task flag and output directory.
 
 ### Runtime-observation parity gate for closed-loop evaluation
 

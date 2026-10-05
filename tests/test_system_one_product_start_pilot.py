@@ -1,7 +1,11 @@
 from types import SimpleNamespace
 
+import torch
+
 from mechet.electron_pointer import parse_pointer_observation
+from mechet.jev_style_decision import FactorizedTypedElectronFlowHead
 from scripts.eval_system_one_product_start_pilot import (
+    HybridPolicy,
     ProductInput,
     ReactionTask,
     canonical_visible,
@@ -46,6 +50,27 @@ def test_runtime_typed_input_is_identical_to_teacher_forced_encoding():
     assert typed_runtime_encoding(tokenizer, messages, observation) == (
         prepare_typed(example, tokenizer).encoding
     )
+
+
+def test_runtime_typed_forward_uses_the_trained_head_signature():
+    messages = [
+        {"role": "system", "content": "infer a retrosynthetic electron flow"},
+        {"role": "user", "content": "ANNOTATED CURRENT STATE: <A01>C<A02>O"},
+    ]
+    observation = parse_pointer_observation(messages[-1]["content"])
+
+    class FakePolicy:
+        def __call__(self, *, input_ids, **kwargs):
+            return SimpleNamespace(last_hidden_state=torch.randn(1, input_ids.shape[1], 16))
+
+    runtime = SimpleNamespace(
+        torch=torch, device=torch.device("cpu"), dtype=torch.float32,
+        tokenizer=FakeTokenizer(), typed_cap=8192, typed_policy=FakePolicy(),
+        typed_head=FactorizedTypedElectronFlowHead(16, 8).eval(),
+    )
+    ranked, length = HybridPolicy.electrons(runtime, messages, observation)
+    assert len(ranked) == len(set(ranked)) == 8
+    assert length > 0
 
 
 def test_hash_selection_does_not_depend_on_expected_precursor():
