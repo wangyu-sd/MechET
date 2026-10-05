@@ -333,3 +333,20 @@ separated; the executable reference label is unambiguous for this local task,
 but this alone does not establish whether the alternate terminal mixture is
 chemically unacceptable. The next gate still requires open-vocabulary IMPORT
 arguments and product-start executor rollout.
+
+### IMPORT-space generalization boundary
+
+`scripts/audit_system_one_import_space.py` measures observed IMPORT actions
+without turning them into a model vocabulary. The current-compiler 31k trace
+view has only **8 distinct train fragment batches** across 3,050 IMPORT
+decisions; all 7 batches in each held-out split already occur in train. In
+contrast, the broader strict-executable FlowER validation trace view alone
+has **2,064 distinct batches and 790 distinct fragment SMILES** across 7,919
+IMPORT decisions. The reports preserve the source hashes under
+`outputs/agent/system_one_pr81_import_space_20261005/`.
+
+A closed eight-way fragment classifier could look strong on the 31k pilot but
+fail the intended open-chemistry task. Phase-1a only routes to IMPORT; it does
+not claim fragment-generation competence. Any subsequent IMPORT argument
+model must be open-vocabulary and evaluated on the broader held-out fragment
+distribution before promoting a full System-One rollout.
