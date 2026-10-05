@@ -515,6 +515,28 @@ zero unsupported records and zero changed reference candidate inventories
 relative to the old parser. The partial second-attempt cases are preserved;
 neither failed launch is reported as an endpoint result.
 
+The corrected third launch ended successfully and wrote all 64 selected
+validation cases to
+`outputs/agent/system_one_pr81_product_start_valid64_v3_20261005/`.
+Starting from the product with no reference actions in the policy input, the
+hybrid policy reaches an exact, component-preserving precursor endpoint in
+**48/64 (75.00%)** cases. It finishes with the wrong endpoint in 8 cases,
+encounters a strict electron-event executor failure in 7, and finishes early
+with pending work in 1. Five of the seven electron failures occur before any
+electron event is accepted. Six of the eight completed-but-wrong cases make
+no IMPORT decision; these include both missing-context and alternative
+disconnection outcomes and are not all attributable to one error type. The
+evaluator's measured rollout time after model loading is 16.27 seconds for
+64 cases; this excludes task startup and checkpoint loading and is not an
+end-to-end production latency measurement. `report.json` SHA-256 is
+`75b4aa6dd9d71bbe515713ef93aeea030f583c20fccbff87859d43d571f6f97f`;
+`cases.jsonl` SHA-256 is
+`e5b8e536a5e020eb13b46152e167a3b07f981cdddcdbfa0f8e4401f550395189`.
+This is a 64-reaction **validation pilot** from the 1,319-reaction strict
+trace view, not the full 3,120-reaction endpoint benchmark or a test-set
+result. It is also not formal whole-trajectory MECH_PROOF success: only each
+electron event is checked by the executor.
+
 ### Runtime-observation parity gate for closed-loop evaluation
 
 `scripts/audit_system_one_observation_parity.py` reconstructs each decision's
