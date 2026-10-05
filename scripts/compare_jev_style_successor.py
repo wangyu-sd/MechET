@@ -47,6 +47,8 @@ def compare_split(split: str, directories: dict[str, Path]) -> dict[str, Any]:
 
     results: dict[str, dict[str, dict[str, Any]]] = {}
     models = {}
+    two_flow_ids = [event_id for event_id, row in reference_cases.items()
+                    if row["gold_flow_count"] == 2]
     for name, (report, cases, hashes) in loaded.items():
         selections = {event_id: backoff(row) for event_id, row in cases.items()}
         results[name] = selections
@@ -56,6 +58,10 @@ def compare_split(split: str, directories: dict[str, Path]) -> dict[str, Any]:
         if (recorded["n"] != len(cases) or recorded["execute_ok"] != executed
                 or recorded["successor_exact"] != exact):
             raise ValueError(f"{split}: {name} report and cases disagree")
+        top2_gold_set = sum(
+            set(cases[event_id]["ranked_top8"][:2]) == set(cases[event_id]["pair_targets"])
+            for event_id in two_flow_ids
+        )
         models[name] = {
             "checkpoint": report.get("checkpoint_manifest") or report.get("checkpoint"),
             "pair_r1": report["pair_recall"]["pair_r1"],
@@ -63,6 +69,10 @@ def compare_split(split: str, directories: dict[str, Path]) -> dict[str, Any]:
             "execute_ok": executed,
             "successor_exact": exact,
             "successor_exact_rate": exact / len(cases),
+            "two_flow_top2_gold_set": top2_gold_set,
+            "two_flow_top2_gold_set_rate": (
+                top2_gold_set / len(two_flow_ids) if two_flow_ids else None
+            ),
             "evaluation_elapsed_s": report["elapsed_s"],
             "artifact_hashes": hashes,
         }
@@ -98,6 +108,7 @@ def compare_split(split: str, directories: dict[str, Path]) -> dict[str, Any]:
         "source_sha256": source["sha256"],
         "events": len(reference_cases),
         "reactions_with_events": len({event_id.split("::", 1)[0] for event_id in reference_cases}),
+        "two_flow_events": len(two_flow_ids),
         "policy": "two_flows_then_one_on_executor_failure_no_reference_count",
         "policy_selected_after_validation": True,
         "models": models,

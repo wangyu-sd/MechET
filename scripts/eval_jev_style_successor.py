@@ -118,6 +118,7 @@ def main() -> int:
 
     modes = ("fixed1", "fixed2", "validity_backoff_2_to_1", "oracle_count")
     metrics = {mode: Counter() for mode in modes}
+    metrics_by_gold_count = {mode: {} for mode in modes}
     paired = Counter()
     rows = []
     started = time.perf_counter()
@@ -181,6 +182,11 @@ def main() -> int:
                 bucket["execute_ok"] += int(ok)
                 bucket["successor_exact"] += int(exact)
                 bucket[f"code_{result.get('code', 'UNKNOWN')}"] += 1
+                count_bucket = metrics_by_gold_count[mode].setdefault(gold_count, Counter())
+                count_bucket["n"] += 1
+                count_bucket["execute_ok"] += int(ok)
+                count_bucket["successor_exact"] += int(exact)
+                count_bucket[f"code_{result.get('code', 'UNKNOWN')}"] += 1
                 row["policies"][mode] = {
                     "selected_flow_count": count,
                     "pair_indices": ranked[:count],
@@ -224,6 +230,10 @@ def main() -> int:
         "policies": {
             mode: {
                 "overall": summarize(metrics[mode]),
+                "by_gold_flow_count": {
+                    str(count): summarize(bucket)
+                    for count, bucket in sorted(metrics_by_gold_count[mode].items())
+                },
                 "gold_independent": mode != "oracle_count",
                 "validation_post_hoc": mode == "validity_backoff_2_to_1",
             }

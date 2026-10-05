@@ -19,8 +19,8 @@ def _make_result(root, name, successes):
         cases.append({
             "id": f"r{index}::event",
             "gold_successor": "CCO",
-            "pair_targets": [1],
-            "gold_flow_count": 1,
+            "pair_targets": [0, 1] if index == 0 else [1],
+            "gold_flow_count": 2 if index == 0 else 1,
             "ranked_top8": [1, 0],
             "policies": {
                 "fixed1": selected,
@@ -58,7 +58,9 @@ def test_three_model_comparison_uses_same_ids_and_backoff(tmp_path):
     }
     result = compare_split("valid", directories)
     assert result["events"] == 2
+    assert result["two_flow_events"] == 1
     assert result["models"]["typed_v2"]["successor_exact"] == 2
+    assert result["models"]["typed_v2"]["two_flow_top2_gold_set"] == 1
     assert result["paired"]["typed_v2_minus_marker_v1"]["successor_exact_rate_difference"] == 0.5
     assert result["paired"]["typed_v2_minus_pr71_8b"]["successor_exact_rate_difference"] == 1.0
 

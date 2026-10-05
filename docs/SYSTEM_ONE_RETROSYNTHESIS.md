@@ -206,7 +206,9 @@ and PR71 reports. `scripts/compare_jev_style_successor.py` then checks identical
 event IDs and reference chemistry, independently reconstructs the frozen
 executor-validity backoff from each model's `fixed1`/`fixed2` cases, checks the
 aggregate report totals, and reports typed-v2 minus v1 and typed-v2 minus PR71
-paired successor differences with reaction-cluster bootstrap intervals. The
+paired successor differences with reaction-cluster bootstrap intervals. It also
+retains one- versus two-flow strata and the two-flow top-two **set** hit rate,
+which distinguishes per-pair recall from coherent multi-flow actions. The
 comparison is ready but has no typed-v2 result until training and both split
 evaluations actually finish.
 
