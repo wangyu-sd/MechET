@@ -292,6 +292,17 @@ comparison uses the same A100 and frozen data/executor, but the two evaluator
 implementations have small differences; it is an operational, not controlled
 architecture-only, comparison.
 
+The v1 held-out cases further localize the failure: among 2,079 two-flow
+events, the gold pair **set** occupies the top two slots in 1,514, and all
+1,514 execute to the reference next state. Only one additional two-flow case
+is exact with a different top-two set. For the 292 one-flow events, fixed-one
+recovers 275 exact successors, whereas executor-validity backoff recovers 236:
+39 correct single-flow actions are displaced by a different but executable
+two-flow action. Action-count choice therefore explains only 39/2,371 =
+1.64 percentage points of the current policy's gap to its oracle-count
+diagnostic; improving coherent two-flow pair-set ranking is the larger target
+for typed-v2.
+
 The matched-ID audit, case/report SHA-256 values, paired discordances and
 cluster-bootstrap results are frozen in
 `outputs/agent/pr81_pr71_matched_successor_20261005/comparison.json`; the
