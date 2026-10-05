@@ -64,6 +64,9 @@ def verify_checkpoint_contract(checkpoint: Path, manifest: dict) -> dict:
             raise ValueError(f"typed-v2 preflight/manifest disagree on {field}")
     if preflight.get("overlength_count") != 0:
         raise ValueError("typed-v2 training preflight contains overlength rows")
+    cap = int(preflight.get("max_length") or 0)
+    if cap < 1 or int(preflight.get("max_observed_length") or 0) > cap:
+        raise ValueError("typed-v2 preflight has an invalid input-length contract")
     current = {
         "trainer_sha256": file_sha256(ROOT / "scripts/train_jev_style_electron_flow.py"),
         "encoder_sha256": file_sha256(ROOT / "src/mechet/jev_style_decision.py"),
@@ -82,7 +85,7 @@ def main() -> int:
     manifest = json.loads(manifest_path.read_text())
     if manifest.get("artifact_type") != "system_one_jev_typed_v2_factorized_decision_policy":
         raise ValueError("checkpoint is not factorized typed Jev-style v2")
-    verify_checkpoint_contract(args.checkpoint, manifest)
+    preflight = verify_checkpoint_contract(args.checkpoint, manifest)
 
     source = verify_source(args.data)
     if args.data.stem != args.split:
@@ -144,12 +147,16 @@ def main() -> int:
     metrics_by_gold_count = {mode: {} for mode in modes}
     paired = Counter()
     rows = []
+    max_evaluated_input_length = 0
     started = time.perf_counter()
 
     with torch.inference_mode():
         for index, example in enumerate(examples, 1):
             item = prepare_typed(example, tokenizer)
             enc = item.encoding
+            max_evaluated_input_length = max(max_evaluated_input_length, len(enc.input_ids))
+            if len(enc.input_ids) > int(preflight["max_length"]):
+                raise ValueError(f"{example.row_id}: evaluation input exceeds trained length cap")
             ids = torch.tensor([enc.input_ids], dtype=torch.long, device=device)
             positions = torch.tensor([enc.position_ids], dtype=torch.long, device=device)
             mask = block_causal_option_mask(enc, device=device, dtype=dtype)
@@ -249,6 +256,8 @@ def main() -> int:
         "source": source,
         "evaluated_events": len(examples),
         "gold_replay_ok": len(examples),
+        "max_evaluated_input_length": max_evaluated_input_length,
+        "trained_max_length": int(preflight["max_length"]),
         "pair_recall": {key: value / len(examples) for key, value in paired.items()},
         "policies": {
             mode: {

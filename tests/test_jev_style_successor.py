@@ -33,6 +33,8 @@ def test_typed_successor_requires_matching_preflight_code_and_source(tmp_path):
         **manifest,
         "artifact_type": "system_one_jev_typed_v2_factorized_preflight",
         "overlength_count": 0,
+        "max_length": 8192,
+        "max_observed_length": 2927,
         "trainer_sha256": file_sha256(ROOT / "scripts/train_jev_style_electron_flow.py"),
         "encoder_sha256": file_sha256(ROOT / "src/mechet/jev_style_decision.py"),
     }
@@ -47,4 +49,9 @@ def test_typed_successor_requires_matching_preflight_code_and_source(tmp_path):
     preflight["valid_source"] = {"sha256": "other"}
     path.write_text(json.dumps(preflight))
     with pytest.raises(ValueError, match="valid_source"):
+        verify_checkpoint_contract(tmp_path, manifest)
+    preflight["valid_source"] = manifest["valid_source"]
+    preflight["max_length"] = 1024
+    path.write_text(json.dumps(preflight))
+    with pytest.raises(ValueError, match="input-length"):
         verify_checkpoint_contract(tmp_path, manifest)

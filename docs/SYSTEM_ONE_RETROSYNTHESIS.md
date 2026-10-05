@@ -216,6 +216,13 @@ which distinguishes per-pair recall from coherent multi-flow actions. The
 comparison is ready but has no typed-v2 result until training and both split
 evaluations actually finish.
 
+An independent held-out test tokenizer audit, using the pinned Qwen3-0.6B
+revision and the same typed encoder, covered all **2,371** test electron events:
+maximum input length **2,508**, mean **1,158.45**, and **zero** inputs over the
+trained 8,192-token cap. The evaluator also checks this cap on every event at
+runtime and records its maximum observed length; no test row is silently
+truncated.
+
 ```bash
 shared=/aaa/fionafyang/buddy1/whaleywang/MechET
 PYTHONPATH=.:src python scripts/compare_jev_style_successor.py \
