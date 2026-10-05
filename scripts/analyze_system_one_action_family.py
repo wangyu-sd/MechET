@@ -4,15 +4,18 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from mechet.system_one_action_family import ACTION_NAMES, ActionFamilyHead
+from mechet.system_one_action_family import (
+    ACTION_NAMES, ACTION_TO_INDEX, DECISION_TO_ACTION, ActionFamilyHead,
+)
 from scripts.train_system_one_action_family import file_sha256, load_split, metrics
 
 
@@ -46,6 +49,43 @@ def calibration(probabilities: list[list[float]], labels: list[int]) -> dict:
     return {"bins": bins, "selective_accuracy": selective}
 
 
+HISTORY_FIELDS = ("accepted_action_types", "import_batches_committed",
+                  "electron_events_committed", "last_action", "last_result")
+
+
+def history_signature(observation: str) -> tuple[str, ...]:
+    """Use only explicit *past* action counters/types, never the current state."""
+    values = []
+    for field in HISTORY_FIELDS:
+        match = re.search(r"(?m)^" + re.escape(field) + r": (.*)$", observation)
+        if not match:
+            raise ValueError(f"missing history field {field}")
+        values.append(match.group(1))
+    return tuple(values)
+
+
+def history_only_predictions(train_path: Path, selected) -> list[int]:
+    counts = defaultdict(Counter)
+    fallback = defaultdict(Counter)
+    with train_path.open() as handle:
+        for line in handle:
+            row = json.loads(line)
+            observation = next(message["content"] for message in row["messages"]
+                               if message["role"] == "user")
+            signature = history_signature(observation)
+            label = ACTION_TO_INDEX[DECISION_TO_ACTION[row["metadata"]["decision_type"]]]
+            counts[signature][label] += 1
+            fallback[signature[1:3]][label] += 1
+    def majority(bucket):
+        return max(range(len(ACTION_NAMES)), key=lambda label: (bucket[label], -label))
+    predictions = []
+    for example in selected:
+        signature = history_signature(example.messages[-1]["content"])
+        bucket = counts.get(signature) or fallback.get(signature[1:3])
+        predictions.append(majority(bucket) if bucket else 0)
+    return predictions
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--data-dir", type=Path, required=True)
@@ -66,6 +106,9 @@ def main() -> int:
     source = args.data_dir / f"{args.split}.jsonl"
     if file_sha256(source) != report["source_sha256"][args.split]:
         raise ValueError("source hash differs from the completed run")
+    train_source = args.data_dir / "train.jsonl"
+    if file_sha256(train_source) != report["source_sha256"]["train"]:
+        raise ValueError("history baseline train source differs from the completed run")
     feature_path = args.run_dir / f"{args.split}_features.safetensors"
     if file_sha256(feature_path) != report["feature_sha256"][args.split]:
         raise ValueError("frozen features differ from the completed run")
@@ -130,6 +173,9 @@ def main() -> int:
         "head_sha256": report["head_sha256"],
         "reaction_count": counts["reactions"],
         "summary": summary,
+        "history_only_baseline": metrics(
+            labels, history_only_predictions(train_source, examples)
+        ),
         "calibration": calibration(probabilities, labels),
         "by_accepted_action_count_capped_at_4": dict(sorted(by_history.items())),
         "high_confidence_errors": cases,

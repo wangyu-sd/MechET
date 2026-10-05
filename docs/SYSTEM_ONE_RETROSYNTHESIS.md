@@ -307,3 +307,25 @@ selected action-family head, and valid/test confusion matrices.
 `scripts/analyze_system_one_action_family.py` checks those hashes again and
 reproduces the confusion matrix before extracting confidence, trajectory-depth
 strata, IMPORT recall, premature-FINISH rates and high-confidence error cases.
+
+The one-A100 Phase-1a job completed successfully on 2026-10-05. Its valid/test
+results are **97.64% / 97.73%** three-way accuracy and **95.95% / 95.95%**
+macro-F1. IMPORT recall is **391/426 = 91.78%** valid and **350/382 = 91.62%**
+test. On test, 49 of 2,753 non-FINISH decisions are prematurely classified as
+FINISH (1.78%). The head selects epoch 30 by validation macro-F1. Frozen
+features, head hash and confusion matrices are in
+`outputs/agent/system_one_pr81_phase1a_route_31k_20261005/`.
+
+Two source-only controls constrain interpretation. A count-only history
+majority classifier achieves 70.79% test accuracy, while a stronger classifier
+using the full *past-action summary* achieves 80.33% accuracy and **zero**
+IMPORT recall. The learned head's 97.73% is therefore not explained by those
+history fields alone. Nevertheless, all 1,253 first decisions on test are
+electron events; their perfect routing is a source-distribution feature, not
+proof of autonomous chemical reasoning. The remaining 2,753 test decisions
+are 96.69% correct. Several confident IMPORT→FINISH errors involve importing
+counterions such as `[Cl-]` after the reactive structures have already
+separated; the executable reference label is unambiguous for this local task,
+but this alone does not establish whether the alternate terminal mixture is
+chemically unacceptable. The next gate still requires open-vocabulary IMPORT
+arguments and product-start executor rollout.
