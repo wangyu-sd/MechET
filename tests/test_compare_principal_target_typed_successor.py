@@ -4,7 +4,9 @@ import copy
 
 import pytest
 
-from scripts.compare_principal_target_typed_successor import summarize_pairs
+from scripts.compare_principal_target_typed_successor import (
+    summarize_pairs, verify_policy_aggregates,
+)
 
 
 def _event(event_id: str, *, exact: bool) -> dict:
@@ -35,3 +37,15 @@ def test_paired_typed_summary_rejects_changed_reference():
     new["a::0"]["gold_successor"] = "CN"
     with pytest.raises(ValueError, match="reference chemistry differs"):
         summarize_pairs(old, new)
+
+
+def test_policy_aggregate_check_rejects_inconsistent_report():
+    row = _event("a::0", exact=True)
+    report = {"policies": {
+        mode: {"overall": {"n": 1, "execute_ok": 1, "successor_exact": 1}}
+        for mode in ("fixed1", "fixed2", "validity_backoff_2_to_1")
+    }}
+    verify_policy_aggregates("test", "candidate", report, {row["id"]: row})
+    report["policies"]["fixed2"]["overall"]["successor_exact"] = 0
+    with pytest.raises(ValueError, match="report/cases mismatch"):
+        verify_policy_aggregates("test", "candidate", report, {row["id"]: row})

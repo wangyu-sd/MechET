@@ -1275,8 +1275,16 @@ The valid gain does not reliably transfer to the test split; this is evidence
 of largely preserved **local** electron-flow quality, not a proven endpoint
 improvement. The paired auditor independently checks both source hashes,
 complete event IDs, gold successor equality, frozen backoff rule and per-case
-outcomes. Machine-readable report:
-`outputs/agent/system_one_pr81_principal_v2_typed_successor_paired_20261006.json`
-on the shared Ceph workspace. Phase-1a route training is running separately;
+outcomes. On the same 2,371 test events, the principal-target typed policy
+also has 2,079 exact successors versus 1,751 for marker-v1 0.6B (+13.83 pp,
+reaction-cluster 95% CI [+12.23, +15.43] pp) and 1,599 for PR71 8B
+(+20.24 pp, CI [+18.42, +22.12] pp). These cross-model comparisons differ
+in architecture, model size and/or training observation and are **not**
+single-factor causal estimates. The auditor additionally checks each model's
+aggregate policy counts against its per-event cases. Machine-readable report:
+`outputs/agent/system_one_pr81_principal_v2_all_local_references_paired_verified_20261006.json`
+on the shared Ceph workspace (SHA-256
+`df6970233628a23da09367ea48bae99c1175192bd2cf5b5b29a6c0b000c87603`).
+Phase-1a route training is running separately;
 the principal-product-only 64-case autonomous endpoint comparison has not yet
 started and remains the next gate.
