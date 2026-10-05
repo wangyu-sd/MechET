@@ -2,9 +2,9 @@
 set -Eeuo pipefail
 
 repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr81-system-one-20261004
-source_data=/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2
+source_data=${MECHET_SYSTEM_ONE_SOURCE_DATA:-/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_history_v2}
 shared_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
-output_root=/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/system_one_pr81_phase0_31k_20261005_v2
+output_root=${MECHET_SYSTEM_ONE_PHASE0_OUTPUT:-/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/system_one_pr81_phase0_31k_20261005_v2}
 model_revision=c1899de289a04d12100db370d81485cdf75e47ca
 
 source /root/miniconda3/etc/profile.d/conda.sh

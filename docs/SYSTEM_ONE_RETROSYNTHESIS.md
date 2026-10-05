@@ -1178,3 +1178,38 @@ paired audit are
 and
 `outputs/agent/system_one_pr81_equ_proxy_principal_prompt_valid64_paired_audit_20261005.json`.
 It is not promoted to full test.
+
+### Principal-product-aware training view (separate experiment)
+
+The two prompt-only validation controls above did not improve exact endpoints.
+The next controlled experiment therefore changes the **training observation**
+consistently, not the decoder. `scripts/build_system_one_principal_target_history.py`
+constructs the separate artifact
+`data/mech_uspto_31k_natural_language_history_principal_target_v1_20261005/`
+from the validated current-compiler strict history view. The largest-organic
+`rxn_prod_equ` proxy identifies one component of each recorded final mixture;
+the builder uses the stereochemistry-preserving strict-view component in the
+`TARGET PRODUCT SMILES` line. The complete executor current state remains in
+`CURRENT STATE SMILES`. The raw target mixture, reaction/decision IDs,
+assistant actions, tool responses and reference endpoints are unchanged.
+This is **not** recovery of the original patent desired-product field.
+
+The source still has 10,152 / 1,319 / 1,253 train/valid/test reactions and
+32,401 / 4,288 / 4,006 decisions. An independent per-row audit proves that
+restoring the old target line and removing the new metadata recovers the exact
+source record for every decision; it also checks all source and output hashes,
+split denominators, action counts and proxy-product membership. The report is
+`INDEPENDENT_AUDIT.json` in that artifact. No reaction was filtered and the
+new artifact alone was promoted to `training_allowed: true`; historical data
+and checkpoints remain intact. The train/valid/test output SHA-256 values are
+`82d61f4f97073206fcbc7b397b403627cc96517f19ad414b6fefe9c6fd346316`,
+`5f80f4442f54c1ad49832281ea9e752cf801d00f6d996cfdd5f0aa498e23228b`,
+and `e3c554b1b5529a838bbc9c09fead5a7c33eadb6129994b0b02e2727daa20be94`.
+
+Phase-0 electron localization, Phase-1a action-family routing and typed-v2
+electron-flow scoring must all train on this **same new artifact**. Phase-1a
+checks the new Phase-0 source hashes before using its adapter. Product-only
+rollout must likewise use the new strict source and all three new checkpoints,
+with `--principal-target-prompt` and the frozen equ-proxy endpoint/context
+sources. Scores from an old checkpoint under the new prompt are only the
+negative inference-only control above; do not mix those lineages.

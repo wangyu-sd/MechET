@@ -3,11 +3,11 @@ set -Eeuo pipefail
 
 repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr81-system-one-20261004
 shared=/aaa/fionafyang/buddy1/whaleywang/MechET
-strict_data="$shared/data/mech_uspto_31k_natural_language_history_v2"
+strict_data="${MECHET_FULL_ENDPOINT_STRICT_DATA:-$shared/data/mech_uspto_31k_natural_language_history_v2}"
 full_data="${MECHET_FULL_ENDPOINT_SOURCE_DIR:-$shared/data/mech_uspto_31k_full_endpoint_rxnmapper}"
-route_checkpoint="$shared/outputs/agent/system_one_pr81_phase0_31k_20261005_v2/full"
-route_run="$shared/outputs/agent/system_one_pr81_phase1a_route_31k_20261005"
-typed_checkpoint="$shared/outputs/agent/system_one_pr81_jev_typed_v2_31k_20261005/full"
+route_checkpoint="${MECHET_FULL_ENDPOINT_ROUTE_CHECKPOINT:-$shared/outputs/agent/system_one_pr81_phase0_31k_20261005_v2/full}"
+route_run="${MECHET_FULL_ENDPOINT_ROUTE_RUN:-$shared/outputs/agent/system_one_pr81_phase1a_route_31k_20261005}"
+typed_checkpoint="${MECHET_FULL_ENDPOINT_TYPED_CHECKPOINT:-$shared/outputs/agent/system_one_pr81_jev_typed_v2_31k_20261005/full}"
 split="${MECHET_FULL_ENDPOINT_SPLIT:-valid}"
 case "$split" in
   valid|test) ;;

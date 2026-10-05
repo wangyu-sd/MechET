@@ -165,11 +165,20 @@ def main() -> int:
     counts = {}
     manifest = json.loads((args.data_dir / "manifest.json").read_text())
     status = json.loads((args.data_dir / "ARTIFACT_STATUS.json").read_text())
+    allowed_artifacts = {
+        "mech_uspto_31k_natural_language_electron_event_history_v2",
+        "mech_uspto_31k_natural_language_history_principal_target_v1",
+    }
     if (not manifest.get("training_allowed") or not status.get("training_allowed")
             or manifest.get("artifact_type") != status.get("artifact_id")
-            or manifest.get("artifact_type") !=
-            "mech_uspto_31k_natural_language_electron_event_history_v2"):
-        raise ValueError("Phase-1a requires the validated current-compiler history-v2 trace view")
+            or manifest.get("artifact_type") not in allowed_artifacts):
+        raise ValueError("Phase-1a requires a validated current-compiler history trace view")
+    if manifest["artifact_type"].endswith("principal_target_v1") and (
+        manifest.get("target_prompt_contract")
+        != "principal_product_target_line_with_unchanged_executor_mixture_v1"
+        or status.get("target_prompt_contract") != manifest["target_prompt_contract"]
+    ):
+        raise ValueError("principal-target Phase-1a source contract mismatch")
     for split in ("train", "valid", "test"):
         path = args.data_dir / f"{split}.jsonl"
         source[split] = verify_source(path)
