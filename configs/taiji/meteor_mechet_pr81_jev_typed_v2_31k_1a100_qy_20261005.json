@@ -21,7 +21,7 @@
   "task_queuing_priority": "P2",
   "keep_running_after_trainer_finish": false,
   "task_category": "fine_tuning",
-  "task_description": "PR81 typed Jev-style v2: shared chemical state, typed SOURCE/SINK question branches, explicit options, option-isolated block-causal attention and decide-token readout. Qwen3-0.6B LoRA, one A100, full 19,199 train / 2,543 valid electron-event decisions. No autoregressive generation and no bounded smoke stage. Local decision experiment only; not product-start endpoint accuracy.",
+  "task_description": "PR81 factorized typed Jev-style v2: shared chemical state, typed SOURCE/SINK atom-option branches, all sink atom-pairs scored by symmetric composition without quadratic text expansion. Qwen3-0.6B LoRA, one A100, full 19,199 train / 2,543 valid electron-event decisions. No autoregressive generation. Local decision experiment only; not product-start endpoint accuracy.",
   "resource_usage": "experiment",
   "base_model": "Qwen/Qwen3-0.6B@c1899de289a04d12100db370d81485cdf75e47ca",
   "output_base_model": "MechET-PR81-Jev-Typed-v2-31k",

@@ -22,8 +22,8 @@ sys.path.insert(0, str(ROOT / "src"))
 from mechet.electron_pointer import PointerExample, candidate_keys
 from mechet.jev_style_decision import (
     CONTROL_TOKENS,
+    FactorizedTypedElectronFlowHead,
     JevEncoding,
-    TypedElectronFlowHead,
     TypedQuestion,
     block_causal_option_mask,
     encode_typed_record,
@@ -63,6 +63,7 @@ class PreparedTypedDecision:
     sink_targets: tuple[int, ...]
     source_count: int
     sink_count: int
+    explicit_sink_options: int
 
     @property
     def pair_count(self) -> int:
@@ -85,7 +86,9 @@ def prepare_typed(example: PointerExample, tokenizer) -> PreparedTypedDecision:
         state=state_text(example),
         questions=(
             TypedQuestion("SELECT ELECTRON SOURCE", tuple(option_label(key) for key in source)),
-            TypedQuestion("SELECT ELECTRON SINK", tuple(option_label(key) for key in sink)),
+            TypedQuestion("SELECT ELECTRON SINK ATOM OR PAIR", tuple(
+                option_label(("atom", i, i)) for i in range(len(example.atom_names))
+            )),
         ),
         option_isolation=True,
     )
@@ -97,6 +100,7 @@ def prepare_typed(example: PointerExample, tokenizer) -> PreparedTypedDecision:
         sink_targets=dst_targets,
         source_count=len(source),
         sink_count=len(sink),
+        explicit_sink_options=len(example.atom_names),
     )
 
 
@@ -153,7 +157,7 @@ def main() -> int:
         if len(item.encoding.input_ids) > args.max_length
     ]
     preflight = {
-        "artifact_type": "system_one_jev_typed_v2_preflight",
+        "artifact_type": "system_one_jev_typed_v2_factorized_preflight",
         "train_source": train_source,
         "valid_source": valid_source,
         "train_counts": train_counts,
@@ -162,8 +166,10 @@ def main() -> int:
         "selected_valid_events": len(prepared_valid),
         "model": args.model,
         "model_revision": args.revision,
+        "trainer_sha256": file_sha256(Path(__file__)),
+        "encoder_sha256": file_sha256(ROOT / "src/mechet/jev_style_decision.py"),
         "seed": args.seed,
-        "input_contract": "shared_state_two_typed_questions_option_isolated_block_causal_v2",
+        "input_contract": "shared_state_typed_source_and_atom_sink_composed_pairs_block_causal_v2",
         "control_tokens": list(CONTROL_TOKENS),
         "max_length": args.max_length,
         "max_observed_length": max(lengths),
@@ -172,6 +178,7 @@ def main() -> int:
         "overlength_example_ids": overlength[:20],
         "max_source_options": max(item.source_count for item in all_rows),
         "max_sink_options": max(item.sink_count for item in all_rows),
+        "max_explicit_sink_options": max(item.explicit_sink_options for item in all_rows),
         "max_pair_options": max(item.pair_count for item in all_rows),
     }
     args.output.mkdir(parents=True, exist_ok=True)
@@ -209,7 +216,7 @@ def main() -> int:
             task_type=TaskType.FEATURE_EXTRACTION,
         ),
     )
-    head = TypedElectronFlowHead(int(policy.config.hidden_size), args.pointer_dim).to(device)
+    head = FactorizedTypedElectronFlowHead(int(policy.config.hidden_size), args.pointer_dim).to(device)
     params = [p for p in policy.parameters() if p.requires_grad] + list(head.parameters())
     optimizer = torch.optim.AdamW(params, lr=args.lr, weight_decay=0.01)
 
@@ -282,7 +289,7 @@ def main() -> int:
         n = len(prepared_valid)
         report = {
             "artifact_type": "system_one_jev_typed_v2_validation",
-            "architecture": "shared_state_typed_questions_option_isolated_block_causal",
+            "architecture": "typed_questions_option_isolated_factorized_sink_pairs",
             "epoch": epoch + 1,
             "train_events": len(prepared_train),
             "valid_events": n,
@@ -298,6 +305,8 @@ def main() -> int:
             "autoregressive_generation": False,
             "model": args.model,
             "model_revision": args.revision,
+            "trainer_sha256": preflight["trainer_sha256"],
+            "encoder_sha256": preflight["encoder_sha256"],
         }
         (args.output / f"validation_epoch{epoch + 1}.json").write_text(
             json.dumps(report, indent=2) + "\n"
@@ -307,7 +316,7 @@ def main() -> int:
         head_path = args.output / f"typed_head_epoch{epoch + 1}.pt"
         torch.save(head.state_dict(), head_path)
         manifest = {
-            "artifact_type": "system_one_jev_typed_v2_decision_policy",
+            "artifact_type": "system_one_jev_typed_v2_factorized_decision_policy",
             "architecture": report["architecture"],
             "input_contract": preflight["input_contract"],
             "train_source": train_source,

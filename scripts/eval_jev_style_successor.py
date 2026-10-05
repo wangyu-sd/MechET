@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
-from mechet.jev_style_decision import TypedElectronFlowHead, block_causal_option_mask
+from mechet.jev_style_decision import FactorizedTypedElectronFlowHead, block_causal_option_mask
 from mechet.natural_language_electron_flow import execute_event_arguments
 from mechet.structural_overlap import canonical_unmapped_smiles
 from mechet.system_one_replay import execute_pair_indices, reconstruct_mapped_state
@@ -58,8 +58,8 @@ def main() -> int:
         raise FileExistsError(args.output)
     manifest_path = args.checkpoint / f"run_manifest_epoch{args.epoch}.json"
     manifest = json.loads(manifest_path.read_text())
-    if manifest.get("artifact_type") != "system_one_jev_typed_v2_decision_policy":
-        raise ValueError("checkpoint is not typed Jev-style v2")
+    if manifest.get("artifact_type") != "system_one_jev_typed_v2_factorized_decision_policy":
+        raise ValueError("checkpoint is not factorized typed Jev-style v2")
 
     source = verify_source(args.data)
     if args.data.stem != args.split:
@@ -110,7 +110,7 @@ def main() -> int:
         attn_implementation="sdpa" if device.type == "cuda" else "eager",
     ).to(device)
     policy = PeftModel.from_pretrained(base, adapter, is_trainable=False).eval()
-    head = TypedElectronFlowHead(
+    head = FactorizedTypedElectronFlowHead(
         int(policy.config.hidden_size), int(manifest["pointer_dim"])
     ).to(device)
     head.load_state_dict(torch.load(head_path, map_location="cpu", weights_only=True), strict=True)

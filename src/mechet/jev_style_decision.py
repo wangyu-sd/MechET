@@ -214,6 +214,54 @@ class TypedElectronFlowHead(nn.Module):
         return TypedPairOutput(source_logits, sink_logits, pair_logits)
 
 
+class FactorizedTypedElectronFlowHead(nn.Module):
+    """Compose unordered sink-pair options from O(n) explicit atom options.
+
+    The numeric score space still contains every atom and every unordered atom
+    pair. Only the *textual* option list is factorized, avoiding O(n²) tokens
+    and O(n⁴) dense-attention memory for large molecular states.
+    """
+
+    def __init__(self, hidden_size: int, pointer_dim: int = 256):
+        super().__init__()
+        self.source = OptionPointerHead(hidden_size, pointer_dim)
+        self.sink = OptionPointerHead(hidden_size, pointer_dim)
+        self.pair_compose = nn.Sequential(
+            nn.Linear(3 * hidden_size, hidden_size),
+            nn.GELU(),
+            nn.LayerNorm(hidden_size),
+        )
+        self.pair_source = nn.Linear(hidden_size, pointer_dim, bias=False)
+        self.pair_sink = nn.Linear(hidden_size, pointer_dim, bias=False)
+        self.scale = 1.0 / math.sqrt(pointer_dim)
+
+    def forward(
+        self,
+        source_decide: torch.Tensor,
+        source_options: torch.Tensor,
+        sink_decide: torch.Tensor,
+        sink_atom_options: torch.Tensor,
+    ) -> TypedPairOutput:
+        atom_states = sink_atom_options.float()
+        n_atoms = atom_states.shape[0]
+        pair_indices = torch.triu_indices(n_atoms, n_atoms, offset=1,
+                                          device=atom_states.device)
+        left = atom_states[pair_indices[0]]
+        right = atom_states[pair_indices[1]]
+        pair_states = self.pair_compose(
+            torch.cat((left + right, torch.abs(left - right), left * right), dim=-1)
+        )
+        sink_options = torch.cat((atom_states, pair_states), dim=0)
+        source_states = source_options.float()
+        source_logits = self.source(source_decide, source_states)
+        sink_logits = self.sink(sink_decide, sink_options)
+        pair_logits = (
+            self.pair_source(source_states) @ self.pair_sink(sink_options).T
+        ) * self.scale
+        pair_logits = pair_logits + source_logits[:, None] + sink_logits[None, :]
+        return TypedPairOutput(source_logits, sink_logits, pair_logits)
+
+
 def required_target_nll(logits: torch.Tensor, indices: Sequence[int]) -> torch.Tensor:
     """Mean NLL over every required target in a multi-flow event."""
     unique = sorted(set(int(index) for index in indices))

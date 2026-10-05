@@ -1,6 +1,9 @@
 import torch
+from types import SimpleNamespace
 
+from mechet.electron_pointer import candidate_keys
 from mechet.jev_style_decision import (
+    FactorizedTypedElectronFlowHead,
     JevEncoding,
     TypedElectronFlowHead,
     TypedQuestion,
@@ -8,6 +11,7 @@ from mechet.jev_style_decision import (
     encode_typed_record,
     required_target_nll,
 )
+from scripts.train_jev_style_electron_flow import prepare_typed
 
 
 class FakeTokenizer:
@@ -80,6 +84,43 @@ def test_typed_pair_head_shapes():
     assert out.source_logits.shape == (5,)
     assert out.sink_logits.shape == (7,)
     assert out.pair_logits.shape == (5, 7)
+
+
+def test_factorized_sink_retains_all_atom_pairs_with_linear_text_options():
+    n_atoms = 85
+    example = SimpleNamespace(
+        row_id="test::event",
+        atom_names=tuple(f"A{i + 1:02d}" for i in range(n_atoms)),
+        bonds=(),
+        source_targets=(("atom", 0, 0),),
+        sink_targets=(("bond", 0, n_atoms - 1),),
+        messages=[{"role": "user", "content": "CURRENT STATE"}],
+    )
+    prepared = prepare_typed(example, FakeTokenizer())
+    assert prepared.explicit_sink_options == n_atoms
+    assert len(prepared.encoding.option_indices[1]) == n_atoms
+    assert prepared.sink_count == n_atoms + n_atoms * (n_atoms - 1) // 2
+    assert prepared.pair_targets == (2 * n_atoms - 2,)
+    assert len(prepared.encoding.input_ids) < 3000
+
+
+def test_factorized_head_scores_full_pair_space_and_backpropagates():
+    head = FactorizedTypedElectronFlowHead(16, 8)
+    source = torch.randn(5, 16, requires_grad=True)
+    sink_atoms = torch.randn(4, 16, requires_grad=True)
+    output = head(torch.randn(16), source, torch.randn(16), sink_atoms)
+    assert output.source_logits.shape == (5,)
+    assert output.sink_logits.shape == (4 + 6,)
+    assert output.pair_logits.shape == (5, 10)
+    required_target_nll(output.pair_logits, [5, 7]).backward()
+    assert sink_atoms.grad is not None and torch.isfinite(sink_atoms.grad).all()
+
+
+def test_factorized_pair_order_matches_executor_candidate_indices():
+    pairs = torch.triu_indices(4, 4, offset=1).T.tolist()
+    expected = [(left, right) for _, left, right in
+                candidate_keys(4, (), source=False)[4:]]
+    assert [tuple(pair) for pair in pairs] == expected
 
 
 def test_required_target_nll_penalizes_missing_required_flow():

@@ -44,10 +44,11 @@ authoritative state S_t
         |                               |
         v                               v
  <question: SOURCE>              <question: SINK>
- <option> atom/bond ...          <option> atom/pair ...
+ <option> atom/bond ...          <option> atom ...
  <option> ...                    <option> ...
  <decide>                        <decide>
         |                               |
+        |                     symmetric atom-pair composition
         +-------------+-----------------+
                       v
              coupled move score
@@ -72,10 +73,19 @@ rows. The trainer verifies that every delimiter is a distinct single tokenizer
 token before training.
 
 The electron-flow task remains hierarchical. Source candidates are atoms and
-present bonds; sink candidates are atoms and unordered atom pairs. Separate
-typed SOURCE and SINK distributions are combined by a coupled move head, and
-the loss requires every reference move in a multi-flow event rather than
-rewarding only the easiest move.
+present bonds. The sink question exposes each atom once; a symmetric readout
+composes every unordered atom pair from the two atom representations. Thus the
+numeric sink score space still includes **all** atoms and unordered pairs,
+while prompt length grows linearly rather than quadratically in atom count.
+Separate typed SOURCE and SINK distributions are combined by a coupled move
+head, and the loss requires every reference move in a multi-flow event rather
+than rewarding only the easiest move. This factorization was required by the
+full-data preflight: explicitly listing all pairs produced 38,622 tokens for
+a real 85-atom training state against an 8,192-token cap, with no scientifically
+valid way to drop that row or silently truncate options. The factorized full
+train/valid audit retains 19,199 / 2,543 electron events, scores up to 3,655
+sink candidates, and reduces the maximum actual tokenizer length to 2,927;
+zero records exceed the cap.
 
 The previous 0.6B marker-pointer implementation is retained only as a v1
 baseline because its measured results are already frozen. Its input contract
@@ -173,7 +183,7 @@ pretraining, and input representation.
 
 ## Jev-style v2 evaluation contract
 
-The v2 trainer writes `system_one_jev_typed_v2_decision_policy` manifests and
+The v2 trainer writes `system_one_jev_typed_v2_factorized_decision_policy` manifests and
 is evaluated separately with:
 
 ```bash
