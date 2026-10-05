@@ -201,7 +201,11 @@ After a hash-verified typed-v2 checkpoint exists, the prepared one-A100
 `scripts/run_taiji_jev_style_typed_v2_successor_1a100.sh` evaluates the full
 2,543-event validation and 2,371-event test trace views separately, retaining
 per-event cases. It must not be launched from a merely pending training task.
-The evaluator records the same frozen source and gold-replay fields as the v1
+Before loading weights, the evaluator checks the completed manifest against the
+preflight's source counts, model revision, input contract, zero-overlength audit,
+and exact trainer/encoder SHA-256 values. This prevents a later source-code
+change from silently redefining the typed-v2 checkpoint. The evaluator records
+the same frozen source and gold-replay fields as the v1
 and PR71 reports. `scripts/compare_jev_style_successor.py` then checks identical
 event IDs and reference chemistry, independently reconstructs the frozen
 executor-validity backoff from each model's `fixed1`/`fixed2` cases, checks the

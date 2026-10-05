@@ -52,6 +52,28 @@ def select_counts(gold_count: int, executed: dict[int, dict]) -> dict[str, int]:
     }
 
 
+def verify_checkpoint_contract(checkpoint: Path, manifest: dict) -> dict:
+    """Reject a valid-looking weight file paired with a different encoder."""
+    path = checkpoint / "preflight.json"
+    preflight = json.loads(path.read_text())
+    if preflight.get("artifact_type") != "system_one_jev_typed_v2_factorized_preflight":
+        raise ValueError("typed-v2 checkpoint has no matching preflight")
+    for field in ("train_source", "valid_source", "model", "model_revision",
+                  "input_contract", "selected_train_events", "selected_valid_events"):
+        if preflight.get(field) != manifest.get(field):
+            raise ValueError(f"typed-v2 preflight/manifest disagree on {field}")
+    if preflight.get("overlength_count") != 0:
+        raise ValueError("typed-v2 training preflight contains overlength rows")
+    current = {
+        "trainer_sha256": file_sha256(ROOT / "scripts/train_jev_style_electron_flow.py"),
+        "encoder_sha256": file_sha256(ROOT / "src/mechet/jev_style_decision.py"),
+    }
+    for field, digest in current.items():
+        if preflight.get(field) != digest:
+            raise ValueError(f"typed-v2 {field} differs from the trained input contract")
+    return preflight
+
+
 def main() -> int:
     args = arguments()
     if args.output.exists():
@@ -60,6 +82,7 @@ def main() -> int:
     manifest = json.loads(manifest_path.read_text())
     if manifest.get("artifact_type") != "system_one_jev_typed_v2_factorized_decision_policy":
         raise ValueError("checkpoint is not factorized typed Jev-style v2")
+    verify_checkpoint_contract(args.checkpoint, manifest)
 
     source = verify_source(args.data)
     if args.data.stem != args.split:
