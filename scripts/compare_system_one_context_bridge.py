@@ -58,8 +58,11 @@ def compare(bridge_dir: Path, baseline_dir: Path) -> dict:
             raise ValueError(f"incorrect reconstruction flag: {reaction_id}")
         hit = bool(candidate["endpoint_exact_strict_full_precursor"])
         baseline_hit = bool(reference["endpoint_exact"])
-        if reconstructed and (candidate["predicted_precursor"] != reference["predicted_precursor"]
-                              or candidate["terminal"] != reference["terminal"]):
+        if reconstructed and (
+            candidate["predicted_precursor"] != reference["predicted_precursor"]
+            or candidate["terminal"] != reference["terminal"]
+            or candidate["actions"] != reference["actions"]
+        ):
             raise ValueError(f"same input produced different rollout: {reaction_id}")
         group = "reconstructed" if reconstructed else "nonreconstructed"
         counts[group] += 1
