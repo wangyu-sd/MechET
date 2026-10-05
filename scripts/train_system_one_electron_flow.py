@@ -62,6 +62,9 @@ def verify_source(path: Path) -> dict[str, Any]:
     manifest_path = path.parent / "manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.is_file() else {}
     split = path.stem
+    artifact_id = status.get("artifact_id") or manifest.get("artifact_type")
+    if artifact_id == "mech_uspto_31k_natural_language_history_principal_target_v1":
+        raise ValueError("principal-target v1 has a train/inference stereochemistry mismatch")
     declared = str((manifest.get("splits") or {}).get(split, {}).get("output_sha256") or "")
     if declared and declared != actual:
         raise ValueError(f"{split} file differs from its frozen manifest: {path}")
@@ -69,7 +72,7 @@ def verify_source(path: Path) -> dict[str, Any]:
         "path": str(path.resolve()),
         "sha256": actual,
         "declared_sha256": declared or None,
-        "artifact_id": status.get("artifact_id") or manifest.get("artifact_type"),
+        "artifact_id": artifact_id,
         "reaction_denominator": (manifest.get("reaction_denominator") or {}).get(split),
         "decision_rows": (manifest.get("decision_rows") or {}).get(split),
         "event_decisions": (manifest.get("splits") or {}).get(split, {}).get("event_decisions"),

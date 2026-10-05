@@ -167,7 +167,6 @@ def main() -> int:
     status = json.loads((args.data_dir / "ARTIFACT_STATUS.json").read_text())
     allowed_artifacts = {
         "mech_uspto_31k_natural_language_electron_event_history_v2",
-        "mech_uspto_31k_natural_language_history_principal_target_v1",
         "mech_uspto_31k_natural_language_history_principal_target_v2",
     }
     if (not manifest.get("training_allowed") or not status.get("training_allowed")

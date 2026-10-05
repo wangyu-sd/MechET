@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 
 import pytest
 
@@ -8,6 +9,7 @@ from scripts.build_system_one_principal_target_history import (
     CONTRACT, convert_row, principal_component_from_mixture,
 )
 from scripts.audit_system_one_principal_target_history import check_row
+from scripts.train_system_one_electron_flow import verify_source
 
 
 def _row() -> dict:
@@ -80,3 +82,14 @@ def test_independent_audit_rejects_stereo_leaking_target_line():
     converted = convert_row(source, "C[C@H](O)F")
     with pytest.raises(ValueError, match="frozen endpoint input"):
         check_row(source, converted, "CC(O)F")
+
+
+def test_v1_training_forbidden_even_if_stale_status_says_allowed(tmp_path):
+    source = tmp_path / "train.jsonl"
+    source.write_text("{}\n")
+    (tmp_path / "ARTIFACT_STATUS.json").write_text(json.dumps({
+        "artifact_id": "mech_uspto_31k_natural_language_history_principal_target_v1",
+        "training_allowed": True,
+    }))
+    with pytest.raises(ValueError, match="stereochemistry mismatch"):
+        verify_source(source)
