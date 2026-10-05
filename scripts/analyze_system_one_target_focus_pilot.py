@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independently rescore the paired 64-row first-event focus diagnostic."""
+"""Independently rescore paired 64-row System-One decoder/prompt diagnostics."""
 from __future__ import annotations
 
 import argparse
@@ -30,9 +30,17 @@ def _rows(path: Path, field: str) -> dict[str, dict]:
     return rows
 
 
+def trajectory_signature(case: dict) -> tuple:
+    """Compare executed chemistry, ignoring logits, token lengths and audit tags."""
+    return tuple((action["action"], bool(action.get("accepted")),
+                  tuple(action.get("selected_pairs") or ()),
+                  tuple(tuple(item) for item in (action.get("batch") or ())),
+                  action.get("state_after")) for action in case["actions"])
+
+
 def validate_run(run: Path, full: dict[str, dict], context: dict[str, dict],
                  *, source_sha: str, context_report_sha: str,
-                 focus: bool) -> tuple[dict, dict[str, dict]]:
+                 focus: bool, principal_prompt: bool = False) -> tuple[dict, dict[str, dict]]:
     report = json.loads((run / "report.json").read_text())
     cases_path = run / "cases.jsonl"
     cases = _rows(cases_path, "id")
@@ -44,6 +52,7 @@ def validate_run(run: Path, full: dict[str, dict], context: dict[str, dict],
             or report["full_endpoint_reaction_denominator"] != 3120
             or report["context_report_sha256"] != context_report_sha
             or report.get("first_event_target_focus", False) is not focus
+            or report.get("principal_target_prompt", False) is not principal_prompt
             or report["selection"] != {"method": "sha256_seed_reaction_id",
                                        "seed": 17, "limit": 64}
             or report["evaluated_reactions"] != len(cases)
@@ -79,7 +88,9 @@ def validate_run(run: Path, full: dict[str, dict], context: dict[str, dict],
 
 
 def compare(baseline_dir: Path, focused_dir: Path, full_dir: Path,
-            context_dir: Path) -> dict:
+            context_dir: Path, *, intervention: str = "first_event_target_focus") -> dict:
+    if intervention not in {"first_event_target_focus", "principal_target_prompt"}:
+        raise ValueError("unsupported paired pilot intervention")
     manifest = json.loads((full_dir / "manifest.json").read_text())
     full_path = full_dir / "valid.jsonl"
     source_sha = sha256(full_path)
@@ -106,7 +117,9 @@ def compare(baseline_dir: Path, focused_dir: Path, full_dir: Path,
     )
     focused_report, focused = validate_run(
         focused_dir, full, context, source_sha=source_sha,
-        context_report_sha=sha256(context_report_path), focus=True,
+        context_report_sha=sha256(context_report_path),
+        focus=intervention == "first_event_target_focus",
+        principal_prompt=intervention == "principal_target_prompt",
     )
     for key in ("weights", "strict_policy_source", "train_import_source", "max_actions",
                 "legality_backoff", "context_cases_sha256"):
@@ -118,10 +131,9 @@ def compare(baseline_dir: Path, focused_dir: Path, full_dir: Path,
         overrides = [action["first_event_target_focus"] for action in after["actions"]
                      if action.get("first_event_target_focus", {}).get("overrode_baseline")]
         counts["reactions"] += 1
-        counts["trajectory_changed"] += int(before["actions"] != [
-            {key: value for key, value in action.items() if key != "first_event_target_focus"}
-            for action in after["actions"]
-        ])
+        counts["trajectory_changed"] += int(
+            trajectory_signature(before) != trajectory_signature(after)
+        )
         counts["first_event_override_reactions"] += int(bool(overrides))
         counts["first_event_override_steps"] += len(overrides)
         counts["baseline_exact"] += int(before["structural_exact"])
@@ -132,7 +144,8 @@ def compare(baseline_dir: Path, focused_dir: Path, full_dir: Path,
         counts["baseline_completed"] += int(before["completed"])
         counts["focused_completed"] += int(after["completed"])
     return {
-        "artifact_type": "system_one_pr81_equ_proxy_first_event_target_focus_valid64_paired_audit",
+        "artifact_type": f"system_one_pr81_equ_proxy_{intervention}_valid64_paired_audit",
+        "intervention": intervention,
         "scope": "validation_only_diagnostic_not_full_3120_or_test_result",
         "full_endpoint_sha256": source_sha,
         "context_report_sha256": sha256(context_report_path),
@@ -148,12 +161,16 @@ def main() -> None:
     parser.add_argument("--focused-dir", type=Path, required=True)
     parser.add_argument("--full-endpoint-dir", type=Path, required=True)
     parser.add_argument("--context-dir", type=Path, required=True)
+    parser.add_argument("--intervention", choices=("first_event_target_focus",
+                                                  "principal_target_prompt"),
+                        default="first_event_target_focus")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(args.output)
     result = compare(args.baseline_dir, args.focused_dir,
-                     args.full_endpoint_dir, args.context_dir)
+                     args.full_endpoint_dir, args.context_dir,
+                     intervention=args.intervention)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))

@@ -1142,7 +1142,7 @@ The strict-trace locality audit outputs are
 The ordinary one-A100 validation pilot
 `meteor_mechet_pr81_equ_proxy_target_focus_valid64_1a100_qy_20261005_01`
 ended successfully. Independent replay and paired scoring on the **same 64
-IDs** found 8 first-event overrides and 12 changed trajectories, but exact
+IDs** found 8 first-event overrides and 8 changed executed trajectories, but exact
 endpoints remained **12/64 versus 12/64**; formal finishes changed from 60/64
 to 61/64. There were no lost or gained exact cases. Thus first-event
 mislocalization is real, but this particular decoder correction is **not** an
@@ -1151,7 +1151,9 @@ a negative control and is not promoted to full test or called a model gain.
 The case/report artifact is
 `outputs/agent/system_one_pr81_equ_proxy_target_focus_valid64_20261005/`;
 the independently replayed paired audit is
-`outputs/agent/system_one_pr81_equ_proxy_target_focus_valid64_paired_audit_20261005.json`.
+`outputs/agent/system_one_pr81_equ_proxy_target_focus_valid64_paired_audit_v2_20261005.json`.
+The earlier unversioned paired JSON counted changed model logits/token lengths
+as trajectory changes; v2 compares executed actions and successor states only.
 
 The next isolated validation diagnostic tests an input-contract issue rather
 than another chemistry heuristic. Current full-endpoint inference puts the
@@ -1163,3 +1165,16 @@ This is explicitly **inference-only and not SFT-aligned**; a negative result
 cannot rule out retraining a principal-product-aware policy. The ordinary
 one-A100 validation config is
 `configs/taiji/meteor_mechet_pr81_equ_proxy_principal_prompt_valid64_1a100_qy_20261005.json`.
+Its task
+`meteor_mechet_pr81_equ_proxy_principal_prompt_valid64_1a100_qy_20261005_01`
+ended successfully. Independent replay on the same 64 IDs found 24 changed
+executed trajectories, but exact endpoints remained **12/64 versus 12/64**;
+formal finishes were 59/64 versus 60/64. There were no gained or lost exact
+cases. Hence inference-time relabelling alone is not a remedy with this frozen
+mixture-target-trained checkpoint. This does **not** test a model trained from
+the outset with a distinct principal-product field. The per-case run and
+paired audit are
+`outputs/agent/system_one_pr81_equ_proxy_principal_prompt_valid64_20261005/`
+and
+`outputs/agent/system_one_pr81_equ_proxy_principal_prompt_valid64_paired_audit_20261005.json`.
+It is not promoted to full test.
