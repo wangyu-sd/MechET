@@ -525,6 +525,25 @@ sidecar; report and case hashes were not modified. A genuine full-endpoint exper
 a matched principal-product input/training contract and the full 3,120-row
 denominator; simply renaming these artifacts cannot provide one.
 
+As a first train-only context-completion diagnostic,
+`scripts/eval_system_one_context_retrieval.py` retrieves one of the 14
+stereo-agnostic residual component batches from the 10,152 strict-trace
+training reactions using only the full-endpoint principal product's Morgan
+fingerprint (radius 2, 2,048 bits). No held-out mixture or context label is
+used to propose a batch. On the 1,319 validation reactions, exact batch
+Top-1 is **837/1,319 (63.46%)**, Top-3 coverage is **1,198/1,319 (90.83%)**,
+and the train-majority batch gives 634/1,319 (48.07%). With the rule unchanged,
+the 1,253 test reactions give **800/1,253 (63.85%)** Top-1,
+**1,138/1,253 (90.82%)** Top-3, and 583/1,253 (46.53%) train-majority.
+Only three held-out principal products in each split are exact train-product
+matches. Reports/cases are under
+`outputs/agent/system_one_pr81_context_retrieval_{valid,test}_20261005/`;
+report SHA-256 values are
+`b1fdae248be5d4cd42563682031ca97acbda9594b853c0878fde112a1700bf39`
+and `9507dafa77f8381c2cde4a79f391256c38cb521c417441f4c4fa327add22852e`.
+This tests only the context proposal, not stereo restoration, electron-policy
+rollout, endpoint accuracy, or coverage of all 3,120 reactions.
+
 `scripts/eval_system_one_product_start_pilot.py` now composes the frozen v1
 three-way router, the frozen typed-v2 electron policy, and **train-only**
 IMPORT retrieval into a final-mixture-start executor loop. Every next prompt is
