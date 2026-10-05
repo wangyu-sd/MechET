@@ -640,6 +640,45 @@ and `a67742e3ec3904fc57648cb22b1d243a7224caedec2a1c6413d128a6df6f5e02`.
 These remain strict-trace-view, full-precursor diagnostics, **not** a full
 3,120-row principal-product structural endpoint benchmark.
 
+### Product-origin structural endpoint replay on the strict overlap
+
+`scripts/score_system_one_structural_bridge.py` now replays each **already
+generated** bridge trajectory with private atom provenance. At reset it marks
+atoms of the supplied principal product; predicted context and later IMPORT
+atoms receive distinct private maps. Every accepted electron action is
+re-executed, its visible successor is checked against the frozen rollout,
+and the final state is split into product-origin structural fragments and
+auxiliaries. The policy never sees these maps or the held-out reference.
+Only after the rollout ends is the predicted structural precursor compared
+with the full-endpoint dataset's frozen structural precursor. This supplies
+a standard-*type* structural scorer on the **strict executable overlap**;
+it does not expand the denominator to the 3,120-reaction full benchmark.
+
+| Strict trace-view split | Nearest-context structural exact | Weighted-context structural exact | Weighted strict full-precursor exact |
+|---|---:|---:|---:|
+| Valid, 1,319 reactions | 607 (46.02%) | **683 (51.78%)** | 578 (43.82%) |
+| Test, 1,253 reactions | 635 (50.68%) | **706 (56.34%)** | 615 (49.08%) |
+
+All 1,319 validation and 1,253 test cases completed provenance replay with
+zero accepted-action or successor-state mismatches. Every strict full-precursor
+hit remains a structural hit; structural scoring additionally accepts 105
+validation and 91 test reactions whose auxiliary composition differs from
+the strict full-mixture reference. The weighted-versus-nearest structural
+test change is paired: 124 gained, 53 regressed, net +71/1,253 (+5.67 points).
+The corresponding validation change is 123 gained, 47 regressed, net
++76/1,319 (+5.76 points). This is endpoint-scoring evidence for the frozen
+retrieval change, not evidence that the 0.6B electron policy itself improved.
+
+Nearest-context structural reports/cases are under
+`outputs/agent/system_one_pr81_structural_nearest_bridge_{valid,test}full_20261005/`;
+weighted-context reports/cases are under
+`outputs/agent/system_one_pr81_structural_bridge_{valid,test}full_v2_20261005/`.
+The four report SHA-256 values in that order are
+`8ce894b6091c1b2c64b47597522d3dd1e12b1f0a1cec1af87d26033f454ae088`,
+`de0952d670152b25605c99dbd55b9c15fcbc5d95a562db6fdc7c964dd391d269`,
+`9a2c4f8cc02a21d56d7bec11877950070c570179bfe310059c35962d4e255783`,
+and `c30c7c4fbf3ea3f7ef1442b8597c361837cd9b448c0591c9b401e763487813d0`.
+
 This large observed gap means that the current final-mixture-trained policy
 must not be promoted as a principal-product-only system. In this trace view,
 extra final-mixture components and sometimes stereochemistry enter its first
