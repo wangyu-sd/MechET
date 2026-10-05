@@ -5,6 +5,18 @@
 Spin-off research path. This does **not** replace the frozen MechET paper protocol
 or Issue #79 experiments.
 
+**Endpoint-source correction (2026-10-05):** the previously frozen complete
+mech-USPTO endpoint handoff selects a product from HF `rxn_prod_min`. A
+hash-bound audit found that choosing the same largest-organic rule from the
+complete `rxn_prod_equ` field changes the target in 6,430/24,959 train,
+767/3,120 valid and 799/3,120 test reactions. The min-field choice is often
+an obvious byproduct (test: dicyclohexylurea in 583 cases, isobutene in 164).
+Therefore the 654/3,120 and 661/3,120 numbers below are **scores on the
+historical min-field proxy**, not validated desired-product retrosynthesis
+accuracy. The old artifacts are preserved, not silently relabelled. The
+equ-field largest-component rule is also only a proxy until checked against
+the original reaction table.
+
 ## Motivation
 
 The expensive part of the current closed-loop MechET policy is autoregressive
@@ -884,11 +896,11 @@ and makes improvement in coherent electron-event selection a more immediate
 gate than further fitting the three-way route classifier. Hash-bound reports
 are under `outputs/agent/system_one_pr81_reference_path_20261005/`.
 
-### Complete principal-product endpoint evaluation (2026-10-05)
+### Complete min-field-proxy endpoint evaluation (2026-10-05)
 
 The frozen hybrid policy was also run once per reaction on the **complete**
 HF mech-USPTO-31k endpoint valid and test splits, each with 3,120 reactions.
-Its only reaction input is the principal product. An 11-neighbor weighted
+Its only reaction input is the frozen min-field selected product. An 11-neighbor weighted
 context proposal is trained on the 24,959 full-endpoint **train** pairs and
 predicted without held-out reference context. The route and typed electron
 weights, however, were trained only on the 10,152-reaction strict executable
@@ -901,14 +913,15 @@ and compared with the frozen endpoint reference. No test reaction is dropped.
 | Valid (3,120) | 2,198 (70.45%) | 3,016 (96.67%) | **654 (20.96%)** | 640/1,319 (48.52%) | 14/1,801 (0.78%) |
 | Test (3,120) | 2,172 (69.62%) | 3,017 (96.70%) | **661 (21.19%)** | 652/1,253 (52.04%) | 9/1,867 (0.48%) |
 
-This sharp stratification is the central finding of the full-denominator run.
+This sharp stratification is a finding about the frozen **min-field proxy**.
 On the 1,867 test reactions outside strict trace-view training coverage, the
 context proposal still selects the recorded context in 1,354 cases, and the
 policy reaches a formal `FINISHED` state in 1,794, yet only nine have the
 correct structural precursor. Thus the observed full-benchmark limitation is
 not explained by missing context or executor legality alone. It is consistent
-with a severe policy/trajectory distribution shift, but this run does not
-isolate which training component causes it. The earlier 706/1,253 structural
+with a policy/trajectory distribution shift, but it is also confounded by the
+endpoint-source error documented below; this run does not isolate either
+cause. The earlier 706/1,253 structural
 score used a different, strict-train context retriever and **cannot** be
 substituted for the 661/3,120 full-test result.
 
@@ -930,7 +943,53 @@ and `ff58073b2acc9ba589ba5730776351e3e520c0a3d6f1ef7b26c71c9ac8d9e55e`.
 
 This is a single-trajectory, hybrid product-only endpoint evaluation, not a
 fully trained 31k-wide System-One policy, Top-K result, or whole-trajectory
-MECH_PROOF verification. The next scientific gate is to train the decision
-policy under a product-origin contract covering the full reaction distribution
-and test whether the outside-strict group improves; tuning the context
-retriever alone would not address the demonstrated failure mode.
+MECH_PROOF verification. A source-corrected endpoint contract is required
+before this can be promoted as desired-product retrosynthesis accuracy.
+
+### Full-endpoint source and compiler-coverage audit
+
+`scripts/audit_mech_uspto31k_endpoint_product.py` verifies every frozen
+parquet and endpoint hash, checks all 31,199 reaction IDs, and independently
+compares the existing largest-organic `rxn_prod_min` selection with the same
+selection from the complete `rxn_prod_equ` field. Both fields are invariant
+within each raw reaction. The min-field selection is always a component of
+the equ-field mixture, but it is **not** the largest equ-field component in
+6,430 train, 767 valid, and 799 test reactions. For example, test ID 67 has
+`rxn_prod_min` = dicyclohexylurea, while `rxn_prod_equ` also contains a much
+larger amide; test ID 43 has isobutene in the min field while the equ field
+also contains the deprotected target. These are upstream field-selection
+counterexamples, not model-generated structures. The equ-field selection is
+an improved deterministic candidate, but neither heuristic proves which
+product the patent reaction intended in every case.
+
+`scripts/stratify_system_one_full_endpoint.py` joins the hash-bound rollout,
+context, full endpoint, strict trace, all-step-executable compiler list, and
+product-field audit. The mutually exclusive test strata are:
+
+| Test stratum | Reactions | Old min/equ target disagrees | Old-proxy exact | Context Top-1 | Formal finish |
+|---|---:|---:|---:|---:|---:|
+| Stitched strict trace | 1,253 | 0 | 652 | 818 | 1,223 |
+| All steps executable, but not stitched | 774 | 633 | 0 | 723 | 767 |
+| Some elementary steps incomplete | 1,093 | 166 | 9 | 631 | 1,027 |
+
+Valid has the same pattern: 0/723 exact in the all-steps-executable but
+unstitched group, with 579/723 min/equ target disagreements. All 799 test
+field-disagreement cases are old-proxy endpoint misses, but **141/774**
+all-step-executable unstitched test cases have no field disagreement and also
+miss. Hence correcting the product field is necessary for a scientifically
+interpretable full benchmark, but cannot alone explain or repair every
+outside-strict failure. The frozen strict-trace 1,253-row results do not have
+this particular min/equ disagreement.
+
+Audit JSON files (including reaction IDs, source hashes, and examples) are
+`outputs/agent/system_one_pr81_endpoint_product_min_equ_audit_v2_20261005.json`
+and `outputs/agent/system_one_pr81_full_endpoint_{valid3120,test3120}_product_compiler_strata_20261005.json`.
+The source-audit SHA-256 is
+`5b1df74f1b20c656c78e8397b2686c78eb9a423e2ef199a60a0ed75076927df4`.
+Valid/test joined-stratification SHA-256 values are respectively
+`43c573d4e4104893a2b110ccb16cb8ce95ff8aa574ace6cc2acfb2e1ac5cbbc0`
+and `726a0ea2e1493512f47c0d17bcd84cfccd9aad8d4f6d88f00c4749f172e2768c`.
+The builder now supports an explicitly separate `--product-field rxn_prod_equ`
+artifact; it does not overwrite the frozen min-field outputs. That alternative
+requires its own mapping, context retrieval, and full-denominator evaluation
+before any corrected performance number can be reported.

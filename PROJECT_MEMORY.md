@@ -1,5 +1,20 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-05 mech-USPTO full-endpoint target-field guard (PR #81):** the
+> frozen `data/mech_uspto_31k_full_endpoint_rxnmapper/` 24,959/3,120/3,120
+> handoff selects the largest organic component of HF `rxn_prod_min`. A
+> hash-bound all-reaction audit found that the same selection from complete
+> `rxn_prod_equ` differs in 6,430/767/799 train/valid/test reactions; many
+> min-field selections are obvious byproducts (dicyclohexylurea/isobutene).
+> Therefore existing full-denominator scores, including PR #81 test
+> 661/3,120, are valid only for the historical **min-field proxy** and must
+> not be labelled desired-product retrosynthesis accuracy. Preserve that
+> artifact; build any equ-field proxy in separate directories and evaluate
+> against its own frozen mapping. Even equ-field largest-organic selection is
+> not yet verified against the original Figshare reaction table. The audit,
+> changed reaction IDs, compiler-coverage stratification and limitations are
+> in `docs/SYSTEM_ONE_RETROSYNTHESIS.md`.
+
 > **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
 > compact-history task was stopped because its action-conditioned observation
 > and private-map replay contract are diagnostic only.  The first clean v2
@@ -73,9 +88,10 @@
 
 > **Permanent mech-USPTO mapping guard:** HF `rxn_prod_min` has no atom maps.
 > Never label a copy of it `product_mapped` and never feed that artifact to
-> LocalRetro. The active full endpoint protocol uses HF step-0 `elem_reac_spe`
-> as the complete initial mixture, selects the deterministic principal organic
-> `rxn_prod_min` fragment, maps the pair once with RXNMapper 0.4.2 under
+> LocalRetro. The historical min-field full endpoint protocol uses HF step-0
+> `elem_reac_spe` as the complete initial mixture, selects the deterministic
+> largest organic `rxn_prod_min` fragment as a proxy, and maps the pair once
+> with RXNMapper 0.4.2 under
 > Transformers 4.57.1, and then performs synchronized product-only canonical
 > reindexing. Every external method shares this mapping. The build must fail
 > rather than filter a mapping error.

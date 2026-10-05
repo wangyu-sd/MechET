@@ -22,7 +22,7 @@ or from a conversion rate alone.
 | `inverse_20260811_v2` | `data/mech_uspto_31k_inverse_tool_sft` | deprecated pilot | 9,118 / 1,187 / 1,124 | historical diagnostics only |
 | `mixed_20260811_v1` | `data/mixed_inverse_tool_sft` | deprecated mixed pilot | mech-USPTO train contribution 9,118 | historical model lineage only |
 | `full_endpoint_pseudomap_invalid` | `data/mech_uspto_31k_full_endpoint_sft` | invalid | no valid export | never use; requires Figshare v2 mapped reaction table |
-| `full_endpoint_hf_rxnmapper_20260824` | `data/mech_uspto_31k_full_endpoint_rxnmapper` | building | 24,959 / 3,120 / 3,120 expected | active full endpoint and external-baseline handoff after manifest validation |
+| `full_endpoint_hf_rxnmapper_20260824` | `data/mech_uspto_31k_full_endpoint_rxnmapper` | validated historical min-field proxy | 24,959 / 3,120 / 3,120 | same-proxy lineage only; do not label as verified desired-product benchmark (2026-10-05 field audit) |
 | `action_delta_20260823_v1` | `data/mech_uspto_31k_inverse_tool_sft_action_delta_v1` | deprecated pilot | 9,118 / 1,187 / 1,124 | reproduce the completed pilot only; no new training |
 | `compiler_20260824_v2` | `data/forward_expert/mech_uspto_31k_recompiled_20260824` | validated trace source | 10,152 / 1,319 / 1,253 stitched traces | source for current inverse build |
 | `action_delta_20260824_v2` | `data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824` | validated | 10,152 / 1,319 / 1,253 | current train-ready executable trace view |

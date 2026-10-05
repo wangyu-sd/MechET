@@ -1,6 +1,18 @@
 # mech-USPTO-31k full endpoint and external-baseline protocol
 
-## Active public-source protocol
+> **2026-10-05 target-field audit:** this frozen handoff is the historical
+> `rxn_prod_min` **proxy**, not a verified desired-product benchmark. Selecting
+> the largest organic component from the complete HF `rxn_prod_equ` field
+> instead changes 6,430/24,959 train, 767/3,120 valid and 799/3,120 test
+> targets. Typical old targets in the affected test rows are
+> dicyclohexylurea (583) and isobutene (164), both common byproducts. Keep
+> existing results for same-proxy lineage only; do not call their accuracy
+> standard product-only retrosynthesis accuracy. The equ-field rule also
+> remains a proxy pending comparison to the original reaction table. Audit
+> code and per-reaction IDs are in PR #81, documented in
+> `docs/SYSTEM_ONE_RETROSYNTHESIS.md`.
+
+## Historical public-source min-field proxy
 
 The active build uses the public Hugging Face snapshot
 `SchwallerGroup/mech_uspto_31k`, rather than waiting for Figshare. The frozen
@@ -14,8 +26,9 @@ The HF files store elementary steps, so one reaction pair is reconstructed as:
    species mixture (`elem_reac_min` is only the current elementary-step input
    and is therefore insufficient for multi-step reactions);
 3. canonicalize `rxn_prod_min`, which is invariant within the reaction;
-4. select its deterministic largest organic fragment as the desired-product
-   proxy, excluding salts and smaller byproducts from the retrosynthesis target;
+4. select its deterministic largest organic fragment as a target proxy; this
+   can itself be a byproduct when the desired product is absent from
+   `rxn_prod_min`;
 5. map `initial species >> desired product` once with RXNMapper 0.4.2 under
    Transformers 4.57.1;
 6. discard RXNMapper's numeric map labels and apply product-only canonical
@@ -100,9 +113,16 @@ confidence summaries, mapping versions, and zero executor filtering.
 ## Figshare relation and invalid legacy artifact
 
 The original Figshare v2 `reaction` table remains useful as a future provenance
-audit, but it is not required by the active build. Its numeric atom-map labels
+audit; it is now needed before claiming a verified desired-product target.
+Its numeric atom-map labels
 would not be model features because this protocol reindexes from the product
 anyway.
+
+The builder accepts `--product-field rxn_prod_equ` for a **separate** full-size
+equ-field proxy artifact. This does not modify the old min-field output and
+requires explicit new output and LocalRetro directories. Run the source audit
+and remap all three splits before training or evaluating on the alternative;
+never mix min-field and equ-field train/test files.
 
 The legacy `data/mech_uspto_31k_full_endpoint_sft/` copied unmapped HF endpoint
 strings into fields named `product_mapped` and `precursor_mapped`. It is invalid
