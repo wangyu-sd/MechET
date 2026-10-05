@@ -44,11 +44,11 @@ def test_equivalent_duplicate_components_allow_any_one():
 def test_prompt_conversion_preserves_actions_and_executor_state():
     source = _row()
     original = copy.deepcopy(source)
-    converted = convert_row(source, "C[C@H](O)F")
+    converted = convert_row(source, "CC(O)F")
     assert source == original
     assert converted["target_smiles"] == source["target_smiles"]
     assert converted["messages"][1]["content"].startswith(
-        "TARGET PRODUCT SMILES: C[C@H](O)F\n"
+        "TARGET PRODUCT SMILES: CC(O)F\n"
         "CURRENT STATE SMILES: C[C@H](O)F.[Cl-]\n"
     )
     assert converted["messages"][0] == source["messages"][0]
@@ -63,13 +63,20 @@ def test_prompt_conversion_rejects_mismatched_source_target():
         "TARGET PRODUCT SMILES: CO",
     )
     with pytest.raises(ValueError, match="source target prompt differs"):
-        convert_row(source, "C[C@H](O)F")
+        convert_row(source, "CC(O)F")
 
 
 def test_independent_audit_rejects_changed_executor_response():
     source = _row()
-    converted = convert_row(source, "C[C@H](O)F")
+    converted = convert_row(source, "CC(O)F")
     check_row(source, converted, "CC(O)F")
     converted["messages"][-1]["content"] = '{"ok":false}'
     with pytest.raises(ValueError, match="action, executor state"):
+        check_row(source, converted, "CC(O)F")
+
+
+def test_independent_audit_rejects_stereo_leaking_target_line():
+    source = _row()
+    converted = convert_row(source, "C[C@H](O)F")
+    with pytest.raises(ValueError, match="frozen endpoint input"):
         check_row(source, converted, "CC(O)F")

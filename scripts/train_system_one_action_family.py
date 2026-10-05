@@ -168,14 +168,15 @@ def main() -> int:
     allowed_artifacts = {
         "mech_uspto_31k_natural_language_electron_event_history_v2",
         "mech_uspto_31k_natural_language_history_principal_target_v1",
+        "mech_uspto_31k_natural_language_history_principal_target_v2",
     }
     if (not manifest.get("training_allowed") or not status.get("training_allowed")
             or manifest.get("artifact_type") != status.get("artifact_id")
             or manifest.get("artifact_type") not in allowed_artifacts):
         raise ValueError("Phase-1a requires a validated current-compiler history trace view")
-    if manifest["artifact_type"].endswith("principal_target_v1") and (
+    if manifest["artifact_type"].endswith("principal_target_v2") and (
         manifest.get("target_prompt_contract")
-        != "principal_product_target_line_with_unchanged_executor_mixture_v1"
+        != "endpoint_proxy_product_target_line_with_unchanged_executor_mixture_v2"
         or status.get("target_prompt_contract") != manifest["target_prompt_contract"]
     ):
         raise ValueError("principal-target Phase-1a source contract mismatch")

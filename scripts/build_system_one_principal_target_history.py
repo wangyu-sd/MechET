@@ -2,9 +2,10 @@
 """Build a principal-product-aware history view without changing actions/states.
 
 The reference full-endpoint product chooses *which existing component* of the
-strict final mixture is named in the prompt. The visible molecule and every
-recorded executor transition remain byte-for-byte unchanged. This is a new
-proxy-target representation, not recovery of original patent product labels.
+strict final mixture is named in the prompt. The prompt uses the exact frozen
+endpoint input (including its missing stereotags), while the complete visible
+current state and every recorded executor transition remain unchanged. This is
+a proxy-target representation, not recovery of original patent product labels.
 """
 from __future__ import annotations
 
@@ -22,8 +23,8 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 from scripts.audit_system_one_full_endpoint_input_gap import sha256
 from scripts.train_system_one_electron_flow import verify_source
 
-ARTIFACT = "mech_uspto_31k_natural_language_history_principal_target_v1"
-CONTRACT = "principal_product_target_line_with_unchanged_executor_mixture_v1"
+ARTIFACT = "mech_uspto_31k_natural_language_history_principal_target_v2"
+CONTRACT = "endpoint_proxy_product_target_line_with_unchanged_executor_mixture_v2"
 EXPECTED_FULL = {"train": 24959, "valid": 3120, "test": 3120}
 
 
@@ -37,7 +38,7 @@ def _mol(smiles: str) -> Chem.Mol:
 
 
 def principal_component_from_mixture(mixture: str, proxy_product: str) -> tuple[str, bool]:
-    """Choose the proxy-matched component, preserving strict-view stereotags."""
+    """Find the proxy-matched strict component for membership/stereo auditing."""
     state = _mol(mixture)
     product = _mol(proxy_product)
     key = Chem.MolToSmiles(product, canonical=True, isomericSmiles=False)
@@ -130,14 +131,17 @@ def convert_split(source_dir: Path, full_dir: Path, output_dir: Path,
                     raise ValueError(f"{split}: source reaction missing from endpoint handoff")
                 seen.add(reaction_id)
                 previous_id = reaction_id
-                principal, symmetric = principal_component_from_mixture(
+                strict_principal, symmetric = principal_component_from_mixture(
                     str(row["target_smiles"]), products[reaction_id]
                 )
-                principal_by_id[reaction_id] = principal
+                principal_by_id[reaction_id] = products[reaction_id]
                 counts["symmetry_equivalent_reactions"] += int(symmetric)
-            elif principal_by_id[reaction_id] != principal_component_from_mixture(
+                counts["strict_vs_endpoint_stereo_mismatch_reactions"] += int(
+                    strict_principal != principal_by_id[reaction_id]
+                )
+            elif principal_component_from_mixture(
                 str(row["target_smiles"]), products[reaction_id]
-            )[0]:
+            )[0] != strict_principal:
                 raise ValueError(f"{split}: target mixture changed within reaction")
             converted = convert_row(row, principal_by_id[reaction_id])
             writer.write(json.dumps(converted, separators=(",", ":")) + "\n")
@@ -182,7 +186,8 @@ def build(source_dir: Path, full_dir: Path, output_dir: Path) -> dict:
         "splits": splits,
         "limitations": [
             "strict executable trace-view only; not all 31,199 endpoint reactions",
-            "principal product chosen from rxn_prod_equ largest-organic proxy, not original reaction table",
+            "principal product is the exact rxn_prod_equ largest-organic endpoint proxy string, not the original reaction table",
+            "strict current executor states can retain stereochemistry absent from endpoint input; this mismatch is counted per split",
             "assistant actions and executor states are unchanged; only model-visible target line differs",
         ],
     }

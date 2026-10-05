@@ -1183,12 +1183,20 @@ It is not promoted to full test.
 
 The two prompt-only validation controls above did not improve exact endpoints.
 The next controlled experiment therefore changes the **training observation**
-consistently, not the decoder. `scripts/build_system_one_principal_target_history.py`
-constructs the separate artifact
-`data/mech_uspto_31k_natural_language_history_principal_target_v1_20261005/`
+consistently, not the decoder. The first constructed artifact,
+`data/mech_uspto_31k_natural_language_history_principal_target_v1_20261005/`,
+was stopped and marked `training_allowed: false`: it put a strict-view
+stereochemical component in the target prompt even when the complete-endpoint
+input lacked those stereotags (1,514 / 221 / 179 strict train/valid/test
+reactions). Its two one-A100 tasks were stopped before full training completed;
+neither partial checkpoint is a usable result.
+
+`scripts/build_system_one_principal_target_history.py` now constructs the
+separate v2 artifact
+`data/mech_uspto_31k_natural_language_history_principal_target_v2_20261005/`
 from the validated current-compiler strict history view. The largest-organic
 `rxn_prod_equ` proxy identifies one component of each recorded final mixture;
-the builder uses the stereochemistry-preserving strict-view component in the
+the builder uses the **exact frozen endpoint input string** in the
 `TARGET PRODUCT SMILES` line. The complete executor current state remains in
 `CURRENT STATE SMILES`. The raw target mixture, reaction/decision IDs,
 assistant actions, tool responses and reference endpoints are unchanged.
@@ -1199,12 +1207,17 @@ The source still has 10,152 / 1,319 / 1,253 train/valid/test reactions and
 restoring the old target line and removing the new metadata recovers the exact
 source record for every decision; it also checks all source and output hashes,
 split denominators, action counts and proxy-product membership. The report is
-`INDEPENDENT_AUDIT.json` in that artifact. No reaction was filtered and the
-new artifact alone was promoted to `training_allowed: true`; historical data
-and checkpoints remain intact. The train/valid/test output SHA-256 values are
-`82d61f4f97073206fcbc7b397b403627cc96517f19ad414b6fefe9c6fd346316`,
-`5f80f4442f54c1ad49832281ea9e752cf801d00f6d996cfdd5f0aa498e23228b`,
-and `e3c554b1b5529a838bbc9c09fead5a7c33eadb6129994b0b02e2727daa20be94`.
+`INDEPENDENT_AUDIT.json` in that artifact. No reaction was filtered, and v2
+alone was promoted to `training_allowed: true` after the independent audit. The
+train/valid/test v2 output SHA-256 values are
+`c5d97572b67e0a117e8bac8e0fa9cc413d51b503f2f2ecfee8c93f774b5b98ec`,
+`d1098537a1a142ccd1607ed71635c2c1f4a3b9899773ac4c1f27af1d0992a217`,
+and `159e8ece9b005155853029137c5ab73c3beeecd97647d9f596bf44ca79e87adf`.
+
+This removes the extra stereochemistry from the **target line**, but not from
+the strict reference current states. Consequently a remaining train/inference
+observation mismatch is explicitly counted; v2 is a controlled target-field
+experiment, not yet proof that all initial-state chemistry is aligned.
 
 Phase-0 electron localization, Phase-1a action-family routing and typed-v2
 electron-flow scoring must all train on this **same new artifact**. Phase-1a

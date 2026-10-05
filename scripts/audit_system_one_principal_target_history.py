@@ -27,8 +27,8 @@ def check_row(original: dict, converted: dict, proxy_product: str) -> None:
     principal, _ = principal_component_from_mixture(
         str(original["target_smiles"]), proxy_product
     )
-    if converted.get("principal_product_smiles") != principal:
-        raise ValueError("selected principal product differs from proxy-aligned component")
+    if not principal or converted.get("principal_product_smiles") != proxy_product:
+        raise ValueError("selected principal product differs from frozen endpoint input")
     restored = copy.deepcopy(converted)
     restored.pop("principal_product_smiles")
     metadata = restored["metadata"]
@@ -38,7 +38,7 @@ def check_row(original: dict, converted: dict, proxy_product: str) -> None:
     source_users = [message for message in original["messages"] if message.get("role") == "user"]
     if len(users) != 1 or len(source_users) != 1:
         raise ValueError("observation count changed")
-    expected = f"TARGET PRODUCT SMILES: {principal}\n"
+    expected = f"TARGET PRODUCT SMILES: {proxy_product}\n"
     original_prefix = f"TARGET PRODUCT SMILES: {original['target_smiles']}\n"
     if (not users[0]["content"].startswith(expected)
             or not source_users[0]["content"].startswith(original_prefix)
@@ -74,6 +74,7 @@ def audit(source_dir: Path, full_dir: Path, converted_dir: Path) -> dict:
                 or declared["output_sha256"] != sha256(output_path)):
             raise ValueError(f"{split}: output/source hash mismatch")
         seen: set[str] = set()
+        strict_principal_by_id: dict[str, str] = {}
         counts: Counter[str] = Counter()
         with source_path.open() as source_reader, output_path.open() as output_reader:
             for source_line, output_line in zip_longest(source_reader, output_reader):
@@ -84,6 +85,12 @@ def audit(source_dir: Path, full_dir: Path, converted_dir: Path) -> dict:
                 if reaction_id not in products:
                     raise ValueError(f"{split}: strict ID absent from full endpoint")
                 check_row(original, converted, products[reaction_id])
+                strict_principal, _ = principal_component_from_mixture(
+                    str(original["target_smiles"]), products[reaction_id]
+                )
+                if reaction_id in strict_principal_by_id and strict_principal_by_id[reaction_id] != strict_principal:
+                    raise ValueError(f"{split}: strict target mixture changed within reaction")
+                strict_principal_by_id[reaction_id] = strict_principal
                 seen.add(reaction_id)
                 counts["decision_rows"] += 1
                 counts[f"{original['metadata']['decision_type']}_decisions"] += 1
@@ -91,7 +98,9 @@ def audit(source_dir: Path, full_dir: Path, converted_dir: Path) -> dict:
                 or counts["decision_rows"] != source["decision_rows"]
                 or counts["event_decisions"] != source["event_decisions"]
                 or counts["decision_rows"] != declared["decision_rows"]
-                or len(seen) != declared["reactions"]):
+                or len(seen) != declared["reactions"]
+                or sum(strict_principal_by_id[rid] != products[rid] for rid in seen)
+                   != declared["strict_vs_endpoint_stereo_mismatch_reactions"]):
             raise ValueError(f"{split}: independent reaction/decision counts mismatch")
         summaries[split] = {
             "source_sha256": source["sha256"],
