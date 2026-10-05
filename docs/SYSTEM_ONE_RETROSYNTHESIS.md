@@ -562,6 +562,15 @@ reaction. Of the 204 wrong FINISHED endpoints, 119 made no IMPORT decision;
 separately labelled executor-constrained fallback experiment on the same
 validation IDs; they do not revise the frozen baseline result.
 
+A retrospective GT-IMPORT stratification (held-out actions read only after
+rollout, never by the policy) locates a second bottleneck. Of 426 reactions
+whose reference trajectory imports a fragment batch, the policy imports at
+least once in 325, chooses the exact reference chemistry batch first in 296,
+and reaches the exact endpoint in 220. Thus 101 reference-IMPORT reactions
+miss IMPORT altogether and 29 import an incorrect first batch. On the 893
+reference trajectories without IMPORT, endpoint exact is 695. This breakdown
+is in `failure_analysis_v2.json`; it is not an oracle-assisted policy result.
+
 ### Runtime-observation parity gate for closed-loop evaluation
 
 `scripts/audit_system_one_observation_parity.py` reconstructs each decision's
