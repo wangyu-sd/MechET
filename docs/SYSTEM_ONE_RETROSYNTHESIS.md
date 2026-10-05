@@ -365,3 +365,24 @@ fail the intended open-chemistry task. Phase-1a only routes to IMPORT; it does
 not claim fragment-generation competence. Any subsequent IMPORT argument
 model must be open-vocabulary and evaluated on the broader held-out fragment
 distribution before promoting a full System-One rollout.
+
+### Runtime-observation parity gate for closed-loop evaluation
+
+`scripts/audit_system_one_observation_parity.py` reconstructs each decision's
+model-visible prompt from the target product, the **previous accepted tool
+result**, and the accumulated compact history. It never uses the current or a
+future reference action to construct that decision's input. On the frozen
+mech-USPTO-31k trace view, 32,397/32,401 train prompts, all 4,288 validation
+prompts, and all 4,006 test prompts are byte-identical to SFT. The remaining
+four train prompts differ only in RDKit's equivalent `@`/`@@` serialization of
+the same alias-indexed stereochemical state; history and all other prompt text
+are byte-identical. A chemical or atom-address mismatch fails the audit.
+
+This establishes teacher-forced observation construction, not autonomous
+product-start rollout. In particular, fragment-argument generation and
+off-reference-state behavior are still unmeasured. Reproduce with:
+
+```bash
+PYTHONPATH=.:src python scripts/audit_system_one_observation_parity.py \
+  --data data/mech_uspto_31k_natural_language_history_v2/test.jsonl
+```
