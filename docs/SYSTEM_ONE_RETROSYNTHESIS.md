@@ -993,3 +993,15 @@ The builder now supports an explicitly separate `--product-field rxn_prod_equ`
 artifact; it does not overwrite the frozen min-field outputs. That alternative
 requires its own mapping, context retrieval, and full-denominator evaluation
 before any corrected performance number can be reported.
+
+The first separate mapping smoke finished successfully on an ordinary one-A100
+Qingyuan task,
+`meteor_mechet_pr81_equ_proxy_mapping_smoke50_1a100_qy_20261005_01`:
+50 train, 50 valid and 50 test reactions, with zero dropped or unmapped rows.
+The runtime reports RXNMapper 0.4.2 and Transformers 4.57.1. Test ID 43 now
+selects the deprotected amine from `rxn_prod_equ` instead of isobutene from
+`rxn_prod_min`, while its precursor chemistry is unchanged. The smoke output
+is `data/mech_uspto_31k_full_endpoint_rxnmapper_equ_proxy_smoke50_20261005/`.
+The full-size job uses a different output directory and reuses old RXNMapper
+rows only when the entire unmapped reaction pair is byte-identical; the
+old cache is read-only and pinned by SHA-256.
