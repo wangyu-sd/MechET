@@ -286,8 +286,39 @@ class TrainImportRetriever:
         )[0]
 
 
+def execute_ranked_electron_action(
+    mapped: str, observation: PointerObservation, ranked: list[int],
+    *, legality_backoff: bool = False, executor=execute_pair_indices,
+) -> tuple[list[int], dict, int | None, int]:
+    """Try the frozen top-two/top-one rule, optionally then legal Top-8 singles.
+
+    The fallback conditions only on executor validity at the policy's own
+    state. It never receives a reference move, successor, or endpoint score.
+    """
+    if not ranked:
+        raise ValueError("electron ranking must contain at least one candidate")
+    selected = ranked[:2]
+    result = executor(mapped, observation, selected)
+    attempts = 1
+    if result.get("ok"):
+        return selected, result, None, attempts
+    selected = ranked[:1]
+    result = executor(mapped, observation, selected)
+    attempts += 1
+    if result.get("ok") or not legality_backoff:
+        return selected, result, 1, attempts
+    original_result = result
+    for rank, pair in enumerate(ranked[1:], 2):
+        selected = [pair]
+        result = executor(mapped, observation, selected)
+        attempts += 1
+        if result.get("ok"):
+            return selected, result, rank, attempts
+    return ranked[:1], original_result, 1, attempts
+
+
 def rollout(policy_input: ProductInput, policy: HybridPolicy, retriever: TrainImportRetriever,
-            *, max_actions: int) -> dict:
+            *, max_actions: int, legality_backoff: bool = False) -> dict:
     current = policy_input.target
     history = TrajectoryHistory()
     actions = []
@@ -345,12 +376,14 @@ def rollout(policy_input: ProductInput, policy: HybridPolicy, retriever: TrainIm
             break
         max_typed_tokens = max(max_typed_tokens, typed_tokens)
         mapped = mapped_from_visible(current)
-        two = execute_pair_indices(mapped, observation, ranked[:2])
-        selected = ranked[:2] if two.get("ok") else ranked[:1]
-        result = two if two.get("ok") else execute_pair_indices(mapped, observation, selected)
+        selected, result, single_rank, executor_attempts = execute_ranked_electron_action(
+            mapped, observation, ranked, legality_backoff=legality_backoff
+        )
         record.update({"ranked_top8": ranked, "selected_pairs": selected,
                        "typed_input_tokens": typed_tokens,
-                       "execute_ok": bool(result.get("ok")), "code": result.get("code")})
+                       "execute_ok": bool(result.get("ok")), "code": result.get("code"),
+                       "selected_single_rank": single_rank,
+                       "executor_attempts": executor_attempts})
         if not result.get("ok"):
             terminal = "ELECTRON_EXECUTION_FAILED"
             actions.append(record)
@@ -391,6 +424,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--max-actions", type=int, default=12)
     parser.add_argument("--log-every", type=int, default=8)
+    parser.add_argument("--legality-backoff", action="store_true",
+                        help="after frozen top-two/top-one failure, try ranked Top-8 singles")
     parser.add_argument("--preflight-only", action="store_true")
     args = parser.parse_args()
     if args.output.exists():
@@ -423,7 +458,9 @@ def main() -> None:
     counts: dict[str, int] = {}
     with (args.output / "cases.jsonl").open("w") as handle:
         for index, task in enumerate(selected, 1):
-            result = rollout(task.policy_input, policy, retriever, max_actions=args.max_actions)
+            result = rollout(task.policy_input, policy, retriever,
+                             max_actions=args.max_actions,
+                             legality_backoff=args.legality_backoff)
             exact = (result["completed"] and canonical_visible(result["predicted_precursor"])
                      == canonical_visible(task.expected_precursor))
             result["endpoint_exact"] = bool(exact)
@@ -450,12 +487,16 @@ def main() -> None:
         "selection": {"method": "sha256_seed_reaction_id", "seed": args.seed,
                       "limit": args.limit},
         "max_actions": args.max_actions,
+        "legality_backoff": args.legality_backoff,
         "evaluator_sha256": file_sha256(Path(__file__)),
         "import_retriever_sha256": file_sha256(
             ROOT / "scripts/eval_system_one_import_retrieval.py"
         ),
         "pointer_parser_sha256": file_sha256(ROOT / "src/mechet/electron_pointer.py"),
-        "policy": "frozen_v1_route_plus_typed_v2_electrons_plus_train_only_import_retrieval",
+        "policy": (
+            "frozen_v1_route_plus_typed_v2_electrons_plus_train_only_import_retrieval"
+            + ("_top8_executor_legality_backoff" if args.legality_backoff else "")
+        ),
         "endpoint_exact": counts["endpoint_exact"],
         "endpoint_exact_rate": counts["endpoint_exact"] / len(selected),
         "terminal_counts": {key: value for key, value in counts.items() if key != "endpoint_exact"},

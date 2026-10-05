@@ -537,6 +537,31 @@ trace view, not the full 3,120-reaction endpoint benchmark or a test-set
 result. It is also not formal whole-trajectory MECH_PROOF success: only each
 electron event is checked by the executor.
 
+The same frozen hybrid policy then completed **all 1,319 validation reactions**
+in this strict trace view, with no subsampling and no test-set loading. Exact
+precursor endpoints were **915/1,319 (69.37%)**. Of 1,119 FINISHED episodes,
+204 reached a wrong endpoint; 184 stopped on an invalid electron event, 14 on
+premature/pending FINISH, and 2 at the 12-action budget. The one-A100 task
+`meteor_mechet_pr81_system_one_product_start_validfull_1a100_qy_20261005_01`
+ended successfully; measured rollout time after model loading was 334.40 s.
+The full report and all 1,319 cases are under
+`outputs/agent/system_one_pr81_product_start_validfull_20261005/`. Their
+SHA-256 values are `8fe6138ea8d49ca4feca85bb4a467ec1458061cb7dc68dfe7b70641914982c6d`
+and `293eea192d2de2659f5b2aa06b008170b317a0916676b897d82466bfeba9670b`.
+
+An offline analysis independently recomputed every endpoint and terminal
+count from the case file. Of the 184 failed electron events, 131 occurred
+before any electron event had been accepted. Replaying each frozen Top-8
+ranking against the **predicted** current state found a legal singleton in
+183/184 failures, without using the reference action. This establishes only
+local executability: no alternative was rolled out to an endpoint, and a
+legal electronic action need not be the recorded or chemically preferred
+reaction. Of the 204 wrong FINISHED endpoints, 119 made no IMPORT decision;
+10 reactions repeated an IMPORT batch. The analysis is saved as
+`failure_analysis.json` beside the full report. These outcomes motivate a
+separately labelled executor-constrained fallback experiment on the same
+validation IDs; they do not revise the frozen baseline result.
+
 ### Runtime-observation parity gate for closed-loop evaluation
 
 `scripts/audit_system_one_observation_parity.py` reconstructs each decision's

@@ -11,6 +11,7 @@ from scripts.eval_system_one_product_start_pilot import (
     ProductInput,
     ReactionTask,
     canonical_visible,
+    execute_ranked_electron_action,
     rollout,
     select_tasks,
     typed_runtime_encoding,
@@ -109,3 +110,29 @@ def test_premature_finish_is_not_credited_as_executable_endpoint():
     assert result["terminal"] == "PREMATURE_OR_PENDING_FINISH"
     assert result["completed"] is False
     assert result["predicted_precursor"] is None
+
+
+def test_legality_backoff_preserves_baseline_then_uses_ranked_singleton():
+    calls = []
+
+    def executor(mapped, observation, selected):
+        assert mapped == "mapped" and observation == "observation"
+        calls.append(tuple(selected))
+        return {"ok": list(selected) == [20], "code": "PASS" if list(selected) == [20]
+                else "CHEMICAL_STATE_INVALID"}
+
+    selected, result, rank, attempts = execute_ranked_electron_action(
+        "mapped", "observation", [10, 20, 30], executor=executor
+    )
+    assert selected == [10] and result["ok"] is False
+    assert rank == 1 and attempts == 2
+    assert calls == [(10, 20), (10,)]
+
+    calls.clear()
+    selected, result, rank, attempts = execute_ranked_electron_action(
+        "mapped", "observation", [10, 20, 30],
+        legality_backoff=True, executor=executor,
+    )
+    assert selected == [20] and result["ok"] is True
+    assert rank == 2 and attempts == 3
+    assert calls == [(10, 20), (10,), (20,)]
