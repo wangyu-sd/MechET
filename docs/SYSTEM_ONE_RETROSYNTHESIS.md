@@ -1285,6 +1285,16 @@ aggregate policy counts against its per-event cases. Machine-readable report:
 `outputs/agent/system_one_pr81_principal_v2_all_local_references_paired_verified_20261006.json`
 on the shared Ceph workspace (SHA-256
 `df6970233628a23da09367ea48bae99c1175192bd2cf5b5b29a6c0b000c87603`).
-Phase-1a route training is running separately;
-the principal-product-only 64-case autonomous endpoint comparison has not yet
-started and remains the next gate.
+Phase-1a route training also ended successfully on one A100. Its selected
+epoch 21 head SHA-256 is
+`196f502c4ac97dcb8c2714fc8ea6bcf19013d0580f31d7925084589f9dca01e7`,
+with train/valid/test source hashes matching the same audited v2 artifact.
+Under **reference-current-state** routing supervision, validation/test
+three-class action-family macro-F1 is 96.66%/95.96%; the corresponding
+import-class F1 is 92.74%/90.96%. These teacher-forced routing metrics do not
+measure autonomous IMPORT-fragment generation or endpoint accuracy.
+
+The principal-product-only 64-case autonomous endpoint comparison passed its
+local full-source/context/checkpoint preflight and was submitted as ordinary
+one-A100 task `meteor_mechet_pr81_principal_v2_equ_valid64_1a100_qy_20261005_01`
+on 2026-10-06. At submission it was PENDING, not yet an endpoint result.
