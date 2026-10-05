@@ -1240,3 +1240,15 @@ and references, independently replays every accepted electron action, rescoring
 the structural endpoint and reporting gained/lost cases. Its baseline-side
 64-case replay check already recovers 12 exact and 60 formal finishes; the v2
 candidate side waits for the three matching checkpoints.
+
+Before product-start rollout, the principal-target typed checkpoint also has
+a separate reference-current-state quality gate:
+`scripts/run_taiji_jev_style_typed_v2_successor_1a100.sh` accepts explicit v2
+data/checkpoint/output paths and evaluates every 2,543 valid and 2,371 test
+electron event. `scripts/compare_principal_target_typed_successor.py` pairs
+those predictions with the frozen original typed-v2 run by event ID and
+executor-verified gold successor; it deliberately allows different JSONL
+hashes because the target prompt changed. This measures whether principal
+supervision preserves local chemistry and is **not** autonomous endpoint
+accuracy. The one-A100 task config is prepared but must wait for the complete
+v2 typed checkpoint.

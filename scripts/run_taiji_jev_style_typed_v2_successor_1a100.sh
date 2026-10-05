@@ -3,9 +3,9 @@ set -Eeuo pipefail
 
 repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr81-system-one-20261004
 shared=/aaa/fionafyang/buddy1/whaleywang/MechET
-source_data="$shared/data/mech_uspto_31k_natural_language_history_v2"
-checkpoint="$shared/outputs/agent/system_one_pr81_jev_typed_v2_31k_20261005/full"
-output_root="$shared/outputs/agent/system_one_pr81_jev_typed_v2_successor_20261005"
+source_data="${MECHET_JEV_SUCCESSOR_SOURCE_DATA:-$shared/data/mech_uspto_31k_natural_language_history_v2}"
+checkpoint="${MECHET_JEV_SUCCESSOR_CHECKPOINT:-$shared/outputs/agent/system_one_pr81_jev_typed_v2_31k_20261005/full}"
+output_root="${MECHET_JEV_SUCCESSOR_OUTPUT:-$shared/outputs/agent/system_one_pr81_jev_typed_v2_successor_20261005}"
 shared_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 
 source /root/miniconda3/etc/profile.d/conda.sh
