@@ -479,6 +479,29 @@ reference-state candidate recall does not establish off-trajectory robustness
 or product-start endpoint accuracy; it only supplies a transparent pilot
 proposal source for a future closed-loop diagnostic.
 
+### Product-start hybrid pilot gate
+
+`scripts/eval_system_one_product_start_pilot.py` now composes the frozen v1
+three-way router, the frozen typed-v2 electron policy, and **train-only**
+IMPORT retrieval into a product-start executor loop. Every next prompt is
+built from the product, the policy's own accepted state and compact action
+history; neither action type, fragment choice, electron pair nor stopping uses
+the held-out answer. A deterministic SHA-256 reaction-ID sample selects 64
+validation products for the first GPU pilot. The typed and route inputs were
+checked with the pinned Qwen tokenizer against their teacher-forced training
+encodings; the first decision is byte-identical in each format. Rebuilt IMPORT
+states match all 3,858 authoritative IMPORT successors across the three splits,
+and the frozen valid/test terminal answers match the reference executor outputs
+under explicit-H-preserving structural canonicalization.
+
+The pilot is **hybrid**, not a unified typed-v2 action-family model. It checks
+strict execution of each electron event and exact component-preserving
+precursor endpoints, but does not yet compile the whole predicted trajectory
+to MECH_PROOF. A completed pilot must report all 64 reactions, failure modes
+and latency before any larger run; an allocated Taiji task alone is not a
+result. Its configured one-A100 runner is
+`scripts/run_taiji_system_one_product_start_valid64_1a100.sh`.
+
 ### Runtime-observation parity gate for closed-loop evaluation
 
 `scripts/audit_system_one_observation_parity.py` reconstructs each decision's
