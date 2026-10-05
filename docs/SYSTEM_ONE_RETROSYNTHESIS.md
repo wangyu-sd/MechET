@@ -544,6 +544,49 @@ and `9507dafa77f8381c2cde4a79f391256c38cb521c417441f4c4fa327add22852e`.
 This tests only the context proposal, not stereo restoration, electron-policy
 rollout, endpoint accuracy, or coverage of all 3,120 reactions.
 
+The principal-product context bridge in
+`scripts/eval_system_one_context_bridge.py` now runs the frozen hybrid policy
+from the full-endpoint **principal product plus a train-only predicted context
+batch**. Before constructing policy input, it projects the retrieval artifact
+onto product and predicted batch only; held-out reference context and
+precursor are scorer-only. It retains the strict-trace-view **full precursor**
+as its terminal scorer, so it is an input-contract diagnostic on the 1,319-row
+overlap, **not** the 3,120-row structural endpoint benchmark. The 64-reaction
+validation pilot ended successfully at **26/64 (40.63%)** exact versus
+**48/64 (75.00%)** on the same IDs supplied with the original complete final
+mixture. All 33 byte-exact reconstructed inputs reproduced the frozen
+mixture-start rollout, including 26 successes; the other 31 inputs gave no
+strict endpoint hits. The pilot report/cases are under
+`outputs/agent/system_one_pr81_context_bridge_valid64_20261005/`.
+
+The complete strict validation bridge task then ended successfully on one
+A100. Exact full-precursor endpoints are **511/1,319 (38.74%)**, versus
+**944/1,319 (71.57%)** for the same frozen policy on the original complete
+mixtures. The bridge reconstructs the exact original input in 700 reactions;
+all 700 reproduce the frozen rollout and 509 hit the reference endpoint. Of
+the 619 other inputs, two happen to reach that endpoint. The retrieved
+stereo-agnostic context batch is correct in 837 reactions, but 137 of these
+still do not reproduce the original mixture byte-for-byte, consistent with
+stereochemical information absent from the principal-product input. The
+retrieval Top-3 contains the reference context in 1,198/1,319 reactions; this
+is **candidate coverage**, not a deployable reranked endpoint result. Full
+bridge report/cases are under
+`outputs/agent/system_one_pr81_context_bridge_validfull_20261005/` and the
+paired, hash-checked audit is
+`outputs/agent/system_one_pr81_context_bridge_validfull_comparison_20261005.json`.
+Their SHA-256 values are respectively
+`1780e5b69b6dffeefbc308d58286d1e51385e4741f5c694ea550b7a8bdb9447a`,
+`4b7a99a80572bb80d790fb3ac18ef23efb44d36e77f7489f75efddb5cf82ab9d`,
+and `4a35985dbba9ee2560f9024dfa1b4affda425fd4e725c9c0c458ad0de915aa47`.
+
+This large observed gap means that the current final-mixture-trained policy
+must not be promoted as a principal-product-only system. In this trace view,
+extra final-mixture components and sometimes stereochemistry enter its first
+observation, and product-only inference cannot be evaluated by silently
+supplying them. A matched product-only training/evaluation contract or a
+gold-independent multi-context proposal/ranking policy is required before a
+full endpoint claim.
+
 `scripts/eval_system_one_product_start_pilot.py` now composes the frozen v1
 three-way router, the frozen typed-v2 electron policy, and **train-only**
 IMPORT retrieval into a final-mixture-start executor loop. Every next prompt is
