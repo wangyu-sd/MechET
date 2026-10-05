@@ -217,7 +217,9 @@ def main() -> int:
         "architecture": manifest["architecture"],
         "scope": "reference_current_state_not_product_start",
         "split": args.split,
+        "source": source,
         "evaluated_events": len(examples),
+        "gold_replay_ok": len(examples),
         "pair_recall": {key: value / len(examples) for key, value in paired.items()},
         "policies": {
             mode: {

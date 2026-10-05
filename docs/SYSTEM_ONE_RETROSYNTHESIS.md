@@ -201,6 +201,26 @@ After a hash-verified typed-v2 checkpoint exists, the prepared one-A100
 `scripts/run_taiji_jev_style_typed_v2_successor_1a100.sh` evaluates the full
 2,543-event validation and 2,371-event test trace views separately, retaining
 per-event cases. It must not be launched from a merely pending training task.
+The evaluator records the same frozen source and gold-replay fields as the v1
+and PR71 reports. `scripts/compare_jev_style_successor.py` then checks identical
+event IDs and reference chemistry, independently reconstructs the frozen
+executor-validity backoff from each model's `fixed1`/`fixed2` cases, checks the
+aggregate report totals, and reports typed-v2 minus v1 and typed-v2 minus PR71
+paired successor differences with reaction-cluster bootstrap intervals. The
+comparison is ready but has no typed-v2 result until training and both split
+evaluations actually finish.
+
+```bash
+shared=/aaa/fionafyang/buddy1/whaleywang/MechET
+PYTHONPATH=.:src python scripts/compare_jev_style_successor.py \
+  --typed-v2-valid "$shared/outputs/agent/system_one_pr81_jev_typed_v2_successor_20261005/valid" \
+  --typed-v2-test "$shared/outputs/agent/system_one_pr81_jev_typed_v2_successor_20261005/test" \
+  --marker-v1-valid "$shared/outputs/agent/system_one_pr81_phase0_successor_valid_20261005" \
+  --marker-v1-test "$shared/outputs/agent/system_one_pr81_phase0_successor_test_20261005" \
+  --pr71-8b-valid "$shared/outputs/agent/pr81_pr71_matched_successor_20261005/valid" \
+  --pr71-8b-test "$shared/outputs/agent/pr81_pr71_matched_successor_20261005/test" \
+  --output "$shared/outputs/agent/pr81_typed_v2_three_model_comparison_20261005.json"
+```
 
 ## Frozen v1 marker-pointer baseline (2026-10-05)
 
