@@ -28,6 +28,70 @@ def _group_name(reaction_id: str, strict_ids: set[str], complete_ids: set[str]) 
     return "incomplete_elementary_steps"
 
 
+def electron_state_revisit_count(case: dict) -> int:
+    """Count accepted electron steps revisiting an exact executor-state SMILES."""
+    states: set[str] = set()
+    revisits = 0
+    for action in case.get("actions", []):
+        before = action.get("state_before")
+        if before is not None:
+            states.add(str(before))
+        if action.get("action") != "apply_electron_flow" or not action.get("accepted"):
+            continue
+        after = action.get("state_after")
+        if after is None:
+            raise ValueError("accepted electron event lacks executor successor state")
+        revisits += int(str(after) in states)
+        states.add(str(after))
+    return revisits
+
+
+def verified_changed_ids(
+    product_audit: dict | None, handoff: dict | None, *, split: str,
+    product_field: str, full_manifest_sha: str, full_source_sha: str,
+    raw_sha: str, product_audit_sha: str | None,
+) -> set[str]:
+    """Bind raw min/equ differences to the selected endpoint version."""
+    if product_audit is None:
+        if handoff is not None:
+            raise ValueError("product handoff requires the raw product audit")
+        return set()
+    if product_field == "rxn_prod_min":
+        if handoff is not None:
+            raise ValueError("equ handoff cannot be used with min-field endpoint")
+        source_matches = (product_audit["endpoint_manifest_sha256"] == full_manifest_sha
+                          and product_audit["splits"][split]["endpoint_sha256"]
+                          == full_source_sha)
+    elif product_field == "rxn_prod_equ":
+        if handoff is None:
+            raise ValueError("equ-field product audit requires verified handoff")
+        source_matches = (
+            handoff["artifact_type"] == "mech_uspto31k_equ_proxy_endpoint_handoff_verification"
+            and handoff["old_manifest_sha256"] == product_audit["endpoint_manifest_sha256"]
+            and handoff["new_manifest_sha256"] == full_manifest_sha
+            and handoff["raw_field_audit_sha256"] == product_audit_sha
+            and handoff["splits"][split]["new_endpoint_sha256"] == full_source_sha
+            and handoff["splits"][split]["old_endpoint_sha256"]
+            == product_audit["splits"][split]["endpoint_sha256"]
+        )
+    else:
+        raise ValueError(f"unsupported product source field: {product_field}")
+    split_audit = product_audit["splits"][split]
+    changed_ids = set(split_audit["changed_reaction_ids"])
+    if (product_audit["artifact_type"]
+            != "mech_uspto31k_existing_min_target_vs_equ_final_mixture_audit"
+            or not source_matches
+            or split_audit["raw_sha256"] != raw_sha
+            or len(changed_ids) != split_audit["counts"]["main_product_changed"]):
+        raise ValueError("product field audit lineage mismatch")
+    if handoff is not None and (
+        handoff["splits"][split]["counts"]["product_changed"] != len(changed_ids)
+        or handoff["splits"][split]["counts"]["reactions"] != 3120
+    ):
+        raise ValueError("product handoff change count mismatch")
+    return changed_ids
+
+
 def summarize_cases(
     cases: list[dict], contexts: dict[str, dict], strict_ids: set[str],
     complete_ids: set[str], product_changed_ids: set[str] | None = None,
@@ -55,6 +119,7 @@ def summarize_cases(
         no_transform = bool(complete and structural_exact(
             row["predicted_structural_precursor"], row["principal_product_input"]
         ))
+        revisits = electron_state_revisit_count(row)
         for group in (counts["all"], counts[category]):
             group["reactions"] += 1
             group["structural_exact"] += int(exact)
@@ -75,6 +140,8 @@ def summarize_cases(
                 complete and not exact and int(row["import_batches"]) > 0
             )
             group["zero_electron_events"] += int(int(row["electron_events"]) == 0)
+            group["electron_state_revisit_reactions"] += int(revisits > 0)
+            group["electron_state_revisit_steps"] += revisits
             group[f"terminal_{row['terminal']}"] += 1
     if seen != set(contexts):
         raise ValueError("case/context reaction ID coverage mismatch")
@@ -84,6 +151,7 @@ def summarize_cases(
 def stratify(
     run_dir: Path, context_dir: Path, strict_dir: Path, full_dir: Path,
     compiler_dir: Path, product_audit_path: Path | None = None,
+    product_handoff_path: Path | None = None,
 ) -> dict:
     baseline = analyze(run_dir, context_dir, strict_dir, full_dir)
     split = baseline["split"]
@@ -110,18 +178,18 @@ def stratify(
         raise ValueError("compiler/strict reaction count mismatch")
     contexts = {str(row["reaction_id"]): row for row in _jsonl(context_dir / "cases.jsonl")}
     cases = _jsonl(run_dir / "cases.jsonl")
-    product_changed_ids: set[str] = set()
-    if product_audit_path is not None:
-        product_audit = json.loads(product_audit_path.read_text())
-        split_audit = product_audit["splits"][split]
-        product_changed_ids = set(split_audit["changed_reaction_ids"])
-        if (product_audit["artifact_type"]
-                != "mech_uspto31k_existing_min_target_vs_equ_final_mixture_audit"
-                or product_audit["endpoint_manifest_sha256"] != sha256(full_dir / "manifest.json")
-                or split_audit["raw_sha256"] != full_manifest["source_files"][split]["sha256"]
-                or split_audit["endpoint_sha256"] != baseline["full_endpoint_source_sha256"]
-                or len(product_changed_ids) != split_audit["counts"]["main_product_changed"]):
-            raise ValueError("product field audit lineage mismatch")
+    product_audit = (json.loads(product_audit_path.read_text())
+                     if product_audit_path is not None else None)
+    handoff = (json.loads(product_handoff_path.read_text())
+               if product_handoff_path is not None else None)
+    product_changed_ids = verified_changed_ids(
+        product_audit, handoff, split=split,
+        product_field=baseline["product_source_field"],
+        full_manifest_sha=sha256(full_dir / "manifest.json"),
+        full_source_sha=baseline["full_endpoint_source_sha256"],
+        raw_sha=full_manifest["source_files"][split]["sha256"],
+        product_audit_sha=sha256(product_audit_path) if product_audit_path else None,
+    )
     groups = summarize_cases(cases, contexts, strict_ids, complete_ids,
                              product_changed_ids)
     if (groups["all"]["reactions"] != 3120
@@ -145,6 +213,8 @@ def stratify(
         "complete_ids_sha256": complete_report["output_sha256"],
         "compiler_lineage_sha256": sha256(compiler_dir / "COMPILER_LINEAGE.json"),
         "product_field_audit_sha256": sha256(product_audit_path) if product_audit_path else None,
+        "product_handoff_sha256": sha256(product_handoff_path) if product_handoff_path else None,
+        "product_source_field": baseline["product_source_field"],
         "groups": groups,
     }
 
@@ -157,13 +227,14 @@ def main() -> None:
     parser.add_argument("--full-endpoint-dir", type=Path, required=True)
     parser.add_argument("--compiler-dir", type=Path, required=True)
     parser.add_argument("--product-audit", type=Path)
+    parser.add_argument("--product-handoff", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(args.output)
     result = stratify(args.run_dir, args.context_dir, args.strict_dir,
                       args.full_endpoint_dir, args.compiler_dir,
-                      args.product_audit)
+                      args.product_audit, args.product_handoff)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n")
     print(json.dumps(result, indent=2))
