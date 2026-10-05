@@ -596,6 +596,28 @@ This is executor-constrained decoding on the strict trace-view validation set,
 not a learned policy improvement, full 3,120-reaction benchmark, test result,
 or whole-trajectory MECH_PROOF verification.
 
+With the rule frozen after validation, both policies were run on **all 1,253
+held-out test reactions of the same strict executable trace view** (source
+SHA-256 `7aa93a98361fb6fbe4f09465706deab6111a15a2167bc721a9e67b386dc78131`).
+Both one-A100 tasks ended successfully. The original top-two/top-one policy
+reached **923/1,253 (73.66%)** exact precursor endpoints; the Top-8 legality
+backoff reached **943/1,253 (75.26%)**. The paired gain is **20 reactions /
++1.60 percentage points** (reaction bootstrap 95% CI [+0.96, +2.31] points;
+5,000 resamples, seed 17). The auditor confirmed identical source and weight
+hashes, identical reaction IDs and reference endpoints, unchanged trajectories
+outside baseline electron failures, and identical frozen rankings at each
+failed decision: 20 improved, none worsened. Electron-execution failures fell
+from 157 to 3; of 157 original failed episodes, 156 were locally rescued,
+145 eventually FINISHED, but only 20 reached the exact endpoint. Thus
+executor legality is useful but clearly insufficient for chemical endpoint
+selection. The full test artifacts are
+`outputs/agent/system_one_pr81_product_start_{testfull,top8legal_testfull}_20261005/`;
+the paired comparison is
+`outputs/agent/system_one_pr81_product_start_top8legal_test_comparison_20261005.json`
+(SHA-256 `9688593637e1a60fb07477cf9f9344edda7773ddcdaa5f7e9aee9ec4f4e87f1d`).
+These are product-only **strict-trace-view** endpoint results, not the full
+3,120-reaction mech-USPTO-31k endpoint benchmark or formal proof success.
+
 ### Runtime-observation parity gate for closed-loop evaluation
 
 `scripts/audit_system_one_observation_parity.py` reconstructs each decision's
