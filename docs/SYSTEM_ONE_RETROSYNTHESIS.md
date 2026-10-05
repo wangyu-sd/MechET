@@ -883,3 +883,54 @@ mathematical upper bound on it. It diagnoses long-horizon error accumulation
 and makes improvement in coherent electron-event selection a more immediate
 gate than further fitting the three-way route classifier. Hash-bound reports
 are under `outputs/agent/system_one_pr81_reference_path_20261005/`.
+
+### Complete principal-product endpoint evaluation (2026-10-05)
+
+The frozen hybrid policy was also run once per reaction on the **complete**
+HF mech-USPTO-31k endpoint valid and test splits, each with 3,120 reactions.
+Its only reaction input is the principal product. An 11-neighbor weighted
+context proposal is trained on the 24,959 full-endpoint **train** pairs and
+predicted without held-out reference context. The route and typed electron
+weights, however, were trained only on the 10,152-reaction strict executable
+trace-view train subset. Accepted electron moves are checked by the executor;
+the final product-origin structural precursor is independently reconstructed
+and compared with the frozen endpoint reference. No test reaction is dropped.
+
+| Split | Context Top-1 | Executable finish | Structural precursor exact | In strict trace view | Outside strict trace view |
+|---|---:|---:|---:|---:|---:|
+| Valid (3,120) | 2,198 (70.45%) | 3,016 (96.67%) | **654 (20.96%)** | 640/1,319 (48.52%) | 14/1,801 (0.78%) |
+| Test (3,120) | 2,172 (69.62%) | 3,017 (96.70%) | **661 (21.19%)** | 652/1,253 (52.04%) | 9/1,867 (0.48%) |
+
+This sharp stratification is the central finding of the full-denominator run.
+On the 1,867 test reactions outside strict trace-view training coverage, the
+context proposal still selects the recorded context in 1,354 cases, and the
+policy reaches a formal `FINISHED` state in 1,794, yet only nine have the
+correct structural precursor. Thus the observed full-benchmark limitation is
+not explained by missing context or executor legality alone. It is consistent
+with a severe policy/trajectory distribution shift, but this run does not
+isolate which training component causes it. The earlier 706/1,253 structural
+score used a different, strict-train context retriever and **cannot** be
+substituted for the 661/3,120 full-test result.
+
+The two ordinary one-A100 Taiji tasks ended successfully:
+`meteor_mechet_pr81_full_endpoint_valid3120_1a100_qy_20261005_01` and
+`meteor_mechet_pr81_full_endpoint_test3120_1a100_qy_20261005_01`.
+Reports and per-reaction traces are under
+`outputs/agent/system_one_pr81_full_endpoint_{valid3120,test3120}_20261005/`.
+`scripts/analyze_system_one_full_endpoint.py` independently verifies each
+source hash, complete denominator, input-context join, and per-case endpoint
+score; its stratified outputs are
+`outputs/agent/system_one_pr81_full_endpoint_{valid3120,test3120}_audit_20261005.json`.
+Valid/test rollout report SHA-256 values are respectively
+`cc0a31ea61f3bffceb7bd115112b71b12ed8e6c70bb1e69ca80bf071c45fde88`
+and `06b6dfbbb0b44eb9cb374db4ee87b7e8f9fb8622a937388eb0b72b6cd93c7bf5`;
+valid/test audit SHA-256 values are respectively
+`fa4af8dae3b8b127028b6a9e4d513ac34fae20462bc1978e3317e8c2e8b0c44a`
+and `ff58073b2acc9ba589ba5730776351e3e520c0a3d6f1ef7b26c71c9ac8d9e55e`.
+
+This is a single-trajectory, hybrid product-only endpoint evaluation, not a
+fully trained 31k-wide System-One policy, Top-K result, or whole-trajectory
+MECH_PROOF verification. The next scientific gate is to train the decision
+policy under a product-origin contract covering the full reaction distribution
+and test whether the outside-strict group improves; tuning the context
+retriever alone would not address the demonstrated failure mode.
