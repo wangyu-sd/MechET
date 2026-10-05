@@ -32,6 +32,17 @@ def normalize_batch(arguments: dict) -> tuple[tuple[str, int, str], ...]:
     return tuple(sorted(normalized))
 
 
+def novelty_against_train(train_batches: Counter, heldout_batches: Counter) -> dict:
+    unseen = {batch: count for batch, count in heldout_batches.items()
+              if batch not in train_batches}
+    total = sum(heldout_batches.values())
+    return {
+        "unseen_batches_vs_train": len(unseen),
+        "unseen_decisions_vs_train": sum(unseen.values()),
+        "unseen_decision_rate_vs_train": sum(unseen.values()) / total if total else None,
+    }
+
+
 def audit_split(path: Path, expected_rows: int, expected_imports: int) -> dict:
     batches: Counter[tuple[tuple[str, int, str], ...]] = Counter()
     fragments: Counter[str] = Counter()
@@ -74,7 +85,7 @@ def audit_split(path: Path, expected_rows: int, expected_imports: int) -> dict:
             for batch, frequency in batches.most_common(12)
         ],
         "top_fragments": fragments.most_common(12),
-        "_batch_set": set(batches),
+        "_batch_counts": batches,
     }
 
 
@@ -105,11 +116,12 @@ def main() -> int:
     if "train" in reports:
         for split in ("valid", "test"):
             if split in reports:
-                reports[split]["unseen_batches_vs_train"] = len(
-                    reports[split]["_batch_set"] - reports["train"]["_batch_set"]
-                )
+                reports[split].update(novelty_against_train(
+                    reports["train"]["_batch_counts"],
+                    reports[split]["_batch_counts"],
+                ))
     for value in reports.values():
-        del value["_batch_set"]
+        del value["_batch_counts"]
     output = {
         "artifact_type": "system_one_import_space_audit",
         "scope": "observed_fragment_diversity_not_an_enumerated_import_policy",

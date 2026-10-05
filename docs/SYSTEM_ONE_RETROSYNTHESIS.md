@@ -345,6 +345,14 @@ has **2,064 distinct batches and 790 distinct fragment SMILES** across 7,919
 IMPORT decisions. The reports preserve the source hashes under
 `outputs/agent/system_one_pr81_import_space_20261005/`.
 
+The complete strict-executable FlowER import audit counts **706,902** train
+IMPORT decisions, **63,108** distinct train batches and **24,654** distinct
+train fragment SMILES. The held-out test view has 79,281 IMPORT decisions:
+5,836 of its 12,373 distinct batches are absent from train, affecting
+**6,548 / 79,281 = 8.26%** of test IMPORT decisions. The corresponding
+validation figure is **620 / 7,919 = 7.83%**. These are exact batch-string
+novelty rates, not chemical-equivalence or reaction-success rates.
+
 A closed eight-way fragment classifier could look strong on the 31k pilot but
 fail the intended open-chemistry task. Phase-1a only routes to IMPORT; it does
 not claim fragment-generation competence. Any subsequent IMPORT argument
