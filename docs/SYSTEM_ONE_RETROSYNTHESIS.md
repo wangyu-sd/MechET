@@ -268,7 +268,9 @@ generation.
 
 ### Phase-1a action-family gate
 
-The next local experiment freezes the completed Phase-0 Qwen3-0.6B adapter and
+This is an exploratory **v1 marker-pointer extension**, run concurrently with
+typed-v2 development; it is not a result for the canonical typed-v2 architecture.
+It freezes the completed v1 Phase-0 Qwen3-0.6B adapter and
 learns a three-way `apply_electron_flow` / `import_fragments` / `finish_trace`
 readout from its current-state prefill. It uses **all** current-compiler
 mech-USPTO-31k strict trace-view decisions: 32,401 train, 4,288 valid and
@@ -277,6 +279,9 @@ adapter hash and zero-overlength tokenizer preflight are checked before GPU
 work. The completed preflight found maximum lengths 1,946 / 1,787 / 1,743,
 below the 4,096-token cap. A history-count majority baseline accompanies
 accuracy, macro-F1, IMPORT recall and premature-FINISH error.
+The history-count majority baseline has 70.57% valid and 70.79% test
+accuracy, but zero IMPORT recall on both splits; overall accuracy alone is
+therefore insufficient to promote the router.
 
 This is **routing only** at reference executor states. It does not generate
 fragment SMILES, use a closed list of observed fragments, or demonstrate an
