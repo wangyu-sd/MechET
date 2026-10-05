@@ -29,7 +29,7 @@ The HF files store elementary steps, so one reaction pair is reconstructed as:
 4. select its deterministic largest organic fragment as a target proxy; this
    can itself be a byproduct when the desired product is absent from
    `rxn_prod_min`;
-5. map `initial species >> desired product` once with RXNMapper 0.4.2 under
+5. map `initial species >> selected proxy product` once with RXNMapper 0.4.2 under
    Transformers 4.57.1;
 6. discard RXNMapper's numeric map labels and apply product-only canonical
    reindexing, transporting the same map permutation to the precursor side;

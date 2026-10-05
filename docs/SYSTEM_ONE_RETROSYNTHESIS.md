@@ -1000,7 +1000,7 @@ Qingyuan task,
 50 train, 50 valid and 50 test reactions, with zero dropped or unmapped rows.
 The runtime reports RXNMapper 0.4.2 and Transformers 4.57.1. Test ID 43 now
 selects the deprotected amine from `rxn_prod_equ` instead of isobutene from
-`rxn_prod_min`, while its precursor chemistry is unchanged. The smoke output
+`rxn_prod_min`, while its complete reactant mixture is unchanged. The smoke output
 is `data/mech_uspto_31k_full_endpoint_rxnmapper_equ_proxy_smoke50_20261005/`.
 The full-size job uses a different output directory and reuses old RXNMapper
 rows only when the entire unmapped reaction pair is byte-identical; the
@@ -1030,3 +1030,26 @@ hash-bound reports are
 (report SHA-256
 `95c9f6c412471ac1f69415538a8c2d1a060e4040f636ccd06c007294e9ed4fb4`
 and `919e6148104f47eda0d01c8893b48dc8d033bda0d584f7ad001d7e0ee56a5b64`).
+
+An independent handoff verifier compared every old/new mapped row against the
+raw-field audit. It confirmed unchanged reaction IDs and complete unmapped
+reactants across all 31,199 reactions; the selected product changed in exactly
+the audited 6,430/767/799 train/valid/test rows. Structural precursor
+projections changed in 4,673/562/615 rows, necessarily because the target
+product changed; no projection changed when its target was unchanged. The
+hash-bound verification report is
+`outputs/agent/system_one_pr81_equ_proxy_handoff_verification_20261005.json`.
+
+The first product-only closed-loop **equ-proxy validation pilot** completed on
+one ordinary Qingyuan A100 under
+`meteor_mechet_pr81_equ_proxy_valid64_1a100_qy_20261005_01`. The deterministic
+64-reaction sample produced 60 formal finishes and **12/64 (18.75%)** exact
+product-origin structural precursors; two episodes exhausted the action budget
+and two failed electron execution. This is a pilot, not the full validation or
+test result. The old min-field pilot on the same selected IDs scored 15/64,
+but the target and reference changed for some cases, so this difference is
+not a paired estimate of model quality. Per-case traces and the source/weight-
+bound report are at
+`outputs/agent/system_one_pr81_equ_proxy_valid64_20261005/`. Full 3,120-row
+valid/test jobs must keep the equ mapping and context outputs separate from
+the historical min-field reports.
