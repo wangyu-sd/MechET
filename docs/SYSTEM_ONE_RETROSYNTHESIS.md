@@ -197,6 +197,10 @@ python scripts/eval_jev_style_successor.py \
 Primary local metrics remain paired Recall@1/@4/@8, strict execution and exact
 next-state agreement. The typed-v2 model must be retrained before any comparison;
 none of the v1 numbers below are attributed to the new architecture.
+After a hash-verified typed-v2 checkpoint exists, the prepared one-A100
+`scripts/run_taiji_jev_style_typed_v2_successor_1a100.sh` evaluates the full
+2,543-event validation and 2,371-event test trace views separately, retaining
+per-event cases. It must not be launched from a merely pending training task.
 
 ## Frozen v1 marker-pointer baseline (2026-10-05)
 
