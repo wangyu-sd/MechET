@@ -309,6 +309,21 @@ unstable reactions in the fixed 128-case sample unstable; stripping private
 maps before Kekulization aligned the two map views but changed nine original
 gold successors in that sample. Neither trial is a validated drop-in executor
 repair, so the frozen training runtime is unchanged.
+The exact Stage-III preparation selection was also audited without changing
+training or dropping cases: `read_selected` with seed 17 chooses 640 reactions
+from the frozen 257,167-row strict train source. All 640 original-private-map
+references replay; only **614/640** replay after the product-only private remap.
+The other **26/640 (4.06%)** have a different executed successor at decision 1
+(20 reactions) or decision 3 (six reactions). The source and compressed-history
+decision SHA-256 values match their training manifests. The read-only report is
+`outputs/eval/reliable_mechet_history_mapping_parity_earho_train640_20261007.json`
+in the shared artifact repository. This is an executor/representation audit,
+**not** a Stage-III model score. As implemented, Stage-III reference replay and
+first-divergence probing start from the source's original private mapped target,
+whereas the matched endpoint evaluation starts from a freshly mapped product.
+Consequently, product-only transfer of Stage-III divergence labels cannot be
+claimed on these 26 rows without a parity-aware resolution; neither their
+removal nor their relabelling as model errors is justified by this audit.
 State-SFT and Trajectory-SFT have different reference-decision files and
 prompt contracts, so their parity reports must be built separately with the
 same 2,890 source reactions. The State-SFT audit uses `--state-only`; the
