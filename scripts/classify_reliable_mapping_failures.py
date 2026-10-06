@@ -16,7 +16,7 @@ from rdkit import Chem
 from mechet.forward_expert import ElectronMove
 from mechet.natural_language_electron_flow import compile_event_arguments
 from scripts.analyze_reliable_product_start import _sha256
-from scripts.earho_v2_protocol import decision_action
+from scripts.earho_v2_protocol import decision_action, replay_reference
 from scripts.run_natural_language_value_search import (
     Action, Node, execute, mapped_atom_numbers, product_only_private_state,
     visible,
@@ -139,7 +139,52 @@ def classify_first_divergence(source: dict, decisions: list[dict]) -> dict:
     raise ValueError("audit-listed failure replayed without a divergence")
 
 
-def classify(audit_path: Path) -> dict:
+def audit_all_original_source_orders(
+    source: Path, decisions: Path, *, compact_history: bool,
+) -> dict:
+    """Count source-bond Kekulé orders over every frozen original-map trace."""
+    by_source = defaultdict(list)
+    with decisions.open(encoding="utf-8") as stream:
+        for line in stream:
+            row = json.loads(line)
+            by_source[str(row["source_id"])].append(row)
+    counts: Counter[str] = Counter()
+    single_source_ids: set[str] = set()
+    with source.open(encoding="utf-8") as stream:
+        for line in stream:
+            reaction = json.loads(line)
+            source_id = str(reaction["source_id"])
+            rows = sorted(
+                by_source[source_id],
+                key=lambda row: int(row["metadata"]["decision_index"]),
+            )
+            reference = replay_reference(
+                reaction, rows, compact_history=compact_history,
+            )
+            counts["reactions"] += 1
+            for index, row in enumerate(rows):
+                name, arguments, _ = decision_action(row)
+                if name != "apply_electron_flow":
+                    continue
+                for item in source_bond_context(reference.nodes[index].state, arguments):
+                    if not item["source_is_aromatic"]:
+                        continue
+                    counts[f"aromatic_source_order_{item['source_kekule_order']}"] += 1
+                    if item["source_kekule_order"] == 1:
+                        single_source_ids.add(source_id)
+    if counts["reactions"] != len(by_source):
+        raise ValueError("source/decision reaction denominator mismatch")
+    return {
+        "counts": dict(counts),
+        "single_source_ids": sorted(single_source_ids),
+        "interpretation": (
+            "aromatic source-bond occurrences in original-map reference events; "
+            "a universal aromatic-double rule would change valid single-bond cases"
+        ),
+    }
+
+
+def classify(audit_path: Path, *, all_source_orders: bool = False) -> dict:
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     if audit.get("artifact_type") != "reliable_mechet_product_only_private_mapping_audit_v1":
         raise ValueError("unrecognized parity audit")
@@ -174,7 +219,7 @@ def classify(audit_path: Path) -> dict:
     for source_id in sorted(wanted):
         rows = sorted(by_source[source_id], key=lambda row: int(row["metadata"]["decision_index"]))
         cases.append({"source_id": source_id, **classify_first_divergence(sources[source_id], rows)})
-    return {
+    report = {
         "artifact_type": "reliable_mechet_mapping_failure_connectivity_v1",
         "audit": str(audit_path), "audit_sha256": _sha256(audit_path),
         "source_sha256": audit["source_sha256"],
@@ -198,14 +243,23 @@ def classify(audit_path: Path) -> dict:
         ),
         "cases": cases,
     }
+    if all_source_orders:
+        report["all_original_source_orders"] = audit_all_original_source_orders(
+            source, decisions,
+            compact_history=audit.get("observation_contract") == "compressed_history",
+        )
+        if report["all_original_source_orders"]["counts"]["reactions"] != audit["n_reactions"]:
+            raise ValueError("full source-order audit denominator differs from mapping audit")
+    return report
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--audit", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--all-source-orders", action="store_true")
     args = parser.parse_args()
-    report = classify(args.audit)
+    report = classify(args.audit, all_source_orders=args.all_source_orders)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps({
@@ -213,6 +267,7 @@ def main() -> int:
         "class_counts": report["class_counts"],
         "first_decision_counts": report["first_decision_counts"],
         "aromatic_source_kekule_order_changed": report["aromatic_source_kekule_order_changed"],
+        "all_original_source_orders": report.get("all_original_source_orders", {}).get("counts"),
         "output": str(args.output),
     }), flush=True)
     return 0

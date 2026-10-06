@@ -243,6 +243,17 @@ establish which of the two successors is chemically correct. We retain all 112
 in endpoint denominators and exclude them only from claims that assign a
 reference-relative *model* error at the first divergence. The frozen executor
 and active SFT job are unchanged pending a separately replay-audited repair.
+An additional read-only pass through all 2,890 original-map validation traces
+found 487 aromatic source-bond occurrences whose Kekulé order is double and
+12 whose order is single (from six reactions). This full pass is reproducible
+with `scripts/classify_reliable_mapping_failures.py --all-source-orders` using
+the SHA-bound State-SFT parity audit above. Therefore a blanket "treat every
+aromatic source as a π bond" rule would change some already-verified reference
+transitions; it is **not** a safe repair. The current natural-language action
+names an aromatic bond but does not state which electron pair of an ambiguous Kekulé assignment
+is moved. A future representation/executor revision must resolve that
+ambiguity explicitly and pass full frozen-reference replay before replacing
+the current protocol.
 
 ## Historical Qwen3-8B position
 
