@@ -482,13 +482,19 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
                     proposal_outcomes.extend(episode.get("proposal_outcomes") or [])
                 scored[identifier] = score_reaction(expected[identifier], prediction)
     cases = [scored[identifier] for identifier in expected if identifier in scored]
+    process_metrics_available = getattr(args, "benchmark_view", "diagnostic") != "full_endpoint_test"
+    if not process_metrics_available:
+        for case in cases:
+            for k in (1, 5, 10):
+                case[f"process_reliable_pass_at_{k}"] = None
     counts: dict[str, Any] = {}
     for k in (1, 5, 10):
         for prefix in ("generation_pass", "nll_ranked_top", "process_reliable_pass"):
             name = f"{prefix}_at_{k}" if prefix != "nll_ranked_top" else f"{prefix}_{k}"
             counts[name] = (
                 sum(bool(case[name]) for case in cases)
-                if k <= args.episodes else None
+                if k <= args.episodes and (prefix != "process_reliable_pass" or process_metrics_available)
+                else None
             )
     return {
         "artifact_type": (
@@ -509,6 +515,11 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
             "Structural endpoint hit by a terminal independently replayed trajectory "
             "with at least one accepted electron event; laboratory feasibility "
             "is a separate test."
+        ) if process_metrics_available else None,
+        "process_metric_status": (
+            "available_on_strict_or_diagnostic_view"
+            if process_metrics_available
+            else "unavailable_on_full_endpoint_view_use_28967_strict_test"
         ),
         "model": MODEL, "model_revision": REVISION,
         "runtime_versions": runtime_versions(),

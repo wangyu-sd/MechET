@@ -505,7 +505,11 @@ Formal reports additionally require `--benchmark-view strict_test` with
 reactions. The evaluator checks the declared test file path, SHA-256, row count
 and view-specific coverage fields against the actual source. A smaller run is
 always labelled `diagnostic`, never silently promoted to either headline
-denominator. Both frozen test manifests and their actual source hashes passed
+denominator. On `full_endpoint_test`, process-reliable Pass@K is explicitly
+`null` in the aggregate and per-case files: only `strict_test` can supply the
+28,967-reaction process headline. Structural Pass@K and NLL-ranked Top@K stay
+available on the full 28,971-reaction endpoint view. Both frozen test manifests
+and their actual source hashes passed
 this view gate locally; that is a data-contract check, **not** model inference.
 
 For diagnostics while Stage I is still training, the evaluator accepts an

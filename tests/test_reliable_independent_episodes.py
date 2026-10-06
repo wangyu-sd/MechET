@@ -360,3 +360,32 @@ def test_run_fingerprint_changes_when_chemistry_runtime_changes(
     first = ev.run_fingerprint(args)
     monkeypatch.setattr(ev, "runtime_versions", lambda: {"rdkit": "version-two"})
     assert ev.run_fingerprint(args) != first
+
+
+def test_full_endpoint_report_suppresses_strict_process_metric(
+    tmp_path: Path, monkeypatch,
+):
+    row = {
+        "id": "r", "source_id": "r", "target_smiles": "CO",
+        "structural_precursor": "CN",
+    }
+    monkeypatch.setattr(ev, "checked_inputs", lambda _args: ([row], "frozen"))
+    monkeypatch.setattr(ev, "verify_episode_trace", lambda _target, _episode: None)
+    prediction = {
+        "id": "r", "source_id": "r", "target": "CO", "seed": 17,
+        "run_fingerprint": "frozen",
+        "episodes": [_episode(0, "CO", precursor="CN", score=-0.2, event=True)],
+    }
+    (tmp_path / "episodes.shard-00-of-01.jsonl").write_text(json.dumps(prediction) + "\n")
+    args = Namespace(
+        output=tmp_path, episodes=1, seed=17, sample_reactions=1,
+        benchmark_view="full_endpoint_test", stage="state",
+        expected_source_sha256="s", expected_adapter_sha256="a",
+    )
+    report = ev.aggregate(args)
+    assert report["hits"]["generation_pass_at_1"] == 1
+    assert report["hits"]["nll_ranked_top_1"] == 1
+    assert report["hits"]["process_reliable_pass_at_1"] is None
+    assert report["rates"]["process_reliable_pass_at_1"] is None
+    assert report["cases"][0]["process_reliable_pass_at_1"] is None
+    assert report["process_metric_status"].startswith("unavailable_on_full_endpoint")
