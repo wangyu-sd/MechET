@@ -79,12 +79,15 @@ def fixture(reaction_id: str = "toy"):
 
 
 def test_product_only_mapping_audit_accepts_equivalent_toy_replay(tmp_path):
+    import rdkit
+
     source, decisions = fixture()
     source_path = tmp_path / "source.jsonl"
     decision_path = tmp_path / "decisions.jsonl"
     source_path.write_text(json.dumps(source) + "\n")
     decision_path.write_text("".join(json.dumps(row) + "\n" for row in decisions))
     report = audit(source_path, decision_path, n=1, seed=17)
+    assert report["rdkit_version"] == rdkit.__version__
     assert report["counts"]["root_prompt_exact"] == 1
     assert report["counts"]["original_private_map_replay_ok"] == 1
     assert report["counts"]["product_only_remap_replay_ok"] == 1

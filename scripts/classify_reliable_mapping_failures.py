@@ -13,6 +13,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from rdkit import Chem
 
+from mechet.chemical_runtime import require_endpoint_process_rdkit
 from mechet.forward_expert import ElectronMove, verify_electron_step
 from mechet.natural_language_electron_flow import compile_event_arguments
 from scripts.analyze_reliable_product_start import _sha256
@@ -281,9 +282,15 @@ def classify(
     audit_path: Path, *, all_source_orders: bool = False,
     branch_probe: bool = False, set_probe: bool = False,
 ) -> dict:
+    rdkit_version = require_endpoint_process_rdkit()
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     if audit.get("artifact_type") != "reliable_mechet_product_only_private_mapping_audit_v1":
         raise ValueError("unrecognized parity audit")
+    if audit.get("rdkit_version") and audit["rdkit_version"] != rdkit_version:
+        raise ValueError(
+            "parity audit RDKit version differs from classifier runtime: "
+            f"{audit['rdkit_version']} != {rdkit_version}"
+        )
     source, decisions = Path(audit["source"]), Path(audit["decisions"])
     if _sha256(source) != audit["source_sha256"] or _sha256(decisions) != audit["decisions_sha256"]:
         raise ValueError("audit source/decision SHA mismatch")
@@ -326,6 +333,7 @@ def classify(
         "audit": str(audit_path), "audit_sha256": _sha256(audit_path),
         "source_sha256": audit["source_sha256"],
         "decisions_sha256": audit["decisions_sha256"],
+        "rdkit_version": rdkit_version,
         "denominator": len(cases),
         "class_counts": dict(Counter(item["class"] for item in cases)),
         "first_decision_counts": dict(Counter(item["decision_index"] for item in cases)),

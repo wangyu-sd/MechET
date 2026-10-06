@@ -1,6 +1,21 @@
+import json
+
+import pytest
+
 from scripts.classify_reliable_mapping_failures import (
-    enumerate_kekule_successors, heavy_atom_skeleton, probe_kekule_branches,
+    classify, enumerate_kekule_successors, heavy_atom_skeleton,
+    probe_kekule_branches,
 )
+
+
+def test_classification_rejects_mismatched_rdkit_audit_before_scanning(tmp_path):
+    audit = tmp_path / "audit.json"
+    audit.write_text(json.dumps({
+        "artifact_type": "reliable_mechet_product_only_private_mapping_audit_v1",
+        "rdkit_version": "2024.09.6",
+    }))
+    with pytest.raises(ValueError, match="parity audit RDKit version differs"):
+        classify(audit)
 
 
 def test_heavy_atom_skeleton_ignores_bond_order_charge_and_atom_maps():

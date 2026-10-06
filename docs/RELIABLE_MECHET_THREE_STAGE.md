@@ -93,6 +93,21 @@ validation estimate, product-start endpoint result or proof that later stages
 will succeed. The complete report is in shared artifacts at
 `outputs/eval/reliable_mechet_state_ckpt7000_valid4_t4_probe_20261007/evaluation.json`.
 
+A broader but still **provisional** Stage-I `checkpoint-14000` diagnostic used
+16 frozen validation reactions (123 one-decision, gold-state prompts), the
+same T4/FP16, greedy SFT-aligned tool prefix and replay-derived private
+scoring states. All 123 decisions were scored. Electron-event tool choice was
+60/63, formal execution 57/63, and exact reference event 42/63; finish was
+exact on 15/16. Import-fragment exactness was **9/44**, with participant-only
+imports 9/28 and context-only imports 0/11. The earlier four reactions are a
+subset of these 16: on those same four, event exactness changed from 5/13 at
+checkpoint 7000 to 6/13 at checkpoint 14000, while event execution changed
+from 13/13 to 11/13. This is not monotonic evidence on a four-case sample.
+The frozen report and checkpoint hash are in
+`outputs/eval/reliable_mechet_state_ckpt14000_valid16_t4_provisional_20261007/evaluation.json`.
+These numbers diagnose local action learning and fragment-selection weakness;
+they are **not** product-start endpoint accuracy or a selected final checkpoint.
+
 The exact-import metric needs a role breakdown. A SHA-bound audit of the
 frozen State-SFT rows (`scripts/audit_reliable_import_supervision.py`) found:
 
@@ -324,6 +339,20 @@ whereas the matched endpoint evaluation starts from a freshly mapped product.
 Consequently, product-only transfer of Stage-III divergence labels cannot be
 claimed on these 26 rows without a parity-aware resolution; neither their
 removal nor their relabelling as model errors is justified by this audit.
+The follow-up RDKit-2026.03.4 classifier found changed aromatic source-bond
+Kekulé order and different heavy-atom successor connectivity in **26/26**
+cases. Gold-free bounded successor-set enumeration agreed across the two
+private map views in **26/26**; the reference successor appeared in both sets,
+and no enumeration hit its cap. This supports a set-valued representation of
+the ambiguous action, not an inference-time rule for selecting a single
+successor. The report is
+`outputs/eval/reliable_mechet_history_mapping_failure_train640_20261007.json`.
+Future parity audits record the RDKit version, and the classifier rejects an
+artifact from a different recorded RDKit version before scanning source files;
+both scripts reject executor-incompatible older RDKit releases. The two
+existing train/validation audit artifacts predate that metadata field, so
+their frozen source hashes and the classifier's recorded runtime remain the
+evidence for those specific runs.
 State-SFT and Trajectory-SFT have different reference-decision files and
 prompt contracts, so their parity reports must be built separately with the
 same 2,890 source reactions. The State-SFT audit uses `--state-only`; the

@@ -13,6 +13,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
+from mechet.chemical_runtime import require_endpoint_process_rdkit
 from scripts.earho_v2_protocol import replay_reference
 from scripts.run_natural_language_value_search import (
     policy_prompt, product_only_private_state, read_selected, visible,
@@ -31,6 +32,7 @@ def audit(
     source: Path, decisions: Path, *, n: int, seed: int,
     compact_history: bool = True,
 ) -> dict:
+    rdkit_version = require_endpoint_process_rdkit()
     selected = read_selected(source, n, seed)
     if len(selected) != n or len({str(row["source_id"]) for row in selected}) != n:
         raise ValueError("source does not contain the requested unique reaction denominator")
@@ -90,6 +92,7 @@ def audit(
         "source": str(source), "source_sha256": sha256(source),
         "decisions": str(decisions), "decisions_sha256": sha256(decisions),
         "n_reactions": n, "seed": seed, "counts": dict(counts),
+        "rdkit_version": rdkit_version,
         "observation_contract": (
             "compressed_history" if compact_history else "state_only"
         ),
