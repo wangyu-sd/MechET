@@ -613,14 +613,45 @@ a paired local-versus-autonomous comparison. The product-start evaluator now
 has a diagnostic-only `--diagnostic-selection stratified` option to make that
 paired comparison without changing either formal full-test selection or its
 denominator.
-On these same 16 reactions, all reference first actions import an
-`electron_participant`. The generated first action proposed an import in 15
+On that first **hash-selected** set of 16 reactions, all reference first actions
+import an `electron_participant`. The generated first action proposed an import in 15
 cases; after canonicalizing each fragment as an unmapped SMILES multiset, only
 four first imports matched the recorded reference. Three of those four
 reactions reached the reference endpoint, versus one of the other 12. This
 association points to early fragment selection as a useful failure-analysis
 target; a different fragment is not, by itself, proof of chemical invalidity
 or a causal explanation for every endpoint miss.
+
+The **paired length-stratified** diagnostic has now completed at the same
+unfinished `checkpoint-14000` adapter SHA, on exactly the 16 validation
+reaction IDs used by the 123-decision gold-state diagnostic above. Independent
+product-only K=1 generation and replay found **3/16** process-reliable
+structural endpoint hits: 12/16 episodes terminated, nine of those terminals
+disagreed with the recorded structural precursor, and four episodes were
+nonterminal. Only four of 107 parsed tool proposals were executor-rejected.
+All 16 recorded first actions were electron-participant imports. The policy
+also first proposed an import in all 16 cases (one rejected), but only **2/16**
+first fragment multisets matched the recorded import after canonicalizing
+unmapped SMILES and respecting multiplicity. The local gold-state first-step
+diagnostic matched those same two imports. One of the two first-import matches
+and two of the 14 mismatches nevertheless reached the recorded structural
+endpoint; import disagreement is therefore neither a proof of chemical
+impossibility nor a sufficient explanation for every endpoint miss. For all
+16 reactions, the independently reconstructed product-start user prompt
+is byte-identical to the corresponding first State-SFT user prompt. The local
+one-decision and autonomous evaluations generated identical first tool names
+and arguments on 15/16 cases; the remaining case (`val_1256`) differs despite
+prompt equality, so these two generation implementations should not be
+claimed byte-identical merely from matching prompts and adapter hashes. For
+example, `flower_mech_proof_val_1256` first imported methoxide instead of the
+recorded bromomethoxyborane and did not terminate, while
+`flower_mech_proof_val_2344` first imported neutral rather than recorded
+protonated hydroxybenzotriazole and still reached the structural endpoint.
+This is a **paired failure-mode diagnostic**, not a final validation estimate:
+the checkpoint was 14,000/31,366 steps, and the sample has only 16 reactions.
+Its independent audit, per-case table, and replayable episodes are in shared
+artifacts at
+`outputs/eval/reliable_mechet_state_ckpt14000_valid16_stratified_k1_t4_provisional_20261007/`.
 
 ## Multi-step planning
 
