@@ -228,6 +228,21 @@ The independently run State-SFT audit also found 2,778/2,890 product-only
 remapped gold replays, with the **same 112 reaction IDs** as the history-stage
 audit. Its artifact is
 `outputs/eval/reliable_mechet_state_product_mapping_parity_valid2890_20261006.json`.
+An additional read-only classifier replayed all 112 State-SFT failures under
+RDKit 2026.03.4, checking the SHA-256-bound source and decision files. **All
+112 first divergent actions are `apply_electron_flow`; 94 occur at decision 1,
+17 at decision 3 and one at decision 9.** In each case, the original-map and
+product-only-map versions assign a *different Kekulé bond order to at least
+one aromatic electron-source bond*. Every divergent successor also has a
+different heavy-atom connectivity graph, not merely a different SMILES spelling
+of the same connectivity. The classifier and machine-readable per-case report
+are `scripts/classify_reliable_mapping_failures.py` and
+`outputs/eval/reliable_mechet_state_mapping_failure_connectivity_valid2890_20261007.json`.
+This identifies a representation-sensitive executor failure mode; it does not
+establish which of the two successors is chemically correct. We retain all 112
+in endpoint denominators and exclude them only from claims that assign a
+reference-relative *model* error at the first divergence. The frozen executor
+and active SFT job are unchanged pending a separately replay-audited repair.
 
 ## Historical Qwen3-8B position
 
