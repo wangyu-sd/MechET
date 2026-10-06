@@ -125,6 +125,10 @@ the 0.6B base for its successor critic. The Taiji launcher is
 `scripts/run_taiji_reliable_mechet_earho_a100.sh`; it is **not** a submitted
 experiment and must not run until the Stage-II parent and product-start
 representation audit are accepted.
+For the reliable protocol, a resumed collection checks the exact source,
+actor and (when present) successor-critic weight hashes, model revision,
+frontier, round and evaluation mode before accepting cached shards. A changed
+critic cannot silently reuse old rollout scores.
 
 EARHO keeps the existing design:
 

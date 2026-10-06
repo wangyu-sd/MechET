@@ -234,9 +234,33 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
 def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation):
     marker = output / "collection_done.json"
     shards = [output / f"rank{rank}.jsonl" for rank in range(8)]
+    reliable = cfg.get("protocol_version") == "reliable_mechet_three_stage_v1"
+    lineage = (
+        {
+            "protocol_version": cfg["protocol_version"],
+            "model_revision": cfg["model_revision"],
+            "adapter_model_sha256": _sha256(Path(adapter) / "adapter_model.safetensors"),
+            "value_adapter": str(cfg.get("value_adapter_path") or ""),
+            "value_adapter_model_sha256": (
+                _sha256(Path(cfg["value_adapter_path"]) / "adapter_model.safetensors")
+                if cfg.get("value_adapter_path") else ""
+            ),
+            "source_sha256": _sha256(Path(data)),
+            "adapter": str(adapter),
+            "frontier": frontier,
+            "round": round_index,
+            "evaluation": evaluation,
+        }
+        if reliable else {}
+    )
     if marker.exists():
         if not all(path.is_file() for path in shards):
             raise ValueError("collection marker exists with missing shards")
+        if reliable:
+            recorded = json.loads(marker.read_text())
+            for key, value in lineage.items():
+                if recorded.get(key) != value:
+                    raise ValueError(f"reliable EARHO collection lineage changed: {key}")
         return shards, summarize(shards)
     output.mkdir(parents=True, exist_ok=True)
     for path in shards:
@@ -292,7 +316,7 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
             f"{summary['collector_error_rate']:.4f}"
         )
     public = {key: value for key, value in summary.items() if key != "group_summaries"}
-    write_json(marker, {"adapter": str(adapter), "frontier": frontier, "round": round_index, "evaluation": evaluation, **public})
+    write_json(marker, {"adapter": str(adapter), "frontier": frontier, "round": round_index, "evaluation": evaluation, **lineage, **public})
     log(stage="nl-anchor-collection-complete", **public)
     return shards, summary
 

@@ -7,7 +7,7 @@ import yaml
 from scripts.run_earho_v2 import (
     _critic_config, prepare, resolve_reliable_paths, validate_contract,
 )
-from scripts.run_natural_language_anchor_branch_rl import worker_command
+from scripts.run_natural_language_anchor_branch_rl import worker_command, run_workers, _sha256
 from scripts.run_anchor_branch_rl import run_train
 
 
@@ -155,3 +155,62 @@ def test_reliable_earho_actor_update_uses_natural_language_stage(monkeypatch, tm
     assert result == output / "adapter"
     assert "scripts/natural_language_anchor_branch_stage.py" in commands[0]
     assert "scripts/anchor_branch_stage.py" not in commands[0]
+
+
+def test_reliable_earho_resume_rejects_stale_collection_lineage(monkeypatch, tmp_path: Path):
+    import scripts.run_natural_language_anchor_branch_rl as collector
+
+    cfg = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    source = tmp_path / "source.jsonl"
+    source.write_text("{}\n")
+    adapter = tmp_path / "adapter"
+    adapter.mkdir()
+    (adapter / "adapter_model.safetensors").write_bytes(b"actor")
+    output = tmp_path / "collection"
+    output.mkdir()
+    for rank in range(8):
+        (output / f"rank{rank}.jsonl").write_text("{}\n")
+    marker = output / "collection_done.json"
+    lineage = {
+        "protocol_version": cfg["protocol_version"],
+        "model_revision": cfg["model_revision"],
+        "adapter_model_sha256": _sha256(adapter / "adapter_model.safetensors"),
+        "value_adapter": "", "value_adapter_model_sha256": "",
+        "source_sha256": _sha256(source),
+        "adapter": str(adapter), "frontier": 2, "round": 0,
+        "evaluation": False,
+    }
+    marker.write_text(json.dumps(lineage))
+    monkeypatch.setattr(collector, "summarize", lambda _shards: {
+        "collector_error_rate": 0.0, "group_summaries": [],
+    })
+    shards, _ = run_workers(
+        cfg, source, adapter, output, frontier=2, round_index=0,
+        evaluation=False,
+    )
+    assert len(shards) == 8
+    marker.write_text(json.dumps({**lineage, "source_sha256": "0" * 64}))
+    with pytest.raises(ValueError, match="collection lineage changed: source_sha256"):
+        run_workers(
+            cfg, source, adapter, output, frontier=2, round_index=0,
+            evaluation=False,
+        )
+    critic = tmp_path / "critic"
+    critic.mkdir()
+    (critic / "adapter_model.safetensors").write_bytes(b"first-critic")
+    with_critic = {**cfg, "value_adapter_path": str(critic)}
+    marker.write_text(json.dumps({
+        **lineage,
+        "value_adapter": str(critic),
+        "value_adapter_model_sha256": _sha256(critic / "adapter_model.safetensors"),
+    }))
+    run_workers(
+        with_critic, source, adapter, output, frontier=2, round_index=0,
+        evaluation=False,
+    )
+    (critic / "adapter_model.safetensors").write_bytes(b"changed-critic")
+    with pytest.raises(ValueError, match="collection lineage changed: value_adapter_model_sha256"):
+        run_workers(
+            with_critic, source, adapter, output, frontier=2, round_index=0,
+            evaluation=False,
+        )
