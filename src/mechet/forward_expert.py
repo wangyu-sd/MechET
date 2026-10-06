@@ -172,8 +172,14 @@ def enumerate_containers(
 def verify_electron_step(
     smiles: str,
     moves: Sequence[ElectronMove | dict[str, Any]],
+    *,
+    _prepared_kekule_mol: Chem.Mol | None = None,
 ) -> dict[str, Any]:
-    """Apply coupled arrows atomically and return the sanitized next state."""
+    """Apply coupled arrows atomically and return the sanitized next state.
+
+    ``_prepared_kekule_mol`` is audit-only: it permits testing alternate
+    aromatic Kekulé assignments without changing the frozen default executor.
+    """
     try:
         mol = _mol(smiles)
         # Proof compilation operates on an explicit Kekule graph.  Applying
@@ -181,10 +187,48 @@ def verify_electron_step(
         # Python's round(1.5)==2 turn a +1 shift into an invalid triple bond.
         # Use the identical representation here so tool replay and the formal
         # proof executor have exactly the same bond-order semantics.
-        try:
-            Chem.Kekulize(mol, clearAromaticFlags=True)
-        except Exception:
-            pass
+        if _prepared_kekule_mol is None:
+            try:
+                Chem.Kekulize(mol, clearAromaticFlags=True)
+            except Exception:
+                pass
+        else:
+            variant = Chem.Mol(_prepared_kekule_mol)
+            original_atoms = {
+                atom.GetAtomMapNum(): (
+                    atom.GetAtomicNum(), atom.GetFormalCharge(), atom.GetIsotope(),
+                    atom.GetNumExplicitHs(),
+                ) for atom in mol.GetAtoms()
+            }
+            variant_atoms = {
+                atom.GetAtomMapNum(): (
+                    atom.GetAtomicNum(), atom.GetFormalCharge(), atom.GetIsotope(),
+                    atom.GetNumExplicitHs(),
+                ) for atom in variant.GetAtoms()
+            }
+            def pairs(candidate: Chem.Mol) -> dict[tuple[int, int], Chem.Bond]:
+                return {
+                    tuple(sorted((
+                        bond.GetBeginAtom().GetAtomMapNum(),
+                        bond.GetEndAtom().GetAtomMapNum(),
+                    ))): bond for bond in candidate.GetBonds()
+                }
+            original_bonds, variant_bonds = pairs(mol), pairs(variant)
+            if original_atoms != variant_atoms or original_bonds.keys() != variant_bonds.keys():
+                raise ValueError("prepared Kekulé variant changes atoms, charges or connectivity")
+            if any(
+                not bond.GetIsAromatic()
+                and bond.GetBondType() != variant_bonds[pair].GetBondType()
+                for pair, bond in original_bonds.items()
+            ):
+                raise ValueError("prepared Kekulé variant changes a nonaromatic bond")
+            for atom in variant.GetAtoms():
+                atom.SetIsAromatic(False)
+            for bond in variant.GetBonds():
+                if bond.GetBondType() == Chem.BondType.AROMATIC:
+                    raise ValueError("prepared variant lacks explicit integer bond orders")
+                bond.SetIsAromatic(False)
+            mol = variant
         atom_index = {
             atom.GetAtomMapNum(): atom.GetIdx() for atom in mol.GetAtoms()
         }

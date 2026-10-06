@@ -250,10 +250,28 @@ with `scripts/classify_reliable_mapping_failures.py --all-source-orders` using
 the SHA-bound State-SFT parity audit above. Therefore a blanket "treat every
 aromatic source as a π bond" rule would change some already-verified reference
 transitions; it is **not** a safe repair. The current natural-language action
-names an aromatic bond but does not state which electron pair of an ambiguous Kekulé assignment
-is moved. A future representation/executor revision must resolve that
+names an aromatic bond but does not state which electron pair of an ambiguous
+Kekulé assignment is moved. A future representation/executor revision must resolve that
 ambiguity explicitly and pass full frozen-reference replay before replacing
 the current protocol.
+An audit-only bounded branch probe enumerated alternate Kekulé assignments
+without changing atoms, formal charges, explicit hydrogens, connectivity or
+nonaromatic bond orders. The recorded reference successor was among the
+executable branches for **112/112** remap failures (at most 50 assignments
+examined for any one case; mean 4.5). The artifact is
+`outputs/eval/reliable_mechet_state_kekule_branch_probe_valid2890_20261007.json`.
+This proves that the frozen electron action can reach the reference under
+another aromatic bond assignment; it does **not** supply a gold-independent
+rule for choosing that branch at inference, and it is not a recovered model
+accuracy result. The audit-only executor entry point defaults to the unchanged
+single-assignment behavior in all training and deployed inference paths.
+After adding that private audit entry point, we reran the ordinary default
+executor over all 2,890 State-SFT validation traces. Its counts and all 112
+failure records are byte-equivalent after canonical JSON sorting to the
+pre-change parity report (SHA-256 of `{counts,failures}`:
+`580657b53fb8eb1f47ba58b2fad55bc9c71ae7a2c0301da7c005bf2d1d224226`).
+The regression report is
+`outputs/eval/reliable_mechet_state_mapping_default_regression_valid2890_20261007.json`.
 
 ## Historical Qwen3-8B position
 

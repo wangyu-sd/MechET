@@ -13,7 +13,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from rdkit import Chem
 
-from mechet.forward_expert import ElectronMove
+from mechet.forward_expert import ElectronMove, verify_electron_step
 from mechet.natural_language_electron_flow import compile_event_arguments
 from scripts.analyze_reliable_product_start import _sha256
 from scripts.earho_v2_protocol import decision_action, replay_reference
@@ -79,7 +79,43 @@ def source_bond_context(state: str, arguments: dict) -> list[dict]:
     return output
 
 
-def classify_first_divergence(source: dict, decisions: list[dict]) -> dict:
+def probe_kekule_branches(
+    state: str, arguments: dict, reference_successor: str, *, max_structures: int = 128,
+) -> dict:
+    """Ask whether a bounded alternate-Kekulé execution can reach the reference."""
+    if max_structures < 1:
+        raise ValueError("max_structures must be positive")
+    moves = compile_event_arguments(state, arguments)
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(state, params)
+    if mol is None:
+        raise ValueError("invalid pre-event state")
+    supplier = Chem.ResonanceMolSupplier(
+        mol, Chem.ResonanceFlags.KEKULE_ALL, maxStructs=max_structures,
+    )
+    seen = valid = 0
+    for candidate in supplier:
+        seen += 1
+        result = verify_electron_step(
+            state, moves, _prepared_kekule_mol=candidate,
+        )
+        if result["ok"]:
+            valid += 1
+            if visible(result["state_smiles"]) == reference_successor:
+                return {
+                    "reference_reachable": True, "structures_examined": seen,
+                    "valid_executions": valid, "search_capped": False,
+                }
+    return {
+        "reference_reachable": False, "structures_examined": seen,
+        "valid_executions": valid, "search_capped": seen >= max_structures,
+    }
+
+
+def classify_first_divergence(
+    source: dict, decisions: list[dict], *, branch_probe: bool = False,
+) -> dict:
     state = product_only_private_state(str(source["target_smiles"]))
     original_state = str(source["target_smiles"])
 
@@ -121,7 +157,7 @@ def classify_first_divergence(source: dict, decisions: list[dict]) -> dict:
         if actual != expected:
             expected_skeleton = heavy_atom_skeleton(expected)
             actual_skeleton = heavy_atom_skeleton(actual)
-            return {
+            detail = {
                 "decision_index": index, "decision_type": name,
                 "class": (
                     "same_heavy_atom_connectivity_different_state"
@@ -135,6 +171,11 @@ def classify_first_divergence(source: dict, decisions: list[dict]) -> dict:
                 "source_bonds_original": source_bonds_original,
                 "source_bonds_remapped": source_bonds_remapped,
             }
+            if branch_probe and name == "apply_electron_flow":
+                detail["kekule_branch_probe"] = probe_kekule_branches(
+                    node.state, arguments, expected,
+                )
+            return detail
         node, original_node = child, original_child
     raise ValueError("audit-listed failure replayed without a divergence")
 
@@ -184,7 +225,10 @@ def audit_all_original_source_orders(
     }
 
 
-def classify(audit_path: Path, *, all_source_orders: bool = False) -> dict:
+def classify(
+    audit_path: Path, *, all_source_orders: bool = False,
+    branch_probe: bool = False,
+) -> dict:
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     if audit.get("artifact_type") != "reliable_mechet_product_only_private_mapping_audit_v1":
         raise ValueError("unrecognized parity audit")
@@ -218,7 +262,12 @@ def classify(audit_path: Path, *, all_source_orders: bool = False) -> dict:
     cases = []
     for source_id in sorted(wanted):
         rows = sorted(by_source[source_id], key=lambda row: int(row["metadata"]["decision_index"]))
-        cases.append({"source_id": source_id, **classify_first_divergence(sources[source_id], rows)})
+        cases.append({
+            "source_id": source_id,
+            **classify_first_divergence(
+                sources[source_id], rows, branch_probe=branch_probe,
+            ),
+        })
     report = {
         "artifact_type": "reliable_mechet_mapping_failure_connectivity_v1",
         "audit": str(audit_path), "audit_sha256": _sha256(audit_path),
@@ -250,6 +299,22 @@ def classify(audit_path: Path, *, all_source_orders: bool = False) -> dict:
         )
         if report["all_original_source_orders"]["counts"]["reactions"] != audit["n_reactions"]:
             raise ValueError("full source-order audit denominator differs from mapping audit")
+    if branch_probe:
+        report["kekule_branch_probe"] = {
+            "reference_reachable": sum(
+                item.get("kekule_branch_probe", {}).get("reference_reachable", False)
+                for item in cases
+            ),
+            "search_capped_without_match": sum(
+                item.get("kekule_branch_probe", {}).get("search_capped", False)
+                for item in cases
+            ),
+            "denominator": len(cases),
+            "interpretation": (
+                "bounded counterfactual executor audit, not an inference rule; "
+                "uses the private reference successor only to score after enumeration"
+            ),
+        }
     return report
 
 
@@ -258,8 +323,12 @@ def main() -> int:
     parser.add_argument("--audit", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--all-source-orders", action="store_true")
+    parser.add_argument("--branch-probe", action="store_true")
     args = parser.parse_args()
-    report = classify(args.audit, all_source_orders=args.all_source_orders)
+    report = classify(
+        args.audit, all_source_orders=args.all_source_orders,
+        branch_probe=args.branch_probe,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps({
@@ -268,6 +337,7 @@ def main() -> int:
         "first_decision_counts": report["first_decision_counts"],
         "aromatic_source_kekule_order_changed": report["aromatic_source_kekule_order_changed"],
         "all_original_source_orders": report.get("all_original_source_orders", {}).get("counts"),
+        "kekule_branch_probe": report.get("kekule_branch_probe"),
         "output": str(args.output),
     }), flush=True)
     return 0
