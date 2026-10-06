@@ -1,0 +1,42 @@
+version: 1
+name: jevretro_single_step_v1
+status: phase0_full_denominator_audit
+
+model:
+  base: Qwen/Qwen3-0.6B
+  train_mode: lora
+  autoregressive_generation: false
+
+benchmarks:
+  uspto50k:
+    train_rows: 40008
+    valid_rows: 5001
+    test_rows: 5007
+    train: data/benchmarks/uspto50k/train.inverse_eval.jsonl
+    valid: data/benchmarks/uspto50k/valid.inverse_eval.jsonl
+    test: data/benchmarks/uspto50k/test.inverse_eval.jsonl
+  flower_retro:
+    train_rows: 257171
+    valid_rows: 2890
+    test_rows: 28971
+    train: data/flower_full_endpoint_sft/train.jsonl
+    valid: data/flower_full_endpoint_sft/valid.jsonl
+    test: data/flower_full_endpoint_sft/test.jsonl
+
+phase0:
+  compiler_schema: jevretro_endpoint_program_v1
+  require_full_coverage: true
+  fail_on_any_reconstruction_error: true
+  report_attachment_oov: true
+
+evaluation:
+  primary: structural_precursor_exact
+  top_k: [1, 5, 10]
+  missing_predictions_are_failures: true
+  ranking: frozen_model_score
+  canonicalization: rdkit_map_free_isomeric
+
+matched_control:
+  model: Qwen/Qwen3-0.6B
+  representation: autoregressive_product_to_precursor
+  same_training_ids: true
