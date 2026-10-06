@@ -267,3 +267,12 @@ rechecks the frozen data and cache contracts on the allocated GPU host, stages
 the Arrow shards and model locally, and leaves normal training progress on the
 default POD log. Stage II additionally requires the exact Stage-I adapter
 SHA-256; Stage III remains disabled until the Stage-II SHA-256 is frozen.
+
+The matched 128-reaction validation diagnostic uses
+`scripts/run_taiji_reliable_mechet_local_eval_a100.sh`. Stage I and Stage II
+read their own frozen model-visible decision rows; in particular, Stage II is
+evaluated with its actual compact-history prompt, not a Stage-I or ad-hoc
+transcript prompt. The evaluator checks adapter/model revision, generates with
+the SFT-aligned Qwen tool prefix, and reports import, event, successor and
+finish errors separately. Because each decision receives a reference current
+state, this is a **local diagnostic**, not product-start endpoint recovery.

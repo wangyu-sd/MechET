@@ -44,6 +44,17 @@ from scripts.build_natural_language_event_sft import convert_row
 MODEL_REVISION = "b968826d9c46dd6066d109eabc6255188de91218"
 
 
+def validate_adapter_lineage(adapter: Path, model: str, revision: str) -> None:
+    manifest_path = adapter / "adapter_manifest.json"
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"adapter lineage manifest missing: {manifest_path}")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if manifest.get("base_model") != model:
+        raise ValueError("evaluation model differs from adapter base model")
+    if manifest.get("base_model_revision") != revision:
+        raise ValueError("evaluation model revision differs from adapter revision")
+
+
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     with path.open(encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
@@ -127,20 +138,41 @@ def _private_states(row: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def collect_tasks(
-    rows: Iterable[Mapping[str, Any]], *, sample_reactions: int, seed: int
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    sample_reactions: int,
+    seed: int,
+    decision_rows: Iterable[Mapping[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[str]]:
     selected = stratified_sample(rows, size=sample_reactions, seed=seed)
+    selected_ids = {str(source["source_id"]) for source in selected}
+    public_by_reaction: dict[str, list[dict[str, Any]]] | None = None
+    if decision_rows is not None:
+        public_by_reaction = defaultdict(list)
+        for row in decision_rows:
+            reaction_id = str(row["source_id"])
+            if reaction_id in selected_ids:
+                public_by_reaction[reaction_id].append(dict(row))
+        for reaction_id, decisions in public_by_reaction.items():
+            decisions.sort(key=lambda row: int(row["metadata"]["decision_index"]))
+            indices = [int(row["metadata"]["decision_index"]) for row in decisions]
+            if indices != list(range(len(decisions))):
+                raise ValueError(f"{reaction_id}: public decision indices are incomplete")
     tasks: list[dict[str, Any]] = []
     reaction_ids: list[str] = []
     for source in selected:
-        public_rows = convert_row(source)
+        reaction_id = str(source["source_id"])
+        public_rows = (
+            public_by_reaction.get(reaction_id, [])
+            if public_by_reaction is not None
+            else convert_row(source)
+        )
         private_rows = _private_states(source)
         if len(public_rows) != len(private_rows):
             raise ValueError(f"{source['id']}: public/private decision count mismatch")
         stratum = mechanism_length_stratum(
             len((source["metadata"]["trace_plan"] or {})["steps"])
         )
-        reaction_id = str(source["source_id"])
         reaction_ids.append(reaction_id)
         for public, private in zip(public_rows, private_rows, strict=True):
             decision_type = str(public["metadata"]["decision_type"])
@@ -324,6 +356,7 @@ def _batches(values: Sequence[Any], size: int) -> Iterable[Sequence[Any]]:
 
 
 def run(args: argparse.Namespace) -> int:
+    validate_adapter_lineage(args.adapter, args.model, args.model_revision)
     import torch
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
@@ -332,7 +365,10 @@ def run(args: argparse.Namespace) -> int:
     torch.cuda.set_device(local_rank)
     rows = read_jsonl(args.data)
     tasks, reaction_ids = collect_tasks(
-        rows, sample_reactions=args.sample_reactions, seed=args.seed
+        rows,
+        sample_reactions=args.sample_reactions,
+        seed=args.seed,
+        decision_rows=read_jsonl(args.decision_data) if args.decision_data else None,
     )
     selected = [task for index, task in enumerate(tasks) if index % world == rank]
     args.output.mkdir(parents=True, exist_ok=True)
@@ -357,14 +393,14 @@ def run(args: argparse.Namespace) -> int:
         )
 
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model, revision=MODEL_REVISION, trust_remote_code=True
+        args.model, revision=args.model_revision, trust_remote_code=True
     )
     tokenizer.padding_side = "left"
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
     dtype = torch.bfloat16 if args.dtype == "bfloat16" else torch.float16
     model_kwargs: dict[str, Any] = {
-        "revision": MODEL_REVISION,
+        "revision": args.model_revision,
         "trust_remote_code": True,
         "torch_dtype": dtype,
         "device_map": {"": local_rank},
@@ -492,9 +528,13 @@ def _summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def aggregate(args: argparse.Namespace) -> int:
+    validate_adapter_lineage(args.adapter, args.model, args.model_revision)
     source = read_jsonl(args.data)
     tasks, reaction_ids = collect_tasks(
-        source, sample_reactions=args.sample_reactions, seed=args.seed
+        source,
+        sample_reactions=args.sample_reactions,
+        seed=args.seed,
+        decision_rows=read_jsonl(args.decision_data) if args.decision_data else None,
     )
     expected = {task["key"] for task in tasks}
     rows: list[dict[str, Any]] = []
@@ -529,10 +569,12 @@ def aggregate(args: argparse.Namespace) -> int:
         "complete": not missing and not extra,
         "data": str(args.data),
         "data_sha256": sha256(args.data),
+        "decision_data": str(args.decision_data) if args.decision_data else None,
+        "decision_data_sha256": sha256(args.decision_data) if args.decision_data else None,
         "adapter": str(args.adapter),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "model": args.model,
-        "model_revision": MODEL_REVISION,
+        "model_revision": args.model_revision,
         "compute_dtype": args.dtype,
         "sft_aligned_tool_prefix": bool(args.sft_aligned_prefix),
         "quantization": "bf16_or_fp16" if args.no_4bit else "bnb_nf4",
@@ -566,8 +608,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("run", "aggregate"))
     parser.add_argument("--data", type=Path, required=True)
+    parser.add_argument(
+        "--decision-data",
+        type=Path,
+        help="frozen model-visible per-decision rows; needed for Stage-II history prompts",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--model-revision", default=MODEL_REVISION)
     parser.add_argument("--adapter", type=Path, required=True)
     parser.add_argument("--sample-reactions", type=int, default=256)
     parser.add_argument("--seed", type=int, default=17)
