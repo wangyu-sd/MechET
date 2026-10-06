@@ -284,7 +284,8 @@ The matched product-start pilot uses
 `scripts/run_taiji_reliable_mechet_product_start_a100.sh` with
 `MECHET_RELIABLE_STAGE=state` or `trajectory`. Both stages use the same frozen
 SHA256-selected 128 validation reactions, greedy K=1, 40 accepted decisions,
-32 maximum imported fragment copies, no value critic, and the SFT-aligned Qwen
+32 maximum imported fragment copies, rejection of a target-retaining finish
+without any electron-flow transformation, no value critic, and the SFT-aligned Qwen
 tool prefix. At the root, the evaluator strips **all original source atom maps**
 and deterministically assigns fresh private maps from the unmapped product;
 only the product/current executor state and its temporary atom/bond inventory

@@ -102,6 +102,7 @@ torchrun --standalone --nproc_per_node=1 \
   --model-revision c1899de289a04d12100db370d81485cdf75e47ca \
   --policy-adapter "$adapter" --sample-reactions 128 --seed 17 \
   --matched-v2 --product-only-remap "${history_flag[@]}" \
+  --reject-target-retained-finish \
   --branching 1 --early-beam 1 --late-beam 1 \
   --max-decisions 40 --max-imports 32 --max-new-tokens 512 \
   --value-weight 0 --no-4bit
