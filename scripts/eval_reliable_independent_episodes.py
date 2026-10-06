@@ -73,11 +73,56 @@ def policy_args(args: argparse.Namespace) -> argparse.Namespace:
     )
 
 
+def validate_benchmark_source(args: argparse.Namespace, source_sha256: str) -> str | None:
+    """Do not label a filtered or sampled source as an official test view."""
+
+    view = getattr(args, "benchmark_view", "diagnostic")
+    manifest_path = getattr(args, "source_manifest", None)
+    if view == "diagnostic":
+        if manifest_path is not None:
+            raise ValueError("diagnostic selection must not masquerade as a frozen benchmark view")
+        return None
+    if view not in {"strict_test", "full_endpoint_test"} or manifest_path is None:
+        raise ValueError("formal benchmark view requires a frozen source manifest")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    split = dict((manifest.get("splits") or {}).get("test") or {})
+    if view == "strict_test":
+        expected_rows = 28967
+        relative = split.get("file")
+        declared_sha256 = split.get("sha256")
+        if (
+            manifest.get("strict_trace_universe_complete") is not True
+            or manifest.get("artifact_type") != "flower_strict_action_delta_trace_owned_tool_sft"
+            or int(split.get("unique_ids", -1)) != expected_rows
+            or int((manifest.get("official_reaction_denominators") or {}).get("test", -1)) != 28971
+            or int((manifest.get("named_upstream_corrupt_rows_excluded") or {}).get("test", -1)) != 4
+        ):
+            raise ValueError("strict test manifest does not declare the frozen executable universe")
+    else:
+        expected_rows = 28971
+        relative = split.get("output")
+        declared_sha256 = split.get("output_sha256")
+        if int(split.get("expected_rows", -1)) != expected_rows or split.get("coverage") != 1:
+            raise ValueError("full endpoint manifest does not declare complete coverage")
+    if int(split.get("rows", -1)) != expected_rows or args.sample_reactions != expected_rows:
+        raise ValueError(f"{view} must score its complete {expected_rows}-reaction denominator")
+    if not isinstance(relative, str) or Path(relative).is_absolute():
+        raise ValueError("benchmark manifest test source path is not repository-relative")
+    declared_path = (manifest_path.resolve().parents[2] / relative).resolve()
+    if args.data.resolve() != declared_path or source_sha256 != declared_sha256:
+        raise ValueError("benchmark test source path/SHA disagrees with frozen manifest")
+    return sha256(manifest_path)
+
+
 def run_fingerprint(args: argparse.Namespace) -> str:
     provisional = getattr(args, "provisional_training_config", None)
     contract = {
         "artifact_type": "reliable_mechet_independent_episodes_v1",
         "source_sha256": sha256(args.data),
+        "benchmark_view": getattr(args, "benchmark_view", "diagnostic"),
+        "source_manifest_sha256": (
+            sha256(args.source_manifest) if getattr(args, "source_manifest", None) else None
+        ),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "adapter_manifest_sha256": (
             None if provisional else sha256(args.adapter / "adapter_manifest.json")
@@ -109,14 +154,18 @@ def checked_inputs(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str]
         raise ValueError("episodes must be 1, 5, or 10 and sample size positive")
     if args.max_new_tokens < 1 or args.max_context < 1:
         raise ValueError("invalid token budget")
-    if sha256(args.data) != args.expected_source_sha256:
+    source_sha256 = sha256(args.data)
+    if source_sha256 != args.expected_source_sha256:
         raise ValueError("evaluation source SHA-256 mismatch")
+    validate_benchmark_source(args, source_sha256)
     if sha256(args.adapter / "adapter_model.safetensors") != args.expected_adapter_sha256:
         raise ValueError("evaluation adapter SHA-256 mismatch")
     actor = policy_args(args)
     validate_matched_v2_args(actor)
     provisional = getattr(args, "provisional_training_config", None)
     if provisional:
+        if getattr(args, "benchmark_view", "diagnostic") != "diagnostic":
+            raise ValueError("an unfinished checkpoint cannot be a formal benchmark result")
         if args.sample_reactions > 16:
             raise ValueError("provisional checkpoint evaluation is limited to 16 reactions")
         lineage = validate_adapter_lineage(
@@ -426,7 +475,7 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
         "artifact_type": (
             "reliable_mechet_independent_episodes_provisional_checkpoint_audit_v1"
             if getattr(args, "provisional_training_config", None)
-            else "reliable_mechet_independent_episodes_audit_v1"
+            else f"reliable_mechet_independent_episodes_{getattr(args, 'benchmark_view', 'diagnostic')}_audit_v1"
         ),
         "claim_boundary": (
             "Product-only independent executor episodes; structural reference used "
@@ -452,6 +501,10 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
             else {"kind": "completed_adapter"}
         ),
         "stage": args.stage, "episodes_per_reaction": args.episodes,
+        "benchmark_view": getattr(args, "benchmark_view", "diagnostic"),
+        "source_manifest_sha256": (
+            sha256(args.source_manifest) if getattr(args, "source_manifest", None) else None
+        ),
         "ranking": "descending mean generated-token log-probability, canonical unique terminal precursors",
         "ranking_score_source": "unwarped_adapter_policy_logits_before_temperature_top_p",
         "source_sha256": args.expected_source_sha256,
@@ -527,6 +580,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("command", choices=("run", "aggregate"))
     result.add_argument("--data", type=Path, required=True)
     result.add_argument("--expected-source-sha256", required=True)
+    result.add_argument("--benchmark-view", choices=(
+        "diagnostic", "strict_test", "full_endpoint_test",
+    ), default="diagnostic")
+    result.add_argument("--source-manifest", type=Path,
+                        help="Mandatory for formal strict/full test views")
     result.add_argument("--adapter", type=Path, required=True)
     result.add_argument("--expected-adapter-sha256", required=True)
     result.add_argument("--stage", choices=("state", "trajectory"), required=True)

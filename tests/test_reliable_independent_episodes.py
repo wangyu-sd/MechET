@@ -306,3 +306,37 @@ def test_risk_coverage_keeps_endpoint_miss_separate_from_executor_rejection():
     assert rejection["unparseable_proposals"] == 1
     assert rejection["top_decile_executor_rejection"]["executor_rejection_rate"] == 1.0
     assert rejection["curve"][-1]["executor_rejection_rate"] == 0.5
+
+
+def test_formal_benchmark_view_rejects_subset_and_manifest_mismatch(tmp_path: Path):
+    source = tmp_path / "data" / "strict" / "test.jsonl"
+    source.parent.mkdir(parents=True)
+    source.write_text('{"id":"only_one_row_for_manifest_gate_unit_test"}\n')
+    manifest_path = source.parent / "training_manifest.json"
+    manifest_path.write_text(json.dumps({
+        "artifact_type": "flower_strict_action_delta_trace_owned_tool_sft",
+        "strict_trace_universe_complete": True,
+        "official_reaction_denominators": {"test": 28971},
+        "named_upstream_corrupt_rows_excluded": {"test": 4},
+        "splits": {"test": {
+            "file": "data/strict/test.jsonl", "sha256": ev.sha256(source),
+            "rows": 28967, "unique_ids": 28967,
+        }},
+    }))
+    args = Namespace(
+        data=source, sample_reactions=28967,
+        benchmark_view="strict_test", source_manifest=manifest_path,
+    )
+    assert ev.validate_benchmark_source(args, ev.sha256(source)) == ev.sha256(manifest_path)
+    args.sample_reactions = 128
+    with pytest.raises(ValueError, match="complete 28967"):
+        ev.validate_benchmark_source(args, ev.sha256(source))
+    args.sample_reactions = 28967
+    with pytest.raises(ValueError, match="path/SHA"):
+        ev.validate_benchmark_source(args, "0" * 64)
+    args.benchmark_view = "diagnostic"
+    with pytest.raises(ValueError, match="must not masquerade"):
+        ev.validate_benchmark_source(args, ev.sha256(source))
+    args.benchmark_view = "full_endpoint_test"
+    with pytest.raises(ValueError, match="complete coverage"):
+        ev.validate_benchmark_source(args, ev.sha256(source))

@@ -497,6 +497,15 @@ sampling. Aggregation scores one shard row at a time rather than loading all
 generated trajectories, and verbose rejected attempts are opt-in via
 `--record-attempts` to avoid an unnecessarily large full-test artifact. No
 formal K>1 full-test inference result or Taiji evaluation task is claimed.
+Formal reports additionally require `--benchmark-view strict_test` with
+`data/flower_inverse_tool_sft_action_delta_v1/training_manifest.json` and all
+28,967 strict test reactions, or `--benchmark-view full_endpoint_test` with
+`data/flower_full_endpoint_sft/manifest.json` and all 28,971 official test
+reactions. The evaluator checks the declared test file path, SHA-256, row count
+and view-specific coverage fields against the actual source. A smaller run is
+always labelled `diagnostic`, never silently promoted to either headline
+denominator. Both frozen test manifests and their actual source hashes passed
+this view gate locally; that is a data-contract check, **not** model inference.
 
 For diagnostics while Stage I is still training, the evaluator accepts an
 explicit `--provisional-training-config` only for an actual `checkpoint-N`
