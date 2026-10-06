@@ -472,8 +472,11 @@ greedy product-only trajectory. K=5/10 samples separately seeded complete
 tool-execution trajectories per product, using the same 40-decision/32-import
 budget and no reference information during generation. It separately reports
 generation-order Pass@K, NLL-ranked Top@K over canonical unique terminal
-precursors, and the subset with an accepted electron event; a terminal episode
-without an electron event is not called process-reliable. Ranking uses mean
+precursors, and the subset with an accepted electron event. Before scoring,
+aggregation independently replays each saved accepted-action sequence from the
+product and checks the terminal flag, full/structural precursor and electron-event
+flag; it rejects forged or unreplayable traces. A terminal episode without an
+electron event is not called process-reliable. Ranking uses mean
 generated-token log-probability from **unwarped policy logits** (`output_logits`),
 not the temperature/top-p-processed sampling scores and not a value critic.
 Pass@1 within a K>1 run is the first stochastic draw, **not** the separate
@@ -481,7 +484,10 @@ greedy K=1 condition; these must not be silently substituted for each other.
 The aggregation binds source bytes, adapter weights, stage, decoder settings and
 code hashes, rejects duplicate/foreign/mixed shards, and counts missing
 reaction predictions as failures. This path is prepared for later matched
-sampling; no K>1 GPU inference result or task has been claimed or submitted.
+sampling. Aggregation scores one shard row at a time rather than loading all
+generated trajectories, and verbose rejected attempts are opt-in via
+`--record-attempts` to avoid an unnecessarily large full-test artifact. No
+K>1 GPU inference result or task has been claimed or submitted.
 
 ## Multi-step planning
 

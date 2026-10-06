@@ -24,10 +24,12 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from mechet.endpoints import reference_structural_precursor, split_precursor_endpoints, structural_exact
+from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.jevretro_endpoint import canonical_unmapped
 from scripts.run_natural_language_value_search import (
-    Runtime, read_selected, search_unlabeled, validate_matched_v2_args,
-    validate_v2_adapter_manifest, visible,
+    Action, Node, Runtime, execute, product_only_private_state, read_selected,
+    search_unlabeled, validate_matched_v2_args, validate_v2_adapter_manifest,
+    visible,
 )
 
 
@@ -65,6 +67,7 @@ def policy_args(args: argparse.Namespace) -> argparse.Namespace:
         early_beam=1, late_beam=1, early_depth=2,
         max_decisions=40, max_imports=32,
         max_new_tokens=args.max_new_tokens, max_context=args.max_context,
+        record_attempts=getattr(args, "record_attempts", False),
     )
 
 
@@ -78,6 +81,7 @@ def run_fingerprint(args: argparse.Namespace) -> str:
         "episodes": args.episodes, "sample_reactions": args.sample_reactions,
         "seed": args.seed, "max_new_tokens": args.max_new_tokens,
         "max_context": args.max_context, "no_4bit": args.no_4bit,
+        "record_attempts": getattr(args, "record_attempts", False),
         "ranking_score": "raw_model_mean_generated_token_logprob",
         "runtime_sha256": sha256(ROOT / "scripts/run_natural_language_value_search.py"),
         "evaluator_sha256": sha256(Path(__file__)),
@@ -125,7 +129,7 @@ def sample_episode(
             top.state, searched["target_mapped"]
         ).structural
         structural = visible(projected) if projected else ""
-    return {
+    result = {
         "index": index, "seed": seed, "terminal": bool(top.terminal),
         "precursor": structural,
         "full_executor_precursor": visible(top.state) if top.terminal else "",
@@ -137,8 +141,11 @@ def sample_episode(
             {"name": item["name"], "arguments": item["arguments"]}
             for item in top.actions
         ],
-        "attempts": searched["attempts"], "rejected": searched["rejected"],
+        "rejected": searched["rejected"],
     }
+    if getattr(actor_args, "record_attempts", False):
+        result["attempts"] = searched["attempts"]
+    return result
 
 
 def sample_reaction(
@@ -157,6 +164,50 @@ def sample_reaction(
         "id": str(row["id"]), "source_id": str(row["source_id"]),
         "target": canonical_unmapped(target), "episodes": samples,
     }
+
+
+def verify_episode_trace(target: str, episode: Mapping[str, Any]) -> None:
+    """Independently replay saved accepted actions before endpoint scoring."""
+
+    mapped = product_only_private_state(target)
+    root_visible = visible(mapped)
+    node = Node(
+        target=root_visible, state=mapped,
+        next_map=max(mapped_atom_numbers(mapped), default=0) + 1,
+        visited={root_visible},
+    )
+    actions = episode.get("actions")
+    if not isinstance(actions, list) or len(actions) > 40:
+        raise ValueError("episode accepted-action list is invalid")
+    for index, record in enumerate(actions):
+        if node.terminal or not isinstance(record, Mapping):
+            raise ValueError("episode contains an action after finish")
+        name, arguments = record.get("name"), record.get("arguments")
+        if not isinstance(name, str) or not isinstance(arguments, Mapping):
+            raise ValueError("episode accepted action has invalid schema")
+        child, error = execute(
+            node, Action(name, dict(arguments), "", 0.0, 1),
+            max_imports=32, reject_target_retained_finish=True,
+        )
+        if child is None:
+            raise ValueError(f"episode accepted action {index} failed independent replay: {error}")
+        node = child
+    if node.terminal != bool(episode.get("terminal")):
+        raise ValueError("episode terminal flag disagrees with independent replay")
+    has_event = any(record["name"] == "apply_electron_flow" for record in node.actions)
+    if has_event != bool(episode.get("has_electron_event")):
+        raise ValueError("episode electron-event flag disagrees with independent replay")
+    if node.terminal:
+        full = str(episode.get("full_executor_precursor") or "")
+        if not full or visible(node.state) != visible(full):
+            raise ValueError("episode full precursor disagrees with independent replay")
+        structural = split_precursor_endpoints(node.state, mapped).structural
+        projected = visible(structural) if structural else ""
+        precursor = str(episode.get("precursor") or "")
+        if projected != (visible(precursor) if precursor else ""):
+            raise ValueError("episode structural precursor disagrees with independent replay")
+    elif episode.get("full_executor_precursor") or episode.get("precursor"):
+        raise ValueError("nonterminal episode declares a precursor")
 
 
 def score_reaction(row: Mapping[str, Any], prediction: Mapping[str, Any]) -> dict[str, Any]:
@@ -224,7 +275,7 @@ def score_reaction(row: Mapping[str, Any], prediction: Mapping[str, Any]) -> dic
 def aggregate(args: argparse.Namespace) -> dict[str, Any]:
     selected, fingerprint = checked_inputs(args)
     expected = {str(row["id"]): row for row in selected}
-    observed: dict[str, dict[str, Any]] = {}
+    scored: dict[str, dict[str, Any]] = {}
     shards = sorted(args.output.glob("episodes.shard-*-of-*.jsonl"))
     if not shards:
         raise ValueError("no episode prediction shards")
@@ -235,17 +286,16 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
                     continue
                 prediction = json.loads(line)
                 identifier = str(prediction["id"])
-                if identifier not in expected or identifier in observed:
+                if identifier not in expected or identifier in scored:
                     raise ValueError(f"unknown or duplicate prediction: {identifier}")
                 if prediction.get("run_fingerprint") != fingerprint:
                     raise ValueError(f"{identifier}: episode run lineage mismatch")
                 if int(prediction.get("seed", -1)) != args.seed or len(prediction["episodes"]) != args.episodes:
                     raise ValueError(f"{identifier}: episode budget mismatch")
-                observed[identifier] = prediction
-    cases = [
-        score_reaction(row, observed[identifier])
-        for identifier, row in expected.items() if identifier in observed
-    ]
+                for episode in prediction["episodes"]:
+                    verify_episode_trace(str(expected[identifier]["target_smiles"]), episode)
+                scored[identifier] = score_reaction(expected[identifier], prediction)
+    cases = [scored[identifier] for identifier in expected if identifier in scored]
     counts: dict[str, Any] = {}
     for k in (1, 5, 10):
         for prefix in ("generation_pass", "nll_ranked_top", "process_reliable_pass"):
@@ -261,9 +311,9 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
             "only after generation. Execution is not laboratory feasibility."
         ),
         "process_reliable_definition": (
-            "Structural endpoint hit by a terminal online-executed trajectory "
-            "with at least one accepted electron event; independent certificate "
-            "replay and chemical feasibility are separate tests."
+            "Structural endpoint hit by a terminal independently replayed trajectory "
+            "with at least one accepted electron event; laboratory feasibility "
+            "is a separate test."
         ),
         "model": MODEL, "model_revision": REVISION,
         "stage": args.stage, "episodes_per_reaction": args.episodes,
@@ -344,6 +394,8 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--max-new-tokens", type=int, default=512)
     result.add_argument("--max-context", type=int, default=4096)
     result.add_argument("--no-4bit", action="store_true")
+    result.add_argument("--record-attempts", action="store_true",
+                        help="Store verbose failed-action/state attempts (large on full test)")
     return result
 
 

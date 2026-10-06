@@ -105,6 +105,7 @@ def test_sample_episode_uses_fresh_product_only_runtime_path(monkeypatch):
     assert episode["precursor"] == "CO"
     assert episode["has_electron_event"] is True
     assert episode["mean_token_logprob"] == -0.3
+    assert "attempts" not in episode
 
 
 def test_one_episode_executes_real_import_electron_flow_and_finish():
@@ -150,9 +151,30 @@ def test_one_episode_executes_real_import_electron_flow_and_finish():
     assert [item["name"] for item in episode["actions"]] == [
         "import_fragments", "apply_electron_flow", "finish_trace",
     ]
+    ev.verify_episode_trace("CO", episode)
+    episode["has_electron_event"] = False
+    with pytest.raises(ValueError, match="electron-event flag"):
+        ev.verify_episode_trace("CO", episode)
+    episode["has_electron_event"] = True
+    episode["precursor"] = "CN"
+    with pytest.raises(ValueError, match="structural precursor"):
+        ev.verify_episode_trace("CO", episode)
 
 
-def test_missing_reactions_remain_in_k_denominator_and_lineage_is_checked(tmp_path: Path):
+def test_independent_replay_rejects_fabricated_terminal_without_actions():
+    with pytest.raises(ValueError, match="terminal flag"):
+        ev.verify_episode_trace("CO", {
+            "terminal": True, "precursor": "CN",
+            "full_executor_precursor": "CN", "has_electron_event": True,
+            "actions": [],
+        })
+
+
+def test_missing_reactions_remain_in_k_denominator_and_lineage_is_checked(
+    tmp_path: Path, monkeypatch,
+):
+    actual_verify = ev.verify_episode_trace
+    monkeypatch.setattr(ev, "verify_episode_trace", lambda _target, _episode: None)
     data = tmp_path / "valid.jsonl"
     rows = [
         {"id": f"r{i}", "source_id": f"r{i}", "target_smiles": "CO",
@@ -194,6 +216,9 @@ def test_missing_reactions_remain_in_k_denominator_and_lineage_is_checked(tmp_pa
     assert report["rates"]["generation_pass_at_1"] == 0.5
     assert report["rates"]["nll_ranked_top_5"] == 0.5
     assert report["rates"]["generation_pass_at_10"] is None
+    monkeypatch.setattr(ev, "verify_episode_trace", actual_verify)
+    with pytest.raises(ValueError, match="accepted-action list"):
+        ev.aggregate(args)
     prediction["run_fingerprint"] = "0" * 64
     shard.write_text(json.dumps(prediction) + "\n")
     with pytest.raises(ValueError, match="lineage mismatch"):
