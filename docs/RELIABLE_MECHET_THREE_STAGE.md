@@ -599,9 +599,15 @@ State-SFT and Trajectory-SFT views. This is an evaluator oracle/parity check,
 not a model score. New reports use the `v3_replayed_state` artifact type and
 separate output directories; older local reports remain historical diagnostics
 and must not be pooled with the replay-corrected results.
-The full 2,890-reaction validation State-SFT view also replayed all 22,341
-frozen decisions; its 11,532 gold electron events executed and matched their
-mapped reference successors (11,532/11,532). This verifies the evaluator's
+Replay-scored prediction shards now carry a run fingerprint over the frozen
+source/decision bytes, adapter weights, model revision and decoder settings.
+Resume and aggregation fail if a shard lacks that fingerprint or belongs to
+another run; matching decision keys alone are insufficient for reuse.
+On the full 2,890-reaction validation split, both the State-SFT and
+compressed-history Trajectory-SFT views replayed their own 22,341 frozen
+decisions. Each view's 11,532 gold electron events executed and matched their
+mapped reference successors (11,532/11,532 for each view). Source and decision
+bytes matched their frozen manifest SHA-256 values. This verifies evaluator
 reference-state alignment, not autonomous endpoint accuracy.
 
 The matched product-start pilot uses

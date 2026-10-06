@@ -2,9 +2,10 @@
 """Gold-state local evaluation for natural-language electron-event SFT.
 
 The model receives exactly the product/current-state prompt used by SFT and
-generates one next tool decision.  Private atom maps are reconstructed only in
-the evaluator so predicted natural-language aliases can be compiled and
-strictly replayed.  This is an F-oracle local diagnostic, not a product-only
+generates one next tool decision. Private atom maps remain evaluator-only;
+the reliable path obtains them by replaying the frozen tool decisions so
+predicted natural-language aliases are compiled against the actual executor
+state. This is a reference-state local diagnostic, not a product-only
 closed-loop endpoint result.
 """
 from __future__ import annotations
@@ -108,6 +109,39 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def replayed_run_fingerprint(args: argparse.Namespace) -> str:
+    """Bind resumable replay-scored shards to the exact inputs and decoder."""
+
+    if not getattr(args, "replay_reference_states", False):
+        raise ValueError("run fingerprint is only defined for replay-scored evaluation")
+    if args.decision_data is None:
+        raise ValueError("replay-scored evaluation requires frozen decision data")
+    contract = {
+        "version": 1,
+        "data_sha256": sha256(args.data),
+        "decision_data_sha256": sha256(args.decision_data),
+        "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
+        "model": args.model,
+        "model_revision": args.model_revision,
+        "sample_reactions": args.sample_reactions,
+        "seed": args.seed,
+        "sft_aligned_prefix": bool(args.sft_aligned_prefix),
+        "dtype": args.dtype,
+        "no_4bit": bool(args.no_4bit),
+        "max_new_tokens": args.max_new_tokens,
+        "max_context": args.max_context,
+    }
+    encoded = json.dumps(contract, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def require_replayed_run_fingerprint(
+    rows: Iterable[Mapping[str, Any]], expected: str,
+) -> None:
+    if any(row.get("run_fingerprint") != expected for row in rows):
+        raise ValueError("local evaluation shards belong to a different replay run")
+
+
 def distributed_coordinates() -> tuple[int, int, int]:
     rank = int(os.environ.get("RANK", "0"))
     world = int(os.environ.get("WORLD_SIZE", "1"))
@@ -130,7 +164,7 @@ def render_policy_prompt(
 
 
 def _private_states(row: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Reconstruct executor-private state aligned with every public decision."""
+    """Legacy trace-plan states; replayed evaluation replaces their mapped states."""
 
     plan = dict((row.get("metadata") or {}).get("trace_plan") or {})
     steps = [dict(item) for item in plan.get("steps") or []]
@@ -210,9 +244,6 @@ def collect_tasks(
             if public_by_reaction is not None
             else convert_row(source)
         )
-        private_rows = _private_states(source)
-        if len(public_rows) != len(private_rows):
-            raise ValueError(f"{source['id']}: public/private decision count mismatch")
         if replay_decision_states:
             from scripts.earho_v2_protocol import replay_reference
 
@@ -229,17 +260,34 @@ def collect_tasks(
             reference = replay_reference(
                 source, public_rows, compact_history=compact_history,
             )
-            private_rows = [
-                {
-                    **private,
+            if len(reference.nodes) != len(public_rows) + 1:
+                raise ValueError(f"{reaction_id}: reference replay node count mismatch")
+            private_rows = []
+            event_depth = 0
+            action_types = {
+                "import_fragments": "import",
+                "apply_electron_flow": "event",
+                "finish_trace": "finish",
+            }
+            for index, decision in enumerate(public_rows):
+                dtype = str(decision["metadata"]["decision_type"])
+                gold_name = str(decision["messages"][2]["tool_calls"][0]["function"]["name"])
+                if action_types.get(gold_name) != dtype:
+                    raise ValueError(f"{decision['id']}: reference decision type/action mismatch")
+                if dtype == "event":
+                    event_depth += 1
+                private_rows.append({
+                    "decision_type": dtype,
                     "private_state": reference.nodes[index].state,
                     "reference_successor": (
-                        reference.nodes[index + 1].state
-                        if private["decision_type"] != "import" else ""
+                        reference.nodes[index + 1].state if dtype != "import" else ""
                     ),
-                }
-                for index, private in enumerate(private_rows)
-            ]
+                    "event_depth": event_depth,
+                })
+        else:
+            private_rows = _private_states(source)
+            if len(public_rows) != len(private_rows):
+                raise ValueError(f"{source['id']}: public/private decision count mismatch")
         stratum = mechanism_length_stratum(
             len((source["metadata"]["trace_plan"] or {})["steps"])
         )
@@ -471,7 +519,14 @@ def run(args: argparse.Namespace) -> int:
     selected = [task for index, task in enumerate(tasks) if index % world == rank]
     args.output.mkdir(parents=True, exist_ok=True)
     shard = args.output / f"decisions.shard-{rank:02d}-of-{world:02d}.jsonl"
-    completed = {row["key"] for row in read_jsonl(shard)} if shard.exists() else set()
+    run_fingerprint = (
+        replayed_run_fingerprint(args)
+        if getattr(args, "replay_reference_states", False) else None
+    )
+    previous_rows = read_jsonl(shard) if shard.exists() else []
+    if run_fingerprint is not None:
+        require_replayed_run_fingerprint(previous_rows, run_fingerprint)
+    completed = {row["key"] for row in previous_rows}
     selected = [task for task in selected if task["key"] not in completed]
     if rank == 0:
         (args.output / "selection.json").write_text(
@@ -572,6 +627,7 @@ def run(args: argparse.Namespace) -> int:
                 )
                 record = {
                     "key": task["key"],
+                    **({"run_fingerprint": run_fingerprint} if run_fingerprint else {}),
                     "private_state_source": (
                         "executor_reference_replay"
                         if getattr(args, "replay_reference_states", False)
@@ -668,6 +724,12 @@ def aggregate(args: argparse.Namespace) -> int:
     rows: list[dict[str, Any]] = []
     for path in sorted(args.output.glob("decisions.shard-*-of-*.jsonl")):
         rows.extend(read_jsonl(path))
+    run_fingerprint = (
+        replayed_run_fingerprint(args)
+        if getattr(args, "replay_reference_states", False) else None
+    )
+    if run_fingerprint is not None:
+        require_replayed_run_fingerprint(rows, run_fingerprint)
     private_state_source = (
         "executor_reference_replay"
         if getattr(args, "replay_reference_states", False)
@@ -751,6 +813,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "decision_data": str(args.decision_data) if args.decision_data else None,
         "decision_data_sha256": sha256(args.decision_data) if args.decision_data else None,
         "private_state_source": private_state_source,
+        "run_fingerprint": run_fingerprint,
         "adapter": str(args.adapter),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "adapter_lineage": adapter_lineage,

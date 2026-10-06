@@ -11,12 +11,12 @@ case "$stage" in
   state)
     decision_dir=$shared_repo/data/flower_natural_language_event_sft_v2
     adapter=$shared_repo/outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
-    output=$shared_repo/outputs/eval/reliable_mechet_state_valid128_local_replay_v2_seed17
+    output=$shared_repo/outputs/eval/reliable_mechet_state_valid128_local_replayed_state_v3_seed17
     ;;
   trajectory)
     decision_dir=$shared_repo/data/flower_natural_language_event_history_v2
     adapter=$shared_repo/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
-    output=$shared_repo/outputs/eval/reliable_mechet_trajectory_valid128_local_replay_v2_seed17
+    output=$shared_repo/outputs/eval/reliable_mechet_trajectory_valid128_local_replayed_state_v3_seed17
     ;;
   *) echo "invalid MECHET_RELIABLE_STAGE=$stage" >&2; exit 2 ;;
 esac

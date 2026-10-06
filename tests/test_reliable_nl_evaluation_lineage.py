@@ -1,3 +1,4 @@
+from argparse import Namespace
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -117,10 +118,10 @@ def test_replayed_local_scoring_uses_executor_states_not_trace_plan_states(monke
         "metadata": {"trace_plan": {"steps": [{}]}},
     }
     monkeypatch.setattr(local_eval, "stratified_sample", lambda rows, size, seed: [source])
-    monkeypatch.setattr(local_eval, "_private_states", lambda row: [{
-        "decision_type": "event", "private_state": "wrong-map-state",
-        "reference_successor": "wrong-map-successor", "event_depth": 1,
-    }])
+    def reject_trace_plan_state(_row):
+        raise AssertionError("replay-scored evaluation must not reconstruct private states")
+
+    monkeypatch.setattr(local_eval, "_private_states", reject_trace_plan_state)
     observed = []
 
     def fake_replay(row, decisions, *, compact_history):
@@ -153,8 +154,50 @@ def test_replayed_local_scoring_uses_executor_states_not_trace_plan_states(monke
     assert observed == [True]
     assert tasks[0]["private_state"] == "[CH3:1][Br:2]"
     assert tasks[0]["reference_successor"] == "[CH3:1].[Br:2]"
+    assert tasks[0]["event_depth"] == 1
+    wrong_type = json.loads(json.dumps(decision))
+    wrong_type["metadata"]["decision_type"] = "import"
+    with pytest.raises(ValueError, match="type/action mismatch"):
+        local_eval.collect_tasks(
+            [source], sample_reactions=1, seed=17,
+            decision_rows=[wrong_type], replay_decision_states=True,
+        )
     with pytest.raises(ValueError, match="requires frozen decision rows"):
         local_eval.collect_tasks(
             [source], sample_reactions=1, seed=17,
             replay_decision_states=True,
         )
+
+
+def test_replayed_local_resume_rejects_changed_adapter_or_decoder(tmp_path: Path):
+    data = tmp_path / "source.jsonl"
+    decisions = tmp_path / "decisions.jsonl"
+    adapter = tmp_path / "adapter"
+    adapter.mkdir()
+    weights = adapter / "adapter_model.safetensors"
+    data.write_text("source-v1\n")
+    decisions.write_text("decisions-v1\n")
+    weights.write_bytes(b"weights-v1")
+    args = Namespace(
+        data=data, decision_data=decisions, adapter=adapter,
+        replay_reference_states=True, model="Qwen/Qwen3-0.6B",
+        model_revision="pinned", sample_reactions=128, seed=17,
+        sft_aligned_prefix=True, dtype="bfloat16", no_4bit=True,
+        max_new_tokens=512, max_context=4096,
+    )
+    fingerprint = local_eval.replayed_run_fingerprint(args)
+    local_eval.require_replayed_run_fingerprint(
+        [{"run_fingerprint": fingerprint}], fingerprint,
+    )
+    with pytest.raises(ValueError, match="different replay run"):
+        local_eval.require_replayed_run_fingerprint([{"key": "old-shard"}], fingerprint)
+    weights.write_bytes(b"weights-v2")
+    changed_adapter = local_eval.replayed_run_fingerprint(args)
+    assert changed_adapter != fingerprint
+    with pytest.raises(ValueError, match="different replay run"):
+        local_eval.require_replayed_run_fingerprint(
+            [{"run_fingerprint": fingerprint}], changed_adapter,
+        )
+    weights.write_bytes(b"weights-v1")
+    args.max_new_tokens = 256
+    assert local_eval.replayed_run_fingerprint(args) != fingerprint
