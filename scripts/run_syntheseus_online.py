@@ -5,6 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
+
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "src"))
 
 from scripts.run_natural_language_value_search import (
     Runtime, validate_matched_v2_args, validate_v2_adapter_manifest,
