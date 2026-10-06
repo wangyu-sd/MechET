@@ -1,0 +1,64 @@
+name: Reliable MechET protocol tests
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/reliable-mechet-tests.yml"
+      - "pyproject.toml"
+      - "configs/agent/*reliable*"
+      - "configs/agent/natural_language_*_v2_*"
+      - "configs/experiments/*reliable*"
+      - "configs/experiments/jevretro_*"
+      - "scripts/*reliable*"
+      - "scripts/*jevretro*"
+      - "scripts/*reverse_et_transfer*"
+      - "scripts/*earho_v2*"
+      - "scripts/run_syntheseus_*.py"
+      - "scripts/run_natural_language_value_search.py"
+      - "scripts/train_tool_sft.py"
+      - "src/mechet/jevretro_endpoint.py"
+      - "src/mechet/online_syntheseus_adapter.py"
+      - "src/mechet/planning_reliability.py"
+      - "src/mechet/syntheseus_adapter.py"
+      - "tests/test_*reliable*.py"
+      - "tests/test_jevretro_endpoint.py"
+      - "tests/test_reverse_et_transfer_supervision.py"
+      - "tests/test_earho_v2_protocol.py"
+      - "tests/test_online_syntheseus_adapter.py"
+      - "tests/test_planning_reliability.py"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/reliable-mechet-tests.yml"
+      - "pyproject.toml"
+      - "scripts/*reliable*"
+      - "scripts/run_syntheseus_*.py"
+      - "src/mechet/online_syntheseus_adapter.py"
+      - "src/mechet/planning_reliability.py"
+      - "tests/test_*reliable*.py"
+      - "tests/test_online_syntheseus_adapter.py"
+      - "tests/test_planning_reliability.py"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install protocol and planning dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev,agent,planning]"
+          python -c "import syntheseus; print('Syntheseus planning dependency available')"
+      - name: Run reliable MechET and real planning-bridge tests
+        run: |
+          pytest -q \
+            tests/test_*reliable*.py \
+            tests/test_jevretro_endpoint.py \
+            tests/test_reverse_et_transfer_supervision.py \
+            tests/test_earho_v2_protocol.py \
+            tests/test_online_syntheseus_adapter.py \
+            tests/test_planning_reliability.py
