@@ -331,6 +331,9 @@ and counts missing predictions as failures against 28,971. The reported main
 metric is structural precursor exact match; complete-state exactness is a
 separate secondary metric. This launcher is ready for a **finished** Stage-I or
 Stage-II adapter, but no full-test job is submitted while Stage I is training.
+The preflight executes the actual product-only private-remapping path on every
+test product before launching generation; a 2026-10-07 read-only audit passed
+all **28,971/28,971** test products with zero input-mapping failures.
 It does not report mechanism/process accuracy for the four upstream-corrupt
 endpoint rows; that analysis remains on the separate 28,967 strict view.
 

@@ -27,8 +27,13 @@ def _jsonl(path: Path):
 
 def validate_source(
     *, source: Path, manifest: Path, expected_rows: int = 28971,
+    check_product_only_mapping: bool = False,
 ) -> tuple[dict[str, str], str]:
     """Bind the unfiltered endpoint test bytes and all source reaction IDs."""
+    if check_product_only_mapping:
+        from scripts.run_natural_language_value_search import (
+            product_only_private_state, visible,
+        )
     source_manifest = json.loads(manifest.read_text(encoding="utf-8"))
     test_manifest = source_manifest["splits"]["test"]
     if (int(test_manifest["rows"]) != expected_rows or
@@ -47,6 +52,13 @@ def validate_source(
             raise ValueError(f"not a full endpoint test row: {identifier}")
         if not row.get("structural_precursor"):
             raise ValueError(f"missing structural precursor reference: {identifier}")
+        if check_product_only_mapping:
+            try:
+                visible(product_only_private_state(str(row["target_smiles"])))
+            except Exception as error:
+                raise ValueError(
+                    f"product-only private mapping failed for {identifier}"
+                ) from error
         source_ids[identifier] = str(row["source_id"])
     if len(source_ids) != expected_rows:
         raise ValueError("source rows do not cover the full endpoint test")

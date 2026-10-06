@@ -47,6 +47,31 @@ def test_full_endpoint_missing_prediction_counts_as_failure(tmp_path: Path):
     assert report["top1_structural_accuracy"] == pytest.approx(1 / 3)
 
 
+def test_full_endpoint_preflight_executes_product_only_private_mapping(tmp_path: Path):
+    source, manifest, _, _, _ = _artifact(tmp_path)
+    rows = [json.loads(line) for line in source.read_text(encoding="utf-8").splitlines()]
+    for row in rows:
+        row["target_smiles"] = "[CH4:987]"
+    source.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    metadata = json.loads(manifest.read_text(encoding="utf-8"))
+    metadata["splits"]["test"]["output_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(metadata), encoding="utf-8")
+    ids, _ = validate_source(
+        source=source, manifest=manifest, expected_rows=3,
+        check_product_only_mapping=True,
+    )
+    assert len(ids) == 3
+    rows[1]["target_smiles"] = "not-a-smiles"
+    source.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+    metadata["splits"]["test"]["output_sha256"] = hashlib.sha256(source.read_bytes()).hexdigest()
+    manifest.write_text(json.dumps(metadata), encoding="utf-8")
+    with pytest.raises(ValueError, match="product-only private mapping failed"):
+        validate_source(
+            source=source, manifest=manifest, expected_rows=3,
+            check_product_only_mapping=True,
+        )
+
+
 def test_full_endpoint_launcher_uses_frozen_product_only_denominator():
     launcher = (
         Path(__file__).resolve().parents[1] / "scripts" /

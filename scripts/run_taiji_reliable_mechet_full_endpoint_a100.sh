@@ -55,7 +55,9 @@ from scripts.run_natural_language_value_search import validate_v2_adapter_manife
 
 source, manifest, adapter = map(Path, sys.argv[1:4])
 stage = sys.argv[4]
-ids, digest = validate_source(source=source, manifest=manifest)
+ids, digest = validate_source(
+    source=source, manifest=manifest, check_product_only_mapping=True,
+)
 validate_v2_adapter_manifest(
     adapter, compact_history=stage == 'trajectory',
     expected_model='Qwen/Qwen3-0.6B',
