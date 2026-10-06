@@ -113,8 +113,42 @@ def probe_kekule_branches(
     }
 
 
+def enumerate_kekule_successors(
+    state: str, arguments: dict, *, max_structures: int = 128,
+) -> tuple[set[str], dict]:
+    """Enumerate visible executor successors without consulting a reference."""
+    if max_structures < 1:
+        raise ValueError("max_structures must be positive")
+    moves = compile_event_arguments(state, arguments)
+    params = Chem.SmilesParserParams()
+    params.removeHs = False
+    mol = Chem.MolFromSmiles(state, params)
+    if mol is None:
+        raise ValueError("invalid pre-event state")
+    supplier = Chem.ResonanceMolSupplier(
+        mol, Chem.ResonanceFlags.KEKULE_ALL, maxStructs=max_structures,
+    )
+    successors: set[str] = set()
+    examined = valid = 0
+    for candidate in supplier:
+        examined += 1
+        result = verify_electron_step(
+            state, moves, _prepared_kekule_mol=candidate,
+        )
+        if result["ok"]:
+            valid += 1
+            successors.add(visible(result["state_smiles"]))
+    return successors, {
+        "structures_examined": examined,
+        "valid_executions": valid,
+        "distinct_successors": len(successors),
+        "at_enumeration_limit": examined >= max_structures,
+    }
+
+
 def classify_first_divergence(
     source: dict, decisions: list[dict], *, branch_probe: bool = False,
+    set_probe: bool = False,
 ) -> dict:
     state = product_only_private_state(str(source["target_smiles"]))
     original_state = str(source["target_smiles"])
@@ -175,6 +209,24 @@ def classify_first_divergence(
                 detail["kekule_branch_probe"] = probe_kekule_branches(
                     node.state, arguments, expected,
                 )
+            if set_probe and name == "apply_electron_flow":
+                original_set, original_audit = enumerate_kekule_successors(
+                    original_node.state, arguments,
+                )
+                remapped_set, remapped_audit = enumerate_kekule_successors(
+                    node.state, arguments,
+                )
+                union = original_set | remapped_set
+                detail["kekule_successor_set_probe"] = {
+                    "set_equal": original_set == remapped_set,
+                    "jaccard": len(original_set & remapped_set) / len(union) if union else None,
+                    "original": original_audit,
+                    "remapped": remapped_audit,
+                    "reference_in_original_set": expected in original_set,
+                    "reference_in_remapped_set": expected in remapped_set,
+                    "only_original_examples": sorted(original_set - remapped_set)[:3],
+                    "only_remapped_examples": sorted(remapped_set - original_set)[:3],
+                }
             return detail
         node, original_node = child, original_child
     raise ValueError("audit-listed failure replayed without a divergence")
@@ -227,7 +279,7 @@ def audit_all_original_source_orders(
 
 def classify(
     audit_path: Path, *, all_source_orders: bool = False,
-    branch_probe: bool = False,
+    branch_probe: bool = False, set_probe: bool = False,
 ) -> dict:
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     if audit.get("artifact_type") != "reliable_mechet_product_only_private_mapping_audit_v1":
@@ -265,7 +317,8 @@ def classify(
         cases.append({
             "source_id": source_id,
             **classify_first_divergence(
-                sources[source_id], rows, branch_probe=branch_probe,
+                sources[source_id], rows,
+                branch_probe=branch_probe, set_probe=set_probe,
             ),
         })
     report = {
@@ -315,6 +368,26 @@ def classify(
                 "uses the private reference successor only to score after enumeration"
             ),
         }
+    if set_probe:
+        probes = [item["kekule_successor_set_probe"] for item in cases]
+        report["kekule_successor_set_probe"] = {
+            "denominator": len(probes),
+            "set_equal": sum(item["set_equal"] for item in probes),
+            "reference_in_both_sets": sum(
+                item["reference_in_original_set"]
+                and item["reference_in_remapped_set"] for item in probes
+            ),
+            "either_at_enumeration_limit": sum(
+                item["original"]["at_enumeration_limit"]
+                or item["remapped"]["at_enumeration_limit"]
+                for item in probes
+            ),
+            "interpretation": (
+                "gold-free candidate enumeration followed by set comparison; "
+                "reference membership is scored only after both sets are frozen; "
+                "a capped set is not exhaustive"
+            ),
+        }
     return report
 
 
@@ -324,10 +397,11 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--all-source-orders", action="store_true")
     parser.add_argument("--branch-probe", action="store_true")
+    parser.add_argument("--set-probe", action="store_true")
     args = parser.parse_args()
     report = classify(
         args.audit, all_source_orders=args.all_source_orders,
-        branch_probe=args.branch_probe,
+        branch_probe=args.branch_probe, set_probe=args.set_probe,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
@@ -338,6 +412,7 @@ def main() -> int:
         "aromatic_source_kekule_order_changed": report["aromatic_source_kekule_order_changed"],
         "all_original_source_orders": report.get("all_original_source_orders", {}).get("counts"),
         "kekule_branch_probe": report.get("kekule_branch_probe"),
+        "kekule_successor_set_probe": report.get("kekule_successor_set_probe"),
         "output": str(args.output),
     }), flush=True)
     return 0

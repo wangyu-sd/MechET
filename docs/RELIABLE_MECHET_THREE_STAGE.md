@@ -265,6 +265,15 @@ another aromatic bond assignment; it does **not** supply a gold-independent
 rule for choosing that branch at inference, and it is not a recovered model
 accuracy result. The audit-only executor entry point defaults to the unchanged
 single-assignment behavior in all training and deployed inference paths.
+The stronger gold-free check enumerated the *bounded successor set*
+from the original-map and product-only-map state before each of the 112 first
+divergences. The two sets matched **112/112**, with 2--3 distinct executable
+successors per case; neither enumeration hit its 128-structure limit. The
+reference successor belonged to both sets in all 112 cases, scored only after
+enumeration. This establishes map-invariant **set-valued** execution on these
+cases, not a map-invariant single next state or an inference-time selector.
+The report is
+`outputs/eval/reliable_mechet_state_kekule_successor_sets_valid2890_20261007.json`.
 After adding that private audit entry point, we reran the ordinary default
 executor over all 2,890 State-SFT validation traces. Its counts and all 112
 failure records are byte-equivalent after canonical JSON sorting to the

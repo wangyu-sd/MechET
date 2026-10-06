@@ -1,5 +1,5 @@
 from scripts.classify_reliable_mapping_failures import (
-    heavy_atom_skeleton, probe_kekule_branches,
+    enumerate_kekule_successors, heavy_atom_skeleton, probe_kekule_branches,
 )
 
 
@@ -41,6 +41,21 @@ def test_audit_only_kekule_variants_expose_aromatic_action_ambiguity():
         outputs[1]["state_smiles"]
     )
     action = render_event_arguments(state, moves)
+    successor_set, audit = enumerate_kekule_successors(
+        state, action, max_structures=2,
+    )
+    assert successor_set == {visible(item["state_smiles"]) for item in outputs}
+    assert audit["distinct_successors"] == 2
+    renumbered = Chem.MolFromSmiles(state)
+    private_permutation = {1: 12, 2: 11, 3: 16, 4: 15, 5: 14, 6: 13, 7: 17}
+    for atom in renumbered.GetAtoms():
+        atom.SetAtomMapNum(private_permutation[atom.GetAtomMapNum()])
+    remapped_state = Chem.MolToSmiles(renumbered, canonical=False)
+    remapped_set, remapped_audit = enumerate_kekule_successors(
+        remapped_state, action, max_structures=2,
+    )
+    assert successor_set == remapped_set
+    assert remapped_audit["distinct_successors"] == 2
     for item in outputs:
         probe = probe_kekule_branches(
             state, action, visible(item["state_smiles"]), max_structures=2,
