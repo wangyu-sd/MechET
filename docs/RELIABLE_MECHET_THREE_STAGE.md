@@ -588,6 +588,21 @@ transcript prompt. The evaluator checks adapter/model revision, generates with
 the SFT-aligned Qwen tool prefix, and reports import, event, successor and
 finish errors separately. Because each decision receives a reference current
 state, this is a **local diagnostic**, not product-start endpoint recovery.
+The reliable launcher now derives its *private scoring state* by executing the
+frozen decisions under the same tool runtime, instead of reconstructing mapped
+states directly from the source trace plan. The older reconstruction could
+assign different private maps after an import: on the fixed 128-case validation
+slice, all 481 gold electron events executed but two reached a wrong successor
+when compiled against the old local state. With replayed scoring states, all
+481/481 gold events execute to their mapped reference successor in both the
+State-SFT and Trajectory-SFT views. This is an evaluator oracle/parity check,
+not a model score. New reports use the `v3_replayed_state` artifact type and
+separate output directories; older local reports remain historical diagnostics
+and must not be pooled with the replay-corrected results.
+The full 2,890-reaction validation State-SFT view also replayed all 22,341
+frozen decisions; its 11,532 gold electron events executed and matched their
+mapped reference successors (11,532/11,532). This verifies the evaluator's
+reference-state alignment, not autonomous endpoint accuracy.
 
 The matched product-start pilot uses
 `scripts/run_taiji_reliable_mechet_product_start_a100.sh` with

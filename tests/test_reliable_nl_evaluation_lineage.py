@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -106,3 +107,54 @@ def test_stage_two_local_eval_uses_frozen_history_prompts_in_decision_order(monk
     assert [task["messages"][1]["content"] for task in tasks] == [
         "TRAJECTORY HISTORY: accepted=0", "TRAJECTORY HISTORY: accepted=1"
     ]
+
+
+def test_replayed_local_scoring_uses_executor_states_not_trace_plan_states(monkeypatch):
+    from scripts import earho_v2_protocol
+
+    source = {
+        "id": "source-1", "source_id": "reaction-1",
+        "metadata": {"trace_plan": {"steps": [{}]}},
+    }
+    monkeypatch.setattr(local_eval, "stratified_sample", lambda rows, size, seed: [source])
+    monkeypatch.setattr(local_eval, "_private_states", lambda row: [{
+        "decision_type": "event", "private_state": "wrong-map-state",
+        "reference_successor": "wrong-map-successor", "event_depth": 1,
+    }])
+    observed = []
+
+    def fake_replay(row, decisions, *, compact_history):
+        observed.append(compact_history)
+        return SimpleNamespace(nodes=[
+            SimpleNamespace(state="[CH3:1][Br:2]"),
+            SimpleNamespace(state="[CH3:1].[Br:2]"),
+        ])
+
+    monkeypatch.setattr(earho_v2_protocol, "replay_reference", fake_replay)
+    decision = {
+        "id": "decision-0", "source_id": "reaction-1",
+        "metadata": {
+            "decision_index": 0, "decision_type": "event",
+            "decision_contract": "unified_inventory_compressed_history_tool_decision_v2",
+        },
+        "messages": [
+            {"role": "system", "content": "system"},
+            {"role": "user", "content": "history prompt"},
+            {"role": "assistant", "tool_calls": [{
+                "function": {"name": "apply_electron_flow", "arguments": {}},
+            }]},
+        ],
+        "tools": [],
+    }
+    tasks, _ = local_eval.collect_tasks(
+        [source], sample_reactions=1, seed=17, decision_rows=[decision],
+        replay_decision_states=True,
+    )
+    assert observed == [True]
+    assert tasks[0]["private_state"] == "[CH3:1][Br:2]"
+    assert tasks[0]["reference_successor"] == "[CH3:1].[Br:2]"
+    with pytest.raises(ValueError, match="requires frozen decision rows"):
+        local_eval.collect_tasks(
+            [source], sample_reactions=1, seed=17,
+            replay_decision_states=True,
+        )

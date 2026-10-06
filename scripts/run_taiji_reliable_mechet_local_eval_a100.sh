@@ -11,12 +11,12 @@ case "$stage" in
   state)
     decision_dir=$shared_repo/data/flower_natural_language_event_sft_v2
     adapter=$shared_repo/outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
-    output=$shared_repo/outputs/eval/reliable_mechet_state_valid128_local_seed17
+    output=$shared_repo/outputs/eval/reliable_mechet_state_valid128_local_replay_v2_seed17
     ;;
   trajectory)
     decision_dir=$shared_repo/data/flower_natural_language_event_history_v2
     adapter=$shared_repo/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
-    output=$shared_repo/outputs/eval/reliable_mechet_trajectory_valid128_local_seed17
+    output=$shared_repo/outputs/eval/reliable_mechet_trajectory_valid128_local_replay_v2_seed17
     ;;
   *) echo "invalid MECHET_RELIABLE_STAGE=$stage" >&2; exit 2 ;;
 esac
@@ -63,7 +63,8 @@ common=(--data "$source_data" --decision-data "$decision_dir/valid.jsonl"
   --output "$output" --model Qwen/Qwen3-0.6B
   --model-revision c1899de289a04d12100db370d81485cdf75e47ca
   --adapter "$adapter" --sample-reactions 128 --seed 17
-  --no-4bit --dtype bfloat16 --sft-aligned-prefix --import-role-breakdown)
+  --no-4bit --dtype bfloat16 --sft-aligned-prefix --import-role-breakdown
+  --replay-reference-states)
 echo "[reliable-local] generating 128-reaction matched local decisions"
 torchrun --standalone --nproc_per_node=1 \
   "$runtime_repo/scripts/eval_natural_language_event_local.py" run "${common[@]}" \

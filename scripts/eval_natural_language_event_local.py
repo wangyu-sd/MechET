@@ -183,7 +183,10 @@ def collect_tasks(
     sample_reactions: int,
     seed: int,
     decision_rows: Iterable[Mapping[str, Any]] | None = None,
+    replay_decision_states: bool = False,
 ) -> tuple[list[dict[str, Any]], list[str]]:
+    if replay_decision_states and decision_rows is None:
+        raise ValueError("reference-state replay requires frozen decision rows")
     selected = stratified_sample(rows, size=sample_reactions, seed=seed)
     selected_ids = {str(source["source_id"]) for source in selected}
     public_by_reaction: dict[str, list[dict[str, Any]]] | None = None
@@ -210,6 +213,33 @@ def collect_tasks(
         private_rows = _private_states(source)
         if len(public_rows) != len(private_rows):
             raise ValueError(f"{source['id']}: public/private decision count mismatch")
+        if replay_decision_states:
+            from scripts.earho_v2_protocol import replay_reference
+
+            contracts = {
+                str((decision.get("metadata") or {}).get("decision_contract") or "")
+                for decision in public_rows
+            }
+            if contracts == {"unified_inventory_tool_decision_v2"}:
+                compact_history = False
+            elif contracts == {"unified_inventory_compressed_history_tool_decision_v2"}:
+                compact_history = True
+            else:
+                raise ValueError(f"{reaction_id}: unsupported/mixed decision contracts: {contracts}")
+            reference = replay_reference(
+                source, public_rows, compact_history=compact_history,
+            )
+            private_rows = [
+                {
+                    **private,
+                    "private_state": reference.nodes[index].state,
+                    "reference_successor": (
+                        reference.nodes[index + 1].state
+                        if private["decision_type"] != "import" else ""
+                    ),
+                }
+                for index, private in enumerate(private_rows)
+            ]
         stratum = mechanism_length_stratum(
             len((source["metadata"]["trace_plan"] or {})["steps"])
         )
@@ -436,6 +466,7 @@ def run(args: argparse.Namespace) -> int:
         sample_reactions=args.sample_reactions,
         seed=args.seed,
         decision_rows=read_jsonl(args.decision_data) if args.decision_data else None,
+        replay_decision_states=getattr(args, "replay_reference_states", False),
     )
     selected = [task for index, task in enumerate(tasks) if index % world == rank]
     args.output.mkdir(parents=True, exist_ok=True)
@@ -541,6 +572,11 @@ def run(args: argparse.Namespace) -> int:
                 )
                 record = {
                     "key": task["key"],
+                    "private_state_source": (
+                        "executor_reference_replay"
+                        if getattr(args, "replay_reference_states", False)
+                        else "trace_plan_reconstruction"
+                    ),
                     "reaction_id": task["reaction_id"],
                     "decision_type": task["decision_type"],
                     "event_depth": task["event_depth"],
@@ -626,11 +662,20 @@ def aggregate(args: argparse.Namespace) -> int:
         sample_reactions=args.sample_reactions,
         seed=args.seed,
         decision_rows=read_jsonl(args.decision_data) if args.decision_data else None,
+        replay_decision_states=getattr(args, "replay_reference_states", False),
     )
     expected = {task["key"] for task in tasks}
     rows: list[dict[str, Any]] = []
     for path in sorted(args.output.glob("decisions.shard-*-of-*.jsonl")):
         rows.extend(read_jsonl(path))
+    private_state_source = (
+        "executor_reference_replay"
+        if getattr(args, "replay_reference_states", False)
+        else "trace_plan_reconstruction"
+    )
+    if any(row.get("private_state_source", "trace_plan_reconstruction") != private_state_source
+           for row in rows):
+        raise ValueError("local evaluation shards use a different private-state contract")
     observed = [str(row["key"]) for row in rows]
     if len(observed) != len(set(observed)):
         raise ValueError("duplicate prediction keys")
@@ -675,9 +720,11 @@ def aggregate(args: argparse.Namespace) -> int:
             ]),
         }
     artifact_type = (
-            "natural_language_event_gold_state_local_k1_v2"
-            if args.sft_aligned_prefix
-            else "natural_language_event_gold_state_local_k1_v1"
+        "natural_language_event_gold_state_local_k1_v3_replayed_state"
+        if getattr(args, "replay_reference_states", False)
+        else "natural_language_event_gold_state_local_k1_v2"
+        if args.sft_aligned_prefix
+        else "natural_language_event_gold_state_local_k1_v1"
     )
     if adapter_lineage["kind"] == "provisional_checkpoint":
         artifact_type += "_provisional_checkpoint"
@@ -703,6 +750,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "data_sha256": sha256(args.data),
         "decision_data": str(args.decision_data) if args.decision_data else None,
         "decision_data_sha256": sha256(args.decision_data) if args.decision_data else None,
+        "private_state_source": private_state_source,
         "adapter": str(args.adapter),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "adapter_lineage": adapter_lineage,
@@ -775,6 +823,10 @@ def main() -> int:
     parser.add_argument(
         "--import-role-breakdown", action="store_true",
         help="report participant/context import accuracy; requires role-labelled gold rows",
+    )
+    parser.add_argument(
+        "--replay-reference-states", action="store_true",
+        help="derive private scoring states from verified frozen decision replay",
     )
     args = parser.parse_args()
     return run(args) if args.command == "run" else aggregate(args)
