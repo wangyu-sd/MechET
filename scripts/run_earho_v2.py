@@ -60,6 +60,9 @@ def validate_reliable_contract(cfg: dict[str, Any]) -> None:
         raise ValueError("reliable EARHO requires success-gated advantages")
     if (cfg.get("reward") or {}).get("endpoint_metric") != "structural":
         raise ValueError("reliable EARHO requires structural endpoint reward")
+    rollout = dict(cfg.get("rollout") or {})
+    if int(rollout.get("max_decisions", 0)) != 40 or int(rollout.get("max_imports", 0)) != 32:
+        raise ValueError("reliable EARHO requires the frozen 40-decision/32-import budget")
     if cfg.get("value_adapter_path") or cfg.get("value_kind") != "successor_pn":
         raise ValueError("reliable EARHO must learn a new successor P/N critic")
     if cfg.get("model_name_or_path") != "Qwen/Qwen3-0.6B":
@@ -214,7 +217,7 @@ def validate_contract(cfg: dict[str, Any]) -> None:
 
 
 def _attach_decisions(
-    rows: list[dict[str, Any]], history_file: Path
+    rows: list[dict[str, Any]], history_file: Path, *, max_imports: int,
 ) -> list[dict[str, Any]]:
     wanted = {str(row["source_id"]) for row in rows}
     if len(wanted) != len(rows):
@@ -233,7 +236,7 @@ def _attach_decisions(
         if not found[key]:
             raise ValueError(f"missing v2 decisions: {key}")
         packed = dict(row, earho_v2_reference_decisions=found[key])
-        replay_reference(packed, found[key])
+        replay_reference(packed, found[key], max_imports=max_imports)
         output.append(packed)
     return output
 
@@ -278,10 +281,13 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
         random.Random(int(cfg["seed"])).shuffle(source)
         random.Random(int(cfg["seed"])).shuffle(validation)
         source_reactions = len(source)
-    selected = _attach_decisions(source[:count], Path(cfg["history_file"]))
+    max_imports = int(cfg["rollout"]["max_imports"])
+    selected = _attach_decisions(
+        source[:count], Path(cfg["history_file"]), max_imports=max_imports,
+    )
     monitor = _attach_decisions(
         validation[: int(cfg["validation_monitor_rows"])],
-        Path(cfg["history_validation_file"]),
+        Path(cfg["history_validation_file"]), max_imports=max_imports,
     )
     output.mkdir(parents=True, exist_ok=True)
     for round_index in range(int(cfg["rounds"])):

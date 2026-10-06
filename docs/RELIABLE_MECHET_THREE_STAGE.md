@@ -201,6 +201,10 @@ the 0.6B base for its successor critic. The Taiji launcher is
 `scripts/run_taiji_reliable_mechet_earho_a100.sh`; it is **not** a submitted
 experiment and must not run until the Stage-II parent and product-start
 representation audit are accepted.
+Reference decisions are replayed during preparation with the same frozen
+40-decision/32-import budget used by policy rollout; a reference requiring a
+larger import budget fails preparation instead of becoming unreachable RL
+supervision.
 For the reliable protocol, a resumed collection checks the exact source,
 actor and (when present) successor-critic weight hashes, model revision,
 frontier, round and evaluation mode before accepting cached shards. A changed

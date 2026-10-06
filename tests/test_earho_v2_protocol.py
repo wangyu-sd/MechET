@@ -20,6 +20,7 @@ from scripts.earho_v2_protocol import (
     replay_reference,
 )
 from scripts.build_earho_v2_successor_value import build_rows
+from scripts.run_earho_v2 import _attach_decisions
 from scripts.audit_reliable_product_mapping_parity import audit
 from scripts.natural_language_anchor_branch_stage import (
     _messages, _node, _render_prompt, _score_rollout, _v2_probe,
@@ -131,6 +132,15 @@ def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     assert "expected_precursor" not in actor_prompt
     assert "reference_successor" not in actor_prompt
     assert len(_node(task).actions) == 1
+
+
+def test_earho_preparation_replays_reference_under_the_rollout_import_budget(tmp_path):
+    source, decisions = fixture()
+    history_file = tmp_path / "history.jsonl"
+    history_file.write_text("".join(json.dumps(row) + "\n" for row in decisions))
+    assert len(_attach_decisions([source], history_file, max_imports=1)) == 1
+    with pytest.raises(ValueError, match="IMPORT_BUDGET_EXCEEDED"):
+        _attach_decisions([source], history_file, max_imports=0)
 
 
 def test_reliable_endpoint_reward_uses_structural_precursor_not_context():

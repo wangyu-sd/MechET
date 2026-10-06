@@ -78,6 +78,13 @@ def test_reliable_earho_requires_structural_endpoint_reward():
         validate_reliable_contract(stage3)
 
 
+def test_reliable_earho_requires_the_same_decision_and_import_budget_as_rollout():
+    stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    stage3["rollout"]["max_imports"] = 64
+    with pytest.raises(ValueError, match="40-decision/32-import budget"):
+        validate_reliable_contract(stage3)
+
+
 def test_reliable_earho_paths_bind_pr_code_to_shared_artifacts(tmp_path: Path):
     stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
     resolved = resolve_reliable_paths(stage3, tmp_path)
@@ -135,7 +142,14 @@ def test_reliable_earho_prepare_streams_large_source(monkeypatch, tmp_path: Path
         reaction_denominator={"train": 3, "valid": 2, "test": 0},
         rounds=1, products_per_round=2, validation_monitor_rows=1,
     )
-    monkeypatch.setattr(driver, "_attach_decisions", lambda rows, _path: rows)
+    observed_budgets = []
+
+    def fake_attach(rows, _path, *, max_imports):
+        observed_budgets.append(max_imports)
+        return rows
+
+    monkeypatch.setattr(driver, "_attach_decisions", fake_attach)
+    stage3["rollout"]["max_imports"] = 32
     monkeypatch.setattr(driver, "read_rows", lambda _path: (_ for _ in ()).throw(
         AssertionError("reliable preparation must not load the full source")
     ))
@@ -145,6 +159,7 @@ def test_reliable_earho_prepare_streams_large_source(monkeypatch, tmp_path: Path
     assert plan["source_reactions"] == 3
     assert plan["selected_train_reactions"] == 2
     assert plan["protocol_version"] == "reliable_mechet_three_stage_v1"
+    assert observed_budgets == [32, 32]
 
 
 def test_reliable_earho_actor_update_uses_natural_language_stage(monkeypatch, tmp_path: Path):
