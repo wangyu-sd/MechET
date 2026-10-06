@@ -128,6 +128,72 @@ def first_reference_divergence(
     return {"depth": None, "category": None, "kind": "reference_aligned", "error": ""}
 
 
+def attempt_confidence_report(results: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Rank parsed proposals by their own mean log-probability, not path score."""
+
+    attempts = [attempt for row in results for attempt in (row.get("attempts") or [])]
+    parsed = [attempt for attempt in attempts if str(attempt.get("name") or "")]
+    if not parsed:
+        return {
+            "available": False, "attempts_observed": len(attempts),
+            "parsed_attempts": 0, "unparseable_attempts": len(attempts),
+            "reason": "no parsed action proposals to rank",
+        }
+    present = sum("action_policy_score" in attempt for attempt in parsed)
+    if present == 0:
+        return {
+            "available": False, "attempts_observed": len(attempts),
+            "parsed_attempts": len(parsed),
+            "unparseable_attempts": len(attempts) - len(parsed),
+            "reason": "per-action policy scores absent from this legacy rollout",
+        }
+    if present != len(parsed):
+        raise ValueError("mixed scored/unscored parsed-action schema")
+    scored: list[tuple[float, bool]] = []
+    unscorable = 0
+    for attempt in parsed:
+        tokens = int(attempt["action_tokens"])
+        if tokens < 1:
+            raise ValueError("parsed action has no generated tokens")
+        raw = float(attempt["action_logprob"])
+        score = float(attempt["action_policy_score"])
+        if not math.isfinite(raw) or not math.isfinite(score):
+            unscorable += 1
+            continue
+        if not math.isclose(score, raw / tokens, rel_tol=1e-6, abs_tol=1e-6):
+            raise ValueError("action confidence is not mean token log-probability")
+        scored.append((score, not bool(attempt["accepted"])))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    curve = []
+    for fraction in (0.1, 0.25, 0.5, 0.75, 1.0):
+        n = max(1, int(len(scored) * fraction)) if scored else 0
+        selected = scored[:n]
+        rejected = sum(item[1] for item in selected)
+        curve.append({
+            "coverage_of_scored_actions": n / len(scored) if scored else None,
+            "n": n, "executor_rejected": rejected,
+            "executor_rejection_rate": rejected / n if n else None,
+            "min_action_policy_score": selected[-1][0] if selected else None,
+        })
+    return {
+        "available": True,
+        "attempts_observed": len(attempts),
+        "parsed_attempts": len(parsed),
+        "unparseable_attempts": len(attempts) - len(parsed),
+        "scored_parsed_attempts": len(scored),
+        "nonfinite_scored_attempts": unscorable,
+        "executor_rejected_parsed_attempts": sum(
+            not bool(attempt["accepted"]) for attempt in parsed
+        ),
+        "confidence_definition": "per-action mean generated-token log-probability",
+        "executor_rejection_risk_coverage": curve,
+        "interpretation": (
+            "This measures executable-action rejection among scored proposals. "
+            "It does not establish that an accepted alternative reaction is chemically true."
+        ),
+    }
+
+
 def analyze(
     *, source: Path, decisions: Path, results: Path,
     sample_reactions: int, seed: int,
@@ -236,6 +302,7 @@ def analyze(
         ),
         "confidence_policy": "terminal_finite_policy_score_only; nonterminal_abstains_first",
         "risk_coverage_by_policy_score": risk_coverage,
+        "attempt_confidence": attempt_confidence_report(result_rows),
         "interpretation": (
             "Reference-path divergence is not a chemical falsehood. "
             "Only terminal endpoint match and executor acceptance are direct observations; "

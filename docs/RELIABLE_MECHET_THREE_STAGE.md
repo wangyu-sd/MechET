@@ -257,6 +257,18 @@ The primary reliability quantities are:
 - first-divergence depth;
 - failure-cause distribution.
 
+For matched product-start K=1 rollouts, each parsed proposal now stores its
+own generated-token count, summed log-probability and mean token
+log-probability. `scripts/analyze_reliable_product_start.py` ranks these
+**actions** by that frozen score and reports executor-rejection risk versus
+coverage, including the top-scored decile. Unparseable proposals and nonfinite
+scores remain separate counts; legacy shards without per-action scores report
+this analysis as unavailable rather than inventing confidence. This is a
+directly observed high-confidence **executor rejection** proxy, not a claim
+that every accepted non-reference reaction is chemically valid or that every
+rejected reaction is experimentally impossible. Endpoint risk--coverage remains
+separate and uses terminal whole-path mean policy score.
+
 Formal execution does not certify reaction conditions, kinetics, selectivity,
 yield or laboratory success.
 

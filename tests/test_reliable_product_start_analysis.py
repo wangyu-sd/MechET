@@ -1,10 +1,73 @@
 import json
 import hashlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
-from scripts.analyze_reliable_product_start import analyze, first_reference_divergence
+from scripts.analyze_reliable_product_start import (
+    analyze, attempt_confidence_report, first_reference_divergence,
+)
+from scripts.run_natural_language_value_search import Action, search_unlabeled
+
+
+def test_product_start_records_per_action_mean_logprob() -> None:
+    runtime = SimpleNamespace(
+        pointer_invalid_handles=0,
+        proposals=lambda *_args, **_kwargs: [
+            Action("finish_trace", {}, "", logprob=-2.0, tokens=4)
+        ],
+        values=lambda *_args, **_kwargs: [0.0],
+    )
+    args = SimpleNamespace(
+        max_decisions=1, max_imports=1, branching=1,
+        max_new_tokens=8, compact_history=False, planning_sample=False,
+        product_only_remap=True, vnext_v2_prefix=False,
+        reject_target_retained_finish=False,
+        early_depth=1, early_beam=1, late_beam=1,
+        value_weight=0.0, pointer_weight=0.0,
+    )
+    result = search_unlabeled(runtime, "C", args)
+    attempt = result["attempts"][0]
+    assert attempt["accepted"] is True
+    assert attempt["action_logprob"] == -2.0
+    assert attempt["action_tokens"] == 4
+    assert attempt["action_policy_score"] == -0.5
+    runtime.proposals = lambda *_args, **_kwargs: []
+    runtime.last_proposal_error = "NO_PARSEABLE_TOOL_CALL"
+    unparseable = search_unlabeled(runtime, "C", args)["attempts"][0]
+    assert unparseable["accepted"] is False
+    assert unparseable["action_policy_score"] is None
+    assert unparseable["action_tokens"] == 0
+
+
+def test_attempt_confidence_separates_executable_rejection_from_legacy_schema() -> None:
+    records = [{"attempts": [
+        {"name": "apply_electron_flow", "accepted": False,
+         "action_logprob": -0.2, "action_tokens": 2, "action_policy_score": -0.1},
+        {"name": "finish_trace", "accepted": True,
+         "action_logprob": -4.0, "action_tokens": 4, "action_policy_score": -1.0},
+        {"name": "", "accepted": False, "action_policy_score": None},
+    ]}]
+    report = attempt_confidence_report(records)
+    assert report["parsed_attempts"] == 2
+    assert report["unparseable_attempts"] == 1
+    assert report["executor_rejection_risk_coverage"][0]["executor_rejection_rate"] == 1.0
+    assert report["executor_rejection_risk_coverage"][-1]["executor_rejection_rate"] == 0.5
+    assert attempt_confidence_report([{"attempts": [
+        {"name": "finish_trace", "accepted": True},
+    ]}])["available"] is False
+    assert attempt_confidence_report([{"attempts": [
+        {"name": "", "accepted": False, "action_policy_score": None},
+    ]}])["reason"] == "no parsed action proposals to rank"
+    with pytest.raises(ValueError, match="mixed scored/unscored"):
+        attempt_confidence_report([{"attempts": [
+            records[0]["attempts"][0], {"name": "finish_trace", "accepted": True},
+        ]}])
+    with pytest.raises(ValueError, match="not mean token log-probability"):
+        attempt_confidence_report([{"attempts": [
+            {**records[0]["attempts"][0], "action_policy_score": 0.0},
+        ]}])
 
 
 def gold_decision(index: int, name: str, state: str) -> dict:

@@ -711,6 +711,8 @@ def search_unlabeled(
                     "depth": depth, "state_before": visible(node.state),
                     "name": "", "arguments": {}, "accepted": False,
                     "error": code, "state_after": "", "terminal": False,
+                    "action_logprob": None, "action_tokens": 0,
+                    "action_policy_score": None,
                 })
             for action in proposals:
                 child, error = execute(
@@ -723,6 +725,9 @@ def search_unlabeled(
                     "depth": depth, "state_before": visible(node.state),
                     "name": action.name, "arguments": action.arguments,
                     "accepted": child is not None, "error": error,
+                    "action_logprob": action.logprob,
+                    "action_tokens": action.tokens,
+                    "action_policy_score": action.logprob / max(action.tokens, 1),
                     "state_after": (
                         str(child.actions[-1]["result"].get("current_state") or
                             child.actions[-1]["result"].get("derived_precursor") or "")
