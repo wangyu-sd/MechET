@@ -117,3 +117,7 @@ def test_vnext_k1_is_greedy_but_k4_is_stochastic_expansion():
     assert generation_sampling_policy(
         matched_v2=False, vnext_v2_prefix=True, candidates=4
     )["do_sample"] is True
+    assert generation_sampling_policy(
+        matched_v2=True, vnext_v2_prefix=False, candidates=1,
+        planning_sample=True,
+    )["do_sample"] is True

@@ -306,9 +306,28 @@ certified-route count remains a lower bound when other routes are unverified.
 Certification means proof replay
 to the declared precursor under this executor, not chemical or laboratory
 truth. This instrumentation has passed a real Syntheseus 0.7.2 toy Retro*
-route; it is not yet a MechET planning result. The final natural-language
-policy still needs a frozen candidate-generation bridge before the matched
-multi-step study can run.
+route; it is not yet a MechET planning result.
+
+The online path is `scripts/run_syntheseus_online.py`. It takes a frozen final
+Stage-I or Stage-II adapter, targets and stock; **every planner query** starts a
+fresh product-only reverse-electron-flow rollout from the queried molecule.
+It never reads reference precursors. K=1 is the frozen greedy policy; K>1
+means K independently seeded stochastic episodes. A terminal episode is
+admitted as a reaction edge only if the executor reaches a structural
+precursor after at least one electron event. The edge carries the accepted
+actions as a replay certificate, and the reliability evaluator independently
+rebuilds its private product state and replays every action. The offline and
+online providers share `run_planner`, so stock and Retro*/breadth-first budgets
+are identical. Online reports include all attempted episodes, rejected
+decisions, nonterminal episodes, unadmitted episodes and the pre-dedup episode
+admission rate. The admitted-edge failure rate is conditional on admission;
+it must not be presented as the failure rate over all model proposals.
+
+The CLI refuses an adapter whose manifest does not match the requested stage,
+Qwen3-0.6B base revision or executor lineage. `--dry-run` checks the artifact
+and records hashes without loading the model. The actual final-policy planning
+run is pending its frozen adapter; passing toy integration tests is not a
+multi-step model result. Executor replay does not establish wet-lab chemistry.
 
 The purpose is to test whether reaction-level reliability changes search
 efficiency and route reliability, not merely whether a larger search budget can

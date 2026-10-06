@@ -25,11 +25,11 @@ class Molecule:
 
 
 class Reaction:
-    def __init__(self, proof_text, reactants=None):
-        self.product = Molecule("CO")
+    def __init__(self, proof_text, reactants=None, target="CO", metadata=None):
+        self.product = Molecule(target)
         self.reactants = [Molecule(s) for s in (
             reactants or ("CBr", "[OH-]"))]
-        self.metadata = {"proof": proof_text}
+        self.metadata = {"proof": proof_text, **(metadata or {})}
 
 
 class Node:
@@ -126,6 +126,66 @@ def test_pool_preserves_source_proposal_denominator_before_search_filter(tmp_pat
     missing = MechETCandidatePool.from_jsonl(source)
     assert missing.source_audit["n_source_execution_label_missing"] == 1
     assert missing.source_audit["source_reported_execution_failure_rate"] is None
+
+
+def test_natural_language_trace_certificate_replays_without_reference_precursor():
+    from rdkit import Chem
+    from mechet.endpoints import split_precursor_endpoints
+    from mechet.natural_language_electron_flow import render_event_arguments
+    from scripts.run_natural_language_value_search import (
+        Action, Node as ElectronNode, execute, mapped_atom_numbers,
+        normal_smiles, product_only_private_state, visible,
+    )
+
+    target = "[O:1]=[C:2]([OH:3])[CH3:4].[O-:5][CH2:6][CH3:7]"
+    state = product_only_private_state(target)
+    mol = Chem.MolFromSmiles(state)
+    carbonyl_o = carbonyl_c = anion_o = None
+    for atom in mol.GetAtoms():
+        if atom.GetSymbol() != "O":
+            continue
+        if atom.GetFormalCharge() == -1:
+            anion_o = atom.GetAtomMapNum()
+        for bond in atom.GetBonds():
+            if bond.GetBondType() == Chem.BondType.DOUBLE and bond.GetOtherAtom(atom).GetSymbol() == "C":
+                carbonyl_o = atom.GetAtomMapNum()
+                carbonyl_c = bond.GetOtherAtom(atom).GetAtomMapNum()
+    assert carbonyl_o and carbonyl_c and anion_o
+    moves = [
+        {"source": {"kind": "BOND", "atoms": [carbonyl_o, carbonyl_c]},
+         "sink": {"kind": "ATOM", "atoms": [carbonyl_o]}, "electrons": 2},
+        {"source": {"kind": "LP", "atoms": [anion_o]},
+         "sink": {"kind": "BOND", "atoms": [carbonyl_c, anion_o]}, "electrons": 2},
+    ]
+    event = render_event_arguments(state, moves)
+    node = ElectronNode(
+        target=visible(state), state=state,
+        next_map=max(mapped_atom_numbers(state)) + 1, visited={visible(state)},
+    )
+    child, error = execute(node, Action("apply_electron_flow", event, "", 0.0, 1), max_imports=32)
+    assert child is not None, error
+    final, error = execute(
+        child, Action("finish_trace", {}, "", 0.0, 1),
+        max_imports=32, reject_target_retained_finish=True,
+    )
+    assert final is not None and final.terminal, error
+    structural = split_precursor_endpoints(final.state, state).structural
+    certificate = {
+        "protocol": "mechet_nl_reverse_et_v2", "observation": "current_state",
+        "product": visible(state), "max_imports": 32,
+        "reject_target_retained_finish": True,
+        "actions": [
+            {"name": "apply_electron_flow", "arguments": event},
+            {"name": "finish_trace", "arguments": {}},
+        ],
+    }
+    reaction = Reaction(
+        "", target=normal_smiles(target), reactants=structural.split("."),
+        metadata={"mechet": {"trace_certificate": certificate}},
+    )
+    assert edge_audit(reaction)["status"] == "certified"
+    reaction.reactants = [Molecule("CCl")]
+    assert edge_audit(reaction)["reason"] == "precursor_mismatch"
 
 
 def test_real_syntheseus_retrostar_route_certificate_when_extra_installed():

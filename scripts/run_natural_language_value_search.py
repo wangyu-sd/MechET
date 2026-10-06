@@ -296,6 +296,7 @@ class Runtime:
         candidates: int,
         max_new_tokens: int,
         compact_history: bool = False,
+        planning_sample: bool = False,
     ) -> list[Action]:
         torch = self.torch
         self.last_proposal_error = ""
@@ -364,6 +365,7 @@ class Runtime:
                 matched_v2=bool(self.args.matched_v2),
                 vnext_v2_prefix=bool(self.args.vnext_v2_prefix),
                 candidates=candidates,
+                planning_sample=planning_sample,
             ))
             output = self.model.generate(**encoded, **generation)
         scores = self.model.compute_transition_scores(
@@ -646,35 +648,41 @@ def select_successful_terminals(terminals: list[Node], structural_match, expecte
     return structural, full
 
 
-def generation_sampling_policy(*, matched_v2: bool, vnext_v2_prefix: bool, candidates: int) -> dict:
+def generation_sampling_policy(
+    *, matched_v2: bool, vnext_v2_prefix: bool, candidates: int,
+    planning_sample: bool = False,
+) -> dict:
     """K=1 vNext is genuinely greedy; K>1 remains stochastic expansion."""
     if candidates < 1:
         raise ValueError("candidate count must be positive")
-    greedy = matched_v2 or (vnext_v2_prefix and candidates == 1)
+    greedy = not planning_sample and (
+        matched_v2 or (vnext_v2_prefix and candidates == 1)
+    )
     return {"do_sample": False} if greedy else {
         "do_sample": True, "temperature": 0.7, "top_p": 0.95,
     }
 
 
-def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+def search_unlabeled(
+    runtime: Runtime, target_smiles: str, args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Search from a product without reading any reference precursor.
+
+    This is the shared policy/executor path for held-out evaluation and
+    on-demand planning of arbitrary intermediate target molecules.
+    """
     pointer_rejected_before = runtime.pointer_invalid_handles
-    if getattr(args, "vnext_v2_prefix", False) and not mapped_atom_numbers(str(row["target_smiles"])):
+    if getattr(args, "vnext_v2_prefix", False) and not mapped_atom_numbers(str(target_smiles)):
         raise ValueError(
             "vNext matched search requires the frozen privately mapped trace source; "
             "unmapped decision rows can reassign stereochemical graph addresses"
         )
     target_mapped = (
-        product_only_private_state(str(row["target_smiles"]))
+        product_only_private_state(str(target_smiles))
         if getattr(args, "product_only_remap", False)
-        else private_product_state(str(row["target_smiles"]))
+        else private_product_state(str(target_smiles))
     )
     target = visible(target_mapped)
-    expected_full_mapped = str(
-        row.get("full_precursor_state") or row["expected_precursor"]
-    )
-    expected_full = visible(expected_full_mapped)
-    expected_structural = reference_structural_precursor(dict(row))
-    has_structural_reference = bool(expected_structural)
     root = Node(
         target=target,
         state=target_mapped,
@@ -694,6 +702,7 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
                 candidates=args.branching,
                 max_new_tokens=args.max_new_tokens,
                 compact_history=args.compact_history,
+                planning_sample=bool(getattr(args, "planning_sample", False)),
             )
             if not proposals:
                 code = str(getattr(runtime, "last_proposal_error", "") or "NO_VALID_TOOL_CALL")
@@ -764,6 +773,33 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         )[:width]
     terminals.sort(key=lambda node: node.score(args.value_weight, args.pointer_weight), reverse=True)
     top = terminals[0] if terminals else (beam[0] if beam else root)
+    return {
+        "target": target,
+        "target_mapped": target_mapped,
+        "top": top,
+        "terminals": terminals,
+        "rejected": rejected,
+        "attempts": attempts,
+        "pointer_invalid_handles": runtime.pointer_invalid_handles - pointer_rejected_before,
+    }
+
+
+def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    """Score a product-only search only after all model decisions are complete."""
+    searched = search_unlabeled(runtime, str(row["target_smiles"]), args)
+    target = searched["target"]
+    target_mapped = searched["target_mapped"]
+    top = searched["top"]
+    terminals = searched["terminals"]
+    rejected = searched["rejected"]
+    attempts = searched["attempts"]
+    expected_full_mapped = str(
+        row.get("full_precursor_state") or row["expected_precursor"]
+    )
+    expected_full = visible(expected_full_mapped)
+    expected_structural = reference_structural_precursor(dict(row))
+    has_structural_reference = bool(expected_structural)
+
     def is_structural_match(node: Node) -> bool:
         if not node.terminal:
             return False
@@ -802,7 +838,7 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         "top_policy_score": top.policy_score,
         "top_value": top.value,
         "top_pointer_score": top.pointer_score,
-        "pointer_invalid_handles": runtime.pointer_invalid_handles - pointer_rejected_before,
+        "pointer_invalid_handles": searched["pointer_invalid_handles"],
         "n_actions": len(top.actions),
         "rejected": rejected,
         "attempts": attempts,
