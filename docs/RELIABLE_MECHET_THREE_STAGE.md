@@ -353,6 +353,12 @@ whereas the matched endpoint evaluation starts from a freshly mapped product.
 Consequently, product-only transfer of Stage-III divergence labels cannot be
 claimed on these 26 rows without a parity-aware resolution; neither their
 removal nor their relabelling as model errors is justified by this audit.
+The reliable EARHO preparation plan now records
+`private_product_mapping_basis=source_original_mapped_product` and
+`product_only_private_remap=false`; resume refuses a plan without that
+provenance. `first_divergence_from_product_rollout=true` means the probe starts
+at a product state, **not** that its private atom mapping matches product-only
+evaluation. This metadata does not change the actor, executor, or denominator.
 The follow-up RDKit-2026.03.4 classifier found changed aromatic source-bond
 Kekulé order and different heavy-atom successor connectivity in **26/26**
 cases. Gold-free bounded successor-set enumeration agreed across the two

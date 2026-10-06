@@ -159,7 +159,14 @@ def test_reliable_earho_prepare_streams_large_source(monkeypatch, tmp_path: Path
     assert plan["source_reactions"] == 3
     assert plan["selected_train_reactions"] == 2
     assert plan["protocol_version"] == "reliable_mechet_three_stage_v1"
+    assert plan["private_product_mapping_basis"] == "source_original_mapped_product"
+    assert plan["product_only_private_remap"] is False
     assert observed_budgets == [32, 32]
+
+    plan.pop("private_product_mapping_basis")
+    (output / "plan.json").write_text(json.dumps(plan))
+    with pytest.raises(ValueError, match="private-map provenance"):
+        prepare(stage3, output)
 
 
 def test_reliable_earho_actor_update_uses_natural_language_stage(monkeypatch, tmp_path: Path):

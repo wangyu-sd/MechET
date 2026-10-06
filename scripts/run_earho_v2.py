@@ -253,6 +253,11 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             raise ValueError("existing EARHO plan has a different parent adapter")
         if plan.get("protocol_version") != cfg["protocol_version"]:
             raise ValueError("existing EARHO plan has a different protocol")
+        if cfg["protocol_version"] == RELIABLE_PROTOCOL and (
+            plan.get("private_product_mapping_basis") != "source_original_mapped_product"
+            or plan.get("product_only_private_remap") is not False
+        ):
+            raise ValueError("existing reliable EARHO plan lacks private-map provenance")
         for name, digest in (plan.get("prepared_files") or {}).items():
             if _sha256(output / name) != digest:
                 raise ValueError(f"prepared EARHO source changed: {name}")
@@ -315,6 +320,10 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             "initial_adapter_model_sha256": cfg["initial_adapter_model_sha256"],
             "reference_endpoint_model_visible": False,
             "first_divergence_from_product_rollout": True,
+            **({
+                "private_product_mapping_basis": "source_original_mapped_product",
+                "product_only_private_remap": False,
+            } if cfg["protocol_version"] == RELIABLE_PROTOCOL else {}),
             "actor_prompt_history_contract": "executor_compact_accepted_actions_v1",
             "test_used": False,
         },
