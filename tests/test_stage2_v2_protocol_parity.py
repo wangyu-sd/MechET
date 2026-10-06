@@ -163,6 +163,30 @@ def test_v2_adapter_manifest_rejects_v1_checkpoint(tmp_path: Path):
         validate_v2_adapter_manifest(adapter, compact_history=True)
 
 
+def test_v2_adapter_manifest_rejects_model_or_revision_mismatch(tmp_path: Path):
+    adapter = tmp_path / "state"
+    adapter.mkdir()
+    revision = "c1899de289a04d12100db370d81485cdf75e47ca"
+    (adapter / "adapter_manifest.json").write_text(json.dumps({
+        "base_model": "Qwen/Qwen3-0.6B",
+        "base_model_revision": revision,
+        "environment_revision": "natural_language_electron_event_v2",
+        "executor_revision": "MECH_PROOF_v1_full_coverage_v4",
+    }))
+    assert validate_v2_adapter_manifest(
+        adapter, compact_history=False,
+        expected_model="Qwen/Qwen3-0.6B", expected_revision=revision,
+    )["base_model"] == "Qwen/Qwen3-0.6B"
+    with pytest.raises(ValueError, match="base model differs"):
+        validate_v2_adapter_manifest(
+            adapter, compact_history=False, expected_model="Qwen/Qwen3-8B",
+        )
+    with pytest.raises(ValueError, match="base revision differs"):
+        validate_v2_adapter_manifest(
+            adapter, compact_history=False, expected_revision="a" * 40,
+        )
+
+
 def test_runtime_history_prompt_is_exact_history_sft_transform():
     base = (
         "TARGET PRODUCT SMILES: CC=O\n"

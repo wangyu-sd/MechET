@@ -115,6 +115,12 @@ def private_product_state(product: str) -> str:
     return product
 
 
+def product_only_private_state(product: str) -> str:
+    """Assign fresh private maps from the unmapped product, never source maps."""
+
+    return private_product_state(normal_smiles(product))
+
+
 def validate_matched_v2_args(args: argparse.Namespace) -> None:
     """Fail closed unless inference matches the frozen protocol-v2 policy."""
     if not bool(getattr(args, "matched_v2", False)):
@@ -138,7 +144,8 @@ def validate_matched_v2_args(args: argparse.Namespace) -> None:
 
 
 def validate_v2_adapter_manifest(
-    adapter: Path, *, compact_history: bool, vnext: bool = False
+    adapter: Path, *, compact_history: bool, vnext: bool = False,
+    expected_model: str | None = None, expected_revision: str | None = None,
 ) -> dict[str, Any]:
     """Require an adapter produced by the clean protocol-v2 SFT lineage."""
     manifest_path = adapter / "adapter_manifest.json"
@@ -164,6 +171,10 @@ def validate_v2_adapter_manifest(
     revision = str(manifest.get("base_model_revision") or "")
     if len(revision) != 40 or any(ch not in "0123456789abcdef" for ch in revision):
         raise ValueError("matched protocol-v2 adapter must pin an immutable base revision")
+    if expected_model is not None and manifest.get("base_model") != expected_model:
+        raise ValueError("protocol-v2 adapter base model differs from inference model")
+    if expected_revision is not None and revision != expected_revision:
+        raise ValueError("protocol-v2 adapter base revision differs from inference revision")
     return manifest
 
 
@@ -227,13 +238,13 @@ class Runtime:
         self.args = args
         torch.cuda.set_device(local_rank)
         self.tokenizer = AutoTokenizer.from_pretrained(
-            args.model, revision=MODEL_REVISION, trust_remote_code=True
+            args.model, revision=args.model_revision, trust_remote_code=True
         )
         self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
         model_kwargs: dict[str, Any] = {
-            "revision": MODEL_REVISION,
+            "revision": args.model_revision,
             "trust_remote_code": True,
             "torch_dtype": torch.bfloat16,
             "device_map": {"": local_rank},
@@ -287,6 +298,7 @@ class Runtime:
         compact_history: bool = False,
     ) -> list[Action]:
         torch = self.torch
+        self.last_proposal_error = ""
         self.model.set_adapter("policy")
         target = node.target
         state = node.state
@@ -326,6 +338,11 @@ class Runtime:
             prompts, return_tensors="pt", padding=True, add_special_tokens=False
         )
         width = int(encoded["input_ids"].shape[1])
+        if (self.args.matched_v2 or getattr(self.args, "product_only_remap", False)) and (
+            width + max_new_tokens > self.args.max_context
+        ):
+            self.last_proposal_error = "CONTEXT_BUDGET_EXCEEDED"
+            return []
         encoded = {key: value.to(self.device) for key, value in encoded.items()}
         pointer_logits = (
             [
@@ -396,6 +413,8 @@ class Runtime:
                     pointer_score=pointer_score,
                 )
             )
+        if not actions:
+            self.last_proposal_error = "NO_PARSEABLE_TOOL_CALL"
         return actions
 
     def values(
@@ -644,7 +663,11 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
             "vNext matched search requires the frozen privately mapped trace source; "
             "unmapped decision rows can reassign stereochemical graph addresses"
         )
-    target_mapped = private_product_state(str(row["target_smiles"]))
+    target_mapped = (
+        product_only_private_state(str(row["target_smiles"]))
+        if getattr(args, "product_only_remap", False)
+        else private_product_state(str(row["target_smiles"]))
+    )
     target = visible(target_mapped)
     expected_full_mapped = str(
         row.get("full_precursor_state") or row["expected_precursor"]
@@ -665,12 +688,16 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         children: list[Node] = []
         new_terminals: list[Node] = []
         for node in beam:
-            for action in runtime.proposals(
+            proposals = runtime.proposals(
                 node,
                 candidates=args.branching,
                 max_new_tokens=args.max_new_tokens,
                 compact_history=args.compact_history,
-            ):
+            )
+            if not proposals:
+                code = str(getattr(runtime, "last_proposal_error", "") or "NO_VALID_TOOL_CALL")
+                rejected[code] = rejected.get(code, 0) + 1
+            for action in proposals:
                 child, error = execute(
                     node,
                     action,
@@ -801,6 +828,7 @@ def main() -> int:
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--model-revision", default=MODEL_REVISION)
     parser.add_argument("--policy-adapter", required=True)
     parser.add_argument("--value-adapter", default="")
     parser.add_argument(
@@ -827,6 +855,7 @@ def main() -> int:
         help="maximum imported fragment copies; frozen SFT maximum is 24",
     )
     parser.add_argument("--max-new-tokens", type=int, default=384)
+    parser.add_argument("--max-context", type=int, default=4096)
     parser.add_argument("--value-weight", type=float, default=0.20)
     parser.add_argument("--pointer-head", default="")
     parser.add_argument("--pointer-weight", type=float, default=0.0)
@@ -859,6 +888,10 @@ def main() -> int:
         action="store_true",
         help="append executor-reconstructible accepted-action history to policy prompts",
     )
+    parser.add_argument(
+        "--product-only-remap", action="store_true",
+        help="strip source atom maps and deterministically remap only the product before rollout",
+    )
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
     validate_matched_v2_args(args)
@@ -874,11 +907,13 @@ def main() -> int:
         parser.error("--value-adapter is required unless --matched-v2 or --search-no-value")
     if args.matched_v2:
         validate_v2_adapter_manifest(
-            Path(args.policy_adapter), compact_history=args.compact_history
+            Path(args.policy_adapter), compact_history=args.compact_history,
+            expected_model=args.model, expected_revision=args.model_revision,
         )
     elif args.vnext_v2_prefix:
         validate_v2_adapter_manifest(
-            Path(args.policy_adapter), compact_history=True, vnext=True
+            Path(args.policy_adapter), compact_history=True, vnext=True,
+            expected_model=args.model, expected_revision=args.model_revision,
         )
     rank = int(os.environ.get("RANK", "0"))
     world = int(os.environ.get("WORLD_SIZE", "1"))

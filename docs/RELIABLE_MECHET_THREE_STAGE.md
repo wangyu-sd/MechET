@@ -279,3 +279,19 @@ transcript prompt. The evaluator checks adapter/model revision, generates with
 the SFT-aligned Qwen tool prefix, and reports import, event, successor and
 finish errors separately. Because each decision receives a reference current
 state, this is a **local diagnostic**, not product-start endpoint recovery.
+
+The matched product-start pilot uses
+`scripts/run_taiji_reliable_mechet_product_start_a100.sh` with
+`MECHET_RELIABLE_STAGE=state` or `trajectory`. Both stages use the same frozen
+SHA256-selected 128 validation reactions, greedy K=1, 40 accepted decisions,
+32 maximum imported fragment copies, no value critic, and the SFT-aligned Qwen
+tool prefix. At the root, the evaluator strips **all original source atom maps**
+and deterministically assigns fresh private maps from the unmapped product;
+only the product/current executor state and its temporary atom/bond inventory
+enter the policy prompt. Stage II reconstructs its compact history exclusively
+from accepted runtime actions and tool results. The reference precursor is
+read only for scoring after the rollout; it is never used to propose, filter or
+rank actions. Adapter base model, pinned revision and Stage-I/II observation
+contract are checked before loading. The runner verifies all 128 IDs in its
+output. This is an autonomous validation pilot, **not** the 28,971-reaction
+headline endpoint test or the 28,967-reaction strict-process test.
