@@ -243,10 +243,14 @@ class Runtime:
         self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        dtype_name = str(getattr(args, "dtype", "bfloat16"))
+        if dtype_name not in {"float16", "bfloat16"}:
+            raise ValueError(f"unsupported policy compute dtype: {dtype_name}")
+        compute_dtype = torch.float16 if dtype_name == "float16" else torch.bfloat16
         model_kwargs: dict[str, Any] = {
             "revision": args.model_revision,
             "trust_remote_code": True,
-            "torch_dtype": torch.bfloat16,
+            "torch_dtype": compute_dtype,
             "device_map": {"": local_rank},
             "attn_implementation": "sdpa",
         }
@@ -255,7 +259,7 @@ class Runtime:
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_use_double_quant=True,
-                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_compute_dtype=compute_dtype,
             )
         base = AutoModelForCausalLM.from_pretrained(args.model, **model_kwargs)
         self.model = PeftModel.from_pretrained(

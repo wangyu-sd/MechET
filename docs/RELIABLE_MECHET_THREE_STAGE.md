@@ -487,7 +487,26 @@ reaction predictions as failures. This path is prepared for later matched
 sampling. Aggregation scores one shard row at a time rather than loading all
 generated trajectories, and verbose rejected attempts are opt-in via
 `--record-attempts` to avoid an unnecessarily large full-test artifact. No
-K>1 GPU inference result or task has been claimed or submitted.
+formal K>1 full-test inference result or Taiji evaluation task is claimed.
+
+For diagnostics while Stage I is still training, the evaluator accepts an
+explicit `--provisional-training-config` only for an actual `checkpoint-N`
+whose trainer state and model revision match the configured stage; it limits
+the selection to at most 16 reactions and labels the report provisional.
+`--dtype float16` permits a local T4 smoke, while the completed-adapter
+protocol retains the default BF16 unless explicitly changed and recorded.
+On one fixed validation reaction at Stage-I `checkpoint-11000`, the T4/FP16
+K=1 path with a diagnostic 128-token decision cap stopped after one import
+because the next tool call was not parseable. With the protocol's 512-token
+cap on the same reaction, it completed 12 accepted actions and an independently
+replayed terminal precursor, but that precursor did **not** match the recorded
+structural endpoint. These are workflow/length diagnostics on one unfinished
+checkpoint, not an accuracy estimate; the two run reports live under
+`outputs/eval/reliable_mechet_state_ckpt11000_k1_t4_provisional_20261007/`
+and `outputs/eval/reliable_mechet_state_ckpt11000_k1_t4_512_provisional_20261007/`
+in the shared artifact tree. The 128-token K=5 run also completed its five
+independent episodes but had no terminal, so it does not establish Top@5 gain
+(`outputs/eval/reliable_mechet_state_ckpt11000_k5_t4_provisional_20261007/`).
 
 ## Multi-step planning
 

@@ -239,3 +239,44 @@ def test_resume_rejects_partial_episode_record_before_loading_model(
     }) + "\n")
     with pytest.raises(ValueError, match="incomplete episode"):
         ev.run(Namespace(output=tmp_path, episodes=5, seed=17))
+
+
+def test_provisional_checkpoint_is_explicitly_limited_and_stage_bound(tmp_path: Path):
+    data = tmp_path / "valid.jsonl"
+    data.write_text(json.dumps({
+        "id": "r", "source_id": "r", "target_smiles": "CO",
+        "structural_precursor": "CBr.[OH-]",
+    }) + "\n")
+    parent = tmp_path / "trained"
+    adapter = parent / "checkpoint-1"
+    adapter.mkdir(parents=True)
+    (adapter / "adapter_model.safetensors").write_bytes(b"provisional weights")
+    (adapter / "adapter_config.json").write_text(json.dumps({
+        "base_model_name_or_path": ev.MODEL,
+    }))
+    (adapter / "trainer_state.json").write_text(json.dumps({
+        "global_step": 1, "max_steps": 10,
+    }))
+    config = tmp_path / "training.yaml"
+    config.write_text(
+        f"model_name_or_path: {ev.MODEL}\n"
+        f"output_dir: {parent}\n"
+        f"training:\n  model_revision: {ev.REVISION}\n"
+        "contract:\n  stage: state_sft\n"
+    )
+    args = Namespace(
+        data=data, expected_source_sha256=ev.sha256(data), adapter=adapter,
+        expected_adapter_sha256=ev.sha256(adapter / "adapter_model.safetensors"),
+        provisional_training_config=config, stage="state", output=tmp_path / "eval",
+        episodes=5, sample_reactions=1, seed=17, max_new_tokens=128,
+        max_context=4096, no_4bit=True, dtype="float16",
+    )
+    rows, fingerprint = ev.checked_inputs(args)
+    assert len(rows) == 1 and len(fingerprint) == 64
+    args.stage = "trajectory"
+    with pytest.raises(ValueError, match="stage differs"):
+        ev.checked_inputs(args)
+    args.stage = "state"
+    args.sample_reactions = 17
+    with pytest.raises(ValueError, match="limited to 16"):
+        ev.checked_inputs(args)

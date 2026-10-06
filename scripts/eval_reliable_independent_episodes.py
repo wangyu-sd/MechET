@@ -26,6 +26,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from mechet.endpoints import reference_structural_precursor, split_precursor_endpoints, structural_exact
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.jevretro_endpoint import canonical_unmapped
+from scripts.eval_natural_language_event_local import validate_adapter_lineage
 from scripts.run_natural_language_value_search import (
     Action, Node, Runtime, execute, product_only_private_state, read_selected,
     search_unlabeled, validate_matched_v2_args, validate_v2_adapter_manifest,
@@ -60,6 +61,7 @@ def policy_args(args: argparse.Namespace) -> argparse.Namespace:
         policy_adapter=str(args.adapter), value_adapter="",
         value_kind="state_abc", pointer_head="", pointer_weight=0.0,
         value_weight=0.0, no_4bit=args.no_4bit, matched_v2=True,
+        dtype=getattr(args, "dtype", "bfloat16"),
         raw_model_nll=True,
         vnext_v2_prefix=False, legacy_dual_prompt=False,
         product_only_remap=True, reject_target_retained_finish=True,
@@ -72,15 +74,26 @@ def policy_args(args: argparse.Namespace) -> argparse.Namespace:
 
 
 def run_fingerprint(args: argparse.Namespace) -> str:
+    provisional = getattr(args, "provisional_training_config", None)
     contract = {
         "artifact_type": "reliable_mechet_independent_episodes_v1",
         "source_sha256": sha256(args.data),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
-        "adapter_manifest_sha256": sha256(args.adapter / "adapter_manifest.json"),
+        "adapter_manifest_sha256": (
+            None if provisional else sha256(args.adapter / "adapter_manifest.json")
+        ),
+        "provisional_training_config_sha256": sha256(provisional) if provisional else None,
+        "provisional_trainer_state_sha256": (
+            sha256(args.adapter / "trainer_state.json") if provisional else None
+        ),
+        "provisional_adapter_config_sha256": (
+            sha256(args.adapter / "adapter_config.json") if provisional else None
+        ),
         "stage": args.stage, "model": MODEL, "revision": REVISION,
         "episodes": args.episodes, "sample_reactions": args.sample_reactions,
         "seed": args.seed, "max_new_tokens": args.max_new_tokens,
         "max_context": args.max_context, "no_4bit": args.no_4bit,
+        "dtype": getattr(args, "dtype", "bfloat16"),
         "record_attempts": getattr(args, "record_attempts", False),
         "ranking_score": "raw_model_mean_generated_token_logprob",
         "runtime_sha256": sha256(ROOT / "scripts/run_natural_language_value_search.py"),
@@ -102,10 +115,20 @@ def checked_inputs(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str]
         raise ValueError("evaluation adapter SHA-256 mismatch")
     actor = policy_args(args)
     validate_matched_v2_args(actor)
-    validate_v2_adapter_manifest(
-        args.adapter, compact_history=actor.compact_history,
-        expected_model=MODEL, expected_revision=REVISION,
-    )
+    provisional = getattr(args, "provisional_training_config", None)
+    if provisional:
+        if args.sample_reactions > 16:
+            raise ValueError("provisional checkpoint evaluation is limited to 16 reactions")
+        lineage = validate_adapter_lineage(
+            args.adapter, MODEL, REVISION, provisional_training_config=provisional,
+        )
+        if lineage["training_stage"] != ("trajectory_sft" if actor.compact_history else "state_sft"):
+            raise ValueError("provisional checkpoint stage differs from evaluation stage")
+    else:
+        validate_v2_adapter_manifest(
+            args.adapter, compact_history=actor.compact_history,
+            expected_model=MODEL, expected_revision=REVISION,
+        )
     rows = read_selected(args.data, args.sample_reactions, args.seed)
     if len(rows) != args.sample_reactions or len({str(row["id"]) for row in rows}) != len(rows):
         raise ValueError("evaluation reaction selection is incomplete or duplicated")
@@ -305,10 +328,19 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
                 if k <= args.episodes else None
             )
     return {
-        "artifact_type": "reliable_mechet_independent_episodes_audit_v1",
+        "artifact_type": (
+            "reliable_mechet_independent_episodes_provisional_checkpoint_audit_v1"
+            if getattr(args, "provisional_training_config", None)
+            else "reliable_mechet_independent_episodes_audit_v1"
+        ),
         "claim_boundary": (
             "Product-only independent executor episodes; structural reference used "
-            "only after generation. Execution is not laboratory feasibility."
+            "only after generation. Execution is not laboratory feasibility. "
+            + (
+                "Unfinished-checkpoint diagnostic on at most 16 reactions; "
+                "not final validation or test accuracy."
+                if getattr(args, "provisional_training_config", None) else ""
+            )
         ),
         "process_reliable_definition": (
             "Structural endpoint hit by a terminal independently replayed trajectory "
@@ -316,6 +348,14 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
             "is a separate test."
         ),
         "model": MODEL, "model_revision": REVISION,
+        "compute_dtype": getattr(args, "dtype", "bfloat16"),
+        "adapter_lineage": (
+            validate_adapter_lineage(
+                args.adapter, MODEL, REVISION,
+                provisional_training_config=args.provisional_training_config,
+            ) if getattr(args, "provisional_training_config", None)
+            else {"kind": "completed_adapter"}
+        ),
         "stage": args.stage, "episodes_per_reaction": args.episodes,
         "ranking": "descending mean generated-token log-probability, canonical unique terminal precursors",
         "ranking_score_source": "unwarped_adapter_policy_logits_before_temperature_top_p",
@@ -394,6 +434,9 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--max-new-tokens", type=int, default=512)
     result.add_argument("--max-context", type=int, default=4096)
     result.add_argument("--no-4bit", action="store_true")
+    result.add_argument("--dtype", choices=("float16", "bfloat16"), default="bfloat16")
+    result.add_argument("--provisional-training-config", type=Path,
+                        help="Allow an unfinished trainer checkpoint for <=16 diagnostic reactions")
     result.add_argument("--record-attempts", action="store_true",
                         help="Store verbose failed-action/state attempts (large on full test)")
     return result
