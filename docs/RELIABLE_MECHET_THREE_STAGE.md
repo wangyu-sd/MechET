@@ -321,6 +321,19 @@ executable program view is 28,967 reactions.
 - missing predictions remain failures;
 - Pass@K is not relabelled as ranked Top-K unless a frozen ranking score exists.
 
+The Stage-I/II full-test launcher is
+`scripts/run_taiji_reliable_mechet_full_endpoint_a100.sh`. It evaluates
+product-only greedy K=1 on the frozen, **unfiltered 28,971-row**
+`flower_full_endpoint_sft/test.jsonl` and refuses to overwrite prior results.
+`scripts/audit_reliable_full_endpoint_eval.py` binds the source to its manifest,
+checks all source IDs and output shards, rejects duplicate/foreign predictions,
+and counts missing predictions as failures against 28,971. The reported main
+metric is structural precursor exact match; complete-state exactness is a
+separate secondary metric. This launcher is ready for a **finished** Stage-I or
+Stage-II adapter, but no full-test job is submitted while Stage I is training.
+It does not report mechanism/process accuracy for the four upstream-corrupt
+endpoint rows; that analysis remains on the separate 28,967 strict view.
+
 A smaller model is not required to reproduce historical 8B absolute accuracy
 before it can support the reliability claim. The critical evidence is the
 matched progression across State-SFT, Trajectory-SFT and EARHO under one frozen
