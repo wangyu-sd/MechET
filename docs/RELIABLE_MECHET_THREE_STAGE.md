@@ -642,8 +642,15 @@ is byte-identical to the corresponding first State-SFT user prompt. The local
 one-decision and autonomous evaluations generated identical first tool names
 and arguments on 15/16 cases; the remaining case (`val_1256`) differs despite
 prompt equality, so these two generation implementations should not be
-claimed byte-identical merely from matching prompts and adapter hashes. For
-example, `flower_mech_proof_val_1256` first imported methoxide instead of the
+claimed byte-identical merely from matching prompts and adapter hashes. A
+controlled T4/FP16 repeat of that first decision with the same adapter and
+prompt produced different imported fragments at decode batch sizes 1, 2 and
+4 (`C[O-]`, `CC(=O)[O-]` and `C1CCOC1`, respectively). The replay-scored local
+evaluator now binds decode batch size in its run fingerprint and report; the
+older local report did not. A batch-one local rerun is needed before comparing
+its individual greedy actions directly with singleton product-start decoding.
+In the singleton episode, `flower_mech_proof_val_1256` first imported methoxide
+instead of the
 recorded bromomethoxyborane and did not terminate, while
 `flower_mech_proof_val_2344` first imported neutral rather than recorded
 protonated hydroxybenzotriazole and still reached the structural endpoint.
