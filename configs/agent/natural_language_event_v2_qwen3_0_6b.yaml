@@ -5,7 +5,7 @@ train_file: data/flower_natural_language_event_sft_v2/train.jsonl
 validation_file: data/flower_natural_language_event_sft_v2/valid.jsonl
 test_file: data/flower_natural_language_event_sft_v2/test.jsonl
 pretokenized_cache_dir: data/flower_natural_language_event_sft_v2/qwen3_0_6b_tokens_4096
-pretokenization_world_size: 1
+pretokenization_world_size: 8
 output_dir: outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
 limit_examples: 0
 

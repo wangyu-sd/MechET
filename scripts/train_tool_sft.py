@@ -102,6 +102,18 @@ def resolve_cached_arrow_files(
     return resolved
 
 
+def validate_cache_model_lineage(
+    cache_manifest: dict[str, Any], *, model_name: str, revision: str, max_length: int
+) -> None:
+    """Fail before dry-run or model loading if a cache belongs to another model."""
+    if str(cache_manifest.get("model_name_or_path") or "") != model_name:
+        raise ValueError("pretokenized cache model_name_or_path mismatch")
+    if str(cache_manifest.get("model_revision") or "") != revision:
+        raise ValueError("pretokenized cache model_revision mismatch")
+    if int(cache_manifest.get("max_length") or 0) != max_length:
+        raise ValueError("pretokenized cache max_length mismatch")
+
+
 def resolve_resume_checkpoint(value: str | None, output_dir: Path) -> Path | None:
     """Resolve an explicit checkpoint or the newest checkpoint in output_dir.
 
@@ -569,6 +581,13 @@ def main() -> int:
         contract.get("expected_upstream_endpoint_fallback_rows", 0) or 0
     )
     training = dict(cfg.get("training") or {})
+    if cache_manifest is not None:
+        validate_cache_model_lineage(
+            cache_manifest,
+            model_name=str(cfg.get("model_name_or_path") or ""),
+            revision=str(training.get("model_revision") or ""),
+            max_length=int(training.get("max_length", 12288)),
+        )
     if args.num_train_epochs is not None:
         if args.num_train_epochs <= 0:
             raise ValueError("--num-train-epochs must be positive")
@@ -722,12 +741,6 @@ def main() -> int:
         raise ValueError("remote Tool-SFT training requires an immutable model revision")
 
     if cache_manifest is not None:
-        if str(cache_manifest.get("model_name_or_path")) != model_name:
-            raise ValueError("pretokenized cache model_name_or_path mismatch")
-        if int(cache_manifest.get("max_length") or 0) != int(
-            training.get("max_length", 12288)
-        ):
-            raise ValueError("pretokenized cache max_length mismatch")
         encoded_rows = []
         audit = dict(cache_manifest["splits"]["train"])
         audit["arrow_files"] = resolve_cached_arrow_files(

@@ -244,3 +244,26 @@ Do not re-run the historical 8B matrix first.
 10. Only after the result is stable, repeat the key final comparison at 1.7B.
 
 This run order is the journal reproduction path.
+
+## Frozen 0.6B training preparation
+
+The existing State-SFT and compressed-history datasets each cover all 257,167
+strict-executable train reactions, expanded into 2,007,421 one-decision rows;
+their validation and test reaction counts are 2,890 and 28,967. The two
+manifests record zero unresolved reactions and permit training. These are
+decision-row counts, not a new FlowER reaction denominator.
+
+The pinned Qwen3-0.6B and historical Qwen3-8B snapshots contain byte-identical
+`tokenizer.json` and `tokenizer_config.json`. For this frozen pair only,
+`scripts/rebind_identical_tokenizer_cache.py` checks both tokenizer assets,
+complete source-file hashes, 4,096-token budgets, zero truncation and every
+Arrow shard before writing a model-specific manifest that links the existing
+tokens. The old cache is unchanged; a different tokenizer must be tokenized
+again. The trainer rejects a cache with the wrong model name, immutable
+revision or maximum length even during dry-run.
+
+`scripts/run_taiji_reliable_mechet_sft_h20.sh` runs one stage per task. It
+rechecks the frozen data and cache contracts on the allocated H20 host, stages
+the Arrow shards and model locally, and leaves normal training progress on the
+default POD log. Stage II additionally requires the exact Stage-I adapter
+SHA-256; Stage III remains disabled until the Stage-II SHA-256 is frozen.
