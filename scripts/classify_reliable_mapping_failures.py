@@ -237,6 +237,7 @@ def classify_first_divergence(
 
 def audit_all_original_source_orders(
     source: Path, decisions: Path, *, compact_history: bool,
+    max_imports: int = 64,
 ) -> dict:
     """Count source-bond Kekulé orders over every frozen original-map trace."""
     by_source = defaultdict(list)
@@ -256,6 +257,7 @@ def audit_all_original_source_orders(
             )
             reference = replay_reference(
                 reaction, rows, compact_history=compact_history,
+                max_imports=max_imports,
             )
             counts["reactions"] += 1
             for index, row in enumerate(rows):
@@ -364,6 +366,7 @@ def classify(
         report["all_original_source_orders"] = audit_all_original_source_orders(
             source, decisions,
             compact_history=audit.get("observation_contract") == "compressed_history",
+            max_imports=max_imports,
         )
         if report["all_original_source_orders"]["counts"]["reactions"] != audit["n_reactions"]:
             raise ValueError("full source-order audit denominator differs from mapping audit")
