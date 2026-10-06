@@ -80,6 +80,19 @@ The report is
 `outputs/eval/reliable_mechet_state_ckpt2000_valid4_t4_probe_20261007/evaluation.json`
 in shared artifacts, with checkpoint hash and explicit provisional lineage.
 
+A second explicitly provisional diagnostic used **the identical four validation
+reaction IDs, 28 gold-state decisions, T4/FP16, greedy decoding and SFT-aligned
+tool prefix** at `checkpoint-7000` (7,000/31,366 updates). Compared with
+`checkpoint-2000`, correct tool selection rose 19/28 to 24/28, exact local
+decisions 2/28 to 8/28, executable reference electron events 10/13 to 13/13,
+and reference successor/event matches 1/13 to 5/13. Import-fragment exactness
+rose only 0/11 to 1/11; finish exactness rose 1/4 to 2/4. The model still
+proposes wrong electron-participant and endpoint-context fragments on these
+cases. This is evidence of local learning during training, **not** a stable
+validation estimate, product-start endpoint result or proof that later stages
+will succeed. The complete report is in shared artifacts at
+`outputs/eval/reliable_mechet_state_ckpt7000_valid4_t4_probe_20261007/evaluation.json`.
+
 ## Stage II -- compressed-history Trajectory-SFT
 
 Configuration:
