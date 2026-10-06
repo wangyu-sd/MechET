@@ -20,6 +20,7 @@ from python_continual_stage import log, read_rows
 from mechet.assistant_masking import (
     encode_assistant_only_conversation, render_chat, render_qwen_sft_tool_prefix,
 )
+from mechet.endpoints import split_precursor_endpoints, structural_exact
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
@@ -466,10 +467,36 @@ def _score_rollout(
     target_retained_penalty: float,
     reference_first_successor_state: str,
     reference_first_successor_weight: float,
+    endpoint_metric: str = "full",
 ):
     terminal = bool(node is not None and node.terminal)
     precursor = visible(node.state) if node is not None else ""
-    correct = bool(terminal and precursor == task.expected_precursor)
+    full_correct = bool(terminal and precursor == task.expected_precursor)
+    if endpoint_metric == "structural":
+        if not isinstance(task, V2AnchorTask):
+            raise ValueError("structural EARHO reward requires a mapped v2 reference task")
+        projected = lambda state: split_precursor_endpoints(
+            state, task.target_mapped,
+        ).structural if state else ""
+        structural_precursor = projected(node.state) if node is not None else ""
+        correct = bool(
+            terminal and structural_exact(
+                structural_precursor, task.expected_structural_precursor,
+            )
+        )
+        reward_anchor = projected(task.anchor_state)
+        reward_first = projected(first_successor_state)
+        reward_final = structural_precursor
+        reward_reference = task.expected_structural_precursor
+    elif endpoint_metric == "full":
+        structural_precursor = ""
+        correct = full_correct
+        reward_anchor = task.anchor_state
+        reward_first = first_successor_state
+        reward_final = node.state if node is not None else ""
+        reward_reference = task.expected_precursor
+    else:
+        raise ValueError(f"unsupported EARHO endpoint metric: {endpoint_metric}")
     target_retained = bool(
         terminal
         and not correct
@@ -484,10 +511,10 @@ def _score_rollout(
     shaped = endpoint_shaped_reward(
         correct=correct,
         terminal=terminal,
-        anchor_state=task.anchor_state,
-        first_successor_state=first_successor_state,
-        final_state=node.state if node is not None else "",
-        expected_precursor=task.expected_precursor,
+        anchor_state=reward_anchor,
+        first_successor_state=reward_first,
+        final_state=reward_final,
+        expected_precursor=reward_reference,
         invalid_penalty=invalid_penalty,
         wrong_terminal_penalty=wrong_terminal_penalty,
         endpoint_similarity_weight=endpoint_similarity_weight,
@@ -503,7 +530,11 @@ def _score_rollout(
         "productive_execute": bool(terminal and not target_retained),
         "target_retained": target_retained,
         "correct": correct,
+        "endpoint_metric": endpoint_metric,
+        "full_endpoint_exact": full_correct,
+        "structural_endpoint_exact": correct if endpoint_metric == "structural" else None,
         "precursor_smiles": precursor,
+        "structural_precursor_smiles": visible(structural_precursor) if structural_precursor else "",
         "reward": float(shaped["reward"]),
         "reward_terms": shaped,
         "first_successor_state": (
@@ -930,6 +961,7 @@ def collect(args):
                             target_retained_penalty=args.target_retained_penalty,
                             reference_first_successor_state=reference_first_successor,
                             reference_first_successor_weight=args.reference_first_successor_weight,
+                            endpoint_metric=args.endpoint_metric,
                         )
                         score["first_successor_terminal"] = first_terminal
                         ids = list(decoded["ids"])
@@ -1061,6 +1093,7 @@ def main():
     parser.add_argument("--nonexact-reward-ceiling", type=float, default=0.01)
     parser.add_argument("--target-retained-penalty", type=float, default=0.5)
     parser.add_argument("--reference-first-successor-weight", type=float, default=0.0)
+    parser.add_argument("--endpoint-metric", choices=["full", "structural"], default="full")
     parser.add_argument("--value-adapter")
     parser.add_argument(
         "--value-kind", choices=["state_abc", "successor_pn"], default="state_abc"
@@ -1091,6 +1124,8 @@ def main():
     args = parser.parse_args()
     if args.protocol_v2 and (args.legacy_dual_prompt or not args.success_gated_advantages):
         raise ValueError("EARHO v2 requires unified history prompts and success-gated advantages")
+    if args.endpoint_metric == "structural" and not args.protocol_v2:
+        raise ValueError("structural EARHO reward requires protocol-v2 mapped tasks")
     if args.vnext_credit and not args.protocol_v2:
         raise ValueError("vNext sibling credit requires protocol-v2 unified prompts")
     if args.vnext_credit == "gspo" and args.mode == "train":

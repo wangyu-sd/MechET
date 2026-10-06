@@ -22,7 +22,8 @@ from scripts.earho_v2_protocol import (
 from scripts.build_earho_v2_successor_value import build_rows
 from scripts.audit_reliable_product_mapping_parity import audit
 from scripts.natural_language_anchor_branch_stage import (
-    _messages, _node, _render_prompt, _v2_probe, _v2_successor_fingerprint,
+    _messages, _node, _render_prompt, _score_rollout, _v2_probe,
+    _v2_successor_fingerprint,
 )
 from scripts.run_natural_language_value_search import (
     Action, Node, execute, policy_prompt, visible,
@@ -130,6 +131,40 @@ def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     assert "expected_precursor" not in actor_prompt
     assert "reference_successor" not in actor_prompt
     assert len(_node(task).actions) == 1
+
+
+def test_reliable_endpoint_reward_uses_structural_precursor_not_context():
+    source, decisions = fixture()
+    reference = replay_reference(source, decisions)
+    task = anchor_task(reference, 0, divergence_reason="PRODUCT_ONLY_EVALUATION")
+    assert task.expected_structural_precursor == "[CH3:1][Br:2]"
+    # This toy is for endpoint projection only; a production rollout separately
+    # applies the executor's no-op/target-retained finish gate.
+    alternate = replace(
+        reference.nodes[-1], state="[CH3:1][Br:2].[K+:4]",
+    )
+    kwargs = dict(
+        first_successor_state=alternate.state,
+        invalid_penalty=0.1,
+        wrong_terminal_penalty=0.5,
+        endpoint_similarity_weight=0.45,
+        first_successor_progress_weight=0.25,
+        nonexact_reward_ceiling=0.01,
+        target_retained_penalty=0.75,
+        reference_first_successor_state=reference.nodes[1].state,
+        reference_first_successor_weight=0.25,
+    )
+    structural = _score_rollout(
+        task, alternate, "", 2, endpoint_metric="structural", **kwargs,
+    )
+    full = _score_rollout(task, alternate, "", 2, **kwargs)
+    assert structural["correct"] is True
+    assert structural["structural_endpoint_exact"] is True
+    assert structural["full_endpoint_exact"] is False
+    assert structural["reward"] == 1.0
+    assert structural["structural_precursor_smiles"] == "CBr"
+    assert full["correct"] is False
+    assert full["reward"] < 0
 
 
 def test_v2_collector_uses_completed_sft_tool_prefix_not_thinking_prompt():

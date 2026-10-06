@@ -58,6 +58,8 @@ def validate_reliable_contract(cfg: dict[str, Any]) -> None:
         raise ValueError("reliable EARHO forbids dual prompts and test data")
     if not (cfg.get("optimization") or {}).get("success_gated_advantages"):
         raise ValueError("reliable EARHO requires success-gated advantages")
+    if (cfg.get("reward") or {}).get("endpoint_metric") != "structural":
+        raise ValueError("reliable EARHO requires structural endpoint reward")
     if cfg.get("value_adapter_path") or cfg.get("value_kind") != "successor_pn":
         raise ValueError("reliable EARHO must learn a new successor P/N critic")
     if cfg.get("model_name_or_path") != "Qwen/Qwen3-0.6B":

@@ -216,6 +216,15 @@ EARHO keeps the existing design:
 - use bounded continuation;
 - retain the exact endpoint as the dominant terminal success criterion.
 
+For this reliable FlowER condition, exact endpoint credit uses the same
+**structural precursor** view as the one-step headline: target-derived atom
+components must match after removing map labels. The complete executor state
+(including imported context fragments) is still recorded, and full-mixture
+exactness is reported separately. Endpoint shaping projects the anchor and
+successor states through the same structural view. This change does not claim
+that an executable alternative is chemically correct beyond the recorded
+structural endpoint, and it does not alter the legacy mech-USPTO EARHO reward.
+
 The new journal reporting adds the first assigned failure cause:
 
 1. fragment proposal;

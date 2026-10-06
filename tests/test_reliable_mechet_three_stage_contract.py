@@ -6,6 +6,7 @@ import yaml
 
 from scripts.run_earho_v2 import (
     _critic_config, prepare, resolve_reliable_paths, validate_contract,
+    validate_reliable_contract,
 )
 from scripts.run_natural_language_anchor_branch_rl import worker_command, run_workers, _sha256
 from scripts.run_anchor_branch_rl import run_train
@@ -70,6 +71,13 @@ def test_reliable_earho_refuses_unfrozen_stage_ii_before_large_data_scan():
         validate_contract(stage3)
 
 
+def test_reliable_earho_requires_structural_endpoint_reward():
+    stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    stage3["reward"].pop("endpoint_metric")
+    with pytest.raises(ValueError, match="structural endpoint reward"):
+        validate_reliable_contract(stage3)
+
+
 def test_reliable_earho_paths_bind_pr_code_to_shared_artifacts(tmp_path: Path):
     stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
     resolved = resolve_reliable_paths(stage3, tmp_path)
@@ -86,7 +94,14 @@ def test_reliable_earho_workers_keep_unified_v2_prompt_contract():
     )
     assert "--protocol-v2" in command
     assert "--reject-target-retained-finish" in command
+    assert command[command.index("--endpoint-metric") + 1] == "structural"
     assert command[command.index("--model") + 1] == stage3["model_snapshot"]
+
+    legacy = dict(stage3, protocol_version="trajectory_history_v2")
+    assert "--endpoint-metric" not in worker_command(
+        legacy, Path("source.jsonl"), Path("adapter"), Path("rank0.jsonl"),
+        0, frontier=2, round_index=0, evaluation=False,
+    )
 
 
 def test_reliable_earho_critic_uses_same_small_base(tmp_path: Path):
@@ -177,6 +192,7 @@ def test_reliable_earho_resume_rejects_stale_collection_lineage(monkeypatch, tmp
         "adapter_model_sha256": _sha256(adapter / "adapter_model.safetensors"),
         "value_adapter": "", "value_adapter_model_sha256": "",
         "source_sha256": _sha256(source),
+        "endpoint_metric": "structural",
         "adapter": str(adapter), "frontier": 2, "round": 0,
         "evaluation": False,
     }
@@ -191,6 +207,12 @@ def test_reliable_earho_resume_rejects_stale_collection_lineage(monkeypatch, tmp
     assert len(shards) == 8
     marker.write_text(json.dumps({**lineage, "source_sha256": "0" * 64}))
     with pytest.raises(ValueError, match="collection lineage changed: source_sha256"):
+        run_workers(
+            cfg, source, adapter, output, frontier=2, round_index=0,
+            evaluation=False,
+        )
+    marker.write_text(json.dumps({**lineage, "endpoint_metric": "full"}))
+    with pytest.raises(ValueError, match="collection lineage changed: endpoint_metric"):
         run_workers(
             cfg, source, adapter, output, frontier=2, round_index=0,
             evaluation=False,

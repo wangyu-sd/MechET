@@ -34,6 +34,7 @@ validation_monitor_rows: 128
 
 reward:
   contract: exact_endpoint_or_reference_successor_v2
+  endpoint_metric: structural
   wrong_terminal_penalty: 0.5
   endpoint_similarity_weight: 0.45
   first_successor_progress_weight: 0.25

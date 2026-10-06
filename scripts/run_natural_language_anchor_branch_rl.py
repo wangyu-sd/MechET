@@ -228,6 +228,8 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "trajectory_history_v2", "reliable_mechet_three_stage_v1",
     }:
         command.append("--protocol-v2")
+    if cfg.get("protocol_version") == "reliable_mechet_three_stage_v1":
+        command.extend(["--endpoint-metric", str(reward["endpoint_metric"])])
     return command
 
 
@@ -246,6 +248,7 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
                 if cfg.get("value_adapter_path") else ""
             ),
             "source_sha256": _sha256(Path(data)),
+            "endpoint_metric": str((cfg.get("reward") or {}).get("endpoint_metric") or "full"),
             "adapter": str(adapter),
             "frontier": frontier,
             "round": round_index,
