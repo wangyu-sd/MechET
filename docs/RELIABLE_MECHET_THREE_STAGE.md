@@ -69,6 +69,17 @@ Stage-I evaluation separates:
 This is the local-competence stage. A high local score is not interpreted as
 proof of reliable product-start retrosynthesis.
 
+An explicitly provisional smoke at Stage-I `checkpoint-2000` (only 2,000 of
+31,366 optimizer steps; 4 fixed validation reactions, 28 gold-state decisions;
+one T4, FP16) confirmed that model generations enter the SFT tool-call format.
+Among 13 reference electron-event decisions, 12 chose the event tool, 10
+executed, and 1 matched the reference successor. Fragment exactness was 0/11;
+finish exactness was 1/4. This is a tiny incomplete-checkpoint diagnostic, **not**
+final local competence, product-start accuracy, or a reason to select a model.
+The report is
+`outputs/eval/reliable_mechet_state_ckpt2000_valid4_t4_probe_20261007/evaluation.json`
+in shared artifacts, with checkpoint hash and explicit provisional lineage.
+
 ## Stage II -- compressed-history Trajectory-SFT
 
 Configuration:

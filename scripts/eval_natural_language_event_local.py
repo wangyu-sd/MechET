@@ -16,6 +16,7 @@ import importlib.metadata
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 from typing import Any, Iterable, Mapping, Sequence
@@ -44,15 +45,54 @@ from scripts.build_natural_language_event_sft import convert_row
 MODEL_REVISION = "b968826d9c46dd6066d109eabc6255188de91218"
 
 
-def validate_adapter_lineage(adapter: Path, model: str, revision: str) -> None:
+def validate_adapter_lineage(
+    adapter: Path, model: str, revision: str,
+    *, provisional_training_config: Path | None = None,
+) -> dict[str, Any]:
     manifest_path = adapter / "adapter_manifest.json"
-    if not manifest_path.is_file():
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("base_model") != model:
+            raise ValueError("evaluation model differs from adapter base model")
+        if manifest.get("base_model_revision") != revision:
+            raise ValueError("evaluation model revision differs from adapter revision")
+        if provisional_training_config is not None:
+            raise ValueError("a completed adapter must not be labelled provisional")
+        return {"kind": "completed_adapter", "checkpoint_step": None}
+    if provisional_training_config is None:
         raise FileNotFoundError(f"adapter lineage manifest missing: {manifest_path}")
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    if manifest.get("base_model") != model:
-        raise ValueError("evaluation model differs from adapter base model")
-    if manifest.get("base_model_revision") != revision:
-        raise ValueError("evaluation model revision differs from adapter revision")
+    import yaml
+
+    match = re.fullmatch(r"checkpoint-(\d+)", adapter.name)
+    if match is None:
+        raise ValueError("provisional adapter must be an explicit trainer checkpoint")
+    config = yaml.safe_load(provisional_training_config.read_text(encoding="utf-8"))
+    if config.get("model_name_or_path") != model or (
+        config.get("training") or {}
+    ).get("model_revision") != revision:
+        raise ValueError("provisional checkpoint model/revision differs from training config")
+    if Path(str(config.get("output_dir") or "")).name != adapter.parent.name:
+        raise ValueError("provisional checkpoint is outside the configured training output")
+    if (config.get("contract") or {}).get("stage") not in {
+        "state_sft", "trajectory_sft",
+    }:
+        raise ValueError("provisional checkpoint is not a three-stage SFT adapter")
+    state = json.loads((adapter / "trainer_state.json").read_text(encoding="utf-8"))
+    step = int(match.group(1))
+    if int(state.get("global_step", -1)) != step or step <= 0 or (
+        int(state.get("max_steps", -1)) <= step
+    ):
+        raise ValueError("provisional checkpoint step does not match trainer state")
+    adapter_config = json.loads((adapter / "adapter_config.json").read_text(encoding="utf-8"))
+    if adapter_config.get("base_model_name_or_path") != model:
+        raise ValueError("provisional checkpoint PEFT base model differs")
+    if not (adapter / "adapter_model.safetensors").is_file():
+        raise FileNotFoundError("provisional checkpoint has no adapter weights")
+    return {
+        "kind": "provisional_checkpoint", "checkpoint_step": step,
+        "training_config_sha256": sha256(provisional_training_config),
+        "training_stage": config["contract"]["stage"],
+    }
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -356,7 +396,10 @@ def _batches(values: Sequence[Any], size: int) -> Iterable[Sequence[Any]]:
 
 
 def run(args: argparse.Namespace) -> int:
-    validate_adapter_lineage(args.adapter, args.model, args.model_revision)
+    validate_adapter_lineage(
+        args.adapter, args.model, args.model_revision,
+        provisional_training_config=args.provisional_training_config,
+    )
     import torch
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
@@ -528,7 +571,10 @@ def _summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
 
 
 def aggregate(args: argparse.Namespace) -> int:
-    validate_adapter_lineage(args.adapter, args.model, args.model_revision)
+    adapter_lineage = validate_adapter_lineage(
+        args.adapter, args.model, args.model_revision,
+        provisional_training_config=args.provisional_training_config,
+    )
     source = read_jsonl(args.data)
     tasks, reaction_ids = collect_tasks(
         source,
@@ -549,15 +595,22 @@ def aggregate(args: argparse.Namespace) -> int:
         name: _summary([row for row in rows if row["decision_type"] == name])
         for name in ("import", "event", "finish")
     }
-    report = {
-        "artifact_type": (
+    artifact_type = (
             "natural_language_event_gold_state_local_k1_v2"
             if args.sft_aligned_prefix
             else "natural_language_event_gold_state_local_k1_v1"
-        ),
+    )
+    if adapter_lineage["kind"] == "provisional_checkpoint":
+        artifact_type += "_provisional_checkpoint"
+    report = {
+        "artifact_type": artifact_type,
         "claim_boundary": (
             "Fixed validation F-oracle one-decision diagnostic; not product-only "
             "closed-loop rollout and not test endpoint accuracy."
+            + (
+                " Unfinished training checkpoint; not a final-model result."
+                if adapter_lineage["kind"] == "provisional_checkpoint" else ""
+            )
         ),
         "seed": args.seed,
         "planned_reactions": args.sample_reactions,
@@ -573,6 +626,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "decision_data_sha256": sha256(args.decision_data) if args.decision_data else None,
         "adapter": str(args.adapter),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
+        "adapter_lineage": adapter_lineage,
         "model": args.model,
         "model_revision": args.model_revision,
         "compute_dtype": args.dtype,
@@ -617,6 +671,10 @@ def main() -> int:
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--model-revision", default=MODEL_REVISION)
     parser.add_argument("--adapter", type=Path, required=True)
+    parser.add_argument(
+        "--provisional-training-config", type=Path,
+        help="explicit one-off diagnostic of an unfinished trainer checkpoint; not a final model",
+    )
     parser.add_argument("--sample-reactions", type=int, default=256)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--batch-size", type=int, default=2)

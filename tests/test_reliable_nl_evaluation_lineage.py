@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -22,6 +23,47 @@ def test_local_and_suffix_evaluation_require_matching_frozen_adapter(tmp_path):
         validate_adapter_lineage(adapter, "Qwen/Qwen3-8B", "frozen-revision")
     with pytest.raises(ValueError, match="revision"):
         validate_adapter_lineage(adapter, "Qwen/Qwen3-0.6B", "wrong-revision")
+
+
+def test_provisional_checkpoint_probe_requires_trainer_and_config_lineage(tmp_path: Path):
+    output = tmp_path / "state_run"
+    adapter = output / "checkpoint-2000"
+    adapter.mkdir(parents=True)
+    (adapter / "trainer_state.json").write_text(json.dumps({
+        "global_step": 2000, "max_steps": 31366,
+    }))
+    (adapter / "adapter_config.json").write_text(json.dumps({
+        "base_model_name_or_path": "Qwen/Qwen3-0.6B",
+    }))
+    (adapter / "adapter_model.safetensors").write_bytes(b"weights")
+    config = tmp_path / "training.yaml"
+    config.write_text(
+        "model_name_or_path: Qwen/Qwen3-0.6B\n"
+        "output_dir: outputs/agent/state_run\n"
+        "training:\n  model_revision: frozen-revision\n"
+        "contract:\n  stage: state_sft\n"
+    )
+    with pytest.raises(FileNotFoundError, match="adapter lineage manifest missing"):
+        validate_adapter_lineage(adapter, "Qwen/Qwen3-0.6B", "frozen-revision")
+    report = validate_adapter_lineage(
+        adapter, "Qwen/Qwen3-0.6B", "frozen-revision",
+        provisional_training_config=config,
+    )
+    assert report["kind"] == "provisional_checkpoint"
+    assert report["checkpoint_step"] == 2000
+    with pytest.raises(ValueError, match="model/revision"):
+        validate_adapter_lineage(
+            adapter, "Qwen/Qwen3-0.6B", "wrong-revision",
+            provisional_training_config=config,
+        )
+    (adapter / "trainer_state.json").write_text(json.dumps({
+        "global_step": 1999, "max_steps": 31366,
+    }))
+    with pytest.raises(ValueError, match="step does not match"):
+        validate_adapter_lineage(
+            adapter, "Qwen/Qwen3-0.6B", "frozen-revision",
+            provisional_training_config=config,
+        )
 
 
 def test_stage_two_local_eval_uses_frozen_history_prompts_in_decision_order(monkeypatch):
