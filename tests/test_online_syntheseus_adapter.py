@@ -172,3 +172,43 @@ def test_online_bridge_real_syntheseus_route_replays_electron_certificate(
     assert result["certified_solved_observed"] == 1
     assert result["hallucinated_admitted_edge_rate"] == 0.0
     assert result["online_generation"]["episode_admission_rate"] == 1.0
+
+
+def test_online_planner_resets_episode_counters_for_each_target(tmp_path, monkeypatch):
+    pytest.importorskip("syntheseus")
+    from mechet.online_syntheseus_adapter import OnlineMechETBackwardReactionModel
+    from scripts import run_natural_language_value_search as search
+    from scripts.run_syntheseus_search import run_planner
+
+    queried = []
+
+    def fake_search(_runtime, product, _args):
+        queried.append(product)
+        state = search.product_only_private_state(product)
+        target = search.visible(state)
+        return {
+            "target": target, "target_mapped": state,
+            "top": search.Node(
+                target=target, state=state, next_map=4, visited={target},
+            ),
+            "attempts": [{"accepted": False}],
+        }
+
+    monkeypatch.setattr(search, "search_unlabeled", fake_search)
+    runtime = SimpleNamespace(torch=SimpleNamespace(manual_seed=lambda _: None))
+    model = OnlineMechETBackwardReactionModel(
+        runtime, planning_args(), max_candidates=1,
+    )
+    report = run_planner(
+        model=model, targets=["CO", "CCO"], inventory=["N"],
+        args=SimpleNamespace(
+            algorithm="retro_star", num_results=1, max_routes=5,
+            reaction_model_calls=10, iterations=10, time_limit_s=10.0,
+            output_dir=tmp_path,
+        ),
+        provenance={"candidate_provider": "online_test"},
+    )
+    assert queried == ["CO", "CCO"]
+    assert [item["online_generation"]["episodes"] for item in report["targets"]] == [1, 1]
+    assert report["online_generation"]["episodes"] == 2
+    assert report["online_generation"]["unadmitted_episodes"] == 2
