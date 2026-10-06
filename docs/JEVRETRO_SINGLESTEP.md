@@ -1,181 +1,238 @@
-# JevRetro: typed single-step retrosynthesis
+# Reverse electron-transfer supervision for retrosynthesis
 
-## Scope
+## Scientific question
 
-This is a clean spin-off from PR #81. PR #81 remains the mechanistic evidence
-branch for typed chemical decisions. JevRetro tests the standard retrosynthesis
-question directly:
+The target claim is not that a retrosynthesis model should autoregressively
+roll out a mechanism at inference time. The target claim is narrower:
 
-> Given one product molecule, can a non-autoregressive typed decision model
-> produce a ranked Top-K set of precursor structures?
+> Does reverse electron-transfer supervision improve precursor prediction, and
+> does that improvement translate into more effective multi-step planning?
 
-The primary metrics are conventional Top-1 / Top-5 / Top-10 structural
-precursor exact-match accuracies. Electron-flow next-state accuracy is not
-substituted for this endpoint metric.
+The implementation therefore separates **training supervision** from
+**inference behavior**. Reverse-ET appears only in training for the primary
+causal experiment. At test time every condition receives the same product-only
+prompt and predicts the same precursor representation.
 
-## Benchmark order
+## Primary matched experiment on FlowER
 
-### Tier 1: USPTO-50K
+Use the frozen strict-program FlowER universe because it provides both endpoint
+targets and reverse electron-transfer traces on almost the complete reaction
+set:
 
-Use the frozen Schneider split already produced by
-scripts/prepare_uspto50k_benchmark.py:
+- train: 257,167 reactions
+- validation: 2,890 reactions
+- strict test view: 28,967 reactions
 
-- train: 40,008
-- validation: 5,001
-- test: 5,007
+All three conditions use exactly these reaction IDs.
 
-This is the first standard single-step benchmark because it has a stable
-product/precursor contract and existing MechET evaluation infrastructure.
+### Condition A: endpoint only
 
-### Tier 2: FlowER-retro endpoint view
+For each reaction, train on product -> precursor. To match the number of
+training examples per reaction, the endpoint example is presented twice.
 
-Use the complete reaction-level endpoint view:
+### Condition B: endpoint + NetEdit
 
-- train: 257,171
-- validation: 2,890
-- test: 28,971
+For each reaction, train on:
 
-No executable-trace filtering is allowed. Mechanistic traces may be used only
-as auxiliary analysis or an auxiliary loss after the endpoint model itself is
-defined on the complete endpoint train split.
+1. product -> precursor
+2. product -> net bond/charge/hydrogen edit description
 
-mech-USPTO-31k is not the first JevRetro endpoint benchmark because the current
-project has already exposed product-field provenance ambiguity there. It remains
-useful for mechanism and transfer analyses after the standard endpoint model is
-established.
+The NetEdit auxiliary target contains no precursor answer.
 
-## Phase 0: full-denominator typed-target audit
+### Condition C: endpoint + Reverse-ET
 
-Run the compiler on every row of train/valid/test:
+For each reaction, train on:
 
-    python scripts/build_jevretro_endpoint_decisions.py \
-      --train  <train endpoint jsonl> \
-      --valid  <valid endpoint jsonl> \
-      --test   <test endpoint jsonl> \
-      --output-dir outputs/jevretro/<dataset>/typed_v1
+1. product -> precursor
+2. product -> complete reverse electron-transfer supervision program
 
-The compiler factorizes each mapped product-to-precursor pair into:
+The reverse-ET target contains fragment imports and the source-to-sink moves
+for each recorded reverse step, but contains no precursor answer and is
+generated in one shot. There is no executor rollout during endpoint inference.
 
-1. atom-state edits on product-origin atoms;
-2. bond-state edits between product-origin atoms;
-3. explicit product-atom deletions if required;
-4. precursor-only residual fragments represented as attachment templates with
-   numbered dummy slots and product-atom anchors.
+The builder is:
 
-Every compiled program is immediately applied back to the product. The rebuilt
-precursor must equal the frozen structural precursor under canonical map-free
-isomeric SMILES. Rows are never silently dropped. If any row fails, the
-manifest records training_allowed=false and the full failure ledger remains.
+    python scripts/build_reverse_et_transfer_supervision.py \
+      --source-dir data/flower_inverse_tool_sft_action_delta_v1 \
+      --output-dir data/reverse_et_transfer_v1
 
-The audit also reports:
+It creates matched training files:
 
-- bond-edit count distribution;
-- atom-edit count distribution;
-- attachment count and attachment-slot distribution;
-- train attachment-template vocabulary size;
-- valid/test attachment-template OOV rows, occurrences and unique templates;
-- maximum decision cardinalities.
+    train_endpoint_only_matched.jsonl
+    train_endpoint_plus_netedit.jsonl
+    train_endpoint_plus_reverse_et.jsonl
 
-These quantities decide whether attachment prediction can be a closed
-train-vocabulary decision or needs an open-vocabulary retrieval/generation
-module. Do not choose that architecture before the full audit.
+Each contains exactly 2 x 257,167 examples and exactly the same underlying
+reaction IDs. Validation uses endpoint prediction only for all three models.
 
-## Phase 1: Jev-style endpoint policy
+## Why NetEdit is mandatory
 
-The endpoint model must use the full endpoint training split, not only reactions
-with executable mechanism traces.
+Endpoint-only versus Reverse-ET cannot establish that electron transfer itself
+is useful, because any extra transformation supervision may help. NetEdit is
+therefore the main control.
 
-Preferred architecture:
+The key contrast is:
 
-    mapped product
-       |
-       v
-    shared small-LM encoder (Qwen3-0.6B + LoRA)
-       |
-       +--> typed bond-edit/set head
-       +--> typed atom-state-edit head
-       +--> typed attachment-count head
-       +--> typed attachment anchor/template head
-       |
-       v
-    deterministic endpoint reconstructor
-       |
-       v
-    ranked precursor candidates
+    Reverse-ET - NetEdit
 
-The representation should remain set-based or parallel wherever possible.
-Do not turn the edit program back into an autoregressive text sequence.
+Both provide information about the transformation. Reverse-ET additionally
+specifies electron source, electron sink and the grouping of coordinated
+moves. A positive result requires Reverse-ET to improve beyond NetEdit under
+the same endpoint task.
 
-The critical matched control is:
+## Model and inference contract
 
-    Qwen3-0.6B autoregressive product -> precursor
-    vs
-    Qwen3-0.6B JevRetro typed decisions
+First experiment:
 
-with the same endpoint training IDs, base revision, data budget and evaluation
-denominator. Existing 8B MechET and external retrosynthesis methods are field
-references, not the only causal control.
+- backbone: Qwen3-0.6B
+- LoRA rank: 16
+- same model revision
+- same optimizer and seed
+- same reaction IDs
+- same endpoint validation set
+- same endpoint inference prompt
+- same K=10 decoding budget
+- no mechanism generation at endpoint test time
 
-## Phase 2: deterministic Top-K decoding
+The primary run is example-matched. If Reverse-ET is positive, a second
+confirmatory run must match supervised-token budget using the repository's
+existing token audit machinery. GPU-hours and actual supervised tokens are
+reported for every condition.
 
-JevRetro must output a scored candidate set, not one autonomous trajectory.
+The endpoint test output is always:
 
-Candidate score should be a frozen sum of typed log-probabilities, for example:
+    product -> ranked precursor candidates
 
-    score(program)
-      = log p(edit_count)
-      + sum log p(bond_edit)
-      + sum log p(atom_edit)
-      + log p(attachment_count)
-      + sum log p(anchor/template)
+Never:
 
-The decoder applies each candidate program, sanitizes with RDKit, removes
-invalid structures, canonicalizes and deduplicates. Invalid candidates remain
-spent candidate budget; they are not replaced with gold-aware alternatives.
+    product -> electron steps -> precursor
 
-Evaluate with:
+Thus the experiment measures whether reverse-ET supervision changes what the
+model learns, not whether a long mechanism rollout can survive its own errors.
 
-    python scripts/evaluate_jevretro_topk.py \
-      --references <test endpoint jsonl> \
-      --predictions <ranked candidate jsonl> \
-      --output outputs/jevretro/<dataset>/topk_report.json
+## Single-step evidence
 
-Prediction rows contain a stable id and candidates with precursor and score.
-The evaluator keeps the full reference denominator and reports ranked
-Top-1/5/10.
+Primary single-step metrics:
 
-## Promotion gates
+- structural Top-1 / Top-5 / Top-10
+- mapped exact as secondary
+- invalid candidate rate
+- candidate diversity
+- calibration / NLL of the reference precursor
+- inference latency (identical endpoint inference contract)
 
-A single-step JevRetro claim requires all of the following:
+The first causal comparison is on FlowER, where all three supervision signals
+can be constructed on the same reactions.
 
-1. full train/valid/test endpoint decision compilation is audited;
-2. no test label influences option vocabulary selection or ranking;
-3. Top-1/5/10 are measured on the standard full denominator;
-4. the 0.6B autoregressive matched control is available;
-5. inference latency, peak memory and candidate count are reported;
-6. test is evaluated only after architecture/model selection is frozen on
-   validation.
+A later transfer experiment uses USPTO-50K only as a standard endpoint-only
+downstream benchmark:
 
-The old PR #81 16.7% product-proxy rollout is not a JevRetro single-step
-baseline and should not be compared to these Top-K results.
+1. initialize from Endpoint-only / NetEdit / Reverse-ET FlowER checkpoints;
+2. fine-tune all three on exactly the same USPTO-50K endpoint train split;
+3. use identical fine-tuning budget;
+4. evaluate the standard 5,007-product test set.
 
-## Multistep follow-up
+USPTO-50K is not treated as mechanism data.
 
-Multistep synthesis planning begins only after the single-step model is frozen.
-The same ranked candidate provider will implement the existing Syntheseus
-BackwardReactionModel interface. Retro* search then compares models under
-matched reaction-model-call and wall-time budgets.
+## Evidence for why Reverse-ET helps
 
-The intended multistep metrics are:
+The explanation must be empirical rather than rhetorical. Four analyses are
+frozen in advance.
 
-- solved-target rate;
-- reference-route Top-1/5/10 where defined by the benchmark;
-- reaction-model calls to first solution;
-- wall time to first solution;
-- route length;
-- route diversity;
-- fraction of proposed edges rejected by deterministic chemistry checks.
+### 1. Reverse-ET versus NetEdit
 
-This second stage should use a recognized route-planning benchmark and its
-matched one-step training distribution rather than reusing mech-USPTO-31k by
-convenience.
+If Reverse-ET does not outperform NetEdit, do not claim that electron
+direction carries useful information beyond reaction-center/edit supervision.
+
+### 2. Electron-transfer complexity
+
+Report the endpoint gain of Reverse-ET over NetEdit as a function of:
+
+- number of reverse electron-transfer steps;
+- number of coupled moves per step;
+- total number of electron moves;
+- number of imported fragments.
+
+This tests whether the extra supervision is useful specifically when the
+reaction cannot be summarized by one simple bond edit.
+
+### 3. Composition novelty
+
+Reuse the existing MechComp/H2 signatures. Stratify endpoint prediction by
+frequency of the complete move composition while keeping constituent
+source-to-sink primitives seen in training.
+
+The question is whether Reverse-ET supervision improves precursor prediction
+when the complete transformation pattern is less familiar.
+
+### 4. Disagreement audit
+
+On reactions where Endpoint-only, NetEdit and Reverse-ET select different
+Top-1 precursors, report:
+
+- whether the reference precursor is recovered;
+- reaction center overlap;
+- net-edit agreement;
+- reverse-ET program compatibility where an executable reference is available.
+
+This identifies whether gains actually come from better transformation
+selection rather than formatting or ranking artifacts.
+
+## Multi-step planning experiment
+
+Multi-step planning is a transfer test of the same three representations, not
+a continuation of one reaction's electron trajectory.
+
+Use PaRoutes n1 and n5. PaRoutes supplies 10,000 targets for each set, matching
+stocks, reference routes and a USPTO-derived reaction dataset for training a
+one-step model.
+
+Protocol:
+
+1. start from the three FlowER checkpoints;
+2. fine-tune all three on the same PaRoutes one-step reaction training set
+   using endpoint-only supervision;
+3. freeze the three one-step models;
+4. use the same Top-K precursor decoding;
+5. plug each model into the existing Syntheseus BackwardReactionModel adapter;
+6. run the same Retro* implementation, stock and search budgets.
+
+Reverse-ET is not rolled out inside the planner. Each planner edge is simply a
+single-step precursor prediction made by the corresponding endpoint model.
+
+Primary planning metrics:
+
+- solved targets;
+- solved rate versus reaction-model-call budget;
+- first-solution model calls;
+- first-solution wall time;
+- reference-route Top-1 / Top-5 / Top-10;
+- route length and number of expanded nodes.
+
+PaRoutes provides two 10,000-route benchmark sets and reports solved-target and
+reference-route Top-N metrics, making it suitable for the multi-step comparison.
+
+## Mechanism-to-planning explanation
+
+The planning explanation is tested through the one-step model, not assumed.
+
+For every reference route edge in PaRoutes, record the rank assigned by the
+three one-step models to the reference disconnection. Then test whether:
+
+1. Reverse-ET improves reference-edge rank relative to NetEdit;
+2. targets with improved edge ranks require fewer Retro* model calls;
+3. the solved-rate improvement disappears when the planner is forced to use
+   the same edge ranking.
+
+This links any planning gain to better one-step reaction ordering instead of
+changes in the search algorithm.
+
+## What PR #81 remains useful for
+
+PR #81 answers a different question: whether explicit reverse electron-flow
+decisions can be executed and audited. Its sequential-rollout failures show why
+mechanism generation should not be a mandatory inference path for the present
+transfer experiment.
+
+The useful result from #81 is therefore diagnostic: sequential mechanism
+rollout can accumulate errors. It is not the endpoint predictor used here.
