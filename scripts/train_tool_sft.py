@@ -114,6 +114,27 @@ def validate_cache_model_lineage(
         raise ValueError("pretokenized cache max_length mismatch")
 
 
+def attach_arrow_length_column(dataset: Any) -> Any:
+    """Add exact token lengths without Python-formatting every Arrow row.
+
+    Hugging Face's length-grouped sampler otherwise iterates over every
+    example and formats its full token arrays once per DDP rank. On a two-
+    million-row cache this can idle eight GPUs for tens of minutes. The Arrow
+    list offsets give the same lengths vectorially without changing sampling.
+    """
+    if "length" in dataset.column_names:
+        return dataset
+    import pyarrow.compute as pc
+
+    lengths = pc.list_value_length(dataset.data.table["input_ids"])
+    if lengths.null_count:
+        raise ValueError("cached input_ids contain null lengths")
+    values = lengths.to_pylist()
+    if not values or min(values) <= 0:
+        raise ValueError("cached input_ids contain empty examples")
+    return dataset.add_column("length", values)
+
+
 def resolve_resume_checkpoint(value: str | None, output_dir: Path) -> Path | None:
     """Resolve an explicit checkpoint or the newest checkpoint in output_dir.
 
@@ -911,6 +932,12 @@ def main() -> int:
         dataset = concatenate_datasets(
             [Dataset.from_file(path) for path in audit["arrow_files"]]
         )
+        if grouping["requested"]:
+            dataset = attach_arrow_length_column(dataset)
+            print(
+                f"[tool-sft] vectorized length column ready rows={len(dataset)}",
+                flush=True,
+            )
         validation_dataset = concatenate_datasets(
             [
                 Dataset.from_file(path)
