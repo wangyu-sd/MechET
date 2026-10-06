@@ -606,6 +606,14 @@ endpoint recovery. These 16 selected validation reactions and unfinished
 weights are diagnostic only; 4/16 is **not** a final validation or test estimate.
 The report, per-case scores and replayable action shards are in
 `outputs/eval/reliable_mechet_state_ckpt14000_valid16_k1_t4_provisional_20261007/`.
+On these same 16 reactions, all reference first actions import an
+`electron_participant`. The generated first action proposed an import in 15
+cases; after canonicalizing each fragment as an unmapped SMILES multiset, only
+four first imports matched the recorded reference. Three of those four
+reactions reached the reference endpoint, versus one of the other 12. This
+association points to early fragment selection as a useful failure-analysis
+target; a different fragment is not, by itself, proof of chemical invalidity
+or a causal explanation for every endpoint miss.
 
 ## Multi-step planning
 
