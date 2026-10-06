@@ -1,6 +1,9 @@
 from datetime import datetime, timedelta, timezone
 import json
 import sys
+from types import SimpleNamespace
+
+import pytest
 
 from mechet.planning_reliability import edge_audit, summarize_planning_graph
 from mechet.proof_program import ChargeAction, ProofEdge, ProofProgram, format_proof_output
@@ -101,6 +104,58 @@ def test_missing_proof_never_becomes_a_zero_hallucination_claim():
     assert report["wasted_expansion_ratio"] is None
     assert report["n_certified_routes"] == 0
     assert report["n_unverified_routes"] == 1
+    assert report["certified_route_rate"] is None
+
+
+def test_stock_only_zero_step_solution_is_not_a_certified_reaction_route():
+    root = Node(mol="CO")
+    graph = Graph(root, {root: []})
+    report = summarize_planning_graph(
+        graph, [{root}], model_calls=0, wall_seconds=0.0,
+    )
+    assert report["solved"] is True
+    assert report["n_routes"] == 1
+    assert report["n_zero_step_routes"] == 1
+    assert report["n_nontrivial_routes"] == 0
+    assert report["n_all_edge_executable_routes"] == 0
+    assert report["n_certified_routes"] == 0
+    assert report["all_edge_executable_route_rate"] is None
+    assert report["certified_route_rate"] is None
+
+
+def test_zero_step_route_does_not_dilute_reaction_route_rate():
+    root = Node(mol="CO")
+    certified = Node(reaction=Reaction(proof()))
+    leaf = Node(mol="CBr")
+    graph = Graph(root, {root: [certified], certified: [leaf], leaf: []})
+    report = summarize_planning_graph(
+        graph, [{root}, {root, certified, leaf}], model_calls=1, wall_seconds=1.0,
+    )
+    assert report["n_zero_step_routes"] == 1
+    assert report["n_nontrivial_routes"] == 1
+    assert report["n_certified_routes"] == 1
+    assert report["certified_route_rate"] == 1.0
+
+
+def test_real_planner_reports_stock_only_solution_separately(tmp_path):
+    pytest.importorskip("syntheseus")
+    from mechet.syntheseus_adapter import MechETBackwardReactionModel, MechETCandidatePool
+    from scripts.run_syntheseus_search import run_planner
+
+    report = run_planner(
+        model=MechETBackwardReactionModel(MechETCandidatePool([]), use_cache=True),
+        targets=["CO"], inventory=["CO"],
+        args=SimpleNamespace(
+            algorithm="retro_star", num_results=1, max_routes=5,
+            reaction_model_calls=5, iterations=5, time_limit_s=5.0,
+            output_dir=tmp_path,
+        ),
+        provenance={"candidate_provider": "empty_test_pool"},
+    )
+    assert report["solved"] == 1
+    assert report["certified_solved_observed"] == 0
+    assert report["n_zero_step_routes"] >= 1
+    assert report["n_nontrivial_routes"] == 0
     assert report["certified_route_rate"] is None
 
 

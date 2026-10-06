@@ -141,14 +141,16 @@ def summarize_planning_graph(
     executable_edges = sum(audit["executable"] is True for audit in audits.values())
     certified_edges = sum(audit["certified"] is True for audit in audits.values())
     route_nodes = [set(route) for route in routes]
+    route_reaction_nodes = [route & audits.keys() for route in route_nodes]
+    nontrivial_routes = sum(bool(reactions) for reactions in route_reaction_nodes)
     unverified_routes = sum(bool(route & unverified) for route in route_nodes)
     all_edge_executable = sum(
-        all(audits[node]["executable"] is True for node in route if node in audits)
-        for route in route_nodes
+        bool(reactions) and all(audits[node]["executable"] is True for node in reactions)
+        for reactions in route_reaction_nodes
     )
     certified_routes = sum(
-        all(audits[node]["certified"] is True for node in route if node in audits)
-        for route in route_nodes
+        bool(reactions) and all(audits[node]["certified"] is True for node in reactions)
+        for reactions in route_reaction_nodes
     )
     first_route = route_nodes[0] if route_nodes else set()
     first_calls = (
@@ -188,16 +190,18 @@ def summarize_planning_graph(
         ),
         "n_routes": len(route_nodes),
         "solved": bool(route_nodes),
+        "n_zero_step_routes": len(route_nodes) - nontrivial_routes,
+        "n_nontrivial_routes": nontrivial_routes,
         "n_unverified_routes": unverified_routes,
         "n_all_edge_executable_routes": all_edge_executable,
         "n_certified_routes": certified_routes,
         "all_edge_executable_route_rate": (
-            all_edge_executable / len(route_nodes)
-            if route_nodes and not unverified_routes else None
+            all_edge_executable / nontrivial_routes
+            if nontrivial_routes and not unverified_routes else None
         ),
         "certified_route_rate": (
-            certified_routes / len(route_nodes)
-            if route_nodes and not unverified_routes else None
+            certified_routes / nontrivial_routes
+            if nontrivial_routes and not unverified_routes else None
         ),
         "n_expanded_molecules": len(expanded_molecules),
         "n_wasted_expansions_below_failed_edges": wasted_expansions,
@@ -206,5 +210,8 @@ def summarize_planning_graph(
         "wall_seconds": wall_seconds,
         "calls_to_first_solution": first_calls,
         "seconds_to_first_solution": first_time,
-        "metric_scope": "admitted_planner_edges_only; proof_replay_not_chemical_truth",
+        "metric_scope": (
+            "admitted_planner_edges_and_nontrivial_routes_only; "
+            "zero_step_stock_solutions_not_certificates; proof_replay_not_chemical_truth"
+        ),
     }

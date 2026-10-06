@@ -570,6 +570,12 @@ denominators and must not be conflated. If an admitted edge lacks a proof, its
 status is `unverified`; the admitted-edge hallucination, route certification
 and wasted-expansion rates are `null`, never an artificial zero. The observed
 certified-route count remains a lower bound when other routes are unverified.
+If a target is already in stock, the planner may report a zero-step solved
+route. This remains in the solved count but is reported separately as
+`n_zero_step_routes`: it contains no reaction edge and cannot count as an
+executable or certified *reaction* route. The executable/certified route-rate
+denominator is `n_nontrivial_routes`, not all solved routes; with no nontrivial
+route the rates are `null`.
 Certification means proof replay
 to the declared precursor under this executor, not chemical or laboratory
 truth. This instrumentation has passed a real Syntheseus 0.7.2 toy Retro*

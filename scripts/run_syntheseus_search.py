@@ -101,6 +101,7 @@ def run_planner(
         )
     edges = sum(item["n_admitted_edges"] for item in summaries)
     routes = sum(item["n_routes"] for item in summaries)
+    nontrivial_routes = sum(item["n_nontrivial_routes"] for item in summaries)
     expanded = sum(item["n_expanded_molecules"] for item in summaries)
     fully_audited = all(item["n_unverified_edges"] == 0 for item in summaries)
     solved_cases = [item for item in summaries if item["solved"]]
@@ -126,14 +127,16 @@ def run_planner(
             if edges and fully_audited else None
         ),
         "n_routes": routes,
+        "n_zero_step_routes": sum(item["n_zero_step_routes"] for item in summaries),
+        "n_nontrivial_routes": nontrivial_routes,
         "n_unverified_routes": sum(item["n_unverified_routes"] for item in summaries),
         "all_edge_executable_route_rate": (
-            sum(item["n_all_edge_executable_routes"] for item in summaries) / routes
-            if routes and not any(item["n_unverified_routes"] for item in summaries) else None
+            sum(item["n_all_edge_executable_routes"] for item in summaries) / nontrivial_routes
+            if nontrivial_routes and not any(item["n_unverified_routes"] for item in summaries) else None
         ),
         "certified_route_rate": (
-            sum(item["n_certified_routes"] for item in summaries) / routes
-            if routes and not any(item["n_unverified_routes"] for item in summaries) else None
+            sum(item["n_certified_routes"] for item in summaries) / nontrivial_routes
+            if nontrivial_routes and not any(item["n_unverified_routes"] for item in summaries) else None
         ),
         "wasted_expansion_ratio": (
             sum(item["n_wasted_expansions_below_failed_edges"] for item in summaries)
@@ -147,7 +150,10 @@ def run_planner(
             sum(item["seconds_to_first_solution"] for item in solved_cases)
             / len(solved_cases) if solved_cases else None
         ),
-        "metric_scope": "admitted_planner_edges_only; proof_replay_not_chemical_truth",
+        "metric_scope": (
+            "admitted_planner_edges_and_nontrivial_routes_only; "
+            "zero_step_stock_solutions_not_certificates; proof_replay_not_chemical_truth"
+        ),
         "targets": summaries,
     }
     if any("online_generation" in item for item in summaries):
