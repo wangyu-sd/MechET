@@ -12,10 +12,12 @@ from __future__ import annotations
 import argparse
 from copy import copy
 import hashlib
+from importlib import metadata
 import json
 import math
 import os
 from pathlib import Path
+import platform
 import sys
 from typing import Any, Mapping
 
@@ -44,6 +46,22 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: stream.read(8 << 20), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def runtime_versions() -> dict[str, str]:
+    """Freeze versions that can change sampling or formal chemistry replay."""
+
+    import rdkit
+    import torch
+
+    return {
+        "python": platform.python_version(),
+        "rdkit": rdkit.__version__,
+        "torch": torch.__version__,
+        "torch_cuda": str(torch.version.cuda),
+        "transformers": metadata.version("transformers"),
+        "peft": metadata.version("peft"),
+    }
 
 
 def episode_seed(base_seed: int, target: str, index: int) -> int:
@@ -141,6 +159,7 @@ def run_fingerprint(args: argparse.Namespace) -> str:
         "dtype": getattr(args, "dtype", "bfloat16"),
         "record_attempts": getattr(args, "record_attempts", False),
         "ranking_score": "raw_model_mean_generated_token_logprob",
+        "runtime_versions": runtime_versions(),
         "runtime_sha256": sha256(ROOT / "scripts/run_natural_language_value_search.py"),
         "evaluator_sha256": sha256(Path(__file__)),
     }
@@ -492,6 +511,7 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
             "is a separate test."
         ),
         "model": MODEL, "model_revision": REVISION,
+        "runtime_versions": runtime_versions(),
         "compute_dtype": getattr(args, "dtype", "bfloat16"),
         "adapter_lineage": (
             validate_adapter_lineage(

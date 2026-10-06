@@ -491,7 +491,8 @@ execution status and reference agreement must never be collapsed into one
 Pass@1 within a K>1 run is the first stochastic draw, **not** the separate
 greedy K=1 condition; these must not be silently substituted for each other.
 The aggregation binds source bytes, adapter weights, stage, decoder settings and
-code hashes, rejects duplicate/foreign/mixed shards, and counts missing
+code hashes, plus Python/RDKit/PyTorch/CUDA/Transformers/PEFT versions. It
+rejects duplicate/foreign/mixed shards or a changed runtime and counts missing
 reaction predictions as failures. This path is prepared for later matched
 sampling. Aggregation scores one shard row at a time rather than loading all
 generated trajectories, and verbose rejected attempts are opt-in via

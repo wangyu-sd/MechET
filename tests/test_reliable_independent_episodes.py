@@ -340,3 +340,23 @@ def test_formal_benchmark_view_rejects_subset_and_manifest_mismatch(tmp_path: Pa
     args.benchmark_view = "full_endpoint_test"
     with pytest.raises(ValueError, match="complete coverage"):
         ev.validate_benchmark_source(args, ev.sha256(source))
+
+
+def test_run_fingerprint_changes_when_chemistry_runtime_changes(
+    tmp_path: Path, monkeypatch,
+):
+    source = tmp_path / "source.jsonl"
+    source.write_text("{}\n")
+    adapter = tmp_path / "adapter"
+    adapter.mkdir()
+    (adapter / "adapter_model.safetensors").write_bytes(b"weights")
+    (adapter / "adapter_manifest.json").write_text("{}")
+    args = Namespace(
+        data=source, adapter=adapter, stage="state", episodes=5,
+        sample_reactions=1, seed=17, max_new_tokens=512, max_context=4096,
+        no_4bit=True, dtype="float16",
+    )
+    monkeypatch.setattr(ev, "runtime_versions", lambda: {"rdkit": "version-one"})
+    first = ev.run_fingerprint(args)
+    monkeypatch.setattr(ev, "runtime_versions", lambda: {"rdkit": "version-two"})
+    assert ev.run_fingerprint(args) != first
