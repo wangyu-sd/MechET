@@ -296,3 +296,13 @@ rank actions. Adapter base model, pinned revision and Stage-I/II observation
 contract are checked before loading. The runner verifies all 128 IDs in its
 output. This is an autonomous validation pilot, **not** the 28,971-reaction
 headline endpoint test or the 28,967-reaction strict-process test.
+The runner also writes `failure_analysis.json` and per-case first-divergence
+records. A mismatch with the single recorded reference trajectory is labeled
+*reference-relative*: an exact endpoint reached through another path is not
+counted as a chemical failure. Rejected imports, ungrounded source/sink phrases,
+formal execution errors, executable but reference-different successors, and
+termination errors are kept separate. The risk--coverage table uses the
+policy's own sequence score for completed traces, with incomplete traces placed
+after completed ones; it never uses the reference endpoint to rank predictions.
+This sequence score is an uncalibrated pilot confidence proxy, not a probability
+of chemical validity.

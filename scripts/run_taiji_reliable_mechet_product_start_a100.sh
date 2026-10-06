@@ -122,3 +122,7 @@ if len(rows) != 128 or len(set(actual)) != 128 or set(actual) != expected:
     raise ValueError('product-start evaluation did not cover exactly the frozen 128 IDs')
 print({'gate':'fixed_128_ids_complete','report':str(output / 'evaluation.json')}, flush=True)
 PY
+python -u "$runtime_repo/scripts/analyze_reliable_product_start.py" \
+  --source "$source_data" --decisions "$decision_data" \
+  --results "$output/results.shard-00-of-01.jsonl" --output "$output" \
+  --sample-reactions 128 --seed 17

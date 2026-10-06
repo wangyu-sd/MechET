@@ -39,7 +39,10 @@ def test_reliable_rollout_observes_only_fresh_product_mapping():
                            pointer_weight=0.0, product_only_remap=True)
     row = {"id": "test", "source_id": "test", "target_smiles": "[CH3:77][OH:42]",
            "expected_precursor": "[CH3:77][OH:42]"}
-    assert rollout(Runtime(), row, args)["top1_full_exact"]
+    result = rollout(Runtime(), row, args)
+    assert result["top1_full_exact"]
+    assert result["attempts"][0]["accepted"]
+    assert result["attempts"][0]["state_after"] == result["target"]
 
 
 def test_reliable_rollout_keeps_no_call_failure_in_denominator():
@@ -63,6 +66,7 @@ def test_reliable_rollout_keeps_no_call_failure_in_denominator():
     result = rollout(Runtime(), row, args)
     assert not result["top1_exact"]
     assert result["rejected"] == {"CONTEXT_BUDGET_EXCEEDED": 1}
+    assert result["attempts"][0]["error"] == "CONTEXT_BUDGET_EXCEEDED"
 
 
 def test_pointer_bonus_is_independent_of_executor_value():

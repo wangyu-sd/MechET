@@ -684,6 +684,7 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
     beam = [root]
     terminals: list[Node] = []
     rejected: dict[str, int] = {}
+    attempts: list[dict[str, Any]] = []
     for depth in range(args.max_decisions):
         children: list[Node] = []
         new_terminals: list[Node] = []
@@ -697,6 +698,11 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
             if not proposals:
                 code = str(getattr(runtime, "last_proposal_error", "") or "NO_VALID_TOOL_CALL")
                 rejected[code] = rejected.get(code, 0) + 1
+                attempts.append({
+                    "depth": depth, "state_before": visible(node.state),
+                    "name": "", "arguments": {}, "accepted": False,
+                    "error": code, "state_after": "", "terminal": False,
+                })
             for action in proposals:
                 child, error = execute(
                     node,
@@ -704,6 +710,17 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
                     max_imports=args.max_imports,
                     reject_target_retained_finish=args.reject_target_retained_finish,
                 )
+                attempts.append({
+                    "depth": depth, "state_before": visible(node.state),
+                    "name": action.name, "arguments": action.arguments,
+                    "accepted": child is not None, "error": error,
+                    "state_after": (
+                        str(child.actions[-1]["result"].get("current_state") or
+                            child.actions[-1]["result"].get("derived_precursor") or "")
+                        if child is not None else ""
+                    ),
+                    "terminal": bool(child is not None and child.terminal),
+                })
                 if child is None:
                     rejected[error] = rejected.get(error, 0) + 1
                 elif child.terminal:
@@ -788,6 +805,7 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         "pointer_invalid_handles": runtime.pointer_invalid_handles - pointer_rejected_before,
         "n_actions": len(top.actions),
         "rejected": rejected,
+        "attempts": attempts,
         "top_actions": top.actions,
         "successful_actions": (
             successful_full.actions if successful_full is not None
