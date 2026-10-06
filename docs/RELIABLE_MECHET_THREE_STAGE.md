@@ -595,6 +595,9 @@ are identical. Online reports include all attempted episodes, rejected
 decisions, nonterminal episodes, unadmitted episodes and the pre-dedup episode
 admission rate. The admitted-edge failure rate is conditional on admission;
 it must not be presented as the failure rate over all model proposals.
+The matched online policy disallows an auxiliary value adapter, pointer head,
+pointer score or vNext prefix; otherwise a planner comparison would silently
+change the Stage-I/II policy being evaluated.
 
 The CLI refuses an adapter whose manifest does not match the requested stage,
 Qwen3-0.6B base revision or executor lineage. `--dry-run` checks the artifact

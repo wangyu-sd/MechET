@@ -141,6 +141,12 @@ def validate_matched_v2_args(args: argparse.Namespace) -> None:
         float(getattr(args, "value_weight", 0.0) or 0.0)
     ) > 1e-12:
         raise ValueError("matched v2 pure-policy evaluation forbids a value critic")
+    if str(getattr(args, "pointer_head", "") or "") or abs(
+        float(getattr(args, "pointer_weight", 0.0) or 0.0)
+    ) > 1e-12:
+        raise ValueError("matched v2 pure-policy evaluation forbids pointer scoring")
+    if bool(getattr(args, "vnext_v2_prefix", False)):
+        raise ValueError("matched v2 cannot combine with the vNext v2 prefix")
 
 
 def validate_v2_adapter_manifest(

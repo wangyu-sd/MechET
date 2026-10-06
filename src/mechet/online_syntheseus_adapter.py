@@ -90,6 +90,14 @@ class OnlineMechETBackwardReactionModel(BackwardReactionModel):  # type: ignore[
             raise ValueError("each planning episode must be a single policy trajectory")
         if abs(float(getattr(rollout_args, "value_weight", 0))) > 1e-12:
             raise ValueError("matched planning forbids a value critic")
+        if str(getattr(rollout_args, "value_adapter", "") or ""):
+            raise ValueError("matched planning forbids a value critic")
+        if str(getattr(rollout_args, "pointer_head", "") or "") or abs(
+            float(getattr(rollout_args, "pointer_weight", 0.0) or 0.0)
+        ) > 1e-12:
+            raise ValueError("matched planning forbids pointer scoring")
+        if bool(getattr(rollout_args, "vnext_v2_prefix", False)):
+            raise ValueError("matched planning forbids the vNext v2 prefix")
         if max_candidates < 1:
             raise ValueError("max_candidates must be positive")
         self.runtime = runtime

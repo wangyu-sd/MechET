@@ -26,6 +26,7 @@ on:
       - "tests/test_earho_v2_protocol.py"
       - "tests/test_online_syntheseus_adapter.py"
       - "tests/test_planning_reliability.py"
+      - "tests/test_stage2_v2_protocol_parity.py"
   push:
     branches: [main]
     paths:
@@ -38,6 +39,7 @@ on:
       - "tests/test_*reliable*.py"
       - "tests/test_online_syntheseus_adapter.py"
       - "tests/test_planning_reliability.py"
+      - "tests/test_stage2_v2_protocol_parity.py"
 
 jobs:
   test:
@@ -63,4 +65,5 @@ jobs:
             tests/test_reverse_et_transfer_supervision.py \
             tests/test_earho_v2_protocol.py \
             tests/test_online_syntheseus_adapter.py \
-            tests/test_planning_reliability.py
+            tests/test_planning_reliability.py \
+            tests/test_stage2_v2_protocol_parity.py

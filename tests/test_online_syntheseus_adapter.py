@@ -12,6 +12,8 @@ def planning_args(**overrides):
         reject_target_retained_finish=True,
         max_decisions=40, max_imports=32, branching=1,
         early_beam=1, late_beam=1, value_weight=0.0,
+        value_adapter="", pointer_head="", pointer_weight=0.0,
+        vnext_v2_prefix=False,
         compact_history=True,
     )
     values.update(overrides)
@@ -34,6 +36,14 @@ def test_online_bridge_requires_frozen_product_only_contract():
         OnlineMechETBackwardReactionModel(runtime, planning_args(matched_v2=False))
     with pytest.raises(ValueError, match="single policy trajectory"):
         OnlineMechETBackwardReactionModel(runtime, planning_args(branching=2))
+    with pytest.raises(ValueError, match="value critic"):
+        OnlineMechETBackwardReactionModel(runtime, planning_args(value_adapter="/tmp/value"))
+    with pytest.raises(ValueError, match="pointer scoring"):
+        OnlineMechETBackwardReactionModel(runtime, planning_args(pointer_weight=0.2))
+    with pytest.raises(ValueError, match="pointer scoring"):
+        OnlineMechETBackwardReactionModel(runtime, planning_args(pointer_head="/tmp/pointer"))
+    with pytest.raises(ValueError, match="vNext v2 prefix"):
+        OnlineMechETBackwardReactionModel(runtime, planning_args(vnext_v2_prefix=True))
 
 
 def test_online_bridge_queries_arbitrary_planner_molecules_without_gold(monkeypatch):

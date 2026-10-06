@@ -64,6 +64,9 @@ def matched_args(**overrides):
         late_beam=1,
         value_adapter="",
         value_weight=0.0,
+        pointer_head="",
+        pointer_weight=0.0,
+        vnext_v2_prefix=False,
         compact_history=False,
     )
     values.update(overrides)
@@ -112,6 +115,9 @@ def test_qwen_tool_prefix_matches_completed_sft_tool_call_without_thinking():
         ({"late_beam": 2}, "beam width 1"),
         ({"value_adapter": "/tmp/value"}, "value critic"),
         ({"value_weight": 0.2}, "value critic"),
+        ({"pointer_head": "/tmp/pointer"}, "pointer scoring"),
+        ({"pointer_weight": 0.2}, "pointer scoring"),
+        ({"vnext_v2_prefix": True}, "vNext v2 prefix"),
     ],
 )
 def test_matched_v2_rejects_historical_inference_contracts(override, match):
