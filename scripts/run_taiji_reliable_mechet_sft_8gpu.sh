@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Run exactly one frozen Qwen3-0.6B SFT stage; do not silently chain stages.
+# Run exactly one frozen Qwen3-0.6B SFT stage on H20 or A100.
 set -Eeuo pipefail
 
 shared_repo=/aaa/fionafyang/buddy1/whaleywang/MechET
 runtime_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr82-reliable-20261006
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 stage=${MECHET_RELIABLE_STAGE:?set MECHET_RELIABLE_STAGE=state or trajectory}
+expected_gpu=${MECHET_RELIABLE_EXPECTED_GPU:-H20}
+case "$expected_gpu" in H20|A100) ;; *) echo "unsupported GPU kind=$expected_gpu" >&2; exit 2 ;; esac
 
 case "$stage" in
   state)
@@ -42,13 +44,13 @@ test -f "$data_dir/ARTIFACT_STATUS.json"
 test -f "$data_dir/qwen3_0_6b_tokens_4096/manifest.json"
 test -d "$shared_hf_cache/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca"
 
-python - "$config" "$data_dir" "$stage" <<'PY'
+python - "$config" "$data_dir" "$stage" "$expected_gpu" <<'PY'
 import json, sys, yaml
 from pathlib import Path
 import torch
 
 config = yaml.safe_load(Path(sys.argv[1]).read_text())
-data_dir, stage = Path(sys.argv[2]), sys.argv[3]
+data_dir, stage, expected_gpu = Path(sys.argv[2]), sys.argv[3], sys.argv[4]
 manifest = json.loads((data_dir / 'manifest.json').read_text())
 status = json.loads((data_dir / 'ARTIFACT_STATUS.json').read_text())
 cache = json.loads((data_dir / 'qwen3_0_6b_tokens_4096/manifest.json').read_text())
@@ -73,7 +75,7 @@ assert config['training']['max_steps'] == -1
 assert config['limit_examples'] == 0
 assert config['contract']['stage'] == ('state_sft' if stage == 'state' else 'trajectory_sft')
 names = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
-assert len(names) == 8 and all('H20' in name.upper() for name in names), names
+assert len(names) == 8 and all(expected_gpu in name.upper() for name in names), names
 assert torch.cuda.is_bf16_supported()
 print({'gate': 'passed', 'stage': stage, 'reactions': expected,
        'decisions': manifest['decision_rows'], 'gpus': names}, flush=True)
@@ -103,7 +105,7 @@ cp -a "$shared_hf_cache/models--Qwen--Qwen3-0.6B" "$local_hf_cache/"
 export HF_HUB_CACHE=$local_hf_cache
 echo "[reliable-mechet] pinned model staged locally"
 
-echo "[reliable-mechet] starting one-epoch $stage SFT on 8 H20s"
+echo "[reliable-mechet] starting one-epoch $stage SFT on 8 ${expected_gpu}s"
 torchrun --standalone --nproc_per_node=8 "$runtime_repo/scripts/train_tool_sft.py" \
   --config "$config" ${MECHET_RELIABLE_RESUME:+--resume-from-checkpoint}
 test -s "$output/adapter_model.safetensors"

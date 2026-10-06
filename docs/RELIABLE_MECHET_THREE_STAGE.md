@@ -262,8 +262,8 @@ tokens. The old cache is unchanged; a different tokenizer must be tokenized
 again. The trainer rejects a cache with the wrong model name, immutable
 revision or maximum length even during dry-run.
 
-`scripts/run_taiji_reliable_mechet_sft_h20.sh` runs one stage per task. It
-rechecks the frozen data and cache contracts on the allocated H20 host, stages
+`scripts/run_taiji_reliable_mechet_sft_8gpu.sh` runs one stage per task. It
+rechecks the frozen data and cache contracts on the allocated GPU host, stages
 the Arrow shards and model locally, and leaves normal training progress on the
 default POD log. Stage II additionally requires the exact Stage-I adapter
 SHA-256; Stage III remains disabled until the Stage-II SHA-256 is frozen.
