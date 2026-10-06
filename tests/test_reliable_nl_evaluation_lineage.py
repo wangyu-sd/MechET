@@ -205,3 +205,14 @@ def test_replayed_local_resume_rejects_changed_adapter_or_decoder(tmp_path: Path
     args.max_new_tokens = 512
     args.batch_size = 1
     assert local_eval.replayed_run_fingerprint(args) != fingerprint
+
+
+def test_reliable_local_launcher_uses_one_frozen_decode_batch_for_run_and_aggregate():
+    launcher = (
+        Path(__file__).resolve().parents[1]
+        / "scripts/run_taiji_reliable_mechet_local_eval_a100.sh"
+    ).read_text()
+    assert "--batch-size 1 --max-new-tokens 512 --max-context 4096" in launcher
+    assert 'run "${common[@]}"' in launcher
+    assert 'aggregate "${common[@]}"' in launcher
+    assert launcher.count("local_replayed_state_v4_bs1_seed17") == 2

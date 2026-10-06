@@ -798,6 +798,12 @@ transcript prompt. The evaluator checks adapter/model revision, generates with
 the SFT-aligned Qwen tool prefix, and reports import, event, successor and
 finish errors separately. Because each decision receives a reference current
 state, this is a **local diagnostic**, not product-start endpoint recovery.
+The primary launcher now uses a frozen singleton decode batch for both its
+generation and aggregation commands, matching the closed-loop K=1 batch size.
+It writes a new `v4_bs1` artifact instead of reusing the older batched local
+output. This matters because at least one FP16 prompt changed its greedy tool
+arguments when only decode batch size changed; batch size is now part of the
+replay-scored evaluation fingerprint and result metadata.
 The reliable launcher now derives its *private scoring state* by executing the
 frozen decisions under the same tool runtime, instead of reconstructing mapped
 states directly from the source trace plan. The older reconstruction could
