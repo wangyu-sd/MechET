@@ -7,6 +7,7 @@ import pytest
 
 from scripts import eval_reliable_independent_episodes as ev
 from scripts.run_natural_language_value_search import Action, generation_sampling_policy
+from mechet.a7_rescue import stratified_sample
 from mechet.natural_language_electron_flow import render_event_arguments
 from mechet.endpoints import structural_exact
 
@@ -44,6 +45,26 @@ def test_independent_episode_seeds_and_gold_independent_nll_ranking():
         ev.score_reaction(row, {
             "source_id": "r", "target": "CO", "seed": 17, "episodes": episodes,
         })
+
+
+def test_diagnostic_stratification_matches_local_ids_and_is_not_formal(tmp_path: Path):
+    rows = [
+        {"id": f"r{index}", "source_id": f"r{index}",
+         "metadata": {"trace_plan": {"steps": [{}] * (1 + index % 5)}}}
+        for index in range(12)
+    ]
+    source = tmp_path / "valid.jsonl"
+    source.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    selected = ev.select_evaluation_reactions(
+        source, 6, 17, mode="stratified", view="diagnostic",
+    )
+    assert [row["id"] for row in selected] == [
+        row["id"] for row in stratified_sample(rows, size=6, seed=17)
+    ]
+    with pytest.raises(ValueError, match="diagnostic-only"):
+        ev.select_evaluation_reactions(
+            source, 6, 17, mode="stratified", view="strict_test",
+        )
 
 
 def test_k_one_is_greedy_and_k_many_samples_independent_paths(monkeypatch):
@@ -200,6 +221,9 @@ def test_missing_reactions_remain_in_k_denominator_and_lineage_is_checked(
         seed=17, max_new_tokens=512, max_context=4096, no_4bit=True,
     )
     fingerprint = ev.run_fingerprint(args)
+    args.diagnostic_selection = "stratified"
+    assert ev.run_fingerprint(args) != fingerprint
+    args.diagnostic_selection = "hash"
     prediction = {
         "id": "r0", "source_id": "r0", "target": "CO", "seed": 17,
         "run_fingerprint": fingerprint,

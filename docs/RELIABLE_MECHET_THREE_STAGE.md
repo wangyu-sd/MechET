@@ -606,6 +606,13 @@ endpoint recovery. These 16 selected validation reactions and unfinished
 weights are diagnostic only; 4/16 is **not** a final validation or test estimate.
 The report, per-case scores and replayable action shards are in
 `outputs/eval/reliable_mechet_state_ckpt14000_valid16_k1_t4_provisional_20261007/`.
+This first product-start pilot used deterministic hash-bottom-16 selection,
+whereas the 123-decision local diagnostic above used a length-stratified 16;
+only **13 reaction IDs overlap**. Therefore their aggregate numerators are not
+a paired local-versus-autonomous comparison. The product-start evaluator now
+has a diagnostic-only `--diagnostic-selection stratified` option to make that
+paired comparison without changing either formal full-test selection or its
+denominator.
 On these same 16 reactions, all reference first actions import an
 `electron_participant`. The generated first action proposed an import in 15
 cases; after canonicalizing each fragment as an unmapped SMILES multiset, only

@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
+from mechet.a7_rescue import stratified_sample
 from mechet.endpoints import reference_structural_precursor, split_precursor_endpoints, structural_exact
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.jevretro_endpoint import canonical_unmapped
@@ -173,6 +174,7 @@ def run_fingerprint(args: argparse.Namespace) -> str:
         ),
         "stage": args.stage, "model": MODEL, "revision": REVISION,
         "episodes": args.episodes, "sample_reactions": args.sample_reactions,
+        "diagnostic_selection": getattr(args, "diagnostic_selection", "hash"),
         "seed": args.seed, "max_new_tokens": args.max_new_tokens,
         "max_context": args.max_context, "no_4bit": args.no_4bit,
         "dtype": getattr(args, "dtype", "bfloat16"),
@@ -186,6 +188,20 @@ def run_fingerprint(args: argparse.Namespace) -> str:
     return hashlib.sha256(
         json.dumps(contract, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+
+
+def select_evaluation_reactions(
+    path: Path, size: int, seed: int, *, mode: str, view: str,
+) -> list[dict[str, Any]]:
+    if mode == "hash":
+        return read_selected(path, size, seed)
+    if mode != "stratified" or view != "diagnostic":
+        raise ValueError("stratified selection is diagnostic-only")
+    with path.open(encoding="utf-8") as handle:
+        return stratified_sample(
+            (json.loads(line) for line in handle if line.strip()),
+            size=size, seed=seed,
+        )
 
 
 def checked_inputs(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str]:
@@ -217,7 +233,11 @@ def checked_inputs(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str]
             args.adapter, compact_history=actor.compact_history,
             expected_model=MODEL, expected_revision=REVISION,
         )
-    rows = read_selected(args.data, args.sample_reactions, args.seed)
+    rows = select_evaluation_reactions(
+        args.data, args.sample_reactions, args.seed,
+        mode=getattr(args, "diagnostic_selection", "hash"),
+        view=getattr(args, "benchmark_view", "diagnostic"),
+    )
     if len(rows) != args.sample_reactions or len({str(row["id"]) for row in rows}) != len(rows):
         raise ValueError("evaluation reaction selection is incomplete or duplicated")
     if any(not reference_structural_precursor(row) for row in rows):
@@ -553,6 +573,7 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
         ),
         "stage": args.stage, "episodes_per_reaction": args.episodes,
         "benchmark_view": getattr(args, "benchmark_view", "diagnostic"),
+        "diagnostic_selection": getattr(args, "diagnostic_selection", "hash"),
         "source_manifest_sha256": (
             sha256(args.source_manifest) if getattr(args, "source_manifest", None) else None
         ),
@@ -642,6 +663,10 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--output", type=Path, required=True)
     result.add_argument("--episodes", type=int, choices=(1, 5, 10), default=10)
     result.add_argument("--sample-reactions", type=int, required=True)
+    result.add_argument(
+        "--diagnostic-selection", choices=("hash", "stratified"), default="hash",
+        help="Use the local evaluator's length-stratified IDs only in diagnostic view",
+    )
     result.add_argument("--seed", type=int, default=17)
     result.add_argument("--max-new-tokens", type=int, default=512)
     result.add_argument("--max-context", type=int, default=4096)
