@@ -106,6 +106,7 @@ def test_sample_episode_uses_fresh_product_only_runtime_path(monkeypatch):
     assert episode["has_electron_event"] is True
     assert episode["mean_token_logprob"] == -0.3
     assert "attempts" not in episode
+    assert episode["proposal_outcomes"] == []
 
 
 def test_one_episode_executes_real_import_electron_flow_and_finish():
@@ -216,6 +217,8 @@ def test_missing_reactions_remain_in_k_denominator_and_lineage_is_checked(
     assert report["rates"]["generation_pass_at_1"] == 0.5
     assert report["rates"]["nll_ranked_top_5"] == 0.5
     assert report["rates"]["generation_pass_at_10"] is None
+    assert report["endpoint_risk_coverage"]["scored_terminal_reactions"] == 1
+    assert report["endpoint_risk_coverage"]["curve"][-1]["coverage_of_all_reactions"] == 0.5
     monkeypatch.setattr(ev, "verify_episode_trace", actual_verify)
     with pytest.raises(ValueError, match="accepted-action list"):
         ev.aggregate(args)
@@ -280,3 +283,26 @@ def test_provisional_checkpoint_is_explicitly_limited_and_stage_bound(tmp_path: 
     args.sample_reactions = 17
     with pytest.raises(ValueError, match="limited to 16"):
         ev.checked_inputs(args)
+
+
+def test_risk_coverage_keeps_endpoint_miss_separate_from_executor_rejection():
+    cases = [
+        {"id": "high", "nll_ranked_candidates": [{"score": -0.1, "hit": False}]},
+        {"id": "low", "nll_ranked_candidates": [{"score": -0.9, "hit": True}]},
+        {"id": "abstain", "nll_ranked_candidates": []},
+    ]
+    endpoint = ev.endpoint_risk_coverage(cases, denominator=4)
+    assert endpoint["scored_terminal_reactions"] == 2
+    assert endpoint["abstaining_or_missing_reactions"] == 2
+    assert endpoint["curve"][0]["endpoint_miss_rate"] == 1.0
+    assert endpoint["curve"][-1]["coverage_of_all_reactions"] == 0.5
+    assert endpoint["curve"][-1]["endpoint_miss_rate"] == 0.5
+    proposals = [
+        {"name": "apply_electron_flow", "accepted": False, "mean_token_logprob": -0.1},
+        {"name": "apply_electron_flow", "accepted": True, "mean_token_logprob": -0.9},
+        {"name": "", "accepted": False, "mean_token_logprob": None},
+    ]
+    rejection = ev.proposal_rejection_risk_coverage(proposals)
+    assert rejection["unparseable_proposals"] == 1
+    assert rejection["top_decile_executor_rejection"]["executor_rejection_rate"] == 1.0
+    assert rejection["curve"][-1]["executor_rejection_rate"] == 0.5

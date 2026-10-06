@@ -164,6 +164,15 @@ def sample_episode(
             {"name": item["name"], "arguments": item["arguments"]}
             for item in top.actions
         ],
+        "proposal_outcomes": [
+            {
+                "name": str(item.get("name") or ""),
+                "accepted": bool(item["accepted"]),
+                "error": str(item.get("error") or ""),
+                "mean_token_logprob": item.get("action_policy_score"),
+            }
+            for item in searched["attempts"]
+        ],
         "rejected": searched["rejected"],
     }
     if getattr(actor_args, "record_attempts", False):
@@ -275,6 +284,10 @@ def score_reaction(row: Mapping[str, Any], prediction: Mapping[str, Any]) -> dic
     result = {
         "id": str(row["id"]), "sampled_episodes": expected_count,
         "terminal_episodes": sum(bool(item["terminal"]) for item in episodes),
+        "nonterminal_episodes": sum(not bool(item["terminal"]) for item in episodes),
+        "terminal_reference_mismatch_episodes": sum(
+            bool(item["terminal"]) for item in episodes
+        ) - sum(item["hit"] for item in candidates),
         "unique_terminal_candidates": len(ranked),
         "nll_ranked_candidates": ranked[:10],
     }
@@ -295,10 +308,91 @@ def score_reaction(row: Mapping[str, Any], prediction: Mapping[str, Any]) -> dic
     return result
 
 
+def endpoint_risk_coverage(
+    cases: list[Mapping[str, Any]], denominator: int,
+) -> dict[str, Any]:
+    """Selective endpoint error among NLL-ranked top-1 terminal predictions."""
+
+    eligible = [
+        (float(case["nll_ranked_candidates"][0]["score"]),
+         bool(case["nll_ranked_candidates"][0]["hit"]), str(case["id"]))
+        for case in cases if case["nll_ranked_candidates"]
+    ]
+    eligible.sort(key=lambda item: (-item[0], item[2]))
+    curve = []
+    for fraction in (0.1, 0.25, 0.5, 0.75, 1.0):
+        count = max(1, int(len(eligible) * fraction)) if eligible else 0
+        selected = eligible[:count]
+        errors = sum(not hit for _, hit, _ in selected)
+        curve.append({
+            "fraction_of_scored_terminals": fraction,
+            "coverage_of_all_reactions": count / denominator,
+            "n": count, "endpoint_misses": errors,
+            "endpoint_miss_rate": errors / count if count else None,
+            "min_mean_token_logprob": selected[-1][0] if selected else None,
+        })
+    return {
+        "confidence_definition": "highest unwarped-policy mean token log-probability among unique terminal precursors",
+        "scored_terminal_reactions": len(eligible),
+        "abstaining_or_missing_reactions": denominator - len(eligible),
+        "curve": curve,
+        "interpretation": (
+            "Endpoint miss means disagreement with the recorded structural precursor, "
+            "not proof that an alternative executable reaction is chemically impossible."
+        ),
+    }
+
+
+def proposal_rejection_risk_coverage(
+    proposals: list[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """High-confidence executor-rejection proxy, not chemical hallucination."""
+
+    scored = []
+    unparseable = unscorable = 0
+    for item in proposals:
+        if not item.get("name"):
+            unparseable += 1
+            continue
+        score = item.get("mean_token_logprob")
+        if score is None or not math.isfinite(float(score)):
+            unscorable += 1
+            continue
+        scored.append((float(score), not bool(item["accepted"])))
+    scored.sort(key=lambda item: item[0], reverse=True)
+    curve = []
+    for fraction in (0.1, 0.25, 0.5, 0.75, 1.0):
+        count = max(1, int(len(scored) * fraction)) if scored else 0
+        selected = scored[:count]
+        rejected = sum(item[1] for item in selected)
+        curve.append({
+            "fraction_of_scored_parsed_proposals": fraction,
+            "n": count, "executor_rejected": rejected,
+            "executor_rejection_rate": rejected / count if count else None,
+            "min_mean_token_logprob": selected[-1][0] if selected else None,
+        })
+    return {
+        "confidence_definition": "unwarped-policy mean generated-token log-probability per parsed proposal",
+        "observed_proposals": len(proposals),
+        "scored_parsed_proposals": len(scored),
+        "unparseable_proposals": unparseable,
+        "unscorable_parsed_proposals": unscorable,
+        "executor_rejected_scored_proposals": sum(item[1] for item in scored),
+        "top_decile_executor_rejection": curve[0],
+        "curve": curve,
+        "interpretation": (
+            "An executor-rejected proposal is an observed formal failure. "
+            "This proxy does not label accepted alternatives as chemically valid "
+            "or reference-different alternatives as hallucinations."
+        ),
+    }
+
+
 def aggregate(args: argparse.Namespace) -> dict[str, Any]:
     selected, fingerprint = checked_inputs(args)
     expected = {str(row["id"]): row for row in selected}
     scored: dict[str, dict[str, Any]] = {}
+    proposal_outcomes: list[dict[str, Any]] = []
     shards = sorted(args.output.glob("episodes.shard-*-of-*.jsonl"))
     if not shards:
         raise ValueError("no episode prediction shards")
@@ -317,6 +411,7 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
                     raise ValueError(f"{identifier}: episode budget mismatch")
                 for episode in prediction["episodes"]:
                     verify_episode_trace(str(expected[identifier]["target_smiles"]), episode)
+                    proposal_outcomes.extend(episode.get("proposal_outcomes") or [])
                 scored[identifier] = score_reaction(expected[identifier], prediction)
     cases = [scored[identifier] for identifier in expected if identifier in scored]
     counts: dict[str, Any] = {}
@@ -371,7 +466,15 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
             for key, value in counts.items()
         },
         "terminal_episodes": sum(case["terminal_episodes"] for case in cases),
+        "nonterminal_episodes": sum(case["nonterminal_episodes"] for case in cases),
+        "terminal_reference_mismatch_episodes": sum(
+            case["terminal_reference_mismatch_episodes"] for case in cases
+        ),
         "unique_terminal_candidates": sum(case["unique_terminal_candidates"] for case in cases),
+        "endpoint_risk_coverage": endpoint_risk_coverage(cases, args.sample_reactions),
+        "proposal_executor_rejection_risk_coverage": (
+            proposal_rejection_risk_coverage(proposal_outcomes)
+        ),
         "shards": [{"path": str(path), "sha256": sha256(path)} for path in shards],
         "cases": cases,
     }

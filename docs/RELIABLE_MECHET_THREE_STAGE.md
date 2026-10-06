@@ -479,6 +479,15 @@ flag; it rejects forged or unreplayable traces. A terminal episode without an
 electron event is not called process-reliable. Ranking uses mean
 generated-token log-probability from **unwarped policy logits** (`output_logits`),
 not the temperature/top-p-processed sampling scores and not a value critic.
+The aggregate also keeps two distinct confidence analyses: endpoint-miss
+risk--coverage among scored terminal top-1 candidates, with nonterminals and
+missing reactions counted as abstentions against the full denominator; and
+the top-decile/curve of executor rejection among parsed proposals using their
+own unwarped mean-token scores. Unparseable proposals are counted separately.
+An executable terminal that differs from the single recorded precursor is an
+**endpoint miss**, not automatically a chemical hallucination. Its formal
+execution status and reference agreement must never be collapsed into one
+``valid reaction'' label.
 Pass@1 within a K>1 run is the first stochastic draw, **not** the separate
 greedy K=1 condition; these must not be silently substituted for each other.
 The aggregation binds source bytes, adapter weights, stage, decoder settings and
