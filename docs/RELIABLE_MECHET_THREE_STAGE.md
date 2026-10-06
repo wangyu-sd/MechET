@@ -134,6 +134,17 @@ This audit tests reference chemistry, **not** product-start model accuracy.
 Reproduction: `scripts/audit_reliable_context_projection.py`; report in shared
 artifacts at
 `outputs/eval/reliable_mechet_state_context_projection_v2_valid2890_20261007.json`.
+The frozen local evaluator now retains its original all-fragment exact metric
+and additionally reports nominal electron-participant and endpoint-context
+import exactness, each on its explicit role-present denominator (including
+mixed imports). The reliable local launcher opts into this breakdown; legacy
+evaluator invocations are unchanged. These are exact agreement with recorded
+fragments and role labels, not judgments of chemical feasibility or model
+product-start performance. A read-only re-score of the same unfinished
+`checkpoint-7000` four-reaction shard gives participant-present exactness
+**1/9** and context-present exactness **0/4**; the two mixed-role imports are
+counted in both relevant denominators. This remains a tiny provisional local
+diagnostic, not a final validation estimate.
 
 ## Stage II -- compressed-history Trajectory-SFT
 

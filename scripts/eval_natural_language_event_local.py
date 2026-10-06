@@ -280,6 +280,13 @@ def _import_counter(
     return output
 
 
+def _import_role_counter(
+    schedule: Counter[tuple[str, str]], purpose: str,
+) -> Counter[str]:
+    return Counter({smiles: count for (smiles, role), count in schedule.items()
+                    if role == purpose})
+
+
 def _site_signature(moves: Sequence[Mapping[str, Any]], field: str) -> list[tuple[str, tuple[int, ...]]]:
     output = []
     for raw in moves:
@@ -298,6 +305,12 @@ def score_prediction(
     gold_name = str(task["gold_name"])
     gold_arguments = dict(task["gold_arguments"])
     correct_tool = predicted_name == gold_name
+    gold_schedule = (
+        _import_counter(gold_arguments, include_purpose=True)
+        if dtype == "import" else Counter()
+    )
+    gold_participants = _import_role_counter(gold_schedule, "electron_participant")
+    gold_context = _import_role_counter(gold_schedule, "endpoint_context")
     base = {
         "correct_tool": correct_tool,
         "decision_exact": False,
@@ -310,6 +323,10 @@ def score_prediction(
         "successor_chemical_exact": False,
         "import_fragment_exact": False,
         "import_schedule_exact": False,
+        "import_participant_exact": False,
+        "import_context_exact": False,
+        "gold_import_participant_copies": sum(gold_participants.values()),
+        "gold_import_context_copies": sum(gold_context.values()),
         "finish_exact": False,
         "execution_error": "",
     }
@@ -325,7 +342,6 @@ def score_prediction(
             predicted_fragments = _import_counter(predicted_arguments, include_purpose=False)
             gold_fragments = _import_counter(gold_arguments, include_purpose=False)
             predicted_schedule = _import_counter(predicted_arguments, include_purpose=True)
-            gold_schedule = _import_counter(gold_arguments, include_purpose=True)
             fragment_exact = predicted_fragments == gold_fragments
             schedule_exact = predicted_schedule == gold_schedule
             base.update(
@@ -333,6 +349,14 @@ def score_prediction(
                 argument_compile=True,
                 import_fragment_exact=fragment_exact,
                 import_schedule_exact=schedule_exact,
+                import_participant_exact=(
+                    _import_role_counter(predicted_schedule, "electron_participant")
+                    == gold_participants
+                ),
+                import_context_exact=(
+                    _import_role_counter(predicted_schedule, "endpoint_context")
+                    == gold_context
+                ),
             )
             return base
         if dtype != "event":
@@ -570,6 +594,27 @@ def _summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _import_role_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    n = len(rows)
+    result: dict[str, Any] = {"n": n}
+    for name in (
+        "correct_tool", "import_fragment_exact", "import_schedule_exact",
+    ):
+        count = sum(bool(row[name]) for row in rows)
+        result[name] = count
+        result[f"{name}_rate"] = count / n if n else None
+    for name, presence_key in (
+        ("import_participant_exact", "gold_import_participant_copies"),
+        ("import_context_exact", "gold_import_context_copies"),
+    ):
+        eligible = [row for row in rows if int(row[presence_key]) > 0]
+        count = sum(bool(row[name]) for row in eligible)
+        result[f"{name}_n"] = len(eligible)
+        result[name] = count
+        result[f"{name}_rate"] = count / len(eligible) if eligible else None
+    return result
+
+
 def aggregate(args: argparse.Namespace) -> int:
     adapter_lineage = validate_adapter_lineage(
         args.adapter, args.model, args.model_revision,
@@ -595,6 +640,40 @@ def aggregate(args: argparse.Namespace) -> int:
         name: _summary([row for row in rows if row["decision_type"] == name])
         for name in ("import", "event", "finish")
     }
+    by_import_role = None
+    if getattr(args, "import_role_breakdown", False):
+        imports = [row for row in rows if row["decision_type"] == "import"]
+        for row in imports:
+            if not all(field in row for field in (
+                "gold_import_participant_copies", "gold_import_context_copies",
+                "import_participant_exact", "import_context_exact",
+            )):
+                raise ValueError(f"import role metrics missing from prediction {row['key']}")
+            if int(row["gold_import_participant_copies"]) + int(row["gold_import_context_copies"]) < 1:
+                raise ValueError(f"gold import has no recognized fragment role: {row['key']}")
+        by_import_role = {
+            "participant_present": _import_role_summary([
+                row for row in imports if int(row["gold_import_participant_copies"]) > 0
+            ]),
+            "context_present": _import_role_summary([
+                row for row in imports if int(row["gold_import_context_copies"]) > 0
+            ]),
+            "participant_only": _import_role_summary([
+                row for row in imports
+                if int(row["gold_import_participant_copies"]) > 0
+                and int(row["gold_import_context_copies"]) == 0
+            ]),
+            "context_only": _import_role_summary([
+                row for row in imports
+                if int(row["gold_import_participant_copies"]) == 0
+                and int(row["gold_import_context_copies"]) > 0
+            ]),
+            "mixed": _import_role_summary([
+                row for row in imports
+                if int(row["gold_import_participant_copies"]) > 0
+                and int(row["gold_import_context_copies"]) > 0
+            ]),
+        }
     artifact_type = (
             "natural_language_event_gold_state_local_k1_v2"
             if args.sft_aligned_prefix
@@ -651,6 +730,8 @@ def aggregate(args: argparse.Namespace) -> int:
             Counter(row["execution_error"] for row in rows if row["execution_error"])
         ),
     }
+    if by_import_role is not None:
+        report["by_import_role"] = by_import_role
     (args.output / "evaluation.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -690,6 +771,10 @@ def main() -> int:
     parser.add_argument(
         "--sft-aligned-prefix", action="store_true",
         help="use the exact Qwen assistant boundary preceding Tool-SFT calls",
+    )
+    parser.add_argument(
+        "--import-role-breakdown", action="store_true",
+        help="report participant/context import accuracy; requires role-labelled gold rows",
     )
     args = parser.parse_args()
     return run(args) if args.command == "run" else aggregate(args)
