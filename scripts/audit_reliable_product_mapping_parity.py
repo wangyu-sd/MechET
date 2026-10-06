@@ -30,8 +30,10 @@ def sha256(path: Path) -> str:
 
 def audit(
     source: Path, decisions: Path, *, n: int, seed: int,
-    compact_history: bool = True,
+    compact_history: bool = True, max_imports: int = 64,
 ) -> dict:
+    if max_imports < 1:
+        raise ValueError("max_imports must be positive")
     rdkit_version = require_endpoint_process_rdkit()
     selected = read_selected(source, n, seed)
     if len(selected) != n or len({str(row["source_id"]) for row in selected}) != n:
@@ -66,7 +68,10 @@ def audit(
             continue
         counts["root_prompt_exact"] += 1
         try:
-            replay_reference(row, gold, compact_history=compact_history)
+            replay_reference(
+                row, gold, compact_history=compact_history,
+                max_imports=max_imports,
+            )
             counts["original_private_map_replay_ok"] += 1
         except Exception as exc:
             counts["original_private_map_replay_failed"] += 1
@@ -77,7 +82,10 @@ def audit(
             continue
         remapped = dict(row, target_smiles=canonical)
         try:
-            replay_reference(remapped, gold, compact_history=compact_history)
+            replay_reference(
+                remapped, gold, compact_history=compact_history,
+                max_imports=max_imports,
+            )
             counts["product_only_remap_replay_ok"] += 1
         except Exception as exc:
             counts["product_only_remap_replay_failed"] += 1
@@ -93,6 +101,7 @@ def audit(
         "decisions": str(decisions), "decisions_sha256": sha256(decisions),
         "n_reactions": n, "seed": seed, "counts": dict(counts),
         "rdkit_version": rdkit_version,
+        "max_imports": max_imports,
         "observation_contract": (
             "compressed_history" if compact_history else "state_only"
         ),
@@ -112,11 +121,12 @@ def main() -> int:
     parser.add_argument("--n", type=int, required=True)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--state-only", action="store_true")
+    parser.add_argument("--max-imports", type=int, default=64)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     report = audit(
         args.source, args.decisions, n=args.n, seed=args.seed,
-        compact_history=not args.state_only,
+        compact_history=not args.state_only, max_imports=args.max_imports,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")

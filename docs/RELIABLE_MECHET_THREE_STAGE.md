@@ -326,12 +326,16 @@ gold successors in that sample. Neither trial is a validated drop-in executor
 repair, so the frozen training runtime is unchanged.
 The exact Stage-III preparation selection was also audited without changing
 training or dropping cases: `read_selected` with seed 17 chooses 640 reactions
-from the frozen 257,167-row strict train source. All 640 original-private-map
+from the frozen 257,167-row strict train source. The audit was rerun with the
+same **32-import budget** as the formal Stage-III collector, rather than the
+reference replayer's 64-import default. All 640 original-private-map
 references replay; only **614/640** replay after the product-only private remap.
 The other **26/640 (4.06%)** have a different executed successor at decision 1
 (20 reactions) or decision 3 (six reactions). The source and compressed-history
-decision SHA-256 values match their training manifests. The read-only report is
-`outputs/eval/reliable_mechet_history_mapping_parity_earho_train640_20261007.json`
+decision SHA-256 values match their training manifests. The 32-import run's
+counts and failure records are exactly the same as the preceding 64-import
+audit. The read-only budget-matched report is
+`outputs/eval/reliable_mechet_history_mapping_parity_earho_train640_budget32_20261007.json`
 in the shared artifact repository. This is an executor/representation audit,
 **not** a Stage-III model score. As implemented, Stage-III reference replay and
 first-divergence probing start from the source's original private mapped target,
@@ -346,13 +350,14 @@ private map views in **26/26**; the reference successor appeared in both sets,
 and no enumeration hit its cap. This supports a set-valued representation of
 the ambiguous action, not an inference-time rule for selecting a single
 successor. The report is
-`outputs/eval/reliable_mechet_history_mapping_failure_train640_20261007.json`.
+`outputs/eval/reliable_mechet_history_mapping_failure_train640_budget32_20261007.json`.
+The classifier uses the audit's recorded 32-import budget rather than its
+legacy 64-import default.
 Future parity audits record the RDKit version, and the classifier rejects an
 artifact from a different recorded RDKit version before scanning source files;
 both scripts reject executor-incompatible older RDKit releases. The two
-existing train/validation audit artifacts predate that metadata field, so
-their frozen source hashes and the classifier's recorded runtime remain the
-evidence for those specific runs.
+earlier 64-import train and validation audit artifacts predate that metadata
+field; the new 32-import training audit records RDKit 2026.03.4 explicitly.
 State-SFT and Trajectory-SFT have different reference-decision files and
 prompt contracts, so their parity reports must be built separately with the
 same 2,890 source reactions. The State-SFT audit uses `--state-only`; the
@@ -588,6 +593,19 @@ and `outputs/eval/reliable_mechet_state_ckpt11000_k1_t4_512_provisional_20261007
 in the shared artifact tree. The 128-token K=5 run also completed its five
 independent episodes but had no terminal, so it does not establish Top@5 gain
 (`outputs/eval/reliable_mechet_state_ckpt11000_k5_t4_provisional_20261007/`).
+
+A subsequent **provisional** `checkpoint-14000` product-only K=1 diagnostic
+used 16 frozen validation reactions, 512 tokens per decision, one T4/FP16
+policy, 40 accepted decisions and 32 imports. All 16 independent episodes
+were generated and replay-verified. Four reached the recorded structural
+precursor through a terminal trajectory with an accepted electron event:
+**Pass@1 = 4/16**. Of the other 12, eight terminated at a different structural
+precursor and four did not terminate. Only four of 93 parsed proposals were
+formally rejected by the executor, so formal executability is not the same as
+endpoint recovery. These 16 selected validation reactions and unfinished
+weights are diagnostic only; 4/16 is **not** a final validation or test estimate.
+The report, per-case scores and replayable action shards are in
+`outputs/eval/reliable_mechet_state_ckpt14000_valid16_k1_t4_provisional_20261007/`.
 
 ## Multi-step planning
 

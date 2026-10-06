@@ -149,7 +149,7 @@ def enumerate_kekule_successors(
 
 def classify_first_divergence(
     source: dict, decisions: list[dict], *, branch_probe: bool = False,
-    set_probe: bool = False,
+    set_probe: bool = False, max_imports: int = 64,
 ) -> dict:
     state = product_only_private_state(str(source["target_smiles"]))
     original_state = str(source["target_smiles"])
@@ -167,7 +167,8 @@ def classify_first_divergence(
             raise ValueError("noncontiguous decision indices")
         name, arguments, result = decision_action(row)
         original_child, original_error = execute(
-            original_node, Action(name, arguments, "reference", 0.0, 1), max_imports=64,
+            original_node, Action(name, arguments, "reference", 0.0, 1),
+            max_imports=max_imports,
         )
         if original_child is None:
             raise ValueError(f"original-map reference replay failed: {original_error}")
@@ -180,7 +181,8 @@ def classify_first_divergence(
             if name == "apply_electron_flow" else []
         )
         child, error = execute(
-            node, Action(name, arguments, "reference", 0.0, 1), max_imports=64,
+            node, Action(name, arguments, "reference", 0.0, 1),
+            max_imports=max_imports,
         )
         if child is None:
             return {"decision_index": index, "decision_type": name,
@@ -291,6 +293,9 @@ def classify(
             "parity audit RDKit version differs from classifier runtime: "
             f"{audit['rdkit_version']} != {rdkit_version}"
         )
+    max_imports = int(audit.get("max_imports", 64))
+    if max_imports < 1:
+        raise ValueError("parity audit max_imports must be positive")
     source, decisions = Path(audit["source"]), Path(audit["decisions"])
     if _sha256(source) != audit["source_sha256"] or _sha256(decisions) != audit["decisions_sha256"]:
         raise ValueError("audit source/decision SHA mismatch")
@@ -326,6 +331,7 @@ def classify(
             **classify_first_divergence(
                 sources[source_id], rows,
                 branch_probe=branch_probe, set_probe=set_probe,
+                max_imports=max_imports,
             ),
         })
     report = {
@@ -334,6 +340,7 @@ def classify(
         "source_sha256": audit["source_sha256"],
         "decisions_sha256": audit["decisions_sha256"],
         "rdkit_version": rdkit_version,
+        "max_imports": max_imports,
         "denominator": len(cases),
         "class_counts": dict(Counter(item["class"] for item in cases)),
         "first_decision_counts": dict(Counter(item["decision_index"] for item in cases)),
