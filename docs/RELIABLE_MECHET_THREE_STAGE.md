@@ -93,7 +93,7 @@ validation estimate, product-start endpoint result or proof that later stages
 will succeed. The complete report is in shared artifacts at
 `outputs/eval/reliable_mechet_state_ckpt7000_valid4_t4_probe_20261007/evaluation.json`.
 
-A broader but still **provisional** Stage-I `checkpoint-14000` diagnostic used
+A broader but still **provisional** initial Stage-I `checkpoint-14000` diagnostic used
 16 frozen validation reactions (123 one-decision, gold-state prompts), the
 same T4/FP16, greedy SFT-aligned tool prefix and replay-derived private
 scoring states. All 123 decisions were scored. Electron-event tool choice was
@@ -107,6 +107,16 @@ The frozen report and checkpoint hash are in
 `outputs/eval/reliable_mechet_state_ckpt14000_valid16_t4_provisional_20261007/evaluation.json`.
 These numbers diagnose local action learning and fragment-selection weakness;
 they are **not** product-start endpoint accuracy or a selected final checkpoint.
+That initial local run used batched FP16 decoding but did not record batch size
+in its audit. A new **singleton batch=1** run on the same 16 IDs, adapter SHA,
+123 gold-state decisions and T4/FP16 setup completed with no missing decisions.
+It selected the electron-event tool on 61/63 reference events, executed 58/63,
+and exactly matched 43/63; import-fragment agreement remained **9/44**, and
+finish agreement remained **15/16**. Exactly three of 123 predicted tool calls
+changed relative to the earlier batched artifact. The singleton report is
+`outputs/eval/reliable_mechet_state_ckpt14000_valid16_bs1_t4_provisional_20261007/evaluation.json`.
+This new report is the matched local comparator for the singleton product-start
+K=1 diagnostic below; neither is final-model accuracy.
 
 The exact-import metric needs a role breakdown. A SHA-bound audit of the
 frozen State-SFT rows (`scripts/audit_reliable_import_supervision.py`) found:
@@ -638,23 +648,24 @@ and two of the 14 mismatches nevertheless reached the recorded structural
 endpoint; import disagreement is therefore neither a proof of chemical
 impossibility nor a sufficient explanation for every endpoint miss. For all
 16 reactions, the independently reconstructed product-start user prompt
-is byte-identical to the corresponding first State-SFT user prompt. The local
-one-decision and autonomous evaluations generated identical first tool names
-and arguments on 15/16 cases; the remaining case (`val_1256`) differs despite
-prompt equality, so these two generation implementations should not be
-claimed byte-identical merely from matching prompts and adapter hashes. A
+is byte-identical to the corresponding first State-SFT user prompt. The
+initial batched local and singleton autonomous evaluations generated identical
+first tool names and arguments on 15/16 cases; the **batch=1 local rerun matches
+all 16/16** first tool names and arguments. A
 controlled T4/FP16 repeat of that first decision with the same adapter and
 prompt produced different imported fragments at decode batch sizes 1, 2 and
 4 (`C[O-]`, `CC(=O)[O-]` and `C1CCOC1`, respectively). The replay-scored local
 evaluator now binds decode batch size in its run fingerprint and report; the
-older local report did not. A batch-one local rerun is needed before comparing
-its individual greedy actions directly with singleton product-start decoding.
-In the singleton episode, `flower_mech_proof_val_1256` first imported methoxide
-instead of the
-recorded bromomethoxyborane and did not terminate, while
+older local report did not. In the singleton episode,
+`flower_mech_proof_val_1256` first imported methoxide instead of the recorded
+bromomethoxyborane and did not terminate, while
 `flower_mech_proof_val_2344` first imported neutral rather than recorded
 protonated hydroxybenzotriazole and still reached the structural endpoint.
-This is a **paired failure-mode diagnostic**, not a final validation estimate:
+On these same 16 IDs with singleton decoding, 43/63 reference-state electron
+events match locally, whereas 3/16 complete product-start episodes hit the
+recorded structural endpoint. Those numerators have different units and should
+not be subtracted as accuracy percentages. This is a **paired failure-mode
+diagnostic**, not a final validation estimate:
 the checkpoint was 14,000/31,366 steps, and the sample has only 16 reactions.
 Its independent audit, per-case table, and replayable episodes are in shared
 artifacts at
