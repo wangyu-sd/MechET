@@ -79,20 +79,66 @@ def validate_parent(
     return digest
 
 
+def validate_stage2_child(
+    parent: Path, *, project_root: Path,
+    stage1_config: dict[str, Any], stage2_config: dict[str, Any],
+) -> None:
+    """Require Stage II to consume the exact adapter that passed the parent gate."""
+    def resolve_config_path(value: Any, field: str) -> Path:
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError(f"Stage-II lineage path is missing: {field}")
+        path = Path(text)
+        return (path if path.is_absolute() else project_root / path).resolve()
+
+    configured = str(stage2_config.get("initial_adapter_path") or "").strip()
+    if not configured:
+        raise ValueError("Stage-II initial_adapter_path is missing")
+    stage1_output = resolve_config_path(stage1_config.get("output_dir"), "Stage-I output_dir")
+    if parent.resolve() != stage1_output:
+        raise ValueError("validated Stage-I parent path differs from Stage-I output_dir")
+    resolved = resolve_config_path(configured, "initial_adapter_path")
+    if resolved != parent.resolve():
+        raise ValueError("Stage-II initial_adapter_path differs from validated Stage-I parent")
+    if stage2_config.get("model_name_or_path") != stage1_config.get("model_name_or_path"):
+        raise ValueError("Stage-II base model differs from Stage I")
+    if ((stage2_config.get("training") or {}).get("model_revision")
+            != (stage1_config.get("training") or {}).get("model_revision")):
+        raise ValueError("Stage-II base revision differs from Stage I")
+    if (stage2_config.get("lora") or {}) != (stage1_config.get("lora") or {}):
+        raise ValueError("Stage-II LoRA settings differ from inherited Stage-I adapter")
+    contract = dict(stage2_config.get("contract") or {})
+    if contract.get("stage") != "trajectory_sft" or contract.get("parent_stage") != "state_sft":
+        raise ValueError("Stage-II contract is not trajectory SFT from State-SFT")
+    training = dict(stage2_config.get("training") or {})
+    if training.get("assistant_only_loss") is not True or training.get("packing") is not False:
+        raise ValueError("Stage-II changed assistant-only or packing supervision")
+    if resolve_config_path(stage2_config.get("output_dir"), "output_dir") == stage1_output:
+        raise ValueError("Stage-II output would overwrite Stage-I artifacts")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--parent", type=Path, required=True)
     parser.add_argument("--expected-sha256", required=True)
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--child-config", type=Path, required=True)
+    parser.add_argument("--project-root", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     args = parser.parse_args()
     import yaml
 
+    stage1_config = yaml.safe_load(args.config.read_text(encoding="utf-8"))
+    stage2_config = yaml.safe_load(args.child_config.read_text(encoding="utf-8"))
     digest = validate_parent(
         args.parent,
         expected_sha256=args.expected_sha256,
-        stage1_config=yaml.safe_load(args.config.read_text(encoding="utf-8")),
+        stage1_config=stage1_config,
         stage1_manifest=_read_json(args.manifest),
+    )
+    validate_stage2_child(
+        args.parent, project_root=args.project_root,
+        stage1_config=stage1_config, stage2_config=stage2_config,
     )
     print(f"[reliable-mechet] Stage-I final adapter lineage verified sha256={digest}", flush=True)
 

@@ -1,15 +1,16 @@
+from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
 
 import pytest
 
-from scripts.validate_reliable_stage2_parent import validate_parent
+from scripts.validate_reliable_stage2_parent import validate_parent, validate_stage2_child
 
 
 def _fixture(tmp_path: Path):
-    parent = tmp_path / "final_state_adapter"
-    parent.mkdir()
+    parent = tmp_path / "outputs/agent/state"
+    parent.mkdir(parents=True)
     weights = b"completed-stage-one-weights"
     (parent / "adapter_model.safetensors").write_bytes(weights)
     (parent / "adapter_config.json").write_text("{}", encoding="utf-8")
@@ -100,3 +101,49 @@ def test_stage_two_task_template_is_fail_closed_and_streams_logs():
     assert "REPLACE_WITH_FROZEN_STAGE_I_WEIGHTS_SHA256" in task["start_cmd"]
     assert "taiji_run_with_heartbeat.sh" in task["start_cmd"]
     assert "TAIJI_MIRROR_PID1_STDOUT=1" in task["start_cmd"]
+
+
+def test_stage_two_child_must_load_the_parent_that_passed_the_sha_gate(tmp_path: Path):
+    parent, _, stage1, _ = _fixture(tmp_path)
+    stage1["lora"] = {"r": 16, "alpha": 32}
+    child = {
+        "initial_adapter_path": str(parent),
+        "model_name_or_path": stage1["model_name_or_path"],
+        "output_dir": "outputs/agent/trajectory",
+        "training": {"model_revision": "frozen-revision", "assistant_only_loss": True,
+                     "packing": False},
+        "lora": stage1["lora"],
+        "contract": {"stage": "trajectory_sft", "parent_stage": "state_sft"},
+    }
+    validate_stage2_child(
+        parent, project_root=tmp_path,
+        stage1_config=stage1, stage2_config=child,
+    )
+    mutations = (
+        ("initial_adapter_path", str(tmp_path / "another_adapter"), "initial_adapter_path"),
+        ("model_name_or_path", "Qwen/Qwen3-8B", "base model"),
+        ("output_dir", stage1["output_dir"], "overwrite"),
+    )
+    for field, value, error in mutations:
+        modified = deepcopy(child)
+        modified[field] = value
+        with pytest.raises(ValueError, match=error):
+            validate_stage2_child(
+                parent, project_root=tmp_path,
+                stage1_config=stage1, stage2_config=modified,
+            )
+    modified = deepcopy(child)
+    modified["training"]["model_revision"] = "different-revision"
+    with pytest.raises(ValueError, match="base revision"):
+        validate_stage2_child(parent, project_root=tmp_path,
+                              stage1_config=stage1, stage2_config=modified)
+    modified = deepcopy(child)
+    modified["lora"]["r"] = 32
+    with pytest.raises(ValueError, match="LoRA settings"):
+        validate_stage2_child(parent, project_root=tmp_path,
+                              stage1_config=stage1, stage2_config=modified)
+    modified = deepcopy(child)
+    modified["training"]["assistant_only_loss"] = False
+    with pytest.raises(ValueError, match="assistant-only"):
+        validate_stage2_child(parent, project_root=tmp_path,
+                              stage1_config=stage1, stage2_config=modified)

@@ -557,6 +557,16 @@ is at `configs/taiji/meteor_mechet_reliable_trajectory_06b_1ep_8a100_qy_TEMPLATE
 its run ID, parent SHA and private Ceph init command must be replaced only
 after Stage I finishes. Stage III remains disabled until the Stage-II SHA-256
 is frozen.
+The allocated-host gate additionally checks that Stage II's *configured*
+`initial_adapter_path` resolves to the same Stage-I directory whose final
+weight SHA passed validation. It rejects changed base revision, LoRA shape,
+supervision mode, or an output directory that would overwrite Stage I.
+The trainer's configured train/validation/test files, local token cache and
+output directory must match the manifest locations that the launcher validates.
+Before the cached Arrow rows are used, the train and validation JSONL bytes
+are streamed through SHA-256 and checked against both the frozen dataset and
+cache manifests; a matching manifest alone is not accepted as evidence that
+the underlying source files are unchanged.
 The trainer supplies length-grouped sampling with exact Arrow-vectorized token
 lengths; it does not ask every DDP rank to Python-format all 2,007,421 rows
 merely to build the sampler. This changes no example, order policy or loss.

@@ -43,19 +43,45 @@ test -f "$data_dir/manifest.json"
 test -f "$data_dir/ARTIFACT_STATUS.json"
 test -f "$data_dir/qwen3_0_6b_tokens_4096/manifest.json"
 test -d "$shared_hf_cache/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca"
+if [[ -s $output/adapter_model.safetensors ]]; then
+  echo "[reliable-mechet] final adapter already exists; refusing duplicate training" >&2
+  exit 3
+fi
 
-python - "$config" "$data_dir" "$stage" "$expected_gpu" <<'PY'
-import json, sys, yaml
+if [[ $stage == trajectory ]]; then
+  parent=$shared_repo/outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
+  python "$runtime_repo/scripts/validate_reliable_stage2_parent.py" \
+    --parent "$parent" \
+    --expected-sha256 "$MECHET_RELIABLE_EXPECTED_PARENT_SHA256" \
+    --config "$runtime_repo/configs/agent/natural_language_event_v2_qwen3_0_6b.yaml" \
+    --child-config "$config" \
+    --project-root "$shared_repo" \
+    --manifest "$shared_repo/data/flower_natural_language_event_sft_v2/manifest.json"
+fi
+
+python - "$config" "$data_dir" "$stage" "$expected_gpu" "$output" <<'PY'
+import hashlib, json, sys, yaml
 from pathlib import Path
 import torch
 
 config = yaml.safe_load(Path(sys.argv[1]).read_text())
-data_dir, stage, expected_gpu = Path(sys.argv[2]), sys.argv[3], sys.argv[4]
+data_dir, stage, expected_gpu, output = Path(sys.argv[2]), sys.argv[3], sys.argv[4], Path(sys.argv[5])
 manifest = json.loads((data_dir / 'manifest.json').read_text())
 status = json.loads((data_dir / 'ARTIFACT_STATUS.json').read_text())
 cache = json.loads((data_dir / 'qwen3_0_6b_tokens_4096/manifest.json').read_text())
 expected = {'train': 257167, 'valid': 2890, 'test': 28967}
 assert manifest['training_allowed'] is True and status['training_allowed'] is True
+for key, filename in (
+    ('train_file', 'train.jsonl'), ('validation_file', 'valid.jsonl'),
+    ('test_file', 'test.jsonl'),
+):
+    assert Path(config[key]).resolve() == (data_dir / filename).resolve(), key
+assert Path(config['pretokenized_cache_dir']).resolve() == (
+    data_dir / 'qwen3_0_6b_tokens_4096'
+).resolve()
+assert Path(config['output_dir']).resolve() == output.resolve()
+if stage == 'state':
+    assert not config.get('initial_adapter_path')
 assert manifest['reaction_denominator'] == config['contract']['reaction_denominator'] == expected
 assert manifest['decision_rows'] == {'train': 2007421, 'valid': 22341, 'test': 225613}
 assert cache['model_name_or_path'] == config['model_name_or_path'] == 'Qwen/Qwen3-0.6B'
@@ -63,6 +89,18 @@ assert cache['model_revision'] == config['training']['model_revision']
 assert cache['max_length'] == config['training']['max_length'] == 4096
 assert cache['sources']['train']['sha256'] == manifest['splits']['train']['output_sha256']
 assert cache['sources']['validation']['sha256'] == manifest['splits']['valid']['output_sha256']
+for split, filename, cache_split in (
+    ('train', 'train.jsonl', 'train'), ('valid', 'valid.jsonl', 'validation'),
+):
+    path = data_dir / filename
+    digest = hashlib.sha256()
+    with path.open('rb') as stream:
+        for chunk in iter(lambda: stream.read(16 << 20), b''):
+            digest.update(chunk)
+    expected_sha = manifest['splits'][split]['output_sha256']
+    assert digest.hexdigest() == expected_sha == cache['sources'][cache_split]['sha256'], split
+    print({'gate': 'source_bytes_match_frozen_cache', 'split': split,
+           'bytes': path.stat().st_size, 'sha256': expected_sha}, flush=True)
 assert cache['splits']['train']['n_rows'] == manifest['decision_rows']['train']
 assert cache['splits']['validation']['n_rows'] == manifest['decision_rows']['valid']
 assert cache['splits']['train']['truncation_count'] == 0
@@ -80,20 +118,6 @@ assert torch.cuda.is_bf16_supported()
 print({'gate': 'passed', 'stage': stage, 'reactions': expected,
        'decisions': manifest['decision_rows'], 'gpus': names}, flush=True)
 PY
-
-if [[ $stage == trajectory ]]; then
-  parent=$shared_repo/outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
-  python "$runtime_repo/scripts/validate_reliable_stage2_parent.py" \
-    --parent "$parent" \
-    --expected-sha256 "$MECHET_RELIABLE_EXPECTED_PARENT_SHA256" \
-    --config "$runtime_repo/configs/agent/natural_language_event_v2_qwen3_0_6b.yaml" \
-    --manifest "$shared_repo/data/flower_natural_language_event_sft_v2/manifest.json"
-fi
-
-if [[ -s $output/adapter_model.safetensors ]]; then
-  echo "[reliable-mechet] final adapter already exists; refusing duplicate training" >&2
-  exit 3
-fi
 
 cache_dir=$data_dir/qwen3_0_6b_tokens_4096
 local_cache=$(mktemp -d /tmp/mechet_reliable_tokens.XXXXXX)
