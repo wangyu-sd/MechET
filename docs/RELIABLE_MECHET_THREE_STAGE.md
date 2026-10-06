@@ -107,6 +107,16 @@ Required measurements include:
 
 The endpoint is still read only from the terminal executed state.
 
+The Stage-II warm-start path has an explicitly provisional single-update smoke:
+`scripts/smoke_reliable_stage2_parent.py` loaded Stage-I `checkpoint-3000`
+(3,000/31,366 steps), encoded an actual compressed-history electron-event
+decision with one accepted prior import (1,274 input / 166 supervised tokens),
+and ran one FP16/T4 optimizer update. The loss was finite (0.0160), the LoRA
+gradient norm was nonzero, and a LoRA tensor changed. No weights were saved.
+This proves that the Stage-II data, assistant mask, pinned 0.6B base, parent
+adapter and training step are compatible; it does **not** establish Stage-II
+quality or authorize continuation before the final Stage-I adapter SHA is frozen.
+
 ## Stage III -- EARHO
 
 Template:
