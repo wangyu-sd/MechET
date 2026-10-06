@@ -1,5 +1,36 @@
 # Active ICLR status
 
+## 2026-10-07: current reliable-MechET PR #82 handoff
+
+PR #82 is the active lower-cost journal extension of the mechanism-first
+three-stage lineage. Its current implementation authority is
+`docs/RELIABLE_MECHET_THREE_STAGE.md`; the dated ICLR notes below are historical
+and must not be treated as a live Taiji task list. This does not rename the
+older A7 conditions or turn the executable trace view into unqualified
+"FlowER full".
+
+- Stage I is Qwen3-0.6B State-SFT on the **257,167 / 2,890 / 28,967**
+  strict-executable reaction split. The Zhangjiakou 8xH20 candidate
+  `meteor_mechet_reliable_state_06b_1ep_8h20_zjk_20261006_01` was cancelled
+  while waiting for resources; it had no training POD or result. Its replacement
+  `meteor_mechet_reliable_state_06b_1ep_8a100_qy_20261006_01` is running on
+  Qingyuan 8xA100. At the last artifact check on 2026-10-07 06:45 CST, its
+  latest checkpoint was step 16,000/31,366 and no final adapter existed.
+- Stage II compressed-history Trajectory-SFT must warm-start from the **final**
+  Stage-I adapter after its SHA-256 gate. Stage III EARHO must likewise wait
+  for the final Stage-II SHA-256. Neither stage has been submitted. No formal
+  28,971-row endpoint or 28,967-row process test result exists for this new
+  three-stage 0.6B run yet.
+- The checkpoint-14000 validation pilot is **provisional**, not a final-model
+  result: on 16 identical reaction IDs, singleton gold-state decoding matched
+  43/63 electron events, while independent product-only K=1 replay reached
+  3/16 recorded structural endpoints. The first tool call matched between
+  these two singleton evaluations on 16/16 reactions. The local evaluator now
+  binds decode batch size; old batched local numbers are not silently pooled.
+
+Check the current Taiji instance, adapter files and PR checks afresh before
+reporting completion or submitting the next stage.
+
 ## 2026-09-18: natural-language protocol v2 repair
 
 Keep the agreed mechanism-first method.  The current implementation authority
@@ -25,7 +56,7 @@ that either training stage has started or completed.
 > If an older operational note in `PROJECT_MEMORY.md` conflicts with this file,
 > this file wins for **current experiment priority and A7 observation choice**.
 
-Last updated: 2026-09-17.
+Historical ICLR section last updated: 2026-09-17.
 
 ## Current three-stage method decision
 
