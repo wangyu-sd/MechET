@@ -25,6 +25,39 @@ def _jsonl(path: Path):
                 yield json.loads(line)
 
 
+def validate_adapter_identity(
+    *, adapter: Path | None, expected_sha256: str | None, stage: str | None,
+) -> dict[str, str] | None:
+    """Bind a formal result to the same frozen weights checked before inference."""
+
+    if adapter is None and expected_sha256 is None and stage is None:
+        return None
+    if adapter is None or expected_sha256 is None or stage not in {"state", "trajectory"}:
+        raise ValueError("formal evaluation requires adapter, expected SHA-256 and stage")
+    if len(expected_sha256) != 64 or any(c not in "0123456789abcdef" for c in expected_sha256):
+        raise ValueError("expected adapter SHA-256 is malformed")
+    from scripts.run_natural_language_value_search import validate_v2_adapter_manifest
+
+    metadata = validate_v2_adapter_manifest(
+        adapter, compact_history=stage == "trajectory",
+        expected_model="Qwen/Qwen3-0.6B",
+        expected_revision="c1899de289a04d12100db370d81485cdf75e47ca",
+    )
+    weights = adapter / "adapter_model.safetensors"
+    actual_sha256 = _sha256(weights)
+    if actual_sha256 != expected_sha256:
+        raise ValueError("adapter weights changed since inference began")
+    return {
+        "stage": stage,
+        "path": str(adapter.resolve()),
+        "adapter_model_sha256": actual_sha256,
+        "adapter_manifest_sha256": _sha256(adapter / "adapter_manifest.json"),
+        "base_model": str(metadata["base_model"]),
+        "base_model_revision": str(metadata["base_model_revision"]),
+        "environment_revision": str(metadata["environment_revision"]),
+    }
+
+
 def validate_source(
     *, source: Path, manifest: Path, expected_rows: int = 28971,
     check_product_only_mapping: bool = False,
@@ -68,9 +101,14 @@ def validate_source(
 def audit(
     *, source: Path, manifest: Path, results_dir: Path,
     expected_rows: int = 28971,
+    adapter: Path | None = None, expected_adapter_sha256: str | None = None,
+    stage: str | None = None,
 ) -> dict[str, Any]:
     source_ids, source_sha = validate_source(
         source=source, manifest=manifest, expected_rows=expected_rows,
+    )
+    adapter_identity = validate_adapter_identity(
+        adapter=adapter, expected_sha256=expected_adapter_sha256, stage=stage,
     )
 
     shard_paths = sorted(results_dir.glob("results.shard-*.jsonl"))
@@ -95,9 +133,14 @@ def audit(
             full_exact += bool(row["top1_full_exact"])
 
     return {
-        "artifact_type": "reliable_mechet_full_endpoint_test_audit_v1",
+        "artifact_type": (
+            "reliable_mechet_full_endpoint_test_audit_v1"
+            if adapter_identity is not None
+            else "reliable_mechet_full_endpoint_test_unbound_diagnostic_v1"
+        ),
         "source": str(source),
         "source_sha256": source_sha,
+        "adapter_identity": adapter_identity,
         "manifest": str(manifest),
         "test_denominator": expected_rows,
         "observed_predictions": len(observed),
@@ -122,10 +165,17 @@ def main() -> int:
     parser.add_argument("--results-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-rows", type=int, default=28971)
+    parser.add_argument("--adapter", type=Path)
+    parser.add_argument("--expected-adapter-sha256")
+    parser.add_argument("--stage", choices=("state", "trajectory"))
     args = parser.parse_args()
+    if args.adapter is None or args.expected_adapter_sha256 is None or args.stage is None:
+        parser.error("formal full-endpoint audit requires --adapter, --expected-adapter-sha256 and --stage")
     report = audit(
         source=args.source, manifest=args.manifest,
         results_dir=args.results_dir, expected_rows=args.expected_rows,
+        adapter=args.adapter, expected_adapter_sha256=args.expected_adapter_sha256,
+        stage=args.stage,
     )
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False), flush=True)

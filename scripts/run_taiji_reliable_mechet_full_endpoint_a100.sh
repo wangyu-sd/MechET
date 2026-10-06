@@ -70,6 +70,8 @@ print({'gate': 'full_endpoint_source_and_adapter_valid', 'stage': stage,
        'rows': len(ids), 'source_sha256': digest, 'gpus': names}, flush=True)
 PY
 
+adapter_sha=$(sha256sum "$adapter/adapter_model.safetensors" | cut -d' ' -f1)
+echo "[reliable-full-endpoint] frozen adapter_sha256=$adapter_sha"
 echo "[reliable-full-endpoint] stage=$stage K=1 product-only test=28971"
 torchrun --standalone --nproc_per_node=8 \
   "$runtime_repo/scripts/run_natural_language_value_search.py" \
@@ -84,4 +86,5 @@ torchrun --standalone --nproc_per_node=8 \
   --value-weight 0 --no-4bit
 python -u "$runtime_repo/scripts/audit_reliable_full_endpoint_eval.py" \
   --source "$source_data" --manifest "$source_manifest" \
-  --results-dir "$output" --output "$output/full_endpoint_audit.json"
+  --results-dir "$output" --output "$output/full_endpoint_audit.json" \
+  --adapter "$adapter" --expected-adapter-sha256 "$adapter_sha" --stage "$stage"

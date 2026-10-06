@@ -459,6 +459,13 @@ before it can support the reliability claim. The critical evidence is the
 matched progression across State-SFT, Trajectory-SFT and EARHO under one frozen
 0.6B protocol.
 
+Both formal full-endpoint and strict-view launchers freeze the adapter weight
+SHA-256 immediately before inference. Their independent post-run audits require
+the same weight bytes afterward, revalidate the stage-specific adapter manifest,
+and record the adapter weight/manifest hashes and pinned base revision in each
+score report. This prevents a completed test score from being attributed to a
+different checkpoint; it does not by itself make the chemistry correct.
+
 ## Multi-step planning
 
 Multi-step planning is evaluated after the one-step three-stage policy is

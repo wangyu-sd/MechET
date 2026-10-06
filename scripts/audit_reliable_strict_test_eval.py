@@ -9,7 +9,9 @@ import json
 from pathlib import Path
 from typing import Any
 
-from scripts.audit_reliable_full_endpoint_eval import _jsonl, _sha256
+from scripts.audit_reliable_full_endpoint_eval import (
+    _jsonl, _sha256, validate_adapter_identity,
+)
 
 
 def validate_source(
@@ -49,9 +51,14 @@ def validate_source(
 def audit(
     *, source: Path, manifest: Path, results_dir: Path,
     expected_rows: int = 28967,
+    adapter: Path | None = None, expected_adapter_sha256: str | None = None,
+    stage: str | None = None,
 ) -> dict[str, Any]:
     source_ids, source_sha = validate_source(
         source=source, manifest=manifest, expected_rows=expected_rows,
+    )
+    adapter_identity = validate_adapter_identity(
+        adapter=adapter, expected_sha256=expected_adapter_sha256, stage=stage,
     )
     shards = sorted(results_dir.glob("results.shard-*.jsonl"))
     if not shards:
@@ -92,8 +99,13 @@ def audit(
             rejected_causes.update(rejected)
 
     return {
-        "artifact_type": "reliable_mechet_strict_process_test_audit_v1",
+        "artifact_type": (
+            "reliable_mechet_strict_process_test_audit_v1"
+            if adapter_identity is not None
+            else "reliable_mechet_strict_process_test_unbound_diagnostic_v1"
+        ),
         "source": str(source), "source_sha256": source_sha,
+        "adapter_identity": adapter_identity,
         "manifest": str(manifest),
         "test_denominator": expected_rows,
         "observed_predictions": len(observed),
@@ -123,9 +135,16 @@ def main() -> int:
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--results-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--adapter", type=Path)
+    parser.add_argument("--expected-adapter-sha256")
+    parser.add_argument("--stage", choices=("state", "trajectory"))
     args = parser.parse_args()
+    if args.adapter is None or args.expected_adapter_sha256 is None or args.stage is None:
+        parser.error("formal strict-test audit requires --adapter, --expected-adapter-sha256 and --stage")
     report = audit(
         source=args.source, manifest=args.manifest, results_dir=args.results_dir,
+        adapter=args.adapter, expected_adapter_sha256=args.expected_adapter_sha256,
+        stage=args.stage,
     )
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False), flush=True)

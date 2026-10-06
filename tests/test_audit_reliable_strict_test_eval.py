@@ -49,6 +49,7 @@ def test_strict_audit_keeps_missing_in_reaction_denominator(tmp_path: Path):
     )
     assert len(ids) == 3
     report = audit(source=source, manifest=manifest, results_dir=results, expected_rows=3)
+    assert report["artifact_type"].endswith("_unbound_diagnostic_v1")
     assert report["observed_predictions"] == 2
     assert report["missing_predictions"] == 1
     assert report["structural_accuracy"] == pytest.approx(1 / 3)
@@ -84,3 +85,31 @@ def test_strict_launcher_keeps_own_input_and_denominator():
     assert "--matched-v2 --product-only-remap" in launcher
     assert "--branching 1 --early-beam 1 --late-beam 1" in launcher
     assert "audit_reliable_strict_test_eval.py" in launcher
+    assert "--expected-adapter-sha256 \"$adapter_sha\" --stage \"$stage\"" in launcher
+
+
+def test_strict_audit_records_trajectory_adapter_identity(tmp_path: Path):
+    source, manifest, results, _, _ = _fixture(tmp_path)
+    adapter = tmp_path / "adapter"
+    adapter.mkdir()
+    weights = adapter / "adapter_model.safetensors"
+    weights.write_bytes(b"trajectory-weights")
+    (adapter / "adapter_manifest.json").write_text(json.dumps({
+        "base_model": "Qwen/Qwen3-0.6B",
+        "base_model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+        "environment_revision": "natural_language_electron_event_history_v2",
+        "executor_revision": "MECH_PROOF_v1_full_coverage_v4",
+    }))
+    digest = hashlib.sha256(weights.read_bytes()).hexdigest()
+    report = audit(
+        source=source, manifest=manifest, results_dir=results, expected_rows=3,
+        adapter=adapter, expected_adapter_sha256=digest, stage="trajectory",
+    )
+    assert report["artifact_type"] == "reliable_mechet_strict_process_test_audit_v1"
+    assert report["adapter_identity"]["stage"] == "trajectory"
+    assert report["adapter_identity"]["adapter_model_sha256"] == digest
+    with pytest.raises(ValueError, match="environment_revision"):
+        audit(
+            source=source, manifest=manifest, results_dir=results, expected_rows=3,
+            adapter=adapter, expected_adapter_sha256=digest, stage="state",
+        )
