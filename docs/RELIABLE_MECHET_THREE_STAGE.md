@@ -93,6 +93,29 @@ validation estimate, product-start endpoint result or proof that later stages
 will succeed. The complete report is in shared artifacts at
 `outputs/eval/reliable_mechet_state_ckpt7000_valid4_t4_probe_20261007/evaluation.json`.
 
+The exact-import metric needs a role breakdown. A SHA-bound audit of the
+frozen State-SFT rows (`scripts/audit_reliable_import_supervision.py`) found:
+
+| Split | Reactions | Import decisions | Electron-participant copies | Endpoint-context copies | Reactions with endpoint context |
+|---|---:|---:|---:|---:|---:|
+| train | 257,167 | 706,902 | 600,403 | 743,579 | 239,775 (93.2%) |
+| valid | 2,890 | 7,919 | 6,577 | 8,626 | 2,712 (93.8%) |
+
+In the 4-reaction `checkpoint-7000` diagnostic, the gold import roles were
+seven electron-participant-only, two mixed, and two endpoint-context-only.
+The model exactly matched one of the seven participant-only imports, and none
+of the four context-containing imports. The concrete wrong predictions include
+chloride as bicarbonate and water as a different organic reagent, so the
+participant problem is genuine; it cannot all be explained away by
+underdetermined solvents/spectators. Conversely, endpoint-context labels often
+contain solvents, salts or other mixture components that a product-only input
+cannot uniquely specify. The current SFT supervises these roles together in
+most reactions; future quality reports must separate them and must not treat
+context-copy exactness as a direct measure of reverse-electron-flow ability.
+This audit does **not** change the running Stage-I data or claim a corrected
+Stage-II training result. Reports are in shared artifacts at
+`outputs/eval/reliable_mechet_state_import_supervision_{train257167,valid2890_ckpt7000}_20261007.json`.
+
 ## Stage II -- compressed-history Trajectory-SFT
 
 Configuration:
