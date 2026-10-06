@@ -354,6 +354,19 @@ silently rescored or called the other. The reproducible audit report is in
 shared artifacts at
 `outputs/eval/reliable_mechet_flower_full_strict_test_crosswalk_20261007.json`.
 
+The separate strict-view launcher is
+`scripts/run_taiji_reliable_mechet_strict_test_a100.sh`. It freezes the
+28,967-row `flower_inverse_tool_sft_action_delta_v1/test.jsonl` inputs and
+scores against that view's own structural precursors. Its independent audit
+(`scripts/audit_reliable_strict_test_eval.py`) checks the source hash, all
+reaction IDs, missing/duplicate predictions, structural exactness, terminal
+episodes, and accepted/rejected decision counts. Missing predictions remain
+endpoint failures. Decision acceptance is reported only over observed episodes
+and is **not** a chemical-validity or hallucination estimate. The launcher
+requires a finished adapter and is not yet submitted. A read-only preflight
+under RDKit 2026.03.4 successfully ran product-only private mapping for all
+**28,967/28,967** strict-test inputs on 2026-10-07.
+
 A smaller model is not required to reproduce historical 8B absolute accuracy
 before it can support the reliability claim. The critical evidence is the
 matched progression across State-SFT, Trajectory-SFT and EARHO under one frozen
