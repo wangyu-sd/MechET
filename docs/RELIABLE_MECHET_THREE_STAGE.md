@@ -511,6 +511,15 @@ denominator. On `full_endpoint_test`, process-reliable Pass@K is explicitly
 available on the full 28,971-reaction endpoint view. Both frozen test manifests
 and their actual source hashes passed
 this view gate locally; that is a data-contract check, **not** model inference.
+The prepared eight-GPU runner is
+`scripts/run_taiji_reliable_mechet_k_eval_8gpu.sh`. It requires explicit
+`MECHET_RELIABLE_STAGE`, `MECHET_RELIABLE_BENCHMARK_VIEW`, and
+`MECHET_RELIABLE_K_EPISODES`; it freezes the completed adapter SHA, checks the
+source manifest and eight BF16-capable A100/H20 devices, runs the independent
+episodes, and refuses to call the formal run complete if any reaction is
+missing. A future Taiji submission must wrap it with the mandatory `meteor`
+name/default-log heartbeat and mount Ceph. This runner is prepared only; no
+formal K>1 task has been submitted or evaluated.
 
 For diagnostics while Stage I is still training, the evaluator accepts an
 explicit `--provisional-training-config` only for an actual `checkpoint-N`
