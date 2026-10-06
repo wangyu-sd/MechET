@@ -116,6 +116,25 @@ This audit does **not** change the running Stage-I data or claim a corrected
 Stage-II training result. Reports are in shared artifacts at
 `outputs/eval/reliable_mechet_state_import_supervision_{train257167,valid2890_ckpt7000}_20261007.json`.
 
+A separate reference-only counterfactual asks whether endpoint-context copies
+actually affect the electron-flow chemistry. It first resolves each Axx alias
+against the **original** mapped state, then removes only disconnected context
+components without renumbering retained atoms, executes the same private-map
+electron move and checks the projected successor and structural endpoint. On
+the frozen 2,890-reaction validation split, 2,873 reference trajectories retain
+the exact structural endpoint after this projection; those successful cases
+contain 11,444 verified projected electron events and 8,530 removed context
+copies. The other 17 are **not** safe to project: a nominally
+`endpoint_context` atom later joins an electron-participant component, including
+H–Cl formation and Pd–Cl coordination. Thus the import-purpose annotation is
+not a universal spectator/participant separator, and no context deletion is
+applied to the live training or evaluator. Deleting those imports while keeping
+literal Axx aliases is also invalid because the address inventory shifts.
+This audit tests reference chemistry, **not** product-start model accuracy.
+Reproduction: `scripts/audit_reliable_context_projection.py`; report in shared
+artifacts at
+`outputs/eval/reliable_mechet_state_context_projection_v2_valid2890_20261007.json`.
+
 ## Stage II -- compressed-history Trajectory-SFT
 
 Configuration:
