@@ -337,6 +337,23 @@ all **28,971/28,971** test products with zero input-mapping failures.
 It does not report mechanism/process accuracy for the four upstream-corrupt
 endpoint rows; that analysis remains on the separate 28,967 strict view.
 
+A SHA-bound crosswalk between the frozen full-endpoint and strict-proof test
+files (`scripts/audit_reliable_flower_test_crosswalk.py`) shows why their
+results cannot be merged by reaction ID alone. All 28,967 strict reaction IDs
+occur in the 28,971-row full test; the full-only IDs are `PC`, `PM`, `RC`, `RS`.
+But **only 24,067/28,967** pairs have the exact same normalized product-only
+model input. Another 4,899 products are chemically equivalent after hydrogen
+normalization but differ in explicit-H representation seen by the policy, and
+one reaction (`7007`) selects a genuinely different product molecule. The
+structural precursor labels agree for 24,743 pairs; in 4,179 the strict view
+includes additional fragments, and in 45 they differ in other ways. Thus the
+official 28,971-row endpoint score must use its own input and labels; a
+28,967-row process/endpoint view must use its strict input and labels, or be
+explicitly presented as a matched-input subset. No result from one view can be
+silently rescored or called the other. The reproducible audit report is in
+shared artifacts at
+`outputs/eval/reliable_mechet_flower_full_strict_test_crosswalk_20261007.json`.
+
 A smaller model is not required to reproduce historical 8B absolute accuracy
 before it can support the reliability claim. The critical evidence is the
 matched progression across State-SFT, Trajectory-SFT and EARHO under one frozen
