@@ -83,9 +83,11 @@ PY
 
 if [[ $stage == trajectory ]]; then
   parent=$shared_repo/outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
-  test -s "$parent/adapter_model.safetensors"
-  test -s "$parent/adapter_manifest.json"
-  echo "$MECHET_RELIABLE_EXPECTED_PARENT_SHA256  $parent/adapter_model.safetensors" | sha256sum --check --strict
+  python "$runtime_repo/scripts/validate_reliable_stage2_parent.py" \
+    --parent "$parent" \
+    --expected-sha256 "$MECHET_RELIABLE_EXPECTED_PARENT_SHA256" \
+    --config "$runtime_repo/configs/agent/natural_language_event_v2_qwen3_0_6b.yaml" \
+    --manifest "$shared_repo/data/flower_natural_language_event_sft_v2/manifest.json"
 fi
 
 if [[ -s $output/adapter_model.safetensors ]]; then

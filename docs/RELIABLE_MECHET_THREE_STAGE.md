@@ -424,7 +424,15 @@ revision or maximum length even during dry-run.
 rechecks the frozen data and cache contracts on the allocated GPU host, stages
 the Arrow shards and model locally, and leaves normal training progress on the
 default POD log. Stage II additionally requires the exact Stage-I adapter
-SHA-256; Stage III remains disabled until the Stage-II SHA-256 is frozen.
+weights SHA-256. The Stage-II launcher now also requires the final Stage-I
+adapter manifest and data contract, and verifies the pinned base revision,
+State-SFT condition, original train-file SHA, one-epoch setting and lack of a
+prior adapter. A `checkpoint-*` directory or a hash-matching adapter from a
+different condition cannot pass this gate. A non-submittable A100 task template
+is at `configs/taiji/meteor_mechet_reliable_trajectory_06b_1ep_8a100_qy_TEMPLATE.json`;
+its run ID, parent SHA and private Ceph init command must be replaced only
+after Stage I finishes. Stage III remains disabled until the Stage-II SHA-256
+is frozen.
 The trainer supplies length-grouped sampling with exact Arrow-vectorized token
 lengths; it does not ask every DDP rank to Python-format all 2,007,421 rows
 merely to build the sampler. This changes no example, order policy or loss.
