@@ -362,6 +362,33 @@ def test_run_fingerprint_changes_when_chemistry_runtime_changes(
     assert ev.run_fingerprint(args) != first
 
 
+def test_run_fingerprint_binds_prompt_executor_and_endpoint_sources(
+    tmp_path: Path, monkeypatch,
+):
+    source = tmp_path / "source.jsonl"
+    source.write_text("{}\n")
+    adapter = tmp_path / "adapter"
+    adapter.mkdir()
+    (adapter / "adapter_model.safetensors").write_bytes(b"weights")
+    (adapter / "adapter_manifest.json").write_text("{}")
+    args = Namespace(
+        data=source, adapter=adapter, stage="state", episodes=5,
+        sample_reactions=1, seed=17, max_new_tokens=512, max_context=4096,
+        no_4bit=True, dtype="float16",
+    )
+    sources = ev.evaluation_dependency_hashes()
+    assert sources["src/mechet/forward_expert.py"] == ev.sha256(
+        ev.ROOT / "src/mechet/forward_expert.py"
+    )
+    assert sources["src/mechet/endpoints.py"] == ev.sha256(
+        ev.ROOT / "src/mechet/endpoints.py"
+    )
+    first = ev.run_fingerprint(args)
+    changed = {**sources, "src/mechet/forward_expert.py": "0" * 64}
+    monkeypatch.setattr(ev, "evaluation_dependency_hashes", lambda: changed)
+    assert ev.run_fingerprint(args) != first
+
+
 def test_full_endpoint_report_suppresses_strict_process_metric(
     tmp_path: Path, monkeypatch,
 ):

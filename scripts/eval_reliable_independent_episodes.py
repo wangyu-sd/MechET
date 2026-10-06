@@ -38,6 +38,19 @@ from scripts.run_natural_language_value_search import (
 
 MODEL = "Qwen/Qwen3-0.6B"
 REVISION = "c1899de289a04d12100db370d81485cdf75e47ca"
+EVALUATION_DEPENDENCIES = (
+    "scripts/build_natural_language_event_sft.py",
+    "scripts/eval_natural_language_event_local.py",
+    "src/mechet/assistant_masking.py",
+    "src/mechet/endpoints.py",
+    "src/mechet/forward_expert.py",
+    "src/mechet/in_place_grounded_flow.py",
+    "src/mechet/jevretro_endpoint.py",
+    "src/mechet/natural_language_anchor_branch_rl.py",
+    "src/mechet/natural_language_electron_flow.py",
+    "src/mechet/proof_program.py",
+    "src/mechet/trajectory_history.py",
+)
 
 
 def sha256(path: Path) -> str:
@@ -62,6 +75,12 @@ def runtime_versions() -> dict[str, str]:
         "transformers": metadata.version("transformers"),
         "peft": metadata.version("peft"),
     }
+
+
+def evaluation_dependency_hashes() -> dict[str, str]:
+    """Bind resumed shards to the prompt, executor and endpoint implementation."""
+
+    return {relative: sha256(ROOT / relative) for relative in EVALUATION_DEPENDENCIES}
 
 
 def episode_seed(base_seed: int, target: str, index: int) -> int:
@@ -162,6 +181,7 @@ def run_fingerprint(args: argparse.Namespace) -> str:
         "runtime_versions": runtime_versions(),
         "runtime_sha256": sha256(ROOT / "scripts/run_natural_language_value_search.py"),
         "evaluator_sha256": sha256(Path(__file__)),
+        "evaluation_dependency_sha256": evaluation_dependency_hashes(),
     }
     return hashlib.sha256(
         json.dumps(contract, sort_keys=True, separators=(",", ":")).encode()
