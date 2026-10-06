@@ -1,8 +1,10 @@
 from types import SimpleNamespace
 
+import pytest
+
 from scripts.run_natural_language_value_search import (
-    Action, Node, generation_sampling_policy, private_product_state,
-    product_only_private_state,
+    Action, Node, generated_transition_scores, generation_sampling_policy,
+    private_product_state, product_only_private_state,
     rollout, select_successful_terminals, visible,
 )
 
@@ -121,3 +123,20 @@ def test_vnext_k1_is_greedy_but_k4_is_stochastic_expansion():
         matched_v2=True, vnext_v2_prefix=False, candidates=1,
         planning_sample=True,
     )["do_sample"] is True
+
+
+def test_nll_ranking_uses_raw_logits_not_temperature_top_p_scores():
+    raw = (object(),)
+    warped = (object(),)
+    output = SimpleNamespace(sequences="tokens", logits=raw, scores=warped)
+    received = []
+    model = SimpleNamespace(compute_transition_scores=lambda seq, scores, normalize_logits: (
+        received.append((seq, scores, normalize_logits)) or scores
+    ))
+    assert generated_transition_scores(model, output, raw_model_nll=True) is raw
+    assert received[-1] == ("tokens", raw, True)
+    assert generated_transition_scores(model, output, raw_model_nll=False) is warped
+    assert received[-1] == ("tokens", warped, True)
+    output.logits = None
+    with pytest.raises(ValueError, match="lacks the requested"):
+        generated_transition_scores(model, output, raw_model_nll=True)

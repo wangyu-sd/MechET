@@ -353,11 +353,13 @@ class Runtime:
             if self.pointer is not None else []
         )
         with torch.inference_mode():
+            raw_model_nll = bool(getattr(self.args, "raw_model_nll", False))
             generation = {
                 "max_new_tokens": max_new_tokens,
                 "num_return_sequences": candidates,
                 "return_dict_in_generate": True,
-                "output_scores": True,
+                "output_scores": not raw_model_nll,
+                "output_logits": raw_model_nll,
                 "pad_token_id": self.tokenizer.pad_token_id,
                 "eos_token_id": self.tokenizer.eos_token_id,
             }
@@ -368,8 +370,8 @@ class Runtime:
                 planning_sample=planning_sample,
             ))
             output = self.model.generate(**encoded, **generation)
-        scores = self.model.compute_transition_scores(
-            output.sequences, output.scores, normalize_logits=True
+        scores = generated_transition_scores(
+            self.model, output, raw_model_nll=raw_model_nll,
         )
         actions: list[Action] = []
         seen: set[str] = set()
@@ -661,6 +663,17 @@ def generation_sampling_policy(
     return {"do_sample": False} if greedy else {
         "do_sample": True, "temperature": 0.7, "top_p": 0.95,
     }
+
+
+def generated_transition_scores(model: Any, output: Any, *, raw_model_nll: bool):
+    """Use unwarped model logits for NLL ranking, not sampling scores."""
+
+    source = output.logits if raw_model_nll else output.scores
+    if source is None:
+        raise ValueError("generation output lacks the requested transition logits")
+    return model.compute_transition_scores(
+        output.sequences, source, normalize_logits=True,
+    )
 
 
 def search_unlabeled(

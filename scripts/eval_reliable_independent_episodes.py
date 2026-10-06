@@ -1,0 +1,371 @@
+#!/usr/bin/env python3
+"""Product-only K-episode MechET evaluation with gold-independent NLL ranking.
+
+K=1 is the existing greedy policy. K>1 samples K separately seeded, complete
+executor trajectories from the same product; it never injects a reference
+action, precursor, or state. The aggregate step reads the reference only after
+all episodes have been written and keeps missing reactions in the denominator.
+"""
+
+from __future__ import annotations
+
+import argparse
+from copy import copy
+import hashlib
+import json
+import math
+import os
+from pathlib import Path
+import sys
+from typing import Any, Mapping
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "src"))
+
+from mechet.endpoints import reference_structural_precursor, split_precursor_endpoints, structural_exact
+from mechet.jevretro_endpoint import canonical_unmapped
+from scripts.run_natural_language_value_search import (
+    Runtime, read_selected, search_unlabeled, validate_matched_v2_args,
+    validate_v2_adapter_manifest, visible,
+)
+
+
+MODEL = "Qwen/Qwen3-0.6B"
+REVISION = "c1899de289a04d12100db370d81485cdf75e47ca"
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def episode_seed(base_seed: int, target: str, index: int) -> int:
+    """Match the on-demand planning provider's per-product seed schedule."""
+
+    digest = hashlib.sha256(
+        f"{base_seed}:{canonical_unmapped(target)}:{index}".encode()
+    ).digest()
+    return int.from_bytes(digest[:8], "big") % (2**31)
+
+
+def policy_args(args: argparse.Namespace) -> argparse.Namespace:
+    return argparse.Namespace(
+        model=MODEL, model_revision=REVISION,
+        policy_adapter=str(args.adapter), value_adapter="",
+        value_kind="state_abc", pointer_head="", pointer_weight=0.0,
+        value_weight=0.0, no_4bit=args.no_4bit, matched_v2=True,
+        raw_model_nll=True,
+        vnext_v2_prefix=False, legacy_dual_prompt=False,
+        product_only_remap=True, reject_target_retained_finish=True,
+        compact_history=args.stage == "trajectory", branching=1,
+        early_beam=1, late_beam=1, early_depth=2,
+        max_decisions=40, max_imports=32,
+        max_new_tokens=args.max_new_tokens, max_context=args.max_context,
+    )
+
+
+def run_fingerprint(args: argparse.Namespace) -> str:
+    contract = {
+        "artifact_type": "reliable_mechet_independent_episodes_v1",
+        "source_sha256": sha256(args.data),
+        "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
+        "adapter_manifest_sha256": sha256(args.adapter / "adapter_manifest.json"),
+        "stage": args.stage, "model": MODEL, "revision": REVISION,
+        "episodes": args.episodes, "sample_reactions": args.sample_reactions,
+        "seed": args.seed, "max_new_tokens": args.max_new_tokens,
+        "max_context": args.max_context, "no_4bit": args.no_4bit,
+        "ranking_score": "raw_model_mean_generated_token_logprob",
+        "runtime_sha256": sha256(ROOT / "scripts/run_natural_language_value_search.py"),
+        "evaluator_sha256": sha256(Path(__file__)),
+    }
+    return hashlib.sha256(
+        json.dumps(contract, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+
+
+def checked_inputs(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str]:
+    if args.episodes not in (1, 5, 10) or args.sample_reactions < 1:
+        raise ValueError("episodes must be 1, 5, or 10 and sample size positive")
+    if args.max_new_tokens < 1 or args.max_context < 1:
+        raise ValueError("invalid token budget")
+    if sha256(args.data) != args.expected_source_sha256:
+        raise ValueError("evaluation source SHA-256 mismatch")
+    if sha256(args.adapter / "adapter_model.safetensors") != args.expected_adapter_sha256:
+        raise ValueError("evaluation adapter SHA-256 mismatch")
+    actor = policy_args(args)
+    validate_matched_v2_args(actor)
+    validate_v2_adapter_manifest(
+        args.adapter, compact_history=actor.compact_history,
+        expected_model=MODEL, expected_revision=REVISION,
+    )
+    rows = read_selected(args.data, args.sample_reactions, args.seed)
+    if len(rows) != args.sample_reactions or len({str(row["id"]) for row in rows}) != len(rows):
+        raise ValueError("evaluation reaction selection is incomplete or duplicated")
+    if any(not reference_structural_precursor(row) for row in rows):
+        raise ValueError("evaluation row lacks a structural precursor label")
+    return rows, run_fingerprint(args)
+
+
+def sample_episode(
+    runtime: Runtime, target_smiles: str, actor_args: argparse.Namespace,
+    *, index: int, seed: int, stochastic: bool,
+) -> dict[str, Any]:
+    args = copy(actor_args)
+    args.planning_sample = stochastic
+    runtime.torch.manual_seed(seed)
+    searched = search_unlabeled(runtime, target_smiles, args)
+    top = searched["top"]
+    structural = ""
+    if top.terminal:
+        projected = split_precursor_endpoints(
+            top.state, searched["target_mapped"]
+        ).structural
+        structural = visible(projected) if projected else ""
+    return {
+        "index": index, "seed": seed, "terminal": bool(top.terminal),
+        "precursor": structural,
+        "full_executor_precursor": visible(top.state) if top.terminal else "",
+        "mean_token_logprob": float(top.policy_score) if top.terminal else None,
+        "has_electron_event": any(
+            item["name"] == "apply_electron_flow" for item in top.actions
+        ),
+        "actions": [
+            {"name": item["name"], "arguments": item["arguments"]}
+            for item in top.actions
+        ],
+        "attempts": searched["attempts"], "rejected": searched["rejected"],
+    }
+
+
+def sample_reaction(
+    runtime: Runtime, row: Mapping[str, Any], actor_args: argparse.Namespace,
+    *, episodes: int, seed: int,
+) -> dict[str, Any]:
+    target = str(row["target_smiles"])
+    samples = [
+        sample_episode(
+            runtime, target, actor_args, index=index,
+            seed=episode_seed(seed, target, index), stochastic=episodes > 1,
+        )
+        for index in range(episodes)
+    ]
+    return {
+        "id": str(row["id"]), "source_id": str(row["source_id"]),
+        "target": canonical_unmapped(target), "episodes": samples,
+    }
+
+
+def score_reaction(row: Mapping[str, Any], prediction: Mapping[str, Any]) -> dict[str, Any]:
+    """Score only after generation; rank unique terminal candidates by mean NLL."""
+
+    gold = reference_structural_precursor(row)
+    episodes = list(prediction["episodes"])
+    if str(prediction["source_id"]) != str(row["source_id"]):
+        raise ValueError(f"{row['id']}: prediction source ID mismatch")
+    if canonical_unmapped(str(prediction["target"])) != canonical_unmapped(str(row["target_smiles"])):
+        raise ValueError(f"{row['id']}: prediction target mismatch")
+    expected_count = len(episodes)
+    if [int(item["index"]) for item in episodes] != list(range(expected_count)):
+        raise ValueError(f"{row['id']}: episode indices are incomplete")
+    candidates = []
+    for item in episodes:
+        index = int(item["index"])
+        if int(item["seed"]) != episode_seed(int(prediction["seed"]), str(row["target_smiles"]), index):
+            raise ValueError(f"{row['id']}: episode seed mismatch")
+        terminal = bool(item["terminal"])
+        precursor = str(item.get("precursor") or "")
+        score = item.get("mean_token_logprob")
+        if not terminal:
+            if precursor or score is not None:
+                raise ValueError(f"{row['id']}: nonterminal episode declared a candidate")
+            continue
+        if score is None or not math.isfinite(float(score)):
+            raise ValueError(f"{row['id']}: terminal candidate lacks finite NLL score")
+        if not precursor:
+            continue
+        candidates.append({
+            "index": index, "precursor": canonical_unmapped(precursor),
+            "score": float(score), "has_electron_event": bool(item["has_electron_event"]),
+            "hit": structural_exact(precursor, gold),
+        })
+    ranked = []
+    seen = set()
+    for item in sorted(candidates, key=lambda value: (-value["score"], value["index"])):
+        if item["precursor"] not in seen:
+            seen.add(item["precursor"])
+            ranked.append(item)
+    result = {
+        "id": str(row["id"]), "sampled_episodes": expected_count,
+        "terminal_episodes": sum(bool(item["terminal"]) for item in episodes),
+        "unique_terminal_candidates": len(ranked),
+        "nll_ranked_candidates": ranked[:10],
+    }
+    for k in (1, 5, 10):
+        result[f"generation_pass_at_{k}"] = (
+            any(item["hit"] and item["index"] < k for item in candidates)
+            if k <= expected_count else None
+        )
+        result[f"nll_ranked_top_{k}"] = (
+            any(item["hit"] for item in ranked[:k])
+            if k <= expected_count else None
+        )
+        result[f"process_reliable_pass_at_{k}"] = (
+            any(item["hit"] and item["has_electron_event"] and item["index"] < k
+                for item in candidates)
+            if k <= expected_count else None
+        )
+    return result
+
+
+def aggregate(args: argparse.Namespace) -> dict[str, Any]:
+    selected, fingerprint = checked_inputs(args)
+    expected = {str(row["id"]): row for row in selected}
+    observed: dict[str, dict[str, Any]] = {}
+    shards = sorted(args.output.glob("episodes.shard-*-of-*.jsonl"))
+    if not shards:
+        raise ValueError("no episode prediction shards")
+    for shard in shards:
+        with shard.open(encoding="utf-8") as stream:
+            for line in stream:
+                if not line.strip():
+                    continue
+                prediction = json.loads(line)
+                identifier = str(prediction["id"])
+                if identifier not in expected or identifier in observed:
+                    raise ValueError(f"unknown or duplicate prediction: {identifier}")
+                if prediction.get("run_fingerprint") != fingerprint:
+                    raise ValueError(f"{identifier}: episode run lineage mismatch")
+                if int(prediction.get("seed", -1)) != args.seed or len(prediction["episodes"]) != args.episodes:
+                    raise ValueError(f"{identifier}: episode budget mismatch")
+                observed[identifier] = prediction
+    cases = [
+        score_reaction(row, observed[identifier])
+        for identifier, row in expected.items() if identifier in observed
+    ]
+    counts: dict[str, Any] = {}
+    for k in (1, 5, 10):
+        for prefix in ("generation_pass", "nll_ranked_top", "process_reliable_pass"):
+            name = f"{prefix}_at_{k}" if prefix != "nll_ranked_top" else f"{prefix}_{k}"
+            counts[name] = (
+                sum(bool(case[name]) for case in cases)
+                if k <= args.episodes else None
+            )
+    return {
+        "artifact_type": "reliable_mechet_independent_episodes_audit_v1",
+        "claim_boundary": (
+            "Product-only independent executor episodes; structural reference used "
+            "only after generation. Execution is not laboratory feasibility."
+        ),
+        "process_reliable_definition": (
+            "Structural endpoint hit by a terminal online-executed trajectory "
+            "with at least one accepted electron event; independent certificate "
+            "replay and chemical feasibility are separate tests."
+        ),
+        "model": MODEL, "model_revision": REVISION,
+        "stage": args.stage, "episodes_per_reaction": args.episodes,
+        "ranking": "descending mean generated-token log-probability, canonical unique terminal precursors",
+        "ranking_score_source": "unwarped_adapter_policy_logits_before_temperature_top_p",
+        "source_sha256": args.expected_source_sha256,
+        "adapter_model_sha256": args.expected_adapter_sha256,
+        "run_fingerprint": fingerprint,
+        "denominator": args.sample_reactions,
+        "observed_reactions": len(cases),
+        "missing_reactions": args.sample_reactions - len(cases),
+        "hits": counts,
+        "rates": {
+            key: value / args.sample_reactions if value is not None else None
+            for key, value in counts.items()
+        },
+        "terminal_episodes": sum(case["terminal_episodes"] for case in cases),
+        "unique_terminal_candidates": sum(case["unique_terminal_candidates"] for case in cases),
+        "shards": [{"path": str(path), "sha256": sha256(path)} for path in shards],
+        "cases": cases,
+    }
+
+
+def run(args: argparse.Namespace) -> None:
+    rows, fingerprint = checked_inputs(args)
+    rank = int(os.environ.get("RANK", "0"))
+    world = int(os.environ.get("WORLD_SIZE", "1"))
+    local_rank = int(os.environ.get("LOCAL_RANK", str(rank)))
+    if not 0 <= rank < world:
+        raise ValueError("invalid rank/world size")
+    selected = [row for index, row in enumerate(rows) if index % world == rank]
+    args.output.mkdir(parents=True, exist_ok=True)
+    shard = args.output / f"episodes.shard-{rank:02d}-of-{world:02d}.jsonl"
+    previous = []
+    if shard.exists():
+        with shard.open(encoding="utf-8") as stream:
+            previous = [json.loads(line) for line in stream if line.strip()]
+    if any(row.get("run_fingerprint") != fingerprint for row in previous):
+        raise ValueError("refusing to resume an episode shard from another run")
+    if any(int(row.get("seed", -1)) != args.seed or len(row.get("episodes") or []) != args.episodes
+           for row in previous):
+        raise ValueError("refusing to resume an incomplete episode record")
+    completed = {str(row["id"]) for row in previous}
+    if len(completed) != len(previous) or not completed <= {str(row["id"]) for row in selected}:
+        raise ValueError("episode shard contains duplicate or foreign reactions")
+    remaining = [row for row in selected if str(row["id"]) not in completed]
+    if not remaining:
+        print(f"[meteor-reliable-k] rank={rank} already complete", flush=True)
+        return
+    actor = policy_args(args)
+    runtime = Runtime(actor, local_rank=local_rank)
+    with shard.open("a", encoding="utf-8") as sink:
+        for index, row in enumerate(remaining, start=1):
+            prediction = sample_reaction(
+                runtime, row, actor, episodes=args.episodes, seed=args.seed,
+            )
+            prediction.update(seed=args.seed, run_fingerprint=fingerprint)
+            sink.write(json.dumps(prediction, ensure_ascii=False) + "\n")
+            sink.flush()
+            print(
+                f"[meteor-reliable-k] rank={rank} done={index}/{len(remaining)} "
+                f"id={row['id']} episodes={args.episodes}", flush=True,
+            )
+
+
+def parser() -> argparse.ArgumentParser:
+    result = argparse.ArgumentParser(description=__doc__)
+    result.add_argument("command", choices=("run", "aggregate"))
+    result.add_argument("--data", type=Path, required=True)
+    result.add_argument("--expected-source-sha256", required=True)
+    result.add_argument("--adapter", type=Path, required=True)
+    result.add_argument("--expected-adapter-sha256", required=True)
+    result.add_argument("--stage", choices=("state", "trajectory"), required=True)
+    result.add_argument("--output", type=Path, required=True)
+    result.add_argument("--episodes", type=int, choices=(1, 5, 10), default=10)
+    result.add_argument("--sample-reactions", type=int, required=True)
+    result.add_argument("--seed", type=int, default=17)
+    result.add_argument("--max-new-tokens", type=int, default=512)
+    result.add_argument("--max-context", type=int, default=4096)
+    result.add_argument("--no-4bit", action="store_true")
+    return result
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parser().parse_args(argv)
+    if args.command == "run":
+        run(args)
+        return 0
+    report = aggregate(args)
+    args.output.mkdir(parents=True, exist_ok=True)
+    report_path = args.output / "independent_episodes_audit.json"
+    cases_path = args.output / "independent_episodes_cases.jsonl"
+    with cases_path.open("w", encoding="utf-8") as sink:
+        for case in report["cases"]:
+            sink.write(json.dumps(case, ensure_ascii=False) + "\n")
+    summary = {key: value for key, value in report.items() if key != "cases"}
+    summary["cases_path"] = str(cases_path)
+    summary["cases_sha256"] = sha256(cases_path)
+    report_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n")
+    print(json.dumps(summary), flush=True)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
