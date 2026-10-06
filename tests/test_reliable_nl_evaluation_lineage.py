@@ -182,6 +182,7 @@ def test_replayed_local_resume_rejects_changed_adapter_or_decoder(tmp_path: Path
         data=data, decision_data=decisions, adapter=adapter,
         replay_reference_states=True, model="Qwen/Qwen3-0.6B",
         model_revision="pinned", sample_reactions=128, seed=17,
+        batch_size=2,
         sft_aligned_prefix=True, dtype="bfloat16", no_4bit=True,
         max_new_tokens=512, max_context=4096,
     )
@@ -200,4 +201,7 @@ def test_replayed_local_resume_rejects_changed_adapter_or_decoder(tmp_path: Path
         )
     weights.write_bytes(b"weights-v1")
     args.max_new_tokens = 256
+    assert local_eval.replayed_run_fingerprint(args) != fingerprint
+    args.max_new_tokens = 512
+    args.batch_size = 1
     assert local_eval.replayed_run_fingerprint(args) != fingerprint

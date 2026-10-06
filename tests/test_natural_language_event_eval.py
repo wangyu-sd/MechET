@@ -155,12 +155,14 @@ def test_role_breakdown_aggregation_uses_role_present_denominators(
     args = SimpleNamespace(
         adapter=adapter, model="test", model_revision="test",
         provisional_training_config=None, data=source, decision_data=None,
-        output=output, sample_reactions=1, seed=17,
+        output=output, sample_reactions=1, seed=17, batch_size=2,
         sft_aligned_prefix=True, dtype="bfloat16", no_4bit=True,
         import_role_breakdown=True,
     )
     assert local_eval.aggregate(args) == 0
-    by_role = json.loads((output / "evaluation.json").read_text())["by_import_role"]
+    report = json.loads((output / "evaluation.json").read_text())
+    assert report["decode_batch_size"] == 2
+    by_role = report["by_import_role"]
     assert by_role["participant_present"]["n"] == 2
     assert by_role["participant_present"]["import_participant_exact_n"] == 2
     assert by_role["participant_present"]["import_participant_exact"] == 2

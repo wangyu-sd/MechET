@@ -117,7 +117,7 @@ def replayed_run_fingerprint(args: argparse.Namespace) -> str:
     if args.decision_data is None:
         raise ValueError("replay-scored evaluation requires frozen decision data")
     contract = {
-        "version": 1,
+        "version": 2,
         "data_sha256": sha256(args.data),
         "decision_data_sha256": sha256(args.decision_data),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
@@ -125,6 +125,7 @@ def replayed_run_fingerprint(args: argparse.Namespace) -> str:
         "model_revision": args.model_revision,
         "sample_reactions": args.sample_reactions,
         "seed": args.seed,
+        "batch_size": args.batch_size,
         "sft_aligned_prefix": bool(args.sft_aligned_prefix),
         "dtype": args.dtype,
         "no_4bit": bool(args.no_4bit),
@@ -820,6 +821,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "model": args.model,
         "model_revision": args.model_revision,
         "compute_dtype": args.dtype,
+        "decode_batch_size": args.batch_size,
         "sft_aligned_tool_prefix": bool(args.sft_aligned_prefix),
         "quantization": "bf16_or_fp16" if args.no_4bit else "bnb_nf4",
         "overall": _summary(rows),
