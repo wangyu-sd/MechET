@@ -1,42 +1,87 @@
-version: 1
-name: jevretro_single_step_v1
-status: phase0_full_denominator_audit
+version: 2
+name: reverse_et_transfer_v1
+status: design_and_data_contract
 
-model:
-  base: Qwen/Qwen3-0.6B
-  train_mode: lora
-  autoregressive_generation: false
+source:
+  dataset: FlowER
+  common_program_train_rows: 257167
+  validation_rows: 2890
+  strict_test_rows: 28967
+  source_dir: data/flower_inverse_tool_sft_action_delta_v1
+  full_endpoint_test_rows: 28971
 
-benchmarks:
-  uspto50k:
-    train_rows: 40008
-    valid_rows: 5001
-    test_rows: 5007
-    train: data/benchmarks/uspto50k/train.inverse_eval.jsonl
-    valid: data/benchmarks/uspto50k/valid.inverse_eval.jsonl
-    test: data/benchmarks/uspto50k/test.inverse_eval.jsonl
-  flower_retro:
-    train_rows: 257171
-    valid_rows: 2890
-    test_rows: 28971
-    train: data/flower_full_endpoint_sft/train.jsonl
-    valid: data/flower_full_endpoint_sft/valid.jsonl
-    test: data/flower_full_endpoint_sft/test.jsonl
-
-phase0:
-  compiler_schema: jevretro_endpoint_program_v1
-  require_full_coverage: true
-  fail_on_any_reconstruction_error: true
-  report_attachment_oov: true
-
-evaluation:
-  primary: structural_precursor_exact
-  top_k: [1, 5, 10]
-  missing_predictions_are_failures: true
-  ranking: frozen_model_score
-  canonicalization: rdkit_map_free_isomeric
-
-matched_control:
+backbone:
   model: Qwen/Qwen3-0.6B
-  representation: autoregressive_product_to_precursor
-  same_training_ids: true
+  revision: c1899de289a04d12100db370d81485cdf75e47ca
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+
+conditions:
+  endpoint_only:
+    train_file: data/reverse_et_transfer_v1/train_endpoint_only_matched.jsonl
+    examples_per_reaction: 2
+    endpoint_examples_per_reaction: 2
+    auxiliary: none
+  endpoint_plus_netedit:
+    train_file: data/reverse_et_transfer_v1/train_endpoint_plus_netedit.jsonl
+    examples_per_reaction: 2
+    endpoint_examples_per_reaction: 1
+    auxiliary: net_edit
+    auxiliary_contains_precursor_answer: false
+  endpoint_plus_reverse_et:
+    train_file: data/reverse_et_transfer_v1/train_endpoint_plus_reverse_et.jsonl
+    examples_per_reaction: 2
+    endpoint_examples_per_reaction: 1
+    auxiliary: reverse_electron_transfer
+    auxiliary_contains_precursor_answer: false
+    autoregressive_mechanism_rollout_at_endpoint_inference: false
+
+validation:
+  common_file: data/reverse_et_transfer_v1/valid/endpoint_eval.jsonl
+  task: product_to_precursor_only
+  select_checkpoint_by: endpoint_validation_loss
+
+single_step_evaluation:
+  primary_dataset: FlowER
+  endpoint_inference_identical_across_conditions: true
+  metrics: [top1, top5, top10, invalid_rate, reference_nll]
+  first_run_matching: examples_and_optimizer_updates
+  confirmatory_matching: supervised_assistant_tokens
+  key_contrast: endpoint_plus_reverse_et_minus_endpoint_plus_netedit
+
+why_analysis:
+  strata:
+    - reverse_et_step_count
+    - max_coupled_moves_per_step
+    - total_electron_moves
+    - import_count
+    - complete_move_composition_frequency
+  disagreement_audit:
+    enabled: true
+    compare: [endpoint_only, endpoint_plus_netedit, endpoint_plus_reverse_et]
+
+transfer_single_step:
+  dataset: USPTO-50K
+  role: downstream_endpoint_only_transfer_benchmark
+  mechanism_labels_used: false
+  matched_finetune_across_initializations: true
+
+multistep:
+  benchmark: PaRoutes
+  route_sets: [n1, n5]
+  planner: RetroStar
+  implementation: Syntheseus
+  same_stock: true
+  same_search_budget: true
+  reverse_et_rollout_inside_planner: false
+  metrics:
+    - solved_rate
+    - solved_rate_by_model_calls
+    - calls_to_first_solution
+    - time_to_first_solution
+    - reference_route_top1
+    - reference_route_top5
+    - reference_route_top10
+    - route_length
+    - expanded_nodes
