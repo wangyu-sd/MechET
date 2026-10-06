@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter, defaultdict
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -18,6 +19,40 @@ def _rows(path: Path):
         for line in stream:
             if line.strip():
                 yield json.loads(line)
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(8 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _mapping_parity_failures(
+    report_path: Path, source: Path, decisions: Path,
+    selected_ids: set[str],
+) -> set[str]:
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    if report.get("artifact_type") != "reliable_mechet_product_only_private_mapping_audit_v1":
+        raise ValueError("unrecognized product-only mapping parity audit")
+    if report.get("source_sha256") != _sha256(source) or report.get("decisions_sha256") != _sha256(decisions):
+        raise ValueError("product-only mapping audit source/decision SHA mismatch")
+    total = int(report.get("n_reactions", -1))
+    counts = dict(report.get("counts") or {})
+    if total < len(selected_ids) or counts.get("root_prompt_exact") != total:
+        raise ValueError("product-only mapping audit lacks complete root-prompt parity")
+    if counts.get("original_private_map_replay_ok") != total:
+        raise ValueError("product-only mapping audit has failing source-map reference replay")
+    failures = list(report.get("failures") or [])
+    if counts.get("product_only_remap_replay_ok", 0) + len(failures) != total:
+        raise ValueError("product-only mapping audit denominator is inconsistent")
+    if any(item.get("kind") != "product_only_remap_replay_failed" for item in failures):
+        raise ValueError("product-only mapping audit contains a non-remap failure")
+    failed_ids = {str(item["source_id"]) for item in failures}
+    if len(failed_ids) != len(failures):
+        raise ValueError("product-only mapping audit repeats a failed source ID")
+    return failed_ids & selected_ids
 
 
 def _gold_successor(row: Mapping[str, Any]) -> str:
@@ -96,11 +131,17 @@ def first_reference_divergence(
 def analyze(
     *, source: Path, decisions: Path, results: Path,
     sample_reactions: int, seed: int,
+    mapping_parity_report: Path | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     selected = read_selected(source, sample_reactions, seed)
     by_source = {str(row["source_id"]): row for row in selected}
     if len(by_source) != sample_reactions:
         raise ValueError("selected source reactions are not unique")
+    parity_failures = (
+        _mapping_parity_failures(mapping_parity_report, source, decisions, set(by_source))
+        if mapping_parity_report is not None else set()
+    )
+    parity_audited = mapping_parity_report is not None
     gold: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in _rows(decisions):
         source_id = str(row["source_id"])
@@ -135,6 +176,9 @@ def analyze(
         cases.append({
             "id": str(row["id"]), "source_id": source_id,
             "endpoint_exact": exact, "terminal": terminal,
+            "reference_product_only_mapping_parity": (
+                source_id not in parity_failures if parity_audited else None
+            ),
             "policy_score": policy_score,
             "accepted_actions": int(row["n_actions"]),
             "reference_decisions": len(gold[source_id]),
@@ -146,6 +190,10 @@ def analyze(
         })
     failure_categories = Counter(
         case["failure_category"] for case in cases if case["failure_category"]
+    )
+    parity_stable_failure_categories = Counter(
+        case["failure_category"] for case in cases
+        if case["reference_product_only_mapping_parity"] and case["failure_category"]
     )
     sorted_cases = sorted(
         cases,
@@ -177,6 +225,15 @@ def analyze(
             case["recovered_after_reference_divergence"] for case in cases
         ),
         "first_failure_category_counts": dict(failure_categories),
+        "first_failure_category_counts_parity_stable": dict(parity_stable_failure_categories),
+        "reference_mapping_parity_audited": parity_audited,
+        "reference_mapping_parity_failed": len(parity_failures) if parity_audited else None,
+        "reference_mapping_parity_failed_endpoint_miss": (
+            sum(
+                case["source_id"] in parity_failures and not case["endpoint_exact"]
+                for case in cases
+            ) if parity_audited else None
+        ),
         "confidence_policy": "terminal_finite_policy_score_only; nonterminal_abstains_first",
         "risk_coverage_by_policy_score": risk_coverage,
         "interpretation": (
@@ -196,10 +253,12 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--sample-reactions", type=int, default=128)
     parser.add_argument("--seed", type=int, default=17)
+    parser.add_argument("--mapping-parity-report", type=Path)
     args = parser.parse_args()
     report, cases = analyze(
         source=args.source, decisions=args.decisions, results=args.results,
         sample_reactions=args.sample_reactions, seed=args.seed,
+        mapping_parity_report=args.mapping_parity_report,
     )
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "failure_analysis.json").write_text(

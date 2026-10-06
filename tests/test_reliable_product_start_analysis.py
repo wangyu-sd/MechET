@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -105,3 +106,59 @@ def test_nonterminal_empty_path_cannot_look_more_confident_than_terminal(tmp_pat
     assert next(case for case in cases if case["source_id"] == "s")["policy_score"] is None
     assert report["risk_coverage_by_policy_score"][2]["n"] == 1
     assert report["risk_coverage_by_policy_score"][2]["endpoint_miss_rate"] == 0.0
+
+
+def test_mapping_parity_audit_separates_reference_unstable_cases(tmp_path: Path):
+    source = tmp_path / "source.jsonl"
+    decisions = tmp_path / "decisions.jsonl"
+    results = tmp_path / "results.jsonl"
+    audit = tmp_path / "mapping_audit.json"
+    source.write_text("".join(json.dumps({"id": key, "source_id": key}) + "\n" for key in ("r", "s")))
+    gold_r = gold_decision(0, "finish_trace", "CO")
+    gold_s = {**gold_r, "id": "s::decision_0", "source_id": "s"}
+    decisions.write_text(json.dumps(gold_r) + "\n" + json.dumps(gold_s) + "\n")
+    exact = {
+        "id": "r", "source_id": "r", "top1_exact": True,
+        "top_terminal": True, "top_policy_score": -1.0, "n_actions": 1,
+        "attempts": [{"depth": 0, "name": "finish_trace", "accepted": True,
+                      "state_after": "CO", "terminal": True}],
+    }
+    missed = {
+        "id": "s", "source_id": "s", "top1_exact": False,
+        "top_terminal": False, "top_policy_score": 0.0, "n_actions": 0,
+        "attempts": [{"depth": 0, "name": "", "accepted": False,
+                      "error": "NO_PARSEABLE_TOOL_CALL", "state_after": "", "terminal": False}],
+    }
+    results.write_text(json.dumps(exact) + "\n" + json.dumps(missed) + "\n")
+    audit.write_text(json.dumps({
+        "artifact_type": "reliable_mechet_product_only_private_mapping_audit_v1",
+        "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+        "decisions_sha256": hashlib.sha256(decisions.read_bytes()).hexdigest(),
+        "n_reactions": 2,
+        "counts": {
+            "root_prompt_exact": 2,
+            "original_private_map_replay_ok": 2,
+            "product_only_remap_replay_ok": 1,
+        },
+        "failures": [{"source_id": "s", "kind": "product_only_remap_replay_failed"}],
+    }))
+    report, cases = analyze(
+        source=source, decisions=decisions, results=results,
+        sample_reactions=2, seed=17, mapping_parity_report=audit,
+    )
+    assert report["endpoint_exact"] == 1
+    assert report["denominator"] == 2
+    assert report["reference_mapping_parity_failed"] == 1
+    assert report["first_failure_category_counts"] == {"generation_or_budget": 1}
+    assert report["first_failure_category_counts_parity_stable"] == {}
+    assert next(case for case in cases if case["source_id"] == "s")[
+        "reference_product_only_mapping_parity"
+    ] is False
+    audit_data = json.loads(audit.read_text())
+    audit_data["source_sha256"] = "0" * 64
+    audit.write_text(json.dumps(audit_data))
+    with pytest.raises(ValueError, match="SHA mismatch"):
+        analyze(
+            source=source, decisions=decisions, results=results,
+            sample_reactions=2, seed=17, mapping_parity_report=audit,
+        )

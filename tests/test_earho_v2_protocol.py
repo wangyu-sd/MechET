@@ -89,6 +89,29 @@ def test_product_only_mapping_audit_accepts_equivalent_toy_replay(tmp_path):
     assert report["failures"] == []
 
 
+def test_product_only_mapping_audit_supports_state_only_decisions(tmp_path):
+    source, history_decisions = fixture()
+    reference = replay_reference(source, history_decisions)
+    state_decisions = []
+    for index, row in enumerate(history_decisions):
+        copy = dict(row, messages=[dict(message) for message in row["messages"]])
+        copy["messages"][1]["content"] = policy_prompt(
+            reference.target, reference.nodes[index].state,
+            include_inventory=True, actions=reference.nodes[index].actions,
+            compact_history=False,
+        )
+        state_decisions.append(copy)
+    source_path = tmp_path / "source.jsonl"
+    decision_path = tmp_path / "decisions.jsonl"
+    source_path.write_text(json.dumps(source) + "\n")
+    decision_path.write_text("".join(json.dumps(row) + "\n" for row in state_decisions))
+    report = audit(
+        source_path, decision_path, n=1, seed=17, compact_history=False,
+    )
+    assert report["observation_contract"] == "state_only"
+    assert report["counts"]["product_only_remap_replay_ok"] == 1
+
+
 def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     source, decisions = fixture()
     reference = replay_reference(source, decisions)

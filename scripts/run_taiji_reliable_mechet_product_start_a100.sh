@@ -11,12 +11,14 @@ case "$stage" in
     adapter=$shared_repo/outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
     output=$shared_repo/outputs/eval/reliable_mechet_state_valid128_product_start_seed17
     decision_data=$shared_repo/data/flower_natural_language_event_sft_v2/valid.jsonl
+    mapping_audit=$shared_repo/outputs/eval/reliable_mechet_state_product_mapping_parity_valid2890_20261006.json
     history_flag=()
     ;;
   trajectory)
     adapter=$shared_repo/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
     output=$shared_repo/outputs/eval/reliable_mechet_trajectory_valid128_product_start_seed17
     decision_data=$shared_repo/data/flower_natural_language_event_history_v2/valid.jsonl
+    mapping_audit=$shared_repo/outputs/eval/reliable_mechet_product_mapping_parity_valid2890_20261006.json
     history_flag=(--compact-history)
     ;;
   *) echo "invalid MECHET_RELIABLE_STAGE=$stage" >&2; exit 2 ;;
@@ -35,6 +37,7 @@ export PYTHONPATH=$runtime_repo/src:$runtime_repo
 
 test -s "$source_data"
 test -s "$decision_data"
+test -s "$mapping_audit"
 test -s "$adapter/adapter_model.safetensors"
 test -s "$adapter/adapter_manifest.json"
 echo "[reliable-product-start] stage=$stage adapter_sha256=$(sha256sum "$adapter/adapter_model.safetensors" | cut -d' ' -f1)"
@@ -94,6 +97,19 @@ for row in rows:
 print({'gate':'128_product_start_prompts_match_frozen_sft','stage':stage}, flush=True)
 PY
 
+python - "$source_data" "$decision_data" "$mapping_audit" <<'PY'
+import sys
+from pathlib import Path
+from scripts.analyze_reliable_product_start import _mapping_parity_failures
+from scripts.run_natural_language_value_search import read_selected
+
+source, decisions, report = map(Path, sys.argv[1:])
+selected_ids = {str(row['source_id']) for row in read_selected(source, 128, 17)}
+failures = _mapping_parity_failures(report, source, decisions, selected_ids)
+print({'gate':'mapping_parity_report_matches_stage','selected':len(selected_ids),
+       'unstable':len(failures)}, flush=True)
+PY
+
 echo "[reliable-product-start] product-only K=1 validation, 128 fixed IDs, 40-decision budget"
 torchrun --standalone --nproc_per_node=1 \
   "$runtime_repo/scripts/run_natural_language_value_search.py" \
@@ -125,4 +141,5 @@ PY
 python -u "$runtime_repo/scripts/analyze_reliable_product_start.py" \
   --source "$source_data" --decisions "$decision_data" \
   --results "$output/results.shard-00-of-01.jsonl" --output "$output" \
-  --sample-reactions 128 --seed 17
+  --sample-reactions 128 --seed 17 \
+  --mapping-parity-report "$mapping_audit"

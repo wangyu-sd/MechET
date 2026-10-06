@@ -89,6 +89,7 @@ def replay_reference(
     decisions: Sequence[Mapping[str, Any]],
     *,
     max_imports: int = 64,
+    compact_history: bool = True,
 ) -> ReferenceTrajectory:
     """Execute every Stage-II decision and audit its exact public observation."""
 
@@ -119,7 +120,7 @@ def replay_reference(
             node.state,
             include_inventory=True,
             actions=node.actions,
-            compact_history=True,
+            compact_history=compact_history,
         )
         if actual_prompt != expected_prompt:
             raise ValueError(f"{reaction_id}: Stage-II prompt/replay drift at decision {index}")

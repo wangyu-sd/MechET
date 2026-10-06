@@ -184,6 +184,25 @@ in the shared artifact repository, not a model score. Do not silently remove
 those 112 reactions from a benchmark denominator. Repair the representation
 parity or explicitly report this evaluator limitation before Stage-III
 product-start first-divergence credit is interpreted as chemically meaningful.
+The matched product-start diagnostic now consumes this SHA-checked audit: it
+retains all selected reactions in endpoint accuracy, records the unstable IDs,
+and reports reference-relative failure categories both overall and only for
+parity-stable reactions. Neither category count is an independent verdict on
+chemical plausibility. A trial that only canonicalized atom order left all six
+unstable reactions in the fixed 128-case sample unstable; stripping private
+maps before Kekulization aligned the two map views but changed nine original
+gold successors in that sample. Neither trial is a validated drop-in executor
+repair, so the frozen training runtime is unchanged.
+State-SFT and Trajectory-SFT have different reference-decision files and
+prompt contracts, so their parity reports must be built separately with the
+same 2,890 source reactions. The State-SFT audit uses `--state-only`; the
+Trajectory-SFT audit uses the default compressed-history mode. The product-
+start analysis checks the exact source and decision SHA-256 of the selected
+report and fails rather than silently applying one stage's audit to the other.
+The independently run State-SFT audit also found 2,778/2,890 product-only
+remapped gold replays, with the **same 112 reaction IDs** as the history-stage
+audit. Its artifact is
+`outputs/eval/reliable_mechet_state_product_mapping_parity_valid2890_20261006.json`.
 
 ## Historical Qwen3-8B position
 

@@ -27,7 +27,10 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def audit(source: Path, decisions: Path, *, n: int, seed: int) -> dict:
+def audit(
+    source: Path, decisions: Path, *, n: int, seed: int,
+    compact_history: bool = True,
+) -> dict:
     selected = read_selected(source, n, seed)
     if len(selected) != n or len({str(row["source_id"]) for row in selected}) != n:
         raise ValueError("source does not contain the requested unique reaction denominator")
@@ -53,7 +56,7 @@ def audit(source: Path, decisions: Path, *, n: int, seed: int) -> dict:
         canonical = product_only_private_state(str(row["target_smiles"]))
         root_prompt = policy_prompt(
             visible(canonical), canonical, include_inventory=True,
-            actions=[], compact_history=True,
+            actions=[], compact_history=compact_history,
         )
         if root_prompt != gold[0]["messages"][1]["content"]:
             counts["root_prompt_mismatch"] += 1
@@ -61,7 +64,7 @@ def audit(source: Path, decisions: Path, *, n: int, seed: int) -> dict:
             continue
         counts["root_prompt_exact"] += 1
         try:
-            replay_reference(row, gold)
+            replay_reference(row, gold, compact_history=compact_history)
             counts["original_private_map_replay_ok"] += 1
         except Exception as exc:
             counts["original_private_map_replay_failed"] += 1
@@ -72,7 +75,7 @@ def audit(source: Path, decisions: Path, *, n: int, seed: int) -> dict:
             continue
         remapped = dict(row, target_smiles=canonical)
         try:
-            replay_reference(remapped, gold)
+            replay_reference(remapped, gold, compact_history=compact_history)
             counts["product_only_remap_replay_ok"] += 1
         except Exception as exc:
             counts["product_only_remap_replay_failed"] += 1
@@ -87,6 +90,9 @@ def audit(source: Path, decisions: Path, *, n: int, seed: int) -> dict:
         "source": str(source), "source_sha256": sha256(source),
         "decisions": str(decisions), "decisions_sha256": sha256(decisions),
         "n_reactions": n, "seed": seed, "counts": dict(counts),
+        "observation_contract": (
+            "compressed_history" if compact_history else "state_only"
+        ),
         "failures": failures,
         "interpretation": (
             "The policy-visible root prompt can be identical while executor replay "
@@ -102,9 +108,13 @@ def main() -> int:
     parser.add_argument("--decisions", type=Path, required=True)
     parser.add_argument("--n", type=int, required=True)
     parser.add_argument("--seed", type=int, default=17)
+    parser.add_argument("--state-only", action="store_true")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    report = audit(args.source, args.decisions, n=args.n, seed=args.seed)
+    report = audit(
+        args.source, args.decisions, n=args.n, seed=args.seed,
+        compact_history=not args.state_only,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     print(json.dumps({
