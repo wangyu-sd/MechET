@@ -17,7 +17,9 @@ sys.path[:0] = [str(REPO), str(REPO / "src"), str(REPO / "scripts")]
 
 from anchor_branch_stage import train
 from python_continual_stage import log, read_rows
-from mechet.assistant_masking import encode_assistant_only_conversation, render_chat
+from mechet.assistant_masking import (
+    encode_assistant_only_conversation, render_chat, render_qwen_sft_tool_prefix,
+)
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
@@ -100,7 +102,11 @@ def _render_prompt(tokenizer, task, state: str, mode: str, *, actions=None) -> l
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": content},
     ]
-    rendered = render_chat(tokenizer, messages, tools=TOOLS, add_generation_prompt=True)
+    rendered = (
+        render_qwen_sft_tool_prefix(tokenizer, messages, tools=TOOLS)
+        if isinstance(task, V2AnchorTask)
+        else render_chat(tokenizer, messages, tools=TOOLS, add_generation_prompt=True)
+    )
     return tokenizer.encode(rendered, add_special_tokens=False)
 
 

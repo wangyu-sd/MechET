@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import hashlib
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -19,8 +20,9 @@ from scripts.earho_v2_protocol import (
     replay_reference,
 )
 from scripts.build_earho_v2_successor_value import build_rows
+from scripts.audit_reliable_product_mapping_parity import audit
 from scripts.natural_language_anchor_branch_stage import (
-    _messages, _node, _v2_probe, _v2_successor_fingerprint,
+    _messages, _node, _render_prompt, _v2_probe, _v2_successor_fingerprint,
 )
 from scripts.run_natural_language_value_search import (
     Action, Node, execute, policy_prompt, visible,
@@ -74,6 +76,19 @@ def fixture(reaction_id: str = "toy"):
     return source, decisions
 
 
+def test_product_only_mapping_audit_accepts_equivalent_toy_replay(tmp_path):
+    source, decisions = fixture()
+    source_path = tmp_path / "source.jsonl"
+    decision_path = tmp_path / "decisions.jsonl"
+    source_path.write_text(json.dumps(source) + "\n")
+    decision_path.write_text("".join(json.dumps(row) + "\n" for row in decisions))
+    report = audit(source_path, decision_path, n=1, seed=17)
+    assert report["counts"]["root_prompt_exact"] == 1
+    assert report["counts"]["original_private_map_replay_ok"] == 1
+    assert report["counts"]["product_only_remap_replay_ok"] == 1
+    assert report["failures"] == []
+
+
 def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     source, decisions = fixture()
     reference = replay_reference(source, decisions)
@@ -92,6 +107,30 @@ def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     assert "expected_precursor" not in actor_prompt
     assert "reference_successor" not in actor_prompt
     assert len(_node(task).actions) == 1
+
+
+def test_v2_collector_uses_completed_sft_tool_prefix_not_thinking_prompt():
+    class Tokenizer:
+        def apply_chat_template(self, messages, *, tokenize, add_generation_prompt,
+                                tools=None, enable_thinking=False):
+            text = "".join(
+                f"<|im_start|>{message['role']}\n{message['content']}<|im_end|>\n"
+                for message in messages
+            )
+            if add_generation_prompt:
+                text += "<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            return text
+
+        def encode(self, text, add_special_tokens=False):
+            return [ord(char) for char in text]
+
+    source, decisions = fixture()
+    reference = replay_reference(source, decisions)
+    task = anchor_task(reference, 0, divergence_reason="PRODUCT_ONLY_EVALUATION")
+    encoded = _render_prompt(Tokenizer(), task, task.anchor_state, "unified")
+    text = "".join(map(chr, encoded))
+    assert text.endswith("<|im_start|>assistant\n")
+    assert "<think>" not in text
 
 
 def test_product_probe_uses_first_executed_successor_mismatch():

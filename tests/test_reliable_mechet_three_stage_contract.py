@@ -1,6 +1,14 @@
 from pathlib import Path
+import json
 
+import pytest
 import yaml
+
+from scripts.run_earho_v2 import (
+    _critic_config, prepare, resolve_reliable_paths, validate_contract,
+)
+from scripts.run_natural_language_anchor_branch_rl import worker_command
+from scripts.run_anchor_branch_rl import run_train
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,3 +62,96 @@ def test_endpoint_and_process_denominators_stay_separate():
     umbrella = load_yaml("configs/experiments/reliable_mechet_three_stage_v1.yaml")
     assert umbrella["data"]["headline_endpoint_denominator"] == 28971
     assert umbrella["data"]["process_analysis_denominator"] == 28967
+
+
+def test_reliable_earho_refuses_unfrozen_stage_ii_before_large_data_scan():
+    stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    with pytest.raises(ValueError, match="freeze the Stage-II adapter SHA-256"):
+        validate_contract(stage3)
+
+
+def test_reliable_earho_paths_bind_pr_code_to_shared_artifacts(tmp_path: Path):
+    stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    resolved = resolve_reliable_paths(stage3, tmp_path)
+    assert Path(resolved["train_file"]).is_relative_to(tmp_path)
+    assert Path(resolved["output_dir"]).is_relative_to(tmp_path)
+    assert stage3["train_file"].startswith("data/")
+
+
+def test_reliable_earho_workers_keep_unified_v2_prompt_contract():
+    stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    command = worker_command(
+        stage3, Path("source.jsonl"), Path("adapter"), Path("rank0.jsonl"),
+        0, frontier=2, round_index=0, evaluation=False,
+    )
+    assert "--protocol-v2" in command
+    assert "--reject-target-retained-finish" in command
+    assert command[command.index("--model") + 1] == stage3["model_snapshot"]
+
+
+def test_reliable_earho_critic_uses_same_small_base(tmp_path: Path):
+    stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    dataset = tmp_path / "critic_data"
+    dataset.mkdir()
+    (dataset / "manifest.json").write_text(json.dumps({
+        "splits": {"train": {"rows": 12}, "valid": {"rows": 3}},
+    }))
+    critic_path = _critic_config(
+        stage3, dataset, tmp_path / "critic_output", tmp_path / "parent",
+    )
+    critic = yaml.safe_load(critic_path.read_text())
+    assert critic["model_name_or_path"] == "Qwen/Qwen3-0.6B"
+    assert critic["training"]["model_revision"] == stage3["model_revision"]
+    assert critic["training"]["qlora"] is False
+    assert critic["contract"]["reaction_denominator"] == stage3["reaction_denominator"]
+
+
+def test_reliable_earho_prepare_streams_large_source(monkeypatch, tmp_path: Path):
+    import scripts.run_earho_v2 as driver
+
+    stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    train, valid = tmp_path / "train.jsonl", tmp_path / "valid.jsonl"
+    train.write_text("".join(json.dumps({"id": str(i), "source_id": str(i)}) + "\n" for i in range(3)))
+    valid.write_text("".join(json.dumps({"id": str(i), "source_id": str(i)}) + "\n" for i in range(2)))
+    stage3.update(
+        train_file=str(train), validation_file=str(valid),
+        history_file=str(tmp_path / "history_train.jsonl"),
+        history_validation_file=str(tmp_path / "history_valid.jsonl"),
+        reaction_denominator={"train": 3, "valid": 2, "test": 0},
+        rounds=1, products_per_round=2, validation_monitor_rows=1,
+    )
+    monkeypatch.setattr(driver, "_attach_decisions", lambda rows, _path: rows)
+    monkeypatch.setattr(driver, "read_rows", lambda _path: (_ for _ in ()).throw(
+        AssertionError("reliable preparation must not load the full source")
+    ))
+    output = tmp_path / "prepared"
+    prepare(stage3, output)
+    plan = json.loads((output / "plan.json").read_text())
+    assert plan["source_reactions"] == 3
+    assert plan["selected_train_reactions"] == 2
+    assert plan["protocol_version"] == "reliable_mechet_three_stage_v1"
+
+
+def test_reliable_earho_actor_update_uses_natural_language_stage(monkeypatch, tmp_path: Path):
+    import scripts.run_anchor_branch_rl as driver
+
+    data = tmp_path / "training.jsonl"
+    data.write_text(json.dumps({"kind": "rl", "advantage": 1.0}) + "\n")
+    output = tmp_path / "actor_training"
+    commands = []
+
+    def fake_run(command, *, check):
+        assert check is True
+        commands.append(command)
+        (output / "adapter").mkdir(parents=True)
+        (output / "adapter" / "adapter_model.safetensors").write_bytes(b"smoke")
+
+    monkeypatch.setattr(driver.subprocess, "run", fake_run)
+    result = run_train(
+        {"model_snapshot": "/model", "initial_adapter_path": "/parent"},
+        data, tmp_path / "parent", output, 17,
+        stage_script="scripts/natural_language_anchor_branch_stage.py",
+    )
+    assert result == output / "adapter"
+    assert "scripts/natural_language_anchor_branch_stage.py" in commands[0]
+    assert "scripts/anchor_branch_stage.py" not in commands[0]

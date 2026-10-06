@@ -224,7 +224,9 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     )
     if (cfg.get("optimization") or {}).get("success_gated_advantages"):
         command.append("--success-gated-advantages")
-    if cfg.get("protocol_version") == "trajectory_history_v2":
+    if cfg.get("protocol_version") in {
+        "trajectory_history_v2", "reliable_mechet_three_stage_v1",
+    }:
         command.append("--protocol-v2")
     return command
 

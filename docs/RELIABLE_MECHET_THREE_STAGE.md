@@ -106,6 +106,15 @@ The Stage-III configuration is deliberately non-runnable until the exact
 Stage-II adapter SHA-256 is inserted. This is a provenance gate, not a
 placeholder to bypass.
 
+The Stage-III driver now binds the frozen FlowER strict source, Stage-II
+compressed-history manifest and exact adapter hash before preparing any
+rollout. It streams the selected reactions rather than loading the full
+257,167-row trace source, uses the natural-language actor-update path and
+the 0.6B base for its successor critic. The Taiji launcher is
+`scripts/run_taiji_reliable_mechet_earho_a100.sh`; it is **not** a submitted
+experiment and must not run until the Stage-II parent and product-start
+representation audit are accepted.
+
 EARHO keeps the existing design:
 
 - start from real product-start rollouts;
@@ -159,6 +168,22 @@ The primary reliability quantities are:
 
 Formal execution does not certify reaction conditions, kinetics, selectivity,
 yield or laboratory success.
+
+Product-only private-map replay is a separate executor-parity prerequisite:
+the mapping labels are hidden from the policy, but different private product
+atom orders can change the executor's aromatic/Kekule successor. Audit with
+`scripts/audit_reliable_product_mapping_parity.py` before interpreting a
+first-divergence or wrong-successor label as a model error. A reference replay
+under its original private mapping is not evidence of map-invariant execution.
+On the frozen 2,890-reaction validation split, the audit found 2,890/2,890
+original-map reference replays but only 2,778/2,890 product-only-remapped
+replays; all 112 failures are successor mismatches after the identical visible
+root prompt. The machine-readable report is
+`outputs/eval/reliable_mechet_product_mapping_parity_valid2890_20261006.json`
+in the shared artifact repository, not a model score. Do not silently remove
+those 112 reactions from a benchmark denominator. Repair the representation
+parity or explicitly report this evaluator limitation before Stage-III
+product-start first-divergence credit is interpreted as chemically meaningful.
 
 ## Historical Qwen3-8B position
 

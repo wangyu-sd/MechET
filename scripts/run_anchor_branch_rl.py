@@ -260,7 +260,7 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
     return shards, summary
 
 
-def run_train(cfg, data, adapter, output, seed):
+def run_train(cfg, data, adapter, output, seed, *, stage_script="scripts/anchor_branch_stage.py"):
     if (output / "stage_done.json").exists():
         state = json.loads((output / "stage_done.json").read_text())
         return Path(state.get("adapter") or output / "adapter")
@@ -286,7 +286,7 @@ def run_train(cfg, data, adapter, output, seed):
         str(Path(sys.executable).with_name("torchrun")),
         "--standalone",
         "--nproc_per_node=8",
-        "scripts/anchor_branch_stage.py",
+        stage_script,
         "train",
         "--data",
         str(data),
