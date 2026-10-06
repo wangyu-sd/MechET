@@ -293,6 +293,23 @@ In addition to solved rate and route recovery, report:
 - wasted expansions below failed reaction edges;
 - calls and wall time to first solution.
 
+`scripts/run_syntheseus_search.py` now records the frozen candidate-pool,
+target and stock hashes, search budgets, reaction-model calls, first-solution
+calls/time, admitted-edge proof replay and route certification. It audits the
+offline candidate file *before* the search adapter filters source-reported
+execution failures. The source-reported proposal failure rate and the
+independently replayed **admitted-edge** failure rate have different
+denominators and must not be conflated. If an admitted edge lacks a proof, its
+status is `unverified`; the admitted-edge hallucination, route certification
+and wasted-expansion rates are `null`, never an artificial zero. The observed
+certified-route count remains a lower bound when other routes are unverified.
+Certification means proof replay
+to the declared precursor under this executor, not chemical or laboratory
+truth. This instrumentation has passed a real Syntheseus 0.7.2 toy Retro*
+route; it is not yet a MechET planning result. The final natural-language
+policy still needs a frozen candidate-generation bridge before the matched
+multi-step study can run.
+
 The purpose is to test whether reaction-level reliability changes search
 efficiency and route reliability, not merely whether a larger search budget can
 hide one-step errors.
