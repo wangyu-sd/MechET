@@ -13,9 +13,14 @@ older A7 conditions or turn the executable trace view into unqualified
   strict-executable reaction split. The Zhangjiakou 8xH20 candidate
   `meteor_mechet_reliable_state_06b_1ep_8h20_zjk_20261006_01` was cancelled
   while waiting for resources; it had no training POD or result. Its replacement
-  `meteor_mechet_reliable_state_06b_1ep_8a100_qy_20261006_01` is running on
-  Qingyuan 8xA100. At the last artifact check on 2026-10-07 06:45 CST, its
-  latest checkpoint was step 16,000/31,366 and no final adapter existed.
+  `meteor_mechet_reliable_state_06b_1ep_8a100_qy_20261006_01` on Qingyuan
+  8xA100 saved a final adapter after 31,366/31,366 optimizer steps and one
+  epoch. Final weight SHA-256 is
+  `fbd8db06094fd8029d4cb0cac38cbb88280a442d76f686258194723019b1a1bd`;
+  it matches `checkpoint-31366` and passed the Stage-II parent lineage gate.
+  Taiji nevertheless marks the overall task failed: the wrapper exited with a
+  shell quote/EOF error after training and artifact save. Do not relabel the
+  platform task successful.
 - Stage II compressed-history Trajectory-SFT must warm-start from the **final**
   Stage-I adapter after its SHA-256 gate. Stage III EARHO must likewise wait
   for the final Stage-II SHA-256. Neither stage has been submitted. No formal
@@ -27,6 +32,9 @@ older A7 conditions or turn the executable trace view into unqualified
   3/16 recorded structural endpoints. The first tool call matched between
   these two singleton evaluations on 16/16 reactions. The local evaluator now
   binds decode batch size; old batched local numbers are not silently pooled.
+  The full raw 123-decision and 16-episode artifacts, both case-level reports,
+  selection and training snapshot are committed under
+  `docs/results/reliable_mechet_stage1_provisional_valid16_20261007/`.
 
 Check the current Taiji instance, adapter files and PR checks afresh before
 reporting completion or submitting the next stage.
