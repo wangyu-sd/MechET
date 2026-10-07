@@ -1,7 +1,8 @@
 # Stage-I small-test artifacts and training snapshot (2026-10-07)
 
-This directory preserves the **complete raw outputs** of the matched 16-reaction
-validation smoke at the unfinished State-SFT `checkpoint-14000`. It is a
+This directory pairs the **saved outputs with the model-visible inputs** of the
+matched 16-reaction validation smoke at the unfinished State-SFT
+`checkpoint-14000`. It is a
 diagnostic, not an evaluation of the final Stage-I adapter or the test split.
 Both runs used the same 16 reaction IDs, adapter weights SHA-256
 `5ad400212499ac32df48f9f06e432c439df15bdc24643cf8288ab7a492474507`,
@@ -12,10 +13,44 @@ seed 17, and T4/FP16 singleton decoding.
 | Reference-state, one decision at a time | `gold_state_bs1/selection.json`, `evaluation.json`, `decisions.shard-00-of-01.jsonl` | 123/123 decisions present; 61/63 event-tool choices, 58/63 formally executed events, 43/63 exact events, 9/44 exact imports, 15/16 exact finishes. |
 | Independent product-only, K=1 | `product_only_k1/independent_episodes_audit.json`, `independent_episodes_cases.jsonl`, `episodes.shard-00-of-01.jsonl` | 16/16 episodes present; 3/16 process-reliable structural endpoint hits, 12/16 terminal, 9/16 terminal/reference mismatches, 4/16 nonterminal. |
 
-The two JSONL shards contain every generated decision or episode, including
-model text, tool arguments, replayed actions, and per-case outcomes. The JSON
-reports contain the original evaluation settings, counts, lineage and claim
-boundaries. These six files are byte-for-byte copies of the corresponding
+**Read the paired inputs and outputs here:**
+
+- `gold_state_bs1/input_output.jsonl`: all **123** frozen system/user inputs,
+  tool schemas, re-rendered model prompts, originally saved raw model
+  completions, parsed calls, reference calls and per-decision scores.
+- `product_only_k1/input_output.jsonl`: all **107** decisions in the 16
+  product-only episodes. Each row has the system/user input, tool schema,
+  re-rendered prompt, saved parsed model call, and executor acceptance/error
+  and successor state. The first input of each episode is checked byte-for-byte
+  against the matching frozen State-SFT input. Later inputs are reconstructed
+  by independently executing the saved accepted-action prefix; every saved
+  pre- and post-action state is checked against replay.
+
+The original product-only evaluator **did not save the raw generated text**.
+Thus `raw_model_completion` is explicitly `null` in those 107 paired rows; the
+parsed call is the original saved output, not a fabricated verbatim completion.
+The re-rendered prompt uses the saved Qwen3-0.6B tokenizer and the frozen
+prompt/runtime code; it was not recorded as a string by the original run.
+Tokenizer JSON SHA-256 is
+`aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4`;
+chat template SHA-256 is
+`a55ee1b1660128b7098723e0abcd92caa0788061051c62d51cbe87d9cf1974d8`.
+The paired-file SHA-256 values are:
+
+| File | SHA-256 |
+| --- | --- |
+| `gold_state_bs1/input_output.jsonl` | `bddeab5e10e1c3c4ecb48d9e3295901bae2474115664d73a1ae9e7c0f72ba629` |
+| `product_only_k1/input_output.jsonl` | `9d60fea926b5339fe3e6f055c4a673663b6766d4a5bc8c85f8af458491e83a22` |
+
+Recreate these two files with `scripts/export_reliable_stage1_smoke_io.py`
+using the frozen `data/flower_natural_language_event_sft_v2/valid.jsonl`,
+`data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl`, the two saved
+prediction shards below and the saved Qwen3-0.6B tokenizer directory.
+
+The original two JSONL shards preserve the complete saved decision/episode
+records and per-case outcomes. The JSON reports contain the original
+evaluation settings, counts, lineage and claim boundaries. These six files
+are byte-for-byte copies of the corresponding
 shared-Ceph `outputs/eval/reliable_mechet_state_ckpt14000_valid16_bs1_t4_provisional_20261007/`
 and `outputs/eval/reliable_mechet_state_ckpt14000_valid16_stratified_k1_t4_provisional_20261007/`
 artifacts. Their SHA-256 values are:

@@ -32,9 +32,11 @@ older A7 conditions or turn the executable trace view into unqualified
   3/16 recorded structural endpoints. The first tool call matched between
   these two singleton evaluations on 16/16 reactions. The local evaluator now
   binds decode batch size; old batched local numbers are not silently pooled.
-  The full raw 123-decision and 16-episode artifacts, both case-level reports,
-  selection and training snapshot are committed under
+  The saved 123-decision and 16-episode artifacts, case-level reports, paired
+  model-visible inputs/outputs, selection and training snapshot are under
   `docs/results/reliable_mechet_stage1_provisional_valid16_20261007/`.
+  The original product-only evaluator saved parsed calls and feedback but not
+  raw generation text; the paired export marks those completions unavailable.
 
 Check the current Taiji instance, adapter files and PR checks afresh before
 reporting completion or submitting the next stage.
