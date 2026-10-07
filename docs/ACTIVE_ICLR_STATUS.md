@@ -37,6 +37,9 @@ older A7 conditions or turn the executable trace view into unqualified
   `docs/results/reliable_mechet_stage1_provisional_valid16_20261007/`.
   The original product-only evaluator saved parsed calls and feedback but not
   raw generation text; the paired export marks those completions unavailable.
+  RDKit overview, per-case GT/model trajectory PNGs and a linked
+  side-by-side HTML are in the same results directory; these depict the saved
+  provisional smoke only and do not change any metric.
 
 Check the current Taiji instance, adapter files and PR checks afresh before
 reporting completion or submitting the next stage.

@@ -1,5 +1,38 @@
 # Stage-I small-test artifacts and training snapshot (2026-10-07)
 
+## RDKit trajectory visualization
+
+- [16-case overview](stage1_valid16_overview.png): input product, recorded
+  structural precursor, and predicted terminal precursor (or explicitly
+  labelled last nonterminal state).
+- [Trajectory comparison gallery](stage1_valid16_trajectories.html): all
+  16 cases, with the frozen ground-truth tool/state trajectory and the saved
+  product-only model rollout in independent side-by-side lanes. Download the
+  HTML together with its 16 linked PNGs; GitHub does not render repository
+  HTML inline.
+- `stage1_valid16_case_01_val_1256.png` through
+  `stage1_valid16_case_16_val_963.png`: directly previewable per-case trajectory
+  PNGs. For example, [case 04, recorded endpoint matched](stage1_valid16_case_04_val_2344.png)
+  and [case 01, nonterminal](stage1_valid16_case_01_val_1256.png).
+
+The figure contains all 123 recorded GT decisions and all 107 model attempts,
+including rejected proposals. RDKit draws the saved post-action molecular
+states; the natural-language electron source/destination arrows are printed as
+action labels. It does not invent geometric electron arrows on unmapped
+structures. Rows in the two lanes are independently numbered: after the
+trajectories diverge, equal row numbers do not imply equal chemical states.
+The top comparison uses the recorded *structural* precursor view; each lane
+retains the full visible intermediate mixtures. This is a visualization of the
+existing checkpoint-14000 smoke, not a new inference run.
+
+Reproduce with `scripts/visualize_reliable_stage1_valid16.py` using the
+frozen strict-executable validation source, the natural-language-event-v2
+validation decision file, and the saved product-only episode shard. It requires
+RDKit and CairoSVG. The overview PNG SHA-256 is
+`1b24016b9f2d1100f99efb5b0b2a909be1c0e94e41a063eb40e8e0770f78eb9e`;
+the gallery HTML SHA-256 is
+`323613575710659b604bb393df57c212d0f9d2549bd66ddfa7ab401b7359c1d8`.
+
 This directory pairs the **saved outputs with the model-visible inputs** of the
 matched 16-reaction validation smoke at the unfinished State-SFT
 `checkpoint-14000`. It is a
