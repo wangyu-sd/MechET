@@ -131,12 +131,20 @@ def validate_matched_v2_args(args: argparse.Namespace) -> None:
         raise ValueError("matched v2 requires the frozen 40 decisions budget")
     if int(getattr(args, "max_imports", 0)) != 32:
         raise ValueError("matched v2 requires the frozen 32 imports budget")
-    if int(getattr(args, "branching", 0)) != 1:
-        raise ValueError("matched v2 pure-policy evaluation requires branching=1")
-    if int(getattr(args, "early_beam", 0)) != 1 or int(
-        getattr(args, "late_beam", 0)
-    ) != 1:
-        raise ValueError("matched v2 pure-policy evaluation requires beam width 1")
+    if bool(getattr(args, "beam_search", False)):
+        if int(getattr(args, "branching", 0)) < 2:
+            raise ValueError("matched v2 beam search requires branching>=2")
+        if min(int(getattr(args, "early_beam", 0)), int(getattr(args, "late_beam", 0))) < 1:
+            raise ValueError("matched v2 beam search requires positive beam widths")
+        if max(int(args.early_beam), int(args.late_beam)) < 2:
+            raise ValueError("matched v2 beam search requires a beam width >=2")
+    else:
+        if int(getattr(args, "branching", 0)) != 1:
+            raise ValueError("matched v2 pure-policy evaluation requires branching=1")
+        if int(getattr(args, "early_beam", 0)) != 1 or int(
+            getattr(args, "late_beam", 0)
+        ) != 1:
+            raise ValueError("matched v2 pure-policy evaluation requires beam width 1")
     if str(getattr(args, "value_adapter", "") or "") or abs(
         float(getattr(args, "value_weight", 0.0) or 0.0)
     ) > 1e-12:
@@ -224,6 +232,7 @@ class Node:
     value: float = 0.0
     pointer_score: float = 0.0
     terminal: bool = False
+    node_id: int = 0
 
     @property
     def policy_score(self) -> float:
@@ -310,6 +319,7 @@ class Runtime:
     ) -> list[Action]:
         torch = self.torch
         self.last_proposal_error = ""
+        self.last_generation_records: list[dict[str, Any]] = []
         self.model.set_adapter("policy")
         target = node.target
         state = node.state
@@ -363,7 +373,10 @@ class Runtime:
             if self.pointer is not None else []
         )
         with torch.inference_mode():
-            raw_model_nll = bool(getattr(self.args, "raw_model_nll", False))
+            raw_model_nll = bool(
+                getattr(self.args, "raw_model_nll", False)
+                or getattr(self.args, "beam_search", False)
+            )
             generation = {
                 "max_new_tokens": max_new_tokens,
                 "num_return_sequences": candidates,
@@ -378,6 +391,7 @@ class Runtime:
                 vnext_v2_prefix=bool(self.args.vnext_v2_prefix),
                 candidates=candidates,
                 planning_sample=planning_sample,
+                beam_search=bool(getattr(self.args, "beam_search", False)),
             ))
             output = self.model.generate(**encoded, **generation)
         scores = generated_transition_scores(
@@ -394,12 +408,26 @@ class Runtime:
             raw = self.tokenizer.decode(ids, skip_special_tokens=False)
             name, arguments, error = prediction_call(raw, self.tokenizer)
             prompt_kind = index // candidates
+            generation_record = {
+                "candidate_index": index,
+                "prompt_kind": prompt_kind,
+                "raw": raw,
+                "name": name if not error else "",
+                "arguments": arguments if not error else {},
+                "error": str(error or ""),
+                "action_logprob": float(scores[index, :stop].sum().item()),
+                "action_tokens": max(stop, 1),
+                "selected_for_execution": False,
+            }
+            self.last_generation_records.append(generation_record)
             if error:
                 continue
             if self.args.legacy_dual_prompt:
                 if prompt_kind == 0 and name not in {"import_fragments", "finish_trace"}:
+                    generation_record["error"] = "LEGACY_PROMPT_ACTION_MISMATCH"
                     continue
                 if prompt_kind == 1 and name != "apply_electron_flow":
+                    generation_record["error"] = "LEGACY_PROMPT_ACTION_MISMATCH"
                     continue
             pointer_score = 0.0
             if self.pointer is not None:
@@ -411,11 +439,14 @@ class Runtime:
                 )
                 if not math.isfinite(pointer_score):
                     self.pointer_invalid_handles += 1
+                    generation_record["error"] = "POINTER_INVALID_HANDLE"
                     continue
             signature = json.dumps([name, arguments], sort_keys=True, ensure_ascii=False)
             if signature in seen:
+                generation_record["error"] = "DUPLICATE_ACTION"
                 continue
             seen.add(signature)
+            generation_record["selected_for_execution"] = True
             token_count = max(stop, 1)
             actions.append(
                 Action(
@@ -662,11 +693,20 @@ def select_successful_terminals(terminals: list[Node], structural_match, expecte
 
 def generation_sampling_policy(
     *, matched_v2: bool, vnext_v2_prefix: bool, candidates: int,
-    planning_sample: bool = False,
+    planning_sample: bool = False, beam_search: bool = False,
 ) -> dict:
-    """K=1 vNext is genuinely greedy; K>1 remains stochastic expansion."""
+    """Choose greedy, token-beam, or sampled next-action proposals explicitly."""
     if candidates < 1:
         raise ValueError("candidate count must be positive")
+    if beam_search:
+        if planning_sample:
+            raise ValueError("deterministic beam search cannot also sample")
+        # Qwen's stored generation config contains non-greedy sampler knobs.
+        # Explicit defaults prevent those from silently changing beam decoding.
+        policy = {"do_sample": False, "temperature": 1.0, "top_p": 1.0, "top_k": 50}
+        if candidates > 1:
+            policy["num_beams"] = candidates
+        return policy
     greedy = not planning_sample and (
         matched_v2 or (vnext_v2_prefix and candidates == 1)
     )
@@ -681,9 +721,11 @@ def generated_transition_scores(model: Any, output: Any, *, raw_model_nll: bool)
     source = output.logits if raw_model_nll else output.scores
     if source is None:
         raise ValueError("generation output lacks the requested transition logits")
-    return model.compute_transition_scores(
-        output.sequences, source, normalize_logits=True,
-    )
+    kwargs = {"normalize_logits": True}
+    beam_indices = getattr(output, "beam_indices", None)
+    if beam_indices is not None:
+        kwargs["beam_indices"] = beam_indices
+    return model.compute_transition_scores(output.sequences, source, **kwargs)
 
 
 def search_unlabeled(
@@ -716,10 +758,21 @@ def search_unlabeled(
     terminals: list[Node] = []
     rejected: dict[str, int] = {}
     attempts: list[dict[str, Any]] = []
+    generations: list[dict[str, Any]] = []
+    # Keep every accepted child, including deduplicated/pruned alternatives.
+    # Rejected proposals remain in attempts with their parent and error.
+    tree_nodes: list[dict[str, Any]] = [{
+        "node_id": 0, "parent_node_id": None, "depth": 0,
+        "state": target, "terminal": False, "status": "root",
+        "via_attempt_id": None, "policy_score": 0.0, "search_score": 0.0,
+    }]
+    next_node_id = 1
     for depth in range(args.max_decisions):
         children: list[Node] = []
         new_terminals: list[Node] = []
         for node in beam:
+            tree_nodes[node.node_id]["status"] = "expanded"
+            accepted_any = False
             proposals = runtime.proposals(
                 node,
                 candidates=args.branching,
@@ -727,12 +780,21 @@ def search_unlabeled(
                 compact_history=args.compact_history,
                 planning_sample=bool(getattr(args, "planning_sample", False)),
             )
+            for generated in getattr(runtime, "last_generation_records", []):
+                generations.append({
+                    "generation_id": len(generations),
+                    "parent_node_id": node.node_id,
+                    "depth": depth,
+                    **generated,
+                })
             if not proposals:
                 code = str(getattr(runtime, "last_proposal_error", "") or "NO_VALID_TOOL_CALL")
                 rejected[code] = rejected.get(code, 0) + 1
                 attempts.append({
+                    "attempt_id": len(attempts), "parent_node_id": node.node_id,
+                    "child_node_id": None,
                     "depth": depth, "state_before": visible(node.state),
-                    "name": "", "arguments": {}, "accepted": False,
+                    "name": "", "arguments": {}, "raw": "", "accepted": False,
                     "error": code, "state_after": "", "terminal": False,
                     "action_logprob": None, "action_tokens": 0,
                     "action_policy_score": None,
@@ -744,9 +806,31 @@ def search_unlabeled(
                     max_imports=args.max_imports,
                     reject_target_retained_finish=args.reject_target_retained_finish,
                 )
+                attempt_id = len(attempts)
+                child_node_id = None
+                if child is not None:
+                    accepted_any = True
+                    child_node_id = next_node_id
+                    child.node_id = next_node_id
+                    next_node_id += 1
+                    tree_nodes.append({
+                        "node_id": child_node_id,
+                        "parent_node_id": node.node_id,
+                        "depth": depth + 1,
+                        "state": visible(child.state),
+                        "terminal": child.terminal,
+                        "status": "terminal" if child.terminal else "candidate",
+                        "via_attempt_id": attempt_id,
+                        "policy_score": child.policy_score,
+                        "search_score": None,
+                    })
                 attempts.append({
+                    "attempt_id": attempt_id,
+                    "parent_node_id": node.node_id,
+                    "child_node_id": child_node_id,
                     "depth": depth, "state_before": visible(node.state),
                     "name": action.name, "arguments": action.arguments,
+                    "raw": action.raw,
                     "accepted": child is not None, "error": error,
                     "action_logprob": action.logprob,
                     "action_tokens": action.tokens,
@@ -764,26 +848,46 @@ def search_unlabeled(
                     new_terminals.append(child)
                 else:
                     children.append(child)
+            if not accepted_any:
+                tree_nodes[node.node_id]["status"] = "dead_end"
         if new_terminals:
             terminal_values = runtime.values(
                 target,
                 [child.state for child in new_terminals],
-            current_states=[child.actions[-1]["state_before"] for child in new_terminals],
-            terminal=True,
-            remaining_decisions=args.max_decisions - depth - 1,
+                current_states=[child.actions[-1]["state_before"] for child in new_terminals],
+                terminal=True,
+                remaining_decisions=args.max_decisions - depth - 1,
             )
             for child, value in zip(new_terminals, terminal_values, strict=True):
                 child.value = value
+                tree_nodes[child.node_id]["search_score"] = child.score(
+                    args.value_weight, args.pointer_weight
+                )
             terminals.extend(new_terminals)
         if not children:
             break
-        # Collapse graph-equivalent visible states before paying for critic scores.
-        unique: dict[str, Node] = {}
+        # Only merge genuinely identical search states. Two paths with the same
+        # visible molecule may have different private atom aliases or visited
+        # sets, so collapsing by visible SMILES alone loses valid continuations.
+        unique: dict[tuple[Any, ...], Node] = {}
         for child in children:
-            key = visible(child.state)
+            key = (
+                child.state,
+                child.next_map,
+                frozenset(child.visited),
+                tuple(sorted(child.imported.items())),
+                tuple(
+                    json.dumps([record["name"], record["arguments"]], sort_keys=True)
+                    for record in child.actions
+                ) if args.compact_history else (),
+            )
             incumbent = unique.get(key)
             if incumbent is None or child.policy_score > incumbent.policy_score:
                 unique[key] = child
+        selected_unique_ids = {child.node_id for child in unique.values()}
+        for child in children:
+            if child.node_id not in selected_unique_ids:
+                tree_nodes[child.node_id]["status"] = "deduplicated"
         children = list(unique.values())
         values = runtime.values(
             target,
@@ -793,21 +897,32 @@ def search_unlabeled(
         )
         for child, value in zip(children, values, strict=True):
             child.value = value
+            tree_nodes[child.node_id]["search_score"] = child.score(
+                args.value_weight, args.pointer_weight
+            )
         width = args.early_beam if depth < args.early_depth else args.late_beam
         beam = sorted(
             children,
             key=lambda child: child.score(args.value_weight, args.pointer_weight),
             reverse=True,
         )[:width]
+        selected_ids = {node.node_id for node in beam}
+        for child in children:
+            tree_nodes[child.node_id]["status"] = (
+                "frontier" if child.node_id in selected_ids else "pruned"
+            )
     terminals.sort(key=lambda node: node.score(args.value_weight, args.pointer_weight), reverse=True)
     top = terminals[0] if terminals else (beam[0] if beam else root)
     return {
         "target": target,
         "target_mapped": target_mapped,
         "top": top,
+        "frontier_node_ids": [node.node_id for node in beam],
         "terminals": terminals,
         "rejected": rejected,
         "attempts": attempts,
+        "generations": generations,
+        "search_tree": tree_nodes,
         "pointer_invalid_handles": runtime.pointer_invalid_handles - pointer_rejected_before,
     }
 
@@ -863,6 +978,9 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         "top1_full_exact": top_full_exact,
         "pass_at_beam": any_exact,
         "n_terminals": len(terminals),
+        "top_node_id": top.node_id,
+        "terminal_node_ids": [node.node_id for node in terminals],
+        "frontier_node_ids": searched["frontier_node_ids"],
         "top_policy_score": top.policy_score,
         "top_value": top.value,
         "top_pointer_score": top.pointer_score,
@@ -870,6 +988,8 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         "n_actions": len(top.actions),
         "rejected": rejected,
         "attempts": attempts,
+        "generations": searched["generations"],
+        "search_tree": searched["search_tree"],
         "top_actions": top.actions,
         "successful_actions": (
             successful_full.actions if successful_full is not None
@@ -911,6 +1031,7 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
     parser.add_argument("--model-revision", default=MODEL_REVISION)
+    parser.add_argument("--dtype", choices=("float16", "bfloat16"), default="bfloat16")
     parser.add_argument("--policy-adapter", required=True)
     parser.add_argument("--value-adapter", default="")
     parser.add_argument(
@@ -921,6 +1042,13 @@ def main() -> int:
                         help="sample one product-start row per source reaction")
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--branching", type=int, default=4)
+    parser.add_argument(
+        "--beam-search", action="store_true",
+        help=(
+            "deterministic token-level next-action beam plus executor-state beam; "
+            "retains all explored nodes and attempted edges in each result"
+        ),
+    )
     parser.add_argument("--early-beam", type=int, default=4)
     parser.add_argument("--late-beam", type=int, default=2)
     parser.add_argument("--early-depth", type=int, default=2)
@@ -939,6 +1067,10 @@ def main() -> int:
     parser.add_argument("--max-new-tokens", type=int, default=384)
     parser.add_argument("--max-context", type=int, default=4096)
     parser.add_argument("--value-weight", type=float, default=0.20)
+    parser.add_argument(
+        "--raw-model-nll", action="store_true",
+        help="rank actions using unwarped model token log-probabilities",
+    )
     parser.add_argument("--pointer-head", default="")
     parser.add_argument("--pointer-weight", type=float, default=0.0)
     parser.add_argument("--vnext-v2-prefix", action="store_true")
@@ -985,6 +1117,8 @@ def main() -> int:
         parser.error("vNext v2 prefix requires unified compact-history prompts")
     if args.search_no_value and (args.value_adapter or abs(args.value_weight) > 1e-12):
         parser.error("--search-no-value requires no critic and --value-weight 0")
+    if args.beam_search and not args.matched_v2:
+        parser.error("--beam-search currently requires --matched-v2 for prompt parity")
     if not args.matched_v2 and not args.search_no_value and not str(args.value_adapter or "").strip():
         parser.error("--value-adapter is required unless --matched-v2 or --search-no-value")
     if args.matched_v2:
@@ -1013,13 +1147,32 @@ def main() -> int:
     runtime = Runtime(args, local_rank)
     print(
         f"[meteor-value-search] rank={rank}/{world} reactions={len(selected)} "
-        f"beam={args.early_beam}->{args.late_beam} branching={args.branching}",
+        f"beam={args.early_beam}->{args.late_beam} branching={args.branching} "
+        f"deterministic_beam={args.beam_search}",
         flush=True,
     )
     started = time.time()
     with output.open("w", encoding="utf-8") as sink, distill.open("w", encoding="utf-8") as dsink:
         for number, row in enumerate(selected, 1):
             result = rollout(runtime, row, args)
+            result["search_config"] = {
+                "mode": (
+                    "deterministic_beam" if args.beam_search else
+                    "matched_v2_greedy_k1" if args.matched_v2 else "other_search"
+                ),
+                "branching": args.branching,
+                "early_beam": args.early_beam,
+                "late_beam": args.late_beam,
+                "early_depth": args.early_depth,
+                "max_decisions": args.max_decisions,
+                "max_imports": args.max_imports,
+                "max_new_tokens": args.max_new_tokens,
+                "raw_model_nll": bool(args.raw_model_nll or args.beam_search),
+                "product_only_remap": args.product_only_remap,
+                "compact_history": args.compact_history,
+                "value_weight": args.value_weight,
+                "pointer_weight": args.pointer_weight,
+            }
             sink.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
             if args.write_distill and result["pass_at_beam"]:
                 for item in distill_rows(result, row):

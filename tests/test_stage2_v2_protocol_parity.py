@@ -129,6 +129,19 @@ def test_matched_v2_accepts_pure_policy_40_32_contract():
     validate_matched_v2_args(matched_args())
 
 
+def test_matched_v2_beam_is_explicit_and_keeps_other_protocol_gates():
+    validate_matched_v2_args(matched_args(
+        beam_search=True, branching=3, early_beam=3, late_beam=2,
+    ))
+    with pytest.raises(ValueError, match="value critic"):
+        validate_matched_v2_args(matched_args(
+            beam_search=True, branching=3, early_beam=3, late_beam=2,
+            value_weight=0.2,
+        ))
+    with pytest.raises(ValueError, match="branching>=2"):
+        validate_matched_v2_args(matched_args(beam_search=True))
+
+
 @pytest.mark.parametrize(
     "compact_history,environment",
     [

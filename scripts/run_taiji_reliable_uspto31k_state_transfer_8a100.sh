@@ -12,7 +12,20 @@ decisions=$shared/data/mech_uspto_31k_natural_language_event_v2/test.jsonl
 decision_manifest=$shared/data/mech_uspto_31k_natural_language_event_v2/manifest.json
 adapter=$shared/outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
 expected_adapter_sha=fbd8db06094fd8029d4cb0cac38cbb88280a442d76f686258194723019b1a1bd
-output=$shared/outputs/eval/reliable_mechet_state_uspto31k_trace1253_k1_seed17_20261007
+search_mode=${MECHET_SEARCH_MODE:-k1}
+case "$search_mode" in
+  k1)
+    output=$shared/outputs/eval/reliable_mechet_state_uspto31k_trace1253_k1_seed17_20261007
+    search_args=(--branching 1 --early-beam 1 --late-beam 1)
+    audit_args=()
+    ;;
+  beam)
+    output=$shared/outputs/eval/reliable_mechet_state_uspto31k_trace1253_beam4_seed17_20261008
+    search_args=(--beam-search --branching 4 --early-beam 4 --late-beam 4 --early-depth 40)
+    audit_args=(--beam-search)
+    ;;
+  *) echo "unknown MECHET_SEARCH_MODE: $search_mode" >&2; exit 2 ;;
+esac
 
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -95,7 +108,7 @@ print({'gate': 'passed', 'model': 'Qwen3-0.6B FlowER State-SFT',
        'rdkit': rdkit.__version__, 'gpus': names}, flush=True)
 PY
 
-echo '[meteor-31k-transfer] starting product-only K=1, 1,253 reactions, 8 A100 workers'
+echo "[meteor-31k-transfer] starting product-only $search_mode, 1,253 reactions, 8 A100 workers"
 torchrun --standalone --nproc_per_node=8 \
   "$runtime/scripts/run_natural_language_value_search.py" \
   --data "$source_data" --output "$output" \
@@ -103,7 +116,7 @@ torchrun --standalone --nproc_per_node=8 \
   --model-revision c1899de289a04d12100db370d81485cdf75e47ca \
   --policy-adapter "$adapter" --sample-reactions 1253 --seed 17 \
   --matched-v2 --product-only-remap --reject-target-retained-finish \
-  --branching 1 --early-beam 1 --late-beam 1 \
+  "${search_args[@]}" \
   --max-decisions 40 --max-imports 32 --max-new-tokens 512 \
   --value-weight 0 --no-4bit
 python -u "$runtime/scripts/summarize_natural_language_value_search.py" \
@@ -112,5 +125,6 @@ python -u "$runtime/scripts/audit_reliable_uspto31k_transfer.py" \
   --source "$source_data" --manifest "$source_manifest" \
   --results-dir "$output" --adapter "$adapter" \
   --expected-adapter-sha256 "$expected_adapter_sha" \
+  "${audit_args[@]}" \
   --output "$output/transfer_audit.json"
 echo '[meteor-31k-transfer] complete; raw decision trajectories and audit saved'
