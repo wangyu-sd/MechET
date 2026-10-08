@@ -64,7 +64,7 @@ def _prompt_modes(args) -> tuple[str, ...]:
     return PROMPT_MODES if getattr(args, "legacy_dual_prompt", False) else ("unified",)
 
 
-def _messages(task, mode: str) -> list[dict[str, Any]]:
+def _messages(task, mode: str, *, state_only: bool = False) -> list[dict[str, Any]]:
     if mode not in (*PROMPT_MODES, "unified"):
         raise ValueError(f"unsupported prompt mode: {mode}")
     return [
@@ -74,7 +74,7 @@ def _messages(task, mode: str) -> list[dict[str, Any]]:
             "content": (
                 policy_prompt(
                     task.target, task.anchor_state, include_inventory=True,
-                    actions=task.anchor_actions, compact_history=True,
+                    actions=task.anchor_actions, compact_history=not state_only,
                 )
                 if isinstance(task, V2AnchorTask)
                 else _prompt(
@@ -86,14 +86,14 @@ def _messages(task, mode: str) -> list[dict[str, Any]]:
     ]
 
 
-def _render_prompt(tokenizer, task, state: str, mode: str, *, actions=None) -> list[int]:
+def _render_prompt(tokenizer, task, state: str, mode: str, *, actions=None, state_only: bool = False) -> list[int]:
     if isinstance(task, V2AnchorTask):
         if mode != "unified":
             raise ValueError("v2 trajectory policy requires the unified prompt")
         content = policy_prompt(
             task.target, state, include_inventory=True,
             actions=task.anchor_actions if actions is None else actions,
-            compact_history=True,
+            compact_history=not state_only,
         )
     else:
         content = _prompt(
@@ -289,7 +289,8 @@ def _greedy_continue(
     prompts = []
     modes = []
     for mode in _prompt_modes(args):
-        prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions)
+        prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions,
+                                state_only=getattr(args, "state_only_observation", False))
         if len(prompt) + args.max_new_tokens > args.max_context:
             return None, "CONTEXT_BUDGET"
         prompts.append({"prompt_token_ids": prompt})
@@ -375,7 +376,8 @@ def _beam_continue(
         prompts = []
         for parent_index, node in enumerate(frontier):
             for mode in _prompt_modes(args):
-                prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions)
+                prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions,
+                                        state_only=getattr(args, "state_only_observation", False))
                 if len(prompt) + args.max_new_tokens > args.max_context:
                     last_errors.append("CONTEXT_BUDGET")
                     continue
@@ -583,7 +585,7 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
     mode, name, arguments, _ = _reference_first_decision(row, episode)
     if not getattr(args, "legacy_dual_prompt", False):
         mode = "unified"
-    messages = _messages(task, mode) + [
+    messages = _messages(task, mode, state_only=getattr(args, "state_only_observation", False)) + [
         {
             "role": "assistant",
             "content": "",
@@ -615,18 +617,18 @@ def _verified_replay_record(tokenizer, task, row, episode, max_context: int, arg
         "reward": 1.0,
         "prompt_mode": mode,
         "reference_action": name,
-        "anchor": _task_record(task),
+        "anchor": _task_record(task, state_only=getattr(args, "state_only_observation", False)),
     }
 
 
-def _task_record(task):
+def _task_record(task, *, state_only: bool = False):
     record = task_record(task)
     if isinstance(task, V2AnchorTask):
         record.update(
             version="earho_first_divergence_v2",
             divergence_reason=task.divergence_reason,
             decision_index=task.prefix_events,
-            compact_history=True,
+            compact_history=not state_only,
         )
     return record
 
@@ -647,7 +649,8 @@ def _v2_probe(llm, tokenizer, lora, parameters, eos_ids, reference, args):
 
     def step(node):
         prompt = _render_prompt(
-            tokenizer, probe_task, node.state, "unified", actions=node.actions
+            tokenizer, probe_task, node.state, "unified", actions=node.actions,
+            state_only=getattr(args, "state_only_observation", False),
         )
         if len(prompt) + args.max_new_tokens > args.max_context:
             return None, "PRODUCT_PROBE_CONTEXT_BUDGET"
@@ -827,6 +830,7 @@ def collect(args):
                     reference = replay_reference(
                         row, row["earho_v2_reference_decisions"],
                         max_imports=args.max_imports,
+                        compact_history=not getattr(args, "state_only_observation", False),
                     )
                     if args.evaluation or args.full_only:
                         anchor_index, reason = 0, "PRODUCT_ONLY_EVALUATION"
@@ -867,6 +871,7 @@ def collect(args):
                     mode: _render_prompt(
                         tokenizer, task, task.anchor_state, mode,
                         actions=(task.anchor_actions if isinstance(task, V2AnchorTask) else None),
+                        state_only=getattr(args, "state_only_observation", False),
                     )
                     for mode in prompt_modes
                 }
@@ -981,7 +986,7 @@ def collect(args):
                             "score": score,
                             "prompt_mode": mode,
                             "action_fingerprint": fingerprint,
-                            "anchor": _task_record(task),
+                            "anchor": _task_record(task, state_only=getattr(args, "state_only_observation", False)),
                         }
                         if not ids:
                             record["loss_mask"] = [0] * len(record["loss_mask"])
@@ -1118,6 +1123,7 @@ def main():
         help="reproduce the historical gold-action-conditioned prompt split",
     )
     parser.add_argument("--protocol-v2", action="store_true")
+    parser.add_argument("--state-only-observation", action="store_true")
     parser.add_argument("--vnext-credit", choices=["grpo", "gspo", "tree"])
     parser.add_argument("--vnext-private-reference-credit", action="store_true")
     parser.add_argument("--engine-mode", choices=["eager", "cuda_graph"], default="eager")

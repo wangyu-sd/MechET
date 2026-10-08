@@ -120,6 +120,25 @@ def test_product_only_mapping_audit_supports_state_only_decisions(tmp_path):
     assert report["counts"]["product_only_remap_replay_ok"] == 1
 
 
+def test_state_direct_earho_prompt_matches_stage_i_observation():
+    source, history_decisions = fixture()
+    reference = replay_reference(source, history_decisions)
+    state_decisions = []
+    for index, row in enumerate(history_decisions):
+        copy = dict(row, messages=[dict(message) for message in row["messages"]])
+        copy["messages"][1]["content"] = policy_prompt(
+            reference.target, reference.nodes[index].state,
+            include_inventory=True, actions=reference.nodes[index].actions,
+            compact_history=False,
+        )
+        state_decisions.append(copy)
+    state_reference = replay_reference(source, state_decisions, compact_history=False)
+    task = anchor_task(state_reference, 1, divergence_reason="EXECUTED_SUCCESSOR_DIVERGED")
+    actor_prompt = _messages(task, "unified", state_only=True)[1]["content"]
+    assert actor_prompt == state_decisions[1]["messages"][1]["content"]
+    assert "accepted_actions:" not in actor_prompt
+
+
 def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     source, decisions = fixture()
     reference = replay_reference(source, decisions)
@@ -238,7 +257,7 @@ def test_v2_collector_probe_conditions_on_accepted_history(monkeypatch):
     import scripts.natural_language_anchor_branch_stage as stage
 
     seen_actions = []
-    def prompt(tokenizer, task, state, mode, *, actions):
+    def prompt(tokenizer, task, state, mode, *, actions, state_only=False):
         seen_actions.append(len(actions))
         return [1]
     monkeypatch.setattr(stage, "_render_prompt", prompt)

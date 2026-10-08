@@ -11,6 +11,32 @@ from mechet.natural_language_anchor_branch_rl import (
 )
 from scripts.natural_language_anchor_branch_stage import _advance, _beam_continue, _node
 from scripts.run_natural_language_value_search import Action, Node, execute, visible
+from scripts.run_natural_language_anchor_branch_rl import worker_command
+
+
+def test_state_direct_worker_keeps_stage_i_prompt_and_structural_reward():
+    cfg = {
+        "protocol_version": "state_direct_v2", "model_snapshot": "/model",
+        "candidates_per_product": 8, "seed": 17, "invalid_penalty": 0.1,
+        "reward": {
+            "endpoint_metric": "structural", "wrong_terminal_penalty": 0.5,
+            "endpoint_similarity_weight": 0.45,
+            "first_successor_progress_weight": 0.25,
+            "reference_first_successor_weight": 0.25,
+            "nonexact_reward_ceiling": 0.01, "target_retained_penalty": 0.75,
+        },
+        "rollout": {"temperature": 1.0, "max_new_tokens": 384,
+                    "max_context": 4096, "max_decisions": 40, "max_imports": 32},
+        "curriculum": {"full_episode_fraction": 0.25},
+        "optimization": {"success_gated_advantages": True},
+    }
+    command = worker_command(
+        cfg, "/data", "/adapter", "/out", 0,
+        frontier=2, round_index=0, evaluation=False,
+    )
+    assert "--protocol-v2" in command
+    assert "--state-only-observation" in command
+    assert command[command.index("--endpoint-metric") + 1] == "structural"
 
 
 def test_task_hides_reference_suffix_and_tracks_reset():

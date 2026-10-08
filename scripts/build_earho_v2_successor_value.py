@@ -33,6 +33,7 @@ def build_rows(
     rollouts: list[dict[str, Any]],
     *,
     max_hard_negatives: int,
+    compact_history: bool = True,
 ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, int]]:
     by_source = {str(row["source_id"]): row for row in sources}
     if len(by_source) != len(sources):
@@ -58,7 +59,8 @@ def build_rows(
             raise ValueError(f"missing training source: {reaction_id}")
         if reaction_id not in references:
             references[reaction_id] = replay_reference(
-                source, source["earho_v2_reference_decisions"]
+                source, source["earho_v2_reference_decisions"],
+                compact_history=compact_history,
             )
         reference = references[reaction_id]
         indices = {int(item["anchor"]["decision_index"]) for item in candidates}
@@ -144,6 +146,7 @@ def main() -> int:
     parser.add_argument("--rollout", type=Path, action="append", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--max-hard-negatives", type=int, default=4)
+    parser.add_argument("--state-only-observation", action="store_true")
     args = parser.parse_args()
     if args.output_dir.exists():
         raise FileExistsError(args.output_dir)
@@ -153,7 +156,8 @@ def main() -> int:
     sources = read_jsonl(args.source)
     rollouts = [row for path in args.rollout for row in read_jsonl(path)]
     rows, stats = build_rows(
-        sources, rollouts, max_hard_negatives=args.max_hard_negatives
+        sources, rollouts, max_hard_negatives=args.max_hard_negatives,
+        compact_history=not args.state_only_observation,
     )
     building.mkdir(parents=True)
     manifest = {

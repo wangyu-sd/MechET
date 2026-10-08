@@ -30,6 +30,7 @@ from scripts.train_python_template_rlvr import _load_yaml
 
 PROTOCOL = "trajectory_history_v2"
 RELIABLE_PROTOCOL = "reliable_mechet_three_stage_v1"
+STATE_DIRECT_PROTOCOL = "state_direct_v2"
 
 
 def resolve_reliable_paths(cfg: dict[str, Any], artifact_root: Path) -> dict[str, Any]:
@@ -150,7 +151,8 @@ def validate_contract(cfg: dict[str, Any]) -> None:
     if cfg.get("protocol_version") == RELIABLE_PROTOCOL:
         validate_reliable_contract(cfg)
         return
-    if cfg.get("protocol_version") != PROTOCOL:
+    state_direct = cfg.get("protocol_version") == STATE_DIRECT_PROTOCOL
+    if cfg.get("protocol_version") not in {PROTOCOL, STATE_DIRECT_PROTOCOL}:
         raise ValueError("EARHO v2 requires the compressed-history v2 protocol")
     if cfg.get("legacy_dual_prompt") or cfg.get("test_file"):
         raise ValueError("v1 dual prompts and test data are forbidden")
@@ -179,45 +181,56 @@ def validate_contract(cfg: dict[str, Any]) -> None:
     history_manifest = json.loads(Path(cfg["natural_language_manifest"]).read_text())
     if not history_manifest.get("training_allowed") or history_manifest.get("status") != "validated_trace_view":
         raise ValueError("v2 history supervision is not validated")
-    if history_manifest.get("decision_contract") != "unified_inventory_compressed_history_tool_decision_v2":
-        raise ValueError("v2 compressed-history decision contract mismatch")
+    expected_decision_contract = (
+        "unified_inventory_tool_decision_v2" if state_direct
+        else "unified_inventory_compressed_history_tool_decision_v2"
+    )
+    if history_manifest.get("decision_contract") != expected_decision_contract:
+        raise ValueError("v2 observation decision contract mismatch")
     if history_manifest.get("reaction_denominator") != expected:
         raise ValueError("history executable denominator changed")
     if history_manifest.get("full_reaction_denominator") != full:
         raise ValueError("history complete denominator changed")
     repository_root = source_dir.parents[1]
-    event_dir = repository_root / str(history_manifest["source_artifact"])
-    event_manifest_path = event_dir / "manifest.json"
+    event_manifest_path = (
+        Path(cfg["natural_language_manifest"])
+        if state_direct else repository_root / str(history_manifest["source_artifact"]) / "manifest.json"
+    )
     event_manifest = json.loads(event_manifest_path.read_text())
     if event_manifest.get("source_artifact") != str(source_dir.relative_to(repository_root)):
         raise ValueError("event supervision does not descend from selected source")
     if event_manifest.get("source_manifest_sha256") != _sha256(Path(cfg["stable_id_manifest"])):
         raise ValueError("event/source manifest lineage mismatch")
-    if history_manifest.get("source_manifest_sha256") != _sha256(event_manifest_path):
+    if not state_direct and history_manifest.get("source_manifest_sha256") != _sha256(event_manifest_path):
         raise ValueError("history/event manifest lineage mismatch")
     for split in ("train", "valid"):
         if _sha256(history_dir / f"{split}.jsonl") != history_manifest["splits"][split]["output_sha256"]:
             raise ValueError(f"{split} history SHA-256 mismatch")
         if event_manifest["splits"][split]["source_sha256"] != source_manifest["splits"][split]["sha256"]:
             raise ValueError(f"{split} event/source file lineage mismatch")
-        if history_manifest["splits"][split]["source_sha256"] != event_manifest["splits"][split]["output_sha256"]:
+        if not state_direct and history_manifest["splits"][split]["source_sha256"] != event_manifest["splits"][split]["output_sha256"]:
             raise ValueError(f"{split} history/event file lineage mismatch")
     adapter = Path(cfg["initial_adapter_path"])
     if _sha256(adapter / "adapter_model.safetensors") != cfg["initial_adapter_model_sha256"]:
         raise ValueError("Stage-II parent adapter SHA-256 mismatch")
     adapter_manifest = json.loads((adapter / "adapter_manifest.json").read_text())
-    if adapter_manifest.get("environment_revision") != "natural_language_electron_event_history_v2":
-        raise ValueError("parent is not the v2 Trajectory-SFT policy")
+    expected_environment_revision = (
+        "natural_language_electron_event_v2" if state_direct
+        else "natural_language_electron_event_history_v2"
+    )
+    if adapter_manifest.get("environment_revision") != expected_environment_revision:
+        raise ValueError("parent observation protocol mismatch")
     if adapter_manifest.get("base_model_revision") != cfg["model_revision"]:
         raise ValueError("parent/base model revision mismatch")
     if adapter_manifest.get("train_file_sha256") != history_manifest["splits"]["train"]["output_sha256"]:
-        raise ValueError("Stage-II parent was not trained on the selected 31k history data")
+        raise ValueError("parent was not trained on the selected 31k observation data")
     if cfg.get("value_adapter_path"):
         raise ValueError("v2 successor value must start untrained and be learned from actor rollouts")
 
 
 def _attach_decisions(
     rows: list[dict[str, Any]], history_file: Path, *, max_imports: int,
+    compact_history: bool = True,
 ) -> list[dict[str, Any]]:
     wanted = {str(row["source_id"]) for row in rows}
     if len(wanted) != len(rows):
@@ -235,8 +248,14 @@ def _attach_decisions(
         key = str(row["source_id"])
         if not found[key]:
             raise ValueError(f"missing v2 decisions: {key}")
-        packed = dict(row, earho_v2_reference_decisions=found[key])
-        replay_reference(packed, found[key], max_imports=max_imports)
+        packed = dict(
+            row, earho_v2_reference_decisions=found[key],
+            earho_v2_compact_history=compact_history,
+        )
+        replay_reference(
+            packed, found[key], max_imports=max_imports,
+            compact_history=compact_history,
+        )
         output.append(packed)
     return output
 
@@ -289,10 +308,12 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
     max_imports = int(cfg["rollout"]["max_imports"])
     selected = _attach_decisions(
         source[:count], Path(cfg["history_file"]), max_imports=max_imports,
+        compact_history=cfg["protocol_version"] != STATE_DIRECT_PROTOCOL,
     )
     monitor = _attach_decisions(
         validation[: int(cfg["validation_monitor_rows"])],
         Path(cfg["history_validation_file"]), max_imports=max_imports,
+        compact_history=cfg["protocol_version"] != STATE_DIRECT_PROTOCOL,
     )
     output.mkdir(parents=True, exist_ok=True)
     for round_index in range(int(cfg["rounds"])):
@@ -324,7 +345,10 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
                 "private_product_mapping_basis": "source_original_mapped_product",
                 "product_only_private_remap": False,
             } if cfg["protocol_version"] == RELIABLE_PROTOCOL else {}),
-            "actor_prompt_history_contract": "executor_compact_accepted_actions_v1",
+            "actor_prompt_history_contract": (
+                "none_state_only_v2" if cfg["protocol_version"] == STATE_DIRECT_PROTOCOL
+                else "executor_compact_accepted_actions_v1"
+            ),
             "test_used": False,
         },
     )
@@ -340,6 +364,7 @@ def _critic_config(
     critic = yaml.safe_load(template.read_text())
     manifest = json.loads((dataset / "manifest.json").read_text())
     reliable = cfg["protocol_version"] == RELIABLE_PROTOCOL
+    lightweight = reliable or cfg["protocol_version"] == STATE_DIRECT_PROTOCOL
     critic.update(
         condition_name=(
             "reliable_mechet_successor_value_pn"
@@ -352,7 +377,7 @@ def _critic_config(
         pretokenized_cache_dir=str(dataset / "tokens_1024"),
         output_dir=str(output),
     )
-    if reliable:
+    if lightweight:
         critic["model_name_or_path"] = cfg["model_name_or_path"]
         training = critic["training"]
         training.update(
@@ -399,6 +424,8 @@ def train_successor_critic(
             "--source", str(source), "--output-dir", str(dataset),
             "--max-hard-negatives", str((cfg.get("optimization") or {}).get("max_hard_negatives", 4)),
         ]
+        if cfg["protocol_version"] == STATE_DIRECT_PROTOCOL:
+            command.append("--state-only-observation")
         for shard in shards:
             command.extend(["--rollout", str(shard)])
         subprocess.run(command, check=True)

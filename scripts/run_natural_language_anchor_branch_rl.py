@@ -225,10 +225,12 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
     if (cfg.get("optimization") or {}).get("success_gated_advantages"):
         command.append("--success-gated-advantages")
     if cfg.get("protocol_version") in {
-        "trajectory_history_v2", "reliable_mechet_three_stage_v1",
+        "trajectory_history_v2", "reliable_mechet_three_stage_v1", "state_direct_v2",
     }:
         command.append("--protocol-v2")
-    if cfg.get("protocol_version") == "reliable_mechet_three_stage_v1":
+    if cfg.get("protocol_version") == "state_direct_v2":
+        command.append("--state-only-observation")
+    if cfg.get("protocol_version") in {"reliable_mechet_three_stage_v1", "state_direct_v2"}:
         command.extend(["--endpoint-metric", str(reward["endpoint_metric"])])
     return command
 
@@ -236,7 +238,9 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
 def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation):
     marker = output / "collection_done.json"
     shards = [output / f"rank{rank}.jsonl" for rank in range(8)]
-    reliable = cfg.get("protocol_version") == "reliable_mechet_three_stage_v1"
+    reliable = cfg.get("protocol_version") in {
+        "reliable_mechet_three_stage_v1", "state_direct_v2",
+    }
     lineage = (
         {
             "protocol_version": cfg["protocol_version"],
