@@ -40,64 +40,95 @@ class PoolCandidate:
 class MechETCandidatePool:
     """Canonical target-to-precursor index built from hypothesis JSONL files."""
 
-    def __init__(self, candidates: Iterable[PoolCandidate]) -> None:
+    def __init__(
+        self, candidates: Iterable[PoolCandidate], *, source_audit: dict[str, Any] | None = None,
+    ) -> None:
         self._index: dict[str, list[PoolCandidate]] = {}
         for item in candidates:
             key = canonical_unmapped(item.target)
             self._index.setdefault(key, []).append(item)
         for key in self._index:
             self._index[key].sort(key=lambda item: item.score, reverse=True)
+        self.source_audit = dict(source_audit or {})
 
     @classmethod
     def from_jsonl(cls, path: str | Path) -> "MechETCandidatePool":
         candidates: list[PoolCandidate] = []
-        for line in Path(path).read_text(encoding="utf-8").splitlines():
-            if not line.strip():
-                continue
-            row = json.loads(line)
-            for item in row.get("hypotheses") or row.get("candidates") or []:
-                if not item.get("execute_ok", True):
+        audit = {
+            "n_source_proposals": 0,
+            "n_source_reported_execution_pass": 0,
+            "n_source_reported_execution_fail": 0,
+            "n_source_execution_label_missing": 0,
+            "n_missing_product_or_precursor": 0,
+            "n_nonfinite_score": 0,
+        }
+        with Path(path).open(encoding="utf-8") as stream:
+            for line in stream:
+                if not line.strip():
                     continue
-                precursor = str(
-                    item.get("derived_core_precursor")
-                    or item.get("derived_precursor")
-                    or item.get("precursor")
-                    or ""
-                ).strip()
-                proof = str(item.get("proof") or item.get("prediction") or "")
-                target = str(row.get("target") or row.get("product") or "").strip()
-                if not target and proof:
-                    try:
-                        target = parse_proof_program(proof).target_smiles
-                    except Exception:
-                        target = ""
-                if not target or not precursor:
-                    continue
-                score = item.get("forward_rank_score")
-                if score is None:
-                    evidence = item.get("forward_evidence") or {}
-                    score = (
-                        float(item.get("model_logprob") or item.get("score") or 0.0)
-                        + float(evidence.get("target_score") or 0.0)
-                        + 0.5 * float(evidence.get("selectivity_margin") or 0.0)
-                        - 0.25 * float(evidence.get("uncertainty") or 0.0)
+                row = json.loads(line)
+                for item in row.get("hypotheses") or row.get("candidates") or []:
+                    audit["n_source_proposals"] += 1
+                    execution_label = item.get("execute_ok")
+                    if execution_label is True:
+                        audit["n_source_reported_execution_pass"] += 1
+                    elif execution_label is False:
+                        audit["n_source_reported_execution_fail"] += 1
+                    else:
+                        audit["n_source_execution_label_missing"] += 1
+                    if not item.get("execute_ok", True):
+                        continue
+                    precursor = str(
+                        item.get("derived_core_precursor")
+                        or item.get("derived_precursor")
+                        or item.get("precursor")
+                        or ""
+                    ).strip()
+                    proof = str(item.get("proof") or item.get("prediction") or "")
+                    target = str(row.get("target") or row.get("product") or "").strip()
+                    if not target and proof:
+                        try:
+                            target = parse_proof_program(proof).target_smiles
+                        except Exception:
+                            target = ""
+                    if not target or not precursor:
+                        audit["n_missing_product_or_precursor"] += 1
+                        continue
+                    score = item.get("forward_rank_score")
+                    if score is None:
+                        evidence = item.get("forward_evidence") or {}
+                        score = (
+                            float(item.get("model_logprob") or item.get("score") or 0.0)
+                            + float(evidence.get("target_score") or 0.0)
+                            + 0.5 * float(evidence.get("selectivity_margin") or 0.0)
+                            - 0.25 * float(evidence.get("uncertainty") or 0.0)
+                        )
+                    if not math.isfinite(float(score)):
+                        audit["n_nonfinite_score"] += 1
+                        continue
+                    candidates.append(
+                        PoolCandidate(
+                            target=target,
+                            precursor=precursor,
+                            score=float(score),
+                            proof=proof,
+                            metadata={
+                                key: value
+                                for key, value in item.items()
+                                if key not in {"proof", "prediction"}
+                            },
+                        )
                     )
-                if not math.isfinite(float(score)):
-                    continue
-                candidates.append(
-                    PoolCandidate(
-                        target=target,
-                        precursor=precursor,
-                        score=float(score),
-                        proof=proof,
-                        metadata={
-                            key: value
-                            for key, value in item.items()
-                            if key not in {"proof", "prediction"}
-                        },
-                    )
-                )
-        return cls(candidates)
+        audit["n_retained_candidates"] = len(candidates)
+        audit["source_reported_execution_failure_rate"] = (
+            audit["n_source_reported_execution_fail"] / audit["n_source_proposals"]
+            if audit["n_source_proposals"] and not audit["n_source_execution_label_missing"]
+            else None
+        )
+        audit["scope"] = (
+            "all_rows_in_offline_candidate_file; source_execute_ok_labels_not_independent_verification"
+        )
+        return cls(candidates, source_audit=audit)
 
     def query(self, target_smiles: str, num_results: int = 20) -> list[PoolCandidate]:
         """Return ranked candidates for a mapped or unmapped target SMILES."""

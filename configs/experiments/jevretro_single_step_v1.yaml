@@ -1,0 +1,8 @@
+version: 3
+name: jevretro_single_step_v1
+status: superseded
+superseded_by: configs/experiments/reliable_mechet_three_stage_v1.yaml
+reason: >-
+  The journal study retains MechET as reverse electron-flow prediction and
+  returns to the established State-SFT -> Trajectory-SFT -> EARHO curriculum.
+  Endpoint-only auxiliary supervision remains a control, not the main method.

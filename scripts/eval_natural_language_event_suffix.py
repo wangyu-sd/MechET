@@ -47,6 +47,7 @@ from scripts.eval_natural_language_event_local import (
     prediction_call,
     read_jsonl,
     sha256,
+    validate_adapter_lineage,
 )
 
 
@@ -169,6 +170,7 @@ def _episode_key(reaction_id: str, horizon_name: str) -> str:
 
 
 def run(args: argparse.Namespace) -> int:
+    validate_adapter_lineage(args.adapter, args.model, args.model_revision)
     import torch
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
@@ -218,7 +220,7 @@ def run(args: argparse.Namespace) -> int:
         )
 
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model, revision=MODEL_REVISION, trust_remote_code=True
+        args.model, revision=args.model_revision, trust_remote_code=True
     )
     tokenizer.padding_side = "left"
     if tokenizer.pad_token_id is None:
@@ -235,7 +237,7 @@ def run(args: argparse.Namespace) -> int:
     )
     base = AutoModelForCausalLM.from_pretrained(
         args.model,
-        revision=MODEL_REVISION,
+        revision=args.model_revision,
         trust_remote_code=True,
         torch_dtype=dtype,
         device_map={"": local_rank},
@@ -426,6 +428,7 @@ def _rate(rows: Sequence[Mapping[str, Any]], field: str) -> dict[str, Any]:
 
 
 def aggregate(args: argparse.Namespace) -> int:
+    validate_adapter_lineage(args.adapter, args.model, args.model_revision)
     source = read_jsonl(args.data)
     numeric_horizons = [int(value) for value in args.horizons if value != "full"]
     selected = select_reactions(
@@ -466,7 +469,7 @@ def aggregate(args: argparse.Namespace) -> int:
         "adapter": str(args.adapter),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
         "model": args.model,
-        "model_revision": MODEL_REVISION,
+        "model_revision": args.model_revision,
         "by_horizon": {},
         "failure_codes": dict(Counter(row["failure"] for row in rows if row["failure"])),
     }
@@ -496,6 +499,7 @@ def main() -> int:
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--model-revision", default=MODEL_REVISION)
     parser.add_argument("--adapter", type=Path, required=True)
     parser.add_argument("--sample-reactions", type=int, default=32)
     parser.add_argument("--seed", type=int, default=17)

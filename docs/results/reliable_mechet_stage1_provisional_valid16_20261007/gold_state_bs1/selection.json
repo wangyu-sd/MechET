@@ -1,0 +1,24 @@
+{
+  "seed": 17,
+  "sample_reactions": 16,
+  "reaction_ids": [
+    "flower_mech_proof_val_1256",
+    "flower_mech_proof_val_1397",
+    "flower_mech_proof_val_2195",
+    "flower_mech_proof_val_2344",
+    "flower_mech_proof_val_2349",
+    "flower_mech_proof_val_244",
+    "flower_mech_proof_val_2533",
+    "flower_mech_proof_val_2565",
+    "flower_mech_proof_val_2624",
+    "flower_mech_proof_val_2667",
+    "flower_mech_proof_val_2866",
+    "flower_mech_proof_val_530",
+    "flower_mech_proof_val_648",
+    "flower_mech_proof_val_749",
+    "flower_mech_proof_val_861",
+    "flower_mech_proof_val_963"
+  ],
+  "reaction_ids_sha256": "60cc5f0af7b3a1931b56be5eabef6862d1f5adde1145f852844b19bb3c0ffd45",
+  "planned_decisions": 123
+}

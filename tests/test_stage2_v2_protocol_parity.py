@@ -64,6 +64,9 @@ def matched_args(**overrides):
         late_beam=1,
         value_adapter="",
         value_weight=0.0,
+        pointer_head="",
+        pointer_weight=0.0,
+        vnext_v2_prefix=False,
         compact_history=False,
     )
     values.update(overrides)
@@ -112,6 +115,9 @@ def test_qwen_tool_prefix_matches_completed_sft_tool_call_without_thinking():
         ({"late_beam": 2}, "beam width 1"),
         ({"value_adapter": "/tmp/value"}, "value critic"),
         ({"value_weight": 0.2}, "value critic"),
+        ({"pointer_head": "/tmp/pointer"}, "pointer scoring"),
+        ({"pointer_weight": 0.2}, "pointer scoring"),
+        ({"vnext_v2_prefix": True}, "vNext v2 prefix"),
     ],
 )
 def test_matched_v2_rejects_historical_inference_contracts(override, match):
@@ -161,6 +167,30 @@ def test_v2_adapter_manifest_rejects_v1_checkpoint(tmp_path: Path):
     )
     with pytest.raises(ValueError, match="protocol-v2"):
         validate_v2_adapter_manifest(adapter, compact_history=True)
+
+
+def test_v2_adapter_manifest_rejects_model_or_revision_mismatch(tmp_path: Path):
+    adapter = tmp_path / "state"
+    adapter.mkdir()
+    revision = "c1899de289a04d12100db370d81485cdf75e47ca"
+    (adapter / "adapter_manifest.json").write_text(json.dumps({
+        "base_model": "Qwen/Qwen3-0.6B",
+        "base_model_revision": revision,
+        "environment_revision": "natural_language_electron_event_v2",
+        "executor_revision": "MECH_PROOF_v1_full_coverage_v4",
+    }))
+    assert validate_v2_adapter_manifest(
+        adapter, compact_history=False,
+        expected_model="Qwen/Qwen3-0.6B", expected_revision=revision,
+    )["base_model"] == "Qwen/Qwen3-0.6B"
+    with pytest.raises(ValueError, match="base model differs"):
+        validate_v2_adapter_manifest(
+            adapter, compact_history=False, expected_model="Qwen/Qwen3-8B",
+        )
+    with pytest.raises(ValueError, match="base revision differs"):
+        validate_v2_adapter_manifest(
+            adapter, compact_history=False, expected_revision="a" * 40,
+        )
 
 
 def test_runtime_history_prompt_is_exact_history_sft_transform():

@@ -11,6 +11,7 @@ import hashlib
 import json
 from typing import Any, Callable, Mapping, Sequence
 
+from mechet.endpoints import split_precursor_endpoints
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from scripts.run_natural_language_value_search import (
     Action,
@@ -42,8 +43,10 @@ class Divergence:
 class V2AnchorTask:
     reaction_id: str
     target: str
+    target_mapped: str
     anchor_state: str
     expected_precursor: str
+    expected_structural_precursor: str
     horizon: int
     total_events: int
     prefix_events: int
@@ -89,6 +92,7 @@ def replay_reference(
     decisions: Sequence[Mapping[str, Any]],
     *,
     max_imports: int = 64,
+    compact_history: bool = True,
 ) -> ReferenceTrajectory:
     """Execute every Stage-II decision and audit its exact public observation."""
 
@@ -119,7 +123,7 @@ def replay_reference(
             node.state,
             include_inventory=True,
             actions=node.actions,
-            compact_history=True,
+            compact_history=compact_history,
         )
         if actual_prompt != expected_prompt:
             raise ValueError(f"{reaction_id}: Stage-II prompt/replay drift at decision {index}")
@@ -189,8 +193,12 @@ def anchor_task(
     return V2AnchorTask(
         reaction_id=reference.reaction_id,
         target=reference.target,
+        target_mapped=reference.nodes[0].state,
         anchor_state=node.state,
         expected_precursor=reference.expected_precursor,
+        expected_structural_precursor=split_precursor_endpoints(
+            reference.nodes[-1].state, reference.nodes[0].state,
+        ).structural,
         horizon=len(reference.decisions) - decision_index,
         total_events=len(reference.decisions),
         prefix_events=decision_index,

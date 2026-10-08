@@ -1,0 +1,92 @@
+condition_name: flower_natural_language_event_history_v2_qwen3_0_6b
+scientific_hypothesis: compact_history_reduces_reverse_et_rollout_error
+model_name_or_path: Qwen/Qwen3-0.6B
+initial_adapter_path: outputs/agent/natural_language_event_v2_qwen3_0_6b_seed17
+train_file: data/flower_natural_language_event_history_v2/train.jsonl
+validation_file: data/flower_natural_language_event_history_v2/valid.jsonl
+test_file: data/flower_natural_language_event_history_v2/test.jsonl
+pretokenized_cache_dir: data/flower_natural_language_event_history_v2/qwen3_0_6b_tokens_4096
+pretokenization_world_size: 8
+output_dir: outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
+limit_examples: 0
+
+environment:
+  max_tool_calls: 40
+  observation_mode: target_current_state_inventory_compact_history_v2
+
+training:
+  qlora: false
+  attention_implementation: sdpa
+  require_flash_sdp: false
+  bf16: true
+  fp16: false
+  tf32: true
+  learning_rate: 5.0e-6
+  num_train_epochs: 1.0
+  max_steps: -1
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  eval_accumulation_steps: 1
+  eval_strategy: "no"
+  max_length: 4096
+  window_context_tokens: 3072
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  gradient_checkpointing: true
+  use_liger_kernel: false
+  torch_compile: false
+  include_tokens_per_second: true
+  include_num_input_tokens_seen: true
+  dataloader_num_workers: 4
+  logging_steps: 10
+  save_steps: 1000
+  save_total_limit: 3
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: c1899de289a04d12100db370d81485cdf75e47ca
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+
+contract:
+  stage: trajectory_sft
+  parent_stage: state_sft
+  paper_method_name: mechet
+  paper_run_role: primary_lightweight_trajectory_sft
+  observation_contract: target_current_state_inventory_compact_history_v2
+  decision_contract: unified_inventory_compressed_history_tool_decision_v2
+  history_contract: executor_compact_accepted_actions_v1
+  stable_id_manifest: data/flower_natural_language_event_history_v2/manifest.json
+  validation_report: data/flower_natural_language_event_history_v2/manifest.json
+  require_strict_trace_universe_complete: true
+  require_tool_decision: true
+  terminal_tool: finish_trace
+  source_dataset: flower_new_dataset_strict_proof_universe_v4
+  reaction_denominator: {train: 257167, valid: 2890, test: 28967}
+  environment_revision: natural_language_electron_event_history_v2
+  executor_revision: MECH_PROOF_v1_full_coverage_v4
+  rdkit_revision: 2026.03.4
+  model_visible_atom_maps: false
+  model_predicts_state: false
+  electron_flow_model_generated: true
+  history_contains_failed_actions: false
+  gold_horizon_model_visible: false
+  gold_action_conditioned_observation: false
+  first_use_unmapped_fragment_interface: true
+  one_epoch_first: true
+  reliability_metrics_required:
+    - product_start_endpoint_pass
+    - fragment_error_rate
+    - source_sink_error_rate
+    - formal_execution_failure_rate
+    - executable_wrong_successor_rate
+    - termination_failure_rate
+    - first_divergence_depth
+    - risk_coverage

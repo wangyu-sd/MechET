@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import random
 import subprocess
@@ -23,13 +24,132 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 from scripts.earho_v2_protocol import promote_productive_horizon, replay_reference
 from scripts.run_anchor_branch_rl import log, read_rows, run_train, write_json, write_rows
 from scripts.run_natural_language_anchor_branch_rl import run_workers, _sha256
+from scripts.run_natural_language_value_search import read_selected
 from scripts.train_python_template_rlvr import _load_yaml
 
 
 PROTOCOL = "trajectory_history_v2"
+RELIABLE_PROTOCOL = "reliable_mechet_three_stage_v1"
+
+
+def resolve_reliable_paths(cfg: dict[str, Any], artifact_root: Path) -> dict[str, Any]:
+    """Keep the PR code worktree separate from frozen Ceph data and outputs."""
+
+    resolved = dict(cfg)
+    for key in (
+        "initial_adapter_path", "train_file", "validation_file",
+        "stable_id_manifest", "history_file", "history_validation_file",
+        "natural_language_manifest", "output_dir",
+    ):
+        value = str(resolved.get(key) or "")
+        if not value:
+            raise ValueError(f"reliable EARHO path is missing: {key}")
+        path = Path(value)
+        resolved[key] = str(path if path.is_absolute() else artifact_root / path)
+    return resolved
+
+
+def validate_reliable_contract(cfg: dict[str, Any]) -> None:
+    """Bind lightweight FlowER EARHO to frozen strict data and Stage-II weights."""
+
+    if cfg.get("protocol_version") != RELIABLE_PROTOCOL:
+        raise ValueError("wrong reliable MechET protocol")
+    if cfg.get("legacy_dual_prompt") or cfg.get("test_file"):
+        raise ValueError("reliable EARHO forbids dual prompts and test data")
+    if not (cfg.get("optimization") or {}).get("success_gated_advantages"):
+        raise ValueError("reliable EARHO requires success-gated advantages")
+    if (cfg.get("reward") or {}).get("endpoint_metric") != "structural":
+        raise ValueError("reliable EARHO requires structural endpoint reward")
+    rollout = dict(cfg.get("rollout") or {})
+    if int(rollout.get("max_decisions", 0)) != 40 or int(rollout.get("max_imports", 0)) != 32:
+        raise ValueError("reliable EARHO requires the frozen 40-decision/32-import budget")
+    if cfg.get("value_adapter_path") or cfg.get("value_kind") != "successor_pn":
+        raise ValueError("reliable EARHO must learn a new successor P/N critic")
+    if cfg.get("model_name_or_path") != "Qwen/Qwen3-0.6B":
+        raise ValueError("reliable EARHO base model differs from frozen 0.6B policy")
+    revision = str(cfg.get("model_revision") or "")
+    if len(revision) != 40 or any(ch not in "0123456789abcdef" for ch in revision):
+        raise ValueError("reliable EARHO requires a pinned immutable model revision")
+    if Path(str(cfg.get("model_snapshot") or "")).name != revision:
+        raise ValueError("reliable EARHO model snapshot does not match pinned revision")
+    pinned_sha = str(cfg.get("initial_adapter_model_sha256") or "")
+    if len(pinned_sha) != 64 or any(ch not in "0123456789abcdef" for ch in pinned_sha):
+        raise ValueError("freeze the Stage-II adapter SHA-256 before EARHO")
+    expected = {"train": 257167, "valid": 2890, "test": 28967}
+    if dict(cfg.get("reaction_denominator") or {}) != expected:
+        raise ValueError("reliable EARHO strict reaction denominator changed")
+    if dict(cfg.get("full_reaction_denominator") or {}) != {
+        "train": 257171, "valid": 2890, "test": 28971,
+    }:
+        raise ValueError("reliable EARHO full endpoint denominator changed")
+
+    source_dir = Path(cfg["train_file"]).parent
+    source_manifest_path = Path(cfg["stable_id_manifest"])
+    source_manifest = json.loads(source_manifest_path.read_text())
+    source_status = json.loads((source_dir / "ARTIFACT_STATUS.json").read_text())
+    if source_status.get("training_allowed") is not True:
+        raise ValueError("strict FlowER source is not training-enabled")
+    if source_manifest.get("artifact_type") != "flower_strict_action_delta_trace_owned_tool_sft":
+        raise ValueError("unexpected strict FlowER source artifact")
+    for split, key in (("train", "train_file"), ("valid", "validation_file")):
+        item = source_manifest["splits"][split]
+        if int(item["rows"]) != expected[split]:
+            raise ValueError(f"{split} strict FlowER row count changed")
+        if _sha256(Path(cfg[key])) != item["sha256"]:
+            raise ValueError(f"{split} strict FlowER SHA-256 mismatch")
+    if int(source_manifest["splits"]["test"]["rows"]) != expected["test"]:
+        raise ValueError("strict FlowER test denominator changed")
+
+    history_dir = Path(cfg["history_file"]).parent
+    history_manifest = json.loads(Path(cfg["natural_language_manifest"]).read_text())
+    if not history_manifest.get("training_allowed") or history_manifest.get("status") != "validated_complete":
+        raise ValueError("FlowER compact-history supervision is not validated")
+    if history_manifest.get("reaction_denominator") != expected:
+        raise ValueError("FlowER history reaction denominator changed")
+    if history_manifest.get("decision_contract") != "unified_inventory_compressed_history_tool_decision_v2":
+        raise ValueError("FlowER compact-history decision contract changed")
+    if history_manifest.get("history_contract") != "executor_compact_accepted_actions_v1":
+        raise ValueError("FlowER accepted-history contract changed")
+    event_dir = Path(str(history_manifest["source_artifact"]))
+    event_manifest_path = event_dir / "manifest.json"
+    event_manifest = json.loads(event_manifest_path.read_text())
+    if event_manifest.get("source_manifest_sha256") != _sha256(source_manifest_path):
+        raise ValueError("FlowER event/source manifest lineage mismatch")
+    if Path(str(event_manifest.get("source_artifact") or "")).resolve() != source_dir.resolve():
+        raise ValueError("FlowER event source directory changed")
+    if event_manifest.get("reaction_denominator") != expected:
+        raise ValueError("FlowER event reaction denominator changed")
+    for split in ("train", "valid"):
+        source_item = source_manifest["splits"][split]
+        event_item = event_manifest["splits"][split]
+        history_item = history_manifest["splits"][split]
+        if event_item["source_sha256"] != source_item["sha256"]:
+            raise ValueError(f"{split} FlowER event/source file lineage mismatch")
+        if history_item["source_sha256"] != event_item["output_sha256"]:
+            raise ValueError(f"{split} FlowER history/event file lineage mismatch")
+        if int(history_item["reactions"]) != expected[split]:
+            raise ValueError(f"{split} FlowER history reaction count changed")
+        if _sha256(history_dir / f"{split}.jsonl") != history_item["output_sha256"]:
+            raise ValueError(f"{split} FlowER history SHA-256 mismatch")
+
+    adapter = Path(cfg["initial_adapter_path"])
+    if _sha256(adapter / "adapter_model.safetensors") != pinned_sha:
+        raise ValueError("FlowER Stage-II adapter SHA-256 mismatch")
+    adapter_manifest = json.loads((adapter / "adapter_manifest.json").read_text())
+    if adapter_manifest.get("base_model") != cfg["model_name_or_path"]:
+        raise ValueError("FlowER Stage-II adapter base model mismatch")
+    if adapter_manifest.get("base_model_revision") != revision:
+        raise ValueError("FlowER Stage-II adapter revision mismatch")
+    if adapter_manifest.get("environment_revision") != "natural_language_electron_event_history_v2":
+        raise ValueError("FlowER Stage-II adapter observation contract mismatch")
+    if adapter_manifest.get("train_file_sha256") != history_manifest["splits"]["train"]["output_sha256"]:
+        raise ValueError("FlowER Stage-II adapter was trained on different history data")
 
 
 def validate_contract(cfg: dict[str, Any]) -> None:
+    if cfg.get("protocol_version") == RELIABLE_PROTOCOL:
+        validate_reliable_contract(cfg)
+        return
     if cfg.get("protocol_version") != PROTOCOL:
         raise ValueError("EARHO v2 requires the compressed-history v2 protocol")
     if cfg.get("legacy_dual_prompt") or cfg.get("test_file"):
@@ -97,7 +217,7 @@ def validate_contract(cfg: dict[str, Any]) -> None:
 
 
 def _attach_decisions(
-    rows: list[dict[str, Any]], history_file: Path
+    rows: list[dict[str, Any]], history_file: Path, *, max_imports: int,
 ) -> list[dict[str, Any]]:
     wanted = {str(row["source_id"]) for row in rows}
     if len(wanted) != len(rows):
@@ -116,7 +236,7 @@ def _attach_decisions(
         if not found[key]:
             raise ValueError(f"missing v2 decisions: {key}")
         packed = dict(row, earho_v2_reference_decisions=found[key])
-        replay_reference(packed, found[key])
+        replay_reference(packed, found[key], max_imports=max_imports)
         output.append(packed)
     return output
 
@@ -131,29 +251,48 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             raise ValueError("existing EARHO plan was prepared with a different config")
         if plan.get("initial_adapter_model_sha256") != cfg["initial_adapter_model_sha256"]:
             raise ValueError("existing EARHO plan has a different parent adapter")
-        if plan.get("protocol_version") != PROTOCOL:
+        if plan.get("protocol_version") != cfg["protocol_version"]:
             raise ValueError("existing EARHO plan has a different protocol")
+        if cfg["protocol_version"] == RELIABLE_PROTOCOL and (
+            plan.get("private_product_mapping_basis") != "source_original_mapped_product"
+            or plan.get("product_only_private_remap") is not False
+        ):
+            raise ValueError("existing reliable EARHO plan lacks private-map provenance")
         for name, digest in (plan.get("prepared_files") or {}).items():
             if _sha256(output / name) != digest:
                 raise ValueError(f"prepared EARHO source changed: {name}")
         if len(plan.get("prepared_files") or {}) != int(cfg["rounds"]) + 1:
             raise ValueError("EARHO preparation manifest is incomplete")
         return
-    source = read_rows(cfg["train_file"])
-    validation = read_rows(cfg["validation_file"])
-    if len(source) != cfg["reaction_denominator"]["train"]:
-        raise ValueError("source train count mismatch")
-    if len(validation) != cfg["reaction_denominator"]["valid"]:
-        raise ValueError("source validation count mismatch")
-    random.Random(int(cfg["seed"])).shuffle(source)
-    random.Random(int(cfg["seed"])).shuffle(validation)
     count = int(cfg["rounds"]) * int(cfg["products_per_round"])
-    if count > len(source):
+    if count > int(cfg["reaction_denominator"]["train"]):
         raise ValueError("requested more distinct RL train reactions than available")
-    selected = _attach_decisions(source[:count], Path(cfg["history_file"]))
+    if cfg["protocol_version"] == RELIABLE_PROTOCOL:
+        # The FlowER source has 257k large trace rows. Select deterministically
+        # while streaming; never materialize the complete reaction corpus.
+        source = read_selected(Path(cfg["train_file"]), count, int(cfg["seed"]))
+        validation = read_selected(
+            Path(cfg["validation_file"]),
+            int(cfg["validation_monitor_rows"]), int(cfg["seed"]),
+        )
+        source_reactions = int(cfg["reaction_denominator"]["train"])
+    else:
+        source = read_rows(cfg["train_file"])
+        validation = read_rows(cfg["validation_file"])
+        if len(source) != cfg["reaction_denominator"]["train"]:
+            raise ValueError("source train count mismatch")
+        if len(validation) != cfg["reaction_denominator"]["valid"]:
+            raise ValueError("source validation count mismatch")
+        random.Random(int(cfg["seed"])).shuffle(source)
+        random.Random(int(cfg["seed"])).shuffle(validation)
+        source_reactions = len(source)
+    max_imports = int(cfg["rollout"]["max_imports"])
+    selected = _attach_decisions(
+        source[:count], Path(cfg["history_file"]), max_imports=max_imports,
+    )
     monitor = _attach_decisions(
         validation[: int(cfg["validation_monitor_rows"])],
-        Path(cfg["history_validation_file"]),
+        Path(cfg["history_validation_file"]), max_imports=max_imports,
     )
     output.mkdir(parents=True, exist_ok=True)
     for round_index in range(int(cfg["rounds"])):
@@ -171,9 +310,9 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
         output / "plan.json",
         {
             "artifact_type": "earho_first_divergence_v2_plan",
-            "protocol_version": PROTOCOL,
+            "protocol_version": cfg["protocol_version"],
             "config_sha256": config_sha256,
-            "source_reactions": len(source),
+            "source_reactions": source_reactions,
             "selected_train_reactions": count,
             "validation_monitor_reactions": len(monitor),
             "selected_id_sha256": hashlib.sha256("\n".join(ids).encode()).hexdigest(),
@@ -181,6 +320,10 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
             "initial_adapter_model_sha256": cfg["initial_adapter_model_sha256"],
             "reference_endpoint_model_visible": False,
             "first_divergence_from_product_rollout": True,
+            **({
+                "private_product_mapping_basis": "source_original_mapped_product",
+                "product_only_private_remap": False,
+            } if cfg["protocol_version"] == RELIABLE_PROTOCOL else {}),
             "actor_prompt_history_contract": "executor_compact_accepted_actions_v1",
             "test_used": False,
         },
@@ -196,8 +339,12 @@ def _critic_config(
     template = ROOT / "configs/agent/natural_language_state_value_qwen3_8b_h20.yaml"
     critic = yaml.safe_load(template.read_text())
     manifest = json.loads((dataset / "manifest.json").read_text())
+    reliable = cfg["protocol_version"] == RELIABLE_PROTOCOL
     critic.update(
-        condition_name="earho_v2_successor_value_pn",
+        condition_name=(
+            "reliable_mechet_successor_value_pn"
+            if reliable else "earho_v2_successor_value_pn"
+        ),
         scientific_hypothesis="actor_successor_value_improves_executable_continuation",
         initial_adapter_path=str(initial_adapter),
         train_file=str(dataset / "train.jsonl"),
@@ -205,6 +352,15 @@ def _critic_config(
         pretokenized_cache_dir=str(dataset / "tokens_1024"),
         output_dir=str(output),
     )
+    if reliable:
+        critic["model_name_or_path"] = cfg["model_name_or_path"]
+        training = critic["training"]
+        training.update(
+            model_revision=cfg["model_revision"], qlora=False,
+            require_flash_sdp=False, use_liger_kernel=False,
+            liger_kernel_config={}, per_device_train_batch_size=8,
+            per_device_eval_batch_size=16,
+        )
     contract = critic["contract"]
     contract.update(
         paper_baseline_id="EARHO-successor-value-v2",
@@ -215,11 +371,17 @@ def _critic_config(
         expected_train_rows=manifest["splits"]["train"]["rows"],
         expected_validation_rows=manifest["splits"]["valid"]["rows"],
         expected_test_rows=0,
-        source_dataset="mech_uspto_31k_current_compiler_executable_trace_view",
+        source_dataset=(
+            "flower_new_dataset_strict_proof_universe_v4" if reliable
+            else "mech_uspto_31k_current_compiler_executable_trace_view"
+        ),
         source_artifact=cfg["train_file"],
         reaction_denominator=cfg["reaction_denominator"],
         environment_revision="earho_v2_successor_value_pn",
-        executor_revision="mech_uspto31k_current_compiler_20260824",
+        executor_revision=(
+            "MECH_PROOF_v1_full_coverage_v4" if reliable
+            else "mech_uspto31k_current_compiler_20260824"
+        ),
     )
     path = dataset / "critic_training.yaml"
     path.write_text(yaml.safe_dump(critic, sort_keys=False))
@@ -330,6 +492,7 @@ def run(cfg: dict[str, Any]) -> None:
         next_actor = run_train(
             cfg, training, actor, round_path / "actor_training",
             int(cfg["seed"]) + round_index,
+            stage_script="scripts/natural_language_anchor_branch_stage.py",
         )
         if not (next_actor / "adapter_model.safetensors").is_file():
             raise RuntimeError("EARHO actor update did not return adapter weights")
@@ -370,6 +533,10 @@ def main() -> int:
     parser.add_argument("--prepare-only", action="store_true")
     args = parser.parse_args()
     cfg = _load_yaml(args.config)
+    if cfg.get("protocol_version") == RELIABLE_PROTOCOL:
+        data_root = os.environ.get("MECHET_RELIABLE_DATA_ROOT", "").strip()
+        if data_root:
+            cfg = resolve_reliable_paths(cfg, Path(data_root))
     if args.prepare_only:
         validate_contract(cfg)
         prepare(cfg, Path(cfg["output_dir"]))

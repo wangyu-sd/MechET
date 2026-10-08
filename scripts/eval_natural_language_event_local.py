@@ -2,9 +2,10 @@
 """Gold-state local evaluation for natural-language electron-event SFT.
 
 The model receives exactly the product/current-state prompt used by SFT and
-generates one next tool decision.  Private atom maps are reconstructed only in
-the evaluator so predicted natural-language aliases can be compiled and
-strictly replayed.  This is an F-oracle local diagnostic, not a product-only
+generates one next tool decision. Private atom maps remain evaluator-only;
+the reliable path obtains them by replaying the frozen tool decisions so
+predicted natural-language aliases are compiled against the actual executor
+state. This is a reference-state local diagnostic, not a product-only
 closed-loop endpoint result.
 """
 from __future__ import annotations
@@ -16,6 +17,7 @@ import importlib.metadata
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 from typing import Any, Iterable, Mapping, Sequence
@@ -44,6 +46,56 @@ from scripts.build_natural_language_event_sft import convert_row
 MODEL_REVISION = "b968826d9c46dd6066d109eabc6255188de91218"
 
 
+def validate_adapter_lineage(
+    adapter: Path, model: str, revision: str,
+    *, provisional_training_config: Path | None = None,
+) -> dict[str, Any]:
+    manifest_path = adapter / "adapter_manifest.json"
+    if manifest_path.is_file():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("base_model") != model:
+            raise ValueError("evaluation model differs from adapter base model")
+        if manifest.get("base_model_revision") != revision:
+            raise ValueError("evaluation model revision differs from adapter revision")
+        if provisional_training_config is not None:
+            raise ValueError("a completed adapter must not be labelled provisional")
+        return {"kind": "completed_adapter", "checkpoint_step": None}
+    if provisional_training_config is None:
+        raise FileNotFoundError(f"adapter lineage manifest missing: {manifest_path}")
+    import yaml
+
+    match = re.fullmatch(r"checkpoint-(\d+)", adapter.name)
+    if match is None:
+        raise ValueError("provisional adapter must be an explicit trainer checkpoint")
+    config = yaml.safe_load(provisional_training_config.read_text(encoding="utf-8"))
+    if config.get("model_name_or_path") != model or (
+        config.get("training") or {}
+    ).get("model_revision") != revision:
+        raise ValueError("provisional checkpoint model/revision differs from training config")
+    if Path(str(config.get("output_dir") or "")).name != adapter.parent.name:
+        raise ValueError("provisional checkpoint is outside the configured training output")
+    if (config.get("contract") or {}).get("stage") not in {
+        "state_sft", "trajectory_sft",
+    }:
+        raise ValueError("provisional checkpoint is not a three-stage SFT adapter")
+    state = json.loads((adapter / "trainer_state.json").read_text(encoding="utf-8"))
+    step = int(match.group(1))
+    if int(state.get("global_step", -1)) != step or step <= 0 or (
+        int(state.get("max_steps", -1)) <= step
+    ):
+        raise ValueError("provisional checkpoint step does not match trainer state")
+    adapter_config = json.loads((adapter / "adapter_config.json").read_text(encoding="utf-8"))
+    if adapter_config.get("base_model_name_or_path") != model:
+        raise ValueError("provisional checkpoint PEFT base model differs")
+    if not (adapter / "adapter_model.safetensors").is_file():
+        raise FileNotFoundError("provisional checkpoint has no adapter weights")
+    return {
+        "kind": "provisional_checkpoint", "checkpoint_step": step,
+        "training_config_sha256": sha256(provisional_training_config),
+        "training_stage": config["contract"]["stage"],
+    }
+
+
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
     with path.open(encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
@@ -55,6 +107,40 @@ def sha256(path: Path) -> str:
         for block in iter(lambda: handle.read(8 * 1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def replayed_run_fingerprint(args: argparse.Namespace) -> str:
+    """Bind resumable replay-scored shards to the exact inputs and decoder."""
+
+    if not getattr(args, "replay_reference_states", False):
+        raise ValueError("run fingerprint is only defined for replay-scored evaluation")
+    if args.decision_data is None:
+        raise ValueError("replay-scored evaluation requires frozen decision data")
+    contract = {
+        "version": 2,
+        "data_sha256": sha256(args.data),
+        "decision_data_sha256": sha256(args.decision_data),
+        "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
+        "model": args.model,
+        "model_revision": args.model_revision,
+        "sample_reactions": args.sample_reactions,
+        "seed": args.seed,
+        "batch_size": args.batch_size,
+        "sft_aligned_prefix": bool(args.sft_aligned_prefix),
+        "dtype": args.dtype,
+        "no_4bit": bool(args.no_4bit),
+        "max_new_tokens": args.max_new_tokens,
+        "max_context": args.max_context,
+    }
+    encoded = json.dumps(contract, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def require_replayed_run_fingerprint(
+    rows: Iterable[Mapping[str, Any]], expected: str,
+) -> None:
+    if any(row.get("run_fingerprint") != expected for row in rows):
+        raise ValueError("local evaluation shards belong to a different replay run")
 
 
 def distributed_coordinates() -> tuple[int, int, int]:
@@ -79,7 +165,7 @@ def render_policy_prompt(
 
 
 def _private_states(row: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Reconstruct executor-private state aligned with every public decision."""
+    """Legacy trace-plan states; replayed evaluation replaces their mapped states."""
 
     plan = dict((row.get("metadata") or {}).get("trace_plan") or {})
     steps = [dict(item) for item in plan.get("steps") or []]
@@ -127,20 +213,85 @@ def _private_states(row: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def collect_tasks(
-    rows: Iterable[Mapping[str, Any]], *, sample_reactions: int, seed: int
+    rows: Iterable[Mapping[str, Any]],
+    *,
+    sample_reactions: int,
+    seed: int,
+    decision_rows: Iterable[Mapping[str, Any]] | None = None,
+    replay_decision_states: bool = False,
 ) -> tuple[list[dict[str, Any]], list[str]]:
+    if replay_decision_states and decision_rows is None:
+        raise ValueError("reference-state replay requires frozen decision rows")
     selected = stratified_sample(rows, size=sample_reactions, seed=seed)
+    selected_ids = {str(source["source_id"]) for source in selected}
+    public_by_reaction: dict[str, list[dict[str, Any]]] | None = None
+    if decision_rows is not None:
+        public_by_reaction = defaultdict(list)
+        for row in decision_rows:
+            reaction_id = str(row["source_id"])
+            if reaction_id in selected_ids:
+                public_by_reaction[reaction_id].append(dict(row))
+        for reaction_id, decisions in public_by_reaction.items():
+            decisions.sort(key=lambda row: int(row["metadata"]["decision_index"]))
+            indices = [int(row["metadata"]["decision_index"]) for row in decisions]
+            if indices != list(range(len(decisions))):
+                raise ValueError(f"{reaction_id}: public decision indices are incomplete")
     tasks: list[dict[str, Any]] = []
     reaction_ids: list[str] = []
     for source in selected:
-        public_rows = convert_row(source)
-        private_rows = _private_states(source)
-        if len(public_rows) != len(private_rows):
-            raise ValueError(f"{source['id']}: public/private decision count mismatch")
+        reaction_id = str(source["source_id"])
+        public_rows = (
+            public_by_reaction.get(reaction_id, [])
+            if public_by_reaction is not None
+            else convert_row(source)
+        )
+        if replay_decision_states:
+            from scripts.earho_v2_protocol import replay_reference
+
+            contracts = {
+                str((decision.get("metadata") or {}).get("decision_contract") or "")
+                for decision in public_rows
+            }
+            if contracts == {"unified_inventory_tool_decision_v2"}:
+                compact_history = False
+            elif contracts == {"unified_inventory_compressed_history_tool_decision_v2"}:
+                compact_history = True
+            else:
+                raise ValueError(f"{reaction_id}: unsupported/mixed decision contracts: {contracts}")
+            reference = replay_reference(
+                source, public_rows, compact_history=compact_history,
+            )
+            if len(reference.nodes) != len(public_rows) + 1:
+                raise ValueError(f"{reaction_id}: reference replay node count mismatch")
+            private_rows = []
+            event_depth = 0
+            action_types = {
+                "import_fragments": "import",
+                "apply_electron_flow": "event",
+                "finish_trace": "finish",
+            }
+            for index, decision in enumerate(public_rows):
+                dtype = str(decision["metadata"]["decision_type"])
+                gold_name = str(decision["messages"][2]["tool_calls"][0]["function"]["name"])
+                if action_types.get(gold_name) != dtype:
+                    raise ValueError(f"{decision['id']}: reference decision type/action mismatch")
+                if dtype == "event":
+                    event_depth += 1
+                private_rows.append({
+                    "decision_type": dtype,
+                    "private_state": reference.nodes[index].state,
+                    "reference_successor": (
+                        reference.nodes[index + 1].state if dtype != "import" else ""
+                    ),
+                    "event_depth": event_depth,
+                })
+        else:
+            private_rows = _private_states(source)
+            if len(public_rows) != len(private_rows):
+                raise ValueError(f"{source['id']}: public/private decision count mismatch")
         stratum = mechanism_length_stratum(
             len((source["metadata"]["trace_plan"] or {})["steps"])
         )
-        reaction_id = str(source["source_id"])
         reaction_ids.append(reaction_id)
         for public, private in zip(public_rows, private_rows, strict=True):
             decision_type = str(public["metadata"]["decision_type"])
@@ -208,6 +359,13 @@ def _import_counter(
     return output
 
 
+def _import_role_counter(
+    schedule: Counter[tuple[str, str]], purpose: str,
+) -> Counter[str]:
+    return Counter({smiles: count for (smiles, role), count in schedule.items()
+                    if role == purpose})
+
+
 def _site_signature(moves: Sequence[Mapping[str, Any]], field: str) -> list[tuple[str, tuple[int, ...]]]:
     output = []
     for raw in moves:
@@ -226,6 +384,12 @@ def score_prediction(
     gold_name = str(task["gold_name"])
     gold_arguments = dict(task["gold_arguments"])
     correct_tool = predicted_name == gold_name
+    gold_schedule = (
+        _import_counter(gold_arguments, include_purpose=True)
+        if dtype == "import" else Counter()
+    )
+    gold_participants = _import_role_counter(gold_schedule, "electron_participant")
+    gold_context = _import_role_counter(gold_schedule, "endpoint_context")
     base = {
         "correct_tool": correct_tool,
         "decision_exact": False,
@@ -238,6 +402,10 @@ def score_prediction(
         "successor_chemical_exact": False,
         "import_fragment_exact": False,
         "import_schedule_exact": False,
+        "import_participant_exact": False,
+        "import_context_exact": False,
+        "gold_import_participant_copies": sum(gold_participants.values()),
+        "gold_import_context_copies": sum(gold_context.values()),
         "finish_exact": False,
         "execution_error": "",
     }
@@ -253,7 +421,6 @@ def score_prediction(
             predicted_fragments = _import_counter(predicted_arguments, include_purpose=False)
             gold_fragments = _import_counter(gold_arguments, include_purpose=False)
             predicted_schedule = _import_counter(predicted_arguments, include_purpose=True)
-            gold_schedule = _import_counter(gold_arguments, include_purpose=True)
             fragment_exact = predicted_fragments == gold_fragments
             schedule_exact = predicted_schedule == gold_schedule
             base.update(
@@ -261,6 +428,14 @@ def score_prediction(
                 argument_compile=True,
                 import_fragment_exact=fragment_exact,
                 import_schedule_exact=schedule_exact,
+                import_participant_exact=(
+                    _import_role_counter(predicted_schedule, "electron_participant")
+                    == gold_participants
+                ),
+                import_context_exact=(
+                    _import_role_counter(predicted_schedule, "endpoint_context")
+                    == gold_context
+                ),
             )
             return base
         if dtype != "event":
@@ -324,6 +499,10 @@ def _batches(values: Sequence[Any], size: int) -> Iterable[Sequence[Any]]:
 
 
 def run(args: argparse.Namespace) -> int:
+    validate_adapter_lineage(
+        args.adapter, args.model, args.model_revision,
+        provisional_training_config=args.provisional_training_config,
+    )
     import torch
     from peft import PeftModel
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
@@ -332,12 +511,23 @@ def run(args: argparse.Namespace) -> int:
     torch.cuda.set_device(local_rank)
     rows = read_jsonl(args.data)
     tasks, reaction_ids = collect_tasks(
-        rows, sample_reactions=args.sample_reactions, seed=args.seed
+        rows,
+        sample_reactions=args.sample_reactions,
+        seed=args.seed,
+        decision_rows=read_jsonl(args.decision_data) if args.decision_data else None,
+        replay_decision_states=getattr(args, "replay_reference_states", False),
     )
     selected = [task for index, task in enumerate(tasks) if index % world == rank]
     args.output.mkdir(parents=True, exist_ok=True)
     shard = args.output / f"decisions.shard-{rank:02d}-of-{world:02d}.jsonl"
-    completed = {row["key"] for row in read_jsonl(shard)} if shard.exists() else set()
+    run_fingerprint = (
+        replayed_run_fingerprint(args)
+        if getattr(args, "replay_reference_states", False) else None
+    )
+    previous_rows = read_jsonl(shard) if shard.exists() else []
+    if run_fingerprint is not None:
+        require_replayed_run_fingerprint(previous_rows, run_fingerprint)
+    completed = {row["key"] for row in previous_rows}
     selected = [task for task in selected if task["key"] not in completed]
     if rank == 0:
         (args.output / "selection.json").write_text(
@@ -357,14 +547,14 @@ def run(args: argparse.Namespace) -> int:
         )
 
     tokenizer = AutoTokenizer.from_pretrained(
-        args.model, revision=MODEL_REVISION, trust_remote_code=True
+        args.model, revision=args.model_revision, trust_remote_code=True
     )
     tokenizer.padding_side = "left"
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token_id = tokenizer.eos_token_id
     dtype = torch.bfloat16 if args.dtype == "bfloat16" else torch.float16
     model_kwargs: dict[str, Any] = {
-        "revision": MODEL_REVISION,
+        "revision": args.model_revision,
         "trust_remote_code": True,
         "torch_dtype": dtype,
         "device_map": {"": local_rank},
@@ -438,6 +628,12 @@ def run(args: argparse.Namespace) -> int:
                 )
                 record = {
                     "key": task["key"],
+                    **({"run_fingerprint": run_fingerprint} if run_fingerprint else {}),
+                    "private_state_source": (
+                        "executor_reference_replay"
+                        if getattr(args, "replay_reference_states", False)
+                        else "trace_plan_reconstruction"
+                    ),
                     "reaction_id": task["reaction_id"],
                     "decision_type": task["decision_type"],
                     "event_depth": task["event_depth"],
@@ -491,15 +687,58 @@ def _summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _import_role_summary(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    n = len(rows)
+    result: dict[str, Any] = {"n": n}
+    for name in (
+        "correct_tool", "import_fragment_exact", "import_schedule_exact",
+    ):
+        count = sum(bool(row[name]) for row in rows)
+        result[name] = count
+        result[f"{name}_rate"] = count / n if n else None
+    for name, presence_key in (
+        ("import_participant_exact", "gold_import_participant_copies"),
+        ("import_context_exact", "gold_import_context_copies"),
+    ):
+        eligible = [row for row in rows if int(row[presence_key]) > 0]
+        count = sum(bool(row[name]) for row in eligible)
+        result[f"{name}_n"] = len(eligible)
+        result[name] = count
+        result[f"{name}_rate"] = count / len(eligible) if eligible else None
+    return result
+
+
 def aggregate(args: argparse.Namespace) -> int:
+    adapter_lineage = validate_adapter_lineage(
+        args.adapter, args.model, args.model_revision,
+        provisional_training_config=args.provisional_training_config,
+    )
     source = read_jsonl(args.data)
     tasks, reaction_ids = collect_tasks(
-        source, sample_reactions=args.sample_reactions, seed=args.seed
+        source,
+        sample_reactions=args.sample_reactions,
+        seed=args.seed,
+        decision_rows=read_jsonl(args.decision_data) if args.decision_data else None,
+        replay_decision_states=getattr(args, "replay_reference_states", False),
     )
     expected = {task["key"] for task in tasks}
     rows: list[dict[str, Any]] = []
     for path in sorted(args.output.glob("decisions.shard-*-of-*.jsonl")):
         rows.extend(read_jsonl(path))
+    run_fingerprint = (
+        replayed_run_fingerprint(args)
+        if getattr(args, "replay_reference_states", False) else None
+    )
+    if run_fingerprint is not None:
+        require_replayed_run_fingerprint(rows, run_fingerprint)
+    private_state_source = (
+        "executor_reference_replay"
+        if getattr(args, "replay_reference_states", False)
+        else "trace_plan_reconstruction"
+    )
+    if any(row.get("private_state_source", "trace_plan_reconstruction") != private_state_source
+           for row in rows):
+        raise ValueError("local evaluation shards use a different private-state contract")
     observed = [str(row["key"]) for row in rows]
     if len(observed) != len(set(observed)):
         raise ValueError("duplicate prediction keys")
@@ -509,15 +748,58 @@ def aggregate(args: argparse.Namespace) -> int:
         name: _summary([row for row in rows if row["decision_type"] == name])
         for name in ("import", "event", "finish")
     }
+    by_import_role = None
+    if getattr(args, "import_role_breakdown", False):
+        imports = [row for row in rows if row["decision_type"] == "import"]
+        for row in imports:
+            if not all(field in row for field in (
+                "gold_import_participant_copies", "gold_import_context_copies",
+                "import_participant_exact", "import_context_exact",
+            )):
+                raise ValueError(f"import role metrics missing from prediction {row['key']}")
+            if int(row["gold_import_participant_copies"]) + int(row["gold_import_context_copies"]) < 1:
+                raise ValueError(f"gold import has no recognized fragment role: {row['key']}")
+        by_import_role = {
+            "participant_present": _import_role_summary([
+                row for row in imports if int(row["gold_import_participant_copies"]) > 0
+            ]),
+            "context_present": _import_role_summary([
+                row for row in imports if int(row["gold_import_context_copies"]) > 0
+            ]),
+            "participant_only": _import_role_summary([
+                row for row in imports
+                if int(row["gold_import_participant_copies"]) > 0
+                and int(row["gold_import_context_copies"]) == 0
+            ]),
+            "context_only": _import_role_summary([
+                row for row in imports
+                if int(row["gold_import_participant_copies"]) == 0
+                and int(row["gold_import_context_copies"]) > 0
+            ]),
+            "mixed": _import_role_summary([
+                row for row in imports
+                if int(row["gold_import_participant_copies"]) > 0
+                and int(row["gold_import_context_copies"]) > 0
+            ]),
+        }
+    artifact_type = (
+        "natural_language_event_gold_state_local_k1_v3_replayed_state"
+        if getattr(args, "replay_reference_states", False)
+        else "natural_language_event_gold_state_local_k1_v2"
+        if args.sft_aligned_prefix
+        else "natural_language_event_gold_state_local_k1_v1"
+    )
+    if adapter_lineage["kind"] == "provisional_checkpoint":
+        artifact_type += "_provisional_checkpoint"
     report = {
-        "artifact_type": (
-            "natural_language_event_gold_state_local_k1_v2"
-            if args.sft_aligned_prefix
-            else "natural_language_event_gold_state_local_k1_v1"
-        ),
+        "artifact_type": artifact_type,
         "claim_boundary": (
             "Fixed validation F-oracle one-decision diagnostic; not product-only "
             "closed-loop rollout and not test endpoint accuracy."
+            + (
+                " Unfinished training checkpoint; not a final-model result."
+                if adapter_lineage["kind"] == "provisional_checkpoint" else ""
+            )
         ),
         "seed": args.seed,
         "planned_reactions": args.sample_reactions,
@@ -529,11 +811,17 @@ def aggregate(args: argparse.Namespace) -> int:
         "complete": not missing and not extra,
         "data": str(args.data),
         "data_sha256": sha256(args.data),
+        "decision_data": str(args.decision_data) if args.decision_data else None,
+        "decision_data_sha256": sha256(args.decision_data) if args.decision_data else None,
+        "private_state_source": private_state_source,
+        "run_fingerprint": run_fingerprint,
         "adapter": str(args.adapter),
         "adapter_model_sha256": sha256(args.adapter / "adapter_model.safetensors"),
+        "adapter_lineage": adapter_lineage,
         "model": args.model,
-        "model_revision": MODEL_REVISION,
+        "model_revision": args.model_revision,
         "compute_dtype": args.dtype,
+        "decode_batch_size": args.batch_size,
         "sft_aligned_tool_prefix": bool(args.sft_aligned_prefix),
         "quantization": "bf16_or_fp16" if args.no_4bit else "bnb_nf4",
         "overall": _summary(rows),
@@ -555,6 +843,8 @@ def aggregate(args: argparse.Namespace) -> int:
             Counter(row["execution_error"] for row in rows if row["execution_error"])
         ),
     }
+    if by_import_role is not None:
+        report["by_import_role"] = by_import_role
     (args.output / "evaluation.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -566,9 +856,19 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("run", "aggregate"))
     parser.add_argument("--data", type=Path, required=True)
+    parser.add_argument(
+        "--decision-data",
+        type=Path,
+        help="frozen model-visible per-decision rows; needed for Stage-II history prompts",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--model-revision", default=MODEL_REVISION)
     parser.add_argument("--adapter", type=Path, required=True)
+    parser.add_argument(
+        "--provisional-training-config", type=Path,
+        help="explicit one-off diagnostic of an unfinished trainer checkpoint; not a final model",
+    )
     parser.add_argument("--sample-reactions", type=int, default=256)
     parser.add_argument("--seed", type=int, default=17)
     parser.add_argument("--batch-size", type=int, default=2)
@@ -584,6 +884,14 @@ def main() -> int:
     parser.add_argument(
         "--sft-aligned-prefix", action="store_true",
         help="use the exact Qwen assistant boundary preceding Tool-SFT calls",
+    )
+    parser.add_argument(
+        "--import-role-breakdown", action="store_true",
+        help="report participant/context import accuracy; requires role-labelled gold rows",
+    )
+    parser.add_argument(
+        "--replay-reference-states", action="store_true",
+        help="derive private scoring states from verified frozen decision replay",
     )
     args = parser.parse_args()
     return run(args) if args.command == "run" else aggregate(args)

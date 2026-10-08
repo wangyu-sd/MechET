@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import hashlib
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -19,8 +20,11 @@ from scripts.earho_v2_protocol import (
     replay_reference,
 )
 from scripts.build_earho_v2_successor_value import build_rows
+from scripts.run_earho_v2 import _attach_decisions
+from scripts.audit_reliable_product_mapping_parity import audit
 from scripts.natural_language_anchor_branch_stage import (
-    _messages, _node, _v2_probe, _v2_successor_fingerprint,
+    _messages, _node, _render_prompt, _score_rollout, _v2_probe,
+    _v2_successor_fingerprint,
 )
 from scripts.run_natural_language_value_search import (
     Action, Node, execute, policy_prompt, visible,
@@ -74,6 +78,48 @@ def fixture(reaction_id: str = "toy"):
     return source, decisions
 
 
+def test_product_only_mapping_audit_accepts_equivalent_toy_replay(tmp_path):
+    import rdkit
+
+    source, decisions = fixture()
+    source_path = tmp_path / "source.jsonl"
+    decision_path = tmp_path / "decisions.jsonl"
+    source_path.write_text(json.dumps(source) + "\n")
+    decision_path.write_text("".join(json.dumps(row) + "\n" for row in decisions))
+    report = audit(source_path, decision_path, n=1, seed=17, max_imports=1)
+    assert report["rdkit_version"] == rdkit.__version__
+    assert report["max_imports"] == 1
+    assert report["counts"]["root_prompt_exact"] == 1
+    assert report["counts"]["original_private_map_replay_ok"] == 1
+    assert report["counts"]["product_only_remap_replay_ok"] == 1
+    assert report["failures"] == []
+    with pytest.raises(ValueError, match="max_imports must be positive"):
+        audit(source_path, decision_path, n=1, seed=17, max_imports=0)
+
+
+def test_product_only_mapping_audit_supports_state_only_decisions(tmp_path):
+    source, history_decisions = fixture()
+    reference = replay_reference(source, history_decisions)
+    state_decisions = []
+    for index, row in enumerate(history_decisions):
+        copy = dict(row, messages=[dict(message) for message in row["messages"]])
+        copy["messages"][1]["content"] = policy_prompt(
+            reference.target, reference.nodes[index].state,
+            include_inventory=True, actions=reference.nodes[index].actions,
+            compact_history=False,
+        )
+        state_decisions.append(copy)
+    source_path = tmp_path / "source.jsonl"
+    decision_path = tmp_path / "decisions.jsonl"
+    source_path.write_text(json.dumps(source) + "\n")
+    decision_path.write_text("".join(json.dumps(row) + "\n" for row in state_decisions))
+    report = audit(
+        source_path, decision_path, n=1, seed=17, compact_history=False,
+    )
+    assert report["observation_contract"] == "state_only"
+    assert report["counts"]["product_only_remap_replay_ok"] == 1
+
+
 def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     source, decisions = fixture()
     reference = replay_reference(source, decisions)
@@ -92,6 +138,73 @@ def test_reference_replay_matches_exact_stage_ii_prompt_and_endpoint():
     assert "expected_precursor" not in actor_prompt
     assert "reference_successor" not in actor_prompt
     assert len(_node(task).actions) == 1
+
+
+def test_earho_preparation_replays_reference_under_the_rollout_import_budget(tmp_path):
+    source, decisions = fixture()
+    history_file = tmp_path / "history.jsonl"
+    history_file.write_text("".join(json.dumps(row) + "\n" for row in decisions))
+    assert len(_attach_decisions([source], history_file, max_imports=1)) == 1
+    with pytest.raises(ValueError, match="IMPORT_BUDGET_EXCEEDED"):
+        _attach_decisions([source], history_file, max_imports=0)
+
+
+def test_reliable_endpoint_reward_uses_structural_precursor_not_context():
+    source, decisions = fixture()
+    reference = replay_reference(source, decisions)
+    task = anchor_task(reference, 0, divergence_reason="PRODUCT_ONLY_EVALUATION")
+    assert task.expected_structural_precursor == "[CH3:1][Br:2]"
+    # This toy is for endpoint projection only; a production rollout separately
+    # applies the executor's no-op/target-retained finish gate.
+    alternate = replace(
+        reference.nodes[-1], state="[CH3:1][Br:2].[K+:4]",
+    )
+    kwargs = dict(
+        first_successor_state=alternate.state,
+        invalid_penalty=0.1,
+        wrong_terminal_penalty=0.5,
+        endpoint_similarity_weight=0.45,
+        first_successor_progress_weight=0.25,
+        nonexact_reward_ceiling=0.01,
+        target_retained_penalty=0.75,
+        reference_first_successor_state=reference.nodes[1].state,
+        reference_first_successor_weight=0.25,
+    )
+    structural = _score_rollout(
+        task, alternate, "", 2, endpoint_metric="structural", **kwargs,
+    )
+    full = _score_rollout(task, alternate, "", 2, **kwargs)
+    assert structural["correct"] is True
+    assert structural["structural_endpoint_exact"] is True
+    assert structural["full_endpoint_exact"] is False
+    assert structural["reward"] == 1.0
+    assert structural["structural_precursor_smiles"] == "CBr"
+    assert full["correct"] is False
+    assert full["reward"] < 0
+
+
+def test_v2_collector_uses_completed_sft_tool_prefix_not_thinking_prompt():
+    class Tokenizer:
+        def apply_chat_template(self, messages, *, tokenize, add_generation_prompt,
+                                tools=None, enable_thinking=False):
+            text = "".join(
+                f"<|im_start|>{message['role']}\n{message['content']}<|im_end|>\n"
+                for message in messages
+            )
+            if add_generation_prompt:
+                text += "<|im_start|>assistant\n<think>\n\n</think>\n\n"
+            return text
+
+        def encode(self, text, add_special_tokens=False):
+            return [ord(char) for char in text]
+
+    source, decisions = fixture()
+    reference = replay_reference(source, decisions)
+    task = anchor_task(reference, 0, divergence_reason="PRODUCT_ONLY_EVALUATION")
+    encoded = _render_prompt(Tokenizer(), task, task.anchor_state, "unified")
+    text = "".join(map(chr, encoded))
+    assert text.endswith("<|im_start|>assistant\n")
+    assert "<think>" not in text
 
 
 def test_product_probe_uses_first_executed_successor_mismatch():

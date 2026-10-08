@@ -115,6 +115,12 @@ def private_product_state(product: str) -> str:
     return product
 
 
+def product_only_private_state(product: str) -> str:
+    """Assign fresh private maps from the unmapped product, never source maps."""
+
+    return private_product_state(normal_smiles(product))
+
+
 def validate_matched_v2_args(args: argparse.Namespace) -> None:
     """Fail closed unless inference matches the frozen protocol-v2 policy."""
     if not bool(getattr(args, "matched_v2", False)):
@@ -135,10 +141,17 @@ def validate_matched_v2_args(args: argparse.Namespace) -> None:
         float(getattr(args, "value_weight", 0.0) or 0.0)
     ) > 1e-12:
         raise ValueError("matched v2 pure-policy evaluation forbids a value critic")
+    if str(getattr(args, "pointer_head", "") or "") or abs(
+        float(getattr(args, "pointer_weight", 0.0) or 0.0)
+    ) > 1e-12:
+        raise ValueError("matched v2 pure-policy evaluation forbids pointer scoring")
+    if bool(getattr(args, "vnext_v2_prefix", False)):
+        raise ValueError("matched v2 cannot combine with the vNext v2 prefix")
 
 
 def validate_v2_adapter_manifest(
-    adapter: Path, *, compact_history: bool, vnext: bool = False
+    adapter: Path, *, compact_history: bool, vnext: bool = False,
+    expected_model: str | None = None, expected_revision: str | None = None,
 ) -> dict[str, Any]:
     """Require an adapter produced by the clean protocol-v2 SFT lineage."""
     manifest_path = adapter / "adapter_manifest.json"
@@ -164,6 +177,10 @@ def validate_v2_adapter_manifest(
     revision = str(manifest.get("base_model_revision") or "")
     if len(revision) != 40 or any(ch not in "0123456789abcdef" for ch in revision):
         raise ValueError("matched protocol-v2 adapter must pin an immutable base revision")
+    if expected_model is not None and manifest.get("base_model") != expected_model:
+        raise ValueError("protocol-v2 adapter base model differs from inference model")
+    if expected_revision is not None and revision != expected_revision:
+        raise ValueError("protocol-v2 adapter base revision differs from inference revision")
     return manifest
 
 
@@ -227,15 +244,19 @@ class Runtime:
         self.args = args
         torch.cuda.set_device(local_rank)
         self.tokenizer = AutoTokenizer.from_pretrained(
-            args.model, revision=MODEL_REVISION, trust_remote_code=True
+            args.model, revision=args.model_revision, trust_remote_code=True
         )
         self.tokenizer.padding_side = "left"
         if self.tokenizer.pad_token_id is None:
             self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+        dtype_name = str(getattr(args, "dtype", "bfloat16"))
+        if dtype_name not in {"float16", "bfloat16"}:
+            raise ValueError(f"unsupported policy compute dtype: {dtype_name}")
+        compute_dtype = torch.float16 if dtype_name == "float16" else torch.bfloat16
         model_kwargs: dict[str, Any] = {
-            "revision": MODEL_REVISION,
+            "revision": args.model_revision,
             "trust_remote_code": True,
-            "torch_dtype": torch.bfloat16,
+            "torch_dtype": compute_dtype,
             "device_map": {"": local_rank},
             "attn_implementation": "sdpa",
         }
@@ -244,7 +265,7 @@ class Runtime:
                 load_in_4bit=True,
                 bnb_4bit_quant_type="nf4",
                 bnb_4bit_use_double_quant=True,
-                bnb_4bit_compute_dtype=torch.bfloat16,
+                bnb_4bit_compute_dtype=compute_dtype,
             )
         base = AutoModelForCausalLM.from_pretrained(args.model, **model_kwargs)
         self.model = PeftModel.from_pretrained(
@@ -285,8 +306,10 @@ class Runtime:
         candidates: int,
         max_new_tokens: int,
         compact_history: bool = False,
+        planning_sample: bool = False,
     ) -> list[Action]:
         torch = self.torch
+        self.last_proposal_error = ""
         self.model.set_adapter("policy")
         target = node.target
         state = node.state
@@ -326,6 +349,11 @@ class Runtime:
             prompts, return_tensors="pt", padding=True, add_special_tokens=False
         )
         width = int(encoded["input_ids"].shape[1])
+        if (self.args.matched_v2 or getattr(self.args, "product_only_remap", False)) and (
+            width + max_new_tokens > self.args.max_context
+        ):
+            self.last_proposal_error = "CONTEXT_BUDGET_EXCEEDED"
+            return []
         encoded = {key: value.to(self.device) for key, value in encoded.items()}
         pointer_logits = (
             [
@@ -335,11 +363,13 @@ class Runtime:
             if self.pointer is not None else []
         )
         with torch.inference_mode():
+            raw_model_nll = bool(getattr(self.args, "raw_model_nll", False))
             generation = {
                 "max_new_tokens": max_new_tokens,
                 "num_return_sequences": candidates,
                 "return_dict_in_generate": True,
-                "output_scores": True,
+                "output_scores": not raw_model_nll,
+                "output_logits": raw_model_nll,
                 "pad_token_id": self.tokenizer.pad_token_id,
                 "eos_token_id": self.tokenizer.eos_token_id,
             }
@@ -347,10 +377,11 @@ class Runtime:
                 matched_v2=bool(self.args.matched_v2),
                 vnext_v2_prefix=bool(self.args.vnext_v2_prefix),
                 candidates=candidates,
+                planning_sample=planning_sample,
             ))
             output = self.model.generate(**encoded, **generation)
-        scores = self.model.compute_transition_scores(
-            output.sequences, output.scores, normalize_logits=True
+        scores = generated_transition_scores(
+            self.model, output, raw_model_nll=raw_model_nll,
         )
         actions: list[Action] = []
         seen: set[str] = set()
@@ -396,6 +427,8 @@ class Runtime:
                     pointer_score=pointer_score,
                 )
             )
+        if not actions:
+            self.last_proposal_error = "NO_PARSEABLE_TOOL_CALL"
         return actions
 
     def values(
@@ -627,31 +660,52 @@ def select_successful_terminals(terminals: list[Node], structural_match, expecte
     return structural, full
 
 
-def generation_sampling_policy(*, matched_v2: bool, vnext_v2_prefix: bool, candidates: int) -> dict:
+def generation_sampling_policy(
+    *, matched_v2: bool, vnext_v2_prefix: bool, candidates: int,
+    planning_sample: bool = False,
+) -> dict:
     """K=1 vNext is genuinely greedy; K>1 remains stochastic expansion."""
     if candidates < 1:
         raise ValueError("candidate count must be positive")
-    greedy = matched_v2 or (vnext_v2_prefix and candidates == 1)
+    greedy = not planning_sample and (
+        matched_v2 or (vnext_v2_prefix and candidates == 1)
+    )
     return {"do_sample": False} if greedy else {
         "do_sample": True, "temperature": 0.7, "top_p": 0.95,
     }
 
 
-def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+def generated_transition_scores(model: Any, output: Any, *, raw_model_nll: bool):
+    """Use unwarped model logits for NLL ranking, not sampling scores."""
+
+    source = output.logits if raw_model_nll else output.scores
+    if source is None:
+        raise ValueError("generation output lacks the requested transition logits")
+    return model.compute_transition_scores(
+        output.sequences, source, normalize_logits=True,
+    )
+
+
+def search_unlabeled(
+    runtime: Runtime, target_smiles: str, args: argparse.Namespace,
+) -> dict[str, Any]:
+    """Search from a product without reading any reference precursor.
+
+    This is the shared policy/executor path for held-out evaluation and
+    on-demand planning of arbitrary intermediate target molecules.
+    """
     pointer_rejected_before = runtime.pointer_invalid_handles
-    if getattr(args, "vnext_v2_prefix", False) and not mapped_atom_numbers(str(row["target_smiles"])):
+    if getattr(args, "vnext_v2_prefix", False) and not mapped_atom_numbers(str(target_smiles)):
         raise ValueError(
             "vNext matched search requires the frozen privately mapped trace source; "
             "unmapped decision rows can reassign stereochemical graph addresses"
         )
-    target_mapped = private_product_state(str(row["target_smiles"]))
-    target = visible(target_mapped)
-    expected_full_mapped = str(
-        row.get("full_precursor_state") or row["expected_precursor"]
+    target_mapped = (
+        product_only_private_state(str(target_smiles))
+        if getattr(args, "product_only_remap", False)
+        else private_product_state(str(target_smiles))
     )
-    expected_full = visible(expected_full_mapped)
-    expected_structural = reference_structural_precursor(dict(row))
-    has_structural_reference = bool(expected_structural)
+    target = visible(target_mapped)
     root = Node(
         target=target,
         state=target_mapped,
@@ -661,22 +715,49 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
     beam = [root]
     terminals: list[Node] = []
     rejected: dict[str, int] = {}
+    attempts: list[dict[str, Any]] = []
     for depth in range(args.max_decisions):
         children: list[Node] = []
         new_terminals: list[Node] = []
         for node in beam:
-            for action in runtime.proposals(
+            proposals = runtime.proposals(
                 node,
                 candidates=args.branching,
                 max_new_tokens=args.max_new_tokens,
                 compact_history=args.compact_history,
-            ):
+                planning_sample=bool(getattr(args, "planning_sample", False)),
+            )
+            if not proposals:
+                code = str(getattr(runtime, "last_proposal_error", "") or "NO_VALID_TOOL_CALL")
+                rejected[code] = rejected.get(code, 0) + 1
+                attempts.append({
+                    "depth": depth, "state_before": visible(node.state),
+                    "name": "", "arguments": {}, "accepted": False,
+                    "error": code, "state_after": "", "terminal": False,
+                    "action_logprob": None, "action_tokens": 0,
+                    "action_policy_score": None,
+                })
+            for action in proposals:
                 child, error = execute(
                     node,
                     action,
                     max_imports=args.max_imports,
                     reject_target_retained_finish=args.reject_target_retained_finish,
                 )
+                attempts.append({
+                    "depth": depth, "state_before": visible(node.state),
+                    "name": action.name, "arguments": action.arguments,
+                    "accepted": child is not None, "error": error,
+                    "action_logprob": action.logprob,
+                    "action_tokens": action.tokens,
+                    "action_policy_score": action.logprob / max(action.tokens, 1),
+                    "state_after": (
+                        str(child.actions[-1]["result"].get("current_state") or
+                            child.actions[-1]["result"].get("derived_precursor") or "")
+                        if child is not None else ""
+                    ),
+                    "terminal": bool(child is not None and child.terminal),
+                })
                 if child is None:
                     rejected[error] = rejected.get(error, 0) + 1
                 elif child.terminal:
@@ -720,6 +801,33 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         )[:width]
     terminals.sort(key=lambda node: node.score(args.value_weight, args.pointer_weight), reverse=True)
     top = terminals[0] if terminals else (beam[0] if beam else root)
+    return {
+        "target": target,
+        "target_mapped": target_mapped,
+        "top": top,
+        "terminals": terminals,
+        "rejected": rejected,
+        "attempts": attempts,
+        "pointer_invalid_handles": runtime.pointer_invalid_handles - pointer_rejected_before,
+    }
+
+
+def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+    """Score a product-only search only after all model decisions are complete."""
+    searched = search_unlabeled(runtime, str(row["target_smiles"]), args)
+    target = searched["target"]
+    target_mapped = searched["target_mapped"]
+    top = searched["top"]
+    terminals = searched["terminals"]
+    rejected = searched["rejected"]
+    attempts = searched["attempts"]
+    expected_full_mapped = str(
+        row.get("full_precursor_state") or row["expected_precursor"]
+    )
+    expected_full = visible(expected_full_mapped)
+    expected_structural = reference_structural_precursor(dict(row))
+    has_structural_reference = bool(expected_structural)
+
     def is_structural_match(node: Node) -> bool:
         if not node.terminal:
             return False
@@ -758,9 +866,10 @@ def rollout(runtime: Runtime, row: Mapping[str, Any], args: argparse.Namespace) 
         "top_policy_score": top.policy_score,
         "top_value": top.value,
         "top_pointer_score": top.pointer_score,
-        "pointer_invalid_handles": runtime.pointer_invalid_handles - pointer_rejected_before,
+        "pointer_invalid_handles": searched["pointer_invalid_handles"],
         "n_actions": len(top.actions),
         "rejected": rejected,
+        "attempts": attempts,
         "top_actions": top.actions,
         "successful_actions": (
             successful_full.actions if successful_full is not None
@@ -801,6 +910,7 @@ def main() -> int:
     parser.add_argument("--data", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--model", default="Qwen/Qwen3-8B")
+    parser.add_argument("--model-revision", default=MODEL_REVISION)
     parser.add_argument("--policy-adapter", required=True)
     parser.add_argument("--value-adapter", default="")
     parser.add_argument(
@@ -827,6 +937,7 @@ def main() -> int:
         help="maximum imported fragment copies; frozen SFT maximum is 24",
     )
     parser.add_argument("--max-new-tokens", type=int, default=384)
+    parser.add_argument("--max-context", type=int, default=4096)
     parser.add_argument("--value-weight", type=float, default=0.20)
     parser.add_argument("--pointer-head", default="")
     parser.add_argument("--pointer-weight", type=float, default=0.0)
@@ -859,6 +970,10 @@ def main() -> int:
         action="store_true",
         help="append executor-reconstructible accepted-action history to policy prompts",
     )
+    parser.add_argument(
+        "--product-only-remap", action="store_true",
+        help="strip source atom maps and deterministically remap only the product before rollout",
+    )
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
     validate_matched_v2_args(args)
@@ -874,11 +989,13 @@ def main() -> int:
         parser.error("--value-adapter is required unless --matched-v2 or --search-no-value")
     if args.matched_v2:
         validate_v2_adapter_manifest(
-            Path(args.policy_adapter), compact_history=args.compact_history
+            Path(args.policy_adapter), compact_history=args.compact_history,
+            expected_model=args.model, expected_revision=args.model_revision,
         )
     elif args.vnext_v2_prefix:
         validate_v2_adapter_manifest(
-            Path(args.policy_adapter), compact_history=True, vnext=True
+            Path(args.policy_adapter), compact_history=True, vnext=True,
+            expected_model=args.model, expected_revision=args.model_revision,
         )
     rank = int(os.environ.get("RANK", "0"))
     world = int(os.environ.get("WORLD_SIZE", "1"))

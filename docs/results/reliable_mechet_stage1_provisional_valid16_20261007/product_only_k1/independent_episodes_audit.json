@@ -1,0 +1,171 @@
+{
+  "artifact_type": "reliable_mechet_independent_episodes_provisional_checkpoint_audit_v1",
+  "claim_boundary": "Product-only independent executor episodes; structural reference used only after generation. Execution is not laboratory feasibility. Unfinished-checkpoint diagnostic on at most 16 reactions; not final validation or test accuracy.",
+  "process_reliable_definition": "Structural endpoint hit by a terminal independently replayed trajectory with at least one accepted electron event; laboratory feasibility is a separate test.",
+  "process_metric_status": "available_on_strict_or_diagnostic_view",
+  "model": "Qwen/Qwen3-0.6B",
+  "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "runtime_versions": {
+    "python": "3.11.13",
+    "rdkit": "2026.03.4",
+    "torch": "2.6.0+cu118",
+    "torch_cuda": "11.8",
+    "transformers": "4.55.4",
+    "peft": "0.16.0"
+  },
+  "compute_dtype": "float16",
+  "adapter_lineage": {
+    "kind": "provisional_checkpoint",
+    "checkpoint_step": 14000,
+    "training_config_sha256": "509d7fff53f36bdbd321e6d135755b21bd3fb3e162af629c012539aece2948ba",
+    "training_stage": "state_sft"
+  },
+  "stage": "state",
+  "episodes_per_reaction": 1,
+  "benchmark_view": "diagnostic",
+  "diagnostic_selection": "stratified",
+  "source_manifest_sha256": null,
+  "ranking": "descending mean generated-token log-probability, canonical unique terminal precursors",
+  "ranking_score_source": "unwarped_adapter_policy_logits_before_temperature_top_p",
+  "source_sha256": "7303a6018850db61594af5854df936778c21a6668e61151f95e2c74c32d22d2a",
+  "adapter_model_sha256": "5ad400212499ac32df48f9f06e432c439df15bdc24643cf8288ab7a492474507",
+  "run_fingerprint": "2ef030304ae7eb19a7dc048367d6f2e3ab847139467af006b263c0bbb4003a49",
+  "denominator": 16,
+  "observed_reactions": 16,
+  "missing_reactions": 0,
+  "hits": {
+    "generation_pass_at_1": 3,
+    "nll_ranked_top_1": 3,
+    "process_reliable_pass_at_1": 3,
+    "generation_pass_at_5": null,
+    "nll_ranked_top_5": null,
+    "process_reliable_pass_at_5": null,
+    "generation_pass_at_10": null,
+    "nll_ranked_top_10": null,
+    "process_reliable_pass_at_10": null
+  },
+  "rates": {
+    "generation_pass_at_1": 0.1875,
+    "nll_ranked_top_1": 0.1875,
+    "process_reliable_pass_at_1": 0.1875,
+    "generation_pass_at_5": null,
+    "nll_ranked_top_5": null,
+    "process_reliable_pass_at_5": null,
+    "generation_pass_at_10": null,
+    "nll_ranked_top_10": null,
+    "process_reliable_pass_at_10": null
+  },
+  "terminal_episodes": 12,
+  "nonterminal_episodes": 4,
+  "terminal_reference_mismatch_episodes": 9,
+  "unique_terminal_candidates": 12,
+  "endpoint_risk_coverage": {
+    "confidence_definition": "highest unwarped-policy mean token log-probability among unique terminal precursors",
+    "scored_terminal_reactions": 12,
+    "abstaining_or_missing_reactions": 4,
+    "curve": [
+      {
+        "fraction_of_scored_terminals": 0.1,
+        "coverage_of_all_reactions": 0.0625,
+        "n": 1,
+        "endpoint_misses": 1,
+        "endpoint_miss_rate": 1.0,
+        "min_mean_token_logprob": -0.0023342922260973812
+      },
+      {
+        "fraction_of_scored_terminals": 0.25,
+        "coverage_of_all_reactions": 0.1875,
+        "n": 3,
+        "endpoint_misses": 1,
+        "endpoint_miss_rate": 0.3333333333333333,
+        "min_mean_token_logprob": -0.005026529941539358
+      },
+      {
+        "fraction_of_scored_terminals": 0.5,
+        "coverage_of_all_reactions": 0.375,
+        "n": 6,
+        "endpoint_misses": 4,
+        "endpoint_miss_rate": 0.6666666666666666,
+        "min_mean_token_logprob": -0.005974540438089234
+      },
+      {
+        "fraction_of_scored_terminals": 0.75,
+        "coverage_of_all_reactions": 0.5625,
+        "n": 9,
+        "endpoint_misses": 7,
+        "endpoint_miss_rate": 0.7777777777777778,
+        "min_mean_token_logprob": -0.010880031377633976
+      },
+      {
+        "fraction_of_scored_terminals": 1.0,
+        "coverage_of_all_reactions": 0.75,
+        "n": 12,
+        "endpoint_misses": 9,
+        "endpoint_miss_rate": 0.75,
+        "min_mean_token_logprob": -0.021443095206087615
+      }
+    ],
+    "interpretation": "Endpoint miss means disagreement with the recorded structural precursor, not proof that an alternative executable reaction is chemically impossible."
+  },
+  "proposal_executor_rejection_risk_coverage": {
+    "confidence_definition": "unwarped-policy mean generated-token log-probability per parsed proposal",
+    "observed_proposals": 107,
+    "scored_parsed_proposals": 107,
+    "unparseable_proposals": 0,
+    "unscorable_parsed_proposals": 0,
+    "executor_rejected_scored_proposals": 4,
+    "top_decile_executor_rejection": {
+      "fraction_of_scored_parsed_proposals": 0.1,
+      "n": 10,
+      "executor_rejected": 0,
+      "executor_rejection_rate": 0.0,
+      "min_mean_token_logprob": -8.891378847523506e-05
+    },
+    "curve": [
+      {
+        "fraction_of_scored_parsed_proposals": 0.1,
+        "n": 10,
+        "executor_rejected": 0,
+        "executor_rejection_rate": 0.0,
+        "min_mean_token_logprob": -8.891378847523506e-05
+      },
+      {
+        "fraction_of_scored_parsed_proposals": 0.25,
+        "n": 26,
+        "executor_rejected": 0,
+        "executor_rejection_rate": 0.0,
+        "min_mean_token_logprob": -0.0003086071439653809
+      },
+      {
+        "fraction_of_scored_parsed_proposals": 0.5,
+        "n": 53,
+        "executor_rejected": 0,
+        "executor_rejection_rate": 0.0,
+        "min_mean_token_logprob": -0.0021655928004871714
+      },
+      {
+        "fraction_of_scored_parsed_proposals": 0.75,
+        "n": 80,
+        "executor_rejected": 3,
+        "executor_rejection_rate": 0.0375,
+        "min_mean_token_logprob": -0.015295404195785522
+      },
+      {
+        "fraction_of_scored_parsed_proposals": 1.0,
+        "n": 107,
+        "executor_rejected": 4,
+        "executor_rejection_rate": 0.037383177570093455,
+        "min_mean_token_logprob": -0.22109869049816597
+      }
+    ],
+    "interpretation": "An executor-rejected proposal is an observed formal failure. This proxy does not label accepted alternatives as chemically valid or reference-different alternatives as hallucinations."
+  },
+  "shards": [
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/reliable_mechet_state_ckpt14000_valid16_stratified_k1_t4_provisional_20261007/episodes.shard-00-of-01.jsonl",
+      "sha256": "4994686bc8612aa167fe0842333226589dba0816caacf2f3ab412ed7e4c189ea"
+    }
+  ],
+  "cases_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/reliable_mechet_state_ckpt14000_valid16_stratified_k1_t4_provisional_20261007/independent_episodes_cases.jsonl",
+  "cases_sha256": "9ec8783eb0e5011a31e6be1fc4ea75516f0e7dbd4b45e4a6fd31eb5f0cb3a10b"
+}

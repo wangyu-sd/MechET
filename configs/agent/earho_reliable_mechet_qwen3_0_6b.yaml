@@ -1,0 +1,86 @@
+# Stage III template for the lightweight three-stage MechET campaign.
+# Do not launch until the Stage-II adapter SHA-256 is frozen below.
+protocol_version: reliable_mechet_three_stage_v1
+model_name_or_path: Qwen/Qwen3-0.6B
+model_revision: c1899de289a04d12100db370d81485cdf75e47ca
+model_snapshot: /aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca
+initial_adapter_path: outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
+initial_adapter_model_sha256: REPLACE_WITH_FROZEN_STAGE_II_SHA256
+value_adapter_path: null
+value_kind: successor_pn
+
+train_file: data/flower_inverse_tool_sft_action_delta_v1/train.jsonl
+validation_file: data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl
+stable_id_manifest: data/flower_inverse_tool_sft_action_delta_v1/training_manifest.json
+history_file: data/flower_natural_language_event_history_v2/train.jsonl
+history_validation_file: data/flower_natural_language_event_history_v2/valid.jsonl
+natural_language_manifest: data/flower_natural_language_event_history_v2/manifest.json
+reaction_denominator: {train: 257167, valid: 2890, test: 28967}
+full_reaction_denominator: {train: 257171, valid: 2890, test: 28971}
+
+output_dir: outputs/agent/earho_reliable_mechet_qwen3_0_6b_seed17
+vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
+expected_gpu_regex: A100
+maximum_collector_error_rate: 0.05
+seed: 17
+condition: earho_reliable_mechet_qwen3_0_6b_first_divergence
+invalid_penalty: 0.1
+
+# Bounded post-training campaign; not another full SFT epoch.
+rounds: 5
+products_per_round: 128
+candidates_per_product: 8
+validation_monitor_rows: 128
+
+reward:
+  contract: exact_endpoint_or_reference_successor_v2
+  endpoint_metric: structural
+  wrong_terminal_penalty: 0.5
+  endpoint_similarity_weight: 0.45
+  first_successor_progress_weight: 0.25
+  reference_first_successor_weight: 0.25
+  nonexact_reward_ceiling: 0.01
+  target_retained_penalty: 0.75
+
+executor_gates:
+  reject_target_retained_finish: true
+
+curriculum:
+  initial_frontier: 2
+  maximum_frontier: 12
+  full_episode_fraction: 0.25
+  promote_pass_at_k: 0.1
+  min_effective_groups: 16
+
+optimization:
+  success_gated_advantages: true
+  max_hard_negatives: 4
+
+rollout:
+  temperature: 1.0
+  max_new_tokens: 384
+  max_context: 4096
+  max_decisions: 40
+  max_imports: 32
+  continuation_candidates_per_mode: 2
+  continuation_temperature: 0.7
+  continuation_beam_width: 2
+  value_score_weight: 1.0
+  policy_score_weight: 0.1
+
+reliability:
+  primary_question: reduce_hallucinated_retrosynthetic_reactions_without_endpoint_bypass
+  report_first_failure_category: true
+  categories:
+    - fragment_proposal
+    - source_sink_grounding
+    - formal_execution
+    - executable_wrong_successor
+    - termination
+  metrics:
+    - product_start_endpoint_pass
+    - process_reliable_endpoint_pass
+    - mechanistic_hallucination_rate
+    - first_divergence_depth
+    - frontier_recovery
+    - risk_coverage
