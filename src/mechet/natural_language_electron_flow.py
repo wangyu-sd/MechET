@@ -263,6 +263,10 @@ def compile_event_arguments(
 ) -> list[dict[str, Any]]:
     """Resolve constrained natural language to executor-native moves."""
 
+    if "flow" in arguments:
+        # Opt-in compact v3 serialization; all chemistry uses the v2 executor.
+        from .compact_electron_flow import natural_from_compact_arguments
+        arguments = natural_from_compact_arguments(arguments)
     if arguments.get("direction") != "retrosynthetic":
         raise ValueError("event direction must be retrosynthetic")
     inventory = build_inventory(mapped_state)
