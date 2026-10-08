@@ -48,6 +48,10 @@ from mechet.successor_value import (
 )
 from mechet.trajectory_history import TrajectoryHistory
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS, _decision_row, _prompt
+from scripts.build_compact_electron_flow_sft import (
+    SYSTEM as COMPACT_FLOW_V3_SYSTEM,
+    TOOLS as COMPACT_FLOW_V3_TOOLS,
+)
 from scripts.build_natural_language_state_value import VALUE_SYSTEM, value_prompt
 from scripts.eval_natural_language_event_local import MODEL_REVISION, prediction_call
 
@@ -184,6 +188,29 @@ def validate_v2_adapter_manifest(
     return manifest
 
 
+def validate_compact_flow_v3_adapter_manifest(
+    adapter: Path, *, expected_model: str | None = None,
+    expected_revision: str | None = None,
+) -> dict[str, Any]:
+    """Fail closed on v3 weights before any product-only inference."""
+    path = adapter / "adapter_manifest.json"
+    if not path.is_file():
+        raise FileNotFoundError(f"compact v3 adapter manifest missing: {path}")
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    if manifest.get("environment_revision") != "compact_electron_flow_v3":
+        raise ValueError("compact v3 evaluation requires a compact v3 Stage-I adapter")
+    if manifest.get("executor_revision") != "MECH_PROOF_v1_full_coverage_v4":
+        raise ValueError("compact v3 executor revision mismatch")
+    revision = str(manifest.get("base_model_revision") or "")
+    if len(revision) != 40 or any(c not in "0123456789abcdef" for c in revision):
+        raise ValueError("compact v3 requires a frozen base model revision")
+    if expected_model is not None and manifest.get("base_model") != expected_model:
+        raise ValueError("compact v3 adapter model mismatch")
+    if expected_revision is not None and revision != expected_revision:
+        raise ValueError("compact v3 adapter model revision mismatch")
+    return manifest
+
+
 def normal_smiles(value: str) -> str:
     from rdkit import Chem
 
@@ -314,9 +341,12 @@ class Runtime:
         target = node.target
         state = node.state
         inventory_modes = [False, True] if self.args.legacy_dual_prompt else [True]
+        compact_flow_v3 = bool(getattr(self.args, "compact_flow_v3", False))
+        system_text = COMPACT_FLOW_V3_SYSTEM if compact_flow_v3 else SYSTEM
+        action_tools = COMPACT_FLOW_V3_TOOLS if compact_flow_v3 else TOOLS
         message_sets = [
             [
-                {"role": "system", "content": SYSTEM},
+                {"role": "system", "content": system_text},
                 {
                     "role": "user",
                     "content": policy_prompt(
@@ -333,13 +363,13 @@ class Runtime:
         prompts = [
             (
                 render_qwen_sft_tool_prefix(
-                    self.tokenizer, messages, tools=TOOLS
+                    self.tokenizer, messages, tools=action_tools
                 )
                 if self.args.matched_v2 or self.args.vnext_v2_prefix
                 else render_chat(
                     self.tokenizer,
                     messages,
-                    tools=TOOLS,
+                    tools=action_tools,
                     add_generation_prompt=True,
                 )
             )
@@ -950,6 +980,10 @@ def main() -> int:
     )
     parser.add_argument("--reject-target-retained-finish", action="store_true")
     parser.add_argument(
+        "--compact-flow-v3", action="store_true",
+        help="opt in to the separate compact-v3 tool schema / adapter lineage",
+    )
+    parser.add_argument(
         "--matched-v2",
         action="store_true",
         help=(
@@ -976,6 +1010,10 @@ def main() -> int:
     )
     parser.add_argument("--write-distill", action="store_true")
     args = parser.parse_args()
+    if args.compact_flow_v3 and not args.matched_v2:
+        parser.error("--compact-flow-v3 requires --matched-v2 decoding and budgets")
+    if args.compact_flow_v3 and (args.compact_history or args.legacy_dual_prompt):
+        parser.error("compact v3 Stage-I currently requires state-only unified prompts")
     validate_matched_v2_args(args)
     if args.pointer_head and not args.no_4bit:
         parser.error("the BF16-trained pointer requires --no-4bit")
@@ -988,10 +1026,16 @@ def main() -> int:
     if not args.matched_v2 and not args.search_no_value and not str(args.value_adapter or "").strip():
         parser.error("--value-adapter is required unless --matched-v2 or --search-no-value")
     if args.matched_v2:
-        validate_v2_adapter_manifest(
-            Path(args.policy_adapter), compact_history=args.compact_history,
-            expected_model=args.model, expected_revision=args.model_revision,
-        )
+        if args.compact_flow_v3:
+            validate_compact_flow_v3_adapter_manifest(
+                Path(args.policy_adapter),
+                expected_model=args.model, expected_revision=args.model_revision,
+            )
+        else:
+            validate_v2_adapter_manifest(
+                Path(args.policy_adapter), compact_history=args.compact_history,
+                expected_model=args.model, expected_revision=args.model_revision,
+            )
     elif args.vnext_v2_prefix:
         validate_v2_adapter_manifest(
             Path(args.policy_adapter), compact_history=True, vnext=True,

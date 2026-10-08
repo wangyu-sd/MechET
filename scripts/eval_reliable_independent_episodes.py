@@ -33,7 +33,7 @@ from scripts.eval_natural_language_event_local import validate_adapter_lineage
 from scripts.run_natural_language_value_search import (
     Action, Node, Runtime, execute, product_only_private_state, read_selected,
     search_unlabeled, validate_matched_v2_args, validate_v2_adapter_manifest,
-    visible,
+    validate_compact_flow_v3_adapter_manifest, visible,
 )
 
 
@@ -78,10 +78,16 @@ def runtime_versions() -> dict[str, str]:
     }
 
 
-def evaluation_dependency_hashes() -> dict[str, str]:
-    """Bind resumed shards to the prompt, executor and endpoint implementation."""
+def evaluation_dependency_hashes(*, compact_flow_v3: bool = False) -> dict[str, str]:
+    """Bind resumed shards to the exact action grammar and evaluator code."""
 
-    return {relative: sha256(ROOT / relative) for relative in EVALUATION_DEPENDENCIES}
+    files = list(EVALUATION_DEPENDENCIES)
+    if compact_flow_v3:
+        files.extend([
+            "src/mechet/compact_electron_flow.py",
+            "scripts/build_compact_electron_flow_sft.py",
+        ])
+    return {relative: sha256(ROOT / relative) for relative in files}
 
 
 def episode_seed(base_seed: int, target: str, index: int) -> int:
@@ -103,7 +109,9 @@ def policy_args(args: argparse.Namespace) -> argparse.Namespace:
         raw_model_nll=True,
         vnext_v2_prefix=False, legacy_dual_prompt=False,
         product_only_remap=True, reject_target_retained_finish=True,
-        compact_history=args.stage == "trajectory", branching=1,
+        compact_history=args.stage == "trajectory",
+        compact_flow_v3=bool(getattr(args, "compact_flow_v3", False)),
+        branching=1,
         early_beam=1, late_beam=1, early_depth=2,
         max_decisions=40, max_imports=32,
         max_new_tokens=args.max_new_tokens, max_context=args.max_context,
@@ -183,8 +191,12 @@ def run_fingerprint(args: argparse.Namespace) -> str:
         "runtime_versions": runtime_versions(),
         "runtime_sha256": sha256(ROOT / "scripts/run_natural_language_value_search.py"),
         "evaluator_sha256": sha256(Path(__file__)),
-        "evaluation_dependency_sha256": evaluation_dependency_hashes(),
+        "evaluation_dependency_sha256": evaluation_dependency_hashes(
+            compact_flow_v3=bool(getattr(args, "compact_flow_v3", False))
+        ),
     }
+    if getattr(args, "compact_flow_v3", False):
+        contract["action_contract"] = "compact_electron_flow_v3"
     return hashlib.sha256(
         json.dumps(contract, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -229,10 +241,17 @@ def checked_inputs(args: argparse.Namespace) -> tuple[list[dict[str, Any]], str]
         if lineage["training_stage"] != ("trajectory_sft" if actor.compact_history else "state_sft"):
             raise ValueError("provisional checkpoint stage differs from evaluation stage")
     else:
-        validate_v2_adapter_manifest(
-            args.adapter, compact_history=actor.compact_history,
-            expected_model=MODEL, expected_revision=REVISION,
-        )
+        if getattr(args, "compact_flow_v3", False):
+            if actor.compact_history:
+                raise ValueError("compact v3 supports Stage-I state policy only")
+            validate_compact_flow_v3_adapter_manifest(
+                args.adapter, expected_model=MODEL, expected_revision=REVISION,
+            )
+        else:
+            validate_v2_adapter_manifest(
+                args.adapter, compact_history=actor.compact_history,
+                expected_model=MODEL, expected_revision=REVISION,
+            )
     rows = select_evaluation_reactions(
         args.data, args.sample_reactions, args.seed,
         mode=getattr(args, "diagnostic_selection", "hash"),
@@ -571,7 +590,12 @@ def aggregate(args: argparse.Namespace) -> dict[str, Any]:
             ) if getattr(args, "provisional_training_config", None)
             else {"kind": "completed_adapter"}
         ),
-        "stage": args.stage, "episodes_per_reaction": args.episodes,
+        "stage": args.stage,
+        "action_representation": (
+            "compact_flow_v3" if getattr(args, "compact_flow_v3", False)
+            else "natural_language_v2"
+        ),
+        "episodes_per_reaction": args.episodes,
         "benchmark_view": getattr(args, "benchmark_view", "diagnostic"),
         "diagnostic_selection": getattr(args, "diagnostic_selection", "hash"),
         "source_manifest_sha256": (
@@ -676,6 +700,8 @@ def parser() -> argparse.ArgumentParser:
                         help="Allow an unfinished trainer checkpoint for <=16 diagnostic reactions")
     result.add_argument("--record-attempts", action="store_true",
                         help="Store verbose failed-action/state attempts (large on full test)")
+    result.add_argument("--compact-flow-v3", action="store_true",
+                        help="Use compact event schema and separately validated v3 Stage-I adapter")
     return result
 
 
