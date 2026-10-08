@@ -468,6 +468,16 @@ def _training_argument_kwargs(
             kwargs["eval_accumulation_steps"] = int(
                 training.get("eval_accumulation_steps", 8)
             )
+        patience = int(training.get("early_stopping_patience", 0))
+        if patience:
+            if eval_strategy == "no":
+                raise ValueError("early stopping requires validation evaluation")
+            if "load_best_model_at_end" not in fields:
+                raise RuntimeError("this Transformers version cannot load the best model")
+            kwargs["save_strategy"] = eval_strategy
+            kwargs["load_best_model_at_end"] = True
+            kwargs["metric_for_best_model"] = "eval_loss"
+            kwargs["greater_is_better"] = False
     if gradient_checkpointing and "gradient_checkpointing_kwargs" in fields:
         kwargs["gradient_checkpointing_kwargs"] = {
             "use_reentrant": False,
@@ -729,6 +739,7 @@ def main() -> int:
             AutoModelForCausalLM,
             AutoTokenizer,
             BitsAndBytesConfig,
+            EarlyStoppingCallback,
             Trainer,
             TrainingArguments,
         )
@@ -961,6 +972,10 @@ def main() -> int:
                 if encoded_validation_rows
                 else None
             )
+    patience = int(training.get("early_stopping_patience", 0))
+    callbacks = (
+        [EarlyStoppingCallback(early_stopping_patience=patience)] if patience else []
+    )
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -968,6 +983,7 @@ def main() -> int:
         eval_dataset=validation_dataset,
         processing_class=tokenizer,
         data_collator=AssistantOnlyCollator(tokenizer),
+        callbacks=callbacks,
     )
     trainer.train(
         resume_from_checkpoint=(

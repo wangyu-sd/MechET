@@ -47,7 +47,7 @@ def validate_template(template: dict, donor: dict) -> str:
         raise ValueError("both task flag and readable name must start with meteor")
     if template.get("is_elasticity") is not False or template.get("host_gpu_num") != 8:
         raise ValueError("expected one ordinary eight-GPU task")
-    if template.get("host_num") != 1 or template.get("GPUName") not in {"H20", "A100"}:
+    if template.get("host_num") != 1 or template.get("GPUName") not in {"H20", "A100", "V100"}:
         raise ValueError("template is not one supported eight-GPU host")
     if template.get("business_flag") != donor.get("common", {}).get("business_flag"):
         raise ValueError("donor and template application groups differ")
