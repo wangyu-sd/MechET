@@ -3,7 +3,7 @@
 set -Eeuo pipefail
 
 shared_repo=/aaa/fionafyang/buddy1/whaleywang/MechET
-runtime_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr82-reliable-20261006
+runtime_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-flower-stage3-full-20261008
 shared_hf_cache=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
 vllm_ceph=$shared_repo/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
 stage2=$shared_repo/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
@@ -62,5 +62,10 @@ target.write_text(yaml.safe_dump(cfg, sort_keys=False))
 print({'stage':'earho-config-frozen','parent_sha256':digest,'config':str(target)}, flush=True)
 PY
 
-echo "[reliable-earho] code=$(git rev-parse HEAD) runtime=$runtime_config"
+code_commit=$(git -C "$runtime_repo" rev-parse HEAD)
+code_dir=$(mktemp -d /tmp/mechet_reliable_earho_code.XXXXXX)
+git -C "$runtime_repo" archive "$code_commit" | tar -x -C "$code_dir"
+export PYTHONPATH=$wheel_target:$code_dir/src:$code_dir
+cd "$code_dir"
+echo "[reliable-earho] immutable_code_commit=$code_commit runtime=$runtime_config"
 exec python -u scripts/run_earho_v2.py --config "$runtime_config"

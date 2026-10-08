@@ -218,14 +218,19 @@ The Stage-III configuration is deliberately non-runnable until the exact
 Stage-II adapter SHA-256 is inserted. This is a provenance gate, not a
 placeholder to bypass.
 
-The Stage-III driver now binds the frozen FlowER strict source, Stage-II
+The Stage-III driver binds the frozen FlowER strict source, Stage-II
 compressed-history manifest and exact adapter hash before preparing any
-rollout. It streams the selected reactions rather than loading the full
-257,167-row trace source, uses the natural-language actor-update path and
-the 0.6B base for its successor critic. The Taiji launcher is
-`scripts/run_taiji_reliable_mechet_earho_a100.sh`; it is **not** a submitted
-experiment and must not run until the Stage-II parent and product-start
-representation audit are accepted.
+rollout. The current `coverage_mode: all_executable` hashes each of the
+257,167 strict-executable training reactions into exactly one of 64 rounds,
+streams the history file once into matching partitions, and rejects duplicate
+or missing source IDs. It does not claim coverage of the four excluded rows in
+the official 257,171-reaction train split. Each product is allotted eight
+rollout candidates; the 128-row validation monitor is held out, and test rows
+are not read. The previous 640-reaction selection remains a bounded audit,
+not the scope of this full-coverage job. Actor updates use the natural-language
+path and the successor critic uses the pinned 0.6B base. The Taiji launcher is
+`scripts/run_taiji_reliable_mechet_earho_a100.sh`; it requires the frozen
+Stage-II parent and product-start representation audit.
 Reference decisions are replayed during preparation with the same frozen
 40-decision/32-import budget used by policy rollout; a reference requiring a
 larger import budget fails preparation instead of becoming unreachable RL
@@ -756,7 +761,7 @@ Do not re-run the historical 8B matrix first.
 4. Continue the same adapter with one epoch of Trajectory-SFT.
 5. Re-evaluate with the identical product-start protocol.
 6. Freeze the Stage-II SHA.
-7. Run bounded EARHO Stage III.
+7. Run full strict-executable EARHO Stage III (257,167 train reactions).
 8. Evaluate the final 0.6B policy on one-step reliability.
 9. Run the multistep planning study.
 10. Only after the result is stable, repeat the key final comparison at 1.7B.

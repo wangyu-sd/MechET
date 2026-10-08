@@ -18,17 +18,19 @@ natural_language_manifest: data/flower_natural_language_event_history_v2/manifes
 reaction_denominator: {train: 257167, valid: 2890, test: 28967}
 full_reaction_denominator: {train: 257171, valid: 2890, test: 28971}
 
-output_dir: outputs/agent/earho_reliable_mechet_qwen3_0_6b_seed17
+output_dir: outputs/agent/earho_reliable_mechet_qwen3_0_6b_full_executable_seed17
 vllm_runtime: /aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311
 expected_gpu_regex: A100
 maximum_collector_error_rate: 0.05
 seed: 17
-condition: earho_reliable_mechet_qwen3_0_6b_first_divergence
+condition: earho_reliable_mechet_qwen3_0_6b_full_executable_first_divergence
 invalid_penalty: 0.1
 
-# Bounded post-training campaign; not another full SFT epoch.
-rounds: 5
-products_per_round: 128
+# All 257,167 strict-executable FlowER train reactions, hash-partitioned once.
+# The per-round sizes vary slightly; their sum is checked against the manifest.
+coverage_mode: all_executable
+rounds: 64
+products_per_round: 4019
 candidates_per_product: 8
 validation_monitor_rows: 128
 

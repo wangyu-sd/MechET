@@ -9,6 +9,7 @@ and a separate successor-value adapter without loading the test split.
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import hashlib
 import json
 import os
@@ -16,6 +17,7 @@ from pathlib import Path
 import random
 import subprocess
 import sys
+import tempfile
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -283,6 +285,9 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
         if len(plan.get("prepared_files") or {}) != int(cfg["rounds"]) + 1:
             raise ValueError("EARHO preparation manifest is incomplete")
         return
+    if cfg.get("coverage_mode") == "all_executable":
+        _prepare_all_executable(cfg, output, config_sha256)
+        return
     count = int(cfg["rounds"]) * int(cfg["products_per_round"])
     if count > int(cfg["reaction_denominator"]["train"]):
         raise ValueError("requested more distinct RL train reactions than available")
@@ -353,6 +358,111 @@ def prepare(cfg: dict[str, Any], output: Path) -> None:
         },
     )
     log(stage="earho-v2-prepare", train=count, validation=len(monitor))
+
+
+def _prepare_all_executable(cfg: dict[str, Any], output: Path, config_sha256: str) -> None:
+    """Partition every strict train reaction once without loading all histories."""
+
+    if cfg["protocol_version"] != RELIABLE_PROTOCOL:
+        raise ValueError("all-executable preparation requires reliable FlowER")
+    count = int(cfg["reaction_denominator"]["train"])
+    rounds = int(cfg["rounds"])
+    if rounds < 1:
+        raise ValueError("all-executable preparation requires at least one round")
+    marker = output / "preparation_config.json"
+    if output.exists() and any(output.iterdir()):
+        if not marker.is_file() or json.loads(marker.read_text()).get("config_sha256") != config_sha256:
+            raise ValueError("unplanned EARHO output is nonempty; refusing to overwrite it")
+    output.mkdir(parents=True, exist_ok=True)
+    write_json(marker, {"config_sha256": config_sha256, "coverage_mode": "all_executable"})
+    source_round: dict[str, int] = {}
+    round_counts = [0] * rounds
+    with tempfile.TemporaryDirectory(prefix="earho_full_prepare_", dir=output) as staging_name:
+        staging = Path(staging_name)
+        with ExitStack() as handles:
+            source_handles = [
+                handles.enter_context((staging / f"source_{i:03d}.jsonl").open("w", encoding="utf-8"))
+                for i in range(rounds)
+            ]
+            with Path(cfg["train_file"]).open(encoding="utf-8") as source_file:
+                for line in source_file:
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    identifier = str(row["source_id"])
+                    if identifier in source_round:
+                        raise ValueError(f"duplicate strict FlowER source_id: {identifier}")
+                    bucket = int.from_bytes(
+                        hashlib.sha256(f'{cfg["seed"]}:{identifier}'.encode()).digest()[:8], "big"
+                    ) % rounds
+                    source_round[identifier] = bucket
+                    round_counts[bucket] += 1
+                    source_handles[bucket].write(line)
+        if len(source_round) != count or any(size == 0 for size in round_counts):
+            raise ValueError(f"strict FlowER train coverage mismatch: {len(source_round)} != {count}")
+        log(stage="earho-full-source-partitioned", train=count, rounds=rounds,
+            smallest_round=min(round_counts), largest_round=max(round_counts))
+
+        with ExitStack() as handles:
+            history_handles = [
+                handles.enter_context((staging / f"history_{i:03d}.jsonl").open("w", encoding="utf-8"))
+                for i in range(rounds)
+            ]
+            with Path(cfg["history_file"]).open(encoding="utf-8") as history_file:
+                for line in history_file:
+                    if not line.strip():
+                        continue
+                    decision = json.loads(line)
+                    identifier = str(decision.get("source_id") or "")
+                    if identifier not in source_round:
+                        raise ValueError(f"history has unknown strict FlowER source_id: {identifier}")
+                    history_handles[source_round[identifier]].write(line)
+
+        prepared_files: dict[str, str] = {}
+        selected_ids = hashlib.sha256()
+        for index in range(rounds):
+            base = read_rows(staging / f"source_{index:03d}.jsonl")
+            selected = _attach_decisions(
+                base, staging / f"history_{index:03d}.jsonl",
+                max_imports=int(cfg["rollout"]["max_imports"]), compact_history=True,
+            )
+            name = f"round{index:02d}/source.jsonl"
+            write_rows(output / name, selected)
+            prepared_files[name] = _sha256(output / name)
+            for row in selected:
+                selected_ids.update(str(row["source_id"]).encode() + b"\n")
+            log(stage="earho-full-round-prepared", round=index, train=len(selected))
+
+    validation = read_selected(
+        Path(cfg["validation_file"]), int(cfg["validation_monitor_rows"]), int(cfg["seed"]),
+    )
+    monitor = _attach_decisions(
+        validation, Path(cfg["history_validation_file"]),
+        max_imports=int(cfg["rollout"]["max_imports"]), compact_history=True,
+    )
+    write_rows(output / "validation_monitor.jsonl", monitor)
+    prepared_files["validation_monitor.jsonl"] = _sha256(output / "validation_monitor.jsonl")
+    write_json(output / "plan.json", {
+        "artifact_type": "earho_first_divergence_v2_plan",
+        "protocol_version": cfg["protocol_version"],
+        "coverage_mode": "all_executable",
+        "config_sha256": config_sha256,
+        "source_reactions": count,
+        "selected_train_reactions": count,
+        "round_counts": round_counts,
+        "validation_monitor_reactions": len(monitor),
+        "selected_id_sha256": selected_ids.hexdigest(),
+        "prepared_files": prepared_files,
+        "initial_adapter_model_sha256": cfg["initial_adapter_model_sha256"],
+        "reference_endpoint_model_visible": False,
+        "first_divergence_from_product_rollout": True,
+        "private_product_mapping_basis": "source_original_mapped_product",
+        "product_only_private_remap": False,
+        "actor_prompt_history_contract": "executor_compact_accepted_actions_v1",
+        "test_used": False,
+    })
+    log(stage="earho-v2-prepare", train=count, validation=len(monitor), rounds=rounds,
+        coverage_mode="all_executable")
 
 
 def _critic_config(

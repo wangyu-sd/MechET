@@ -140,11 +140,12 @@ def test_reliable_earho_prepare_streams_large_source(monkeypatch, tmp_path: Path
         history_file=str(tmp_path / "history_train.jsonl"),
         history_validation_file=str(tmp_path / "history_valid.jsonl"),
         reaction_denominator={"train": 3, "valid": 2, "test": 0},
-        rounds=1, products_per_round=2, validation_monitor_rows=1,
+        coverage_mode="bounded", rounds=1, products_per_round=2,
+        validation_monitor_rows=1,
     )
     observed_budgets = []
 
-    def fake_attach(rows, _path, *, max_imports):
+    def fake_attach(rows, _path, *, max_imports, compact_history):
         observed_budgets.append(max_imports)
         return rows
 
