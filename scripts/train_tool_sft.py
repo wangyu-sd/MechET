@@ -285,14 +285,11 @@ def validate_conversation(
             "compressed_history_tool_decision_v1",
             "unified_inventory_tool_decision_v2",
             "unified_inventory_compressed_history_tool_decision_v2",
-            "unified_inventory_compact_flow_tool_decision_v3",
-            "unified_inventory_compact_flow_history_tool_decision_v3",
         }:
             raise ValueError(f"invalid tool-decision metadata: {identifier}")
         if decision_contract in {
             "compressed_history_tool_decision_v1",
             "unified_inventory_compressed_history_tool_decision_v2",
-            "unified_inventory_compact_flow_history_tool_decision_v3",
         }:
             if metadata.get("history_contract") != "executor_compact_accepted_actions_v1":
                 raise ValueError(f"invalid compressed-history metadata: {identifier}")

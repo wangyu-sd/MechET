@@ -16,10 +16,6 @@ on:
       - "scripts/run_syntheseus_*.py"
       - "scripts/run_natural_language_value_search.py"
       - "scripts/train_tool_sft.py"
-      - "scripts/build_compact_electron_flow_sft.py"
-      - "src/mechet/compact_electron_flow.py"
-      - "tests/test_compact*_v3*.py"
-      - "configs/agent/compact_electron_flow_v3*.yaml"
       - "src/mechet/jevretro_endpoint.py"
       - "src/mechet/online_syntheseus_adapter.py"
       - "src/mechet/planning_reliability.py"
@@ -65,7 +61,6 @@ jobs:
         run: |
           pytest -q \
             tests/test_*reliable*.py \
-            tests/test_compact*_v3*.py \
             tests/test_jevretro_endpoint.py \
             tests/test_reverse_et_transfer_supervision.py \
             tests/test_earho_v2_protocol.py \
