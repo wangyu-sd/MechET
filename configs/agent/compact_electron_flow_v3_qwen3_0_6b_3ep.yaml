@@ -1,4 +1,4 @@
-condition_name: flower_compact_electron_flow_v3_qwen3_0_6b
+condition_name: flower_compact_electron_flow_v3_qwen3_0_6b_3ep
 scientific_hypothesis: compact_electron_flow_improves_structured_sft_efficiency
 model_name_or_path: Qwen/Qwen3-0.6B
 train_file: data/flower_compact_electron_flow_sft_v3/train.jsonl
@@ -6,7 +6,7 @@ validation_file: data/flower_compact_electron_flow_sft_v3/valid.jsonl
 test_file: data/flower_compact_electron_flow_sft_v3/test.jsonl
 pretokenized_cache_dir: data/flower_compact_electron_flow_sft_v3/qwen3_0_6b_tokens_4096
 pretokenization_world_size: 8
-output_dir: outputs/agent/compact_electron_flow_v3_qwen3_0_6b_seed17
+output_dir: outputs/agent/compact_electron_flow_v3_qwen3_0_6b_3ep_seed17
 limit_examples: 0
 
 environment:
@@ -21,7 +21,7 @@ training:
   fp16: false
   tf32: true
   learning_rate: 2.0e-5
-  num_train_epochs: 1.0
+  num_train_epochs: 3.0
   max_steps: -1
   per_device_train_batch_size: 2
   per_device_eval_batch_size: 4
@@ -79,7 +79,7 @@ contract:
   electron_flow_model_generated: true
   gold_action_conditioned_observation: false
   first_use_unmapped_fragment_interface: true
-  one_epoch_first: true
+  one_epoch_first: false
   reliability_metrics_required:
     - fragment_parse_valid
     - reactive_fragment_recall
