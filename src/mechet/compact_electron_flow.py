@@ -1,6 +1,6 @@
 """Opt-in compact notation for the existing inverse electron-flow executor.
 
-FLOW: B(A03,A04)>A04;LP(A02)>B(A02,A03)
+FLOW: B(A03,A04)>A04;LP(A02)>NB(A02,A03)
 DELTA: DELTA|B(A01,A02):+1;Q(A03):0>+1
 
 This is a lossless serialization layer, not a new chemical transformation rule.
@@ -13,6 +13,7 @@ from typing import Any, Mapping, Sequence
 ATOM = r"A[0-9]+"
 _PAIR = rf"({ATOM}),({ATOM})"
 _BOND = re.compile(rf"B\({_PAIR}\)")
+_NEW_BOND = re.compile(rf"NB\({_PAIR}\)")
 _LP = re.compile(rf"LP\(({ATOM})\)")
 _RADICAL = re.compile(rf"RP\({_PAIR}\)")
 _ATOM = re.compile(rf"{ATOM}")
@@ -31,7 +32,8 @@ def _compact_container(text: str, *, source: bool) -> str:
             return f"LP({match[1]})"
     match = _NL_BOND.fullmatch(text)
     if match:
-        return f"B({match[1]},{match[2]})"
+        prefix = "NB" if text.startswith("the bond to form between atoms ") else "B"
+        return f"{prefix}({match[1]},{match[2]})"
     match = _NL_RADICAL.fullmatch(text)
     if match:
         return f"RP({match[1]},{match[2]})"
@@ -83,8 +85,11 @@ def _natural_container(token: str, *, source: bool) -> str:
             return f"a lone pair on atom {match[1]}"
     match = _BOND.fullmatch(token)
     if match:
-        kind = "the bond between atoms" if source else "the bond to form between atoms"
-        return f"{kind} {match[1]} and {match[2]}"
+        return f"the bond between atoms {match[1]} and {match[2]}"
+    if not source:
+        match = _NEW_BOND.fullmatch(token)
+        if match:
+            return f"the bond to form between atoms {match[1]} and {match[2]}"
     match = _RADICAL.fullmatch(token)
     if match:
         return f"a radical pair on atoms {match[1]} and {match[2]}"

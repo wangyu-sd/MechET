@@ -26,6 +26,7 @@ def test_source_sink_parity_and_shorter_tool_output():
     old = render_event_arguments(STATE, MOVES)
     new = compact_from_natural_arguments(old)
     assert "LP(" in new["flow"] and "B(" in new["flow"]
+    assert "NB(" in new["flow"]
     assert len(str(new)) < len(str(old))
     assert natural_from_compact_arguments(new)["electron_flow"] == old["electron_flow"]
     assert canonical_event(compile_event_arguments(STATE, new)) == canonical_event(MOVES)
@@ -58,3 +59,23 @@ def test_strict_fail_closed_payload():
             compile_event_arguments(STATE, payload)
     with pytest.raises((KeyError, ValueError)):
         compile_event_arguments(STATE, {"flow": "B(A999,A01)>A999"})
+
+
+def test_existing_destination_bond_is_distinguished_from_new_bond():
+    old = {
+        "direction": "retrosynthetic",
+        "electron_flow": [{
+            "source": "the bond between atoms A01 and A02",
+            "destination": "the bond between atoms A02 and A03",
+            "instruction": "not chemically scored here",
+        }],
+        "bond_order_changes": [],
+        "charge_changes": [],
+    }
+    compact = compact_from_natural_arguments(old)
+    assert compact["flow"] == "B(A01,A02)>B(A02,A03)"
+    assert natural_from_compact_arguments(compact)["electron_flow"][0]["destination"] == (
+        "the bond between atoms A02 and A03"
+    )
+    with pytest.raises(ValueError):
+        natural_from_compact_arguments({"flow": "NB(A01,A02)>A02"})

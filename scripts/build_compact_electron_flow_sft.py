@@ -37,7 +37,7 @@ SYSTEM = (
     "Call exactly one tool: import_fragments for missing participants, "
     "apply_electron_flow for one coupled electron-pair-transfer event, "
     "or finish_trace only at a complete precursor. "
-    "Compact flow grammar: B(A01,A02)>A02;LP(A03)>B(A01,A03). "
+    "Compact flow grammar: B(A01,A02)>A02;LP(A03)>NB(A01,A03). "
     "B is a bond electron source/sink, LP is a lone-pair source, "
     "A is an atom destination, and RP is a radical-pair container. "
     "Use DELTA|B(A01,A02):+1;Q(A03):0>+1 only for existing graph-delta events. "
@@ -56,7 +56,7 @@ TOOLS[1] = {
                 "flow": {
                     "type": "string",
                     "description": (
-                        "B(A01,A02)>A02;LP(A03)>B(A01,A03); "
+                        "B(A01,A02)>A02;LP(A03)>NB(A01,A03); "
                         "or DELTA|B(A01,A02):+1;Q(A03):0>+1"
                     ),
                 }
