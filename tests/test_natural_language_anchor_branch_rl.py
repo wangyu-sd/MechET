@@ -1,4 +1,8 @@
 from types import SimpleNamespace
+from pathlib import Path
+
+import pytest
+import yaml
 
 from mechet.natural_language_anchor_branch_rl import (
     assign_local_advantages,
@@ -9,9 +13,46 @@ from mechet.natural_language_anchor_branch_rl import (
     successor_fingerprint,
     task_from_episode,
 )
-from scripts.natural_language_anchor_branch_stage import _advance, _beam_continue, _node
+from scripts.natural_language_anchor_branch_stage import (
+    _advance, _beam_continue, _first_action_sampling_plan, _node,
+)
 from scripts.run_natural_language_value_search import Action, Node, execute, visible
 from scripts.run_natural_language_anchor_branch_rl import worker_command
+
+
+def test_validation_k2_keeps_two_sampled_candidates():
+    args = SimpleNamespace(k=2, temperature=1.0, evaluation=True,
+                           legacy_dual_prompt=False)
+    assert _first_action_sampling_plan(args) == (2, 1.0)
+
+
+def test_training_k8_keeps_eight_sampled_candidates():
+    args = SimpleNamespace(k=8, temperature=1.0, evaluation=False,
+                           legacy_dual_prompt=False)
+    assert _first_action_sampling_plan(args) == (8, 1.0)
+
+
+def test_multiple_greedy_candidates_are_rejected_before_gpu_start():
+    args = SimpleNamespace(k=2, temperature=0.0, evaluation=True,
+                           legacy_dual_prompt=False)
+    with pytest.raises(ValueError, match="non-greedy"):
+        _first_action_sampling_plan(args)
+
+
+def test_flower_stage3_validation_command_uses_legal_k2_sampling():
+    config = Path(__file__).resolve().parents[1] / "configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml"
+    cfg = yaml.safe_load(config.read_text())
+    command = worker_command(
+        cfg, "/data", "/adapter", "/out", 0,
+        frontier=2, round_index=-1, evaluation=True,
+    )
+    assert "--evaluation" in command
+    args = SimpleNamespace(
+        k=int(command[command.index("--k") + 1]),
+        temperature=float(command[command.index("--temperature") + 1]),
+        legacy_dual_prompt="--legacy-dual-prompt" in command,
+    )
+    assert _first_action_sampling_plan(args) == (2, 1.0)
 
 
 def test_state_direct_worker_keeps_stage_i_prompt_and_structural_reward():

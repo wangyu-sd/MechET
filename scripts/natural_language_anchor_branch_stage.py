@@ -64,6 +64,19 @@ def _prompt_modes(args) -> tuple[str, ...]:
     return PROMPT_MODES if getattr(args, "legacy_dual_prompt", False) else ("unified",)
 
 
+def _first_action_sampling_plan(args) -> tuple[int, float]:
+    """Keep K candidates legal in vLLM for training and validation alike."""
+
+    modes = _prompt_modes(args)
+    if args.k < 2 or args.k % len(modes):
+        raise ValueError("k must be at least 2 and divisible by the prompt-mode count")
+    per_mode = args.k // len(modes)
+    temperature = float(args.temperature)
+    if temperature < 0 or (per_mode > 1 and temperature < 1e-5):
+        raise ValueError("multiple candidates per prompt require non-greedy sampling")
+    return per_mode, temperature
+
+
 def _messages(task, mode: str, *, state_only: bool = False) -> list[dict[str, Any]]:
     if mode not in (*PROMPT_MODES, "unified"):
         raise ValueError(f"unsupported prompt mode: {mode}")
@@ -719,8 +732,7 @@ def collect(args):
     if vllm.__version__ != "0.8.5":
         raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
     prompt_modes = _prompt_modes(args)
-    if args.k < 2 or args.k % len(prompt_modes):
-        raise ValueError("k must be at least 2 and divisible by the prompt-mode count")
+    first_n, first_temperature = _first_action_sampling_plan(args)
     output = Path(args.output)
     if output.exists():
         raise ValueError(f"refusing overwrite: {output}")
@@ -762,8 +774,8 @@ def collect(args):
         }
     )
     first_parameters = SamplingParams(
-        n=args.k // len(prompt_modes),
-        temperature=0.0 if args.evaluation else args.temperature,
+        n=first_n,
+        temperature=first_temperature,
         top_p=1.0,
         top_k=-1,
         repetition_penalty=1.0,

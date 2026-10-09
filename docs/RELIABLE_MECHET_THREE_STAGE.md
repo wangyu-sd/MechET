@@ -231,6 +231,16 @@ not the scope of this full-coverage job. Actor updates use the natural-language
 path and the successor critic uses the pinned 0.6B base. The Taiji launcher is
 `scripts/run_taiji_reliable_mechet_earho_a100.sh`; it requires the frozen
 Stage-II parent and product-start representation audit.
+
+Runtime correction (2026-10-09): the first full-coverage instance prepared all
+257,167 reactions but stopped before baseline validation because its two
+validation candidates were requested with greedy `temperature=0`, which vLLM
+0.8.5 rejects. The collector now uses the configured nonzero rollout
+temperature for both train and validation candidates; `--evaluation` still
+controls full-episode execution, not sampling temperature. A pre-GPU guard
+rejects any future `n>1, temperature=0` combination. This preserves the K=2
+validation monitor and does not alter training K=8, data, reward, or Stage-II
+weights. The prepared plan is reusable after the code-only fix.
 Reference decisions are replayed during preparation with the same frozen
 40-decision/32-import budget used by policy rollout; a reference requiring a
 larger import budget fails preparation instead of becoming unreachable RL
