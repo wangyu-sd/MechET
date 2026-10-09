@@ -214,6 +214,33 @@ def test_reliable_earho_prepare_streams_large_source(monkeypatch, tmp_path: Path
         prepare(stage3, output)
 
 
+def test_reliable_earho_parallel_round_preparation(monkeypatch, tmp_path: Path):
+    from concurrent.futures import ProcessPoolExecutor
+    import scripts.run_earho_v2 as driver
+
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    output = tmp_path / "prepared"
+    for index in range(2):
+        row = {"source_id": f"reaction-{index}"}
+        (staging / f"source_{index:03d}.jsonl").write_text(json.dumps(row) + "\n")
+        (staging / f"history_{index:03d}.jsonl").write_text(json.dumps(row) + "\n")
+
+    def fake_attach(rows, _history, *, max_imports, compact_history):
+        assert max_imports == 32 and compact_history
+        return rows
+
+    monkeypatch.setattr(driver, "_attach_decisions", fake_attach)
+    arguments = [(index, str(staging), str(output), 32) for index in range(2)]
+    with ProcessPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(driver._prepare_full_round_from_args, arguments))
+    assert [result[0] for result in results] == [0, 1]
+    assert [result[2] for result in results] == [["reaction-0"], ["reaction-1"]]
+    for index, digest, _, size in results:
+        target = output / f"round{index:02d}/source.jsonl"
+        assert size == 1 and driver._sha256(target) == digest
+
+
 def test_reliable_earho_actor_update_uses_natural_language_stage(monkeypatch, tmp_path: Path):
     import scripts.run_anchor_branch_rl as driver
 

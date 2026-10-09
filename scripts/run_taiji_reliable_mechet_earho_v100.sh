@@ -24,6 +24,7 @@ export HF_HUB_CACHE=$shared_hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export TOKENIZERS_PARALLELISM=false TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
 export MECHET_RELIABLE_DATA_ROOT=$shared_repo MECHET_EARHO_ASYNC_REACTIONS=4
+export MECHET_EARHO_PREP_WORKERS=16
 export VLLM_USE_V1=0 VLLM_ATTENTION_BACKEND=XFORMERS
 
 wheel_target=$(mktemp -d /tmp/mechet_reliable_earho_v100_wheels.XXXXXX)
@@ -78,7 +79,7 @@ cfg['initial_adapter_model_sha256'] = digest
 cfg['expected_gpu_regex'] = 'V100'
 cfg['vllm_runtime'] = runtime
 cfg['rollout']['dtype'] = 'float16'
-cfg['output_dir'] = 'outputs/agent/earho_reliable_mechet_qwen3_0_6b_full_executable_v100_seed17'
+cfg['output_dir'] = 'outputs/agent/earho_reliable_mechet_qwen3_0_6b_full_executable_parallel_v100_seed17'
 target.write_text(yaml.safe_dump(cfg, sort_keys=False))
 print({'stage': 'earho-v100-config-frozen', 'parent_sha256': digest,
        'precision': 'float16', 'output': cfg['output_dir']}, flush=True)
@@ -91,5 +92,5 @@ grep -q 'class AsyncVLLMBridge' "$code_dir/scripts/natural_language_anchor_branc
 grep -q 'train_dtype' "$code_dir/scripts/python_continual_stage.py"
 export PYTHONPATH=$wheel_target:$code_dir/src:$code_dir
 cd "$code_dir"
-echo "[reliable-earho-v100] immutable_code_commit=$code_commit runtime=$runtime_config async_reactions_per_gpu=$MECHET_EARHO_ASYNC_REACTIONS"
+echo "[reliable-earho-v100] immutable_code_commit=$code_commit runtime=$runtime_config async_reactions_per_gpu=$MECHET_EARHO_ASYNC_REACTIONS prep_workers=$MECHET_EARHO_PREP_WORKERS"
 exec python -u scripts/run_earho_v2.py --config "$runtime_config"

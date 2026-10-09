@@ -9,6 +9,7 @@ and a separate successor-value adapter without loading the test split.
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor
 from contextlib import ExitStack
 import hashlib
 import json
@@ -262,6 +263,29 @@ def _attach_decisions(
     return output
 
 
+def _prepare_full_round(
+    index: int, staging_name: str, output_name: str, max_imports: int,
+) -> tuple[int, str, list[str], int]:
+    """Replay one disjoint source/history partition in a worker process."""
+
+    staging = Path(staging_name)
+    output = Path(output_name)
+    base = read_rows(staging / f"source_{index:03d}.jsonl")
+    selected = _attach_decisions(
+        base, staging / f"history_{index:03d}.jsonl",
+        max_imports=max_imports, compact_history=True,
+    )
+    target = output / f"round{index:02d}/source.jsonl"
+    write_rows(target, selected)
+    return index, _sha256(target), [str(row["source_id"]) for row in selected], len(selected)
+
+
+def _prepare_full_round_from_args(
+    args: tuple[int, str, str, int],
+) -> tuple[int, str, list[str], int]:
+    return _prepare_full_round(*args)
+
+
 def prepare(cfg: dict[str, Any], output: Path) -> None:
     config_sha256 = hashlib.sha256(
         json.dumps(cfg, sort_keys=True, separators=(",", ":")).encode()
@@ -420,18 +444,29 @@ def _prepare_all_executable(cfg: dict[str, Any], output: Path, config_sha256: st
 
         prepared_files: dict[str, str] = {}
         selected_ids = hashlib.sha256()
-        for index in range(rounds):
-            base = read_rows(staging / f"source_{index:03d}.jsonl")
-            selected = _attach_decisions(
-                base, staging / f"history_{index:03d}.jsonl",
-                max_imports=int(cfg["rollout"]["max_imports"]), compact_history=True,
-            )
-            name = f"round{index:02d}/source.jsonl"
-            write_rows(output / name, selected)
-            prepared_files[name] = _sha256(output / name)
-            for row in selected:
-                selected_ids.update(str(row["source_id"]).encode() + b"\n")
-            log(stage="earho-full-round-prepared", round=index, train=len(selected))
+        workers = int(os.environ.get("MECHET_EARHO_PREP_WORKERS", "1"))
+        if not 1 <= workers <= rounds:
+            raise ValueError("MECHET_EARHO_PREP_WORKERS must be in [1, rounds]")
+        log(stage="earho-full-replay-start", rounds=rounds, workers=workers)
+        arguments = (
+            (index, str(staging), str(output), int(cfg["rollout"]["max_imports"]))
+            for index in range(rounds)
+        )
+        if workers == 1:
+            results = (_prepare_full_round(*args) for args in arguments)
+        else:
+            pool = ProcessPoolExecutor(max_workers=workers)
+            results = pool.map(_prepare_full_round_from_args, arguments)
+        try:
+            for index, digest, identifiers, size in results:
+                name = f"round{index:02d}/source.jsonl"
+                prepared_files[name] = digest
+                for identifier in identifiers:
+                    selected_ids.update(identifier.encode() + b"\n")
+                log(stage="earho-full-round-prepared", round=index, train=size)
+        finally:
+            if workers > 1:
+                pool.shutdown(wait=True, cancel_futures=True)
 
     validation = read_selected(
         Path(cfg["validation_file"]), int(cfg["validation_monitor_rows"]), int(cfg["seed"]),
