@@ -26,7 +26,7 @@
   "job_type": "mpijob",
   "base_model": "Qwen/Qwen3-0.6B@c1899de289a04d12100db370d81485cdf75e47ca",
   "output_base_model": "MechET-FlowER-0.6B-StageIII-EARHO-async-vLLM-V100",
-  "task_description": "V100/FP16 counterpart to the queued A100 FlowER Stage-III EARHO task. Frozen 257167/2890/28967 strict-executable reaction contract and Stage-II SHA; vLLM 0.8.5 AsyncLLMEngine, four concurrent reactions/GPU, distinct output directory, no test or external teacher. Ordinary nonelastic 8xV100 Chongqing; default POD log and 45-second heartbeat. Requires V100 compatibility probe to pass before start.",
+  "task_description": "V100/FP16 counterpart to the queued A100 FlowER Stage-III EARHO task. Frozen 257167/2890/28967 strict-executable reaction contract and Stage-II SHA; vLLM 0.8.5 AsyncLLMEngine, four concurrent reactions/GPU, distinct output directory, no test or external teacher. Ordinary nonelastic 8xV100 Chongqing; default POD log and 45-second heartbeat. Launcher fails fast if CUDA/vLLM cannot drive the allocated V100; separate one-GPU compatibility probe is also queued.",
   "init_cmd": "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK",
   "start_cmd": "bash -lc 'MECHET_RELIABLE_STAGEII_SHA256=40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75 TAIJI_HEARTBEAT_LABEL=meteor-mechet-flower-stage3-async-vllm-v100-06b TAIJI_HEARTBEAT_SECONDS=45 TAIJI_MIRROR_PID1_STDOUT=1 exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/taiji_run_with_heartbeat.sh bash /aaa/fionafyang/buddy1/whaleywang/MechET-flower-stage3-full-20261008/scripts/run_taiji_reliable_mechet_earho_v100.sh'"
 }
