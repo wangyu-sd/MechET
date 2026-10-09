@@ -1,3 +1,5 @@
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -14,7 +16,8 @@ from mechet.natural_language_anchor_branch_rl import (
     task_from_episode,
 )
 from scripts.natural_language_anchor_branch_stage import (
-    _advance, _beam_continue, _first_action_sampling_plan, _node,
+    AsyncVLLMBridge, _advance, _beam_continue, _beam_continue_many,
+    _bounded_results, _first_action_sampling_plan, _node,
 )
 from scripts.run_natural_language_value_search import Action, Node, execute, visible
 from scripts.run_natural_language_anchor_branch_rl import worker_command
@@ -53,6 +56,86 @@ def test_flower_stage3_validation_command_uses_legal_k2_sampling():
         legacy_dual_prompt="--legacy-dual-prompt" in command,
     )
     assert _first_action_sampling_plan(args) == (2, 1.0)
+
+
+def test_worker_command_enables_async_reactions_only_when_configured():
+    config = Path(__file__).resolve().parents[1] / "configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml"
+    cfg = yaml.safe_load(config.read_text())
+    command = worker_command(cfg, "/data", "/adapter", "/out", 0,
+                             frontier=2, round_index=0, evaluation=False)
+    assert "--async-reactions" not in command
+    cfg["rollout"]["async_reactions"] = 4
+    cfg["rollout"]["dtype"] = "float16"
+    command = worker_command(cfg, "/data", "/adapter", "/out", 0,
+                             frontier=2, round_index=0, evaluation=False)
+    assert command[command.index("--async-reactions") + 1] == "4"
+    assert command[command.index("--dtype") + 1] == "float16"
+
+
+def test_worker_command_runtime_async_override_preserves_frozen_config(monkeypatch):
+    config = Path(__file__).resolve().parents[1] / "configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml"
+    cfg = yaml.safe_load(config.read_text())
+    monkeypatch.setenv("MECHET_EARHO_ASYNC_REACTIONS", "4")
+    command = worker_command(cfg, "/data", "/adapter", "/out", 0,
+                             frontier=2, round_index=0, evaluation=False)
+    assert command[command.index("--async-reactions") + 1] == "4"
+    assert "async_reactions" not in cfg["rollout"]
+    monkeypatch.setenv("MECHET_EARHO_ASYNC_REACTIONS", "33")
+    with pytest.raises(ValueError, match="between 1 and 32"):
+        worker_command(cfg, "/data", "/adapter", "/out", 0,
+                       frontier=2, round_index=0, evaluation=False)
+
+
+def test_async_bridge_interleaves_reactions_and_preserves_request_outputs():
+    class FakeEngine:
+        def __init__(self):
+            self.active = 0
+            self.peak = 0
+            self.calls = []
+
+        async def generate(self, prompt, parameters, *, request_id, lora_request):
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            self.calls.append((prompt, parameters.seed, request_id, lora_request))
+            await asyncio.sleep(0.01)
+            self.active -= 1
+            yield SimpleNamespace(finished=True, outputs=[SimpleNamespace(
+                token_ids=[prompt["prompt_token_ids"][0]], logprobs=[{1: -0.25}],
+            )])
+
+    async def run():
+        engine = FakeEngine()
+        bridge = AsyncVLLMBridge(engine, asyncio.get_running_loop(), seed=17, rank=0)
+        parameters = SimpleNamespace(seed=None, n=2)
+
+        def reaction(reaction_id, prompts):
+            bridge.begin_reaction(reaction_id)
+            return bridge.generate(
+                [{"prompt_token_ids": [prompt]} for prompt in prompts],
+                parameters, lora_request="actor",
+            )
+
+        first, second = await asyncio.gather(
+            asyncio.to_thread(reaction, "r1", [11, 12]),
+            asyncio.to_thread(reaction, "r2", [21, 22]),
+        )
+        assert engine.peak > 1
+        assert [row.outputs[0].token_ids for row in first] == [[11], [12]]
+        assert [row.outputs[0].token_ids for row in second] == [[21], [22]]
+        assert first[0].outputs[0].logprobs == [{1: -0.25}]
+        assert len({call[2] for call in engine.calls}) == 4
+        assert parameters.seed is None
+        saved = {(call[0]["prompt_token_ids"][0], call[1], call[2]) for call in engine.calls}
+        await asyncio.to_thread(reaction, "r1", [11, 12])
+        assert {(call[0]["prompt_token_ids"][0], call[1], call[2]) for call in engine.calls[-2:]} <= saved
+
+    asyncio.run(run())
+
+
+def test_bounded_results_processes_each_reaction_once():
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        results = list(_bounded_results(pool, lambda value: value * 2, range(19), 3))
+    assert sorted(results) == [value * 2 for value in range(19)]
 
 
 def test_state_direct_worker_keeps_stage_i_prompt_and_structural_reward():
@@ -258,6 +341,51 @@ def test_receding_horizon_beam_falls_back_when_greedy_branch_dies(monkeypatch):
     assert not error
     assert result.terminal and result.state == terminal_state
     assert len(result.actions) == 2
+
+
+def test_independent_continuations_share_generation_batch(monkeypatch):
+    import scripts.natural_language_anchor_branch_stage as stage
+
+    class FakeLLM:
+        def __init__(self):
+            self.batch_sizes = []
+
+        def generate(self, prompts, parameters, **kwargs):
+            self.batch_sizes.append(len(prompts))
+            return [
+                SimpleNamespace(outputs=[SimpleNamespace(state="N" if prompt["prompt_token_ids"] == [1] else "O")])
+                for prompt in prompts
+            ]
+
+    def fake_advance(node, decoded, max_imports, **kwargs):
+        state = decoded["state"]
+        return Node(
+            target=node.target, state=state, next_map=1,
+            actions=node.actions + [{"name": "finish_trace"}],
+            visited=set(node.visited) | {state}, terminal=True,
+        ), ""
+
+    monkeypatch.setattr(stage, "_render_prompt", lambda tokenizer, task, state, mode, **kw: [1 if state == "C" else 2])
+    monkeypatch.setattr(stage, "_decode_action", lambda tokenizer, value, eos_ids, mode: {"state": value.state})
+    monkeypatch.setattr(stage, "_advance", fake_advance)
+    args = SimpleNamespace(
+        continuation_beam_width=2, max_new_tokens=16, max_context=128,
+        max_imports=2, reject_target_retained_finish=False,
+        value_score_weight=1.0, policy_score_weight=0.0,
+        value_kind="state_abc", legacy_dual_prompt=False,
+    )
+    llm = FakeLLM()
+    starts = [
+        Node(target="C", state="C" if index % 2 == 0 else "CC", next_map=1)
+        for index in range(8)
+    ]
+    results = _beam_continue_many(
+        llm, None, None, None, None, None, [],
+        SimpleNamespace(target="C"), starts, args,
+        remaining_decisions=[2] * 8,
+    )
+    assert llm.batch_sizes == [8]
+    assert [(node.state, error) for node, error in results] == [("N", ""), ("O", "")] * 4
 
 
 def test_endpoint_potential_rewards_closer_structure_and_penalizes_extras():

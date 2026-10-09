@@ -26,6 +26,8 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=4
 export MKL_NUM_THREADS=4
 export MECHET_RELIABLE_DATA_ROOT=$shared_repo
+export MECHET_EARHO_ASYNC_REACTIONS=4
+export VLLM_USE_V1=0
 
 wheel_target=$(mktemp -d /tmp/mechet_reliable_earho_wheels.XXXXXX)
 python -m pip install --quiet --no-deps --target "$wheel_target" \
@@ -65,7 +67,9 @@ PY
 code_commit=$(git -C "$runtime_repo" rev-parse HEAD)
 code_dir=$(mktemp -d /tmp/mechet_reliable_earho_code.XXXXXX)
 git -C "$runtime_repo" archive "$code_commit" | tar -x -C "$code_dir"
+grep -q 'class AsyncVLLMBridge' "$code_dir/scripts/natural_language_anchor_branch_stage.py"
+grep -q 'MECHET_EARHO_ASYNC_REACTIONS' "$code_dir/scripts/run_natural_language_anchor_branch_rl.py"
 export PYTHONPATH=$wheel_target:$code_dir/src:$code_dir
 cd "$code_dir"
-echo "[reliable-earho] immutable_code_commit=$code_commit runtime=$runtime_config"
+echo "[reliable-earho] immutable_code_commit=$code_commit runtime=$runtime_config async_reactions_per_gpu=$MECHET_EARHO_ASYNC_REACTIONS vllm_v1=$VLLM_USE_V1"
 exec python -u scripts/run_earho_v2.py --config "$runtime_config"

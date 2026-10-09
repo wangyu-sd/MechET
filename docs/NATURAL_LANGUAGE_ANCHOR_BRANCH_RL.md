@@ -138,3 +138,43 @@ the frozen A/B/C critic only for the first gate while simultaneously producing
 the hard-negative data needed to train the P/N successor critic.  No benchmark
 claim is attached until that gate and an unchanged product-only evaluation have
 completed.
+
+## Optional asynchronous rollout scheduling
+
+The Stage-III collector can opt into vLLM 0.8.5 `AsyncLLMEngine` by setting
+`rollout.async_reactions: 4` (or another integer from 2 to 32) in a **new run
+configuration**. One engine is created per collector rank/GPU, while up to that
+many independent reactions can have model requests in flight. Each reaction
+retains its own chemical executor, beam, reward, and output records; only model
+request scheduling changes. The default remains one synchronous reaction per
+rank, so existing configurations and active staged jobs are unchanged.
+For a local T4 smoke, `rollout.dtype: float16` overrides the BF16 production
+default; it does not change the frozen A100/H20 training condition.
+
+Before using this for a full run, check the same frozen reaction IDs with
+`async_reactions: 1` and `4`: compare collector-error count, candidate count,
+strict-execution and endpoint metrics, plus wall time and GPU utilization.
+Sampling is seeded per reaction and request, but numerical sampling need not be
+bitwise identical across different vLLM batches. The local contract tests use
+a fake async engine. A separate four-reaction T4 smoke on 2026-10-09 also
+started the real vLLM 0.8.5 async engine with the Stage-II 0.6B adapter and
+persisted all eight sampled candidates without collector errors; its toy
+reactions are not an accuracy or throughput benchmark.
+
+The 2026-10-09 replacement FlowER Stage-III runner enables four concurrent
+reactions per A100 via `MECHET_EARHO_ASYNC_REACTIONS=4`. This is a runtime-only
+scheduling override: the prepared 257,167-reaction plan, reward, actor, critic,
+and product-only validation contract are unchanged. The Taiji runner archives
+Git `HEAD`, so the async collector must be committed before submission; the
+runner checks the archived code for the async bridge and override before GPU
+collection. `VLLM_USE_V1=0` pins the vLLM 0.8.5 engine path tested locally.
+
+On eight real prepared FlowER reactions with K=2, a local T4 test measured
+136.632 s serial versus 60.531 s at four-way concurrency (2.26x throughput),
+with 25 model requests and zero collector errors in either pass. This is a
+small scheduling/latency measurement, not an A100 throughput or accuracy claim.
+The complete per-reaction artifacts and report are under
+`outputs/agent/local_earho_latency_async8_20261009_localruntime/` in the shared
+repository. The previous synchronous baseline monitor remains identified as
+such; unfinished round-00 shards are archived by the resumable collector
+before replacement generation, not reported as completed data.

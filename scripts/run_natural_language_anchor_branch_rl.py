@@ -192,6 +192,17 @@ def worker_command(cfg, data, adapter, path, rank, *, frontier, round_index, eva
         "--max-decisions", str(rollout["max_decisions"]),
         "--max-imports", str(rollout["max_imports"]),
     ]
+    # A scheduling-only override lets an interrupted frozen EARHO run resume
+    # without changing the data/algorithm config hash in its prepared plan.
+    async_reactions = int(os.environ.get(
+        "MECHET_EARHO_ASYNC_REACTIONS", rollout.get("async_reactions", 1)
+    ))
+    if not 1 <= async_reactions <= 32:
+        raise ValueError("EARHO async reactions must be between 1 and 32 per GPU")
+    if async_reactions > 1:
+        command.extend(["--async-reactions", str(async_reactions)])
+    if rollout.get("dtype"):
+        command.extend(["--dtype", str(rollout["dtype"])])
     if evaluation:
         command.extend(["--evaluation", "--full-only"])
     if cfg.get("legacy_dual_prompt"):
@@ -323,7 +334,15 @@ def run_workers(cfg, data, adapter, output, *, frontier, round_index, evaluation
             f"{summary['collector_error_rate']:.4f}"
         )
     public = {key: value for key, value in summary.items() if key != "group_summaries"}
-    write_json(marker, {"adapter": str(adapter), "frontier": frontier, "round": round_index, "evaluation": evaluation, **lineage, **public})
+    async_reactions = int(os.environ.get(
+        "MECHET_EARHO_ASYNC_REACTIONS", (cfg.get("rollout") or {}).get("async_reactions", 1)
+    ))
+    write_json(marker, {
+        "adapter": str(adapter), "frontier": frontier, "round": round_index,
+        "evaluation": evaluation, "collector_backend": (
+            "vllm_0_8_5_async_v0" if async_reactions > 1 else "vllm_0_8_5_sync"
+        ), "async_reactions_per_gpu": async_reactions, **lineage, **public,
+    })
     log(stage="nl-anchor-collection-complete", **public)
     return shards, summary
 

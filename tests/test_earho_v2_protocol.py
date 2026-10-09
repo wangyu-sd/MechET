@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 import hashlib
 import json
@@ -23,7 +24,8 @@ from scripts.build_earho_v2_successor_value import build_rows
 from scripts.run_earho_v2 import _attach_decisions
 from scripts.audit_reliable_product_mapping_parity import audit
 from scripts.natural_language_anchor_branch_stage import (
-    _messages, _node, _render_prompt, _score_rollout, _v2_probe,
+    AsyncVLLMBridge, _collect_initialized, _messages, _node, _render_prompt,
+    _score_rollout, _v2_probe,
     _v2_successor_fingerprint,
 )
 from scripts.run_natural_language_value_search import (
@@ -76,6 +78,127 @@ def fixture(reaction_id: str = "toy"):
         result = first.actions[-1]["result"] if len(decisions) == 1 else final.actions[-1]["result"]
         history = history.accept(call["name"], call["arguments"], result)
     return source, decisions
+
+
+def test_async_collector_matches_sync_on_executable_toy_reactions(tmp_path):
+    class Tokenizer:
+        eos_token_id = 0
+
+        def convert_tokens_to_ids(self, token):
+            return 0
+
+        def apply_chat_template(self, messages, *, tokenize, add_generation_prompt,
+                                tools=None, enable_thinking=False):
+            rendered = "".join(
+                f"<|im_start|>{message['role']}\n{message['content']}<|im_end|>\n"
+                for message in messages
+            )
+            return rendered + ("<|im_start|>assistant\n" if add_generation_prompt else "")
+
+        def encode(self, text, add_special_tokens=False):
+            return [ord(char) for char in text]
+
+        def decode(self, ids, skip_special_tokens=False):
+            return "".join(chr(token) for token in ids if token != 0)
+
+        def __call__(self, text, add_special_tokens=False):
+            return {"input_ids": self.encode(text)}
+
+    tokenizer = Tokenizer()
+
+    def generated(prompt, params):
+        rendered = tokenizer.decode(prompt["prompt_token_ids"])
+        if "accepted_actions: 1" in rendered:
+            action = '<tool_call>{"name":"finish_trace","arguments":{}}</tool_call>'
+        else:
+            action = ('<tool_call>{"name":"import_fragments","arguments":'
+                      '{"fragments":[{"smiles":"[Na+]","count":1,'
+                      '"purpose":"endpoint_context"}]}}</tool_call>')
+        ids = tokenizer.encode(action) + [0]
+        output = SimpleNamespace(
+            token_ids=ids,
+            logprobs=[{token: SimpleNamespace(logprob=-0.1)} for token in ids],
+            finish_reason="stop",
+        )
+        return SimpleNamespace(finished=True, outputs=[output for _ in range(params.n)])
+
+    class SamplingParams:
+        def __init__(self, **kwargs):
+            self.__dict__.update(kwargs)
+            self.seed = None
+
+    class LoRARequest:
+        def __init__(self, *args):
+            self.args = args
+
+    class SyncEngine:
+        def generate(self, prompts, params, **kwargs):
+            return [generated(prompt, params) for prompt in prompts]
+
+    class AsyncEngine:
+        def __init__(self):
+            self.active = 0
+            self.peak = 0
+
+        async def generate(self, prompt, params, *, request_id, lora_request):
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            await asyncio.sleep(0.002)
+            self.active -= 1
+            yield generated(prompt, params)
+
+    rows = []
+    for number in range(4):
+        source, decisions = fixture(f"r{number}")
+        rows.append(dict(source, earho_v2_reference_decisions=decisions))
+    data = tmp_path / "reactions.jsonl"
+    data.write_text("".join(json.dumps(row) + "\n" for row in rows))
+
+    def args(output, async_reactions):
+        return SimpleNamespace(
+            data=str(data), output=str(output), model="fake", adapter=str(tmp_path),
+            rank=0, world_size=1, k=2, seed=17, round_index=0, frontier=2,
+            full_episode_fraction=1.0, invalid_penalty=0.1,
+            wrong_terminal_penalty=0.5, endpoint_similarity_weight=0.45,
+            first_successor_progress_weight=0.25, nonexact_reward_ceiling=0.01,
+            target_retained_penalty=0.5, reference_first_successor_weight=0.0,
+            endpoint_metric="structural", value_adapter=None, value_kind="successor_pn",
+            continuation_candidates_per_mode=1, continuation_temperature=0.7,
+            value_score_weight=1.0, policy_score_weight=0.1,
+            continuation_beam_width=1, success_gated_advantages=True,
+            temperature=1.0, max_new_tokens=100, max_context=100000,
+            max_decisions=4, max_imports=4, evaluation=True, full_only=True,
+            reject_target_retained_finish=False, legacy_dual_prompt=False,
+            protocol_v2=True, state_only_observation=False, vnext_credit=None,
+            vnext_private_reference_credit=False, async_reactions=async_reactions,
+        )
+
+    sync_output = tmp_path / "sync.jsonl"
+    _collect_initialized(args(sync_output, 1), SyncEngine(), tokenizer,
+                         SamplingParams, LoRARequest)
+
+    async def run_async():
+        engine = AsyncEngine()
+        bridge = AsyncVLLMBridge(engine, asyncio.get_running_loop(), seed=17, rank=0)
+        async_output = tmp_path / "async.jsonl"
+        await asyncio.to_thread(
+            _collect_initialized, args(async_output, 4), bridge, tokenizer,
+            SamplingParams, LoRARequest,
+        )
+        return engine, async_output
+
+    engine, async_output = asyncio.run(run_async())
+    sync_rows = [json.loads(line) for line in sync_output.read_text().splitlines()]
+    async_rows = [json.loads(line) for line in async_output.read_text().splitlines()]
+    assert engine.peak > 1
+    assert len(sync_rows) == len(async_rows) == 8
+    assert all(row["kind"] == "rl" and row["score"]["formal_execute"]
+               and row["score"]["correct"] for row in async_rows)
+    assert sorted(sync_rows, key=lambda row: (row["id"], row["candidate_index"])) == sorted(
+        async_rows, key=lambda row: (row["id"], row["candidate_index"])
+    )
+    assert not (tmp_path / "sync.jsonl.errors.jsonl").read_text()
+    assert not (tmp_path / "async.jsonl.errors.jsonl").read_text()
 
 
 def test_product_only_mapping_audit_accepts_equivalent_toy_replay(tmp_path):

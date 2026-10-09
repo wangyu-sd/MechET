@@ -4,11 +4,16 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+import copy
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import math
 from pathlib import Path
 import sys
+import threading
+import time
 import traceback
 from typing import Any, Mapping
 
@@ -58,6 +63,113 @@ from scripts.earho_v2_protocol import (
 
 
 PROMPT_MODES = ("action", "event")
+
+
+class AsyncVLLMBridge:
+    """Expose the vLLM async request queue to independent reaction workers.
+
+    Each reaction owns its own executor state.  Only model requests enter the
+    shared async engine; token IDs and logprobs are never decoded/re-encoded.
+    """
+
+    def __init__(self, engine, loop, *, seed: int, rank: int):
+        self.engine = engine
+        self.loop = loop
+        self.seed = int(seed)
+        self.rank = int(rank)
+        self.local = threading.local()
+
+    def begin_reaction(self, reaction_id: str) -> None:
+        self.local.reaction_id = str(reaction_id)
+        self.local.call_index = 0
+        self.local.stats = {
+            "model_calls": 0, "model_requests": 0,
+            "model_prompt_tokens": 0, "model_output_tokens": 0,
+            "model_wait_wall_s": 0.0, "model_queue_s": 0.0,
+            "model_ttft_s": 0.0, "model_decode_s": 0.0,
+        }
+
+    def end_reaction(self) -> dict[str, float | int]:
+        stats = dict(self.local.stats)
+        del self.local.stats
+        del self.local.reaction_id
+        return stats
+
+    def generate(self, prompts, parameters, *, lora_request=None, use_tqdm=False):
+        if not hasattr(self.local, "reaction_id"):
+            raise RuntimeError("async model request has no reaction identity")
+        call_index = self.local.call_index
+        self.local.call_index += 1
+        reaction_id = self.local.reaction_id
+        started = time.monotonic()
+        future = asyncio.run_coroutine_threadsafe(
+            self._generate(prompts, parameters, lora_request, reaction_id, call_index),
+            self.loop,
+        )
+        outputs = future.result()
+        stats = self.local.stats
+        stats["model_calls"] += 1
+        stats["model_requests"] += len(outputs)
+        stats["model_wait_wall_s"] += time.monotonic() - started
+        for prompt, output in zip(prompts, outputs, strict=True):
+            if isinstance(prompt, Mapping) and "prompt_token_ids" in prompt:
+                stats["model_prompt_tokens"] += len(prompt["prompt_token_ids"])
+            elif getattr(output, "prompt_token_ids", None) is not None:
+                stats["model_prompt_tokens"] += len(output.prompt_token_ids)
+            stats["model_output_tokens"] += sum(
+                len(completion.token_ids) for completion in output.outputs
+            )
+            metrics = getattr(output, "metrics", None)
+            if metrics is not None:
+                stats["model_queue_s"] += float(metrics.time_in_queue or 0.0)
+                first = metrics.first_token_time
+                finished = metrics.finished_time
+                if first is not None:
+                    stats["model_ttft_s"] += max(float(first - metrics.arrival_time), 0.0)
+                if first is not None and finished is not None:
+                    stats["model_decode_s"] += max(float(finished - first), 0.0)
+        return outputs
+
+    async def _generate(self, prompts, parameters, lora_request, reaction_id, call_index):
+        async def one(prompt, prompt_index):
+            identity = f"{self.seed}:{self.rank}:{reaction_id}:{call_index}:{prompt_index}"
+            digest = hashlib.sha256(identity.encode("utf-8")).hexdigest()
+            request_id = f"earho-{digest[:24]}"
+            sampling = copy.deepcopy(parameters)
+            sampling.seed = int(digest[:8], 16)
+            final = None
+            async for output in self.engine.generate(
+                prompt, sampling, request_id=request_id, lora_request=lora_request,
+            ):
+                final = output
+            if final is None or not final.finished:
+                raise RuntimeError(f"vLLM request did not finish: {request_id}")
+            return final
+
+        return await asyncio.gather(*(one(prompt, index) for index, prompt in enumerate(prompts)))
+
+
+def _bounded_results(pool, fn, rows, limit):
+    """Keep only ``limit`` reactions live and emit completed groups promptly."""
+
+    source = iter(rows)
+    pending = set()
+
+    def fill():
+        while len(pending) < limit:
+            try:
+                row = next(source)
+            except StopIteration:
+                break
+            pending.add(pool.submit(fn, row))
+
+    fill()
+    while pending:
+        future = next(as_completed(pending))
+        pending.remove(future)
+        result = future.result()
+        fill()
+        yield result
 
 
 def _prompt_modes(args) -> tuple[str, ...]:
@@ -369,40 +481,62 @@ def _beam_continue(
     *,
     remaining_decisions: int,
 ):
+    return _beam_continue_many(
+        llm, tokenizer, lora, parameters, value_lora, value_parameters,
+        eos_ids, task, [start], args,
+        remaining_decisions=[remaining_decisions],
+    )[0]
+
+
+def _beam_continue_many(
+    llm,
+    tokenizer,
+    lora,
+    parameters,
+    value_lora,
+    value_parameters,
+    eos_ids,
+    task,
+    starts,
+    args,
+    *,
+    remaining_decisions,
+):
     """Replan after every executed event while retaining fallback branches.
 
-    Unlike the historical continuation loop, this keeps several chemically
-    distinct executor states alive.  A locally preferred branch can fail at a
-    later step without destroying the alternatives.  Prompts are regenerated
-    from each executor-owned successor, so this is receding-horizon search, not
-    one-shot program sampling.
+    Batch independent first-action continuations into one generation per depth.
+    Beam ranking, deduplication, and termination remain private to each start.
     """
 
-    if start.terminal or remaining_decisions <= 0:
-        return start, "" if start.terminal else "DECISION_BUDGET"
+    if len(starts) != len(remaining_decisions):
+        raise ValueError("starts and remaining_decisions must have equal length")
     width = max(int(args.continuation_beam_width), 1)
-    frontier = [start]
-    terminals = []
-    last_errors: list[str] = []
-    for _ in range(int(remaining_decisions)):
+    frontiers = [[start] if not start.terminal else [] for start in starts]
+    terminals = [[(0.0, start)] if start.terminal else [] for start in starts]
+    last_errors: list[list[str]] = [[] for _ in starts]
+    active = [not start.terminal and limit > 0 for start, limit in zip(starts, remaining_decisions, strict=True)]
+    for depth in range(max(remaining_decisions, default=0)):
         jobs = []
         prompts = []
-        for parent_index, node in enumerate(frontier):
-            for mode in _prompt_modes(args):
-                prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions,
-                                        state_only=getattr(args, "state_only_observation", False))
-                if len(prompt) + args.max_new_tokens > args.max_context:
-                    last_errors.append("CONTEXT_BUDGET")
-                    continue
-                jobs.append((parent_index, node, mode))
-                prompts.append({"prompt_token_ids": prompt})
+        for group, frontier in enumerate(frontiers):
+            if not active[group] or depth >= remaining_decisions[group]:
+                continue
+            for node in frontier:
+                for mode in _prompt_modes(args):
+                    prompt = _render_prompt(tokenizer, task, node.state, mode, actions=node.actions,
+                                            state_only=getattr(args, "state_only_observation", False))
+                    if len(prompt) + args.max_new_tokens > args.max_context:
+                        last_errors[group].append("CONTEXT_BUDGET")
+                        continue
+                    jobs.append((group, node, mode))
+                    prompts.append({"prompt_token_ids": prompt})
         if not jobs:
             break
         generated = llm.generate(
             prompts, parameters, lora_request=lora, use_tqdm=False
         )
-        candidates = []
-        for (_, node, mode), output in zip(jobs, generated, strict=True):
+        candidates_by_group = [[] for _ in starts]
+        for (group, node, mode), output in zip(jobs, generated, strict=True):
             for generated_value in output.outputs:
                 decoded = _decode_action(tokenizer, generated_value, eos_ids, mode)
                 child, error = _advance(
@@ -413,58 +547,69 @@ def _beam_continue(
                 )
                 if child is None:
                     if error:
-                        last_errors.append(error)
+                        last_errors[group].append(error)
                     continue
-                candidates.append(child)
-        if not candidates:
-            break
+                candidates_by_group[group].append(child)
 
-        # Pool surface forms and convergent paths before critic evaluation.
-        unique = {}
-        for child in candidates:
-            key = (visible(child.state), bool(child.terminal))
-            incumbent = unique.get(key)
-            if incumbent is None or child.policy_score > incumbent.policy_score:
-                unique[key] = child
-        candidates = list(unique.values())
+        # Pool convergent paths only within the same first-action candidate.
+        unique_by_group = []
+        for candidates in candidates_by_group:
+            unique = {}
+            for child in candidates:
+                key = (visible(child.state), bool(child.terminal))
+                incumbent = unique.get(key)
+                if incumbent is None or child.policy_score > incumbent.policy_score:
+                    unique[key] = child
+            unique_by_group.append(list(unique.values()))
+        all_candidates = [child for candidates in unique_by_group for child in candidates]
+        if not all_candidates:
+            break
         critic_scores = _critic_scores(
             llm,
             tokenizer,
             value_lora,
             value_parameters,
             task,
-            candidates,
+            all_candidates,
             value_kind=args.value_kind,
         )
-        ranked = []
-        for child, critic_score in zip(candidates, critic_scores, strict=True):
-            child.value = float(critic_score)
-            score = (
-                float(args.value_score_weight) * float(critic_score)
-                + float(args.policy_score_weight) * float(child.policy_score)
-            )
-            ranked.append((score, child))
-        ranked.sort(key=lambda item: item[0], reverse=True)
-        terminals.extend(item for item in ranked if item[1].terminal)
-        terminals = sorted(terminals, key=lambda item: item[0], reverse=True)[:width]
-        frontier = [
-            child for _, child in ranked if not child.terminal
-        ][:width]
-        if not frontier:
-            break
+        offset = 0
+        for group, candidates in enumerate(unique_by_group):
+            if not candidates:
+                active[group] = False
+                continue
+            scores = critic_scores[offset : offset + len(candidates)]
+            offset += len(candidates)
+            ranked = []
+            for child, critic_score in zip(candidates, scores, strict=True):
+                child.value = float(critic_score)
+                score = (
+                    float(args.value_score_weight) * float(critic_score)
+                    + float(args.policy_score_weight) * float(child.policy_score)
+                )
+                ranked.append((score, child))
+            ranked.sort(key=lambda item: item[0], reverse=True)
+            terminals[group].extend(item for item in ranked if item[1].terminal)
+            terminals[group] = sorted(terminals[group], key=lambda item: item[0], reverse=True)[:width]
+            frontiers[group] = [child for _, child in ranked if not child.terminal][:width]
+            active[group] = bool(frontiers[group])
 
-    if terminals:
-        return terminals[0][1], ""
-    if frontier:
-        best = max(
-            frontier,
-            key=lambda child: (
-                float(args.value_score_weight) * float(child.value)
-                + float(args.policy_score_weight) * float(child.policy_score)
-            ),
-        )
-        return best, "DECISION_BUDGET"
-    return None, last_errors[-1] if last_errors else "NO_EXECUTABLE_CONTINUATION"
+    results = []
+    for group, frontier in enumerate(frontiers):
+        if terminals[group]:
+            results.append((terminals[group][0][1], ""))
+        elif frontier:
+            best = max(
+                frontier,
+                key=lambda child: (
+                    float(args.value_score_weight) * float(child.value)
+                    + float(args.policy_score_weight) * float(child.policy_score)
+                ),
+            )
+            results.append((best, "DECISION_BUDGET"))
+        else:
+            results.append((None, last_errors[group][-1] if last_errors[group] else "NO_EXECUTABLE_CONTINUATION"))
+    return results
 
 
 def _score_rollout(
@@ -725,23 +870,16 @@ def _collector_error_records(row, args, total: int, exc: Exception):
 
 
 def collect(args):
-    from vllm import LLM, SamplingParams
-    from vllm.lora.request import LoRARequest
-    import vllm
+    if getattr(args, "async_reactions", 1) > 1:
+        return asyncio.run(_collect_async(args))
+    return _collect_sync(args)
 
-    if vllm.__version__ != "0.8.5":
-        raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
-    prompt_modes = _prompt_modes(args)
-    first_n, first_temperature = _first_action_sampling_plan(args)
-    output = Path(args.output)
-    if output.exists():
-        raise ValueError(f"refusing overwrite: {output}")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    rows = read_rows(args.data)[args.rank :: args.world_size]
-    llm = LLM(
+
+def _engine_kwargs(args):
+    return dict(
         model=args.model,
         tokenizer=args.model,
-        dtype="bfloat16",
+        dtype=getattr(args, "dtype", "bfloat16"),
         tensor_parallel_size=1,
         gpu_memory_utilization=0.85,
         max_model_len=args.max_context,
@@ -755,7 +893,49 @@ def collect(args):
         seed=(args.seed + args.rank) % (2**32),
         trust_remote_code=True,
     )
-    tokenizer = llm.get_tokenizer()
+
+
+def _collect_sync(args):
+    from vllm import LLM, SamplingParams
+    from vllm.lora.request import LoRARequest
+    import vllm
+
+    if vllm.__version__ != "0.8.5":
+        raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
+    llm = LLM(**_engine_kwargs(args))
+    return _collect_initialized(args, llm, llm.get_tokenizer(), SamplingParams, LoRARequest)
+
+
+async def _collect_async(args):
+    from vllm import AsyncLLMEngine, SamplingParams
+    from vllm.engine.arg_utils import AsyncEngineArgs
+    from vllm.lora.request import LoRARequest
+    import vllm
+
+    if vllm.__version__ != "0.8.5":
+        raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
+    engine = AsyncLLMEngine.from_engine_args(AsyncEngineArgs(**_engine_kwargs(args)))
+    try:
+        tokenizer = await engine.get_tokenizer()
+        bridge = AsyncVLLMBridge(engine, asyncio.get_running_loop(), seed=args.seed, rank=args.rank)
+        await asyncio.to_thread(
+            _collect_initialized, args, bridge, tokenizer, SamplingParams, LoRARequest,
+        )
+    finally:
+        if hasattr(engine, "shutdown"):
+            engine.shutdown()
+        else:
+            engine.shutdown_background_loop()
+
+
+def _collect_initialized(args, llm, tokenizer, SamplingParams, LoRARequest):
+    prompt_modes = _prompt_modes(args)
+    first_n, first_temperature = _first_action_sampling_plan(args)
+    output = Path(args.output)
+    if output.exists():
+        raise ValueError(f"refusing overwrite: {output}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    rows = read_rows(args.data)[args.rank :: args.world_size]
     lora = LoRARequest("nl_anchor_actor", 1, str(Path(args.adapter).resolve()))
     value_lora = (
         LoRARequest("nl_anchor_value", 2, str(Path(args.value_adapter).resolve()))
@@ -822,262 +1002,306 @@ def collect(args):
         allowed_token_ids=label_ids,
     )
 
-    error_path = output.with_suffix(output.suffix + ".errors.jsonl")
-    with output.open("x", encoding="utf-8") as handle, error_path.open(
-        "x", encoding="utf-8"
-    ) as error_handle:
-        for number, row in enumerate(rows, 1):
-            total = (
-                len(row.get("earho_v2_reference_decisions") or ())
-                if args.protocol_v2
-                else len(((row.get("metadata") or {}).get("trace_plan") or {}).get("steps") or [])
+    def process_row(indexed_row):
+        row_index, row = indexed_row
+        if hasattr(llm, "begin_reaction"):
+            llm.begin_reaction(
+                f"{row_index}:{row.get('id') or row.get('source_id') or 'UNKNOWN'}"
             )
-            try:
-                if total < 1:
-                    raise ValueError(f"{row.get('id')}: empty trace")
-                rng = stable_rng(args.seed, args.round_index, str(row["id"]))
-                no_correction_frontier = False
-                first_divergence_index = None
-                if args.protocol_v2:
-                    reference = replay_reference(
-                        row, row["earho_v2_reference_decisions"],
-                        max_imports=args.max_imports,
-                        compact_history=not getattr(args, "state_only_observation", False),
-                    )
-                    if args.evaluation or args.full_only:
-                        anchor_index, reason = 0, "PRODUCT_ONLY_EVALUATION"
-                    else:
-                        divergence = _v2_probe(
-                            llm, tokenizer, lora, probe_parameters, eos_ids,
-                            reference, args,
-                        )
-                        first_divergence_index = divergence.decision_index
-                        no_correction_frontier = divergence.decision_index is None
-                        if no_correction_frontier:
-                            anchor_index, reason = 0, divergence.reason
-                        elif rng.random() < args.full_episode_fraction:
-                            anchor_index, reason = 0, "FULL_EPISODE_REHEARSAL"
-                        else:
-                            anchor_index = int(divergence.decision_index)
-                            reason = divergence.reason
-                    task = v2_anchor_task(
-                        reference, anchor_index, divergence_reason=reason
-                    )
-                    episode = task
-                    reference_first_successor = task.reference_next_state
+        detail = None
+        group_started = time.monotonic()
+        cpu_started = time.thread_time()
+        probe_wall = 0.0
+        first_generate_wall = 0.0
+        continuation_wall = 0.0
+        total = (
+            len(row.get("earho_v2_reference_decisions") or ())
+            if args.protocol_v2
+            else len(((row.get("metadata") or {}).get("trace_plan") or {}).get("steps") or [])
+        )
+        try:
+            if total < 1:
+                raise ValueError(f"{row.get('id')}: empty trace")
+            rng = stable_rng(args.seed, args.round_index, str(row["id"]))
+            no_correction_frontier = False
+            first_divergence_index = None
+            if args.protocol_v2:
+                reference = replay_reference(
+                    row, row["earho_v2_reference_decisions"],
+                    max_imports=args.max_imports,
+                    compact_history=not getattr(args, "state_only_observation", False),
+                )
+                if args.evaluation or args.full_only:
+                    anchor_index, reason = 0, "PRODUCT_ONLY_EVALUATION"
                 else:
-                    horizon = (
-                        total
-                        if args.evaluation or args.full_only
-                        else choose_horizon(
-                            total, args.frontier, rng,
-                            full_episode_fraction=args.full_episode_fraction,
-                        )
+                    probe_started = time.monotonic()
+                    divergence = _v2_probe(
+                        llm, tokenizer, lora, probe_parameters, eos_ids,
+                        reference, args,
                     )
-                    episode = reference_episode(row, horizon)
-                    task = task_from_episode(episode)
-                    _, _, _, reference_first_successor = _reference_first_decision(
-                        row, episode
-                    )
-                prompts = {
-                    mode: _render_prompt(
-                        tokenizer, task, task.anchor_state, mode,
-                        actions=(task.anchor_actions if isinstance(task, V2AnchorTask) else None),
-                        state_only=getattr(args, "state_only_observation", False),
-                    )
-                    for mode in prompt_modes
-                }
-                if any(
-                    len(prompt) + args.max_new_tokens > args.max_context
-                    for prompt in prompts.values()
-                ):
-                    raise ValueError(
-                        f"{task.reaction_id}: first-action prompt exceeds context"
-                    )
-                generations = llm.generate(
-                    [{"prompt_token_ids": prompts[mode]} for mode in prompt_modes],
-                    first_parameters,
-                    lora_request=lora,
-                    use_tqdm=False,
+                    probe_wall = time.monotonic() - probe_started
+                    first_divergence_index = divergence.decision_index
+                    no_correction_frontier = divergence.decision_index is None
+                    if no_correction_frontier:
+                        anchor_index, reason = 0, divergence.reason
+                    elif rng.random() < args.full_episode_fraction:
+                        anchor_index, reason = 0, "FULL_EPISODE_REHEARSAL"
+                    else:
+                        anchor_index = int(divergence.decision_index)
+                        reason = divergence.reason
+                task = v2_anchor_task(
+                    reference, anchor_index, divergence_reason=reason
                 )
-                records = []
-                candidate_index = 0
-                for mode, generated in zip(prompt_modes, generations, strict=True):
-                    for value in generated.outputs:
-                        decoded = _decode_action(tokenizer, value, eos_ids, mode)
-                        node, error = _advance(
-                            _node(task),
-                            decoded,
-                            args.max_imports,
-                            reject_target_retained_finish=args.reject_target_retained_finish,
-                        )
-                        decisions = int(node is not None)
-                        first_state = node.state if node is not None else ""
-                        first_terminal = bool(node is not None and node.terminal)
-                        fingerprint = (
-                            _v2_successor_fingerprint(
-                                first_state, first_terminal, str(decoded["text"])
-                            )
-                            if args.protocol_v2
-                            else successor_fingerprint(
-                                prompt_mode=mode,
-                                action_name=str(decoded["name"]),
-                                successor_state=first_state,
-                                terminal=first_terminal,
-                                invalid_text=str(decoded["text"]),
-                            )
-                        )
-                        limit = (
-                            args.max_decisions
-                            if args.protocol_v2 and (
-                                args.evaluation or task.divergence_reason == "FULL_EPISODE_REHEARSAL"
-                            )
-                            else min(args.max_decisions, max(1, args.frontier))
-                            if args.protocol_v2
-                            else min(args.max_decisions, 2 * task.horizon + 2)
-                        )
-                        if (
-                            node is not None
-                            and not node.terminal
-                            and decisions < limit
-                        ):
-                            before = len(node.actions)
-                            node, continuation_error = _beam_continue(
-                                llm,
-                                tokenizer,
-                                lora,
-                                continuation_parameters,
-                                value_lora,
-                                value_parameters,
-                                eos_ids,
-                                task,
-                                node,
-                                args,
-                                remaining_decisions=limit - decisions,
-                            )
-                            decisions += (
-                                max(len(node.actions) - before, 0)
-                                if node is not None
-                                else 0
-                            )
-                            if continuation_error:
-                                error = continuation_error
-                        if node is not None and not node.terminal and not error:
-                            error = "DECISION_BUDGET"
-                        score = _score_rollout(
-                            task,
-                            node,
-                            error,
-                            decisions,
-                            first_successor_state=first_state,
-                            invalid_penalty=args.invalid_penalty,
-                            wrong_terminal_penalty=args.wrong_terminal_penalty,
-                            endpoint_similarity_weight=args.endpoint_similarity_weight,
-                            first_successor_progress_weight=args.first_successor_progress_weight,
-                            nonexact_reward_ceiling=args.nonexact_reward_ceiling,
-                            target_retained_penalty=args.target_retained_penalty,
-                            reference_first_successor_state=reference_first_successor,
-                            reference_first_successor_weight=args.reference_first_successor_weight,
-                            endpoint_metric=args.endpoint_metric,
-                        )
-                        score["first_successor_terminal"] = first_terminal
-                        ids = list(decoded["ids"])
-                        logps = list(decoded["logps"])
-                        prompt = prompts[mode]
-                        record = {
-                            "id": task.reaction_id,
-                            "kind": "rl",
-                            "input_ids": prompt + ids,
-                            "loss_mask": [0] * len(prompt) + [1] * len(ids),
-                            "old_logps": [0.0] * len(prompt) + logps,
-                            "advantage": 0.0,
-                            "reward": float(score["reward"]),
-                            "candidate_index": candidate_index,
-                            "terminated": bool(decoded["terminated"]),
-                            "prediction": str(decoded["text"]),
-                            "score": score,
-                            "prompt_mode": mode,
-                            "action_fingerprint": fingerprint,
-                            "anchor": _task_record(task, state_only=getattr(args, "state_only_observation", False)),
-                        }
-                        if not ids:
-                            record["loss_mask"] = [0] * len(record["loss_mask"])
-                        if not (
-                            len(record["input_ids"])
-                            == len(record["loss_mask"])
-                            == len(record["old_logps"])
-                        ):
-                            raise ValueError("rollout token/mask/logprob misalignment")
-                        records.append(record)
-                        candidate_index += 1
-                summary = (
-                    assign_sibling_advantages(
-                        records,
-                        method=args.vnext_credit,
-                        dynamic_all_negative=True,
-                        allow_private_reference=args.vnext_private_reference_credit,
-                    )
-                    if args.vnext_credit
-                    else assign_local_advantages(
-                        records, success_gated=args.success_gated_advantages
+                episode = task
+                reference_first_successor = task.reference_next_state
+            else:
+                horizon = (
+                    total
+                    if args.evaluation or args.full_only
+                    else choose_horizon(
+                        total, args.frontier, rng,
+                        full_episode_fraction=args.full_episode_fraction,
                     )
                 )
-                if args.vnext_credit:
-                    teacher = search_teacher_distribution(records)
-                    for record in records:
-                        record["search_teacher"] = teacher
-                if no_correction_frontier and not args.evaluation:
-                    for record in records:
-                        record["advantage"] = 0.0
-                        record["update_eligible"] = False
-                    summary["effective"] = False
-                    summary["eligible_records"] = 0
-                needs_replay = (
-                    not args.evaluation
-                    and not no_correction_frontier
-                    and (
-                        not args.protocol_v2
-                        or not (summary["successor_success"] or summary["endpoint_success"])
-                    )
+                episode = reference_episode(row, horizon)
+                task = task_from_episode(episode)
+                _, _, _, reference_first_successor = _reference_first_decision(
+                    row, episode
                 )
-                if needs_replay:
-                    records.append(
-                        _verified_replay_record(
-                            tokenizer, task, row, episode, args.max_context, args
+            prompts = {
+                mode: _render_prompt(
+                    tokenizer, task, task.anchor_state, mode,
+                    actions=(task.anchor_actions if isinstance(task, V2AnchorTask) else None),
+                    state_only=getattr(args, "state_only_observation", False),
+                )
+                for mode in prompt_modes
+            }
+            if any(
+                len(prompt) + args.max_new_tokens > args.max_context
+                for prompt in prompts.values()
+            ):
+                raise ValueError(
+                    f"{task.reaction_id}: first-action prompt exceeds context"
+                )
+            first_started = time.monotonic()
+            generations = llm.generate(
+                [{"prompt_token_ids": prompts[mode]} for mode in prompt_modes],
+                first_parameters,
+                lora_request=lora,
+                use_tqdm=False,
+            )
+            first_generate_wall = time.monotonic() - first_started
+            prepared = []
+            continuation_starts = []
+            continuation_limits = []
+            for mode, generated in zip(prompt_modes, generations, strict=True):
+                for value in generated.outputs:
+                    decoded = _decode_action(tokenizer, value, eos_ids, mode)
+                    node, error = _advance(
+                        _node(task),
+                        decoded,
+                        args.max_imports,
+                        reject_target_retained_finish=args.reject_target_retained_finish,
+                    )
+                    decisions = int(node is not None)
+                    first_state = node.state if node is not None else ""
+                    first_terminal = bool(node is not None and node.terminal)
+                    fingerprint = (
+                        _v2_successor_fingerprint(
+                            first_state, first_terminal, str(decoded["text"])
+                        )
+                        if args.protocol_v2
+                        else successor_fingerprint(
+                            prompt_mode=mode,
+                            action_name=str(decoded["name"]),
+                            successor_state=first_state,
+                            terminal=first_terminal,
+                            invalid_text=str(decoded["text"]),
                         )
                     )
-                log_fields = {
+                    limit = (
+                        args.max_decisions
+                        if args.protocol_v2 and (
+                            args.evaluation or task.divergence_reason == "FULL_EPISODE_REHEARSAL"
+                        )
+                        else min(args.max_decisions, max(1, args.frontier))
+                        if args.protocol_v2
+                        else min(args.max_decisions, 2 * task.horizon + 2)
+                    )
+                    item = {
+                        "mode": mode,
+                        "decoded": decoded,
+                        "node": node,
+                        "error": error,
+                        "decisions": decisions,
+                        "first_state": first_state,
+                        "first_terminal": first_terminal,
+                        "fingerprint": fingerprint,
+                    }
+                    prepared.append(item)
+                    if node is not None and not node.terminal and decisions < limit:
+                        item["before_actions"] = len(node.actions)
+                        item["continuation_index"] = len(continuation_starts)
+                        continuation_starts.append(node)
+                        continuation_limits.append(limit - decisions)
+            if continuation_starts:
+                continuation_started = time.monotonic()
+                continuations = _beam_continue_many(
+                    llm, tokenizer, lora, continuation_parameters, value_lora,
+                    value_parameters, eos_ids, task, continuation_starts, args,
+                    remaining_decisions=continuation_limits,
+                )
+                continuation_wall = time.monotonic() - continuation_started
+                for item in prepared:
+                    if "continuation_index" not in item:
+                        continue
+                    node, continuation_error = continuations[item["continuation_index"]]
+                    item["node"] = node
+                    item["decisions"] += (
+                        max(len(node.actions) - item["before_actions"], 0)
+                        if node is not None else 0
+                    )
+                    if continuation_error:
+                        item["error"] = continuation_error
+            records = []
+            for candidate_index, item in enumerate(prepared):
+                mode = item["mode"]
+                decoded = item["decoded"]
+                node = item["node"]
+                error = item["error"]
+                decisions = item["decisions"]
+                first_state = item["first_state"]
+                first_terminal = item["first_terminal"]
+                fingerprint = item["fingerprint"]
+                if node is not None and not node.terminal and not error:
+                    error = "DECISION_BUDGET"
+                score = _score_rollout(
+                    task,
+                    node,
+                    error,
+                    decisions,
+                    first_successor_state=first_state,
+                    invalid_penalty=args.invalid_penalty,
+                    wrong_terminal_penalty=args.wrong_terminal_penalty,
+                    endpoint_similarity_weight=args.endpoint_similarity_weight,
+                    first_successor_progress_weight=args.first_successor_progress_weight,
+                    nonexact_reward_ceiling=args.nonexact_reward_ceiling,
+                    target_retained_penalty=args.target_retained_penalty,
+                    reference_first_successor_state=reference_first_successor,
+                    reference_first_successor_weight=args.reference_first_successor_weight,
+                    endpoint_metric=args.endpoint_metric,
+                )
+                score["first_successor_terminal"] = first_terminal
+                ids = list(decoded["ids"])
+                logps = list(decoded["logps"])
+                prompt = prompts[mode]
+                record = {
                     "id": task.reaction_id,
-                    "horizon": task.horizon,
-                    "full_episode": task.is_full_episode,
-                    "first_divergence_index": (
-                        first_divergence_index if args.protocol_v2 else None
-                    ),
-                    "no_correction_frontier": no_correction_frontier,
-                    **summary,
+                    "kind": "rl",
+                    "input_ids": prompt + ids,
+                    "loss_mask": [0] * len(prompt) + [1] * len(ids),
+                    "old_logps": [0.0] * len(prompt) + logps,
+                    "advantage": 0.0,
+                    "reward": float(score["reward"]),
+                    "candidate_index": candidate_index,
+                    "terminated": bool(decoded["terminated"]),
+                    "prediction": str(decoded["text"]),
+                    "score": score,
+                    "prompt_mode": mode,
+                    "action_fingerprint": fingerprint,
+                    "anchor": _task_record(task, state_only=getattr(args, "state_only_observation", False)),
                 }
-            except Exception as exc:
-                if "out of memory" in str(exc).lower():
-                    raise
-                records = _collector_error_records(row, args, total, exc)
-                detail = {
-                    "id": str(row.get("id") or row.get("source_id") or "UNKNOWN"),
-                    "rank": args.rank,
-                    "error": f"{type(exc).__name__}:{exc}",
-                    "traceback": traceback.format_exc(),
-                }
+                if not ids:
+                    record["loss_mask"] = [0] * len(record["loss_mask"])
+                if not (
+                    len(record["input_ids"])
+                    == len(record["loss_mask"])
+                    == len(record["old_logps"])
+                ):
+                    raise ValueError("rollout token/mask/logprob misalignment")
+                records.append(record)
+            summary = (
+                assign_sibling_advantages(
+                    records,
+                    method=args.vnext_credit,
+                    dynamic_all_negative=True,
+                    allow_private_reference=args.vnext_private_reference_credit,
+                )
+                if args.vnext_credit
+                else assign_local_advantages(
+                    records, success_gated=args.success_gated_advantages
+                )
+            )
+            if args.vnext_credit:
+                teacher = search_teacher_distribution(records)
+                for record in records:
+                    record["search_teacher"] = teacher
+            if no_correction_frontier and not args.evaluation:
+                for record in records:
+                    record["advantage"] = 0.0
+                    record["update_eligible"] = False
+                summary["effective"] = False
+                summary["eligible_records"] = 0
+            needs_replay = (
+                not args.evaluation
+                and not no_correction_frontier
+                and (
+                    not args.protocol_v2
+                    or not (summary["successor_success"] or summary["endpoint_success"])
+                )
+            )
+            if needs_replay:
+                records.append(
+                    _verified_replay_record(
+                        tokenizer, task, row, episode, args.max_context, args
+                    )
+                )
+            log_fields = {
+                "id": task.reaction_id,
+                "horizon": task.horizon,
+                "full_episode": task.is_full_episode,
+                "first_divergence_index": (
+                    first_divergence_index if args.protocol_v2 else None
+                ),
+                "no_correction_frontier": no_correction_frontier,
+                **summary,
+            }
+        except Exception as exc:
+            if "out of memory" in str(exc).lower():
+                raise
+            records = _collector_error_records(row, args, total, exc)
+            detail = {
+                "id": str(row.get("id") or row.get("source_id") or "UNKNOWN"),
+                "rank": args.rank,
+                "error": f"{type(exc).__name__}:{exc}",
+                "traceback": traceback.format_exc(),
+            }
+            log_fields = {
+                "id": detail["id"],
+                "horizon": -1,
+                "full_episode": bool(args.evaluation or args.full_only),
+                "unique_actions": 1,
+                "effective": False,
+                "endpoint_success": False,
+                "candidate_success_rate": 0.0,
+                "collector_error": detail["error"],
+            }
+        log_fields.update(
+            elapsed_wall_s=round(time.monotonic() - group_started, 3),
+            collector_thread_cpu_s=round(time.thread_time() - cpu_started, 3),
+            probe_wall_s=round(probe_wall, 3),
+            first_generate_wall_s=round(first_generate_wall, 3),
+            continuation_wall_s=round(continuation_wall, 3),
+        )
+        if hasattr(llm, "end_reaction"):
+            log_fields.update(llm.end_reaction())
+        return records, log_fields, detail
+
+    def persist(handle, error_handle, results):
+        for number, (records, log_fields, detail) in enumerate(results, 1):
+            if detail is not None:
                 error_handle.write(json.dumps(detail, ensure_ascii=False) + "\n")
                 error_handle.flush()
-                log_fields = {
-                    "id": detail["id"],
-                    "horizon": -1,
-                    "full_episode": bool(args.evaluation or args.full_only),
-                    "unique_actions": 1,
-                    "effective": False,
-                    "endpoint_success": False,
-                    "candidate_success_rate": 0.0,
-                    "collector_error": detail["error"],
-                }
             for record in records:
                 handle.write(json.dumps(record, ensure_ascii=False) + "\n")
             handle.flush()
@@ -1088,6 +1312,19 @@ def collect(args):
                 total=len(rows),
                 **log_fields,
             )
+
+    error_path = output.with_suffix(output.suffix + ".errors.jsonl")
+    with output.open("x", encoding="utf-8") as handle, error_path.open(
+        "x", encoding="utf-8"
+    ) as error_handle:
+        if getattr(args, "async_reactions", 1) > 1:
+            with ThreadPoolExecutor(max_workers=args.async_reactions) as pool:
+                persist(
+                    handle, error_handle,
+                    _bounded_results(pool, process_row, enumerate(rows), args.async_reactions),
+                )
+        else:
+            persist(handle, error_handle, map(process_row, enumerate(rows)))
 
 
 def main():
@@ -1139,7 +1376,11 @@ def main():
     parser.add_argument("--vnext-credit", choices=["grpo", "gspo", "tree"])
     parser.add_argument("--vnext-private-reference-credit", action="store_true")
     parser.add_argument("--engine-mode", choices=["eager", "cuda_graph"], default="eager")
+    parser.add_argument("--dtype", choices=["bfloat16", "float16"], default="bfloat16")
+    parser.add_argument("--async-reactions", type=int, default=1)
     args = parser.parse_args()
+    if args.async_reactions < 1 or args.async_reactions > 32:
+        raise ValueError("async reactions must be between 1 and 32 per GPU")
     if args.protocol_v2 and (args.legacy_dual_prompt or not args.success_gated_advantages):
         raise ValueError("EARHO v2 requires unified history prompts and success-gated advantages")
     if args.endpoint_metric == "structural" and not args.protocol_v2:
