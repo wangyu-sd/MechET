@@ -172,6 +172,21 @@ def test_v100_earho_precision_applies_to_collector_actor_and_critic(monkeypatch,
     assert captured[captured.index("--dtype") + 1] == "float16"
 
 
+def test_v100_vllm_disables_unstable_prefix_cache(monkeypatch):
+    from types import SimpleNamespace
+    from scripts.natural_language_anchor_branch_stage import _engine_kwargs
+
+    args = SimpleNamespace(
+        model="model", dtype="float16", max_context=4096,
+        value_adapter=None, engine_mode="eager", seed=17, rank=0,
+    )
+    monkeypatch.setenv("MECHET_V100_TORCH_LORA", "1")
+    monkeypatch.setenv("MECHET_V100_DISABLE_PREFIX_CACHE", "1")
+    kwargs = _engine_kwargs(args)
+    assert kwargs["enable_prefix_caching"] is False
+    assert kwargs["gpu_memory_utilization"] == 0.7
+
+
 def test_reliable_earho_prepare_streams_large_source(monkeypatch, tmp_path: Path):
     import scripts.run_earho_v2 as driver
 

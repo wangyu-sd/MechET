@@ -14,6 +14,7 @@ runtime_archive=$shared_repo/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_c
 dependency_archive=$shared_repo/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu124_py311_pruned.tar.zst
 model_snapshot=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca
 actor_adapter=$shared_repo/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
+validation_monitor=$shared_repo/outputs/agent/earho_reliable_mechet_qwen3_0_6b_full_executable_parallel_v100_seed17/validation_monitor.jsonl
 
 echo '[earho-vllm-cuda11-probe] allocated GPU'
 nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader
@@ -43,11 +44,12 @@ tar --zstd --exclude='./torch*' --exclude='./functorch*' \
   --exclude='./xformers*' --exclude='./cupy*' --exclude='./cupyx*' \
   --exclude='./cuda*' -xf "$dependency_archive" -C "$runtime_dir/fallback"
 cp "$runtime_repo/scripts/earho_cuda11_sitecustomize.py" "$runtime_dir/cu118/sitecustomize.py"
-export PYTHONPATH="$runtime_dir/cu118"
+export PYTHONPATH="$runtime_dir/cu118:$runtime_repo/src:$runtime_repo"
 export MECHET_VLLM_PUREPY_FALLBACK="$runtime_dir/fallback"
 
-python -u - "$model_snapshot" "$actor_adapter" <<'PY'
+python -u - "$model_snapshot" "$actor_adapter" "$validation_monitor" <<'PY'
 import asyncio
+import json
 import sys
 import torch
 import vllm
@@ -57,6 +59,7 @@ from vllm import AsyncLLMEngine, SamplingParams
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.lora.request import LoRARequest
 from vllm.platforms import current_platform
+from mechet.assistant_masking import render_qwen_sft_tool_prefix
 
 assert torch.version.cuda == "11.8", torch.version.cuda
 assert vllm.__version__ == "0.8.5", vllm.__version__
@@ -73,23 +76,41 @@ async def probe():
         model=sys.argv[1], tokenizer=sys.argv[1], dtype="float16",
         enforce_eager=True, max_model_len=4096, max_num_seqs=32,
         gpu_memory_utilization=0.7, enable_lora=True, max_lora_rank=16,
-        max_loras=1, max_cpu_loras=1,
+        max_loras=1, max_cpu_loras=1, enable_prefix_caching=True,
     ))
     try:
         lora = LoRARequest("nl_anchor_actor", 1, sys.argv[2])
-        params = SamplingParams(max_tokens=16, temperature=0.0, logprobs=0)
+        tokenizer = await engine.get_tokenizer()
+        rows = []
+        with open(sys.argv[3], encoding="utf-8") as source:
+            for line in source:
+                row = json.loads(line)
+                decision = row["earho_v2_reference_decisions"][0]
+                rendered = render_qwen_sft_tool_prefix(
+                    tokenizer, decision["messages"][:2], tools=decision["tools"]
+                )
+                rows.append(tokenizer.encode(rendered, add_special_tokens=False))
+                if len(rows) == 4:
+                    break
+        eos = sorted({tokenizer.eos_token_id,
+                      tokenizer.convert_tokens_to_ids("<|im_end|>")})
         async def one(index):
+            params = SamplingParams(n=2, max_tokens=384, temperature=1.0,
+                                    top_p=1.0, top_k=-1, logprobs=0,
+                                    stop_token_ids=eos, seed=17 + index)
             last = None
             async for result in engine.generate(
-                "Predict the next electron-flow action for CCO.", params,
+                {"prompt_token_ids": rows[index]}, params,
                 request_id=f"v100-lora-probe-{index}", lora_request=lora,
             ):
                 last = result
-            assert last and last.outputs and last.outputs[0].token_ids
-            return len(last.outputs[0].token_ids)
+            assert last and len(last.outputs) == 2
+            assert all(output.token_ids for output in last.outputs)
+            return [len(output.token_ids) for output in last.outputs]
         counts = await asyncio.gather(*(one(index) for index in range(4)))
         print({"gate": "cuda11-vllm-qwen3-lora-async-generation-passed",
-               "generated_tokens": counts}, flush=True)
+               "generated_tokens": counts,
+               "prompt_tokens": [len(row) for row in rows]}, flush=True)
     finally:
         if hasattr(engine, "shutdown"):
             engine.shutdown()

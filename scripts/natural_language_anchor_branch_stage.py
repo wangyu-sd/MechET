@@ -887,7 +887,9 @@ def _engine_kwargs(args):
         ),
         max_model_len=args.max_context,
         max_num_seqs=32,
-        enable_prefix_caching=True,
+        enable_prefix_caching=(
+            os.environ.get("MECHET_V100_DISABLE_PREFIX_CACHE") != "1"
+        ),
         enable_lora=True,
         max_lora_rank=16,
         max_loras=2 if args.value_adapter else 1,
