@@ -25,6 +25,7 @@ export TOKENIZERS_PARALLELISM=false TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
 export MECHET_RELIABLE_DATA_ROOT=$shared_repo MECHET_EARHO_ASYNC_REACTIONS=4
 export MECHET_EARHO_PREP_WORKERS=16
+export MECHET_V100_TORCH_LORA=1
 export VLLM_USE_V1=0 VLLM_ATTENTION_BACKEND=XFORMERS
 
 wheel_target=$(mktemp -d /tmp/mechet_reliable_earho_v100_wheels.XXXXXX)
@@ -42,7 +43,11 @@ assert rdkit.__version__ == '2026.03.4', rdkit.__version__
 print({'gate': 'v100-host-passed', 'gpus': names, 'rdkit': rdkit.__version__}, flush=True)
 PY
 
-vllm_local=$(mktemp -d /tmp/mechet_reliable_earho_v100_vllm.XXXXXX)
+# Keep this deployment-only path stable across retries: the frozen preparation
+# plan hashes the runtime config, and changing a random /tmp path would reject
+# a valid, fully audited 257,167-reaction plan on resume.
+vllm_local=/tmp/mechet_reliable_earho_v100_vllm.kfedbu
+mkdir -p "$vllm_local"
 fallback_local=$(mktemp -d /tmp/mechet_reliable_earho_v100_dependencies.XXXXXX)
 echo "[reliable-earho-v100] staging CUDA 11.8 vLLM to $vllm_local"
 tar --zstd -xf "$vllm_archive" -C "$vllm_local"

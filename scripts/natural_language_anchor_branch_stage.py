@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 import sys
 import threading
@@ -881,7 +882,9 @@ def _engine_kwargs(args):
         tokenizer=args.model,
         dtype=getattr(args, "dtype", "bfloat16"),
         tensor_parallel_size=1,
-        gpu_memory_utilization=0.85,
+        gpu_memory_utilization=(
+            0.7 if os.environ.get("MECHET_V100_TORCH_LORA") == "1" else 0.85
+        ),
         max_model_len=args.max_context,
         max_num_seqs=32,
         enable_prefix_caching=True,
@@ -895,6 +898,22 @@ def _engine_kwargs(args):
     )
 
 
+def _configure_v100_torch_lora() -> None:
+    """Avoid Triton LoRA kernels that fail LLVM layout lowering on V100."""
+
+    if os.environ.get("MECHET_V100_TORCH_LORA") != "1":
+        return
+    import torch
+    from vllm.platforms import current_platform
+
+    if not torch.cuda.is_available() or torch.cuda.get_device_capability(0)[0] != 7:
+        raise RuntimeError("the V100 PyTorch LoRA fallback requires compute capability 7.x")
+    current_platform.get_punica_wrapper = lambda: (
+        "vllm.lora.punica_wrapper.punica_cpu.PunicaWrapperCPU"
+    )
+    print("[earho] V100 PyTorch LoRA kernels selected", flush=True)
+
+
 def _collect_sync(args):
     from vllm import LLM, SamplingParams
     from vllm.lora.request import LoRARequest
@@ -902,6 +921,7 @@ def _collect_sync(args):
 
     if vllm.__version__ != "0.8.5":
         raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
+    _configure_v100_torch_lora()
     llm = LLM(**_engine_kwargs(args))
     return _collect_initialized(args, llm, llm.get_tokenizer(), SamplingParams, LoRARequest)
 
@@ -914,6 +934,7 @@ async def _collect_async(args):
 
     if vllm.__version__ != "0.8.5":
         raise ValueError(f"expected vLLM 0.8.5, got {vllm.__version__}")
+    _configure_v100_torch_lora()
     engine = AsyncLLMEngine.from_engine_args(AsyncEngineArgs(**_engine_kwargs(args)))
     try:
         tokenizer = await engine.get_tokenizer()
