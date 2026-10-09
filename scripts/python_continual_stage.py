@@ -177,8 +177,17 @@ def train(args):
         if r["kind"] == "rl" and r.get("ratio_mode", ratio_mode) != ratio_mode:
             raise ValueError("rollout ratio mode does not match optimizer")
     tok = AutoTokenizer.from_pretrained(args.model, local_files_only=True)
-    base = AutoModelForCausalLM.from_pretrained(args.model, torch_dtype=torch.float32 if cpu_smoke else torch.bfloat16,
-            attn_implementation="sdpa", local_files_only=True)
+    train_dtype = str(getattr(args, "dtype", "bfloat16"))
+    if train_dtype not in {"bfloat16", "float16"}:
+        raise ValueError(f"unsupported policy training dtype: {train_dtype}")
+    model_dtype = (
+        torch.float32 if cpu_smoke else
+        torch.float16 if train_dtype == "float16" else torch.bfloat16
+    )
+    base = AutoModelForCausalLM.from_pretrained(
+        args.model, torch_dtype=model_dtype,
+        attn_implementation="sdpa", local_files_only=True,
+    )
     memory_efficient = bool(getattr(args, "memory_efficient_logps", False))
     if memory_efficient:
         from mechet.selected_policy_logps import install_selected_logps_forward
@@ -248,7 +257,10 @@ def train(args):
         training_args = TrainingArguments(output_dir=str(output / phase), num_train_epochs=1,
             per_device_train_batch_size=1, gradient_accumulation_steps=4,
             learning_rate=1e-6 if phase == "ppo" else 3e-6, lr_scheduler_type="constant",
-            logging_steps=1, save_strategy="no", bf16=not cpu_smoke, tf32=not cpu_smoke, use_cpu=cpu_smoke,
+            logging_steps=1, save_strategy="no",
+            bf16=not cpu_smoke and train_dtype == "bfloat16",
+            fp16=not cpu_smoke and train_dtype == "float16",
+            tf32=not cpu_smoke and train_dtype == "bfloat16", use_cpu=cpu_smoke,
             gradient_checkpointing=True, gradient_checkpointing_kwargs={"use_reentrant": False},
             ddp_find_unused_parameters=False, report_to=[], remove_unused_columns=False,
             seed=args.seed, data_seed=args.seed, disable_tqdm=True)

@@ -128,6 +128,50 @@ def test_reliable_earho_critic_uses_same_small_base(tmp_path: Path):
     assert critic["contract"]["reaction_denominator"] == stage3["reaction_denominator"]
 
 
+def test_v100_earho_precision_applies_to_collector_actor_and_critic(monkeypatch, tmp_path: Path):
+    import scripts.run_anchor_branch_rl as anchor_driver
+
+    stage3 = load_yaml("configs/agent/earho_reliable_mechet_qwen3_0_6b.yaml")
+    stage3["rollout"]["dtype"] = "float16"
+    stage3["expected_gpu_regex"] = "V100"
+    command = worker_command(
+        stage3, Path("source.jsonl"), Path("adapter"), Path("rank0.jsonl"),
+        0, frontier=2, round_index=0, evaluation=False,
+    )
+    assert command[command.index("--dtype") + 1] == "float16"
+
+    dataset = tmp_path / "critic_data"
+    dataset.mkdir()
+    (dataset / "manifest.json").write_text(json.dumps({
+        "splits": {"train": {"rows": 12}, "valid": {"rows": 3}},
+    }))
+    critic = yaml.safe_load(_critic_config(
+        stage3, dataset, tmp_path / "critic_output", tmp_path / "parent",
+    ).read_text())
+    assert critic["training"]["fp16"] is True
+    assert critic["training"]["bf16"] is False
+    assert critic["training"]["tf32"] is False
+
+    captured = []
+    monkeypatch.setattr(anchor_driver, "read_rows", lambda _: [{
+        "kind": "rl", "advantage": 1.0,
+    }])
+
+    def fake_run(command, *, check):
+        captured.extend(command)
+        adapter = tmp_path / "actor" / "adapter"
+        adapter.mkdir(parents=True)
+        (adapter / "adapter_model.safetensors").write_bytes(b"test")
+
+    monkeypatch.setattr(anchor_driver.subprocess, "run", fake_run)
+    anchor_driver.run_train(
+        stage3, tmp_path / "rollout.jsonl", tmp_path / "parent",
+        tmp_path / "actor", 17,
+        stage_script="scripts/natural_language_anchor_branch_stage.py",
+    )
+    assert captured[captured.index("--dtype") + 1] == "float16"
+
+
 def test_reliable_earho_prepare_streams_large_source(monkeypatch, tmp_path: Path):
     import scripts.run_earho_v2 as driver
 

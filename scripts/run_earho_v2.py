@@ -496,6 +496,8 @@ def _critic_config(
             liger_kernel_config={}, per_device_train_batch_size=8,
             per_device_eval_batch_size=16,
         )
+        if (cfg.get("rollout") or {}).get("dtype") == "float16":
+            training.update(bf16=False, fp16=True, tf32=False)
     contract = critic["contract"]
     contract.update(
         paper_baseline_id="EARHO-successor-value-v2",

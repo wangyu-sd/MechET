@@ -301,6 +301,10 @@ def run_train(cfg, data, adapter, output, seed, *, stage_script="scripts/anchor_
         "--seed",
         str(seed),
     ]
+    if stage_script == "scripts/natural_language_anchor_branch_stage.py":
+        dtype = (cfg.get("rollout") or {}).get("dtype")
+        if dtype:
+            command.extend(["--dtype", str(dtype)])
     subprocess.run(command, check=True)
     if not (output / "adapter/adapter_model.safetensors").is_file():
         raise RuntimeError("anchor training returned without adapter weights")
