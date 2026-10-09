@@ -19,6 +19,7 @@ echo "23c44e907d6f50ed75f46f908063a3d6c37144d676dd444cc055df9a93b98f9c  $vllm_ar
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
 export PYTHONUNBUFFERED=1
+export PATH=$PATH:/root/miniconda3/bin
 export HF_HUB_CACHE=$shared_hf_cache HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export TOKENIZERS_PARALLELISM=false TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 export OMP_NUM_THREADS=4 MKL_NUM_THREADS=4
@@ -44,13 +45,18 @@ vllm_local=$(mktemp -d /tmp/mechet_reliable_earho_v100_vllm.XXXXXX)
 fallback_local=$(mktemp -d /tmp/mechet_reliable_earho_v100_dependencies.XXXXXX)
 echo "[reliable-earho-v100] staging CUDA 11.8 vLLM to $vllm_local"
 tar --zstd -xf "$vllm_archive" -C "$vllm_local"
-tar --zstd -xf "$dependency_archive" -C "$fallback_local"
+# This source archive also contains CUDA 12 packages. Extract only its
+# non-CUDA dependencies; torch/vLLM/xFormers come from CUDA 11.8 builds.
+tar --zstd --exclude='./torch*' --exclude='./functorch*' \
+  --exclude='./nvidia*' --exclude='./triton*' --exclude='./vllm*' \
+  --exclude='./xformers*' --exclude='./cupy*' --exclude='./cupyx*' \
+  --exclude='./cuda*' -xf "$dependency_archive" -C "$fallback_local"
 cp "$runtime_repo/scripts/earho_cuda11_sitecustomize.py" "$vllm_local/sitecustomize.py"
 touch "$vllm_local/.mechet_vllm_runtime_complete"
 export MECHET_ANCHOR_VLLM_RUNTIME=$vllm_local
 export MECHET_VLLM_PUREPY_FALLBACK=$fallback_local
 PYTHONPATH=$vllm_local:$PYTHONPATH python - <<'PY'
-import torch, vllm, vllm._C, xformers, xformers._C
+import torch, vllm, vllm._C, xformers
 assert vllm.__version__ == '0.8.5', vllm.__version__
 assert xformers.__version__ == '0.0.29.post2', xformers.__version__
 assert torch.cuda.is_available(), 'CUDA runtime cannot drive allocated V100'

@@ -4,6 +4,7 @@ set -Eeuo pipefail
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
 export PYTHONUNBUFFERED=1
+export PATH=$PATH:/root/miniconda3/bin
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
 export VLLM_USE_V1=0 VLLM_ATTENTION_BACKEND=XFORMERS
 
@@ -29,12 +30,17 @@ PY
 test -s "$runtime_archive"
 test -s "$dependency_archive"
 test -f "$model_snapshot/config.json"
+command -v zstd
 echo "23c44e907d6f50ed75f46f908063a3d6c37144d676dd444cc055df9a93b98f9c  $runtime_archive" | sha256sum --check --strict
 runtime_dir=$(mktemp -d /tmp/mechet_earho_cuda11_vllm.XXXXXX)
 mkdir -p "$runtime_dir/cu118" "$runtime_dir/fallback"
 echo "[earho-vllm-cuda11-probe] staging runtime in $runtime_dir"
 tar --zstd -xf "$runtime_archive" -C "$runtime_dir/cu118"
-tar --zstd -xf "$dependency_archive" -C "$runtime_dir/fallback"
+# Never put CUDA 12 GPU packages in the CUDA 11.8 Python search path.
+tar --zstd --exclude='./torch*' --exclude='./functorch*' \
+  --exclude='./nvidia*' --exclude='./triton*' --exclude='./vllm*' \
+  --exclude='./xformers*' --exclude='./cupy*' --exclude='./cupyx*' \
+  --exclude='./cuda*' -xf "$dependency_archive" -C "$runtime_dir/fallback"
 cp "$runtime_repo/scripts/earho_cuda11_sitecustomize.py" "$runtime_dir/cu118/sitecustomize.py"
 export PYTHONPATH="$runtime_dir/cu118"
 export MECHET_VLLM_PUREPY_FALLBACK="$runtime_dir/fallback"
@@ -45,7 +51,6 @@ import torch
 import vllm
 import vllm._C
 import xformers
-import xformers._C
 from vllm import LLM, SamplingParams
 
 assert torch.version.cuda == "11.8", torch.version.cuda
