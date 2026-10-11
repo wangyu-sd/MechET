@@ -1,0 +1,223 @@
+"""Optional CRN-JEPA graph electron moves + frozen Qwen3 control/fragment calls.
+
+This module does not replace or modify the historical MechET executor. Import
+and finish decisions remain Qwen Tool-SFT decisions; ONLY apply_electron_flow
+arguments are provided by the frozen/pretrained CRN-JEPA graph policy.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from hashlib import sha256
+from pathlib import Path
+import sys
+from typing import Any, Mapping, Sequence
+
+GRAPH_PRETRAIN_SHA256 = "bb2f7fe53e87fc0e2438c27065ceb588dcd38e604959c9d69fb3984885a376ee"
+TOOLS = ("import_fragments", "apply_electron_flow", "finish_trace")
+CALL_BEGIN = '<tool_call>\n{"name": "'
+
+
+def file_sha256(path: Path) -> str:
+    digest = sha256()
+    with Path(path).open("rb") as handle:
+        for block in iter(lambda: handle.read(8 * 1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def tool_prefix(name: str) -> str:
+    if name not in TOOLS:
+        raise ValueError(f"not a MechET tool: {name}")
+    return CALL_BEGIN + name + '", "arguments": '
+
+
+def _shared_prefix_length(sequences: Sequence[Sequence[int]]) -> int:
+    if len(sequences) < 2 or any(not row for row in sequences):
+        raise ValueError("missing tokenized tool choices")
+    count = 0
+    for column in zip(*sequences):
+        if len(set(column)) != 1:
+            break
+        count += 1
+    if count == 0 or count >= min(map(len, sequences)):
+        raise ValueError("tool choices lack a discriminative suffix")
+    return count
+
+
+def route_tool_name(model: Any, tokenizer: Any, device: Any, prompt: str) -> tuple[str, dict[str, float]]:
+    """Score Qwen's tool-name continuation, without decoding its FLOW arguments.
+
+    This performs one batched forward call and requests only the last K logits
+    from Qwen3 (logits_to_keep). A tokenizer-level longest common prefix handles
+    different BPE boundaries for import/apply/finish. No labels are used.
+    """
+    import torch
+    import torch.nn.functional as F
+
+    options = [prompt + CALL_BEGIN + name + '"' for name in TOOLS]
+    token_ids = [list(tokenizer.encode(text, add_special_tokens=False)) for text in options]
+    common = _shared_prefix_length(token_ids)
+    prompt_ids = list(tokenizer.encode(prompt, add_special_tokens=False))
+    if common < len(prompt_ids) - 4:
+        raise ValueError("Qwen tool-choice prefix diverged from frozen prompt")
+    if tokenizer.pad_token_id is None:
+        raise ValueError("Qwen pad_token_id is missing")
+
+    max_len = max(map(len, token_ids))
+    keep = max_len - common + 1
+    rows = []
+    masks = []
+    for ids in token_ids:
+        pad = max_len - len(ids)
+        rows.append([tokenizer.pad_token_id] * pad + ids)
+        masks.append([0] * pad + [1] * len(ids))
+
+    input_ids = torch.tensor(rows, device=device, dtype=torch.long)
+    attention_mask = torch.tensor(masks, device=device, dtype=torch.long)
+    with torch.inference_mode():
+        # Qwen3 supports logits_to_keep: never materialize full-context vocab logits.
+        output = model(
+            input_ids=input_ids, attention_mask=attention_mask,
+            logits_to_keep=keep, use_cache=False,
+        )
+        logits = output.logits.float()
+        if logits.shape[1] != keep:
+            raise RuntimeError("Qwen backend did not honor logits_to_keep")
+        scores = {}
+        for i, (name, ids) in enumerate(zip(TOOLS, token_ids, strict=True)):
+            pad = max_len - len(ids)
+            token_indices = list(range(common, len(ids)))
+            positions = torch.tensor(
+                [pad + j - 1 - (max_len - keep) for j in token_indices],
+                device=device, dtype=torch.long,
+            )
+            targets = torch.tensor(
+                [ids[j] for j in token_indices], device=device, dtype=torch.long,
+            )
+            nll = F.cross_entropy(logits[i, positions], targets, reduction="mean")
+            scores[name] = -float(nll.item())
+    return max(TOOLS, key=lambda name: scores[name]), scores
+
+
+@dataclass(frozen=True)
+class GraphFlowCandidate:
+    arguments: dict[str, Any]
+    moves: tuple[dict[str, Any], ...]
+    logprob: float
+
+
+class FrozenCRNGraphPolicy:
+    """Reuse CRN-JEPA PR18 weights, including its already trained FLOW head."""
+
+    def __init__(
+        self, *, root: Path, checkpoint: Path, device: Any,
+        expected_sha256: str = GRAPH_PRETRAIN_SHA256,
+        policy_head_checkpoint: Path | None = None,
+    ) -> None:
+        import torch
+
+        root, checkpoint = Path(root).resolve(), Path(checkpoint).resolve()
+        if not (root / "src/crn_jepa/models/pr18_full_corpus_world.py").is_file():
+            raise FileNotFoundError("CRN-JEPA checkout must contain PR18 model code")
+        if not checkpoint.is_file():
+            raise FileNotFoundError(f"CRN-JEPA weights not found: {checkpoint}")
+        actual = file_sha256(checkpoint)
+        if actual != expected_sha256:
+            raise ValueError(f"CRN-JEPA checkpoint SHA mismatch: {actual}")
+        sys.path.insert(0, str(root / "src"))
+        from crn_jepa.models.pr18_full_corpus_world import DirectionalCRNPretrainFull
+        from crn_jepa.models.grounded_graph import build_grounded_graph
+        from crn_jepa.models.grounded_event_policy import decode_events
+        from crn_jepa.grounded_actions import MechETGroundedInventory
+        from mechet.natural_language_electron_flow import render_event_arguments
+
+        payload = torch.load(checkpoint, map_location="cpu", weights_only=False, mmap=True)
+        config = payload["run_config"]
+        model = DirectionalCRNPretrainFull(
+            hidden_dim=int(config["hidden_dim"]),
+            graph_layers=int(config["graph_layers"]),
+            num_heads=int(config["heads"]),
+        )
+        model.load_state_dict(payload["model"], strict=True)
+        if policy_head_checkpoint:
+            update = torch.load(
+                Path(policy_head_checkpoint), map_location="cpu",
+                weights_only=True,
+            )
+            if update.get("base_checkpoint_sha256") != actual:
+                raise ValueError("RL policy head belongs to a different CRN-JEPA checkpoint")
+            head = dict(update["policy_head"])
+            original = model.policy.state_dict()
+            if not head or any(
+                key not in original or key.startswith("graph_encoder.")
+                or original[key].shape != value.shape
+                for key, value in head.items()
+            ):
+                raise ValueError("RL policy head contains unknown/incompatible tensors")
+            original.update(head)
+            model.policy.load_state_dict(original, strict=True)
+        self.model = model.to(device).eval()
+        self.device = device
+        self.sha256 = actual
+        self._build_graph = build_grounded_graph
+        self._decode = decode_events
+        self._inventory = MechETGroundedInventory
+        self._render = render_event_arguments
+
+    def candidates(
+        self, current_mapped_smiles: str, *, limit: int = 1,
+        beam_size: int = 16, source_width: int = 8,
+        sink_width: int = 8, move_width: int = 16,
+    ) -> tuple[GraphFlowCandidate, ...]:
+        import torch
+        if not 1 <= limit <= 32:
+            raise ValueError("graph top-k must be between 1 and 32")
+        state = current_mapped_smiles
+        with torch.inference_mode():
+            graph = self._build_graph(state, None)  # matches PR18 first-event view
+            inventory = self._inventory(state)
+            choices, _ = self._decode(
+                self.model.policy, graph, inventory,
+                event_depth=0, remaining_budget=1,
+                direction="retrosynthetic_inverse",
+                max_results=limit, beam_size=beam_size,
+                source_width=source_width, sink_width=sink_width,
+                move_width=move_width,
+            )
+        return tuple(
+            GraphFlowCandidate(
+                arguments=self._render(state, tuple(move.to_raw() for move in item.moves)),
+                moves=tuple(move.to_raw() for move in item.moves),
+                logprob=float(item.logprob),
+            )
+            for item in choices
+        )
+
+
+def generate_qwen_import(
+    model: Any, tokenizer: Any, device: Any, prompt: str,
+    *, max_new_tokens: int,
+) -> tuple[dict[str, Any], str, int]:
+    """Generate only the IMPORT arguments, preserving the frozen tool-call schema."""
+    import torch
+    from scripts.eval_natural_language_event_local import prediction_call
+
+    if max_new_tokens < 8:
+        raise ValueError("too few tokens to generate a fragment import")
+    full_prompt = prompt + tool_prefix("import_fragments")
+    ids = tokenizer(full_prompt, return_tensors="pt", add_special_tokens=False)
+    ids = {key: val.to(device) for key, val in ids.items()}
+    with torch.inference_mode():
+        generated = model.generate(
+            **ids, do_sample=False, max_new_tokens=max_new_tokens,
+            pad_token_id=tokenizer.pad_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+        )
+    continuation = generated[0, ids["input_ids"].shape[1]:].tolist()
+    raw = tool_prefix("import_fragments") + tokenizer.decode(
+        continuation, skip_special_tokens=False
+    )
+    name, arguments, error = prediction_call(raw, tokenizer)
+    if error or name != "import_fragments":
+        raise ValueError(f"QWEN_IMPORT_INVALID:{error or name}")
+    return arguments, raw, len(continuation)
