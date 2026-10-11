@@ -106,7 +106,7 @@ def continue_to_terminal(runtime: HybridRuntime, node: Node, args, max_steps: in
     return node if node.terminal else None
 
 
-def train():
+def main():
     import torch
     p = parser()
     p.description = __doc__
@@ -314,4 +314,4 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    main()
