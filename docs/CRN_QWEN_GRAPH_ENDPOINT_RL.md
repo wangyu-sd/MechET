@@ -145,13 +145,21 @@ greedy tool-name decision: on the same frozen 128 validation IDs it yielded
 IMPORT on 126/128. This is a routing-protocol failure, not evidence that the
 graph FLOW model or endpoint RL cannot work.
 
-The opt-in `greedy_name` router instead lets Qwen generate just the quoted
-tool name greedily, then delegates FLOW arguments to the graph model. With
-the same Stage-II history adapter and 128 IDs, this corrected hybrid reached
+The first opt-in `greedy_name` router generated the quoted tool name, then
+started a second Qwen generation for IMPORT arguments. With the same Stage-II
+history adapter and 128 IDs, this pilot hybrid reached
 46/128 structural endpoints and 114/128 terminal episodes; pure Qwen remained
 47/128. Paired counts were 38 both-correct, 8 hybrid-only and 9 Qwen-only.
-This establishes comparable pilot performance, not a gain. The historical
-prefix-NLL route remains available only as a labeled diagnostic ablation.
+However, the first IMPORT arguments differed from the pure-Qwen run on 17/128
+cases. Thus the 46-vs-47 comparison is **not** a graph-only intervention and
+does not establish an endpoint gain or loss attributable to the graph head.
+The runtime now generates IMPORT arguments to EOS in the same greedy Qwen call
+that selected IMPORT, while stopping FLOW immediately after its name. A real
+Qwen3-0.6B + adapter token-level local check found identical full-call and
+single-call IMPORT tokens on one divergent pilot ID (`val_201`); this is not
+yet a rerun of the 128 cases. The new run contract uses
+`single_generate_to_eos_v2` and cannot resume the older two-pass artifacts.
+The historical prefix-NLL route remains only a labeled diagnostic ablation.
 
 The train-only 64-anchor graph-head RL task was stopped at user request before
 it wrote a training report or policy-head checkpoint. Consequently, there is

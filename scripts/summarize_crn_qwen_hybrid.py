@@ -34,6 +34,7 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
 
     seen: set[str] = set()
     hybrid_hits: dict[str, bool] = {}
+    hybrid_first_calls: dict[str, str] = {}
     exact = 0
     terminal = 0
     rejected: dict[str, int] = {}
@@ -56,6 +57,11 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
                 seen.add(identifier)
                 hit = bool(result["top1_structural_exact"])
                 hybrid_hits[identifier] = hit
+                if result.get("attempts"):
+                    first = result["attempts"][0]
+                    hybrid_first_calls[identifier] = json.dumps(
+                        [first["name"], first["arguments"]], sort_keys=True,
+                    )
                 exact += hit
                 terminal += bool(result["top_terminal"])
                 for code, count in result.get("rejected", {}).items():
@@ -76,6 +82,7 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
     }
     if baseline is not None:
         baseline_hits: dict[str, bool] = {}
+        baseline_first_calls: dict[str, str] = {}
         for rank in range(world):
             path = baseline / f"results.shard-{rank:02d}-of-{world:02d}.jsonl"
             with path.open(encoding="utf-8") as handle:
@@ -85,6 +92,11 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
                     if identifier not in ids or identifier in baseline_hits or expected_rank[identifier] != rank:
                         raise ValueError(f"baseline has duplicate, wrong-shard or non-source ID: {identifier}")
                     baseline_hits[identifier] = bool(row["top1_structural_exact"])
+                    if row.get("attempts"):
+                        first = row["attempts"][0]
+                        baseline_first_calls[identifier] = json.dumps(
+                            [first["name"], first["arguments"]], sort_keys=True,
+                        )
         if set(baseline_hits) != ids:
             raise ValueError("baseline and hybrid do not cover identical frozen IDs")
         report["paired_baseline"] = {
@@ -94,6 +106,13 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
             "baseline_only_correct": sum(baseline_hits[key] and not hybrid_hits[key] for key in ids),
             "both_correct": sum(hybrid_hits[key] and baseline_hits[key] for key in ids),
         }
+        if len(hybrid_first_calls) == len(baseline_first_calls) == len(ids):
+            different = sorted(
+                key for key in ids
+                if hybrid_first_calls[key] != baseline_first_calls[key]
+            )
+            report["paired_baseline"]["first_call_identical"] = len(ids) - len(different)
+            report["paired_baseline"]["first_call_different_ids"] = different
     if official_denominator is not None:
         if official_denominator < sample_reactions:
             raise ValueError("official denominator cannot be smaller than strict denominator")

@@ -33,12 +33,18 @@ def test_all_shards_and_official_unsupported_denominator() -> None:
             (root / f"results.shard-{rank:02d}-of-02.jsonl").write_text(
                 "".join(json.dumps({"id": row["id"],
                                     "top1_structural_exact": row["id"] == "test_0",
-                                    "top_terminal": True, "rejected": {}}) + "\n"
+                                    "top_terminal": True, "rejected": {},
+                                    "attempts": [{"name": "import_fragments",
+                                                  "arguments": {"fragment": row["id"]}}]}) + "\n"
                         for row in selected)
             )
             (baseline / f"results.shard-{rank:02d}-of-02.jsonl").write_text(
                 "".join(json.dumps({"id": row["id"],
-                                    "top1_structural_exact": row["id"] == "test_1"}) + "\n"
+                                    "top1_structural_exact": row["id"] == "test_1",
+                                    "attempts": [{"name": "import_fragments",
+                                                  "arguments": {"fragment": (
+                                                      "other" if row["id"] == "test_2"
+                                                      else row["id"])}}]}) + "\n"
                         for row in selected)
             )
         report = aggregate(source=source, output=root, sample_reactions=5,
@@ -50,6 +56,8 @@ def test_all_shards_and_official_unsupported_denominator() -> None:
         assert report["top1_structural_rate_official_with_unsupported_failures"] == 1 / 9
         assert report["paired_baseline"]["baseline_only_correct"] == 1
         assert report["paired_baseline"]["hybrid_only_correct"] == 1
+        assert report["paired_baseline"]["first_call_identical"] == 4
+        assert report["paired_baseline"]["first_call_different_ids"] == ["test_2"]
         (root / "results.shard-01-of-02.jsonl").write_text("")
         with pytest.raises(ValueError, match="incomplete evaluation"):
             aggregate(source=source, output=root, sample_reactions=5,

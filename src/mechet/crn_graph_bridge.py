@@ -106,17 +106,21 @@ class GreedyToolRoute:
     name: str
     token_ids: tuple[int, ...]
     logprob: float
+    import_arguments: dict[str, Any] | None = None
+    raw: str = ""
+    name_tokens: int = 0
 
 
 def route_tool_name_greedy(
     model: Any, tokenizer: Any, device: Any, prompt: str,
     *, max_route_tokens: int = 64,
 ) -> GreedyToolRoute:
-    """Read the *actual* greedy tool name, stopping before argument generation.
+    """Read the actual greedy tool name; finish IMPORT in the same generation.
 
     Unlike independently scored tool-name suffixes, this has the same prompt
     and greedy token trajectory as the historical K=1 Qwen full-call decoder.
-    No reference label or candidate tool name is inserted into the prompt.
+    FLOW/FINISH stop immediately after the name; IMPORT continues to EOS so
+    no second prefill can alter fragment generation. No reference is inserted.
     """
     import torch
     from transformers import StoppingCriteria, StoppingCriteriaList
@@ -128,15 +132,19 @@ def route_tool_name_greedy(
     class StopAfterToolName(StoppingCriteria):
         def __init__(self):
             self.name = ""
+            self.name_tokens = 0
 
         def __call__(self, input_ids, scores, **kwargs):
+            if self.name == "import_fragments":
+                return False
             continuation = tokenizer.decode(
                 input_ids[0, prompt_length:].tolist(), skip_special_tokens=False,
             )
             match = TOOL_NAME_PATTERN.search(continuation)
             if match:
                 self.name = match.group(1)
-                return True
+                self.name_tokens = input_ids.shape[1] - prompt_length
+                return self.name != "import_fragments"
             return False
 
     stopper = StopAfterToolName()
@@ -154,9 +162,19 @@ def route_tool_name_greedy(
     scores = model.compute_transition_scores(
         generated.sequences, generated.scores, normalize_logits=True,
     )
+    raw = tokenizer.decode(continuation, skip_special_tokens=False)
+    import_arguments = None
+    if stopper.name == "import_fragments":
+        from scripts.eval_natural_language_event_local import prediction_call
+
+        name, import_arguments, error = prediction_call(raw, tokenizer)
+        if error or name != "import_fragments":
+            raise ValueError(f"QWEN_IMPORT_INVALID:{error or name}")
     return GreedyToolRoute(
         name=stopper.name, token_ids=continuation,
-        logprob=float(scores[0].sum().item()),
+        logprob=float(scores[0, :stopper.name_tokens].sum().item()),
+        import_arguments=import_arguments, raw=raw,
+        name_tokens=stopper.name_tokens,
     )
 
 
@@ -289,38 +307,6 @@ def generate_qwen_import(
     raw = tool_prefix("import_fragments") + tokenizer.decode(
         continuation, skip_special_tokens=False
     )
-    name, arguments, error = prediction_call(raw, tokenizer)
-    if error or name != "import_fragments":
-        raise ValueError(f"QWEN_IMPORT_INVALID:{error or name}")
-    return arguments, raw, len(continuation)
-
-
-def complete_greedy_qwen_import(
-    model: Any, tokenizer: Any, device: Any, prompt: str,
-    route: GreedyToolRoute, *, max_new_tokens: int,
-) -> tuple[dict[str, Any], str, int]:
-    """Continue the same greedy call after its observed IMPORT tool name."""
-    import torch
-    from scripts.eval_natural_language_event_local import prediction_call
-
-    if route.name != "import_fragments" or len(route.token_ids) >= max_new_tokens:
-        raise ValueError("invalid or exhausted greedy IMPORT route")
-    prefix = tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
-    prefix = {key: value.to(device) for key, value in prefix.items()}
-    input_ids = torch.cat([
-        prefix["input_ids"],
-        torch.tensor([route.token_ids], dtype=torch.long, device=device),
-    ], dim=1)
-    attention_mask = torch.ones_like(input_ids)
-    with torch.inference_mode():
-        generated = model.generate(
-            input_ids=input_ids, attention_mask=attention_mask,
-            do_sample=False, max_new_tokens=max_new_tokens - len(route.token_ids),
-            pad_token_id=tokenizer.pad_token_id,
-            eos_token_id=tokenizer.eos_token_id,
-        )
-    continuation = generated[0, prefix["input_ids"].shape[1]:].tolist()
-    raw = tokenizer.decode(continuation, skip_special_tokens=False)
     name, arguments, error = prediction_call(raw, tokenizer)
     if error or name != "import_fragments":
         raise ValueError(f"QWEN_IMPORT_INVALID:{error or name}")

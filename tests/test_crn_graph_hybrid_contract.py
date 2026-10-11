@@ -33,6 +33,59 @@ success_gated_advantages = rl.success_gated_advantages
 
 
 class HybridContracts(unittest.TestCase):
+    def test_greedy_controller_keeps_import_in_one_generation(self):
+        import torch
+
+        class CharacterTokenizer:
+            pad_token_id = 0
+            eos_token_id = 1
+
+            def __call__(self, text, **kwargs):
+                return {"input_ids": torch.tensor([[ord(char) for char in text]]),
+                        "attention_mask": torch.ones((1, len(text)), dtype=torch.long)}
+
+            def decode(self, ids, **kwargs):
+                return "".join(chr(token) for token in ids)
+
+        class GreedyModel:
+            def __init__(self, response):
+                self.response = response
+                self.calls = 0
+
+            def generate(self, input_ids, stopping_criteria, max_new_tokens, **kwargs):
+                self.calls += 1
+                sequence = input_ids.clone()
+                scores = []
+                for char in self.response[:max_new_tokens]:
+                    sequence = torch.cat((sequence, torch.tensor([[ord(char)]])), dim=1)
+                    scores.append(torch.zeros((1, 1)))
+                    if any(stop(sequence, scores) for stop in stopping_criteria):
+                        break
+                return type("Generation", (), {"sequences": sequence, "scores": scores})()
+
+            def compute_transition_scores(self, sequences, scores, **kwargs):
+                return torch.full((1, len(scores)), -0.1)
+
+        tokenizer = CharacterTokenizer()
+        import_text = '<tool_call>\n{"name": "import_fragments", "arguments": {"fragments": [{"smiles": "O", "count": 1}]}}</tool_call>'
+        model = GreedyModel(import_text)
+        decision = bridge.route_tool_name_greedy(
+            model, tokenizer, "cpu", "prompt", max_route_tokens=256,
+        )
+        self.assertEqual(model.calls, 1)
+        self.assertEqual(decision.raw, import_text)
+        self.assertEqual(decision.import_arguments["fragments"][0]["smiles"], "O")
+        self.assertLess(decision.name_tokens, len(decision.token_ids))
+
+        model = GreedyModel('<tool_call>\n{"name": "apply_electron_flow", "arguments": {"bad": true}}</tool_call>')
+        decision = bridge.route_tool_name_greedy(
+            model, tokenizer, "cpu", "prompt", max_route_tokens=256,
+        )
+        self.assertEqual(model.calls, 1)
+        self.assertEqual(decision.name, "apply_electron_flow")
+        self.assertNotIn("arguments", decision.raw)
+        self.assertIsNone(decision.import_arguments)
+
     def test_rl_cli_inherits_single_source_sha_option(self):
         command = [sys.executable,
                    str(Path(__file__).resolve().parents[1] / "scripts" /

@@ -21,7 +21,7 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
 from mechet.crn_graph_bridge import (
     FrozenCRNGraphPolicy, GRAPH_PRETRAIN_SHA256, file_sha256,
-    complete_greedy_qwen_import, generate_qwen_import,
+    generate_qwen_import,
     graph_event_coordinates, route_tool_name, route_tool_name_greedy,
 )
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
@@ -59,7 +59,8 @@ class HybridRuntime(Runtime):
             )},
         ]
         prompt = render_qwen_sft_tool_prefix(self.tokenizer, messages, tools=TOOLS)
-        if len(self.tokenizer.encode(prompt, add_special_tokens=False)) >= self.args.max_context:
+        prompt_tokens = len(self.tokenizer.encode(prompt, add_special_tokens=False))
+        if prompt_tokens + max_new_tokens > self.args.max_context:
             self.last_proposal_error = "CONTEXT_BUDGET_EXCEEDED"
             return []
         t = time.perf_counter()
@@ -68,18 +69,26 @@ class HybridRuntime(Runtime):
             if self.args.tool_route == "greedy_name":
                 route = route_tool_name_greedy(
                     self.model, self.tokenizer, self.device, prompt,
+                    max_route_tokens=max_new_tokens,
                 )
                 kind, tool_score = route.name, route.logprob
-                self.counts["qwen_route_tokens"] += len(route.token_ids)
+                self.counts["qwen_route_tokens"] += route.name_tokens
             else:
                 kind, logits = route_tool_name(
                     self.model, self.tokenizer, self.device, prompt,
                 )
                 tool_score = float(logits[kind])
         except (ValueError, RuntimeError) as exc:
-            self.last_proposal_error = f"QWEN_ROUTE_ERROR:{exc}"
+            self.last_proposal_error = (
+                str(exc) if str(exc).startswith("QWEN_IMPORT_INVALID:")
+                else f"QWEN_ROUTE_ERROR:{exc}"
+            )
             return []
-        self.timing["qwen_route_seconds"] += time.perf_counter() - t
+        route_elapsed = time.perf_counter() - t
+        if route is not None and kind == "import_fragments":
+            self.timing["qwen_import_seconds"] += route_elapsed
+        else:
+            self.timing["qwen_route_seconds"] += route_elapsed
         self.counts["qwen_routes"] += 1
 
         if kind == "finish_trace":
@@ -88,27 +97,24 @@ class HybridRuntime(Runtime):
                 logprob=tool_score, tokens=1,
             )]
         if kind == "import_fragments":
-            if len(self.tokenizer.encode(prompt, add_special_tokens=False)) + max_new_tokens > self.args.max_context:
-                self.last_proposal_error = "IMPORT_CONTEXT_BUDGET_EXCEEDED"
-                return []
-            t = time.perf_counter()
-            try:
-                if route is not None:
-                    args, raw, tokens = complete_greedy_qwen_import(
-                        self.model, self.tokenizer, self.device, prompt,
-                        route, max_new_tokens=max_new_tokens,
-                    )
-                else:
+            if route is not None:
+                if route.import_arguments is None:
+                    self.last_proposal_error = "QWEN_IMPORT_MISSING_ARGUMENTS"
+                    return []
+                args, raw, tokens = route.import_arguments, route.raw, len(route.token_ids)
+            else:
+                t = time.perf_counter()
+                try:
                     args, raw, tokens = generate_qwen_import(
                         self.model, self.tokenizer, self.device, prompt,
                         max_new_tokens=max_new_tokens,
                     )
-            except (ValueError, RuntimeError) as exc:
-                self.last_proposal_error = str(exc)
-                return []
-            finally:
-                self.timing["qwen_import_seconds"] += time.perf_counter() - t
-                self.counts["qwen_import_calls"] += 1
+                except (ValueError, RuntimeError) as exc:
+                    self.last_proposal_error = str(exc)
+                    return []
+                finally:
+                    self.timing["qwen_import_seconds"] += time.perf_counter() - t
+            self.counts["qwen_import_calls"] += 1
             return [Action(name=kind, arguments=args, raw=raw,
                            logprob=tool_score, tokens=max(1, tokens))]
 
@@ -271,6 +277,7 @@ def main() -> int:
         "graph_flow_topk": args.graph_flow_topk,
         "graph_initial_budget": args.graph_initial_budget,
         "tool_route": args.tool_route,
+        "greedy_import_decode": "single_generate_to_eos_v2",
         "graph_beam": args.graph_beam, "graph_source_width": args.graph_source_width,
         "graph_sink_width": args.graph_sink_width, "graph_move_width": args.graph_move_width,
         "max_import_tokens": args.max_import_tokens,
@@ -299,7 +306,7 @@ def main() -> int:
             if str(row["id"]) in done:
                 continue
             result = rollout(runtime, row, args)
-            result["policy"] = "crn_jepa_qwen_routed_flow_v1"
+            result["policy"] = "crn_jepa_qwen_routed_flow_singlepass_import_v2"
             result["graph_checkpoint_sha256"] = runtime.graph.sha256
             result["qwen_adapter_sha256"] = qwen_adapter_sha
             successful += bool(result["top1_structural_exact"])
@@ -318,7 +325,7 @@ def main() -> int:
         with output.open(encoding="utf-8") as handle:
             successful = sum(bool(json.loads(line)["top1_structural_exact"]) for line in handle)
     report = {
-        "protocol": "opt_in_crn_jepa_qwen_routed_flow_v1",
+        "protocol": "opt_in_crn_jepa_qwen_routed_flow_singlepass_import_v2",
         "scope": "selected_source_rows; aggregate all shards before benchmark reporting",
         "rank": rank, "world": world, "global_selected": len(rows),
         "evaluated": len(selected), "top1_exact": successful,
@@ -334,8 +341,8 @@ def main() -> int:
         "graph_flow_topk": args.graph_flow_topk,
         "graph_initial_budget": args.graph_initial_budget,
         "tool_route": args.tool_route,
-        "note": ("greedy_name preserves full-call greedy tool choice while truncating FLOW arguments; "
-                 "prefix_nll is a separate diagnostic routing ablation."),
+        "note": ("greedy_name generates IMPORT to EOS in one Qwen call and truncates FLOW "
+                 "immediately after the tool name; prefix_nll is a diagnostic ablation."),
     }
     (args.output / f"summary.shard-{rank:02d}-of-{world:02d}.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8",

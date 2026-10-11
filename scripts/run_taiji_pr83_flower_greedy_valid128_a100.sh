@@ -10,11 +10,11 @@ CRN_ROOT=/aaa/fionafyang/buddy1/whaleywang/CRN-JEPA-pr18
 MODE=${1:-pre}
 case "$MODE" in
   pre)
-    OUTPUT="$MECHET_DATA/outputs/eval/pr83_crn_qwen_flow_valid128_stage2_greedy_20261011"
+    OUTPUT="$MECHET_DATA/outputs/eval/pr83_crn_qwen_flow_valid128_stage2_singlepass_20261012"
     GRAPH_HEAD_ARGS=()
     ;;
   post)
-    OUTPUT="$MECHET_DATA/outputs/eval/pr83_crn_qwen_flow_valid128_stage2_graph_rl64_20261011"
+    OUTPUT="$MECHET_DATA/outputs/eval/pr83_crn_qwen_flow_valid128_stage2_singlepass_graph_rl64_20261012"
     HEAD="$MECHET_DATA/outputs/agent/pr83_crn_graph_endpoint_rl_flower_train64_20261011/graph_endpoint_rl_head.pt"
     REPORT="$MECHET_DATA/outputs/agent/pr83_crn_graph_endpoint_rl_flower_train64_20261011/train_report.json"
     [[ -s "$HEAD" ]] || { echo "verified graph RL head is missing: $HEAD" >&2; exit 2; }
