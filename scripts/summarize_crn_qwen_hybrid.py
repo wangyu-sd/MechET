@@ -17,7 +17,9 @@ from scripts.run_natural_language_value_search import read_selected
 
 def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
               world: int, source_sha256: str, official_denominator: int | None = None,
-              baseline: Path | None = None) -> dict:
+              baseline: Path | None = None,
+              official_source: Path | None = None,
+              official_source_sha256: str | None = None) -> dict:
     if world < 1 or sample_reactions < 1:
         raise ValueError("invalid aggregation size")
     if file_sha256(source) != source_sha256:
@@ -101,6 +103,41 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
             "top1_structural_rate_official_with_unsupported_failures": exact / official_denominator,
             "note": "The unsupported upstream-corrupt rows are retained as failures, not graph predictions.",
         })
+    if official_source is not None:
+        if official_denominator is None or not official_source_sha256:
+            raise ValueError("official source requires its complete denominator and SHA-256")
+        if file_sha256(official_source) != official_source_sha256:
+            raise ValueError("official source SHA-256 mismatch")
+        official_rows: dict[str, dict] = {}
+        with official_source.open(encoding="utf-8") as handle:
+            for line in handle:
+                row = json.loads(line)
+                source_id = str(row["source_id"])
+                if source_id in official_rows:
+                    raise ValueError(f"duplicate official source ID: {source_id}")
+                official_rows[source_id] = row
+        if len(official_rows) != official_denominator:
+            raise ValueError("official source row count differs from frozen denominator")
+        strict_source_ids: set[str] = set()
+        prefix = "flower_mech_proof_test_"
+        for row in selected:
+            source_id = str(row["source_id"])
+            if not source_id.startswith(prefix):
+                raise ValueError(f"strict test source ID has unexpected lineage: {source_id}")
+            strict_source_ids.add(source_id[len(prefix):])
+        if len(strict_source_ids) != sample_reactions or not strict_source_ids <= official_rows.keys():
+            raise ValueError("strict test IDs do not map one-to-one into official test IDs")
+        unsupported = sorted(set(official_rows) - strict_source_ids)
+        if unsupported != ["PC", "PM", "RC", "RS"]:
+            raise ValueError(f"unexpected official rows outside strict graph coverage: {unsupported}")
+        report["official_source_sha256"] = official_source_sha256
+        report["official_unsupported_source_ids"] = unsupported
+        report["official_unsupported_records"] = [
+            {"id": str(official_rows[source_id]["id"]), "source_id": source_id,
+             "top1_structural_exact": False, "top_terminal": False,
+             "status": "UPSTREAM_NONCONSERVING_ENDPOINT_GRAPH_UNSUPPORTED"}
+            for source_id in unsupported
+        ]
     return report
 
 
@@ -115,6 +152,9 @@ def main() -> int:
     parser.add_argument("--official-denominator", type=int)
     parser.add_argument("--baseline", type=Path,
                         help="matched pure-Qwen sharded results for a paired comparison")
+    parser.add_argument("--official-source", type=Path,
+                        help="official 28,971-row endpoint test for explicit four-row coverage")
+    parser.add_argument("--official-source-sha256")
     args = parser.parse_args()
     report = aggregate(
         source=args.source, output=args.output,
@@ -122,7 +162,15 @@ def main() -> int:
         world=args.world, source_sha256=args.source_sha256,
         official_denominator=args.official_denominator,
         baseline=args.baseline,
+        official_source=args.official_source,
+        official_source_sha256=args.official_source_sha256,
     )
+    unsupported_records = report.pop("official_unsupported_records", [])
+    if args.official_source is not None:
+        (args.output / "official_unsupported_rows.jsonl").write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in unsupported_records),
+            encoding="utf-8",
+        )
     path = args.output / "summary.all-shards.json"
     path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False), flush=True)

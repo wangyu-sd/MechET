@@ -136,6 +136,32 @@ improvement from oracle-state Event@K.
 - Full benchmark: 28,971 FlowER endpoint rows vs 28,967 strict-process rows;
   these denominators are never interchangeable.
 
+## 2026-10-11 product-start pilot status
+
+The original prefix-NLL router in this PR was not equivalent to the Qwen
+greedy tool-name decision: on the same frozen 128 validation IDs it yielded
+0/128 structural endpoints, whereas pure Qwen yielded 47/128. In that run,
+125/128 first calls selected FLOW even though the reference first call was
+IMPORT on 126/128. This is a routing-protocol failure, not evidence that the
+graph FLOW model or endpoint RL cannot work.
+
+The opt-in `greedy_name` router instead lets Qwen generate just the quoted
+tool name greedily, then delegates FLOW arguments to the graph model. With
+the same Stage-II history adapter and 128 IDs, this corrected hybrid reached
+46/128 structural endpoints and 114/128 terminal episodes; pure Qwen remained
+47/128. Paired counts were 38 both-correct, 8 hybrid-only and 9 Qwen-only.
+This establishes comparable pilot performance, not a gain. The historical
+prefix-NLL route remains available only as a labeled diagnostic ablation.
+
+The train-only 64-anchor graph-head RL task was stopped at user request before
+it wrote a training report or policy-head checkpoint. Consequently, there is
+**no post-RL validation or full-test result** for this hybrid. Do not report
+the stopped job as a completed RL run or submit the prepared post-RL evaluator
+without a new verified head and positive effective RL groups. The full-test
+runner is prepared but unexecuted; it audits all 28,967 strict test rows and
+explicitly records the four unsupported official endpoint rows in the 28,971
+official denominator.
+
 ## Limitations of this PR
 
 This PR is a separately importable, opt-in code path. The large private

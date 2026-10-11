@@ -54,3 +54,41 @@ def test_all_shards_and_official_unsupported_denominator() -> None:
         with pytest.raises(ValueError, match="incomplete evaluation"):
             aggregate(source=source, output=root, sample_reactions=5,
                       seed=17, world=2, source_sha256=digest)
+
+
+def test_official_four_rows_are_explicitly_accounted_for() -> None:
+    with TemporaryDirectory() as directory:
+        root = Path(directory)
+        strict = root / "strict_test.jsonl"
+        strict_rows = [
+            {"id": f"strict_{i}", "source_id": f"flower_mech_proof_test_{i}"}
+            for i in range(1, 6)
+        ]
+        strict.write_text("".join(json.dumps(row) + "\n" for row in strict_rows))
+        official = root / "official_test.jsonl"
+        official_rows = [
+            {"id": f"official_{i}", "source_id": str(i)} for i in range(1, 6)
+        ] + [
+            {"id": f"official_{name}", "source_id": name}
+            for name in ("PC", "PM", "RC", "RS")
+        ]
+        official.write_text("".join(json.dumps(row) + "\n" for row in official_rows))
+        for rank in range(2):
+            (root / f"contract.shard-{rank:02d}-of-02.json").write_text(json.dumps({
+                "source": str(strict.resolve()), "sample_reactions": 5,
+                "seed": 17, "rank": rank, "world": 2,
+                "source_sha256": file_sha256(strict),
+            }))
+            selected = read_selected(strict, 5, 17)[rank::2]
+            (root / f"results.shard-{rank:02d}-of-02.jsonl").write_text(
+                "".join(json.dumps({"id": row["id"], "top1_structural_exact": False,
+                                    "top_terminal": False, "rejected": {}}) + "\n"
+                        for row in selected)
+            )
+        report = aggregate(
+            source=strict, output=root, sample_reactions=5, seed=17, world=2,
+            source_sha256=file_sha256(strict), official_denominator=9,
+            official_source=official, official_source_sha256=file_sha256(official),
+        )
+        assert report["official_unsupported_source_ids"] == ["PC", "PM", "RC", "RS"]
+        assert len(report["official_unsupported_records"]) == 4
