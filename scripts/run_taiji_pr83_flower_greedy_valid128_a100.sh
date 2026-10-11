@@ -7,7 +7,26 @@ conda activate meteor
 MECHET_PR83=/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy
 MECHET_DATA=/aaa/fionafyang/buddy1/whaleywang/MechET
 CRN_ROOT=/aaa/fionafyang/buddy1/whaleywang/CRN-JEPA-pr18
-OUTPUT="$MECHET_DATA/outputs/eval/pr83_crn_qwen_flow_valid128_stage2_greedy_20261011"
+MODE=${1:-pre}
+case "$MODE" in
+  pre)
+    OUTPUT="$MECHET_DATA/outputs/eval/pr83_crn_qwen_flow_valid128_stage2_greedy_20261011"
+    GRAPH_HEAD_ARGS=()
+    ;;
+  post)
+    OUTPUT="$MECHET_DATA/outputs/eval/pr83_crn_qwen_flow_valid128_stage2_graph_rl64_20261011"
+    HEAD="$MECHET_DATA/outputs/agent/pr83_crn_graph_endpoint_rl_flower_train64_20261011/graph_endpoint_rl_head.pt"
+    REPORT="$MECHET_DATA/outputs/agent/pr83_crn_graph_endpoint_rl_flower_train64_20261011/train_report.json"
+    [[ -s "$HEAD" ]] || { echo "verified graph RL head is missing: $HEAD" >&2; exit 2; }
+    [[ -s "$REPORT" ]] || { echo "graph RL training report is missing: $REPORT" >&2; exit 2; }
+    jq -e '.effective_rl_updates > 0' "$REPORT" >/dev/null || {
+      echo 'graph head has no effective endpoint-RL groups; do not label it RL' >&2; exit 2;
+    }
+    echo "$(jq -r '.graph_rl_head_sha256' "$REPORT")  $HEAD" | sha256sum --check --strict
+    GRAPH_HEAD_ARGS=(--graph-rl-head "$HEAD")
+    ;;
+  *) echo "usage: $0 [pre|post]" >&2; exit 2 ;;
+esac
 BASELINE="$MECHET_DATA/outputs/eval/pr83_crn_qwen_flow_valid128_stage2_20261011/pure_qwen"
 ADAPTER="$MECHET_DATA/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17"
 SOURCE="$MECHET_DATA/data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl"
@@ -47,6 +66,7 @@ python -m torch.distributed.run --standalone --nproc_per_node=8 \
   --model-revision c1899de289a04d12100db370d81485cdf75e47ca \
   --policy-adapter "$ADAPTER" --compact-history \
   --crn-root "$CRN_ROOT" --graph-checkpoint "$GRAPH" --graph-sha256 "$GRAPH_SHA" \
+  "${GRAPH_HEAD_ARGS[@]}" \
   --tool-route greedy_name --graph-initial-budget 4 \
   --graph-flow-topk 1 --max-import-tokens 384 \
   --max-decisions 40 --max-imports 32 --max-context 4096
@@ -55,4 +75,4 @@ python scripts/summarize_crn_qwen_hybrid.py \
   --source "$SOURCE" --source-sha256 "$SOURCE_SHA" \
   --output "$OUTPUT/hybrid_pre_rl" --sample-reactions 128 --seed 17 --world 8 \
   --baseline "$BASELINE"
-echo '[meteor-pr83-greedy] paired valid128 complete'
+echo "[meteor-pr83-greedy] paired valid128 mode=$MODE complete"

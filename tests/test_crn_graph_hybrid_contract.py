@@ -4,6 +4,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 import json
+import subprocess
 import unittest
 
 import importlib.util
@@ -32,6 +33,14 @@ success_gated_advantages = rl.success_gated_advantages
 
 
 class HybridContracts(unittest.TestCase):
+    def test_rl_cli_inherits_single_source_sha_option(self):
+        command = [sys.executable,
+                   str(Path(__file__).resolve().parents[1] / "scripts" /
+                       "train_crn_graph_endpoint_rl.py"), "--help"]
+        completed = subprocess.run(command, capture_output=True, text=True)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--source-sha256 SOURCE_SHA256", completed.stdout)
+
     def test_tool_scope(self):
         self.assertEqual(
             TOOLS, ("import_fragments", "apply_electron_flow", "finish_trace")

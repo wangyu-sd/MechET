@@ -107,10 +107,8 @@ def continue_to_terminal(runtime: HybridRuntime, node: Node, args, max_steps: in
 
 
 def main():
-    import torch
     p = parser()
     p.description = __doc__
-    p.add_argument("--source-sha256", required=True)
     p.add_argument("--rl-updates", type=int, default=64)
     p.add_argument("--slate", type=int, default=8)
     p.add_argument("--temperature", type=float, default=1.0)
@@ -118,12 +116,15 @@ def main():
     p.add_argument("--learning-rate", type=float, default=5e-6)
     p.add_argument("--reference-weight", type=float, default=0.1)
     args = prepare_args(p.parse_args())
+    import torch
     sys.path.insert(0, str((args.crn_root / "src").resolve()))
     from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
     from crn_jepa.models.grounded_graph import build_grounded_graph
     from crn_jepa.models.pr18_full_corpus_objectives import teacher_forced_from_tokens
     if args.data.name != "train.jsonl" or "test" in str(args.data).lower():
         raise ValueError("endpoint RL only accepts an authenticated train.jsonl")
+    if not args.source_sha256:
+        raise ValueError("endpoint RL requires a pinned train source SHA-256")
     observed_sha = file_sha256(args.data)
     if observed_sha != args.source_sha256:
         raise ValueError("training source SHA-256 mismatch")
