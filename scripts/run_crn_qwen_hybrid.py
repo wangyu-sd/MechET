@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from pathlib import Path
 import sys
 import time
@@ -49,8 +48,6 @@ class HybridRuntime(Runtime):
         if candidates != 1 or planning_sample:
             raise ValueError("hybrid v1 uses greedy controller and one routing decision")
         self.last_proposal_error = ""
-        from scripts.run_natural_language_value_search import visible
-
         messages = [
             {"role": "system", "content": SYSTEM},
             {"role": "user", "content": policy_prompt(
@@ -197,12 +194,13 @@ def main() -> int:
     output = args.output / "results.shard-00-of-01.jsonl"
     started = time.perf_counter()
     successful = 0
+    qwen_adapter_sha = file_sha256(args.policy_adapter / "adapter_model.safetensors")
     with output.open("w", encoding="utf-8") as handle:
         for row in rows:
             result = rollout(runtime, row, args)
             result["policy"] = "crn_jepa_qwen_routed_flow_v1"
             result["graph_checkpoint_sha256"] = runtime.graph.sha256
-            result["qwen_adapter_sha256"] = file_sha256(args.policy_adapter / "adapter_model.safetensors")
+            result["qwen_adapter_sha256"] = qwen_adapter_sha
             successful += bool(result["top1_structural_exact"])
             handle.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
             handle.flush()
@@ -215,7 +213,7 @@ def main() -> int:
         "seconds_per_reaction": elapsed / len(rows),
         "timing": runtime.timing, "calls": runtime.counts,
         "qwen_model": args.model, "qwen_revision": args.model_revision,
-        "qwen_adapter_sha256": file_sha256(args.policy_adapter / "adapter_model.safetensors"),
+        "qwen_adapter_sha256": qwen_adapter_sha,
         "graph_sha256": runtime.graph.sha256,
         "graph_rl_head": str(args.graph_rl_head) if args.graph_rl_head else None,
         "graph_flow_topk": args.graph_flow_topk,
