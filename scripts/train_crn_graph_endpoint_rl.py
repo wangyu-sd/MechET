@@ -308,9 +308,21 @@ def main():
         if not key.startswith("graph_encoder.")
     }
     checkpoint_path = args.output / "graph_endpoint_rl_head.pt"
+    controller = {
+        "tool_route": args.tool_route,
+        "greedy_import_decode": "single_generate_to_eos_v2",
+        "compact_history": args.compact_history,
+        "graph_initial_budget": args.graph_initial_budget,
+        "graph_flow_topk": args.graph_flow_topk,
+        "max_import_tokens": args.max_import_tokens,
+        "max_context": args.max_context,
+        "max_decisions": args.max_decisions,
+        "max_imports": args.max_imports,
+    }
     torch.save({
         "policy_head": head, "base_checkpoint_sha256": runtime.graph.sha256,
         "train_source_sha256": observed_sha, "qwen_frozen": True,
+        "controller": controller,
         "rl_algorithm": "success_gated_truncated_slate_policy_gradient_v1",
     }, checkpoint_path)
     with (args.output / "training_groups.jsonl").open("w") as sink:
@@ -325,6 +337,7 @@ def main():
         "frozen_qwen_adapter_sha256":
             file_sha256(args.policy_adapter / "adapter_model.safetensors"),
         "source_sha256": observed_sha,
+        "controller": controller,
         "stats": stats,
         "effective_rl_updates": stats["effective_rl_groups"],
         "note": "If effective_rl_updates=0, checkpoint was reference-replay SFT only, NOT endpoint RL evidence.",

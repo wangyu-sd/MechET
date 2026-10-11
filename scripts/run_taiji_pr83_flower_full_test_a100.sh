@@ -29,6 +29,9 @@ case "$MODE" in
     jq -e '.effective_rl_updates > 0' "$REPORT" >/dev/null || {
       echo 'no effective endpoint-RL group; full post-RL evaluation forbidden' >&2; exit 2;
     }
+    jq -e '.controller == {"tool_route":"greedy_name","greedy_import_decode":"single_generate_to_eos_v2","compact_history":true,"graph_initial_budget":4,"graph_flow_topk":1,"max_import_tokens":384,"max_context":4096,"max_decisions":40,"max_imports":32}' "$REPORT" >/dev/null || {
+      echo 'RL controller differs from the full-test inference protocol' >&2; exit 2;
+    }
     echo "$(jq -r '.graph_rl_head_sha256' "$REPORT")  $HEAD" | sha256sum --check --strict
     GRAPH_HEAD_ARGS=(--graph-rl-head "$HEAD")
     ;;
