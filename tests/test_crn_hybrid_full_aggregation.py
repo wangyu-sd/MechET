@@ -58,6 +58,25 @@ def test_all_shards_and_official_unsupported_denominator() -> None:
         assert report["paired_baseline"]["hybrid_only_correct"] == 1
         assert report["paired_baseline"]["first_call_identical"] == 4
         assert report["paired_baseline"]["first_call_different_ids"] == ["test_2"]
+        assert report["paired_baseline"]["baseline_contract_verified"] is False
+        for rank in range(2):
+            control = json.loads(
+                (root / f"contract.shard-{rank:02d}-of-02.json").read_text()
+            )
+            control.update(matched_v2=True, product_only_remap=True, greedy=True)
+            (baseline / f"contract.shard-{rank:02d}-of-02.json").write_text(
+                json.dumps(control)
+            )
+        verified = aggregate(source=source, output=root, sample_reactions=5,
+                             seed=17, world=2, source_sha256=digest,
+                             official_denominator=9, baseline=baseline)
+        assert verified["paired_baseline"]["baseline_contract_verified"] is True
+        changed = json.loads((baseline / "contract.shard-01-of-02.json").read_text())
+        changed["source_sha256"] = "wrong"
+        (baseline / "contract.shard-01-of-02.json").write_text(json.dumps(changed))
+        with pytest.raises(ValueError, match="differs on source_sha256"):
+            aggregate(source=source, output=root, sample_reactions=5,
+                      seed=17, world=2, source_sha256=digest, baseline=baseline)
         (root / "results.shard-01-of-02.jsonl").write_text("")
         with pytest.raises(ValueError, match="incomplete evaluation"):
             aggregate(source=source, output=root, sample_reactions=5,

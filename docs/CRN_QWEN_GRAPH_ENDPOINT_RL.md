@@ -170,6 +170,17 @@ runner is prepared but unexecuted; it audits all 28,967 strict test rows and
 explicitly records the four unsupported official endpoint rows in the 28,971
 official denominator.
 
+The full strict-test comparison is prepared, not run. The pure-Qwen control
+uses the unchanged matched-v2 greedy runtime through a separate resumable
+eight-shard wrapper (`scripts/run_crn_qwen_pure_baseline.py`). It shares the
+same 28,967 strict test IDs, product-only remapping, Stage-II adapter, 40/32/4096
+budgets and 384-token full-call limit. The aggregator verifies complete shards,
+identical selected IDs, source hash, model revision and adapter SHA before a
+paired report. The four nonconserving official rows are explicit unsupported
+failures for the graph hybrid; they must not be silently called evaluated graph
+predictions or used to assert a pure-Qwen result on those four rows. No prepared
+Taiji config is a submitted or completed experiment.
+
 ## Limitations of this PR
 
 This PR is a separately importable, opt-in code path. The large private

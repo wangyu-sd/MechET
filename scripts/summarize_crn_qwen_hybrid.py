@@ -19,7 +19,8 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
               world: int, source_sha256: str, official_denominator: int | None = None,
               baseline: Path | None = None,
               official_source: Path | None = None,
-              official_source_sha256: str | None = None) -> dict:
+              official_source_sha256: str | None = None,
+              policy_label: str = "crn_qwen_hybrid") -> dict:
     if world < 1 or sample_reactions < 1:
         raise ValueError("invalid aggregation size")
     if file_sha256(source) != source_sha256:
@@ -38,6 +39,7 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
     exact = 0
     terminal = 0
     rejected: dict[str, int] = {}
+    hybrid_contracts: list[dict] = []
     for rank in range(world):
         contract_path = output / f"contract.shard-{rank:02d}-of-{world:02d}.json"
         result_path = output / f"results.shard-{rank:02d}-of-{world:02d}.jsonl"
@@ -48,6 +50,7 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
                 contract["world"] != world or
                 contract["source_sha256"] != source_sha256):
             raise ValueError(f"shard {rank} violates the frozen source/selection contract")
+        hybrid_contracts.append(contract)
         with result_path.open(encoding="utf-8") as handle:
             for line in handle:
                 result = json.loads(line)
@@ -70,6 +73,7 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
     if missing:
         raise ValueError(f"incomplete evaluation: {len(missing)} source IDs missing; first={missing[0]}")
     report = {
+        "policy": policy_label,
         "evaluated_strict_executable": sample_reactions,
         "top1_structural_exact": exact,
         "top1_structural_rate_strict": exact / sample_reactions,
@@ -81,6 +85,26 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
         "world": world,
     }
     if baseline is not None:
+        baseline_contract_paths = [
+            baseline / f"contract.shard-{rank:02d}-of-{world:02d}.json"
+            for rank in range(world)
+        ]
+        if any(path.exists() for path in baseline_contract_paths):
+            if not all(path.exists() for path in baseline_contract_paths):
+                raise ValueError("baseline has only some shard contracts")
+            for rank, path in enumerate(baseline_contract_paths):
+                control = json.loads(path.read_text(encoding="utf-8"))
+                hybrid = hybrid_contracts[rank]
+                for key in (
+                    "source", "source_sha256", "sample_reactions", "seed", "rank", "world",
+                    "model", "model_revision", "policy_adapter_sha256", "compact_history",
+                ):
+                    if control.get(key) != hybrid.get(key):
+                        raise ValueError(f"baseline shard {rank} differs on {key}")
+                if not (control.get("matched_v2") is True and
+                        control.get("product_only_remap") is True and
+                        control.get("greedy") is True):
+                    raise ValueError("baseline is not the frozen pure-Qwen greedy control")
         baseline_hits: dict[str, bool] = {}
         baseline_first_calls: dict[str, str] = {}
         for rank in range(world):
@@ -105,6 +129,7 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
             "hybrid_only_correct": sum(hybrid_hits[key] and not baseline_hits[key] for key in ids),
             "baseline_only_correct": sum(baseline_hits[key] and not hybrid_hits[key] for key in ids),
             "both_correct": sum(hybrid_hits[key] and baseline_hits[key] for key in ids),
+            "baseline_contract_verified": all(path.exists() for path in baseline_contract_paths),
         }
         if len(hybrid_first_calls) == len(baseline_first_calls) == len(ids):
             different = sorted(
@@ -174,6 +199,7 @@ def main() -> int:
     parser.add_argument("--official-source", type=Path,
                         help="official 28,971-row endpoint test for explicit four-row coverage")
     parser.add_argument("--official-source-sha256")
+    parser.add_argument("--policy-label", default="crn_qwen_hybrid")
     args = parser.parse_args()
     report = aggregate(
         source=args.source, output=args.output,
@@ -183,6 +209,7 @@ def main() -> int:
         baseline=args.baseline,
         official_source=args.official_source,
         official_source_sha256=args.official_source_sha256,
+        policy_label=args.policy_label,
     )
     unsupported_records = report.pop("official_unsupported_records", [])
     if args.official_source is not None:
