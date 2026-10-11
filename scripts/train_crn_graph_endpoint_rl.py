@@ -108,10 +108,6 @@ def continue_to_terminal(runtime: HybridRuntime, node: Node, args, max_steps: in
 
 def train():
     import torch
-    from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
-    from crn_jepa.models.grounded_graph import build_grounded_graph
-    from crn_jepa.models.pr18_full_corpus_objectives import teacher_forced_from_tokens
-
     p = parser()
     p.description = __doc__
     p.add_argument("--source-sha256", required=True)
@@ -122,6 +118,10 @@ def train():
     p.add_argument("--learning-rate", type=float, default=5e-6)
     p.add_argument("--reference-weight", type=float, default=0.1)
     args = prepare_args(p.parse_args())
+    sys.path.insert(0, str((args.crn_root / "src").resolve()))
+    from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
+    from crn_jepa.models.grounded_graph import build_grounded_graph
+    from crn_jepa.models.pr18_full_corpus_objectives import teacher_forced_from_tokens
     if args.data.name != "train.jsonl" or "test" in str(args.data).lower():
         raise ValueError("endpoint RL only accepts an authenticated train.jsonl")
     observed_sha = file_sha256(args.data)
@@ -133,12 +133,16 @@ def train():
         raise ValueError("invalid RL continuation horizon")
     if args.graph_rl_head:
         raise ValueError("v1 RL must initialize from the frozen CRN-JEPA checkpoint")
+    if not 0.0 < args.reference_weight <= 1.0:
+        raise ValueError("v1 requires positive verified replay weight")
     args.output.mkdir(parents=True, exist_ok=True)
     if any(args.output.iterdir()):
         raise FileExistsError("RL output directory must be initially empty")
 
     rng = random.Random(args.seed)
     rows = read_selected(args.data, args.sample_reactions, args.seed)
+    if len(rows) != args.sample_reactions:
+        raise ValueError("insufficient authenticated train rows")
     runtime = HybridRuntime(args, 0)
     # Freeze graph backbone and all JEPA targets. Only electronic source/sink/
     # commit heads and existing direction-conditioned policy layers are updated.
