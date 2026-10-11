@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 import sys
 import time
@@ -123,6 +124,10 @@ def parser() -> argparse.ArgumentParser:
                    help="MechET strict train/valid JSONL; locked test requires separate approval")
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--sample-reactions", type=int, default=128)
+    p.add_argument("--source-sha256", default="",
+                   help="optional pinned SHA-256 for the complete source JSONL")
+    p.add_argument("--resume", action="store_true",
+                   help="resume only an identical, previously initialized shard")
     p.add_argument("--seed", type=int, default=17)
     p.add_argument("--model", default="Qwen/Qwen3-0.6B")
     p.add_argument("--model-revision", default="c1899de289a04d12100db370d81485cdf75e47ca")
@@ -144,6 +149,28 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--dtype", choices=("float16", "bfloat16"), default="bfloat16")
     p.add_argument("--no-4bit", action="store_true", default=True)
     return p
+
+
+def selected_shard(rows, rank: int, world: int):
+    """Partition one frozen, seed-selected reaction list without dropping IDs."""
+    if world < 1 or not 0 <= rank < world:
+        raise ValueError("invalid distributed rank/world")
+    return [row for index, row in enumerate(rows) if index % world == rank]
+
+
+def completed_ids(path: Path, expected_ids: set[str]) -> set[str]:
+    """Read only complete JSONL records; fail on duplicate or alien results."""
+    if not path.exists():
+        return set()
+    done: set[str] = set()
+    with path.open(encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, 1):
+            row = json.loads(line)
+            identifier = str(row["id"])
+            if identifier not in expected_ids or identifier in done:
+                raise ValueError(f"invalid existing result at line {line_number}: {identifier}")
+            done.add(identifier)
+    return done
 
 
 def prepare_args(args):
@@ -180,23 +207,62 @@ def prepare_args(args):
 
 def main() -> int:
     args = prepare_args(parser().parse_args())
-    if args.output.exists() and any(args.output.iterdir()):
-        raise FileExistsError("hybrid results output must be an empty directory")
-    args.output.mkdir(parents=True, exist_ok=True)
+    rank = int(os.environ.get("RANK", "0"))
+    world = int(os.environ.get("WORLD_SIZE", "1"))
+    local_rank = int(os.environ.get("LOCAL_RANK", str(rank)))
+    if world < 1 or not 0 <= rank < world:
+        raise ValueError("invalid distributed rank/world")
     import torch
-    if torch.cuda.device_count() < 1:
-        raise RuntimeError("hybrid evaluation requires a CUDA device")
+    if torch.cuda.device_count() <= local_rank:
+        raise RuntimeError("hybrid evaluation requires one CUDA device per local rank")
     # One graph+Qwen policy per GPU; no hidden use of GT to select actions.
     rows = read_selected(args.data, args.sample_reactions, args.seed)
     if len(rows) != args.sample_reactions:
         raise ValueError("requested reactions exceed frozen source")
-    runtime = HybridRuntime(args, 0)
-    output = args.output / "results.shard-00-of-01.jsonl"
+    if args.source_sha256 and file_sha256(args.data) != args.source_sha256:
+        raise ValueError("evaluation source SHA-256 mismatch")
+    selected = selected_shard(rows, rank, world)
+    expected_ids = {str(row["id"]) for row in selected}
+    if len(expected_ids) != len(selected):
+        raise ValueError("duplicate IDs in selected evaluation shard")
+    qwen_adapter_sha = file_sha256(args.policy_adapter / "adapter_model.safetensors")
+    run_contract = {
+        "source": str(args.data.resolve()), "source_sha256": args.source_sha256,
+        "sample_reactions": args.sample_reactions, "seed": args.seed,
+        "rank": rank, "world": world,
+        "model": args.model, "model_revision": args.model_revision,
+        "policy_adapter_sha256": qwen_adapter_sha,
+        "compact_history": args.compact_history,
+        "graph_checkpoint_sha256": args.graph_sha256,
+        "graph_rl_head_sha256": file_sha256(args.graph_rl_head) if args.graph_rl_head else None,
+        "graph_flow_topk": args.graph_flow_topk,
+        "graph_beam": args.graph_beam, "graph_source_width": args.graph_source_width,
+        "graph_sink_width": args.graph_sink_width, "graph_move_width": args.graph_move_width,
+        "max_import_tokens": args.max_import_tokens,
+        "max_context": args.max_context, "max_decisions": args.max_decisions,
+        "max_imports": args.max_imports,
+    }
+    args.output.mkdir(parents=True, exist_ok=True)
+    contract_path = args.output / f"contract.shard-{rank:02d}-of-{world:02d}.json"
+    output = args.output / f"results.shard-{rank:02d}-of-{world:02d}.jsonl"
+    if args.resume:
+        if contract_path.exists():
+            if json.loads(contract_path.read_text(encoding="utf-8")) != run_contract:
+                raise ValueError("resume contract differs from the saved shard")
+        elif output.exists():
+            raise FileExistsError("cannot resume result rows without a saved contract")
+    elif contract_path.exists() or output.exists():
+        raise FileExistsError("hybrid shard exists; pass --resume for an identical run")
+    contract_path.write_text(json.dumps(run_contract, indent=2) + "\n", encoding="utf-8")
+    done = completed_ids(output, expected_ids)
+    initially_done = len(done)
+    runtime = HybridRuntime(args, local_rank)
     started = time.perf_counter()
     successful = 0
-    qwen_adapter_sha = file_sha256(args.policy_adapter / "adapter_model.safetensors")
-    with output.open("w", encoding="utf-8") as handle:
-        for row in rows:
+    with output.open("a", encoding="utf-8") as handle:
+        for row in selected:
+            if str(row["id"]) in done:
+                continue
             result = rollout(runtime, row, args)
             result["policy"] = "crn_jepa_qwen_routed_flow_v1"
             result["graph_checkpoint_sha256"] = runtime.graph.sha256
@@ -204,13 +270,27 @@ def main() -> int:
             successful += bool(result["top1_structural_exact"])
             handle.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
             handle.flush()
+            print(json.dumps({"stage": "hybrid-evaluation", "rank": rank,
+                              "done": len(done) + 1, "total": len(selected),
+                              "id": result["id"], "top1_exact": result["top1_structural_exact"],
+                              "elapsed_seconds": round(time.perf_counter() - started, 2)}),
+                  flush=True)
+            done.add(str(row["id"]))
     elapsed = time.perf_counter() - started
+    if len(done) != len(selected):
+        raise RuntimeError("evaluation shard ended without every selected reaction")
+    if args.resume:
+        with output.open(encoding="utf-8") as handle:
+            successful = sum(bool(json.loads(line)["top1_structural_exact"]) for line in handle)
     report = {
         "protocol": "opt_in_crn_jepa_qwen_routed_flow_v1",
-        "scope": "selected_source_rows_not_full_benchmark",
-        "evaluated": len(rows), "top1_exact": successful,
-        "top1_rate": successful / len(rows), "elapsed_seconds": elapsed,
-        "seconds_per_reaction": elapsed / len(rows),
+        "scope": "selected_source_rows; aggregate all shards before benchmark reporting",
+        "rank": rank, "world": world, "global_selected": len(rows),
+        "evaluated": len(selected), "top1_exact": successful,
+        "top1_rate": successful / len(selected) if selected else 0.0,
+        "elapsed_seconds": elapsed,
+        "newly_evaluated": len(selected) - initially_done,
+        "seconds_per_new_reaction": elapsed / max(1, len(selected) - initially_done),
         "timing": runtime.timing, "calls": runtime.counts,
         "qwen_model": args.model, "qwen_revision": args.model_revision,
         "qwen_adapter_sha256": qwen_adapter_sha,
@@ -219,7 +299,7 @@ def main() -> int:
         "graph_flow_topk": args.graph_flow_topk,
         "note": "Qwen short tool-name scoring is a new decision protocol; compare against an identically budgeted baseline.",
     }
-    (args.output / "summary.json").write_text(
+    (args.output / f"summary.shard-{rank:02d}-of-{world:02d}.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8",
     )
     print(json.dumps(report, ensure_ascii=False), flush=True)

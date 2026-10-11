@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+import json
 import unittest
 
 import importlib.util
@@ -70,6 +71,31 @@ class HybridContracts(unittest.TestCase):
             _ = VerifiedBranch(accepted=False, exact_terminal=True).reward
         with self.assertRaises(ValueError):
             _ = VerifiedBranch(accepted=False, reference_successor=True).reward
+
+    def test_distributed_shards_preserve_every_selected_id(self):
+        from scripts.run_crn_qwen_hybrid import selected_shard
+
+        rows = [{"id": f"reaction_{number}"} for number in range(29)]
+        shards = [selected_shard(rows, rank, 8) for rank in range(8)]
+        flattened = [row["id"] for shard in shards for row in shard]
+        self.assertEqual(len(flattened), len(rows))
+        self.assertEqual(set(flattened), {row["id"] for row in rows})
+        with self.assertRaises(ValueError):
+            selected_shard(rows, 8, 8)
+
+    def test_resume_rejects_duplicate_or_out_of_shard_records(self):
+        from scripts.run_crn_qwen_hybrid import completed_ids
+        from tempfile import TemporaryDirectory
+
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "results.jsonl"
+            path.write_text(json.dumps({"id": "reaction_1"}) + "\n")
+            self.assertEqual(completed_ids(path, {"reaction_1"}), {"reaction_1"})
+            with self.assertRaises(ValueError):
+                completed_ids(path, {"reaction_2"})
+            path.write_text((json.dumps({"id": "reaction_1"}) + "\n") * 2)
+            with self.assertRaises(ValueError):
+                completed_ids(path, {"reaction_1"})
 
 
 if __name__ == "__main__":
