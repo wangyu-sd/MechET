@@ -26,6 +26,7 @@ GRAPH_PRETRAIN_SHA256 = bridge.GRAPH_PRETRAIN_SHA256
 TOOLS = bridge.TOOLS
 _shared_prefix_length = bridge._shared_prefix_length
 tool_prefix = bridge.tool_prefix
+graph_event_coordinates = bridge.graph_event_coordinates
 VerifiedBranch = rl.VerifiedBranch
 success_gated_advantages = rl.success_gated_advantages
 
@@ -44,6 +45,18 @@ class HybridContracts(unittest.TestCase):
             _shared_prefix_length([[11, 12, 1, 2], [11, 12, 3]]), 2
         )
         self.assertRaises(ValueError, _shared_prefix_length, [[1, 2], [1, 2]])
+
+    def test_graph_coordinates_use_only_accepted_action_history(self):
+        actions = [
+            {"name": "import_fragments"},
+            {"name": "apply_electron_flow"},
+            {"name": "import_fragments"},
+            {"name": "apply_electron_flow"},
+        ]
+        self.assertEqual(graph_event_coordinates(actions, 4), (2, 2))
+        self.assertEqual(graph_event_coordinates(actions, 1), (2, 1))
+        with self.assertRaises(ValueError):
+            graph_event_coordinates(actions, 0)
 
     def test_no_false_positive_all_negative(self):
         group = [VerifiedBranch(accepted=False), VerifiedBranch(accepted=True)]

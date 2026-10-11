@@ -22,7 +22,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-from mechet.crn_graph_bridge import file_sha256
+from mechet.crn_graph_bridge import file_sha256, graph_event_coordinates
 from mechet.graph_endpoint_rl import (
     VerifiedBranch, graph_policy_gradient_loss, success_gated_advantages,
 )
@@ -182,8 +182,12 @@ def main():
         try:
             # CRN-JEPA cannot score BE_DELTA in this v1 action decoder.
             reference_actions = tuple(GroundedMove.from_raw(m) for m in reference_moves)
+            event_depth, remaining_budget = graph_event_coordinates(
+                anchor.actions, args.graph_initial_budget,
+            )
             slate = runtime.graph.candidates(
                 anchor.state, limit=32,
+                event_depth=event_depth, remaining_budget=remaining_budget,
                 beam_size=args.graph_beam,
                 source_width=args.graph_source_width,
                 sink_width=args.graph_sink_width,
@@ -235,7 +239,7 @@ def main():
             graph = build_grounded_graph(anchor.state, None)
             inventory = MechETGroundedInventory(anchor.state)
             nodes, context, prefix = world.policy.encode_directional_observation(
-                graph, event_depth=0, remaining_budget=1,
+                graph, event_depth=event_depth, remaining_budget=remaining_budget,
                 direction="retrosynthetic_inverse",
             )
             nlls = [
@@ -269,6 +273,8 @@ def main():
             audit.append({
                 "source_id": row_id, "status": "updated",
                 "depth_from_reference_end": depth_from_end,
+                "graph_event_depth": event_depth,
+                "graph_remaining_budget": remaining_budget,
                 "candidate_rewards": [r.reward for r in outcomes],
                 "advantages": list(advantages),
                 "loss": float(loss.detach().item()),

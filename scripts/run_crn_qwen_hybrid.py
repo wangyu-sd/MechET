@@ -21,7 +21,8 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
 from mechet.crn_graph_bridge import (
     FrozenCRNGraphPolicy, GRAPH_PRETRAIN_SHA256, file_sha256,
-    generate_qwen_import, route_tool_name,
+    complete_greedy_qwen_import, generate_qwen_import,
+    graph_event_coordinates, route_tool_name, route_tool_name_greedy,
 )
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
 from scripts.run_natural_language_value_search import (
@@ -42,7 +43,8 @@ class HybridRuntime(Runtime):
         self.timing = {"qwen_route_seconds": 0.0, "qwen_import_seconds": 0.0,
                        "graph_flow_seconds": 0.0}
         self.counts = {"qwen_routes": 0, "qwen_import_calls": 0,
-                       "graph_flow_calls": 0, "qwen_flow_generations": 0}
+                       "graph_flow_calls": 0, "qwen_flow_generations": 0,
+                       "qwen_route_tokens": 0}
 
     def proposals(self, node: Node, *, candidates: int, max_new_tokens: int,
                   compact_history: bool = False, planning_sample: bool = False):
@@ -61,10 +63,24 @@ class HybridRuntime(Runtime):
             self.last_proposal_error = "CONTEXT_BUDGET_EXCEEDED"
             return []
         t = time.perf_counter()
-        kind, logits = route_tool_name(self.model, self.tokenizer, self.device, prompt)
+        route = None
+        try:
+            if self.args.tool_route == "greedy_name":
+                route = route_tool_name_greedy(
+                    self.model, self.tokenizer, self.device, prompt,
+                )
+                kind, tool_score = route.name, route.logprob
+                self.counts["qwen_route_tokens"] += len(route.token_ids)
+            else:
+                kind, logits = route_tool_name(
+                    self.model, self.tokenizer, self.device, prompt,
+                )
+                tool_score = float(logits[kind])
+        except (ValueError, RuntimeError) as exc:
+            self.last_proposal_error = f"QWEN_ROUTE_ERROR:{exc}"
+            return []
         self.timing["qwen_route_seconds"] += time.perf_counter() - t
         self.counts["qwen_routes"] += 1
-        tool_score = float(logits[kind])
 
         if kind == "finish_trace":
             return [Action(
@@ -77,10 +93,16 @@ class HybridRuntime(Runtime):
                 return []
             t = time.perf_counter()
             try:
-                args, raw, tokens = generate_qwen_import(
-                    self.model, self.tokenizer, self.device, prompt,
-                    max_new_tokens=max_new_tokens,
-                )
+                if route is not None:
+                    args, raw, tokens = complete_greedy_qwen_import(
+                        self.model, self.tokenizer, self.device, prompt,
+                        route, max_new_tokens=max_new_tokens,
+                    )
+                else:
+                    args, raw, tokens = generate_qwen_import(
+                        self.model, self.tokenizer, self.device, prompt,
+                        max_new_tokens=max_new_tokens,
+                    )
             except (ValueError, RuntimeError) as exc:
                 self.last_proposal_error = str(exc)
                 return []
@@ -92,8 +114,12 @@ class HybridRuntime(Runtime):
 
         t = time.perf_counter()
         try:
+            event_depth, remaining_budget = graph_event_coordinates(
+                node.actions, self.args.graph_initial_budget,
+            )
             events = self.graph.candidates(
                 node.state, limit=self.args.graph_flow_topk,
+                event_depth=event_depth, remaining_budget=remaining_budget,
                 beam_size=self.args.graph_beam,
                 source_width=self.args.graph_source_width,
                 sink_width=self.args.graph_sink_width,
@@ -138,6 +164,11 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--graph-sha256", default=GRAPH_PRETRAIN_SHA256)
     p.add_argument("--graph-rl-head", type=Path, default=None)
     p.add_argument("--graph-flow-topk", type=int, default=1)
+    p.add_argument("--graph-initial-budget", type=int, default=4,
+                   help="non-oracle electron-event budget supplied to CRN-JEPA")
+    p.add_argument("--tool-route", choices=("greedy_name", "prefix_nll"),
+                   default="greedy_name",
+                   help="greedy_name matches historical full-call tool selection")
     p.add_argument("--graph-beam", type=int, default=16)
     p.add_argument("--graph-source-width", type=int, default=8)
     p.add_argument("--graph-sink-width", type=int, default=8)
@@ -181,6 +212,8 @@ def prepare_args(args):
         raise ValueError("v1 preserves the frozen 40/32/4096 MechET budgets")
     if not 8 <= args.max_import_tokens <= 512:
         raise ValueError("invalid import token budget")
+    if not 1 <= args.graph_initial_budget <= 32:
+        raise ValueError("invalid graph initial budget")
     validate_v2_adapter_manifest(
         args.policy_adapter, compact_history=args.compact_history,
         expected_model=args.model, expected_revision=args.model_revision,
@@ -236,6 +269,8 @@ def main() -> int:
         "graph_checkpoint_sha256": args.graph_sha256,
         "graph_rl_head_sha256": file_sha256(args.graph_rl_head) if args.graph_rl_head else None,
         "graph_flow_topk": args.graph_flow_topk,
+        "graph_initial_budget": args.graph_initial_budget,
+        "tool_route": args.tool_route,
         "graph_beam": args.graph_beam, "graph_source_width": args.graph_source_width,
         "graph_sink_width": args.graph_sink_width, "graph_move_width": args.graph_move_width,
         "max_import_tokens": args.max_import_tokens,
@@ -297,7 +332,10 @@ def main() -> int:
         "graph_sha256": runtime.graph.sha256,
         "graph_rl_head": str(args.graph_rl_head) if args.graph_rl_head else None,
         "graph_flow_topk": args.graph_flow_topk,
-        "note": "Qwen short tool-name scoring is a new decision protocol; compare against an identically budgeted baseline.",
+        "graph_initial_budget": args.graph_initial_budget,
+        "tool_route": args.tool_route,
+        "note": ("greedy_name preserves full-call greedy tool choice while truncating FLOW arguments; "
+                 "prefix_nll is a separate diagnostic routing ablation."),
     }
     (args.output / f"summary.shard-{rank:02d}-of-{world:02d}.json").write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8",

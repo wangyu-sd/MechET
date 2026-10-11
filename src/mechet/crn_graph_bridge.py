@@ -9,12 +9,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from hashlib import sha256
 from pathlib import Path
+import re
 import sys
 from typing import Any, Mapping, Sequence
 
 GRAPH_PRETRAIN_SHA256 = "bb2f7fe53e87fc0e2438c27065ceb588dcd38e604959c9d69fb3984885a376ee"
 TOOLS = ("import_fragments", "apply_electron_flow", "finish_trace")
 CALL_BEGIN = '<tool_call>\n{"name": "'
+TOOL_NAME_PATTERN = re.compile(r'<tool_call>\s*\{\s*"name"\s*:\s*"([a-z_]+)"')
 
 
 def file_sha256(path: Path) -> str:
@@ -100,6 +102,73 @@ def route_tool_name(model: Any, tokenizer: Any, device: Any, prompt: str) -> tup
 
 
 @dataclass(frozen=True)
+class GreedyToolRoute:
+    name: str
+    token_ids: tuple[int, ...]
+    logprob: float
+
+
+def route_tool_name_greedy(
+    model: Any, tokenizer: Any, device: Any, prompt: str,
+    *, max_route_tokens: int = 64,
+) -> GreedyToolRoute:
+    """Read the *actual* greedy tool name, stopping before argument generation.
+
+    Unlike independently scored tool-name suffixes, this has the same prompt
+    and greedy token trajectory as the historical K=1 Qwen full-call decoder.
+    No reference label or candidate tool name is inserted into the prompt.
+    """
+    import torch
+    from transformers import StoppingCriteria, StoppingCriteriaList
+
+    encoded = tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
+    encoded = {key: value.to(device) for key, value in encoded.items()}
+    prompt_length = encoded["input_ids"].shape[1]
+
+    class StopAfterToolName(StoppingCriteria):
+        def __init__(self):
+            self.name = ""
+
+        def __call__(self, input_ids, scores, **kwargs):
+            continuation = tokenizer.decode(
+                input_ids[0, prompt_length:].tolist(), skip_special_tokens=False,
+            )
+            match = TOOL_NAME_PATTERN.search(continuation)
+            if match:
+                self.name = match.group(1)
+                return True
+            return False
+
+    stopper = StopAfterToolName()
+    with torch.inference_mode():
+        generated = model.generate(
+            **encoded, do_sample=False, max_new_tokens=max_route_tokens,
+            return_dict_in_generate=True, output_scores=True,
+            stopping_criteria=StoppingCriteriaList([stopper]),
+            pad_token_id=tokenizer.pad_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+        )
+    if stopper.name not in TOOLS:
+        raise ValueError(f"QWEN_TOOL_ROUTE_INVALID:{stopper.name or 'no tool name'}")
+    continuation = tuple(generated.sequences[0, prompt_length:].tolist())
+    scores = model.compute_transition_scores(
+        generated.sequences, generated.scores, normalize_logits=True,
+    )
+    return GreedyToolRoute(
+        name=stopper.name, token_ids=continuation,
+        logprob=float(scores[0].sum().item()),
+    )
+
+
+def graph_event_coordinates(actions: Sequence[Mapping[str, Any]], initial_budget: int) -> tuple[int, int]:
+    """Derive graph observation depth from accepted actions, never from GT."""
+    if not 1 <= initial_budget <= 32:
+        raise ValueError("graph initial budget must be 1..32")
+    depth = sum(str(action.get("name")) == "apply_electron_flow" for action in actions)
+    return depth, max(1, initial_budget - depth)
+
+
+@dataclass(frozen=True)
 class GraphFlowCandidate:
     arguments: dict[str, Any]
     moves: tuple[dict[str, Any], ...]
@@ -166,19 +235,22 @@ class FrozenCRNGraphPolicy:
 
     def candidates(
         self, current_mapped_smiles: str, *, limit: int = 1,
+        event_depth: int = 0, remaining_budget: int = 1,
         beam_size: int = 16, source_width: int = 8,
         sink_width: int = 8, move_width: int = 16,
     ) -> tuple[GraphFlowCandidate, ...]:
         import torch
         if not 1 <= limit <= 32:
             raise ValueError("graph top-k must be between 1 and 32")
+        if not 0 <= event_depth <= 32 or not 1 <= remaining_budget <= 32:
+            raise ValueError("invalid graph event depth or remaining budget")
         state = current_mapped_smiles
         with torch.inference_mode():
             graph = self._build_graph(state, None)  # matches PR18 first-event view
             inventory = self._inventory(state)
             choices, _ = self._decode(
                 self.model.policy, graph, inventory,
-                event_depth=0, remaining_budget=1,
+                event_depth=event_depth, remaining_budget=remaining_budget,
                 direction="retrosynthetic_inverse",
                 max_results=limit, beam_size=beam_size,
                 source_width=source_width, sink_width=sink_width,
@@ -217,6 +289,38 @@ def generate_qwen_import(
     raw = tool_prefix("import_fragments") + tokenizer.decode(
         continuation, skip_special_tokens=False
     )
+    name, arguments, error = prediction_call(raw, tokenizer)
+    if error or name != "import_fragments":
+        raise ValueError(f"QWEN_IMPORT_INVALID:{error or name}")
+    return arguments, raw, len(continuation)
+
+
+def complete_greedy_qwen_import(
+    model: Any, tokenizer: Any, device: Any, prompt: str,
+    route: GreedyToolRoute, *, max_new_tokens: int,
+) -> tuple[dict[str, Any], str, int]:
+    """Continue the same greedy call after its observed IMPORT tool name."""
+    import torch
+    from scripts.eval_natural_language_event_local import prediction_call
+
+    if route.name != "import_fragments" or len(route.token_ids) >= max_new_tokens:
+        raise ValueError("invalid or exhausted greedy IMPORT route")
+    prefix = tokenizer(prompt, return_tensors="pt", add_special_tokens=False)
+    prefix = {key: value.to(device) for key, value in prefix.items()}
+    input_ids = torch.cat([
+        prefix["input_ids"],
+        torch.tensor([route.token_ids], dtype=torch.long, device=device),
+    ], dim=1)
+    attention_mask = torch.ones_like(input_ids)
+    with torch.inference_mode():
+        generated = model.generate(
+            input_ids=input_ids, attention_mask=attention_mask,
+            do_sample=False, max_new_tokens=max_new_tokens - len(route.token_ids),
+            pad_token_id=tokenizer.pad_token_id,
+            eos_token_id=tokenizer.eos_token_id,
+        )
+    continuation = generated[0, prefix["input_ids"].shape[1]:].tolist()
+    raw = tokenizer.decode(continuation, skip_special_tokens=False)
     name, arguments, error = prediction_call(raw, tokenizer)
     if error or name != "import_fragments":
         raise ValueError(f"QWEN_IMPORT_INVALID:{error or name}")
