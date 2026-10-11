@@ -5,12 +5,28 @@ import sys
 from pathlib import Path
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+import importlib.util
 
-from mechet.crn_graph_bridge import (
-    GRAPH_PRETRAIN_SHA256, TOOLS, _shared_prefix_length, tool_prefix,
-)
-from mechet.graph_endpoint_rl import VerifiedBranch, success_gated_advantages
+SRC = Path(__file__).resolve().parents[1] / "src" / "mechet"
+
+
+def _load_pure_module(name: str, filename: str):
+    # Avoid importing mechet.__init__ and its optional RDKit dependencies.
+    spec = importlib.util.spec_from_file_location(name, SRC / filename)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+bridge = _load_pure_module("crn_graph_bridge_contract", "crn_graph_bridge.py")
+rl = _load_pure_module("graph_endpoint_rl_contract", "graph_endpoint_rl.py")
+GRAPH_PRETRAIN_SHA256 = bridge.GRAPH_PRETRAIN_SHA256
+TOOLS = bridge.TOOLS
+_shared_prefix_length = bridge._shared_prefix_length
+tool_prefix = bridge.tool_prefix
+VerifiedBranch = rl.VerifiedBranch
+success_gated_advantages = rl.success_gated_advantages
 
 
 class HybridContracts(unittest.TestCase):
