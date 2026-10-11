@@ -171,9 +171,16 @@ def main():
             stats["replay_failures"] += 1
             audit.append({"source_id": row_id, "status": "replay_failure",
                           "error": str(exc)})
+            print(json.dumps({"stage": "pr83-graph-rl", "processed": len(audit),
+                              "requested": args.rl_updates, "id": row_id,
+                              "status": "replay_failure", "stats": stats}), flush=True)
             continue
         if not frontiers:
             stats["no_flow"] += 1
+            audit.append({"source_id": row_id, "status": "no_supported_flow"})
+            print(json.dumps({"stage": "pr83-graph-rl", "processed": len(audit),
+                              "requested": args.rl_updates, "id": row_id,
+                              "status": "no_supported_flow", "stats": stats}), flush=True)
             continue
         # Curriculum: favor last three executable FLOW decisions. This
         # increases exact endpoint signal without changing inference prompts.
@@ -279,9 +286,16 @@ def main():
                 "advantages": list(advantages),
                 "loss": float(loss.detach().item()),
             })
+            print(json.dumps({"stage": "pr83-graph-rl", "processed": len(audit),
+                              "requested": args.rl_updates, "id": row_id,
+                              "status": "updated", "stats": stats}), flush=True)
         except (ValueError, RuntimeError, KeyError) as exc:
             audit.append({"source_id": row_id, "status": "skipped",
                           "error": f"{type(exc).__name__}:{exc}"})
+            print(json.dumps({"stage": "pr83-graph-rl", "processed": len(audit),
+                              "requested": args.rl_updates, "id": row_id,
+                              "status": "skipped", "error": str(exc),
+                              "stats": stats}), flush=True)
             continue
         finally:
             world.policy.eval()
