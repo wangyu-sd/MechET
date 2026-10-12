@@ -510,6 +510,7 @@ def main() -> int:
                 })
                 continue
             stats["graph_correctable_frontiers"] += 1
+            train_from_policy = True  # controller-limited cases already skipped
             gold_names = [item.name for item in trace["reference"]]
             full_requested = rng.random() < horizon.full_episode_fraction
             choice = select_receding_flow_anchor(
@@ -577,6 +578,13 @@ def main() -> int:
             stats["unique_executed_successors"] += sum(g.accepted for g in groups)
             stats["pooled_duplicate_actions"] += len(candidates) - len(groups)
             endpoint = reference_structural_precursor(dict(row))
+            # Endpoint projection identifies atoms inherited from the input
+            # product by the MODEL'S fresh private map assignment. Passing
+            # the reference-mapped product corrupts the structural endpoint
+            # when the two legitimate mapping conventions differ.
+            product_origin_mapped = product_only_private_state(
+                visible(trace["original_target"])
+            )
             outcomes = []
             group_rows = []
             for group in groups:
@@ -602,7 +610,7 @@ def main() -> int:
                     and bool(endpoint)
                     and structural_exact(
                         split_precursor_endpoints(
-                            end.state, trace["original_target"]
+                            end.state, product_origin_mapped
                         ).structural,
                         endpoint,
                     )
@@ -647,8 +655,6 @@ def main() -> int:
                     "continued_terminals": len(endings),
                     "continuation_calls": continuation.attempted,
                 })
-            if not any(o.positive for o in outcomes):
-                stats["reference_only_groups"] += 1
             adv = successor_group_advantages(outcomes)
             supported_contrast = any(abs(v) > 1e-12 for v in adv)
             endpoint_positive = sum(o.endpoint_exact for o in outcomes)
