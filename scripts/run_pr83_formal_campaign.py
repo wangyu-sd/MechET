@@ -7,8 +7,10 @@ captured in memory only; status files contain public task IDs and provenance.
 """
 from __future__ import annotations
 import argparse
+import fcntl
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -83,6 +85,9 @@ def main() -> None:
     args = parser.parse_args()
     if args.poll_seconds < 60:
         raise ValueError("formal supervisor must not poll more frequently than once a minute")
+    args.state.parent.mkdir(parents=True, exist_ok=True)
+    lock = args.state.with_suffix(".lock").open("a")
+    fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     configs = [ROOT / "configs/taiji" / f"meteor_mechet_pr83_formal_{name}_{gpus}a100_qy_20261012_01.json"
                for name, gpus, _ in STAGES]
     hashes = [sha(path) for path in configs]
@@ -93,6 +98,8 @@ def main() -> None:
     else:
         state = {"stage": 0, "config_sha256": hashes, "jobs": [], "status": "PREPARED"}
         persist(args.state, state)
+    state["supervisor_pid"] = os.getpid()
+    persist(args.state, state)
     try:
         while state["stage"] < len(STAGES):
             index = state["stage"]
