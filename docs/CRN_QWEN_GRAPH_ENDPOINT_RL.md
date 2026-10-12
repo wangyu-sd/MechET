@@ -174,6 +174,13 @@ rerun the *same* original invocation, adding `--resume` before
 its other flags. Never reuse an output directory for a new checkpoint, altered
 code or sample.
 
+Graph endpoint RL now also writes `latest_train_state.pt` with the frozen
+source/model/code manifest, optimizer, graph policy-head weights, RNG state and
+next unprocessed root, every four sampled roots by default. The identical
+command plus `--resume` may continue that exact attempt; a code or experiment
+change requires a new output directory. No claim of RL completion follows
+from this checkpoint alone.
+
 Graph-only endpoint RL still requires actual optimizer and GPU execution:
 the current PR adds a train-only implementation, not a measured gain. Codex
 must collect true endpoint-positive counts separately from reference replay

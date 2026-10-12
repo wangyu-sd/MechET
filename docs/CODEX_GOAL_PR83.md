@@ -97,9 +97,17 @@ they are measured.**
    matched longer bounded continuation, under distinct train-only configs.
    Do not claim endpoint RL from a reference-only run.
 5. **Recovery**: existing hybrid evaluator has a SHA-locked `--resume`
-   path; preserve its completed IDs and partial tail. Add equivalent
-   resumable per-group training checkpointing with optimizer/RNG lineage before
-   expensive longer training. Never replace raw failed attempts.
+   path; preserve its completed IDs and partial tail. Use the equivalent SHA-locked `--resume` training checkpoint path, which
+   persists model-head parameters, optimizer state, RNG, cumulative group audit
+   and the next training-root index. Never replace raw failed attempts.
+
+
+The graph RL trainer now persists `latest_train_state.pt` every
+4 processed roots by default (`--save-every 4`). For a transient
+interruption, reissue the **same** train-only invocation with `--resume`
+and exactly the same code and input SHA; if code or scientific settings change,
+use a new immutable output directory. Never bypass hash checks to force a
+resume.
 
 ## What Codex must do after problems arise
 

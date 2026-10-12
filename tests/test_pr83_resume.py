@@ -103,5 +103,36 @@ class ResumeTests(unittest.TestCase):
                 )
 
 
+class TrainingResumeTests(unittest.TestCase):
+    def test_training_state_requires_same_manifest_and_checkpoint(self):
+        frozen = {"source_sha256": "source", "settings": {"slate": 8}}
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "rl"
+            self.assertIsNone(resume.prepare_training_resume(
+                target, manifest=frozen,
+            ))
+            self.assertRaises(
+                FileExistsError, resume.prepare_training_resume,
+                target, manifest=frozen,
+            )
+            with self.assertRaisesRegex(ValueError, "checkpoint missing"):
+                resume.prepare_training_resume(
+                    target, manifest=frozen, resume=True,
+                )
+            saved = target / "latest_train_state.pt"
+            saved.write_bytes(b"fixture")
+            self.assertEqual(
+                resume.prepare_training_resume(
+                    target, manifest=frozen, resume=True,
+                ),
+                saved,
+            )
+            other = {"source_sha256": "source", "settings": {"slate": 16}}
+            with self.assertRaisesRegex(ValueError, "changed"):
+                resume.prepare_training_resume(
+                    target, manifest=other, resume=True,
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

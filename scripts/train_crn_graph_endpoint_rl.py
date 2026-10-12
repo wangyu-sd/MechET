@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 from pathlib import Path
 import random
 import sys
@@ -33,6 +34,7 @@ from mechet.in_place_grounded_flow import mapped_atom_numbers, mapped_state_sign
 from mechet.natural_language_electron_flow import compile_event_arguments
 from scripts.build_natural_language_event_sft import convert_row
 from scripts.run_crn_qwen_hybrid import HybridRuntime, parser, prepare_args
+from scripts.pr83_resume import prepare_training_resume
 from scripts.run_natural_language_value_search import (
     Action, Node, execute, product_only_private_state, read_selected, visible,
 )
@@ -117,6 +119,8 @@ def main():
     p.add_argument("--continuation-horizon", type=int, default=8)
     p.add_argument("--learning-rate", type=float, default=5e-6)
     p.add_argument("--reference-weight", type=float, default=0.1)
+    p.add_argument("--save-every", type=int, default=4,
+                   help="persist atomic optimizer/model/RNG checkpoint every N sampled training roots")
     args = prepare_args(p.parse_args())
     sys.path.insert(0, str((args.crn_root / "src").resolve()))
     from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
@@ -135,14 +139,55 @@ def main():
         raise ValueError("v1 RL must initialize from the frozen CRN-JEPA checkpoint")
     if not 0.0 < args.reference_weight <= 1.0:
         raise ValueError("v1 requires positive verified replay weight")
-    args.output.mkdir(parents=True, exist_ok=True)
-    if any(args.output.iterdir()):
-        raise FileExistsError("RL output directory must be initially empty")
-
+    if args.rl_updates > args.sample_reactions or args.save_every < 1:
+        raise ValueError("RL updates must fit selected training roots; save interval must be positive")
     rng = random.Random(args.seed)
     rows = read_selected(args.data, args.sample_reactions, args.seed)
     if len(rows) != args.sample_reactions:
         raise ValueError("insufficient authenticated train rows")
+    manifest = {
+        "schema_version": 1,
+        "kind": "pr83_train_only_graph_endpoint_rl",
+        "source_sha256": observed_sha,
+        "source_path": str(args.data.resolve()),
+        "sample_ids": [str(row["id"]) for row in rows],
+        "qwen_model": args.model,
+        "qwen_revision": args.model_revision,
+        "qwen_adapter_sha256": file_sha256(args.policy_adapter / "adapter_model.safetensors"),
+        "graph_sha256": file_sha256(args.graph_checkpoint),
+        "settings": {
+            "seed": args.seed, "sample_reactions": args.sample_reactions,
+            "rl_updates": args.rl_updates, "slate": args.slate,
+            "temperature": args.temperature,
+            "continuation_horizon": args.continuation_horizon,
+            "learning_rate": args.learning_rate,
+            "reference_weight": args.reference_weight,
+            "compact_history": args.compact_history,
+            "max_import_tokens": args.max_import_tokens,
+            "graph_beam": args.graph_beam,
+            "graph_source_width": args.graph_source_width,
+            "graph_sink_width": args.graph_sink_width,
+            "graph_move_width": args.graph_move_width,
+            "max_decisions": args.max_decisions, "max_imports": args.max_imports,
+            "save_every": args.save_every,
+        },
+        "code_sha256": {
+            name: file_sha256(ROOT / name)
+            for name in (
+                "scripts/train_crn_graph_endpoint_rl.py",
+                "scripts/pr83_resume.py",
+                "scripts/run_crn_qwen_hybrid.py",
+                "src/mechet/graph_endpoint_rl.py",
+                "src/mechet/crn_graph_bridge.py",
+                "scripts/run_natural_language_value_search.py",
+            )
+        },
+    }
+    if manifest["graph_sha256"] != args.graph_sha256:
+        raise ValueError("graph checkpoint differs from pinned training SHA")
+    resume_file = prepare_training_resume(
+        args.output, manifest=manifest, resume=args.resume,
+    )
     runtime = HybridRuntime(args, 0)
     # Freeze graph backbone and all JEPA targets. Only electronic source/sink/
     # commit heads and existing direction-conditioned policy layers are updated.
@@ -156,14 +201,58 @@ def main():
         [p for p in world.policy.parameters() if p.requires_grad],
         lr=args.learning_rate,
     )
-    expected = {}
     stats = dict(selected=len(rows), replay_failures=0, no_flow=0,
                  effective_rl_groups=0, reference_only_groups=0,
                  reference_steps=0, candidate_count=0,
                  executable_candidates=0, endpoint_success_candidates=0,
                  reference_successor_candidates=0, updated=0)
     audit = []
-    for row in rows[:args.rl_updates]:
+    start_index = 0
+    checkpoint_path_latest = args.output / "latest_train_state.pt"
+    if resume_file is not None:
+        saved = torch.load(resume_file, map_location="cpu", weights_only=False)
+        if saved.get("manifest") != manifest:
+            raise ValueError("training state does not match the immutable run manifest")
+        start_index = int(saved["next_index"])
+        if not 0 <= start_index <= args.rl_updates:
+            raise ValueError("invalid training resume cursor")
+        partial_head = dict(saved["policy_head"])
+        current = world.policy.state_dict()
+        if (not partial_head or any(
+            key not in current or key.startswith("graph_encoder.")
+            or current[key].shape != value.shape
+            for key, value in partial_head.items()
+        )):
+            raise ValueError("training resume policy head is invalid")
+        current.update(partial_head)
+        world.policy.load_state_dict(current, strict=True)
+        optimizer.load_state_dict(saved["optimizer"])
+        rng.setstate(saved["rng_state"])
+        stats = dict(saved["stats"])
+        audit = list(saved["audit"])
+
+    def save_progress(next_index: int) -> None:
+        head = {
+            key: value.detach().cpu().clone()
+            for key, value in world.policy.state_dict().items()
+            if not key.startswith("graph_encoder.")
+        }
+        state = {
+            "manifest": manifest,
+            "next_index": int(next_index),
+            "policy_head": head,
+            "optimizer": optimizer.state_dict(),
+            "rng_state": rng.getstate(),
+            "stats": stats,
+            "audit": audit,
+        }
+        tmp = checkpoint_path_latest.with_suffix(".pt.tmp")
+        torch.save(state, tmp)
+        os.replace(tmp, checkpoint_path_latest)
+
+    if resume_file is None:
+        save_progress(0)
+    for row_index, row in enumerate(rows[start_index:args.rl_updates], start=start_index):
         row_id = str(row["source_id"])
         try:
             frontiers, root = verified_reference_frontiers(row)
@@ -274,11 +363,19 @@ def main():
                 "loss": float(loss.detach().item()),
             })
         except (ValueError, RuntimeError, KeyError) as exc:
+            if "out of memory" in str(exc).lower():
+                # Preserve the pre-root snapshot; Codex must repair microbatch
+                # or GPU allocation and restart, not silently skip this root.
+                raise
             audit.append({"source_id": row_id, "status": "skipped",
                           "error": f"{type(exc).__name__}:{exc}"})
             continue
         finally:
             world.policy.eval()
+            if (row_index + 1) % args.save_every == 0:
+                save_progress(row_index + 1)
+    # Seal final cursor even if the remaining group count is not a multiple of N.
+    save_progress(args.rl_updates)
     if not stats["updated"]:
         raise RuntimeError("no optimizer updates; no unverified checkpoint saved")
     head = {
@@ -306,6 +403,8 @@ def main():
         "source_sha256": observed_sha,
         "stats": stats,
         "effective_rl_updates": stats["effective_rl_groups"],
+        "resumed_roots": start_index,
+        "latest_train_state": str(checkpoint_path_latest),
         "note": "If effective_rl_updates=0, checkpoint was reference-replay SFT only, NOT endpoint RL evidence.",
         "locked_test_accessed": False,
     }

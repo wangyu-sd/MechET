@@ -129,3 +129,32 @@ def evaluation_manifest(
         "config": dict(config),
         "code_sha256": dict(code_sha256),
     }
+
+
+def prepare_training_resume(
+    output: Path, *, manifest: Mapping[str, Any], resume: bool = False,
+) -> Path | None:
+    """Bind a multi-update RL attempt to immutable training provenance.
+
+    Returns the last checkpoint path on a same-contract resume, or None for a
+    fresh attempt. Never silently adopts results from another source/config.
+    """
+    output = Path(output)
+    path = output / "train_manifest.json"
+    state = output / "latest_train_state.pt"
+    existing = output.is_dir() and any(output.iterdir())
+    if existing:
+        if not resume:
+            raise FileExistsError("training output already contains another attempt")
+        if not path.is_file():
+            raise ValueError("training resume manifest is missing")
+        if path.read_bytes() != _bytes_json(manifest):
+            raise ValueError("training resume source, code or frozen config changed")
+        if not state.is_file():
+            raise ValueError("training checkpoint missing; cannot resume an uncommitted update")
+        return state
+    if resume:
+        raise ValueError("resume requested but no previous training output exists")
+    output.mkdir(parents=True, exist_ok=True)
+    _write_atomic(path, _bytes_json(manifest))
+    return None
