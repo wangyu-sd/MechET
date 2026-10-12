@@ -268,6 +268,7 @@ def main():
         # increases exact endpoint signal without changing inference prompts.
         depth_from_end = rng.randrange(min(3, len(frontiers)))
         anchor, reference_state, reference_moves = frontiers[-1 - depth_from_end]
+        abort_current_root = False
         try:
             # CRN-JEPA cannot score BE_DELTA in this v1 action decoder.
             reference_actions = tuple(GroundedMove.from_raw(m) for m in reference_moves)
@@ -364,15 +365,16 @@ def main():
             })
         except (ValueError, RuntimeError, KeyError) as exc:
             if "out of memory" in str(exc).lower():
-                # Preserve the pre-root snapshot; Codex must repair microbatch
-                # or GPU allocation and restart, not silently skip this root.
+                # Keep the last *completed* snapshot. Never mark the current
+                # root processed after an OOM or save a possibly partial step.
+                abort_current_root = True
                 raise
             audit.append({"source_id": row_id, "status": "skipped",
                           "error": f"{type(exc).__name__}:{exc}"})
             continue
         finally:
             world.policy.eval()
-            if (row_index + 1) % args.save_every == 0:
+            if not abort_current_root and (row_index + 1) % args.save_every == 0:
                 save_progress(row_index + 1)
     # Seal final cursor even if the remaining group count is not a multiple of N.
     save_progress(args.rl_updates)
