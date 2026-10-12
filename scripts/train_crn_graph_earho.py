@@ -404,6 +404,10 @@ def main() -> int:
     # Frozen reference MUST be copied BEFORE restoring a resumed adapted actor.
     # This is the original CRN policy, not a moving/training-time teacher.
     frozen_policy = copy.deepcopy(world.policy).eval()
+    # The packed graph encoder is frozen in both models. Share that exact
+    # instance to avoid a second 12-layer encoder allocation, and reuse one
+    # graph forward for actor and frozen-reference decoder probabilities.
+    frozen_policy.graph_encoder = world.policy.graph_encoder
     for frozen_param in frozen_policy.parameters():
         frozen_param.requires_grad_(False)
     parameters = graph_head_parameters(world)
@@ -693,10 +697,11 @@ def main() -> int:
             world.policy.graph_encoder.eval()
             graph = build_grounded_graph(anchor.state, None)
             inventory = MechETGroundedInventory(anchor.state)
-            nodes, context, prefix = world.policy.encode_directional_observation(
-                graph, event_depth=0, remaining_budget=1,
-                direction="retrosynthetic_inverse",
+            nodes, pooled = world.policy.graph_encoder(graph)
+            context = world.policy.direction_context(
+                pooled, "retrosynthetic_inverse"
             )
+            prefix = torch.tanh(world.policy.prefix_init(context))
             logps = [
                 grounded_event_log_probability(
                     world.policy, graph, inventory,
@@ -727,17 +732,17 @@ def main() -> int:
             slate_kl = loss.new_zeros(())
             if args.slate_kl_weight:
                 with torch.no_grad():
-                    old_nodes, old_context, old_prefix = (
-                        frozen_policy.encode_directional_observation(
-                            graph, event_depth=0, remaining_budget=1,
-                            direction="retrosynthetic_inverse",
-                        )
+                    old_context = frozen_policy.direction_context(
+                        pooled.detach(), "retrosynthetic_inverse"
+                    )
+                    old_prefix = torch.tanh(
+                        frozen_policy.prefix_init(old_context)
                     )
                     original_logps = [
                         grounded_event_log_probability(
                             frozen_policy, graph, inventory,
                             tuple(GroundedMove.from_raw(v) for v in candidate.moves),
-                            old_nodes, old_context, old_prefix,
+                            nodes.detach(), old_context, old_prefix,
                         )
                         for candidate in candidates
                     ]
