@@ -4,6 +4,9 @@ on:
     paths:
       - "src/mechet/crn_graph_bridge.py"
       - "src/mechet/graph_endpoint_rl.py"
+      - "src/mechet/graph_earho.py"
+      - "scripts/train_crn_graph_earho.py"
+      - "tests/test_graph_earho_contract.py"
       - "scripts/run_crn_qwen_hybrid.py"
       - "scripts/pr83_resume.py"
       - "tests/test_pr83_resume.py"
@@ -15,6 +18,9 @@ on:
     paths:
       - "src/mechet/crn_graph_bridge.py"
       - "src/mechet/graph_endpoint_rl.py"
+      - "src/mechet/graph_earho.py"
+      - "scripts/train_crn_graph_earho.py"
+      - "tests/test_graph_earho_contract.py"
       - "scripts/run_crn_qwen_hybrid.py"
       - "scripts/train_crn_graph_endpoint_rl.py"
       - "tests/test_crn_graph_hybrid_contract.py"
@@ -29,8 +35,9 @@ jobs:
       - name: Compile opt-in code
         run: |
           python -m compileall -q src/mechet/crn_graph_bridge.py src/mechet/graph_endpoint_rl.py \
-            scripts/run_crn_qwen_hybrid.py scripts/train_crn_graph_endpoint_rl.py scripts/pr83_resume.py
+            scripts/run_crn_qwen_hybrid.py scripts/train_crn_graph_endpoint_rl.py scripts/train_crn_graph_earho.py scripts/pr83_resume.py src/mechet/graph_earho.py
       - name: Run pure contract tests
         run: |
           python -m unittest discover -s tests -p test_crn_graph_hybrid_contract.py -v
           python -m unittest discover -s tests -p test_pr83_resume.py -v
+          python -m unittest discover -s tests -p test_graph_earho_contract.py -v
