@@ -16,3 +16,8 @@ trace subsets. In this repository, unqualified "FlowER full" means the frozen
 reaction-level official split with 257,171 train, 2,890 valid, and 28,971 test
 rows. Any filtering must be explicitly named and must not silently replace the
 requested full condition.
+
+Unless the user explicitly requests a smoke test, do not run or submit smoke,
+pilot, or small-subset training/evaluation jobs. Use the requested full protocol
+and denominator. Unit tests and static checks remain normal code verification,
+but must not be presented as experimental results.
