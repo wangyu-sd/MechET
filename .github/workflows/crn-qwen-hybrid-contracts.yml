@@ -5,6 +5,10 @@ on:
       - "src/mechet/crn_graph_bridge.py"
       - "src/mechet/graph_endpoint_rl.py"
       - "scripts/run_crn_qwen_hybrid.py"
+      - "scripts/pr83_resume.py"
+      - "tests/test_pr83_resume.py"
+      - "scripts/run_pr83_formal_campaign.py"
+      - "tests/test_pr83_formal_campaign.py"
       - "scripts/train_crn_graph_endpoint_rl.py"
       - "tests/test_crn_graph_hybrid_contract.py"
       - ".github/workflows/crn-qwen-hybrid-contracts.yml"
@@ -27,6 +31,9 @@ jobs:
       - name: Compile opt-in code
         run: |
           python -m compileall -q src/mechet/crn_graph_bridge.py src/mechet/graph_endpoint_rl.py \
-            scripts/run_crn_qwen_hybrid.py scripts/train_crn_graph_endpoint_rl.py
+            scripts/run_crn_qwen_hybrid.py scripts/train_crn_graph_endpoint_rl.py scripts/pr83_resume.py
       - name: Run pure contract tests
-        run: python -m unittest discover -s tests -p test_crn_graph_hybrid_contract.py -v
+        run: |
+          python -m unittest discover -s tests -p test_crn_graph_hybrid_contract.py -v
+          python -m unittest discover -s tests -p test_pr83_resume.py -v
+          python -m unittest discover -s tests -p test_pr83_formal_campaign.py -v

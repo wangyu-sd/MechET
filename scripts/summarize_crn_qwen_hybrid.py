@@ -20,7 +20,8 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
               baseline: Path | None = None,
               official_source: Path | None = None,
               official_source_sha256: str | None = None,
-              policy_label: str = "crn_qwen_hybrid") -> dict:
+              policy_label: str = "crn_qwen_hybrid",
+              baseline_policy_kind: str = "pure_qwen") -> dict:
     if world < 1 or sample_reactions < 1:
         raise ValueError("invalid aggregation size")
     if file_sha256(source) != source_sha256:
@@ -38,6 +39,10 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
     hybrid_first_calls: dict[str, str] = {}
     exact = 0
     terminal = 0
+    full_exact = full_scored = unchanged = 0
+    total_seconds = 0.0
+    timings: dict[str, float] = {}
+    calls: dict[str, int] = {}
     rejected: dict[str, int] = {}
     hybrid_contracts: list[dict] = []
     for rank in range(world):
@@ -67,6 +72,14 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
                     )
                 exact += hit
                 terminal += bool(result["top_terminal"])
+                full_scored += "top1_full_exact" in result
+                full_exact += bool(result.get("top1_full_exact", False))
+                unchanged += bool(result.get("target") and result.get("top_precursor") == result["target"])
+                total_seconds += float(result.get("wall_seconds", 0.0))
+                for key, value in result.get("hybrid_timing", {}).items():
+                    timings[key] = timings.get(key, 0.0) + float(value)
+                for key, value in result.get("hybrid_counts", {}).items():
+                    calls[key] = calls.get(key, 0) + int(value)
                 for code, count in result.get("rejected", {}).items():
                     rejected[code] = rejected.get(code, 0) + int(count)
     missing = sorted(ids - seen)
@@ -79,6 +92,12 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
         "top1_structural_rate_strict": exact / sample_reactions,
         "terminal": terminal,
         "terminal_rate_strict": terminal / sample_reactions,
+        "top1_full_exact": full_exact if full_scored == sample_reactions else None,
+        "full_exact_scored_rows": full_scored,
+        "top1_full_rate_strict": full_exact / sample_reactions if full_scored == sample_reactions else None,
+        "unchanged_target": unchanged,
+        "total_recorded_reaction_seconds": total_seconds,
+        "timing": timings, "calls": calls,
         "rejected": rejected,
         "source_sha256": source_sha256,
         "seed": seed,
@@ -101,10 +120,20 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
                 ):
                     if control.get(key) != hybrid.get(key):
                         raise ValueError(f"baseline shard {rank} differs on {key}")
-                if not (control.get("matched_v2") is True and
-                        control.get("product_only_remap") is True and
-                        control.get("greedy") is True):
-                    raise ValueError("baseline is not the frozen pure-Qwen greedy control")
+                if baseline_policy_kind == "pure_qwen":
+                    if not (control.get("matched_v2") is True and
+                            control.get("product_only_remap") is True and
+                            control.get("greedy") is True):
+                        raise ValueError("baseline is not the frozen pure-Qwen greedy control")
+                elif baseline_policy_kind == "frozen_graph":
+                    for key in ("policy", "graph_sha256", "config"):
+                        if control.get(key) != hybrid.get(key):
+                            raise ValueError(f"frozen graph control differs on {key}")
+                    if (control.get("policy") != "crn_jepa_qwen_routed_flow_singlepass_import_v2"
+                            or control.get("graph_rl_head_sha256") is not None):
+                        raise ValueError("baseline is not the frozen graph control")
+                else:
+                    raise ValueError("unknown baseline policy kind")
         baseline_hits: dict[str, bool] = {}
         baseline_first_calls: dict[str, str] = {}
         for rank in range(world):
@@ -124,6 +153,7 @@ def aggregate(*, source: Path, output: Path, sample_reactions: int, seed: int,
         if set(baseline_hits) != ids:
             raise ValueError("baseline and hybrid do not cover identical frozen IDs")
         report["paired_baseline"] = {
+            "policy_kind": baseline_policy_kind,
             "top1_structural_exact": sum(baseline_hits.values()),
             "top1_structural_rate": sum(baseline_hits.values()) / sample_reactions,
             "hybrid_only_correct": sum(hybrid_hits[key] and not baseline_hits[key] for key in ids),
@@ -196,6 +226,7 @@ def main() -> int:
     parser.add_argument("--official-denominator", type=int)
     parser.add_argument("--baseline", type=Path,
                         help="matched pure-Qwen sharded results for a paired comparison")
+    parser.add_argument("--baseline-policy-kind", choices=("pure_qwen", "frozen_graph"), default="pure_qwen")
     parser.add_argument("--official-source", type=Path,
                         help="official 28,971-row endpoint test for explicit four-row coverage")
     parser.add_argument("--official-source-sha256")
@@ -210,6 +241,7 @@ def main() -> int:
         official_source=args.official_source,
         official_source_sha256=args.official_source_sha256,
         policy_label=args.policy_label,
+        baseline_policy_kind=args.baseline_policy_kind,
     )
     unsupported_records = report.pop("official_unsupported_records", [])
     if args.official_source is not None:

@@ -131,8 +131,12 @@ improvement from oracle-state Event@K.
   all 128 reaction IDs, log runtime and preserve the original endpoint denominator.
 - After RL: compare identical frozen 128-row IDs and exact same controller,
   executor, and graph Top-K budget; only the graph head may differ.
-- If progress is negative or no positive RL groups exist, do not extend to
-  2,890 validation or full-test. Preserve the historical Qwen path untouched.
+- A negative 128-reaction result or zero effective RL groups must trigger
+  an explicit cause audit and at most **two bounded corrective cycles** on
+  train/validation; these are **not** reasons to abandon the PR or to claim
+  success. After those cycles, publish the actual paired negative result if
+  appropriate. Never expand to 2,890 validation or locked test solely to
+  obscure a negative pilot. Preserve the historical Qwen path untouched.
 - Full benchmark: 28,971 FlowER endpoint rows vs 28,967 strict-process rows;
   these denominators are never interchangeable.
 
@@ -188,3 +192,46 @@ checkpoints and Taiji CUDA/RDKit-2026.03.4 execution environment are not
 mounted into this GitHub connector session. CPU-only unit-contract checks
 and source compilation are possible; real GPU throughput, Qwen routing parity,
 and endpoint results remain explicitly **unmeasured**.
+
+## Codex continuation and resumable inference (PR83)
+
+The user has authorized an aggressive **execution and debugging handoff**, not
+an open-ended theoretical redesign. Follow
+[the PR83 Codex Goal](CODEX_GOAL_PR83.md) and keep the
+[execution ledger](results/PR83_EXECUTION_LEDGER.md) up to date.
+The machine-readable bounded-stage contract is
+`configs/auto_research/pr83_execution_contract.json`.
+Do not stop at first failed GPU smoke, empty endpoint count, green CI or one
+unsuccessful RL iteration. Locate/fix a supported cause and rerun an identical
+cohort, preserving all prior artifacts. No silent changes to split, reference
+availability or metric definitions.
+
+The product-start evaluator now supports **SHA-locked resume**. It writes
+`run_manifest.json` before generation (input data, frozen IDs,
+model/adapter/graph weights and code hashes) and appends per-row wall-time,
+Qwen/graph call counts and timing. Interrupted runs may be resumed with the
+**identical command plus** `--resume`; only a corrupted incomplete
+final JSONL tail is quarantined and truncated, while completed rows are
+independently verified and never rerun.
+
+For example, after a recoverable interruption to an existing 128-ID evaluation,
+rerun the *same* original invocation, adding `--resume` before
+its other flags. Never reuse an output directory for a new checkpoint, altered
+code or sample.
+
+Graph endpoint RL now also writes `latest_train_state.pt` with the frozen
+source/model/code manifest, optimizer, graph policy-head weights, RNG state and
+next unprocessed root, every four sampled roots by default. The identical
+command plus `--resume` may continue that exact attempt; a code or experiment
+change requires a new output directory. No claim of RL completion follows
+from this checkpoint alone.
+
+Graph-only endpoint RL still requires actual optimizer and GPU execution:
+the current PR adds a train-only implementation, not a measured gain. Codex
+must collect true endpoint-positive counts separately from reference replay
+and repair experiment execution instead of claiming that loss descent alone
+demonstrates endpoint alignment.
+
+**Stopping rule:** final measured paired outcome (positive or honestly
+negative after two diagnostic corrections), or an explicit integrity/security/
+resource hard blocker with the attempted recoveries and precise unblock path.

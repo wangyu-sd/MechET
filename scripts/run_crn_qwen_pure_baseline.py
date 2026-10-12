@@ -33,6 +33,7 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--model", default="Qwen/Qwen3-0.6B")
     p.add_argument("--model-revision", default="c1899de289a04d12100db370d81485cdf75e47ca")
     p.add_argument("--policy-adapter", type=Path, required=True)
+    p.add_argument("--compact-history", action="store_true")
     p.add_argument("--resume", action="store_true")
     return p
 
@@ -41,10 +42,9 @@ def prepare_args(args: argparse.Namespace) -> argparse.Namespace:
     if args.sample_reactions < 1 or not args.source_sha256:
         raise ValueError("pure-Qwen control requires a pinned nonempty source")
     validate_v2_adapter_manifest(
-        args.policy_adapter, compact_history=True,
+        args.policy_adapter, compact_history=args.compact_history,
         expected_model=args.model, expected_revision=args.model_revision,
     )
-    args.compact_history = True
     args.matched_v2 = True
     args.vnext_v2_prefix = False
     args.legacy_dual_prompt = False
@@ -99,7 +99,7 @@ def main() -> int:
         "model": args.model,
         "model_revision": args.model_revision,
         "policy_adapter_sha256": adapter_sha,
-        "compact_history": True,
+        "compact_history": args.compact_history,
         "matched_v2": True,
         "product_only_remap": True,
         "greedy": True,
@@ -107,6 +107,11 @@ def main() -> int:
         "max_context": 4096,
         "max_decisions": 40,
         "max_imports": 32,
+        "code_sha256": {name: file_sha256(ROOT / name) for name in (
+            "scripts/run_crn_qwen_pure_baseline.py",
+            "scripts/run_natural_language_value_search.py",
+            "src/mechet/endpoints.py",
+        )},
     }
     args.output.mkdir(parents=True, exist_ok=True)
     contract_path = args.output / f"contract.shard-{rank:02d}-of-{world:02d}.json"
@@ -128,8 +133,10 @@ def main() -> int:
             identifier = str(row["id"])
             if identifier in done:
                 continue
+            row_started = time.perf_counter()
             result = rollout(runtime, row, args)
-            result["policy"] = "pure_qwen3_0_6b_stage2_matched_v2_greedy"
+            result["wall_seconds"] = time.perf_counter() - row_started
+            result["policy"] = "pure_qwen3_0_6b_matched_v2_greedy"
             result["qwen_adapter_sha256"] = adapter_sha
             sink.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
             sink.flush()

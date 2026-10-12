@@ -25,6 +25,7 @@ from mechet.crn_graph_bridge import (
     graph_event_coordinates, route_tool_name, route_tool_name_greedy,
 )
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
+from scripts.pr83_resume import evaluation_manifest, prepare_resume
 from scripts.run_natural_language_value_search import (
     Action, Node, Runtime, policy_prompt, read_selected, rollout,
     validate_v2_adapter_manifest,
@@ -254,99 +255,116 @@ def main() -> int:
     import torch
     if torch.cuda.device_count() <= local_rank:
         raise RuntimeError("hybrid evaluation requires one CUDA device per local rank")
-    # One graph+Qwen policy per GPU; no hidden use of GT to select actions.
+    source_sha = file_sha256(args.data)
+    if args.source_sha256 and source_sha != args.source_sha256:
+        raise ValueError("hybrid evaluation source SHA-256 mismatch")
     rows = read_selected(args.data, args.sample_reactions, args.seed)
     if len(rows) != args.sample_reactions:
         raise ValueError("requested reactions exceed frozen source")
-    if args.source_sha256 and file_sha256(args.data) != args.source_sha256:
-        raise ValueError("evaluation source SHA-256 mismatch")
     selected = selected_shard(rows, rank, world)
-    expected_ids = {str(row["id"]) for row in selected}
-    if len(expected_ids) != len(selected):
-        raise ValueError("duplicate IDs in selected evaluation shard")
+    identifiers = [str(row["id"]) for row in selected]
     qwen_adapter_sha = file_sha256(args.policy_adapter / "adapter_model.safetensors")
-    run_contract = {
-        "source": str(args.data.resolve()), "source_sha256": args.source_sha256,
-        "sample_reactions": args.sample_reactions, "seed": args.seed,
-        "rank": rank, "world": world,
-        "model": args.model, "model_revision": args.model_revision,
-        "policy_adapter_sha256": qwen_adapter_sha,
-        "compact_history": args.compact_history,
-        "graph_checkpoint_sha256": args.graph_sha256,
-        "graph_rl_head_sha256": file_sha256(args.graph_rl_head) if args.graph_rl_head else None,
-        "graph_flow_topk": args.graph_flow_topk,
-        "graph_initial_budget": args.graph_initial_budget,
-        "tool_route": args.tool_route,
-        "greedy_import_decode": "single_generate_to_eos_v2",
-        "graph_beam": args.graph_beam, "graph_source_width": args.graph_source_width,
-        "graph_sink_width": args.graph_sink_width, "graph_move_width": args.graph_move_width,
-        "max_import_tokens": args.max_import_tokens,
-        "max_context": args.max_context, "max_decisions": args.max_decisions,
-        "max_imports": args.max_imports,
-    }
-    args.output.mkdir(parents=True, exist_ok=True)
-    contract_path = args.output / f"contract.shard-{rank:02d}-of-{world:02d}.json"
-    output = args.output / f"results.shard-{rank:02d}-of-{world:02d}.jsonl"
-    if args.resume:
-        if contract_path.exists():
-            if json.loads(contract_path.read_text(encoding="utf-8")) != run_contract:
-                raise ValueError("resume contract differs from the saved shard")
-        elif output.exists():
-            raise FileExistsError("cannot resume result rows without a saved contract")
-    elif contract_path.exists() or output.exists():
-        raise FileExistsError("hybrid shard exists; pass --resume for an identical run")
-    contract_path.write_text(json.dumps(run_contract, indent=2) + "\n", encoding="utf-8")
-    done = completed_ids(output, expected_ids)
-    initially_done = len(done)
+    graph_sha = file_sha256(args.graph_checkpoint)
+    if graph_sha != args.graph_sha256:
+        raise ValueError("CRN pretrained checkpoint SHA-256 mismatch")
+    policy = "crn_jepa_qwen_routed_flow_singlepass_import_v2"
+    manifest = evaluation_manifest(
+        selected_ids=identifiers, source_sha256=source_sha,
+        source_path=str(args.data), qwen_adapter_sha256=qwen_adapter_sha,
+        graph_sha256=graph_sha,
+        graph_rl_head_sha256=file_sha256(args.graph_rl_head) if args.graph_rl_head else None,
+        model=args.model, model_revision=args.model_revision, policy=policy,
+        config={
+            "sample_reactions": args.sample_reactions, "seed": args.seed,
+            "rank": rank, "world": world, "compact_history": args.compact_history,
+            "tool_route": args.tool_route,
+            "greedy_import_decode": "single_generate_to_eos_v2",
+            "graph_initial_budget": args.graph_initial_budget,
+            "graph_flow_topk": args.graph_flow_topk,
+            "graph_beam": args.graph_beam, "graph_source_width": args.graph_source_width,
+            "graph_sink_width": args.graph_sink_width, "graph_move_width": args.graph_move_width,
+            "max_import_tokens": args.max_import_tokens, "max_context": args.max_context,
+            "max_decisions": args.max_decisions, "max_imports": args.max_imports,
+            "dtype": args.dtype, "no_4bit": args.no_4bit,
+            "product_only_remap": args.product_only_remap,
+            "reject_target_retained_finish": args.reject_target_retained_finish,
+        },
+        code_sha256={name: file_sha256(ROOT / name) for name in (
+            "scripts/run_crn_qwen_hybrid.py", "scripts/pr83_resume.py",
+            "scripts/run_natural_language_value_search.py", "src/mechet/crn_graph_bridge.py",
+            "src/mechet/endpoints.py",
+        )},
+    )
+    manifest.update({
+        "source": str(args.data.resolve()), "sample_reactions": args.sample_reactions,
+        "seed": args.seed, "rank": rank, "world": world,
+        "policy_adapter_sha256": qwen_adapter_sha, "compact_history": args.compact_history,
+    })
+    suffix = f"shard-{rank:02d}-of-{world:02d}"
+    saved = prepare_resume(
+        args.output, manifest=manifest, selected_ids=identifiers, resume=args.resume,
+        manifest_name=f"contract.{suffix}.json", results_name=f"results.{suffix}.jsonl",
+    )
+    output = args.output / f"results.{suffix}.jsonl"
     runtime = HybridRuntime(args, local_rank)
+    resumed_count = len(saved)
+    all_rows = list(saved)
     started = time.perf_counter()
-    successful = 0
     with output.open("a", encoding="utf-8") as handle:
-        for row in selected:
-            if str(row["id"]) in done:
-                continue
+        for row in selected[resumed_count:]:
+            counts_before = dict(runtime.counts)
+            timing_before = dict(runtime.timing)
+            t0 = time.perf_counter()
             result = rollout(runtime, row, args)
-            result["policy"] = "crn_jepa_qwen_routed_flow_singlepass_import_v2"
-            result["graph_checkpoint_sha256"] = runtime.graph.sha256
+            result["policy"] = policy
+            result["graph_checkpoint_sha256"] = graph_sha
             result["qwen_adapter_sha256"] = qwen_adapter_sha
-            successful += bool(result["top1_structural_exact"])
+            result["wall_seconds"] = time.perf_counter() - t0
+            result["hybrid_counts"] = {
+                key: runtime.counts[key] - counts_before[key] for key in runtime.counts
+            }
+            result["hybrid_timing"] = {
+                key: runtime.timing[key] - timing_before[key] for key in runtime.timing
+            }
             handle.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
             handle.flush()
-            print(json.dumps({"stage": "hybrid-evaluation", "rank": rank,
-                              "done": len(done) + 1, "total": len(selected),
-                              "id": result["id"], "top1_exact": result["top1_structural_exact"],
-                              "elapsed_seconds": round(time.perf_counter() - started, 2)}),
-                  flush=True)
-            done.add(str(row["id"]))
-    elapsed = time.perf_counter() - started
-    if len(done) != len(selected):
+            all_rows.append(result)
+            print(json.dumps({
+                "stage": "hybrid-evaluation", "rank": rank, "done": len(all_rows),
+                "total": len(selected), "id": result["id"],
+                "top1_exact": result["top1_structural_exact"],
+                "elapsed_seconds": round(time.perf_counter() - started, 2),
+            }), flush=True)
+    if len(all_rows) != len(selected):
         raise RuntimeError("evaluation shard ended without every selected reaction")
-    if args.resume:
-        with output.open(encoding="utf-8") as handle:
-            successful = sum(bool(json.loads(line)["top1_structural_exact"]) for line in handle)
+    seconds = sum(float(item["wall_seconds"]) for item in all_rows)
+    exact = sum(bool(item["top1_structural_exact"]) for item in all_rows)
     report = {
         "protocol": "opt_in_crn_jepa_qwen_routed_flow_singlepass_import_v2",
         "scope": "selected_source_rows; aggregate all shards before benchmark reporting",
         "rank": rank, "world": world, "global_selected": len(rows),
-        "evaluated": len(selected), "top1_exact": successful,
-        "top1_rate": successful / len(selected) if selected else 0.0,
-        "elapsed_seconds": elapsed,
-        "newly_evaluated": len(selected) - initially_done,
-        "seconds_per_new_reaction": elapsed / max(1, len(selected) - initially_done),
-        "timing": runtime.timing, "calls": runtime.counts,
+        "evaluated": len(all_rows), "top1_exact": exact,
+        "top1_rate": exact / len(all_rows) if all_rows else 0.0,
+        "total_recorded_reaction_seconds": seconds,
+        "seconds_per_reaction": seconds / len(all_rows) if all_rows else 0.0,
+        "this_invocation_elapsed_seconds": time.perf_counter() - started,
+        "resumed_rows": resumed_count, "new_rows": len(all_rows) - resumed_count,
+        "timing": {key: sum(float(item["hybrid_timing"][key]) for item in all_rows)
+                   for key in runtime.timing},
+        "calls": {key: sum(int(item["hybrid_counts"][key]) for item in all_rows)
+                  for key in runtime.counts},
         "qwen_model": args.model, "qwen_revision": args.model_revision,
-        "qwen_adapter_sha256": qwen_adapter_sha,
-        "graph_sha256": runtime.graph.sha256,
-        "graph_rl_head": str(args.graph_rl_head) if args.graph_rl_head else None,
+        "qwen_adapter_sha256": qwen_adapter_sha, "graph_sha256": graph_sha,
+        "graph_rl_head_sha256": manifest["graph_rl_head_sha256"],
         "graph_flow_topk": args.graph_flow_topk,
-        "graph_initial_budget": args.graph_initial_budget,
-        "tool_route": args.tool_route,
-        "note": ("greedy_name generates IMPORT to EOS in one Qwen call and truncates FLOW "
-                 "immediately after the tool name; prefix_nll is a diagnostic ablation."),
+        "graph_initial_budget": args.graph_initial_budget, "tool_route": args.tool_route,
+        "run_manifest": f"contract.{suffix}.json",
+        "note": "Greedy IMPORT uses one Qwen generation; FLOW stops after the tool name.",
     }
-    (args.output / f"summary.shard-{rank:02d}-of-{world:02d}.json").write_text(
-        json.dumps(report, indent=2) + "\n", encoding="utf-8",
-    )
+    summary = args.output / f"summary.{suffix}.json"
+    staging = summary.with_suffix(".json.tmp")
+    staging.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    staging.replace(summary)
     print(json.dumps(report, ensure_ascii=False), flush=True)
     return 0
 

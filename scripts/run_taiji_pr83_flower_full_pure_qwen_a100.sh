@@ -39,7 +39,7 @@ python -m torch.distributed.run --standalone --nproc_per_node=8 \
   --output "$OUTPUT" --sample-reactions 28967 --seed 17 --resume \
   --model Qwen/Qwen3-0.6B \
   --model-revision c1899de289a04d12100db370d81485cdf75e47ca \
-  --policy-adapter "$ADAPTER"
+  --policy-adapter "$ADAPTER" --compact-history
 
 python scripts/summarize_crn_qwen_hybrid.py \
   --source "$SOURCE" --source-sha256 "$SOURCE_SHA" \

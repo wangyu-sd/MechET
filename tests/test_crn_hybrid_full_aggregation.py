@@ -59,6 +59,8 @@ def test_all_shards_and_official_unsupported_denominator() -> None:
         assert report["paired_baseline"]["first_call_identical"] == 4
         assert report["paired_baseline"]["first_call_different_ids"] == ["test_2"]
         assert report["paired_baseline"]["baseline_contract_verified"] is False
+        assert report["full_exact_scored_rows"] == 0
+        assert report["top1_full_rate_strict"] is None
         for rank in range(2):
             control = json.loads(
                 (root / f"contract.shard-{rank:02d}-of-02.json").read_text()
@@ -71,6 +73,18 @@ def test_all_shards_and_official_unsupported_denominator() -> None:
                              seed=17, world=2, source_sha256=digest,
                              official_denominator=9, baseline=baseline)
         assert verified["paired_baseline"]["baseline_contract_verified"] is True
+        for rank in range(2):
+            for directory in (root, baseline):
+                path = directory / f"contract.shard-{rank:02d}-of-02.json"
+                contract = json.loads(path.read_text())
+                contract.update(policy="crn_jepa_qwen_routed_flow_singlepass_import_v2",
+                                graph_sha256="graph", config={"max_decisions": 40},
+                                graph_rl_head_sha256=None)
+                path.write_text(json.dumps(contract))
+        paired_graph = aggregate(source=source, output=root, sample_reactions=5,
+                                 seed=17, world=2, source_sha256=digest,
+                                 baseline=baseline, baseline_policy_kind="frozen_graph")
+        assert paired_graph["paired_baseline"]["policy_kind"] == "frozen_graph"
         changed = json.loads((baseline / "contract.shard-01-of-02.json").read_text())
         changed["source_sha256"] = "wrong"
         (baseline / "contract.shard-01-of-02.json").write_text(json.dumps(changed))
