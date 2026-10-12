@@ -62,9 +62,10 @@ The main implementation is "scripts/train_crn_graph_earho.py", with
    The slate is truncated and selected from a policy-ranked beam,
    so this is an execution-verified **truncated-slate policy-gradient
    surrogate**, not exact PPO, TRPO, or unbiased GRPO.
-8. Every 16 train roots, promote H by one if at least four groups show
+8. Every 16 train roots, promote H by one if at least four **on-policy graph-correctable** groups show
    nonzero policy contrast and productive support covers at least 10%
-   of eligible groups; maximum H=8 by default. All checks are train-only.
+   of these eligible on-policy groups; conditional reference resets after
+   Qwen-first mistakes NEVER promote H. Maximum H=8 by default. All checks are train-only.
    Continue monitoring product-start behavior, not just oracle-state
    rewards. Save graph weights, optimizer, Python/Torch/CUDA RNG, horizon
    and per-group audits for SHA-locked resume.
