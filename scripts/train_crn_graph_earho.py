@@ -194,10 +194,6 @@ def graph_head_parameters(world):
 
 def main() -> int:
     import torch
-    from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
-    from crn_jepa.models.grounded_graph import build_grounded_graph
-    from crn_jepa.models.pr18_full_corpus_objectives import teacher_forced_from_tokens
-
     cli = parser()
     cli.description = __doc__
     cli.add_argument("--source-sha256", required=True)
@@ -216,7 +212,11 @@ def main() -> int:
     cli.add_argument("--save-every", type=int, default=4)
     args = prepare_args(cli.parse_args())
     sys.path.insert(0, str((args.crn_root / "src").resolve()))
-    # Imports above are intentionally AFTER the checkout path is registered.
+    from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
+    from crn_jepa.models.grounded_graph import build_grounded_graph
+    from crn_jepa.models.pr18_full_corpus_objectives import teacher_forced_from_tokens
+    # External model modules are imported only after the selected checkout is
+    # explicitly in sys.path; the default package is not installed in MechET.
     if (args.data.name != "train.jsonl" or "test" in str(args.data).lower()
         or file_sha256(args.data) != args.source_sha256):
         raise ValueError("Graph-EARHO only accepts SHA-authenticated train data")
@@ -295,7 +295,7 @@ def main() -> int:
         "selected": len(rows), "processed": 0, "replay_failed": 0,
         "graph_correctable_frontiers": 0, "controller_blocked_frontiers": 0,
         "no_divergence": 0, "reference_conditional_frontiers": 0,
-        "full_product_anchored": 0, "full_product_monitor_only": 0,
+        "full_product_anchored": 0, "full_product_requested_but_not_eligible": 0,
         "insufficient_slate": 0, "sampled_actions": 0,
         "unique_executed_successors": 0, "pooled_duplicate_actions": 0,
         "executor_accepted": 0, "endpoint_positive_classes": 0,
@@ -409,7 +409,7 @@ def main() -> int:
             if choice.full_product and train_from_policy:
                 stats["full_product_anchored"] += 1
             elif full_requested:
-                stats["full_product_monitor_only"] += 1
+                stats["full_product_requested_but_not_eligible"] += 1
             slate = runtime.graph.candidates(
                 anchor.state, limit=32,
                 beam_size=args.graph_beam,
