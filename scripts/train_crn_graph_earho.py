@@ -13,12 +13,14 @@ All rewards are training-only. The executor is unchanged.
 """
 from __future__ import annotations
 
+import copy
 import json
 import math
 import os
 from pathlib import Path
 import random
 import sys
+from dataclasses import dataclass
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
@@ -33,6 +35,7 @@ from mechet.graph_earho import (
 )
 from mechet.graph_endpoint_rl import (
     grounded_event_log_probability, successor_class_policy_loss,
+    truncated_slate_reference_kl,
 )
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.natural_language_anchor_branch_rl import contains_unchanged_target
@@ -89,7 +92,12 @@ def replay_train_trace(row):
 
 
 def observe_policy_divergence(runtime, trace, args):
-    """Product-only Qwen+Graph decisions until the first real state mismatch."""
+    """Return first chemical divergence AND the actual autonomous pre-error Node.
+
+    A replay-verified state is useful as a private training label, never a
+    substitute for the model-owned state at its first error. This retains
+    Qwen-imported chemical context, action history and private atom maps.
+    """
     product = visible(trace["original_target"])
     state = product_only_private_state(product)
     node = Node(
@@ -98,16 +106,20 @@ def observe_policy_divergence(runtime, trace, args):
         visited={product},
     )
     predictions = []
-    for gold in trace["reference"]:
-        proposals = runtime.proposals(
+    for expected in trace["reference"]:
+        before = node
+        proposed = runtime.proposals(
             node, candidates=1, max_new_tokens=args.max_import_tokens,
             compact_history=args.compact_history,
         )
-        action = proposals[0] if proposals else None
+        action = proposed[0] if proposed else None
         if action is None:
-            predictions.append(Transition("NO_ACTION", False, None,
-                                          error="NO_MODEL_PROPOSAL"))
-            break
+            predictions.append(
+                Transition("NO_ACTION", False, None, error="NO_MODEL_PROPOSAL")
+            )
+            return first_executed_divergence(
+                trace["reference"][:len(predictions)], predictions
+            ), before
         child, error = execute(
             node, action, max_imports=args.max_imports,
             reject_target_retained_finish=True,
@@ -118,12 +130,74 @@ def observe_policy_divergence(runtime, trace, args):
             terminal=bool(child and child.terminal), error=error,
         )
         predictions.append(trial)
-        if child is None or trial.successor_key != gold.successor_key or (
-            trial.terminal != gold.terminal
+        if (
+            child is None or trial.successor_key != expected.successor_key
+            or trial.terminal != expected.terminal
         ):
-            break
+            return first_executed_divergence(
+                trace["reference"][:len(predictions)], predictions
+            ), before
         node = child
-    return first_executed_divergence(trace["reference"], predictions)
+    return first_executed_divergence(trace["reference"], predictions), None
+
+
+def align_reference_moves(reference_mapped_state, actor_mapped_state, moves):
+    """Remap train-only reference electron containers onto the model's maps.
+
+    Private map integers carry no semantics. We require exact map-free
+    chemical identity and a UNIQUE grounded action after atom-isomorphism
+    matching. Symmetry-ambiguous gold pointers are excluded from the
+    supervised fallback (not from the sampled actor's endpoint rewards).
+    """
+    from rdkit import Chem
+    from crn_jepa.grounded_actions import GroundedMove, unordered_event_key
+
+    if visible(reference_mapped_state) != visible(actor_mapped_state):
+        return None
+    reference = Chem.MolFromSmiles(reference_mapped_state)
+    current = Chem.MolFromSmiles(actor_mapped_state)
+    if reference is None or current is None:
+        return None
+    old_atom_maps = tuple(atom.GetAtomMapNum() for atom in reference.GetAtoms())
+    new_atom_maps = tuple(atom.GetAtomMapNum() for atom in current.GetAtoms())
+    if (any(m <= 0 for m in old_atom_maps + new_atom_maps)
+            or len(old_atom_maps) != len(new_atom_maps)):
+        return None
+    for atom in reference.GetAtoms():
+        atom.SetAtomMapNum(0)
+    for atom in current.GetAtoms():
+        atom.SetAtomMapNum(0)
+    matches = current.GetSubstructMatches(
+        reference, uniquify=False, useChirality=True, maxMatches=33,
+    )
+    if not matches or len(matches) >= 33:
+        return None
+    variants = {}
+    for match in matches:
+        remap = {
+            old_atom_maps[i]: new_atom_maps[match[i]]
+            for i in range(len(old_atom_maps))
+        }
+        transformed = []
+        for raw in moves:
+            move = GroundedMove.from_raw(raw)
+            def container(value):
+                return {
+                    "kind": value.kind,
+                    "atoms": [remap[a] for a in value.atom_maps],
+                }
+            transformed.append(
+                GroundedMove.from_raw({
+                    "source": container(move.source),
+                    "sink": container(move.sink),
+                    "electrons": move.electrons,
+                })
+            )
+        signature = unordered_event_key(transformed)
+        variants[signature] = tuple(transformed)
+        if len(variants) > 1:
+            return None  # don't choose one arbitrary symmetric gold atom
+    return next(iter(variants.values()))
 
 
 def sample_slate(candidates, k: int, rng, temperature: float):
@@ -139,48 +213,76 @@ def sample_slate(candidates, k: int, rng, temperature: float):
     return [candidates[i] for _, i in keys[:k]]
 
 
-def bounded_continuation(runtime, start, args, *, decisions: int):
-    """Small, gold-free beam over ACTUAL executed successors.
+@dataclass(frozen=True)
+class ContinuationResult:
+    terminals: tuple[Node, ...]
+    censored: bool
+    attempted: int
 
-    For FLOW the graph can return multiple top proposals. For IMPORT and FINISH
-    Qwen retains its frozen behavior. Selection only sees model logprob and
-    executed chemical state, never a gold endpoint or reference next state.
+
+def bounded_continuation(runtime, start, args, *, decisions: int):
+    """Gold-free, TYPE-COMPARABLE bounded breadth-first search.
+
+    A parent may propose several *graph* FLOW actions ranked by the same
+    graph policy, but IMPORT and FINISH have only the frozen Qwen choice.
+    Across different parents or Qwen/Graph action families we NEVER compare
+    raw Qwen token-NLL against graph move-NLL: breadth-first order and
+    per-parent candidate rank determine a reproducible equal-budget beam.
+
+    Censored means the finite search failed to exhaust plausible branches.
+    Lack of endpoint evidence after censoring must not become negative RL.
     """
+    width = args.rollout_beam_width
+    if start.terminal:
+        return ContinuationResult((start,), False, 0)
     beam = [start]
-    terminals = [start] if start.terminal else []
-    for _ in range(decisions):
-        descendants = []
-        for node in beam:
-            if node.terminal:
+    terminals = []
+    censored = decisions <= 0
+    attempts = 0
+    for _ in range(max(0, decisions)):
+        next_states = {}
+        incomplete = False
+        for parent in beam:
+            if len(parent.actions) >= args.max_decisions:
+                incomplete = True
                 continue
             proposals = runtime.proposals(
-                node, candidates=1,
+                parent, candidates=1,
                 max_new_tokens=args.max_import_tokens,
                 compact_history=args.compact_history,
             )
+            if not proposals:
+                incomplete = True
+                continue
             for action in proposals:
-                child, error = execute(
-                    node, action, max_imports=args.max_imports,
+                attempts += 1
+                child, _ = execute(
+                    parent, action, max_imports=args.max_imports,
                     reject_target_retained_finish=True,
                 )
                 if child is None:
+                    incomplete = True
                     continue
                 if child.terminal:
                     terminals.append(child)
                 else:
-                    descendants.append(child)
-        if not descendants:
+                    key = (
+                        visible(child.state),
+                        tuple(record["name"] for record in child.actions)
+                        if args.compact_history else (),
+                    )
+                    # First admissible successor in model-ranked per-parent
+                    # order wins. Don't rank heterogeneous neural scores.
+                    next_states.setdefault(key, child)
+        if len(next_states) > width:
+            incomplete = True
+        censored = censored or incomplete
+        beam = list(next_states.values())[:width]
+        if not beam:
             break
-        unique = {}
-        for node in descendants:
-            key = visible(node.state)
-            old = unique.get(key)
-            if old is None or node.policy_score > old.policy_score:
-                unique[key] = node
-        beam = sorted(
-            unique.values(), key=lambda node: node.policy_score, reverse=True
-        )[:args.rollout_beam_width]
-    return terminals
+    if beam:
+        censored = True
+    return ContinuationResult(tuple(terminals), censored, attempts)
 
 
 def graph_head_parameters(world):
