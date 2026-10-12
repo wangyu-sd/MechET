@@ -85,10 +85,11 @@ def select_receding_flow_anchor(
     horizon: int,
     full_product: bool = False,
 ) -> AnchorChoice | None:
-    """Start near the endpoint, move backwards toward actual divergence as H grows.
+    """Anchor at the FIRST autonomous graph-correctable deviation.
 
-    Never train graph FLOW when the first observed error is a Qwen IMPORT/FINISH
-    or a wrong tool routing. Gold reset states are train-only.
+    H bounds the FORWARD continuation from this error; it never replaces
+    the model-induced prefix with an increasingly long reference prefix.
+    A full-product reset is eligible only if the first deviation is t=0.
     """
     if horizon < 1:
         raise ValueError("horizon must be positive")
@@ -97,32 +98,13 @@ def select_receding_flow_anchor(
     first = divergence.index
     if first >= len(reference_names) or reference_names[first] != FLOW:
         raise ValueError("first graph-correctable action disagrees with replay")
-    eligible = [
-        i for i in range(first, len(reference_names))
-        if reference_names[i] == FLOW
-    ]
-    if not eligible:
-        raise ValueError("no replayable electronic frontier")
-    if full_product and first == 0:
-        return AnchorChoice(
-            decision_index=0,
-            horizon=horizon,
-            full_product=True,
-            earliest_divergence=first,
-            future_decisions=len(reference_names),
-        )
-    within = [
-        i for i in eligible if len(reference_names) - i <= horizon
-    ]
-    chosen = min(within) if within else max(eligible)
     return AnchorChoice(
-        decision_index=chosen,
+        decision_index=first,
         horizon=horizon,
-        full_product=False,
+        full_product=bool(full_product and first == 0),
         earliest_divergence=first,
-        future_decisions=len(reference_names) - chosen,
+        future_decisions=len(reference_names) - first,
     )
-
 
 @dataclass(frozen=True)
 class ExecutedAlternative:
@@ -181,12 +163,33 @@ class VerifiedOutcome:
     executed: bool
     endpoint_exact: bool = False
     reference_successor: bool = False
+    wrong_terminal: bool = False
+    target_retained_noop: bool = False
+    exhausted: bool = False
+
+    def __post_init__(self) -> None:
+        if (self.endpoint_exact or self.reference_successor) and not self.executed:
+            raise ValueError("invalid candidate cannot have positive evidence")
+        if self.endpoint_exact and (self.wrong_terminal or self.target_retained_noop):
+            raise ValueError("exact endpoint cannot also be a wrong terminal")
+        if not self.executed and (self.wrong_terminal or self.exhausted):
+            raise ValueError("rejected action has no continuation")
+        if self.wrong_terminal and self.exhausted:
+            raise ValueError("terminal failure cannot be an incomplete search")
 
     @property
     def positive(self) -> bool:
-        if (self.endpoint_exact or self.reference_successor) and not self.executed:
-            raise ValueError("invalid candidate cannot have positive evidence")
         return self.endpoint_exact or self.reference_successor
+
+    @property
+    def certified_negative(self) -> bool:
+        # Executor rejection is definitive. Wrong terminal means wrong for
+        # the recorded endpoint benchmark, not chemically impossible.
+        return not self.executed or self.wrong_terminal or self.target_retained_noop
+
+    @property
+    def unresolved(self) -> bool:
+        return self.executed and not self.positive and not self.certified_negative
 
     @property
     def reward(self) -> float:
@@ -194,38 +197,46 @@ class VerifiedOutcome:
             return 1.0
         if self.reference_successor:
             return 0.2
-        return 0.0 if self.executed else -0.2
+        if not self.executed:
+            return -0.2
+        if self.target_retained_noop:
+            return -0.2
+        if self.wrong_terminal:
+            return -0.1
+        return 0.0
 
 
 def successor_group_advantages(
     outcomes: Sequence[VerifiedOutcome],
 ) -> tuple[float, ...]:
-    """Success-gated relative credit across *unique successor states*.
+    """Assign signed credit only from supported chemical observations.
 
-    With no positive evidence, every policy advantage is zero. If every
-    branch is supported but only some reach a complete endpoint, endpoint
-    winners still get relative credit over local reference-only support.
+    An accepted successor unresolved in finite continuation search is
+    CENSORED, not a negative example: its actor advantage remains zero.
+    No group without any verified positive receives a relative update.
     """
     if not outcomes:
         raise ValueError("empty executed branch group")
-    support = [item.positive for item in outcomes]
-    if not any(support):
+    if not any(o.positive for o in outcomes):
         return (0.0,) * len(outcomes)
-    rewards = [item.reward for item in outcomes]
-    if not all(support):
-        total = sum(rew for ok, rew in zip(support, rewards) if ok)
-        nneg = sum(not ok for ok in support)
+    if all(o.positive for o in outcomes) and len({o.reward for o in outcomes}) == 1:
+        return (0.0,) * len(outcomes)
+    positives = sum(o.reward for o in outcomes if o.positive)
+    negatives = sum(o.certified_negative for o in outcomes)
+    if negatives:
         return tuple(
-            rew / total if ok else -1.0 / nneg
-            for ok, rew in zip(support, rewards)
+            o.reward / positives if o.positive
+            else -1.0 / negatives if o.certified_negative
+            else 0.0
+            for o in outcomes
         )
-    if max(rewards) == min(rewards):
-        return (0.0,) * len(outcomes)
-    mean = sum(rewards) / len(rewards)
-    centered = [value - mean for value in rewards]
-    scale = sum(max(value, 0.0) for value in centered)
-    return tuple(value / scale for value in centered)
-
+    if all(o.positive for o in outcomes):
+        average = sum(o.reward for o in outcomes) / len(outcomes)
+        weights = [o.reward - average for o in outcomes]
+        divisor = sum(max(w, 0.0) for w in weights)
+        return tuple(w / divisor for w in weights)
+    # Positive + censored is not a known negative comparison.
+    return tuple(o.reward / positives if o.positive else 0.0 for o in outcomes)
 
 @dataclass(frozen=True)
 class AdaptiveHorizon:

@@ -179,3 +179,26 @@ def successor_class_policy_loss(
     if not bool(torch.isfinite(total).all()):
         raise FloatingPointError("nonfinite successor-class policy loss")
     return total
+
+
+
+def truncated_slate_reference_kl(student_log_probs, frozen_log_probs):
+    """Frozen CRN -> adapted CRN KL on IDENTICAL sampled electron events.
+
+    This is a conservative drift regularizer on the observed bounded event
+    slate. It does not estimate full-policy KL: the slate is top-K filtered
+    and may miss important events. Reference scores must come from the
+    ORIGINAL frozen pretrained graph actor, never the last adapted actor.
+    """
+    import torch
+    import torch.nn.functional as F
+
+    if len(student_log_probs) != len(frozen_log_probs) or not student_log_probs:
+        raise ValueError("student/frozen sampled graph slates differ")
+    student = torch.stack(tuple(student_log_probs))
+    original = torch.stack(tuple(frozen_log_probs)).detach()
+    if not bool(torch.isfinite(original).all() and torch.isfinite(student).all()):
+        raise FloatingPointError("nonfinite graph policy slate KL inputs")
+    reference = F.softmax(original, dim=0)
+    student_log = F.log_softmax(student, dim=0)
+    return (reference * (F.log_softmax(original, dim=0) - student_log)).sum()
