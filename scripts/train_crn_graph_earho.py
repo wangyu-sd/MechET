@@ -300,7 +300,10 @@ def main() -> int:
         "unique_executed_successors": 0, "pooled_duplicate_actions": 0,
         "executor_accepted": 0, "endpoint_positive_classes": 0,
         "reference_successor_only_classes": 0,
-        "effective_rl_groups": 0, "reference_only_groups": 0,
+        "effective_rl_groups": 0, "conditional_effective_groups": 0,
+        "on_policy_endpoint_positive_classes": 0,
+        "conditional_endpoint_positive_classes": 0,
+        "reference_only_groups": 0,
         "optimizer_updates": 0, "exception_skips": 0,
         "curriculum_promotions": 0,
     }
@@ -498,19 +501,28 @@ def main() -> int:
                 stats["reference_only_groups"] += 1
             adv = successor_group_advantages(outcomes)
             supported_contrast = any(abs(v) > 1e-12 for v in adv)
-            if supported_contrast:
+            endpoint_positive = sum(o.endpoint_exact for o in outcomes)
+            if supported_contrast and train_from_policy:
                 stats["effective_rl_groups"] += 1
+            elif supported_contrast:
+                stats["conditional_effective_groups"] += 1
             else:
                 stats["reference_only_groups"] += int(any(o.positive for o in outcomes))
-            stats["endpoint_positive_classes"] += sum(
-                o.endpoint_exact for o in outcomes
-            )
+            stats["endpoint_positive_classes"] += endpoint_positive
             stats["reference_successor_only_classes"] += sum(
                 o.reference_successor and not o.endpoint_exact for o in outcomes
             )
-            round_status["total"] += 1
-            round_status["effective"] += int(supported_contrast)
-            round_status["productive"] += int(any(o.positive for o in outcomes))
+            if train_from_policy:
+                stats["on_policy_endpoint_positive_classes"] += endpoint_positive
+                # Receding-horizon promotion is anchored to real
+                # product-induced GRAPH divergences only. Gold-reset
+                # conditional replay after a Qwen-first error may train
+                # local graph competence, but must NEVER fake promotion.
+                round_status["total"] += 1
+                round_status["effective"] += int(supported_contrast)
+                round_status["productive"] += int(any(o.positive for o in outcomes))
+            else:
+                stats["conditional_endpoint_positive_classes"] += endpoint_positive
             # Single graph forward shared across all grouped action alternatives.
             world.policy.train()
             world.policy.graph_encoder.eval()
@@ -616,7 +628,14 @@ def main() -> int:
         "stats": stats,
         "promoted_horizon": horizon.current,
         "resumed_root_index": cursor,
-        "genuine_endpoint_rl": stats["effective_rl_groups"] > 0,
+        "has_on_policy_endpoint_reward_support": (
+            stats["on_policy_endpoint_positive_classes"] > 0
+        ),
+        "has_graph_successor_class_gradient": stats["effective_rl_groups"] > 0,
+        "note": (
+            "Neither flag establishes a heldout endpoint gain; conditional "
+            "reference replay groups do not count as on-policy EARHO."
+        ),
         "warning": (
             "Endpoint RL success is not established by local training group "
             "evidence. Match product-start validation against frozen graph."
