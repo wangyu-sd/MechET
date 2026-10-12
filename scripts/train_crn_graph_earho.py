@@ -311,8 +311,13 @@ def main() -> int:
     cli.add_argument("--full-episode-fraction", type=float, default=0.25)
     cli.add_argument("--learning-rate", type=float, default=5e-6)
     cli.add_argument("--reference-weight", type=float, default=0.1)
+    cli.add_argument("--slate-kl-weight", type=float, default=0.02,
+                     help="frozen CRN policy KL on identical sampled event slate")
     cli.add_argument("--save-every", type=int, default=4)
     args = prepare_args(cli.parse_args())
+    # A genuine bounded FLOW beam requires more than one same-policy option.
+    # K=1 held-out evaluation is separate and retains its own declared budget.
+    args.graph_flow_topk = max(args.graph_flow_topk, args.rollout_beam_width)
     sys.path.insert(0, str((args.crn_root / "src").resolve()))
     from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
     from crn_jepa.models.grounded_graph import build_grounded_graph
@@ -327,6 +332,7 @@ def main() -> int:
             and 2 <= args.continuation_horizon <= 40
             and 1 <= args.curriculum_round and args.save_every >= 1
             and 0 < args.reference_weight <= 1.0
+            and 0 <= args.slate_kl_weight <= 1.0
             and args.temperature > 0):
         raise ValueError("invalid bounded Graph-EARHO training contract")
     if args.graph_rl_head:
@@ -367,6 +373,7 @@ def main() -> int:
             "full_episode_fraction": args.full_episode_fraction,
             "learning_rate": args.learning_rate,
             "reference_weight": args.reference_weight,
+            "slate_kl_weight": args.slate_kl_weight,
             "save_every": args.save_every,
             "compact_history": args.compact_history,
             "max_context": args.max_context, "max_decisions": args.max_decisions,
@@ -385,6 +392,11 @@ def main() -> int:
     rng = random.Random(args.seed)
     runtime = HybridRuntime(args, 0)
     world = runtime.graph.model
+    # Frozen reference MUST be copied BEFORE restoring a resumed adapted actor.
+    # This is the original CRN policy, not a moving/training-time teacher.
+    frozen_policy = copy.deepcopy(world.policy).eval()
+    for frozen_param in frozen_policy.parameters():
+        frozen_param.requires_grad_(False)
     parameters = graph_head_parameters(world)
     optimizer = torch.optim.AdamW(parameters, lr=args.learning_rate)
     horizon = AdaptiveHorizon(
@@ -408,6 +420,9 @@ def main() -> int:
         "reference_only_groups": 0,
         "optimizer_updates": 0, "exception_skips": 0,
         "curriculum_promotions": 0,
+        "censored_successor_classes": 0, "wrong_terminal_classes": 0,
+        "replay_label_unavailable": 0, "replay_only_updates": 0,
+        "slate_kl_total": 0.0, "full_horizon_branches": 0,
     }
     audit = []
     round_status = {"total": 0, "effective": 0, "productive": 0}
@@ -476,7 +491,7 @@ def main() -> int:
         abort = False
         try:
             trace = replay_train_trace(row)
-            divergence = observe_policy_divergence(runtime, trace, args)
+            divergence, actor_anchor = observe_policy_divergence(runtime, trace, args)
             if divergence.index is None:
                 stats["no_divergence"] += 1
                 audit.append({
@@ -484,21 +499,17 @@ def main() -> int:
                     "reason": divergence.reason,
                 })
                 continue
-            train_from_policy = bool(divergence.graph_correctable)
-            if train_from_policy:
-                stats["graph_correctable_frontiers"] += 1
-            else:
+            # The graph policy cannot repair a wrong Qwen route/import/finish.
+            # Do NOT replace this error with a reference state and call it RL.
+            if not divergence.graph_correctable or actor_anchor is None:
                 stats["controller_blocked_frontiers"] += 1
-                # Qwen environment/termination failures are NOT graph
-                # decisions. Train a reference-conditional graph fallback,
-                # separately identified; do not call it an autonomous frontier.
-                first_graph = min(trace["graph_moves"])
-                divergence = Divergence(
-                    index=first_graph,
-                    reason="CONDITIONAL_GRAPH_REPLAY_AFTER_CONTROLLER_FAILURE",
-                    graph_correctable=True, aligned_decisions=0,
-                )
-                stats["reference_conditional_frontiers"] += 1
+                audit.append({
+                    "reaction_id": reaction_id, "status": "controller_blocked",
+                    "first_index": divergence.index,
+                    "reason": divergence.reason,
+                })
+                continue
+            stats["graph_correctable_frontiers"] += 1
             gold_names = [item.name for item in trace["reference"]]
             full_requested = rng.random() < horizon.full_episode_fraction
             choice = select_receding_flow_anchor(
@@ -508,13 +519,25 @@ def main() -> int:
             if choice is None or choice.decision_index not in trace["graph_moves"]:
                 stats["insufficient_slate"] += 1
                 continue
-            anchor = trace["nodes"][choice.decision_index]
+            # CRITICAL: the actor's REAL pre-error state and accepted prefix,
+            # not the reference state near the end of the gold trajectory.
+            anchor = actor_anchor
+            gold_state = trace["nodes"][choice.decision_index]
             successor_ref = trace["nodes"][choice.decision_index + 1]
-            gold_moves = tuple(trace["graph_moves"][choice.decision_index])
-            if choice.full_product and train_from_policy:
+            if visible(anchor.state) != visible(gold_state.state):
+                raise ValueError("actor/reference prefix diverged before selected frontier")
+            gold_moves = align_reference_moves(
+                gold_state.state, anchor.state,
+                trace["graph_moves"][choice.decision_index],
+            )
+            if gold_moves is None:
+                stats["replay_label_unavailable"] += 1
+            if choice.full_product:
                 stats["full_product_anchored"] += 1
-            elif full_requested:
-                stats["full_product_requested_but_not_eligible"] += 1
+            # The full-budget branch is a REAL autonomous prefix followed
+            # by bounded independent continuation, not a gold-prefixed reset.
+            if full_requested:
+                stats["full_horizon_branches"] += 1
             slate = runtime.graph.candidates(
                 anchor.state, limit=32,
                 beam_size=args.graph_beam,
@@ -562,13 +585,17 @@ def main() -> int:
                     child is not None
                     and visible(child.state) == visible(successor_ref.state)
                 )
-                remaining = (
-                    args.max_decisions - 1 if choice.full_product
-                    else max(0, horizon.current - 1)
+                # H bounds forward exploration FROM the actual first error.
+                # A controlled subset gets the full remaining decision budget.
+                remaining = max(0, min(
+                    args.max_decisions - len(anchor.actions) - 1,
+                    args.max_decisions if full_requested else horizon.current - 1,
+                ))
+                continuation = (
+                    bounded_continuation(runtime, child, args, decisions=remaining)
+                    if child is not None else ContinuationResult((), False, 0)
                 )
-                endings = bounded_continuation(
-                    runtime, child, args, decisions=remaining
-                ) if child else ()
+                endings = continuation.terminals
                 endpoint_hit = any(
                     end.terminal
                     and not contains_unchanged_target(end.state, anchor.target)
@@ -581,11 +608,29 @@ def main() -> int:
                     )
                     for end in endings
                 )
-                outcomes.append(VerifiedOutcome(
+                # A nonterminating/cutoff search is CENSORED, not a failure
+                # of the initial accepted electron-flow action.
+                no_op = bool(
+                    endings and not endpoint_hit and any(
+                        contains_unchanged_target(e.state, anchor.target)
+                        for e in endings
+                    )
+                )
+                wrong_terminal = bool(
+                    endings and not endpoint_hit and not continuation.censored
+                    and not no_op and not reference_hit
+                )
+                outcome = VerifiedOutcome(
                     executed=child is not None,
                     endpoint_exact=bool(endpoint_hit),
                     reference_successor=reference_hit,
-                ))
+                    wrong_terminal=wrong_terminal,
+                    target_retained_noop=no_op and not reference_hit,
+                    exhausted=bool(child is not None and continuation.censored),
+                )
+                outcomes.append(outcome)
+                stats["censored_successor_classes"] += int(outcome.unresolved)
+                stats["wrong_terminal_classes"] += int(wrong_terminal)
                 group_rows.append({
                     "representative": group.representative_index,
                     "members": list(group.member_indices),
@@ -597,7 +642,10 @@ def main() -> int:
                     "executed": bool(child),
                     "endpoint_exact": endpoint_hit,
                     "reference_successor": reference_hit,
+                    "wrong_terminal": wrong_terminal,
+                    "censored": outcome.unresolved,
                     "continued_terminals": len(endings),
+                    "continuation_calls": continuation.attempted,
                 })
             if not any(o.positive for o in outcomes):
                 stats["reference_only_groups"] += 1
@@ -642,21 +690,51 @@ def main() -> int:
                 )
                 for candidate in candidates
             ]
-            reference_nll = teacher_forced_from_tokens(
-                world.policy, graph, inventory,
-                tuple(GroundedMove.from_raw(v) for v in gold_moves),
-                nodes, context, prefix,
+            reference_nll = (
+                teacher_forced_from_tokens(
+                    world.policy, graph, inventory, gold_moves,
+                    nodes, context, prefix,
+                ) if gold_moves is not None else None
             )
+            # No verifiable endpoint/local branch contrast AND no map-safe
+            # reference label => no supported update, never a fabricated RL step.
+            if not supported_contrast and reference_nll is None:
+                audit.append({
+                    "reaction_id": reaction_id,
+                    "status": "no_supported_gradient",
+                    "reason": "all-negative/censored and no safe gold map alignment",
+                })
+                continue
             loss = successor_class_policy_loss(
                 logps, [group.member_indices for group in groups],
                 adv, reference_nll, reference_weight=args.reference_weight,
             )
+            slate_kl = loss.new_zeros(())
+            if args.slate_kl_weight:
+                with torch.no_grad():
+                    old_nodes, old_context, old_prefix = (
+                        frozen_policy.encode_directional_observation(
+                            graph, event_depth=0, remaining_budget=1,
+                            direction="retrosynthetic_inverse",
+                        )
+                    )
+                    original_logps = [
+                        grounded_event_log_probability(
+                            frozen_policy, graph, inventory,
+                            tuple(GroundedMove.from_raw(v) for v in candidate.moves),
+                            old_nodes, old_context, old_prefix,
+                        )
+                        for candidate in candidates
+                    ]
+                slate_kl = truncated_slate_reference_kl(logps, original_logps)
+                loss = loss + args.slate_kl_weight * slate_kl
             optimizer.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(parameters, 1.0)
             optimizer.step()
+            stats["slate_kl_total"] += float(slate_kl.detach().item())
             stats["optimizer_updates"] += 1
-            state_was_valid = True
+            stats["replay_only_updates"] += int(not supported_contrast)
             audit.append({
                 "reaction_id": reaction_id, "status": "updated",
                 "graph_correctable_first_divergence": train_from_policy,
@@ -667,6 +745,9 @@ def main() -> int:
                 "groups": group_rows,
                 "group_advantages": list(adv),
                 "effective_rl_group": supported_contrast,
+                "safe_reference_alignment": gold_moves is not None,
+                "slate_kl": float(slate_kl.detach().item()),
+                "full_budget_branch": full_requested,
                 "loss": float(loss.detach().item()),
             })
         except (RuntimeError, ValueError, KeyError, FloatingPointError) as exc:

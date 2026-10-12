@@ -67,7 +67,7 @@ class GraphEARHOContracts(unittest.TestCase):
         self.assertIsNone(delta.index)
         self.assertEqual(delta.reason, "REFERENCE_ALIGNED")
 
-    def test_receding_horizon_goes_back_toward_actual_flow_error(self):
+    def test_anchor_is_the_actual_first_error_not_late_gold_suffix(self):
         ref = [earho.FLOW] * 7 + ["finish_trace"]
         diff = earho.Divergence(0, "GRAPH_FLOW_REJECTED", True, 0)
         small = earho.select_receding_flow_anchor(
@@ -76,12 +76,26 @@ class GraphEARHOContracts(unittest.TestCase):
         large = earho.select_receding_flow_anchor(
             divergence=diff, reference_names=ref, horizon=6,
         )
-        self.assertEqual(small.decision_index, 6)
-        self.assertEqual(large.decision_index, 2)
-        self.assertEqual(earho.select_receding_flow_anchor(
+        self.assertEqual(small.decision_index, 0)
+        self.assertEqual(large.decision_index, 0)
+        self.assertEqual(small.horizon, 2)
+        self.assertEqual(large.horizon, 6)
+        self.assertTrue(earho.select_receding_flow_anchor(
             divergence=diff, reference_names=ref, horizon=2,
             full_product=True,
-        ).decision_index, 0)
+        ).full_product)
+        late = earho.Divergence(2, "GRAPH_FLOW_REJECTED", True, 2)
+        self.assertEqual(
+            earho.select_receding_flow_anchor(
+                divergence=late, reference_names=ref, horizon=2,
+            ).decision_index, 2,
+        )
+        self.assertFalse(
+            earho.select_receding_flow_anchor(
+                divergence=late, reference_names=ref,
+                horizon=2, full_product=True,
+            ).full_product
+        )
 
     def test_successor_equivalence_pools_actions_not_invalid_events(self):
         slate = [
@@ -101,13 +115,46 @@ class GraphEARHOContracts(unittest.TestCase):
         groups = [
             earho.VerifiedOutcome(True, endpoint_exact=True),
             earho.VerifiedOutcome(True, reference_successor=True),
-            earho.VerifiedOutcome(True),
+            earho.VerifiedOutcome(False),
         ]
         a = earho.successor_group_advantages(groups)
         self.assertGreater(a[0], a[1])
         self.assertGreater(a[1], 0)
         self.assertLess(a[2], 0)
         self.assertAlmostEqual(sum(a), 0.0)
+
+
+    def test_executable_censored_successor_is_neutral_not_negative(self):
+        rows = [
+            earho.VerifiedOutcome(True, reference_successor=True),
+            earho.VerifiedOutcome(True, exhausted=True),
+            earho.VerifiedOutcome(False),
+        ]
+        adv = earho.successor_group_advantages(rows)
+        self.assertGreater(adv[0], 0)
+        self.assertEqual(adv[1], 0.0)
+        self.assertLess(adv[2], 0)
+        self.assertTrue(rows[1].unresolved)
+        self.assertFalse(rows[1].certified_negative)
+
+    def test_positive_plus_only_censored_has_no_negative_label(self):
+        rows = [
+            earho.VerifiedOutcome(True, endpoint_exact=True),
+            earho.VerifiedOutcome(True, exhausted=True),
+        ]
+        adv = earho.successor_group_advantages(rows)
+        self.assertGreater(adv[0], 0)
+        self.assertEqual(adv[1], 0.0)
+
+    def test_wrong_completed_terminal_distinct_from_search_exhaustion(self):
+        wrong = earho.VerifiedOutcome(True, wrong_terminal=True)
+        incomplete = earho.VerifiedOutcome(True, exhausted=True)
+        self.assertTrue(wrong.certified_negative)
+        self.assertFalse(incomplete.certified_negative)
+        with self.assertRaises(ValueError):
+            earho.VerifiedOutcome(
+                True, wrong_terminal=True, exhausted=True,
+            )
 
     def test_all_negative_has_zero_gradient(self):
         outcomes = [earho.VerifiedOutcome(False),
