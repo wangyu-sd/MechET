@@ -100,3 +100,28 @@ of invalid rows or attribution of local oracle-state Event@1 to product-start.
   `outputs/eval/pr83_formal_stage1_20261012/` and
   `outputs/agent/pr83_graph_endpoint_rl_stage1_train257167_20261012/`.
   No formal metrics are filled until the complete output audit passes.
+
+### Formal allocation attempts
+
+- Initial main Qingyuan task:
+  `meteor_mechet_pr83_formal_pre_8a100_qy_20261012_01`, instance
+  `8b1d822ca1250f4c01a12eae144c0ca5`. It remained resource-waiting despite
+  remaining application quota. Cancelled before a GPU POD/output was created;
+  END/task_killed verified. No unrelated task was stopped.
+- Replacement ordinary AILab Qingyuan task:
+  `meteor_mechet_pr83_formal_pre_8a100_ailab_20261012_02`, instance
+  `8b1d822ca1250f4c01a12eb27a1d0ca8`. Same Stage-I checkpoint, full IDs,
+  scripts and output root. Tencent taiji6, proven private Ceph init, 60-second
+  default-POD heartbeat. At the latest check: PENDING/MPIJob created,
+  application quota 50 with 8 applying, no assigned host/inference output yet.
+- Sequential supervisor PID `2361335` records current status in
+  `outputs/submissions/pr83_formal_campaign_20261012/status-ailab-attempt2.json`.
+  The cancelled supervisor's status redirects there. Full train257167 RL and
+  post-training full evaluation are prepared and will submit only after their
+  preceding task succeeds and its complete report passes readback.
+- Source SHAs verified locally: train
+  `edc80c5c5eb13d50753c5566c5d6ac1b90b955b1a8dfece915241b2da4a40a75`,
+  strict test `70a06f01a08490d4b5da602056a8f8e2f978128d3da3224d1601186529aeee3f`,
+  official test `a0700444e03cdc73ef041ac1b33251486529976246e469c27e15f2bf6f296048`.
+- Local final related suite: 26 passed. CI on `846cbca`: 4/4 passed.
+  Queue admission and code checks do not establish a formal model result.

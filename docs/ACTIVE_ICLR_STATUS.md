@@ -1,5 +1,29 @@
 # Active ICLR status
 
+## 2026-10-12: PR83 formal campaign
+
+The user's full-scale/no-smoke requirement overrides PR83's original 128-valid
+and 64-train plan. Use its pinned Qwen3-0.6B Stage-I State-SFT adapter, without
+compact history, and frozen CRN-JEPA PR18. Evaluate all 2,890 valid and 28,967
+strict test reactions, retaining the 28,971 official test denominator; traverse
+257,167 strict train reactions for graph-head-only endpoint optimization; then
+compare the trained head with the frozen graph on the same full splits.
+
+One formal task runs at a time. Eight-GPU evaluation uses eight independent
+workers; graph-head training uses one A100. Current supervision:
+`outputs/submissions/pr83_formal_campaign_20261012/status-ailab-attempt2.json`.
+The initial main-QY queue attempt was cancelled before running and replaced by
+`meteor_mechet_pr83_formal_pre_8a100_ailab_20261012_02`, instance
+`8b1d822ca1250f4c01a12eb27a1d0ca8`. At the last check it was PENDING with an
+MPIJob created, not confirmed model inference. Read live state and raw outputs
+before reporting progress. Full RL and post-training evaluation are sequenced
+by `scripts/run_pr83_formal_campaign.py` and not yet submitted.
+
+The old 64-root RL attempt remains stopped. Existing Stage-II 128-row results
+are historical: single-pass hybrid 46/128, pure Qwen 47/128, all first calls
+identical. They are not the new formal Stage-I condition. See
+`docs/results/PR83_EXECUTION_LEDGER.md` for exact artifacts and rulings.
+
 ## 2026-10-07: current reliable-MechET PR #82 handoff
 
 PR #82 is the active lower-cost journal extension of the mechanism-first

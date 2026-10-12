@@ -81,6 +81,8 @@ def persist(path: Path, state: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--state", type=Path, required=True)
+    parser.add_argument("--pre-config", type=Path,
+                        help="use an available compatible application group for the first formal task")
     parser.add_argument("--poll-seconds", type=int, default=300)
     args = parser.parse_args()
     if args.poll_seconds < 60:
@@ -90,6 +92,8 @@ def main() -> None:
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     configs = [ROOT / "configs/taiji" / f"meteor_mechet_pr83_formal_{name}_{gpus}a100_qy_20261012_01.json"
                for name, gpus, _ in STAGES]
+    if args.pre_config is not None:
+        configs[0] = args.pre_config.resolve()
     hashes = [sha(path) for path in configs]
     if args.state.exists():
         state = json.loads(args.state.read_text())
