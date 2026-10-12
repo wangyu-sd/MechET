@@ -1,3 +1,5 @@
+> **12 October method correction:** The previous fixed-last-three-reference-FLOW reward trainer documented below is **ablation only**, NOT our EARHO main method. The actual Graph-EARHO method restores first autonomous graph-correctable divergence, executed chemical-successor equivalence pooling, receding adaptive horizons, full-product eligibility accounting and exact source/sink/commit likelihood-based successor-class policy gradients. Read [Graph-EARHO method](GRAPH_EARHO_METHOD.md) and run `scripts/train_crn_graph_earho.py`. The original `scripts/train_crn_graph_endpoint_rl.py` remains a controlled diagnostic; do not call its update the paper's main RL or mix its results into the Graph-EARHO row. Neither method yet has authenticated GPU endpoint gains.
+
 # CRN-JEPA FLOW routing with the existing Qwen Tool-SFT actor (opt-in v1)
 
 ## Decision

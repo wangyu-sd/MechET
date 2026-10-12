@@ -63,3 +63,10 @@ independent row/hash audit; finite train loss or script import is not evidence.
 
 Record useful and failed candidates equally. No fabricated results, omission
 of invalid rows or attribution of local oracle-state Event@1 to product-start.
+
+## 2026-10-12 Graph-EARHO methodological correction (source only)
+
+- **Observed problem:** the original PR83 trainer used randomly selected last-three reference FLOW states, fixed 8-step rollout and action-wise teacher-forced mean NLL. This was not our specified EARHO. It is retained strictly as a named fixed-reference-tail ablation.
+- **New code:** `src/mechet/graph_earho.py`, `src/mechet/graph_endpoint_rl.py` (actual graph event likelihood, successor-class objective), `scripts/train_crn_graph_earho.py`; CPU contracts `tests/test_graph_earho_contract.py`.
+- **Method:** product-only first executed divergence; first graph-correctable FLOW gate; conditional reference fallback separately logged for Qwen mistakes; canonical executed-successor equivalence; bounded gold-free continuation; H=2→8 training-only competence promotion; signed class-level gradient; verified reference replay fallback.
+- **Evidence:** no new real GPU training or valid128 endpoint/throughput results yet. Current task status remains unrun; do not mark S04 passed from green source CI.

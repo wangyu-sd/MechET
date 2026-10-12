@@ -25,8 +25,10 @@ Run a **real product-only 128-reaction paired experiment** using:
    source/sink/commit decoder, solely for FLOW arguments.
 3. The **unchanged MechET executor**, which alone defines next states and
    endpoints.
-4. An optional, separately identifiable **graph-head-only endpoint RL**
-   fine-tune with train-only verified rewards and an exactly matched 128-ID
+4. **Graph-EARHO**: autonomous first-divergence diagnosis, chemical
+   successor-equivalence pooling, adaptive backwards correction horizon and
+   train-only verified reward. The old last-three-reference FLOW group-RL
+   trainer is a **named ablation, not the main method**. Use the exact same 128-ID
    before/after comparison.
 
 **Non-negotiable outcome**: produce independently readable per-reaction
@@ -69,13 +71,14 @@ they are measured.**
 | S01 | Run `python -m compileall`, focused tests and documentation check. Add tests for failed first decision, resumed JSONL, import-prefix parse, multi-move schema/BE_DELTA and scorer parity. | Pass in CI and real target environment. On error: read traceback, fix implementation, rerun. Green CPU CI is not the destination. |
 | S02 | Real weights: 8 then 16 valid product-start rows and state-level FLOW import/execute parity. Verify Qwen tool-name router *against* the frozen original Qwen tool-selection path on the same observations. | Record valid/invalid graph events, correct tool decisions, fragmented import behavior, first chemistry divergence and Kekulé cases. If parity fails, **fix and retest** before expanding; retain original Qwen baseline. |
 | S03 | Run matched original-Qwen and frozen Graph-Qwen on **all the same 128 valid IDs**. No reference state in either actor. | Per-reaction outputs; endpoint Top-1, failures by stage, actual wall time per reaction and number of Qwen calls. Use `--resume` for interrupted PR83 evaluation, never delete partial output. |
-| S04 | Execute bounded **train-only** graph-head endpoint-RL smoke: 8-row mechanical smoke, then 64 sampled train frontiers, slate 8, bounded continuation; persist per-group rewards and model-head artifact if optimizer updates succeed. | Show actual effective positive+negative RL groups, full endpoint-positive counts, reference-only fallback count, train steps/gradients and checkpoint hash. A nonzero SFT loss or saved file alone does not count as RL. |
+| S04 | Execute **Graph-EARHO**: 8-row real-weight smoke, then 64 train-only roots with first *actual executed* graph-correctable divergence; group candidate actions by chemical successor; adaptive H=2→8; K=8 and bounded continuation. Old fixed-reference-tail RL is a separately identified ablation. | Show actual effective positive+negative RL groups, full endpoint-positive counts, reference-only fallback count, train steps/gradients and checkpoint hash. A nonzero SFT loss or saved file alone does not count as RL. |
 | S05 | Evaluate the trained graph head on **the exact same S03 128 IDs** and compare to frozen Graph-Qwen; original-Qwen reference remains unchanged. | Paired successes/losses, CI or exact discordant cases, seconds/reaction, graph validity, no-op finishes, import and routing decomposition. |
 | S06 | If a result is zero/negative, run **at least two targeted, resource-bounded diagnosis/correction cycles** before concluding. Recover from specific observed errors; do not launch another general research program. Repeat S02/S03/S04/S05 where relevant. | Each cycle includes a falsifiable cause, code/test patch, new run ID/artifact, and same 128 IDs. Do not reinterpret a negative scientific result as an infrastructure error. |
 | S07 | Produce a final PR-facing empirical report, failure table, reproducibility commands and explicit merge recommendation. Expand to 2,890 validation only if the measured 128-row evidence justifies it. | Commit authentic numeric output/manifests where appropriate; keep large private raw artifacts in the documented storage and preserve their SHAs. |
 
 ### Specific fixes to prioritize (do not spend days theorizing)
 
+0. **Do not downgrade our RL method:** Read `docs/GRAPH_EARHO_METHOD.md` and run `scripts/train_crn_graph_earho.py` as the manuscript main method. Preserve `scripts/train_crn_graph_endpoint_rl.py` as fixed-reference-tail ablation. If first deviation belongs to Qwen IMPORT/FINISH, report it as controller-blocked, not a Graph-EARHO on-policy frontier. An all-negative successor class group gives no policy gradient; use exact source/sink/commit log-probability and state-equivalence marginalization.
 1. **Qwen tool-route parity**: short tool-name mean-NLL is NOT the same as
    Qwen's original generative tool selection. Compare identical state prompts.
    If discrepant, implement a minimal partial tool-name generation route that
@@ -153,7 +156,7 @@ cause, exact missing artifact and the next unblock action — never just
 - Persist `results.shard-00-of-01.jsonl` plus `summary.json`
   for each complete 128-row product-only comparison; use SHA-bound evaluator
   manifests. Do not overwrite a previous run.
-- Train report: `effective_rl_groups`,
+- Train report: `graph_correctable_frontiers`, `controller_blocked_frontiers`, `reference_conditional_frontiers`, `pooled_duplicate_actions`, `curriculum_promotions`, `effective_rl_groups`,
   `endpoint_success_candidates`,
   `reference_successor_candidates`,
   optimizer steps, frozen Qwen SHA and RL-head SHA.
