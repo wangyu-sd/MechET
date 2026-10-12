@@ -26,7 +26,7 @@ Run a **real product-only 128-reaction paired experiment** using:
 3. The **unchanged MechET executor**, which alone defines next states and
    endpoints.
 4. **Graph-EARHO**: autonomous first-divergence diagnosis, chemical
-   successor-equivalence pooling, adaptive backwards correction horizon and
+   successor-equivalence pooling, adaptive forward correction horizon from first model-owned FLOW error and
    train-only verified reward. The old last-three-reference FLOW group-RL
    trainer is a **named ablation, not the main method**. Use the exact same 128-ID
    before/after comparison.
@@ -174,3 +174,14 @@ or `BLOCKED_WITH_EVIDENCE` (only after exhausting permitted
 recovery or a hard integrity stop). **"CI passed", "started a task",
 "tiny smoke ran", "RL loss finite", or "zero wins on first try" are forbidden
 terminal states.**
+
+### Graph-EARHO correction verification (2026-10-12)
+
+Do not select a gold near-end anchor in place of the model's first graph
+error. Validate `tests/test_graph_earho_runtime_contract.py`, reference
+atom-map correspondence, and model-created product-origin endpoint projection.
+Mixed Qwen name-token scores and graph source/sink scores are incomparable
+across beam parents. Censored legal successors receive zero explicit negative
+advantage. Report frozen CRN sampled-slate KL, replay-only updates, and
+graph-correctable vs controller-blocked populations. CUDA parity and measured
+product-start results are still required.

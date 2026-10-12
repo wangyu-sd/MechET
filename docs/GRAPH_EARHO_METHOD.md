@@ -28,12 +28,14 @@ The main implementation is "scripts/train_crn_graph_earho.py", with
    controller error. Later gold FLOW states may still supply independently
    labelled **conditional reference replay** supervision, but are NOT called
    on-policy correctable graph frontiers.
-3. Reset to a replay-verified FLOW state in a short suffix (initial H=2),
-   conditioned on the earliest eligible graph divergence. When verified
-   productive support is sufficient, increase H and move the reset
-   **backwards toward the actual divergence**, rather than randomly
-   selecting one of the last three FLOW events forever. Product-start
-   reset is eligible only if the relevant first event is FLOW.
+3. **Optimize the actor-owned first FLOW error, not a gold suffix.**
+   Retain the actual product-start state, imports, action history and private
+   maps. H bounds FORWARD continuation from this error; increasing H never
+   means providing more correct reference-prefix states to the actor.
+   Reference FLOW supervision requires unambiguous model/reference atom-map
+   alignment; otherwise no supervised fallback is applied to that state.
+   Qwen-first faults are recorded as controller-limited, not graph RL.
+
 4. For each anchor, decode a Top-32 CRN event slate, sample K=8
    score-weighted distinct events, and **actually execute every event**.
    Pool all accepted source/sink programs that reach the same canonical
@@ -45,7 +47,8 @@ The main implementation is "scripts/train_crn_graph_earho.py", with
    Selection uses the model and executed state only. At training time,
    score whether any completed continuation reached the exact reference
    structural precursor endpoint (reward 1). A verified reference next
-   successor without endpoint hit earns 0.2; accepted unsupported earns 0;
+   successor without endpoint hit earns 0.2; accepted but search-censored
+   remains neutral with zero explicit negative actor credit;
    executor-rejected earns -0.2. These are evidence-of-search rewards, not
    physical reaction feasibility claims.
 6. Compute group-relative credit **over successor classes**, not repeated
@@ -71,7 +74,7 @@ The main implementation is "scripts/train_crn_graph_earho.py", with
    and per-group audits for SHA-locked resume.
 
 The method is **first graph-correctable divergence + state-equivalence
-pooling + bounded recoverability + adaptive backward horizon +
+pooling + bounded recoverability + adaptive FORWARD horizon +
 success-gated chemical state credit**. Merely using a group reward and
 reference SFT does not constitute Graph-EARHO.
 
@@ -113,3 +116,20 @@ Use the resulting "graph_earho_policy_head.pt" under the existing hybrid
 evaluator's --graph-rl-head option. The example is NOT a submitted job.
 Retain original fixed last-three-reference code for a named ablation;
 never attribute its results to the Graph-EARHO method.
+
+## Follow-on causal and conservative repairs — 2026-10-12
+
+- Model-owned first graph-error prestate, mapped product origin and accepted
+  import/action history are retained as the RL anchor. No late-gold reset
+  substitutes for a failed autonomous trajectory.
+- Cross-parent Qwen routing and graph FLOW probabilities are not a common
+  comparable NLL. Bounded deterministic breadth-first continuation is used
+  instead, and pruned or unfinished accepted branches are censored.
+- An executed successor with no discovered endpoint is not penalized as a
+  chemical failure. Invalid actions and observed wrong terminals are distinct.
+- Gold FLOW replay requires unambiguous map correspondence. A frozen-original
+  CRN KL regularizer is computed on the identical *sampled slate*
+  (default coefficient 0.02) and is not a full-policy KL guarantee.
+- The pretrained graph encoder is shared across original/adapted policy
+  scorer forwards. Train-only endpoints and model outputs are still unverified
+  until CUDA checkpoint and product-start experiments complete.

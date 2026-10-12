@@ -70,3 +70,18 @@ of invalid rows or attribution of local oracle-state Event@1 to product-start.
 - **New code:** `src/mechet/graph_earho.py`, `src/mechet/graph_endpoint_rl.py` (actual graph event likelihood, successor-class objective), `scripts/train_crn_graph_earho.py`; CPU contracts `tests/test_graph_earho_contract.py`.
 - **Method:** product-only first executed divergence; first graph-correctable FLOW gate; conditional reference fallback separately logged for Qwen mistakes; canonical executed-successor equivalence; bounded gold-free continuation; H=2→8 training-only competence promotion; signed class-level gradient; verified reference replay fallback.
 - **Evidence:** no new real GPU training or valid128 endpoint/throughput results yet. Current task status remains unrun; do not mark S04 passed from green source CI.
+
+## 2026-10-12 Graph-EARHO source-level repair
+
+- Corrected potential structural endpoint error from using reference product
+  atom maps instead of the autonomous model's mapped product origin.
+- Replaced gold suffix anchor with actor-owned first graph FLOW-error state;
+  earlier Qwen route/import/finish mistakes are controller-limited, not
+  relabelled as graph on-policy corrections.
+- Bounded continuation no longer compares heterogeneous Qwen-name and
+  Graph-move log-likelihoods across parents. Unknown successors after
+  finite search are censored rather than labelled failed chemistry.
+- Reference replay is map-safe only when graph isomorphism gives a unique
+  FLOW label. Original frozen CRN sampled-slate KL monitors head drift.
+- Source-level tests and CI are NOT GPU-run evidence; no endpoint gain is
+  claimed as of this record.

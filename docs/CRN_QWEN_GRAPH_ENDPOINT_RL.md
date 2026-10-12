@@ -192,3 +192,14 @@ demonstrates endpoint alignment.
 **Stopping rule:** final measured paired outcome (positive or honestly
 negative after two diagnostic corrections), or an explicit integrity/security/
 resource hard blocker with the attempted recoveries and precise unblock path.
+
+## Main Graph-EARHO runtime correction (2026-10-12)
+
+The Graph-EARHO optimization state is now the actor's actual first executed
+FLOW divergence, preserving its private maps, imported species and action
+history; horizon H expands forward continuation. The scorer uses the model
+product's mapping to define target-origin structural precursors. Beam
+selection avoids mixed Qwen/graph NLL ranking; finite-search-unresolved
+accepted successors remain censored/neutral. Reference FLOW replay requires
+unambiguous atom correspondence and a frozen-original CRN sampled-slate KL
+guards policy drift. The fixed-reference-tail RL script is ablation only.
