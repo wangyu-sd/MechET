@@ -23,6 +23,7 @@ from mechet.crn_graph_bridge import (
     generate_qwen_import, route_tool_name,
 )
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
+from scripts.pr83_resume import evaluation_manifest, prepare_resume
 from scripts.run_natural_language_value_search import (
     Action, Node, Runtime, policy_prompt, read_selected, rollout,
     validate_v2_adapter_manifest,
@@ -122,6 +123,8 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--data", type=Path, required=True,
                    help="MechET strict train/valid JSONL; locked test requires separate approval")
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--resume", action="store_true",
+                   help="resume only the exact same selected IDs, checkpoint, and code")
     p.add_argument("--sample-reactions", type=int, default=128)
     p.add_argument("--seed", type=int, default=17)
     p.add_argument("--model", default="Qwen/Qwen3-0.6B")
@@ -180,51 +183,132 @@ def prepare_args(args):
 
 def main() -> int:
     args = prepare_args(parser().parse_args())
-    if args.output.exists() and any(args.output.iterdir()):
-        raise FileExistsError("hybrid results output must be an empty directory")
-    args.output.mkdir(parents=True, exist_ok=True)
     import torch
     if torch.cuda.device_count() < 1:
         raise RuntimeError("hybrid evaluation requires a CUDA device")
-    # One graph+Qwen policy per GPU; no hidden use of GT to select actions.
+    # The same fixed ID selection is shared by the original-Qwen control.
     rows = read_selected(args.data, args.sample_reactions, args.seed)
     if len(rows) != args.sample_reactions:
         raise ValueError("requested reactions exceed frozen source")
-    runtime = HybridRuntime(args, 0)
-    output = args.output / "results.shard-00-of-01.jsonl"
-    started = time.perf_counter()
-    successful = 0
     qwen_adapter_sha = file_sha256(args.policy_adapter / "adapter_model.safetensors")
-    with output.open("w", encoding="utf-8") as handle:
-        for row in rows:
+    graph_sha = file_sha256(args.graph_checkpoint)
+    if graph_sha != args.graph_sha256:
+        raise ValueError("CRN pretrained checkpoint SHA-256 differs from requested checkpoint")
+    manifest = evaluation_manifest(
+        selected_ids=[str(row["id"]) for row in rows],
+        source_sha256=file_sha256(args.data),
+        source_path=str(args.data),
+        qwen_adapter_sha256=qwen_adapter_sha,
+        graph_sha256=graph_sha,
+        graph_rl_head_sha256=(
+            file_sha256(args.graph_rl_head) if args.graph_rl_head else None
+        ),
+        model=args.model, model_revision=args.model_revision,
+        config={
+            "sample_reactions": args.sample_reactions, "seed": args.seed,
+            "compact_history": args.compact_history,
+            "graph_flow_topk": args.graph_flow_topk,
+            "graph_beam": args.graph_beam,
+            "graph_source_width": args.graph_source_width,
+            "graph_sink_width": args.graph_sink_width,
+            "graph_move_width": args.graph_move_width,
+            "max_import_tokens": args.max_import_tokens,
+            "max_context": args.max_context,
+            "max_decisions": args.max_decisions,
+            "max_imports": args.max_imports,
+            "dtype": args.dtype, "no_4bit": args.no_4bit,
+            "product_only_remap": args.product_only_remap,
+            "reject_target_retained_finish": args.reject_target_retained_finish,
+        },
+        code_sha256={
+            name: file_sha256(ROOT / name)
+            for name in (
+                "scripts/run_crn_qwen_hybrid.py",
+                "scripts/pr83_resume.py",
+                "scripts/run_natural_language_value_search.py",
+                "src/mechet/crn_graph_bridge.py",
+                "src/mechet/endpoints.py",
+            )
+        },
+    )
+    saved = prepare_resume(
+        args.output, manifest=manifest,
+        selected_ids=manifest["selected_ids"], resume=args.resume,
+    )
+    output = args.output / "results.shard-00-of-01.jsonl"
+    # Loading weights is not evidence of inference success.
+    runtime = HybridRuntime(args, 0)
+    resumed_count = len(saved)
+    all_rows = list(saved)
+    started = time.perf_counter()
+    with output.open("a", encoding="utf-8") as handle:
+        for row in rows[resumed_count:]:
+            counts_before = dict(runtime.counts)
+            timing_before = dict(runtime.timing)
+            t0 = time.perf_counter()
             result = rollout(runtime, row, args)
+            elapsed = time.perf_counter() - t0
             result["policy"] = "crn_jepa_qwen_routed_flow_v1"
             result["graph_checkpoint_sha256"] = runtime.graph.sha256
             result["qwen_adapter_sha256"] = qwen_adapter_sha
-            successful += bool(result["top1_structural_exact"])
-            handle.write(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n")
+            result["wall_seconds"] = elapsed
+            result["hybrid_counts"] = {
+                k: runtime.counts[k] - counts_before.get(k, 0)
+                for k in runtime.counts
+            }
+            result["hybrid_timing"] = {
+                k: runtime.timing[k] - timing_before.get(k, 0.0)
+                for k in runtime.timing
+            }
+            handle.write(
+                json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n"
+            )
             handle.flush()
-    elapsed = time.perf_counter() - started
+            all_rows.append(result)
+    if len(all_rows) != len(rows):
+        raise RuntimeError("hybrid evaluation ended with missing reaction IDs")
+    run_elapsed = time.perf_counter() - started
+    timing = {
+        k: sum(float(item["hybrid_timing"][k]) for item in all_rows)
+        for k in runtime.timing
+    }
+    counts = {
+        k: sum(int(item["hybrid_counts"][k]) for item in all_rows)
+        for k in runtime.counts
+    }
+    seconds = sum(float(item["wall_seconds"]) for item in all_rows)
+    exact = sum(bool(item["top1_structural_exact"]) for item in all_rows)
     report = {
         "protocol": "opt_in_crn_jepa_qwen_routed_flow_v1",
         "scope": "selected_source_rows_not_full_benchmark",
-        "evaluated": len(rows), "top1_exact": successful,
-        "top1_rate": successful / len(rows), "elapsed_seconds": elapsed,
-        "seconds_per_reaction": elapsed / len(rows),
-        "timing": runtime.timing, "calls": runtime.counts,
+        "evaluated": len(all_rows), "top1_exact": exact,
+        "top1_rate": exact / len(all_rows),
+        "total_recorded_reaction_seconds": seconds,
+        "seconds_per_reaction": seconds / len(all_rows),
+        "this_invocation_elapsed_seconds": run_elapsed,
+        "resumed_rows": resumed_count,
+        "new_rows": len(all_rows) - resumed_count,
+        "timing": timing, "calls": counts,
         "qwen_model": args.model, "qwen_revision": args.model_revision,
         "qwen_adapter_sha256": qwen_adapter_sha,
         "graph_sha256": runtime.graph.sha256,
-        "graph_rl_head": str(args.graph_rl_head) if args.graph_rl_head else None,
+        "graph_rl_head_sha256": manifest["graph_rl_head_sha256"],
         "graph_flow_topk": args.graph_flow_topk,
-        "note": "Qwen short tool-name scoring is a new decision protocol; compare against an identically budgeted baseline.",
+        "run_manifest": "run_manifest.json",
+        "note": (
+            "Qwen short tool-name scoring is a new decision protocol; compare "
+            "against the same IDs and candidate/time budget. Resumed records "
+            "are validated against a frozen SHA-bound run manifest."
+        ),
     }
-    (args.output / "summary.json").write_text(
+    summary = args.output / "summary.json"
+    summary_tmp = summary.with_suffix(".json.tmp")
+    summary_tmp.write_text(
         json.dumps(report, indent=2) + "\n", encoding="utf-8",
     )
+    summary_tmp.replace(summary)
     print(json.dumps(report, ensure_ascii=False), flush=True)
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
