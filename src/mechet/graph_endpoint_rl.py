@@ -82,3 +82,100 @@ def graph_policy_gradient_loss(
     if not torch.isfinite(policy_term).all():
         raise FloatingPointError("nonfinite graph policy-gradient loss")
     return policy_term
+
+
+
+def grounded_event_log_probability(
+    policy, graph, inventory, moves, nodes, context, initial_prefix,
+):
+    """Exact differentiable decoder log-probability for ONE ordered FLOW event.
+
+    Uses the actual CRN source->conditional sink->continue/commit categorical
+    heads. Unlike the previous teacher-forced *mean* CE, this is the SUM of
+    log-probabilities of the sampled event's decisions (within the graph's
+    source/sink candidate inventory). Unordered chemical equivalence is handled
+    separately by grouping executed successors, not by pretending an ordered
+    token sequence is permutation invariant.
+    """
+    import torch
+    import torch.nn.functional as F
+
+    if not 1 <= len(moves) <= 6:
+        raise ValueError("FLOW event requires 1-6 grounded moves")
+    sources = tuple(inventory.sources)
+    source_embeds = policy.encode_containers(nodes, graph.atom_maps, sources)
+    prefix = initial_prefix
+    parts = []
+    for k, move in enumerate(moves):
+        if move.source not in sources:
+            raise ValueError("sampled FLOW source not grounded in current state")
+        source_index = sources.index(move.source)
+        source_logits = policy.source_logits(source_embeds, context, prefix)
+        parts.append(F.log_softmax(source_logits, dim=-1)[source_index])
+        sinks = tuple(inventory.compatible_sinks(move.source))
+        if move.sink not in sinks:
+            raise ValueError("sampled FLOW sink not compatible with chosen source")
+        sink_index = sinks.index(move.sink)
+        sink_embeds = policy.encode_containers(nodes, graph.atom_maps, sinks)
+        sink_logits = policy.sink_logits(
+            sink_embeds, source_embeds[source_index], context, prefix,
+        )
+        parts.append(F.log_softmax(sink_logits, dim=-1)[sink_index])
+        move_embed = policy.encode_move(
+            source_embeds[source_index], sink_embeds[sink_index],
+        )
+        prefix = policy.update_prefix(prefix, move_embed)
+        choice_logits = policy.decision_logits(context, prefix)
+        parts.append(F.log_softmax(choice_logits, dim=-1)[
+            1 if k == len(moves) - 1 else 0
+        ])
+    result = torch.stack(parts).sum()
+    if not torch.isfinite(result):
+        raise FloatingPointError("nonfinite graph event log probability")
+    return result
+
+
+def successor_class_policy_loss(
+    candidate_log_probs, class_member_indices, class_advantages,
+    reference_nll, *, reference_weight: float = 0.1,
+):
+    """Optimize unique executed successors, not duplicated event strings.
+
+    Event-mass probability is logsumexp of all ordered generated actions
+    reaching the same executor successor. This is a truncated-slate objective;
+    its candidate set was model-proposed and is not an unbiased full-policy
+    GRPO or PPO estimator. The negative sign gives correct policy-gradient
+    directions for signed group advantages.
+    """
+    import torch
+
+    if (
+        not candidate_log_probs or not class_member_indices
+        or len(class_member_indices) != len(class_advantages)
+        or not 0 <= reference_weight <= 1
+    ):
+        raise ValueError("invalid successor-class policy loss inputs")
+    assigned = []
+    for members in class_member_indices:
+        if not members or len(set(members)) != len(members):
+            raise ValueError("empty/duplicate equivalent action class")
+        if any(not 0 <= index < len(candidate_log_probs) for index in members):
+            raise ValueError("out-of-range candidate index")
+        assigned.extend(members)
+    if sorted(assigned) != list(range(len(candidate_log_probs))):
+        raise ValueError("successor groups must partition sampled candidates")
+    terms = [
+        torch.logsumexp(torch.stack([
+            candidate_log_probs[i] for i in group
+        ]), dim=0) * float(advantage)
+        for group, advantage in zip(class_member_indices, class_advantages, strict=True)
+    ]
+    actor = -torch.stack(terms).sum() / len(class_member_indices)
+    imitation = (
+        reference_nll * float(reference_weight)
+        if reference_nll is not None else actor.new_zeros(())
+    )
+    total = actor + imitation
+    if not bool(torch.isfinite(total).all()):
+        raise FloatingPointError("nonfinite successor-class policy loss")
+    return total
