@@ -114,8 +114,17 @@ def observe_policy_divergence(runtime, trace, args):
         )
         action = proposed[0] if proposed else None
         if action is None:
+            error = str(getattr(runtime, "last_proposal_error", "") or "NO_MODEL_PROPOSAL")
+            # A graph decoder returning no executable event is a graph
+            # failure, not a Qwen wrong-route failure. It is eligible for
+            # graph correction when the reference tool is also FLOW.
+            attempted_kind = (
+                "apply_electron_flow"
+                if error.startswith("GRAPH_") and expected.name == "apply_electron_flow"
+                else "NO_ACTION"
+            )
             predictions.append(
-                Transition("NO_ACTION", False, None, error="NO_MODEL_PROPOSAL")
+                Transition(attempted_kind, False, None, error=error)
             )
             return first_executed_divergence(
                 trace["reference"][:len(predictions)], predictions
