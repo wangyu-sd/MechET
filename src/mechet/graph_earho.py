@@ -185,7 +185,7 @@ class VerifiedOutcome:
     def certified_negative(self) -> bool:
         # Executor rejection is definitive. Wrong terminal means wrong for
         # the recorded endpoint benchmark, not chemically impossible.
-        return not self.executed or self.wrong_terminal or self.target_retained_noop
+        return (not self.positive) and (not self.executed or self.wrong_terminal or self.target_retained_noop)
 
     @property
     def unresolved(self) -> bool:
