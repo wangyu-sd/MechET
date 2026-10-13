@@ -29,4 +29,3 @@
   "init_cmd": "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK",
   "start_cmd": "bash -lc 'MECHET_TREE_CODE_SHA=522c0481648b3d7a667f1829257e99f2885138b4 TAIJI_HEARTBEAT_LABEL=meteor-R1-R2-full460-work-journals TAIJI_HEARTBEAT_SECONDS=45 TAIJI_MIRROR_PID1_STDOUT=1 exec bash /aaa/fionafyang/buddy1/whaleywang/MechET/scripts/taiji_run_with_heartbeat.sh bash /aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/scripts/run_taiji_frozen_route_search_a100.sh'"
 }
-
