@@ -1,5 +1,16 @@
 # Active ICLR status
 
+> **2026-10-14 07:55 CST verified _04 startup:** full3120 has all8 matching
+> manifests and ACTUAL saved greedy policy generations; initial snapshot45
+> completed case artifacts/4000 raw decision batches (progress, not accuracy).
+> Eight A100-SXM4-40GB use31.9--32.1GiB/device and14--18% GPU snapshot.
+> All8 worker stdout FDs match PID1's default pipe; no file redirection.
+> CLI log API was empty at snapshot, so UI log freshness is not yet proven.
+> Tree condition follows full greedy completion; no tree result claimed yet.
+> Full460 _04 remains PENDING. See startup_verified.json in3120 _04 receipt
+> directory. Unit/runtime fixes are verified, full experimental goal remains active.
+
+
 > **2026-10-14 07:51 CST complete-dependency retries supersede _03:**
 > Both _03 jobs are verified END/false before model loading (cachetools absent).
 > Original failure logs preserved. Runtime5121e5c restores existing CUDA11
