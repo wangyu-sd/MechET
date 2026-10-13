@@ -1,5 +1,23 @@
 # Active ICLR status
 
+> **2026-10-14 07:51 CST complete-dependency retries supersede _03:**
+> Both _03 jobs are verified END/false before model loading (cachetools absent).
+> Original failure logs preserved. Runtime5121e5c restores existing CUDA11
+> layering: gzip Cu118 vLLM/xFormers overlay + separately checksummed non-CUDA
+> fallback appended after base packages; no CUDA12 Torch/driver overrides.
+> Actual gzip extraction + automatic complete imports passed locally with
+> Torch2.6.0+cu118/vLLM0.8.5/RDKit2026.03.4.778 unit tests passed/11 skipped.
+> New ordinary QY8A100 tasks: full3120
+> `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_04`, instance
+>8b1d8155a134b10601a137ada4f70708; full460
+> `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_04`, instance
+>8b1d891ba134b07e01a137ada9c206f5. First readback TRAINING_INIT for both;
+> actual GPU generation not yet verified. Same40204... actor/full datasets/
+> stocks/seeds/no-hard-cap search; Tencenttaiji6/Ceph/default45s stdout retained.
+> Receipts: outputs/submissions/dynamic_electron_tree_20261014_04 and
+> outputs/submissions/r1_r2_full460_routes_20261014_04. Others/forward untouched.
+
+
 > **2026-10-14 07:39 CST bootstrap retries supersede _02 queue notes:**
 > Both previous full3120/full460 _02 instances are verified END/false before
 > model initialization: missing external zstd command. Default POD logs saved
