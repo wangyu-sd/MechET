@@ -134,8 +134,9 @@ The analysis binds the model/assets, full denominator, exact shard hashes,
 saved graph hashes and counts hash; inconsistent or partial counts are rejected.
 Original inference rows remain unchanged. Without a matching sealed manifest,
 the report continues to expose only the online lower bound, not an exact count.
-Exact corpus-to-reference program annotation is PENDING:
-affected strata remain Unknown, and no C1 novelty claim is permitted. Source
+The actual-SFT exact-match reference census is complete; unmatched or unsupported
+reference edges remain unannotated. All160 primary routes remain Unknown, and
+no C1 novelty claim is permitted. Source
 maps alone never become mechanisms. Disjoint maps are missing correspondence,
 not a zero center. Paired2000-bootstrap summaries and observed PDF panels are
 written only from actual complete outputs. These are provisional panels, not
@@ -149,3 +150,18 @@ runtimea23cf576, with renewable windows and the SAME3120 source and actor.
 The initial READY readback establishes submission, not actual inference.
 The full460 route task remains unchanged at runtimee973e1d. No local edit
 silently changes a submitted immutable runtime; the replacement is explicit.
+
+## Historical Figure3b panel, separate exposure basis
+
+`scripts/plot_frozen_operator_growth.py` consumes the frozen historical
+`outputs/issue79/nmi_operator_basis_train_20261002.json` in main (report SHA
+`a7e2c029d53a51eeeab89befc44440d5c91d0ef689199349beb04084c889d6d1`).
+The full original source SHA is checked before rendering PDF/SVG. Six recorded
+nested seed42 identifier-hash coverage points end at604 local primitives and
+6553 ordered program signatures across257167 strict train reactions. The
+horizontal axis is training-pool coverage, NOT optimizer steps or a new model
+learning curve. V1 omits import identities, is coupled-order sensitive and
+includes some nonordinary BE_DELTA signatures. It is neither current Stage-II
+actual-label exposure (603/6491) nor evidence of route-level model performance.
+The panel and its provenance manifest do not constitute complete Figure3;
+observed full-route outcome and real saved-route panels remain pending.
