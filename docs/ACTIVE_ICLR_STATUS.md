@@ -1,5 +1,20 @@
 # Active ICLR status
 
+## 2026-10-14: full460 observed-work replacement queued
+
+`meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_02`, instance
+`8b1d8145a134ab5e01a136e9abba05b2`, runtime4817754d:
+TRAINING_RESOURCE_WAITING, not inference. Old full460 instance was stopped
+while queued and verified END with no output. Same460 IDs/stocks/frozen0.6B
+SHA40204...7e9de75/sampling, but now records whole-wave unique model calls,
+all token cost and first stock solutions. No hard chemical/token/time limits.
+Ordinary8A100/QY, successful Tencenttaiji6/Ceph donor/default45s logs.
+31k task/unrelated jobs untouched. Main receipt
+`outputs/submissions/r1_r2_full460_routes_20261014_02/submission.json`.
+771 unit tests passed/11 skipped; no new model results. Independent matched-
+work sampling and complete Figure2b comparison remain pending. Earlier
+e973e1d queued task headings below are historical and superseded.
+
 ## 2026-10-14: full3120 uses renewable work windows too
 
 Stopped only the old capped3120 instance8b1d8145a134ab5e01a135c0d60b028a;

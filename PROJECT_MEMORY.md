@@ -1,5 +1,17 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-14 full460 observed-work replacement:** old full460 instance
+>8b1d8038a134b09101a136418a43039c was stopped while queued and verified END,
+> with no output. New task `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_02`,
+> instance8b1d8145a134ab5e01a136e9abba05b2, is TRAINING_RESOURCE_WAITING.
+> Runtime4817754d, same frozen0.6B/source460/stocks/sampling; adds whole-wave
+> work journals for unique model calls/all tokens/first stock solutions. No
+> chemical/token/time caps, no RL/RSI. One8A100/QY/Tencenttaiji6/proven Ceph,
+> default45s logs.31k task and others untouched. Receipt in main
+> outputs/submissions/r1_r2_full460_routes_20261014_02.771 unit tests passed,
+>11 skipped; NO new model outcome. Independent matched-work baseline pending.
+> Earlier e973e1d full460 queue notes are superseded, not retroactively changed.
+
 > **2026-10-14 full3120 budget repair submitted:** the old0796e2d task
 > `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261013_01` was stopped
 > while resource-waiting and verified END, with no output directory. Replacement

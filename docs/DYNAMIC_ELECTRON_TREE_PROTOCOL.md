@@ -125,8 +125,11 @@ The x coordinate reports actual summed forward calls, not nominal budgets,
 per-request double counting, uncached prefill tokens, GPU FLOPs or invented
 global wall-clock ordering. Work above a finished run is never extrapolated.
 This instrumentation does not change generation or impose a search cutoff.
-At this edit the submitted460 runtime is still e973e1d and lacks these new
-journals; a local edit cannot retrofit them. Independent matched-work sampling
+The original460 runtimee973e1d lacked these journals. It was stopped while
+queued, verified END with no output, then explicitly replaced by
+`meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_02`, immutable
+runtime4817754d. This does not alter stocks, IDs, actor or sampling. Initial
+followup state TRAINING_RESOURCE_WAITING, not model inference. Independent matched-work sampling
 and the complete Figure2b comparison are still pending.
 
 R2 reuses exactly the same160 R1 rows and precomputed source complexities.
@@ -162,7 +165,8 @@ On October14 it was stopped while queued and verified END before replacement.
 `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_02` instead pins
 runtimea23cf576, with renewable windows and the SAME3120 source and actor.
 The initial READY readback establishes submission, not actual inference.
-The full460 route task remains unchanged at runtimee973e1d. No local edit
+The full460 route task was separately replaced at runtime4817754d to capture
+whole-wave work accounting, without changing sampling/source/actor. No local edit
 silently changes a submitted immutable runtime; the replacement is explicit.
 
 ## Historical Figure3b panel, separate exposure basis
