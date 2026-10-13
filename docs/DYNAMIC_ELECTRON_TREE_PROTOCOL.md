@@ -191,7 +191,10 @@ the PRIMARY source reference: reaction edges, convergent branches, maximum
 precursor multiplicity, changed bonds, mapped reacting atoms, opening/closure
 edge counts, electronic event length, maximum coupled moves and imported
 participants. Counts use the definitions in `complexity_rows`; incomplete
-measurements remain a separate `Missing` group. Bin memberships depend only
+measurements remain a separate `Missing` group.
+Ring opening/closure fields measure negative/positive source ring-count changes
+and are topology proxies, not independent evidence of a ring-opening mechanism.
+Bin memberships depend only
 on source references, not model success or discovered shorter routes; every
 target belongs to one bin per dimension. Boundaries are plotting strata with
 open-ended final bins, NOT chemical search ceilings or data filtering.
