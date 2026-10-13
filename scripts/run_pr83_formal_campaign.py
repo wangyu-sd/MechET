@@ -53,14 +53,16 @@ def sha(path: Path) -> str:
 
 def seal_stage(stage: str) -> None:
     if stage == "rl":
-        root = DATA_ROOT / "outputs/agent/pr83_graph_endpoint_rl_stage1_train257167_20261012"
+        root = DATA_ROOT / "outputs/agent/pr83_graph_earho_conditional_stage1_train257167_20261012"
         report = json.loads((root / "train_report.json").read_text())
-        if report["processed_roots"] != 257167 or report["stats"]["selected"] != 257167:
+        if report["algorithm"] != "graph_earho_conditional_endpoint_v4":
+            raise RuntimeError("formal RL algorithm is not the corrected Graph-EARHO")
+        if report["stats"]["processed"] != 257167 or report["stats"]["selected"] != 257167:
             raise RuntimeError("RL did not traverse the complete train universe")
-        if sha(root / "graph_endpoint_rl_head.pt") != report["graph_rl_head_sha256"]:
+        if sha(root / "graph_earho_policy_head.pt") != report["graph_earho_head_sha256"]:
             raise RuntimeError("completed graph head hash mismatch")
         return
-    root = DATA_ROOT / "outputs/eval/pr83_formal_stage1_20261012"
+    root = DATA_ROOT / "outputs/eval/pr83_formal_graph_earho_conditional_stage1_20261012"
     for split, expected in (("valid", 2890), ("test", 28967)):
         report = json.loads((root / split / f"graph_qwen_{stage}" / "summary.all-shards.json").read_text())
         if report["evaluated_strict_executable"] != expected:
@@ -83,6 +85,8 @@ def main() -> None:
     parser.add_argument("--state", type=Path, required=True)
     parser.add_argument("--pre-config", type=Path,
                         help="use an available compatible application group for the first formal task")
+    parser.add_argument("--rl-config", type=Path)
+    parser.add_argument("--post-config", type=Path)
     parser.add_argument("--poll-seconds", type=int, default=300)
     args = parser.parse_args()
     if args.poll_seconds < 60:
@@ -94,6 +98,10 @@ def main() -> None:
                for name, gpus, _ in STAGES]
     if args.pre_config is not None:
         configs[0] = args.pre_config.resolve()
+    if args.rl_config is not None:
+        configs[1] = args.rl_config.resolve()
+    if args.post_config is not None:
+        configs[2] = args.post_config.resolve()
     hashes = [sha(path) for path in configs]
     if args.state.exists():
         state = json.loads(args.state.read_text())

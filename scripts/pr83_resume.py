@@ -16,6 +16,67 @@ RUN_MANIFEST_NAME = "run_manifest.json"
 RESULTS_NAME = "results.shard-00-of-01.jsonl"
 
 
+class AuditJournal:
+    """Append-only JSONL with SHA-authenticated checkpoint cursors.
+
+    Checkpoints retain offsets/hashes, not all historical trajectories. After
+    a crash, evidence written after the saved model cursor is quarantined before
+    truncation; altered saved evidence fails closed without modifying the file.
+    """
+    def __init__(self, path: Path, *, restored_state=None):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.digest = hashlib.sha256()
+        if restored_state is None:
+            self.handle = self.path.open("xb")
+            return
+        offset = restored_state["offset"]
+        if not isinstance(offset, int) or isinstance(offset, bool) or offset < 0:
+            raise ValueError("invalid audit cursor")
+        if not self.path.exists():
+            if offset:
+                raise ValueError("audit prefix is missing")
+            self.path.touch(exist_ok=False)
+        if self.path.stat().st_size < offset:
+            raise ValueError("audit prefix is shorter than saved cursor")
+        with self.path.open("rb") as source:
+            remaining = offset
+            while remaining:
+                block = source.read(min(1024 * 1024, remaining))
+                if not block:
+                    raise ValueError("audit prefix is incomplete")
+                self.digest.update(block)
+                remaining -= len(block)
+        if self.digest.hexdigest() != restored_state["sha256"]:
+            raise ValueError("audit prefix hash differs from checkpoint")
+        if self.path.stat().st_size > offset:
+            import shutil
+            import time
+            evidence = self.path.with_name(f"{self.path.stem}.rollback-{time.time_ns()}.jsonl")
+            with self.path.open("rb") as source, evidence.open("xb") as sink:
+                source.seek(offset)
+                shutil.copyfileobj(source, sink)
+                sink.flush()
+                os.fsync(sink.fileno())
+            with self.path.open("r+b") as handle:
+                handle.truncate(offset)
+        self.handle = self.path.open("ab")
+
+    def append(self, record):
+        raw = (json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n").encode()
+        self.handle.write(raw)
+        self.handle.flush()
+        self.digest.update(raw)
+
+    def checkpoint_state(self):
+        self.handle.flush()
+        os.fsync(self.handle.fileno())
+        return {"offset": self.handle.tell(), "sha256": self.digest.hexdigest()}
+
+    def close(self):
+        self.handle.close()
+
+
 def _bytes_json(value: Mapping[str, Any]) -> bytes:
     return (json.dumps(value, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
 

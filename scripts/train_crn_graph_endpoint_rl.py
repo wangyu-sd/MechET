@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded train-only endpoint RL for CRN-JEPA FLOW; Qwen stays frozen.
+"""Historical fixed-GT-tail reward/replay ablation; NOT main Graph-EARHO.
 
 Each training reaction supplies a verified reference prefix. Choose a late
 electron-flow frontier, sample a stochastic slate from the graph policy's

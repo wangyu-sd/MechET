@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from mechet.crn_graph_bridge import file_sha256
+from mechet.qwen_generation_capture import attach_generation_capture
 from scripts.run_crn_qwen_hybrid import completed_ids, selected_shard
 from scripts.run_natural_language_value_search import (
     Runtime, read_selected, rollout, validate_v2_adapter_manifest,
@@ -111,6 +112,7 @@ def main() -> int:
             "scripts/run_crn_qwen_pure_baseline.py",
             "scripts/run_natural_language_value_search.py",
             "src/mechet/endpoints.py",
+            "src/mechet/qwen_generation_capture.py",
         )},
     }
     args.output.mkdir(parents=True, exist_ok=True)
@@ -127,6 +129,7 @@ def main() -> int:
     contract_path.write_text(json.dumps(contract, indent=2) + "\n", encoding="utf-8")
     done = completed_ids(results_path, expected_ids)
     runtime = Runtime(args, local_rank)
+    captures = attach_generation_capture(runtime.model, runtime.tokenizer)
     started = time.perf_counter()
     with results_path.open("a", encoding="utf-8") as sink:
         for row in selected:
@@ -134,7 +137,9 @@ def main() -> int:
             if identifier in done:
                 continue
             row_started = time.perf_counter()
+            captures.clear()
             result = rollout(runtime, row, args)
+            result["model_generations"] = list(captures)
             result["wall_seconds"] = time.perf_counter() - row_started
             result["policy"] = "pure_qwen3_0_6b_matched_v2_greedy"
             result["qwen_adapter_sha256"] = adapter_sha

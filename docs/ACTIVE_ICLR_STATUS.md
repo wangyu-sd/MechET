@@ -1,5 +1,73 @@
 # Active ICLR status
 
+## 2026-10-13: joint import–FLOW proposal; training not submitted
+
+The user approved the joint-import direction and requested both a code PR and
+a Taiji training task. Written design/plan:
+`docs/superpowers/specs/2026-10-13-joint-import-flow-endpoint-design.md` and
+`docs/superpowers/plans/2026-10-13-joint-import-flow-endpoint-plan.md`.
+These describe proposed trainable Qwen LoRA + graph heads, not an implemented
+joint trainer. The architecture review gate precedes that implementation;
+do not submit the current graph-only trainer under a joint-policy task name.
+
+The authorized local FP16/T4 diagnostic is finished: validation8 baseline
+1/8 structural endpoints, 6/8 terminals, 22/22 imports accepted and 34/36 FLOW
+events accepted. Train32 processed all 32 roots but made **zero updates**:
+30 controller-blocked roots and two explicit-H alignment KeyErrors. Its
+autonomous train episodes had 6/32 endpoint hits before any update; this is
+not an RL gain or heldout result. No trained head/post-RL evaluation exists.
+
+Two prerequisites are now repaired with RED-to-GREEN regressions: retain
+explicit hydrogen maps during gold/actor alignment, and remove the additional
+unchanged-target reward veto that contradicted accepted benchmark GT terminals.
+Primary endpoint scoring/denominator and executor legality remain unchanged.
+Full local suite after these fixes: **653 passed, 8 skipped**. See
+`docs/results/PR83_JOINT_IMPORT_DIAGNOSTIC_20261013.md` for original artifacts
+and case-level findings; none establishes performance of a joint model.
+
+Latest ordinary application quota readback (2026-10-13, not host allocation):
+main QY A100 112 quota / 59 using / 4 applying / 24 waiting; ZJK H20
+136 / 127 / 0 / 10; AILab QY A100 50 / 0 / 0 / 0; KEMO V100
+146 / 0 / 0 / 0. Positive quota headroom is not confirmed GPU assignment.
+The main-QY Tencent `:taiji6` donor's instance
+`8b1d81dca1250f4401a12e1df01d0b75` is END/success, freshly verified.
+Do not revive abandoned `:taiji` image or silently stop other projects' tasks.
+
+## 2026-10-12: approved conditional-endpoint Graph-EARHO implementation
+
+The latest user request is to repair code and assess RL's theoretical validity,
+not to submit a job. PR83 upstream `584bee6` designates
+`scripts/train_crn_graph_earho.py` as main; the fixed-GT-last-three trainer is
+an ablation and must not be used by the formal launcher. The local stacked
+branch integrates that trainer without losing the single-pass greedy router.
+Main defaults are endpoint-only actor support and the same K1 greedy follower
+as evaluation; local GT successor matches supply supervised replay only.
+Horizon promotion requires real endpoint groups, not just local matches.
+New immutable prepared output roots contain `pr83_graph_earho_conditional` /
+`pr83_formal_graph_earho_conditional`; legacy root/head reports cannot seal the
+new `graph_earho_conditional_endpoint_v4` stage.
+
+The approved v4 implementation replaces that surrogate with complete-support
+normalization, IID replacement draws and a leave-one-out score-function loss.
+Native pointer exploration expands the support before it is frozen. Only
+independently scheduled full-budget groups supply binary terminal RL returns;
+short-H groups supply separate replay. Execution pooling preserves every
+draw's multiplicity. Autonomous product-start episodes are saved in a journal
+with authenticated checkpoint cursors, not embedded in growing checkpoints.
+The estimator is unbiased for its declared **conditional fixed-support
+frontier objective**, NOT a full-product-start policy gradient or full-policy
+KL guarantee. See `docs/GRAPH_EARHO_METHOD.md`. Independent review identified
+an omitted precision guard; Qwen dtype/4-bit mode now bind resume and exported
+controller contracts. Final local suite: **651 passed, 8 skipped** under pinned
+RDKit; details are in the execution ledger. No GPU job was submitted, and these
+changes have not yet been pushed/merged. None establishes measured endpoint gain.
+
+Previous formal attempts have not produced inference outputs or RL updates.
+Latest inspected `_05` instance `8b1d89c6a1250f2401a12ef0da120bec` is failed/END,
+not running. The old `:taiji` image recovery route is abandoned per the user;
+do not call the historical attempt-2 PENDING note below a current status.
+No replacement job was submitted by this audit/repair.
+
 ## 2026-10-12: PR83 formal campaign
 
 The user's full-scale/no-smoke requirement overrides PR83's original 128-valid

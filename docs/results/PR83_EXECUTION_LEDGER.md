@@ -125,3 +125,138 @@ of invalid rows or attribution of local oracle-state Event@1 to product-start.
   official test `a0700444e03cdc73ef041ac1b33251486529976246e469c27e15f2bf6f296048`.
 - Local final related suite: 26 passed. CI on `846cbca`: 4/4 passed.
   Queue admission and code checks do not establish a formal model result.
+
+## 2026-10-12 — latest PR83 theoretical audit and bounded correction
+
+- Upstream audited revision: `584bee6e8d93b53cb2a45adc53beff52c1634809`.
+  This introduces Graph-EARHO and explicitly demotes the old fixed-GT-tail
+  graph trainer to an ablation. The local formal launcher previously still
+  selected that old script: entry/head/report contracts are now corrected.
+- Confirmed missing `successor_group_advantages` import in the new main trainer;
+  reproduced the actual unbound call. Combined with the stacked CLI it also
+  duplicated `--source-sha256`. Both are now covered by executable regressions.
+- Preserved single-generation greedy IMPORT/FLOW routing; upstream's old
+  prefix-NLL router must not silently replace this already-repaired protocol.
+- Corrected main actor support to terminal endpoints only and a matched K1
+  follower. Local GT labels are separate replay supervision; the old mixed
+  successor reward remains a named ablation. Horizon promotion now explicitly
+  receives counts of endpoint-positive groups. Wrong observed terminals do
+  not escape classification merely because the first successor matched GT.
+- New prepared paths:
+  `outputs/agent/pr83_graph_earho_stage1_train257167_20261012/` and
+  `outputs/eval/pr83_formal_graph_earho_stage1_20261012/`.
+  No historical artifact was overwritten, and no GPU job was submitted here.
+- Full local code suite: **633 passed, 8 skipped** under the pinned
+  RDKit-2026.03.4 wheel. The actual composed training CLI `--help`, launcher
+  Bash syntax and `git diff --check` passed. None is an experimental result.
+- A tensor/autograd counterexample shows local-successor reward can reduce
+  true endpoint probability; another shows sampled conditional KL=0 does not
+  constrain mass outside the slate. See `docs/GRAPH_EARHO_METHOD.md` and
+  `tests/test_graph_earho_objective_boundaries.py`.
+- Remaining mathematical boundary: Gumbel without-replacement Top32 selection
+  plus success gating/partially sampled successor-class mass is a biased
+  surrogate, not exact PPO/GRPO or an unbiased full endpoint gradient. A
+  normalized-slate estimator is recommended but **not implemented** by this
+  bounded repair. There is no convergence or endpoint-gain claim.
+- Independent read-only review identified a reward-class error: map-free equal
+  mixtures can project different structural precursors due to product-origin
+  maps. A real RDKit example reproduced this. Pooling now retains the private
+  mapped chemical state, bond form and isomeric serialization; continuation
+  dedup also retains counters and cycle/history facts. Added origin and stereo
+  regressions. Censor audits now follow the endpoint actor's semantics.
+- Final full suite after the origin/stereo fix: **635 passed, 8 skipped**;
+  independent read-only re-review found no remaining blocker introduced by
+  these bounded changes. The broader estimator bias remains documented.
+
+## Approved conditional-endpoint implementation plan (2026-10-12)
+
+Authority: user approved the in-chat five-point repair and said to execute it.
+Work remains in `MechET-pr83-greedy`; no job, push or merge is requested here.
+
+1. Define normalized fixed-support q, IID replacement sampling, leave-one-out
+   baseline and terminal-return score-function loss; verify exact expected
+   gradient by enumerating a finite categorical example.
+2. Add native source/sink/CONTINUE/COMMIT exploration proposals and merge them
+   into the frozen support before normalization. Preserve original action and
+   executor schemas; never inject GT as an on-policy draw.
+3. Connect the trainer: deduplicate execution only, preserve draw multiplicity,
+   freeze the K1 follower within an update, reserve short horizon for separate
+   replay, and retain independently scheduled full product-start trajectories.
+4. Update immutable reports/launch contracts and method derivation; run the
+   complete unit suite and an independent read-only review, no model smoke.
+
+Pre-flight: the new loss consumes the complete fixed pool, not just sampled
+class logps; sampled indices refer to that same pool throughout execution.
+Ruling: exploration expands the pre-update support, then IID sampling uses
+the normalized expanded support — this gives a precise conditional objective
+without pretending finite Top32 search covers the full action space. Cost if
+wrong: missing-support actions still require explicit future exploration.
+Ruling: endpoint actor updates are scheduled before observing branch returns;
+all short-horizon groups remain replay-only, avoiding survivor-selection bias.
+Cost: fewer terminal RL updates per root, rather than fabricated local credit.
+
+## 2026-10-12 — approved conditional-endpoint plan implemented locally
+
+- Task 1: complete-support normalization, IID replacement sampling and
+  leave-one-out endpoint score-function loss implemented. Exhaustive finite
+  categorical/autograd regression agrees with the exact conditional gradient;
+  duplicate draws retain their original weight and short-H actor loss is zero.
+- Task 2: native full-head source/sink/CONTINUE/COMMIT exploration implemented
+  before support freezing. CPU tests use the actual external pointer decoder,
+  verify summed event log probability and reject unfinished move-cap events
+  rather than forcing COMMIT. No checkpoint or reaction experiment was run.
+- Task 3: integrated full-support scoring before return observation, per-draw
+  returns after origin/stereo-safe execution pooling, one fixed K1 follower per
+  update, separate verified replay, whole-support frozen-original KL and
+  independently scheduled full product-start autonomous trajectory capture.
+- Ruling: trajectory journals store append-only evidence; checkpoints retain
+  only journal offsets/hashes. Restore authenticates the saved prefix and
+  quarantines later evidence before rollback. This avoids growing historical
+  trajectory payloads in every checkpoint, while retaining crash evidence.
+- Task 4: v4 launch/campaign seals and immutable configuration are prepared in
+  `outputs/agent/pr83_graph_earho_conditional_stage1_train257167_20261012/`
+  and `outputs/eval/pr83_formal_graph_earho_conditional_stage1_20261012/`.
+  These replace the v3 prepared roots above, not historical output artifacts.
+- Independent final read-only review found no Critical issue. Its Important
+  precision-provenance finding was reproduced by a failing regression, then
+  fixed: dtype and 4-bit mode now bind both resume and exported controller
+  contracts, and the evaluation seal checks them. Default remains bf16 without
+  4-bit loading. Stale censor/sampled-KL prose was corrected.
+- Final verification after that fix: **651 passed, 8 skipped in 133.95s**, with
+  pinned RDKit-2026.03.4 and external CRN source available for component tests.
+  Training CLI `--help`, Python compilation, launcher Bash syntax and JSON
+  contract parsing also passed. These are source checks, not endpoint results.
+- All four implementation tasks are complete. Work is local in
+  `MechET-pr83-greedy`, not pushed/merged; no new GPU job was submitted or
+  historical task stopped. Main objective is conditional fixed-support
+  endpoint REINFORCE plus explicit replay/KL, not full-product-start PG,
+  PPO/GRPO, guaranteed candidate coverage or proven heldout improvement.
+
+## 2026-10-13 — authorized diagnostic and joint-import handoff
+
+- Explicit user exception authorized a small real-model test. Local T4/FP16
+  validation8 baseline ended at 1 exact endpoint and 6 accepted terminals;
+  22/22 imports and 34/36 FLOW events executed. Mean20.077s/reaction.
+- Graph-only train32 finished traversing all32 roots but made zero updates:
+  30 controller-blocked, 2 explicit-H alignment exceptions (maps33 and28),
+  6 autonomous endpoint hits before any update. No final trained head/post-RL
+  measurement exists. Source/result paths and concrete cases are recorded in
+  `docs/results/PR83_JOINT_IMPORT_DIAGNOSTIC_20261013.md`.
+- Two prerequisite bugs were reproduced RED and fixed GREEN: preserve H maps
+  in alignment and remove the endpoint reward's extra unchanged-target veto.
+  The primary scorer and legal executor are unchanged. Full suite after repair:
+  **653 passed, 8 skipped in49.86s**. These are code checks, not a joint-model
+  improvement or rerun of the failed diagnostic.
+- User requested both code PR and training task for joint import–FLOW credit.
+  Written architectural design/plan are committed for review; joint Qwen-LoRA
+  training is not implemented yet and no new Taiji task was submitted.
+  The existing graph-only script must not be deployed under a joint-model name.
+- Ordinary quota readback: mainQY A100112/59/4/24, ZJK H20136/127/0/10,
+  AILabQY A10050/0/0/0, V100146/0/0/0 (quota/using/applying/waiting).
+  The successful main-QY `:taiji6` donor instance was rechecked; no allocation
+  or infrastructure compatibility is inferred from unused quota alone.
+- Independent read-only prerequisite review found no Critical/Important issue;
+  its integration run passed14/14. Nonidentity H mapping, symmetric-H rejection
+  and explicit-H stereo were also checked independently. Minor follow-up:
+  persist those broader fixtures and an executor-to-heldout-scoring parity
+  regression rather than relying only on the current expression-level test.

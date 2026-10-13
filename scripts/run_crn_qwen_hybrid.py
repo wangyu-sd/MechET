@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
+from mechet.qwen_generation_capture import attach_generation_capture
 from mechet.crn_graph_bridge import (
     FrozenCRNGraphPolicy, GRAPH_PRETRAIN_SHA256, file_sha256,
     generate_qwen_import,
@@ -36,6 +37,9 @@ class HybridRuntime(Runtime):
     def __init__(self, args: argparse.Namespace, local_rank: int):
         super().__init__(args, local_rank)
         self.model.set_adapter("policy")
+        self.raw_generations = (attach_generation_capture(self.model, self.tokenizer)
+                                if getattr(args, "capture_generations", False) else [])
+        self.graph_observations = []
         self.graph = FrozenCRNGraphPolicy(
             root=args.crn_root, checkpoint=args.graph_checkpoint,
             expected_sha256=args.graph_sha256, device=self.device,
@@ -124,6 +128,10 @@ class HybridRuntime(Runtime):
             event_depth, remaining_budget = graph_event_coordinates(
                 node.actions, self.args.graph_initial_budget,
             )
+            if getattr(self.args, "capture_generations", False):
+                self.graph_observations.append({"current_mapped_state": node.state,
+                                               "event_depth": event_depth,
+                                               "remaining_budget": remaining_budget})
             events = self.graph.candidates(
                 node.state, limit=self.args.graph_flow_topk,
                 event_depth=event_depth, remaining_budget=remaining_budget,
@@ -247,6 +255,7 @@ def prepare_args(args):
 
 def main() -> int:
     args = prepare_args(parser().parse_args())
+    args.capture_generations = True
     rank = int(os.environ.get("RANK", "0"))
     world = int(os.environ.get("WORLD_SIZE", "1"))
     local_rank = int(os.environ.get("LOCAL_RANK", str(rank)))
@@ -292,7 +301,7 @@ def main() -> int:
         code_sha256={name: file_sha256(ROOT / name) for name in (
             "scripts/run_crn_qwen_hybrid.py", "scripts/pr83_resume.py",
             "scripts/run_natural_language_value_search.py", "src/mechet/crn_graph_bridge.py",
-            "src/mechet/endpoints.py",
+            "src/mechet/endpoints.py", "src/mechet/qwen_generation_capture.py",
         )},
     )
     manifest.update({
@@ -312,10 +321,14 @@ def main() -> int:
     started = time.perf_counter()
     with output.open("a", encoding="utf-8") as handle:
         for row in selected[resumed_count:]:
+            runtime.raw_generations.clear()
+            runtime.graph_observations.clear()
             counts_before = dict(runtime.counts)
             timing_before = dict(runtime.timing)
             t0 = time.perf_counter()
             result = rollout(runtime, row, args)
+            result["model_generations"] = list(runtime.raw_generations)
+            result["graph_observations"] = list(runtime.graph_observations)
             result["policy"] = policy
             result["graph_checkpoint_sha256"] = graph_sha
             result["qwen_adapter_sha256"] = qwen_adapter_sha

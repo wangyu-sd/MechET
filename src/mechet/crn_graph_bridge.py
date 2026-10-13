@@ -251,6 +251,38 @@ class FrozenCRNGraphPolicy:
         self._inventory = MechETGroundedInventory
         self._render = render_event_arguments
 
+    def exploration_candidates(self, current_mapped_smiles: str, *, count: int, rng,
+                               event_depth: int = 0, remaining_budget: int = 1):
+        """Native full-head draws expand support BEFORE conditional IID sampling."""
+        import torch
+        from mechet.graph_endpoint_rl import sample_grounded_event
+        if not 0 <= count <= 32:
+            raise ValueError("invalid exploration proposal count")
+        if not count:
+            return ()
+        with torch.inference_mode():
+            graph = self._build_graph(current_mapped_smiles, None)
+            inventory = self._inventory(current_mapped_smiles)
+            nodes, context, prefix = self.model.policy.encode_directional_observation(
+                graph, event_depth=event_depth, remaining_budget=remaining_budget,
+                direction="retrosynthetic_inverse")
+            proposals = []
+            for _ in range(count):
+                sampled = sample_grounded_event(self.model.policy, graph, inventory,
+                                                nodes, context, prefix, rng)
+                if sampled is None:
+                    continue
+                moves, logprob = sampled
+                raw_moves = tuple(move.to_raw() for move in moves)
+                try:
+                    arguments = self._render(current_mapped_smiles, raw_moves)
+                except ValueError:
+                    # A proposal not representable by this schema cannot enter
+                    # the actor support. No gold move or weaker executor is used.
+                    continue
+                proposals.append(GraphFlowCandidate(arguments, raw_moves, logprob))
+        return tuple(proposals)
+
     def candidates(
         self, current_mapped_smiles: str, *, limit: int = 1,
         event_depth: int = 0, remaining_budget: int = 1,

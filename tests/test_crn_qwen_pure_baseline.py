@@ -46,6 +46,9 @@ def test_pure_control_writes_all_rows_and_resumes_without_overwrite(
 
     class FakeRuntime:
         def __init__(self, args, local_rank):
+            from types import SimpleNamespace
+            self.model = SimpleNamespace(generate=lambda **kwargs: None)
+            self.tokenizer = SimpleNamespace()
             assert args.matched_v2 and args.product_only_remap
             assert args.branching == args.early_beam == args.late_beam == 1
             assert local_rank == 0
