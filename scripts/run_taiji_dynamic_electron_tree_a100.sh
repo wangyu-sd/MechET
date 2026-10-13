@@ -13,6 +13,12 @@ bundle=$shared/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu118_py311.tar
 echo '[dynamic-tree] staging existing pinned CUDA11.8 vLLM runtime'
 bash "$runtime_code/scripts/unpack_taiji_runtime.sh" "$bundle" \
   b1185493fb316b2d4534d888df2a6cd871dbb74f6c95255235ba4947ae8486a5 "$vllm_local"
+dependencies=$(mktemp -d /tmp/mechet_dynamic_tree_dependencies.XXXXXX)
+bash "$runtime_code/scripts/unpack_taiji_runtime.sh" \
+  "$shared/artifacts/taiji_vllm_runtime/vllm_0_8_5_noncuda_dependencies_from_archive_20261014.tar.gz" \
+  817efd049ae42972a4be38b1b43c9f975fb068050c8f52923cfcc85178bd389d "$dependencies"
+cp "$runtime_code/scripts/vllm_cuda11_sitecustomize.py" "$vllm_local/sitecustomize.py"
+export MECHET_VLLM_PUREPY_FALLBACK=$dependencies
 rdkit_local=$(mktemp -d /tmp/mechet_dynamic_tree_rdkit.XXXXXX)
 wheel=$shared/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl
 echo "a41dde42ecb24e7d93d62b89e8e5d267b02bbac764f965f3968296c99234c685  $wheel" | sha256sum --check --strict
@@ -25,7 +31,10 @@ export VLLM_WORKER_MULTIPROC_METHOD=spawn VLLM_USE_V1=0
 export NCCL_P2P_DISABLE=1
 cd "$runtime_code"
 python - <<'PY'
-import rdkit,torch,vllm
+import os,rdkit,torch,vllm,vllm._C,xformers
+from vllm import LLM, SamplingParams
+from vllm.lora.request import LoRARequest
+assert not torch.__file__.startswith(os.environ['MECHET_VLLM_PUREPY_FALLBACK']+'/')
 assert rdkit.__version__=='2026.03.4'
 assert torch.version.cuda=='11.8',torch.version.cuda
 assert vllm.__version__.split('+')[0]=='0.8.5'

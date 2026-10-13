@@ -15,6 +15,19 @@ passed with PATH `/usr/bin:/bin`; corruption tests reject before extraction.
 This is a bootstrap fix only: no actor, dataset, chemical search or budget
 policy change. Failed logs remain under the original submission directories.
 
+The `_03` retries passed gzip extraction but then failed before model loading:
+the CUDA11.8 archive is an overlay, not a full environment (`cachetools` missing).
+Restore the existing EARHO CUDA11 layering: separately stage the non-CUDA
+dependencies from the authenticated pruned runtime and APPEND this directory
+after the image base site-packages via `vllm_cuda11_sitecustomize.py`.
+Dependency gzip SHA256:
+`817efd049ae42972a4be38b1b43c9f975fb068050c8f52923cfcc85178bd389d`.
+The archive excludes torch/functorch/nvidia/triton/vllm/xformers/cupy/cupyx/cuda;
+the original CUDA11.8 base Torch remains authoritative. Full local imports
+of Torch, RDKit, vLLM, vLLM._C, xFormers, LLM/SamplingParams and LoRARequest
+passed with the filtered dependency directory; no model was instantiated.
+The incomplete directory-based repack is `.partial` and must never be staged.
+
 User-approved scope: first evaluate all3120 mech-USPTO-31k test products,
 submit exactly one8xA100 task (queued is a successful submission), then use
 the same frozen FlowER actor for the R1/R2 complete-route scientific scenarios.
