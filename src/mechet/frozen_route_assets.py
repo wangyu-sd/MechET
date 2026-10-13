@@ -67,6 +67,8 @@ def mapped_complexity(reaction: str | None) -> dict:
         if not all(positive) or any(len(side)!=len(set(side)) for side in positive):
             return result
         shared = set(positive[0]) & set(positive[1])
+        if not shared:
+            return result
         def bonds(mol):
             found = {}
             for bond in mol.GetBonds():

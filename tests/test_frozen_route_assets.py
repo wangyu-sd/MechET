@@ -90,3 +90,13 @@ def test_freeze_keeps_full_cohort_and_reports_zero_step_stock_separately(tmp_pat
     assert rows[0]['reference_depth'] is None
     assert manifest['cohorts']['c']['rows'] == 2
     assert manifest['cohorts']['c']['target_ids'] == ['c:stock_target','c:unresolved']
+    combined = [json.loads(line) for line in (output/'all_targets.jsonl').read_text().splitlines()]
+    assert [row['id'] for row in combined] == ['c:stock_target','c:unresolved']
+    assert manifest['full_targets_path'] == str((output/'all_targets.jsonl').resolve())
+
+
+def test_disjoint_atom_maps_are_missing_correspondence_not_zero_center():
+    from mechet.frozen_route_assets import mapped_complexity
+    value = mapped_complexity('[CH3:1][CH3:2]>>[CH3:3][OH:4]')
+    assert value['mapping_valid'] is False
+    assert value['changed_bonds_shared_mapped_atoms'] is None

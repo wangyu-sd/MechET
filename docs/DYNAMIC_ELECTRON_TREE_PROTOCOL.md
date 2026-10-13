@@ -83,3 +83,42 @@ route complexity, and missing electronic annotations as Unknown.
 Single-reaction31k outcomes alone do not establish stock-connected route success.
 No URSA/ChemCensor proprietary scorer is downloaded/integrated. Source maps
 are not invented electron ground truth. No new model/reward/critic is introduced.
+
+## R1/R2 runnable implementation and review fixes, October14
+
+Source declarations: `configs/eval/frozen_route_benchmarks_20261013.json`.
+All460 IDs (100/100/160/100) enter ONE shared scheduler per condition, not
+four independent budget resets. The80M output-token and24h worker-condition
+limits apply jointly to all460; each worker receives one-eighth of that token
+budget. Stocks differ by cohort; observations remain product-only. Remote
+CPU stock canonicalization precedes all model generations. Seven raw source
+checksums and all original target/reference populations have been verified.
+The mkt-cnv primary references have2/3/4/5 depths×40; its407 accepted reference
+variants contain1627 edges. PaRoutes-derived100 has387 edges; three targets
+overlap mkt-cnv. These are not independent cohorts.
+
+`reverse_route_network.RouteNetwork` recursively starts the same ElectronTree
+on each nonstock structural precursor. Full AND closure is a least fixed point;
+cycles cannot create stock solutions. Already-stock targets are separate
+zero-step cases, not nontrivial generated routes. All inner graphs and terminal
+programs remain saved. Whole purchased salt entries are preserved; otherwise
+connected components are obligations, with no invented ion availability,
+charge-neutralization or tautomer fallback.
+
+Combined-shard source/stock/model/revision/runtime/seed/budget identities are
+checked before aggregation or completed-result reuse. V0 TP1 scheduled model
+executor calls are measured separately from API batches. Per-target participated
+batches must NOT be summed as unique global calls; complete-shard counters
+provide the latter. JSON stays in Ceph; default POD stdout remains live.
+
+R2 reuses exactly the same160 R1 rows and precomputed source complexities.
+Published structural route recovery tests whether the FULL reference edge set
+is present in the accepted graph after search, not just in a best continuation.
+Unique generated route counts are LOWER BOUNDS until exhaustive enumeration
+is implemented. Exact corpus-to-reference program annotation is PENDING:
+affected strata remain Unknown, and no C1 novelty claim is permitted. Source
+maps alone never become mechanisms. Disjoint maps are missing correspondence,
+not a zero center. Paired2000-bootstrap summaries and observed PDF panels are
+written only from actual complete outputs. These are provisional panels, not
+the complete locked paper Figures2/3. No new training/RSI, unrequested pilot,
+or unrelated task cancellation.

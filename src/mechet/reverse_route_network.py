@@ -192,6 +192,7 @@ class RouteNetwork:
                 candidate=self._certificate(edge)
                 if candidate:unique[candidate['route_key']]=candidate
         return {'id':self.case_id,'target':self.target,'already_in_stock':self.already_in_stock,
+                'generated_reaction_graph':[{'product':e['product'],'precursors':e['precursors']} for e in self.reaction_edges],
                 'stock_solved':nontrivial,'route_key':best['route_key'] if nontrivial else None,
                 'complete_reaction_edges':best['complete_reaction_edges'] if nontrivial else [],
                 'stock_leaves':best['stock_leaves'] if nontrivial else [],

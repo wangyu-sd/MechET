@@ -62,6 +62,7 @@ def freeze_assets(config_path, output, *, workers, normalize_stocks):
     for item in itertools.chain(config['stocks'].values(),config['cohorts'].values()):
         verify_source(raw_root/item['path'],item['sha256'])
     manifest={'schema_version':'mechet_frozen_route_assets_v1','config_sha256':config_sha,
+        'preparation_code_sha':os.environ.get('MECHET_TREE_CODE_SHA','not_supplied'),
         'rdkit_version':rdkit.__version__,'normalization':'mapless_canonical_stereo_isotope_charge_preserved_whole_salts_v1',
         'stocks':{},'cohorts':{},'stock_preparation_complete':normalize_stocks,
         'composition_annotation_complete':False,'raw_redistribution':False}
@@ -92,7 +93,7 @@ def freeze_assets(config_path, output, *, workers, normalize_stocks):
             normalized[name]=known
         manifest['stocks'][name]=information
         print({'phase':'stock-source-frozen','stock':name,'rows':len(raw),'normalized':normalize_stocks},flush=True)
-    structures={}; source_ids={}
+    structures={}; source_ids={}; all_rows=[]
     for name,item in config['cohorts'].items():
         original = raw_root/item['path']
         with open_text(original) as handle:
@@ -135,11 +136,15 @@ def freeze_assets(config_path, output, *, workers, normalize_stocks):
             'reference_stock_closed_routes':sum(r['all_reference_leaves_in_stock'] is True for r in reference_routes) if normalize_stocks else None}
         structures[name]={row['product_unmapped'] for row in rows}
         source_ids[name]={row['source_id'] for row in rows}
+        all_rows.extend(rows)
         print({'phase':'cohort-frozen','cohort':name,'rows':len(rows),'reference_depths':dict(depths)},flush=True)
     manifest['overlap']=[{'cohorts':[a,b],'same_structure_count':len(structures[a]&structures[b]),
                          'shared_source_ids':sorted(source_ids[a]&source_ids[b])}
                          for a,b in itertools.combinations(config['cohorts'],2)]
     manifest['full_target_rows']=sum(item['rows'] for item in manifest['cohorts'].values())
+    write_jsonl(output/'all_targets.jsonl',all_rows)
+    manifest['full_targets_path']=str((output/'all_targets.jsonl').resolve())
+    manifest['full_targets_sha256']=file_sha256(output/'all_targets.jsonl')
     write_json(output/'manifest.json',manifest)
     return manifest
 

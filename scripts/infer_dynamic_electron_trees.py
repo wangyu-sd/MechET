@@ -8,7 +8,7 @@ declared job-level token/wall budget and model/memory limits stop exploration.
 from __future__ import annotations
 
 import argparse
-from collections import deque
+from collections import deque, Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 import hashlib
@@ -68,19 +68,50 @@ def load_route_stock(manifest_path, cohort, data_sha, expected_rows):
     assets = json.loads(Path(manifest_path).read_text())
     if not assets['stock_preparation_complete']:
         raise ValueError('stock canonicalization is still pending')
-    source = assets['cohorts'][cohort]
-    if source['targets_sha256'] != data_sha or source['rows'] != expected_rows:
+    sources = assets['cohorts'] if cohort=='all' else {cohort:assets['cohorts'][cohort]}
+    source_sha = assets['full_targets_sha256'] if cohort=='all' else sources[cohort]['targets_sha256']
+    source_rows = assets['full_target_rows'] if cohort=='all' else sources[cohort]['rows']
+    if source_sha != data_sha or source_rows != expected_rows:
         raise ValueError('full frozen route cohort mismatch')
-    stock = assets['stocks'][source['stock']]
-    if sha256(stock['canonical_path']) != stock['canonical_sha256']:
-        raise ValueError('frozen stock SHA mismatch')
-    with Path(stock['canonical_path']).open() as handle:
-        values = {line.strip() for line in handle if line.strip()}
-    if len(values) != stock['normalized_rows']:
-        raise ValueError('frozen stock cardinality mismatch')
-    return values, {'route_assets_sha':sha256(manifest_path),'route_cohort':cohort,
-        'stock_source_sha':stock['sha256'],'stock_canonical_sha':stock['canonical_sha256'],
-        'stock_normalization':assets['normalization'],'stock_name':source['stock']}
+    stock_sets={}
+    for name in {source['stock'] for source in sources.values()}:
+        stock=assets['stocks'][name]
+        if sha256(stock['canonical_path']) != stock['canonical_sha256']:
+            raise ValueError('frozen stock SHA mismatch')
+        with Path(stock['canonical_path']).open() as handle:
+            values={line.strip() for line in handle if line.strip()}
+        if len(values)!=stock['normalized_rows']:raise ValueError('frozen stock cardinality mismatch')
+        stock_sets[name]=values
+    return {name:stock_sets[source['stock']] for name,source in sources.items()}, {
+        'route_assets_sha':sha256(manifest_path),'route_cohort':cohort,
+        'stock_source_shas':{name:assets['stocks'][name]['sha256'] for name in stock_sets},
+        'stock_canonical_shas':{name:assets['stocks'][name]['canonical_sha256'] for name in stock_sets},
+        'stock_normalization':assets['normalization']}
+
+
+def verify_saved_run(saved,expected):
+    for key,value in expected.items():
+        if saved.get(key)!=value:
+            raise ValueError(f'saved run contract mismatch: {key}')
+
+
+class ForwardCallCounter:
+    """Instrument the pinned vLLM V0 TP1 executor, not API request counts."""
+    def __init__(self,engine):
+        self.total_calls=0
+        self.by_request=Counter()
+        executor=engine.llm_engine.model_executor
+        original=executor.execute_model
+        def execute(*args,**kwargs):
+            request=kwargs.get('execute_model_req') if not args else args[0]
+            groups=request.seq_group_metadata_list if request is not None else []
+            result=original(*args,**kwargs)
+            if groups:
+                self.total_calls+=1
+                for identifier in {str(group.request_id) for group in groups}:
+                    self.by_request[identifier]+=1
+            return result
+        executor.execute_model=execute
 
 
 class HostMemoryGuard:
@@ -152,6 +183,8 @@ def main():
     if len(os.environ.get('CUDA_VISIBLE_DEVICES','').split(','))!=1:
         raise ValueError('each vLLM worker needs exactly one visible GPU')
     validate_probability_contract(temperature=1,top_p=1,repetition_penalty=1)
+    os.environ.setdefault('VLLM_USE_V1','0')
+    if os.environ['VLLM_USE_V1']!='0':raise ValueError('pinned V0 engine required for exact executor accounting')
     import vllm
     from vllm import LLM,SamplingParams
     from vllm.lora.request import LoRARequest
@@ -161,7 +194,14 @@ def main():
     selected=[r for i,r in enumerate(rows) if i%args.world==args.rank]
     root_dir=args.output/args.mode/f'rank{args.rank:02d}'
     root_dir.mkdir(parents=True,exist_ok=True)
+    expected_contract={'model':args.model,'revision':REVISION,'adapter_sha':ADAPTER_SHA,
+        'source_sha':args.source_sha,'mode':args.mode,'rank':args.rank,'world':args.world,
+        'full_denominator':args.expected_rows,'seed':args.seed,'task_token_budget':args.task_token_budget,
+        'wall_hours':args.wall_hours,'max_model_len':args.max_model_len,'raw_unwarped_nll':True,
+        'evaluation_unit':'stock_connected_AND_route' if route_mode else 'single_reaction_endpoint',
+        'code_sha':os.environ.get('MECHET_TREE_CODE_SHA','not_supplied'),**route_contract}
     if (root_dir/'complete.json').exists():
+        verify_saved_run(json.loads((root_dir/'complete.json').read_text())['manifest'],expected_contract)
         print({'phase':'already-complete','rank':args.rank,'mode':args.mode},flush=True);return 0
     # Resume never overwrites a partial raw history under a changed run.
     if (root_dir/'raw_generations.jsonl').exists():
@@ -172,7 +212,8 @@ def main():
     engine=LLM(model=args.model,revision=REVISION,tokenizer=args.model,trust_remote_code=True,
                dtype='bfloat16',tensor_parallel_size=1,gpu_memory_utilization=.82,
                max_model_len=args.max_model_len,max_num_seqs=256,enable_prefix_caching=True,
-               enable_lora=True,max_lora_rank=16,enforce_eager=True,seed=args.seed+args.rank)
+               enable_lora=True,max_lora_rank=16,enforce_eager=True,num_scheduler_steps=1,seed=args.seed+args.rank)
+    forwards=ForwardCallCounter(engine)
     tokenizer=engine.get_tokenizer()
     import psutil
     process = psutil.Process()
@@ -194,12 +235,15 @@ def main():
     manifest['host_memory_persistence_reserve_bytes'] = memory_guard.reserve
     dump(root_dir/'manifest.json',manifest)
     references={r['id']:r for r in selected}
+    runtime_work={r['id']:{'policy_request_batches':0,'prompt_tokens':0,
+                          'candidate_prompt_token_equivalents':0,'model_forward_batches_participated':0,
+                          'cpu_executor_wall_seconds':0.0,'cpu_executor_thread_seconds':0.0} for r in selected}
     trees={}
     reports=[]
     for row in selected:
         try:
             # ONLY unmapped PRODUCT is exposed to the tree/prompt builder.
-            trees[row['id']]=(RouteNetwork(row['id'],row['product_unmapped'],stock,mode=args.mode)
+            trees[row['id']]=(RouteNetwork(row['id'],row['product_unmapped'],stock[row['cohort']],mode=args.mode)
                                if route_mode else ElectronTree(row['id'],row['product_unmapped']))
         except Exception as exc:
             reports.append({'id':row['id'],'top1':False,'top5':False,'top10':False,
@@ -222,6 +266,8 @@ def main():
         dump(root_dir/'trees'/f'{stem}.json',tree.to_dict())
         # Endpoint labels are attached AFTER inference; never read by tree selection.
         report=tree.report() if route_mode else evaluate(tree,references[identifier])
+        report['work'].update(runtime_work[identifier])
+        if route_mode:report['cohort']=references[identifier]['cohort']
         report.update(tree_artifact=f'trees/{stem}.json',evaluation_artifact=f'evaluations/{stem}.json')
         dump(root_dir/'evaluations'/f'{stem}.json',report)
         reports.append(report)
@@ -292,12 +338,24 @@ def main():
                     proposals.append(Proposal(name,arguments,raw,float(value),len(tokens),str(error or ''),truncated,tokens))
                     total_tokens+=len(tokens)
                 tree=trees[identifier]
+                cost=runtime_work[identifier]
+                cost['policy_request_batches']+=1
+                cost['prompt_tokens']+=len(item[2])
+                cost['candidate_prompt_token_equivalents']+=len(item[2])*len(result.outputs)
+                cost['model_forward_batches_participated']+=forwards.by_request.pop(str(result.request_id),0)
                 raw_file.write(json.dumps({'case_id':identifier,'context':key,'prompt_tokens':len(item[2]),
+                            'request_id':str(result.request_id),'cached_prefix_tokens':getattr(result,'num_cached_tokens',None),
                             'generations':[asdict(x) for x in proposals], 'engine_finish_reasons':[x.finish_reason for x in result.outputs]},ensure_ascii=False)+'\n')
-                pending.append((identifier,key,proposals,pool.submit(tree.incorporate,key,proposals)))
+                def incorporate_timed(controller,key,proposals):
+                    wall=time.monotonic();cpu=time.thread_time()
+                    result=controller.incorporate(key,proposals)
+                    return result,time.monotonic()-wall,time.thread_time()-cpu
+                pending.append((identifier,key,proposals,pool.submit(incorporate_timed,tree,key,proposals)))
             cpu_start=time.monotonic()
             for identifier,key,proposals,future in pending:
-                edges=future.result()
+                edges,cpu_wall,cpu_thread=future.result()
+                runtime_work[identifier]['cpu_executor_wall_seconds']+=cpu_wall
+                runtime_work[identifier]['cpu_executor_thread_seconds']+=cpu_thread
                 tree=trees[identifier]
                 context=tree.contexts[key]
                 if context.max_new_tokens>args.max_model_len-len(next(x[2] for x in batch if x[0]==identifier)):
@@ -319,7 +377,8 @@ def main():
         pool.shutdown(wait=True)
         raw_file.close();prompt_file.close()
     if {r['id'] for r in reports}!={r['id'] for r in selected}:raise RuntimeError('lost full-cohort rows')
-    dump(root_dir/'complete.json',{'manifest':manifest,'rows':reports,'tokens':total_tokens,'seconds':time.monotonic()-started})
+    dump(root_dir/'complete.json',{'manifest':manifest,'rows':reports,'tokens':total_tokens,
+                                 'model_forward_calls':forwards.total_calls,'seconds':time.monotonic()-started})
     print({'phase':'dynamic-search-complete','rank':args.rank,'mode':args.mode,'rows':len(reports),'tokens':total_tokens},flush=True)
     return 0
 
