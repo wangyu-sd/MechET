@@ -24,6 +24,7 @@ sys.path.insert(0, str(REPO/'src'))
 sys.path.insert(0, str(REPO))
 from mechet.dynamic_electron_tree import ElectronTree, Proposal, validate_probability_contract, chemical_key, available_host_memory
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
+from mechet.reverse_route_network import RouteNetwork
 from mechet.endpoints import reference_structural_precursor, split_precursor_endpoints, structural_exact
 from scripts.run_natural_language_value_search import policy_prompt
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
@@ -52,6 +53,34 @@ def dump(path, data):
 
 def continue_empty_wave(*, has_queue, budget_blocked):
     return has_queue and not budget_blocked
+
+
+def select_context(controller, mode, forced_key):
+    if isinstance(controller, RouteNetwork):
+        return controller.next_context()
+    if mode == 'greedy':
+        context = controller.contexts[forced_key]
+        return None if context.node.terminal or context.resource_closed else context
+    return controller.next_context()
+
+
+def load_route_stock(manifest_path, cohort, data_sha, expected_rows):
+    assets = json.loads(Path(manifest_path).read_text())
+    if not assets['stock_preparation_complete']:
+        raise ValueError('stock canonicalization is still pending')
+    source = assets['cohorts'][cohort]
+    if source['targets_sha256'] != data_sha or source['rows'] != expected_rows:
+        raise ValueError('full frozen route cohort mismatch')
+    stock = assets['stocks'][source['stock']]
+    if sha256(stock['canonical_path']) != stock['canonical_sha256']:
+        raise ValueError('frozen stock SHA mismatch')
+    with Path(stock['canonical_path']).open() as handle:
+        values = {line.strip() for line in handle if line.strip()}
+    if len(values) != stock['normalized_rows']:
+        raise ValueError('frozen stock cardinality mismatch')
+    return values, {'route_assets_sha':sha256(manifest_path),'route_cohort':cohort,
+        'stock_source_sha':stock['sha256'],'stock_canonical_sha':stock['canonical_sha256'],
+        'stock_normalization':assets['normalization'],'stock_name':source['stock']}
 
 
 class HostMemoryGuard:
@@ -111,7 +140,12 @@ def main():
     p.add_argument('--batch-prompts',type=int,default=32)
     p.add_argument('--cpu-workers',type=int,default=8)
     p.add_argument('--max-model-len',type=int,default=8192)
+    p.add_argument('--route-assets-manifest',type=Path)
+    p.add_argument('--route-cohort')
     args=p.parse_args()
+    if bool(args.route_assets_manifest) != bool(args.route_cohort):
+        p.error('route manifest and cohort must be provided together')
+    route_mode = args.route_assets_manifest is not None
     if sha256(args.data)!=args.source_sha:raise ValueError('source SHA mismatch')
     if sha256(args.adapter/'adapter_model.safetensors')!=ADAPTER_SHA:raise ValueError('Stage-II weight SHA mismatch')
     if not 0<=args.rank<args.world:raise ValueError('invalid shard')
@@ -123,6 +157,7 @@ def main():
     from vllm.lora.request import LoRARequest
     if vllm.__version__.split('+')[0]!='0.8.5':raise ValueError('pinned vLLM0.8.5 required')
     rows=load_source(args.data,args.expected_rows)
+    stock,route_contract = load_route_stock(args.route_assets_manifest,args.route_cohort,args.source_sha,args.expected_rows) if route_mode else (None,{})
     selected=[r for i,r in enumerate(rows) if i%args.world==args.rank]
     root_dir=args.output/args.mode/f'rank{args.rank:02d}'
     root_dir.mkdir(parents=True,exist_ok=True)
@@ -152,6 +187,9 @@ def main():
               'task_token_budget':args.task_token_budget,'wall_hours':args.wall_hours,
               'max_model_len':args.max_model_len,'reference_visible_to_policy':False,
               'self_improvement':False,'seed':args.seed,'history_contract':lineage['environment_revision']}
+    manifest.update(route_contract)
+    manifest['evaluation_unit'] = 'stock_connected_AND_route' if route_mode else 'single_reaction_endpoint'
+    manifest['code_sha'] = os.environ.get('MECHET_TREE_CODE_SHA','not_supplied')
     manifest['host_memory_growth_allowance_bytes'] = memory_guard.growth_allowance
     manifest['host_memory_persistence_reserve_bytes'] = memory_guard.reserve
     dump(root_dir/'manifest.json',manifest)
@@ -161,11 +199,13 @@ def main():
     for row in selected:
         try:
             # ONLY unmapped PRODUCT is exposed to the tree/prompt builder.
-            trees[row['id']]=ElectronTree(row['id'],row['product_unmapped'])
+            trees[row['id']]=(RouteNetwork(row['id'],row['product_unmapped'],stock,mode=args.mode)
+                               if route_mode else ElectronTree(row['id'],row['product_unmapped']))
         except Exception as exc:
             reports.append({'id':row['id'],'top1':False,'top5':False,'top10':False,
                             'any_endpoint_hit':False,'terminal_count':0,'stop_reason':'ROOT_PARSE_FAILURE',
-                            'error':str(exc),'work':{'sampled_tokens':0,'raw_candidates':0}})
+                            'error':str(exc),'stock_solved':False,'already_in_stock':False,
+                            'work':{'sampled_tokens':0,'raw_candidates':0}})
     queue=deque(trees)
     started=time.monotonic()
     total_tokens=0
@@ -173,15 +213,17 @@ def main():
     raw_file=(root_dir/'raw_generations.jsonl').open('a')
     prompt_file=(root_dir/'policy_contexts.jsonl').open('a')
     seen_prompts=set()
-    forced={identifier:tree.root_key for identifier,tree in trees.items()}
+    forced={identifier:tree.root_key for identifier,tree in trees.items()} if not route_mode else {}
     pool=ThreadPoolExecutor(max_workers=args.cpu_workers)
     def finish(identifier,reason):
         tree=trees.pop(identifier)
         tree.stop_reason=reason
-        dump(root_dir/'trees'/f'{identifier}.json',tree.to_dict())
+        stem=hashlib.sha256(identifier.encode()).hexdigest() if route_mode else identifier
+        dump(root_dir/'trees'/f'{stem}.json',tree.to_dict())
         # Endpoint labels are attached AFTER inference; never read by tree selection.
-        report=evaluate(tree,references[identifier])
-        dump(root_dir/'evaluations'/f'{identifier}.json',report)
+        report=tree.report() if route_mode else evaluate(tree,references[identifier])
+        report.update(tree_artifact=f'trees/{stem}.json',evaluation_artifact=f'evaluations/{stem}.json')
+        dump(root_dir/'evaluations'/f'{stem}.json',report)
         reports.append(report)
     try:
         resource_stop = ''
@@ -196,14 +238,11 @@ def main():
                 visits-=1
                 identifier=queue.popleft()
                 tree=trees[identifier]
-                if args.mode=='greedy':
-                    context=tree.contexts[forced[identifier]]
-                    if context.node.terminal or context.resource_closed:
-                        finish(identifier,'GREEDY_TERMINAL' if context.node.terminal else context.resource_closed);continue
-                else:
-                    context=tree.next_context()
-                    if context is None:
-                        finish(identifier,'ADAPTIVE_SUPPORT_STABLE_OR_RESOURCE_CLOSED');continue
+                context=select_context(tree,args.mode,forced.get(identifier))
+                if context is None:
+                    finish(identifier,'ROUTE_SUPPORT_STABLE_OR_RESOURCE_CLOSED' if route_mode else
+                           ('GREEDY_TERMINAL_OR_INVALID' if args.mode=='greedy' else 'ADAPTIVE_SUPPORT_STABLE_OR_RESOURCE_CLOSED'))
+                    continue
                 messages=[{'role':'system','content':SYSTEM}, {'role':'user','content':policy_prompt(
                     context.node.target,context.node.state,include_inventory=True,
                     actions=context.node.actions,compact_history=True)}]
@@ -264,7 +303,7 @@ def main():
                 if context.max_new_tokens>args.max_model_len-len(next(x[2] for x in batch if x[0]==identifier)):
                     context.max_new_tokens=args.max_model_len-len(next(x[2] for x in batch if x[0]==identifier))
                     if proposals and all(x.truncated for x in proposals):context.resource_closed='COMPLETION_CONTEXT_BUDGET'
-                if args.mode=='greedy':
+                if args.mode=='greedy' and not route_mode:
                     accepted=[e for e in edges if e.get('child_context')]
                     if accepted:forced[identifier]=accepted[0]['child_context']
                     elif not any(x.truncated for x in proposals):context.resource_closed='GREEDY_INVALID_ACTION'
