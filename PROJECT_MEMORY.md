@@ -1,5 +1,20 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-14 01:14 CST full460 R1/R2 route task:** ordinary8xA100/QY task
+> `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261013_01`, instance
+> `8b1d8038a134b09101a136418a43039c`, is TRAINING_RESOURCE_WAITING. Runtime
+> `e973e1d64138b146b3f1ac77f8daf2a52409ee94`, frozen FlowER Stage-II0.6B
+> SHA40204c7a...7e9de75. All100/100/160/100 targets, source stocks and AND
+> closure retained. Per user's no-hard-limit request, token/time windows renew
+> automatically:80M/24h are initial accounting checkpoints, NOT stopping caps.
+> Novelty remains a heuristic; physical RAM/model-context guards remain. No
+> RSI/RL/new model training. Tencenttaiji6, successful donor Ceph, default POD
+> logs/45s heartbeat. Receipt in main outputs/submissions/r1_r2_full460_routes_20261013.
+> Local734 unit tests passed/11 skipped; NO new model outcome or stock-normalization
+> result yet. Exact mechanism indexing/exposure parity and full figure panels
+> remain pending. Earlier full3120 runtime0796e2d remains queued and immutable,
+> with its old task caps; do not claim changing local code modified that task.
+
 > **2026-10-13 full3120 dynamic tree:** user confirmed FlowER Stage-II frozen
 > Qwen3-0.6B actual SHA40204c7a...7e9de75 and rejected fixed chemical depth,
 > beam/import caps. Task meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261013_01,

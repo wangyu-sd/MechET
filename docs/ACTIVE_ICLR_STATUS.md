@@ -1,5 +1,21 @@
 # Active ICLR status
 
+## 2026-10-14 01:14 CST: full460 route task submitted, dynamic work windows
+
+Task `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261013_01`, instance
+`8b1d8038a134b09101a136418a43039c`: **TRAINING_RESOURCE_WAITING**, not inference.
+One ordinary8A100/QY, successful Tencenttaiji6/Ceph donor/default45s log heartbeat.
+Immutable runtimee973e1d, authenticated FlowER Stage-II0.6B SHA40204...7e9de75;
+complete URSA100+100/RetroCast160/PaRoutes-derived100 with cohort stocks.
+No fixed chemical caps and no token/time stopping ceilings: work checkpoints
+renew while frontiers remain, physical memory/context safeguards retained.
+Remote CPU64 stock prep precedes A/B greedy/tree inference; ALL nonstock leaves
+must close (AND). Frozen R1 outputs feed R2, no RSI/RL, no other task stopped.
+734 unit tests passed/11 skipped; zero new experimental results. Exact corpus
+indexing/actual-SFT program parity and complete paper figure panels are pending.
+The older3120 task remains queued at immutable0796e2d with its old task caps;
+the new dynamic-window behavior must not be attributed to that historical runtime.
+
 ## 2026-10-13 22:58 CST: dynamic full3120 search, no chemical caps
 
 Submitted ONE ordinary8xA100 QY task
