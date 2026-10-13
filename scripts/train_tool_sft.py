@@ -285,6 +285,7 @@ def validate_conversation(
             "compressed_history_tool_decision_v1",
             "unified_inventory_tool_decision_v2",
             "unified_inventory_compressed_history_tool_decision_v2",
+            "forward_inventory_tool_decision_v1",
         }:
             raise ValueError(f"invalid tool-decision metadata: {identifier}")
         if decision_contract in {
