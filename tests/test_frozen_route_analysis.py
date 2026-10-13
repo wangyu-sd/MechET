@@ -100,3 +100,46 @@ def test_reference_recovery_uses_retained_graph_not_only_best_continuation():
            {'product':'CO','precursors':['C=O']}]  # cheaper inner alternative does not erase reference
     assert graph_contains_published_route(graph,source)
     assert not graph_contains_published_route(graph[1:],source)
+
+
+def test_reference_complexity_keeps_missing_mapping_distinct_from_observed_zero():
+    from scripts.analyze_frozen_route_search import complexity_rows
+    targets=[{'id':'partial','reference_depth':2,
+        'reference_routes':[{'reference_route_id':'ref','reaction_edge_count':2}],
+        'reference_reactions':[
+            {'reference_route_id':'ref','mapping_valid':True,
+             'changed_bonds_shared_mapped_atoms':0,'ring_count_change':0},
+            {'reference_route_id':'ref','mapping_valid':False,
+             'changed_bonds_shared_mapped_atoms':None,'ring_count_change':None}]}]
+    row=complexity_rows(targets)[0]
+    assert row['changed_bonds_shared_mapped_atoms'] is None
+    assert row['changed_bonds_shared_mapped_atoms_available'] is False
+    assert row['ring_count_change'] is None
+    assert row['ring_count_change_available'] is False
+    assert row['reference_depth_available'] is True
+    assert row['mapped_reference_edges'] == 1
+    assert row['reference_event_length_available'] is False
+
+
+def test_ring_opening_and_closure_do_not_cancel_in_route_complexity():
+    from scripts.analyze_frozen_route_search import complexity_rows
+    target={'id':'rings','reference_depth':2,
+        'reference_routes':[{'reference_route_id':'ref','reaction_edge_count':2}],
+        'reference_reactions':[
+            {'reference_route_id':'ref','mapping_valid':True,'ring_count_change':1},
+            {'reference_route_id':'ref','mapping_valid':True,'ring_count_change':-1}]}
+    row=complexity_rows([target])[0]
+    assert row['ring_count_change'] == 0
+    assert row['ring_count_change_available'] is True
+    assert row['ring_closure_edge_count'] == 1
+    assert row['ring_opening_edge_count'] == 1
+    assert row['ring_closure_edge_count_available'] is True
+
+
+def test_no_reference_target_has_missing_complexity_not_empty_route_zero():
+    from scripts.analyze_frozen_route_search import complexity_rows
+    row=complexity_rows([{'id':'no-reference','reference_depth':None}])[0]
+    assert row['ring_closure_edge_count'] is None
+    assert row['ring_closure_edge_count_available'] is False
+    assert row['reference_depth_available'] is False
+    assert row['mapped_reference_edges'] == 0

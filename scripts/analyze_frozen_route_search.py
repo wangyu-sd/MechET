@@ -107,6 +107,15 @@ def aggregate_cohort(targets,conditions):
 
 
 def complexity_rows(targets):
+    """Primary source-reference route only, with per-dimension availability.
+
+    Atom/changed-bond counts sum per reaction (not unique atoms over a route).
+    Ring delta is source forward product minus the entire reactant mixture's
+    RDKit ring count; its sign counts are separate so closure/opening cannot
+    cancel. Zero ring delta does not rule out ring reorganization. Stereo counts
+    count declared chiral atoms, not proof of complete stereochemical labeling.
+    No missing source measurement or electronic program becomes a zero.
+    """
     rows=[]
     for target in targets:
         reference=(target.get('reference_routes') or [{}])[0]
@@ -114,15 +123,24 @@ def complexity_rows(targets):
                   if edge['reference_route_id']==reference.get('reference_route_id')]
         def total(key):
             return sum(edge[key] for edge in relevant) if relevant and all(edge.get(key) is not None for edge in relevant) else None
-        rows.append({'id':target['id'],'reference_route_id':reference.get('reference_route_id'),
+        ring_available=bool(relevant) and all(edge.get('ring_count_change') is not None for edge in relevant)
+        dimensions={
             'reference_depth':target.get('reference_depth'),'reaction_edge_count':reference.get('reaction_edge_count'),
             'convergent_branch_count':reference.get('convergent_branch_count'),
             'maximum_precursor_multiplicity':reference.get('maximum_precursor_multiplicity'),
             'changed_bonds_shared_mapped_atoms':total('changed_bonds_shared_mapped_atoms'),
             'mapped_reacting_atom_count_shared':total('mapped_reacting_atom_count_shared'),
+            'ring_count_change':total('ring_count_change'),
+            'ring_closure_edge_count':sum(edge['ring_count_change']>0 for edge in relevant) if ring_available else None,
+            'ring_opening_edge_count':sum(edge['ring_count_change']<0 for edge in relevant) if ring_available else None,
+            'stereo_atom_count':total('stereo_atom_count'),
+            'explicit_hydrogen_atom_count':total('explicit_hydrogen_atom_count'),
             'reference_event_length':reference.get('reference_event_length'),
             'coupled_electronic_moves':reference.get('coupled_electronic_moves'),
-            'imported_participants':reference.get('imported_participants'),
+            'imported_participants':reference.get('imported_participants')}
+        rows.append({'id':target['id'],'reference_route_id':reference.get('reference_route_id'),
+            **dimensions,**{f'{key}_available':value is not None for key,value in dimensions.items()},
+            'mapped_reference_edges':sum(edge.get('mapping_valid') is True for edge in relevant),
             'composition_stratum':target.get('composition_stratum','Unknown')})
     return rows
 
