@@ -115,6 +115,20 @@ executor calls are measured separately from API batches. Per-target participated
 batches must NOT be summed as unique global calls; complete-shard counters
 provide the latter. JSON stays in Ceph; default POD stdout remains live.
 
+The next instrumented runtime also writes `work_waves.jsonl` after each FULL
+generation/executor wave: unique engine-global scheduled forward calls, all
+generated tokens (including failures), logical prompt tokens, executor CPU
+thread time, and newly stock-connected target IDs. The complete shard seals
+the journal hash. `r1_observed_solved_vs_work.json` uses balanced per-worker
+observed call checkpoints; credit comes only from complete wave boundaries.
+The x coordinate reports actual summed forward calls, not nominal budgets,
+per-request double counting, uncached prefill tokens, GPU FLOPs or invented
+global wall-clock ordering. Work above a finished run is never extrapolated.
+This instrumentation does not change generation or impose a search cutoff.
+At this edit the submitted460 runtime is still e973e1d and lacks these new
+journals; a local edit cannot retrofit them. Independent matched-work sampling
+and the complete Figure2b comparison are still pending.
+
 R2 reuses exactly the same160 R1 rows and precomputed source complexities.
 Published structural route recovery tests whether the FULL reference edge set
 is present in the accepted graph after search, not just in a best continuation.

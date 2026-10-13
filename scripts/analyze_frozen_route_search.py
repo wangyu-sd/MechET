@@ -129,6 +129,59 @@ def rate_interval(values,*,seed=17):
     return {'solved':float(array.mean()),'ci95':[float(x) for x in np.quantile(rates,[.025,.975])],'n':len(values)}
 
 
+def observed_work_curve(shards_and_waves,*,per_worker_call_grid,target_ids=None):
+    """Observed balanced worker prefixes, no interpolation or extra-work extrapolation.
+
+    An indivisible generation/execution wave is credited at its end. The x
+    coordinate is the sum of UNIQUE scheduled model forward calls actually
+    observed in these prefixes, not the sum of per-request participation.
+    """
+    all_rows=[r for shard,_ in shards_and_waves for r in shard['rows']]
+    all_ids={r['id'] for r in all_rows}
+    if not all_rows or len(all_ids)!=len(all_rows):raise ValueError('work wave denominator mismatch')
+    target_ids=all_ids if target_ids is None else set(target_ids)
+    if not target_ids or not target_ids<=all_ids:raise ValueError('work wave target denominator mismatch')
+    prepared=[]
+    for shard,waves in shards_and_waves:
+        ids={r['id'] for r in shard['rows']}
+        expected_solved={r['id'] for r in shard['rows'] if r['stock_solved'] and not r['already_in_stock']}
+        seen=set();previous=(-1,-1,-1)
+        prefixes=[]
+        for index,wave in enumerate(waves):
+            totals=tuple(wave[key] for key in ['model_forward_calls','output_tokens','prompt_tokens'])
+            if (wave['wave']!=index or any(type(n) is not int or n<0 for n in totals)
+                    or any(n<p for n,p in zip(totals,previous)) or (totals[1]>0 and totals[0]==0)):
+                raise ValueError('work wave counters/order mismatch')
+            added=wave['new_stock_solved_ids']
+            if len(set(added))!=len(added) or set(added)&seen or not set(added)<=expected_solved:
+                raise ValueError('work wave phantom/repeated solution')
+            seen.update(added)
+            if wave['credited_stock_solved_targets']!=len(seen):raise ValueError('work wave solution counter mismatch')
+            prefixes.append((wave,set(seen)));previous=totals
+        if (not waves or waves[0]['model_forward_calls']!=0 or waves[0]['output_tokens']!=0
+                or prefixes[0][1] or seen!=expected_solved
+                or waves[-1]['output_tokens']!=shard['tokens']
+                or waves[-1]['model_forward_calls']!=shard['model_forward_calls']):
+            raise ValueError('work wave incomplete/final totals mismatch')
+        prepared.append(prefixes)
+    points=[]
+    if any(type(n) is not int or n<0 for n in per_worker_call_grid):raise ValueError('invalid work curve grid')
+    for budget in sorted(set(per_worker_call_grid)):
+        selected=[next((value for value in reversed(prefixes) if value[0]['model_forward_calls']<=budget),prefixes[0])
+                  for prefixes in prepared]
+        solved=set().union(*(seen for _,seen in selected))&target_ids
+        points.append({'per_worker_model_call_checkpoint':budget,
+            'actual_model_forward_calls':sum(w['model_forward_calls'] for w,_ in selected),
+            'output_tokens':sum(w['output_tokens'] for w,_ in selected),
+            'prompt_tokens':sum(w['prompt_tokens'] for w,_ in selected),
+            'solved_targets':len(solved),**rate_interval([i in solved for i in sorted(target_ids)]),
+            'evaluated_beyond_observed_work':False})
+    return {'denominator':len(target_ids),'shared_run_denominator':len(all_ids),'world':len(prepared),
+        'work_axis':'unique_scheduled_model_forward_calls_not_GPU_FLOPs',
+        'checkpoint_selection':'observed_whole_wave_prefix_per_worker_no_interpolation',
+        'global_wall_clock_order_reconstructed':False,'equal_actual_compute_claim':False,'points':points}
+
+
 def aggregate_cohort(targets,conditions):
     identifiers=[row['id'] for row in targets]
     if len(set(identifiers))!=len(identifiers):raise ValueError('source denominator contains duplicate IDs')
@@ -273,7 +326,7 @@ def main():
         contract=json.loads((adapter/'data_contract.json').read_text())
         annotations=load_mechanism_index(args.mechanism_annotations,assets,model_sha=ADAPTER_SHA,
             train_sha=contract['train_file_sha256'],decisions=contract['n_rows'],reactions=contract['finish_trace_rows'])
-    summaries={};provenance=[];all_conditions={};contracts=[];runtime_totals={}
+    summaries={};provenance=[];all_conditions={};contracts=[];runtime_totals={};wave_inputs={}
     diversity={}
     for path in args.route_diversity_manifest:
         mode=json.loads(path.read_text()).get('mode')
@@ -294,6 +347,16 @@ def main():
         for rank,shard in enumerate(shards):
             validate_shard_contract(shard['manifest'],expected,rank=rank,world=args.world,mode=mode)
             contracts.append(shard['manifest'])
+        if any('work_waves_artifact' in shard for shard in shards):
+            timeline=[]
+            for path,shard in zip(shard_paths,shards):
+                if shard['manifest'].get('work_wave_contract')!='post_executor_whole_generation_wave_v1':
+                    raise ValueError('mixed/missing work wave contract')
+                wave_path=path.parent/shard['work_waves_artifact']
+                if file_sha256(wave_path)!=shard['work_waves_sha256']:raise ValueError('work wave SHA mismatch')
+                timeline.append((shard,[json.loads(line) for line in wave_path.open() if line.strip()]))
+                provenance.append({'path':str(wave_path),'sha256':file_sha256(wave_path)})
+            wave_inputs[mode]=timeline
         rows=[row for shard in shards for row in shard['rows']]
         if len(rows)!=len(all_source_ids) or {row['id'] for row in rows}!=all_source_ids:
             raise ValueError('shared full460 denominator mismatch')
@@ -322,6 +385,9 @@ def main():
         conditions={mode:[row for row in rows if row['id'] in cohort_ids] for mode,rows in all_conditions.items()}
         if not conditions:continue
         summary=aggregate_cohort(targets,conditions)
+        summary['observed_work_curves']={mode:observed_work_curve(timeline,
+            per_worker_call_grid=[0,100,1000,10000,100000,1000000,10000000],target_ids=cohort_ids)
+            for mode,timeline in wave_inputs.items()}
         summaries[name]=summary
         write_json(destination/name/'route_evaluation.json',summary)
         if name=='retrocast_mkt_cnv160':
@@ -342,6 +408,10 @@ def main():
                 'newly_recomputed':False})
     write_json(destination/'r1_route_results.json',summaries)
     write_json(destination/'r1_runtime_work_totals.json',runtime_totals)
+    write_json(destination/'r1_observed_solved_vs_work.json',{
+        'conditions':{mode:observed_work_curve(timeline,per_worker_call_grid=[0,100,1000,10000,100000,1000000,10000000])
+                      for mode,timeline in wave_inputs.items()},
+        'independent_sampling_baseline':'not_run','equal_actual_compute_claim':False})
     if len(summaries)==4 and all({'greedy','tree'}<=set(summary['conditions']) for summary in summaries.values()):
         plot_results(summaries,destination)
     write_json(destination/'figure3_manifest.json',{'source_shards':provenance,'assets_sha256':file_sha256(args.assets),

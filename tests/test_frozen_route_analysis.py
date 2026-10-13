@@ -220,3 +220,80 @@ def test_partial_or_contradictory_diversity_does_not_replace_online_lower_bound(
         value['counts_sha256']=file_sha256(counts);path.write_text(json.dumps(value))
         with pytest.raises(ValueError,match='diversity'):
             attach_exact_diversity(rows,path,mode='tree',assets_sha='assets',model_sha='actor',shard_paths=[shard])
+
+
+def test_work_wave_uses_unique_forward_calls_and_preserves_failed_generation_cost():
+    from scripts.infer_dynamic_electron_trees import record_work_wave
+    from types import SimpleNamespace
+    tree=SimpleNamespace(first_solution_work={'work':{'sampled_tokens':40}})
+    costs={'solved':{'prompt_tokens':100,'policy_request_batches':2,'model_forward_batches_participated':15},
+           'failed':{'prompt_tokens':60,'policy_request_batches':1,'model_forward_batches_participated':15}}
+    seen=set()
+    wave=record_work_wave(wave=1,elapsed=2.,tokens=80,forward_calls=15,runtime_work=costs,
+                          trees={'solved':tree,'failed':SimpleNamespace(first_solution_work=None)},seen_solutions=seen)
+    assert wave['model_forward_calls']==15  # NOT 30: batches shared by both requests
+    assert wave['prompt_tokens']==160
+    assert wave['output_tokens']==80  # includes failed proposals, not just accepted program
+    assert wave['policy_request_batches']==3
+    assert wave['new_stock_solved_ids']==['solved']
+    assert seen=={'solved'}
+    next_wave=record_work_wave(wave=2,elapsed=3.,tokens=90,forward_calls=20,runtime_work=costs,
+                             trees={'solved':tree},seen_solutions=seen)
+    assert next_wave['new_stock_solved_ids']==[]
+
+
+def test_empty_work_wave_does_not_credit_finished_or_zero_step_targets():
+    from scripts.infer_dynamic_electron_trees import record_work_wave
+    wave=record_work_wave(wave=0,elapsed=0.,tokens=0,forward_calls=0,runtime_work={},trees={},seen_solutions=set())
+    assert wave['new_stock_solved_ids']==[]
+    assert wave['prompt_tokens']==0
+    assert wave['model_forward_calls']==0
+
+
+def test_budget_curve_uses_complete_observed_waves_not_future_solutions():
+    from scripts.analyze_frozen_route_search import observed_work_curve
+    rows=[{'id':'a','stock_solved':True,'already_in_stock':False},
+          {'id':'b','stock_solved':False,'already_in_stock':False}]
+    waves=[{'wave':0,'model_forward_calls':0,'output_tokens':0,'prompt_tokens':0,
+            'new_stock_solved_ids':[],'credited_stock_solved_targets':0},
+           {'wave':1,'model_forward_calls':20,'output_tokens':60,'prompt_tokens':100,
+            'new_stock_solved_ids':['a'],'credited_stock_solved_targets':1},
+           {'wave':2,'model_forward_calls':40,'output_tokens':120,'prompt_tokens':160,
+            'new_stock_solved_ids':[],'credited_stock_solved_targets':1}]
+    shard={'rows':rows,'tokens':120,'model_forward_calls':40}
+    curve=observed_work_curve([(shard,waves)],per_worker_call_grid=[0,10,20,40,100])
+    assert [point['solved_targets'] for point in curve['points']]==[0,0,1,1,1]
+    assert [point['actual_model_forward_calls'] for point in curve['points']]==[0,0,20,40,40]
+    assert curve['points'][2]['output_tokens']==60
+    assert curve['points'][2]['prompt_tokens']==100
+    assert curve['denominator']==2
+    assert curve['equal_actual_compute_claim'] is False
+    assert curve['points'][-1]['evaluated_beyond_observed_work'] is False
+
+
+def test_work_curve_rejects_phantom_solution_and_missing_failure_denominator():
+    from scripts.analyze_frozen_route_search import observed_work_curve
+    shard={'rows':[{'id':'a','stock_solved':False,'already_in_stock':False}],
+           'tokens':10,'model_forward_calls':5}
+    waves=[{'wave':0,'model_forward_calls':0,'output_tokens':0,'prompt_tokens':0,
+            'new_stock_solved_ids':[],'credited_stock_solved_targets':0},
+           {'wave':1,'model_forward_calls':5,'output_tokens':10,'prompt_tokens':5,
+            'new_stock_solved_ids':['unknown'],'credited_stock_solved_targets':1}]
+    with pytest.raises(ValueError,match='work wave'):
+        observed_work_curve([(shard,waves)],per_worker_call_grid=[0,5])
+    waves[1]['new_stock_solved_ids']=[];waves[1]['credited_stock_solved_targets']=0
+    shard['tokens']=999
+    with pytest.raises(ValueError,match='work wave'):
+        observed_work_curve([(shard,waves)],per_worker_call_grid=[0,5])
+
+
+def test_generated_tokens_with_missing_forward_telemetry_are_not_zero_cost_work():
+    from scripts.analyze_frozen_route_search import observed_work_curve
+    shard={'rows':[{'id':'a','stock_solved':False,'already_in_stock':False}],
+           'tokens':10,'model_forward_calls':0}
+    waves=[{'wave':0,'model_forward_calls':0,'output_tokens':0,'prompt_tokens':0,
+            'new_stock_solved_ids':[],'credited_stock_solved_targets':0},
+           {'wave':1,'model_forward_calls':0,'output_tokens':10,'prompt_tokens':5,
+            'new_stock_solved_ids':[],'credited_stock_solved_targets':0}]
+    with pytest.raises(ValueError,match='work wave'):
+        observed_work_curve([(shard,waves)],per_worker_call_grid=[0,5])

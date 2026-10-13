@@ -56,6 +56,25 @@ def continue_empty_wave(*, has_queue, budget_blocked):
     return has_queue and not budget_blocked
 
 
+def record_work_wave(*,wave,elapsed,tokens,forward_calls,runtime_work,trees,seen_solutions):
+    """Observed post-executor boundary; inclusive cost of every generated proposal.
+
+    Forward calls are engine-global, NOT the sum of request participation.
+    Prompt tokens are logical request length, not uncached GPU prefill/FLOPs.
+    A route is credited only after its whole generation/executor wave finishes.
+    """
+    newly=sorted(identifier for identifier,tree in trees.items()
+                 if getattr(tree,'first_solution_work',None) is not None and identifier not in seen_solutions)
+    seen_solutions.update(newly)
+    return {'wave':wave,'inference_elapsed_seconds':elapsed,'output_tokens':tokens,
+        'model_forward_calls':forward_calls,
+        'prompt_tokens':sum(cost['prompt_tokens'] for cost in runtime_work.values()),
+        'policy_request_batches':sum(cost['policy_request_batches'] for cost in runtime_work.values()),
+        'cpu_executor_thread_seconds':sum(cost.get('cpu_executor_thread_seconds',0.) for cost in runtime_work.values()),
+        'new_stock_solved_ids':newly,'credited_stock_solved_targets':len(seen_solutions),
+        'boundary':'post_executor_whole_generation_wave_v1','actual_GPU_FLOPs_claim':False}
+
+
 def select_context(controller, mode, forced_key):
     if isinstance(controller, RouteNetwork):
         return controller.next_context()
@@ -240,6 +259,7 @@ def main():
     manifest['code_sha'] = os.environ.get('MECHET_TREE_CODE_SHA','not_supplied')
     manifest['host_memory_growth_allowance_bytes'] = memory_guard.growth_allowance
     manifest['host_memory_persistence_reserve_bytes'] = memory_guard.reserve
+    manifest['work_wave_contract'] = 'post_executor_whole_generation_wave_v1'
     dump(root_dir/'manifest.json',manifest)
     references={r['id']:r for r in selected}
     runtime_work={r['id']:{'policy_request_batches':0,'prompt_tokens':0,
@@ -265,6 +285,15 @@ def main():
     checkpoint_events=[]
     raw_file=(root_dir/'raw_generations.jsonl').open('a')
     prompt_file=(root_dir/'policy_contexts.jsonl').open('a')
+    wave_file=(root_dir/'work_waves.jsonl').open('a')
+    wave_index=0
+    credited_solutions=set()
+    def save_wave():
+        value=record_work_wave(wave=wave_index,elapsed=time.monotonic()-started,tokens=total_tokens,
+            forward_calls=forwards.total_calls,runtime_work=runtime_work,trees=trees,seen_solutions=credited_solutions)
+        wave_file.write(json.dumps(value,ensure_ascii=False)+'\n');wave_file.flush()
+        return value
+    save_wave()
     seen_prompts=set()
     forced={identifier:tree.root_key for identifier,tree in trees.items()} if not route_mode else {}
     pool=ThreadPoolExecutor(max_workers=args.cpu_workers)
@@ -380,18 +409,24 @@ def main():
                     elif not any(x.truncated for x in proposals):context.resource_closed='GREEDY_INVALID_ACTION'
                 queue.append(identifier)
             raw_file.flush();prompt_file.flush()
+            wave_index+=1
+            wave_work=save_wave()
             print({'phase':'dynamic-search','rank':args.rank,'mode':args.mode,'finished':len(reports),
                    'denominator':len(selected),'active_roots':len(queue),'output_tokens':total_tokens,
+                   'model_forward_calls':wave_work['model_forward_calls'],
+                   'stock_solved_targets':wave_work['credited_stock_solved_targets'],
                    'generation_seconds':round(generation_seconds,3),'cpu_join_seconds':round(time.monotonic()-cpu_start,3)},flush=True)
         for identifier in list(trees):
             reason=resource_stop or 'NO_EXECUTABLE_CONTEXT_AVAILABLE'
             finish(identifier,reason)
     finally:
         pool.shutdown(wait=True)
-        raw_file.close();prompt_file.close()
+        raw_file.close();prompt_file.close();wave_file.close()
     if {r['id'] for r in reports}!={r['id'] for r in selected}:raise RuntimeError('lost full-cohort rows')
     dump(root_dir/'complete.json',{'manifest':manifest,'rows':reports,'tokens':total_tokens,
                                  'work_checkpoint_events':checkpoint_events,
+                                 'work_waves_artifact':'work_waves.jsonl',
+                                 'work_waves_sha256':sha256(root_dir/'work_waves.jsonl'),
                                  'model_forward_calls':forwards.total_calls,'seconds':time.monotonic()-started})
     print({'phase':'dynamic-search-complete','rank':args.rank,'mode':args.mode,'rows':len(reports),'tokens':total_tokens},flush=True)
     return 0
