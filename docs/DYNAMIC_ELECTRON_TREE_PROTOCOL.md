@@ -118,8 +118,16 @@ provide the latter. JSON stays in Ceph; default POD stdout remains live.
 R2 reuses exactly the same160 R1 rows and precomputed source complexities.
 Published structural route recovery tests whether the FULL reference edge set
 is present in the accepted graph after search, not just in a best continuation.
-Unique generated route counts are LOWER BOUNDS until exhaustive enumeration
-is implemented. Exact corpus-to-reference program annotation is PENDING:
+The online unique generated route counts are LOWER BOUNDS. Offline
+`scripts/enumerate_frozen_route_diversity.py` enumerates all acyclic,
+stock-connected production-choice DAGs in each saved graph, with no fixed
+depth, width or count cutoff. One distinct nonstock molecule uses one production
+choice; precursor multiplicity is retained, and alternative electron programs
+for the same reaction do not multiply outer route counts. This can take
+exponential time. Only a completed full460 condition and fully consumed
+enumerations may seal an exhaustive-count manifest; interrupted counts remain
+partial. No actual model-route counts have been produced yet.
+Exact corpus-to-reference program annotation is PENDING:
 affected strata remain Unknown, and no C1 novelty claim is permitted. Source
 maps alone never become mechanisms. Disjoint maps are missing correspondence,
 not a zero center. Paired2000-bootstrap summaries and observed PDF panels are
