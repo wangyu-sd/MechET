@@ -1,0 +1,85 @@
+# Frozen Qwen dynamic electronic tree, October13 2026
+
+User-approved scope: first evaluate all3120 mech-USPTO-31k test products,
+submit exactly one8xA100 task (queued is a successful submission), then use
+the same frozen FlowER actor for the R1/R2 complete-route scientific scenarios.
+**RSI, RL and self-distillation are paused/not authorized.** Actual actor is
+Qwen3-0.6B, not the conversational typo0.8B; user confirmed this checkpoint.
+
+## Frozen model and full population
+
+FlowER Stage-II compressed-history LoRA weights SHA256
+`40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75`,
+original Qwen revision `c1899de289a04d12100db370d81485cdf75e47ca`.
+This is transfer to mech-USPTO, not the separate31k eight-epoch State-SFT actor.
+Test source is `data/mech_uspto_31k_full_endpoint_rxnmapper/test.jsonl`,
+SHA256 `819215c5d40720afd998aaf77b7b938045d8171a5487b26bf929897f65a957c4`.
+All3120 unique IDs remain denominator. Only unmapped product enters the policy;
+private atom addresses come from that product, not reaction-pair atom mapping.
+No reference proof requirement,1253-row filter, new exclusion or test training.
+
+## Adaptive search, not fixed truncation
+
+No fixed chemical depth, beam width or max-import count. Every accepted
+successor is retained; parents can be resampled and deferred contexts remain
+available. Chemical nodes are pooled for graph display/accounting, while
+private state, import inventory, accepted-action history and visited-state set
+identify independent future policy contexts. Reaching one FINISH does not
+stop other contexts. Duplicate executable payloads reuse transitions but every
+original raw sample, likelihood and sampling cost is saved.
+The context/cache key preserves the exact authoritative native Kekule string;
+canonical equivalent molecules are merged only for display. All terminal
+contexts survive until product-atom ancestry is used to extract structural
+precursors, after which structural candidates are deduplicated for ranking.
+
+A Good--Turing-style singleton mass plus3/N sampling margin controls sampling
+effort. This is a **novelty heuristic**, not a proof of exhaustive chemistry.
+Lower-mean-NLL contexts and unsaturated support get more inference effort.
+The controller shrinks/expands request microbatches rather than imposing a
+chemical branch cutoff. Incomplete tool calls get more per-call token room;
+they never turn into fabricated valid actions.
+
+Necessary operational bounds are a declared job-level80million output-token
+budget per condition,24-hour wall budget per worker/condition, actual model
+context8192, and memory/allocation protection. These are NOT reaction-horizon
+labels or per-target GT stopping rules. A fair round-robin root queue prevents
+one target consuming all inference before other test products are attempted.
+Budget-limited/invalid/nonterminal roots stay in3120. They are not forced to
+emit FINISH or dropped from evaluation.
+Each worker reserves40% of its initial share of available host/container RAM
+for persistence and other processes; driver growth uses at most60%/8 of that
+available RAM. Cgroup limits are included. RAM closure saves the whole pending
+cohort with `TASK_HOST_MEMORY_BUDGET`; it is not a chemical state-count cap.
+JSON is streamed to avoid allocating a second complete serialized tree.
+
+## Throughput and likelihoods
+
+Eight independent TP1 vLLM0.8.5 engines; cross-molecule prompt microbatches,
+prefix caching and64 CPU threads total for node execution. Do not reuse the
+old serial selected-case demonstration as a full runner.
+vLLM0.8.5 logprobs are post-warp. Use sampling temperature1/top_p1/top_k-1,
+no penalties, for genuine unwarped action likelihoods; greedy uses temperature0.
+Rank unique structural terminals by accumulated action-token mean NLL;
+GT matching occurs only AFTER search. Preserve all terminal mixtures and
+zero-change results, rather than hiding them with a reference-dependent gate.
+
+Per worker save `policy_contexts.jsonl`, `raw_generations.jsonl`, every full
+chemical/context tree and per-ID ranked candidates/errors/work. No raw prompt
+or output is discarded. Aggregation rejects lost/extra/duplicate source IDs.
+Greedy and search outputs are separate conditions; higher raw search accuracy
+is not called a compute-matched gain without accounting for their work.
+The single-trajectory greedy control reports Top1 only; Top5/Top10 are null.
+Partial shards are preserved and require a new attempt directory, not an
+overwrite or an unverified resume. Completed shards may be reused only within
+the same frozen run.
+
+## Complete-route follow-on, not self-improvement
+
+Use the user's cited paper R1/R2 protocol: URSA Expert100+Drugs/Clinicals100,
+publication-frozen RetroCast mkt-cnv160/buyables-stock, explicitly named
+source-fixed PaRoutes-derived100/n5-stock. Preserve dataset/stock versions,
+overlap, zero-step in-stock targets, full AND leaf closure, source reference
+route complexity, and missing electronic annotations as Unknown.
+Single-reaction31k outcomes alone do not establish stock-connected route success.
+No URSA/ChemCensor proprietary scorer is downloaded/integrated. Source maps
+are not invented electron ground truth. No new model/reward/critic is introduced.

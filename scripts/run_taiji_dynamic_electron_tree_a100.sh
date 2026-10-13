@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+shared=/aaa/fionafyang/buddy1/whaleywang/MechET
+source_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy
+: "${MECHET_TREE_CODE_SHA:?pinned code SHA required}"
+mountpoint -q /aaa/fionafyang/buddy1
+source /root/miniconda3/etc/profile.d/conda.sh
+conda activate meteor
+runtime_code=$(mktemp -d /tmp/mechet_dynamic_tree_code.XXXXXX)
+git -C "$source_repo" archive "$MECHET_TREE_CODE_SHA" | tar -x -C "$runtime_code"
+vllm_local=$(mktemp -d /tmp/mechet_dynamic_tree_vllm.XXXXXX)
+bundle=$shared/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu118_py311.tar.zst
+echo '[dynamic-tree] staging existing pinned CUDA11.8 vLLM runtime'
+echo "23c44e907d6f50ed75f46f908063a3d6c37144d676dd444cc055df9a93b98f9c  $bundle" | sha256sum --check --strict
+tar --zstd -xf "$bundle" -C "$vllm_local"
+rdkit_local=$(mktemp -d /tmp/mechet_dynamic_tree_rdkit.XXXXXX)
+wheel=$shared/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl
+echo "a41dde42ecb24e7d93d62b89e8e5d267b02bbac764f965f3968296c99234c685  $wheel" | sha256sum --check --strict
+python -m pip install --no-deps --no-index --target "$rdkit_local" "$wheel"
+export PYTHONPATH=$rdkit_local:$vllm_local:$runtime_code/src:$runtime_code
+export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
+export HF_HUB_CACHE=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
+export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+export VLLM_WORKER_MULTIPROC_METHOD=spawn VLLM_USE_V1=0
+export NCCL_P2P_DISABLE=1
+cd "$runtime_code"
+python - <<'PY'
+import rdkit,torch,vllm
+assert rdkit.__version__=='2026.03.4'
+assert torch.version.cuda=='11.8',torch.version.cuda
+assert vllm.__version__.split('+')[0]=='0.8.5'
+assert torch.cuda.device_count()==8
+assert all('A100' in torch.cuda.get_device_name(i) for i in range(8))
+print({'phase':'dynamic-tree-preflight','rdkit':rdkit.__version__,'torch':torch.__version__,
+       'vllm':vllm.__version__,'gpus':8},flush=True)
+PY
+source=$shared/data/mech_uspto_31k_full_endpoint_rxnmapper/test.jsonl
+source_sha=819215c5d40720afd998aaf77b7b938045d8171a5487b26bf929897f65a957c4
+adapter=$shared/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
+output=$shared/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013
+echo "$source_sha  $source" | sha256sum --check --strict
+echo "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75  $adapter/adapter_model.safetensors" | sha256sum --check --strict
+for mode in greedy tree; do
+  pids=()
+  for rank in $(seq 0 7); do
+    CUDA_VISIBLE_DEVICES=$rank python -u scripts/infer_dynamic_electron_trees.py \
+      --data "$source" --source-sha "$source_sha" --expected-rows 3120 \
+      --adapter "$adapter" --output "$output" --mode "$mode" --rank "$rank" --world 8 \
+      --task-token-budget 80000000 --wall-hours 24 --cpu-workers 8 --batch-prompts 32 &
+    pids+=("$!")
+  done
+  status=0
+  for pid in "${pids[@]}"; do wait "$pid" || status=1; done
+  (( status == 0 )) || { echo '[dynamic-tree] worker failed; preserve raw artifacts' >&2; exit 2; }
+  python -u scripts/summarize_dynamic_electron_trees.py --data "$source" --output "$output" --mode "$mode"
+done
+echo '[dynamic-tree] full3120 fixed-policy greedy and dynamic-tree evaluation completed'
