@@ -1,5 +1,22 @@
 # Active ICLR status
 
+> **2026-10-14 07:39 CST bootstrap retries supersede _02 queue notes:**
+> Both previous full3120/full460 _02 instances are verified END/false before
+> model initialization: missing external zstd command. Default POD logs saved
+> under their original submission directories; no model predictions produced.
+> Fixed runtime522c048 uses authenticated gzip repack (same uncompressed SHA),
+> actual no-zstd full archive extraction passed;777 unit tests passed/11 skipped.
+> New full3120 `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_03`,
+> instance8b1d8155a134b10601a137a1e8b70704: TRAINING_RUNNING at first readback,
+> startup only, GPU inference/default progress not yet verified. New full460
+> `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_03`, instance
+>8b1d822aa134b09001a137a1ebb306c1: PENDING at first readback. Same actor40204...,
+> full3120/460 sources/stocks/renewable work/no chemical/token/time caps, ordinary
+>8A100 each/QY/Tencenttaiji6/proven Ceph/default45s logs. Receipts in
+> outputs/submissions/dynamic_electron_tree_20261014_03 and
+> outputs/submissions/r1_r2_full460_routes_20261014_03. Others/forward untouched.
+
+
 ## 2026-10-14: full460 observed-work replacement queued
 
 `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_02`, instance
