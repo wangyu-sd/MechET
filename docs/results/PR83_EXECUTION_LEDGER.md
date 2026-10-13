@@ -321,6 +321,20 @@ Cost: fewer terminal RL updates per root, rather than fabricated local credit.
   the latest-pair pointer can leave that pointer stale; the coherent pair can
   still be loaded by its explicit directory. No mixed-generation weights.
 - Source is ready for formal submission; unit checks are not endpoint gain.
+- Formal task submitted and allocated on ordinary main-QY1xA100:
+  `meteor_mechet_joint_import_flow_full_1a100_qy_20261013_01`, instance
+  `8b1d8249a1250fb701a133bc40f81482`. Runtime commit1b2bb7972b34118cfc85f87a611a727b0bad9c47;
+  immutable archive includes CRN src and provenance hashes. Live Ceph mount
+  and A100-SXM4-40GB confirmed. Initial startup has no verified gradient yet.
+  All four remote CI checks pass. No other task was stopped.
+- First committed checkpoint inspected on CPU: cursor1/processed1, optimizer1,
+  replay-only1, endpoint-contrast0, exceptions0, reference-failures0; both
+  policy snapshots and two optimizer parameter groups present. All224 LoRA
+  tensors differ from the pinned parent. Checkpoint254,560,832 bytes. Live
+  root journals continue growing; this verifies actual updating, not RL gain.
+- GPU memory observed5055MiB. Worker/default heartbeat stdout shares PID1's
+  platform log pipe. CLI logs still expose only initial launcher text; that
+  visibility delay is unresolved and explicitly separate from artifact proof.
 
 ## Archived upstream notes merged from PR83 (pre-v4, historical)
 

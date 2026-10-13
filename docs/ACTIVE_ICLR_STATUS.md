@@ -1,6 +1,21 @@
 # Active ICLR status
 
-## 2026-10-13: joint import–FLOW implemented locally; submission pending
+## 2026-10-13: joint import–FLOW formal task running; first update verified
+
+Submitted `meteor_mechet_joint_import_flow_full_1a100_qy_20261013_01`, instance
+`8b1d8249a1250fb701a133bc40f81482`, ordinary main-QY one A100 using the proven
+Tencent `:taiji6` donor/private Ceph init. Live readback is TRAINING_RUNNING;
+one A100-SXM4-40GB and Ceph mount are confirmed. First committed checkpoint
+has processed1/update1 (replay-only), both policies, two optimizer groups and
+all224 Qwen LoRA tensors changed against the SHA-pinned parent. Live journals
+continue to grow; no endpoint-contrast update or heldout gain is established
+yet. Covers257,167 strict train roots. Model memory observed5055MiB.
+Immutable code+CRN runtime commit `1b2bb7972b34118cfc85f87a611a727b0bad9c47`;
+all four GitHub CI checks passed. No unrelated task stopped, no new smoke run.
+Default worker/heartbeat stdout is connected to PID1's log pipe; the CLI
+logs endpoint still shows initialization-only text. Do not hide this API
+visibility limitation or mistake it for an absent optimizer/checkpoint.
+Output: `outputs/agent/pr84_joint_import_flow_stage1_train257167_20261013_01`.
 
 The user approved the joint-import direction and requested both a code PR and
 a Taiji training task. Written design/plan:
@@ -10,8 +25,9 @@ The user approved direct implementation. The new joint trainer is
 `scripts/train_crn_qwen_joint_earho.py`: Qwen policy LoRA and graph heads receive
 shared binary terminal credit, with separate replay and original conditional KL.
 Its complete-support IID objective, score-space microbackward, paired export/
-resume and matched inference have local unit checks. Final independent source
-review and formal submission are pending; no joint empirical gain is claimed.
+resume and matched inference have local unit checks. Three Important review
+findings were fixed with regressions; local suite673 passed/8 skipped. Formal
+submission/host allocation is verified above; no joint empirical gain is claimed.
 Do not submit the old graph-only trainer under a joint-policy task name.
 
 The authorized local FP16/T4 diagnostic is finished: validation8 baseline

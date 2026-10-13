@@ -16,9 +16,9 @@ RDKit 2026.03.4, Tencent Taiji CLI.
 **Spec:** `docs/superpowers/specs/2026-10-13-joint-import-flow-endpoint-design.md`
 
 **Execution status (2026-10-13):** User approved direct inline implementation.
-Tasks 1–4 are implemented and locally verified; Task 5 source/config is
-prepared, pending final independent review and actual Taiji submission.
-No joint-policy checkpoint or empirical improvement is claimed yet.
+Tasks 1–5 source/submission are implemented and verified. Formal ordinary1xA100
+task is running with a first committed paired checkpoint/update. This first
+update is replay-only, not evidence of endpoint RL gain; heldout results pending.
 
 ## Global Constraints
 
