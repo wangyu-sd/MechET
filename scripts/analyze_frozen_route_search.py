@@ -9,15 +9,32 @@ from __future__ import annotations
 import argparse
 from collections import defaultdict
 import csv
+import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 import numpy as np
 
 REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO/'src'))
 from mechet.frozen_route_assets import normalize_stock_smiles, file_sha256
 from mechet.frozen_route_mechanisms import merge_reference_annotations
+
+
+# Descriptive reference-only bins frozen before any full460 model output.
+# Upper endpoints are exclusive; None means no upper bound, not a search cap.
+REFERENCE_COMPLEXITY_BINS_V1={
+    'reaction_edge_count':[('0–1',0,2),('2–3',2,4),('4–5',4,6),('6+',6,None)],
+    'convergent_branch_count':[('0',0,1),('1',1,2),('2+',2,None)],
+    'maximum_precursor_multiplicity':[('0–1',0,2),('2',2,3),('3',3,4),('4+',4,None)],
+    'changed_bonds_shared_mapped_atoms':[('0',0,1),('1–2',1,3),('3–5',3,6),('6+',6,None)],
+    'mapped_reacting_atom_count_shared':[('0',0,1),('1–2',1,3),('3–5',3,6),('6+',6,None)],
+    'ring_closure_edge_count':[('0',0,1),('1',1,2),('2+',2,None)],
+    'ring_opening_edge_count':[('0',0,1),('1',1,2),('2+',2,None)],
+    'reference_event_length':[('0–4',0,5),('5–8',5,9),('9+',9,None)],
+    'coupled_electronic_moves':[('0–1',0,2),('2',2,3),('3+',3,None)],
+    'imported_participants':[('0',0,1),('1',1,2),('2–3',2,4),('4+',4,None)]}
 
 
 def load_mechanism_index(path,assets,*,model_sha,train_sha,decisions,reactions):
@@ -197,12 +214,23 @@ def aggregate_cohort(targets,conditions):
             if row['stock_solved'] and row['already_in_stock']:
                 raise ValueError('zero-step target mislabeled as nontrivial route')
     def group(subset):
-        return {'n':len(subset),'conditions':{mode:rate_interval([indexed[mode][t['id']]['stock_solved'] for t in subset])
-                                            for mode in indexed}}
+        return {'n':len(subset),'target_ids':[t['id'] for t in subset],
+            'conditions':{mode:rate_interval([indexed[mode][t['id']]['stock_solved'] for t in subset]) for mode in indexed},
+            'paired_tree_minus_greedy':paired_bootstrap(
+                [indexed['greedy'][t['id']]['stock_solved'] for t in subset],
+                [indexed['tree'][t['id']]['stock_solved'] for t in subset])
+                if subset and 'greedy' in indexed and 'tree' in indexed else None}
     strata={label:group([target for target in targets if target.get('composition_stratum','Unknown')==label])
             for label in ['C0','C1','C2','Unknown']}
     depth={str(value):group([target for target in targets if target.get('reference_depth')==value])
            for value in sorted({target['reference_depth'] for target in targets if target.get('reference_depth') is not None})}
+    assignments=reference_complexity_assignments(targets)
+    targets_by_id={t['id']:t for t in targets}
+    binned={dimension:{'definition':assignment['definition'],
+            'bins':{label:group([targets_by_id[i] for i in ids]) for label,ids in assignment['bins'].items()},
+            'assignment':'primary_source_reference_not_model_discovered_route',
+            'multiple_comparison_adjustment':'none_descriptive_pointwise_95pct_intervals'}
+            for dimension,assignment in assignments.items()}
     summary={}
     for mode,rows in conditions.items():
         known=[r['work']['sampled_tokens'] for r in rows]
@@ -221,6 +249,8 @@ def aggregate_cohort(targets,conditions):
                              [indexed['tree'][identifier]['stock_solved'] for identifier in identifiers])
             if 'greedy' in indexed and 'tree' in indexed else None)
     return {'denominator':len(targets),'conditions':summary,'strata':strata,'reference_depth':depth,
+            'reference_complexity':binned,'reference_complexity_bins_version':'reference_complexity_bins_v1',
+            'reference_complexity_bins_sha256':hashlib.sha256(json.dumps(REFERENCE_COMPLEXITY_BINS_V1,sort_keys=True).encode()).hexdigest(),
             'paired_tree_minus_greedy':paired,'equal_actual_compute_claim':False,
             'target_ids':identifiers,'self_improvement_conditions':'not_run_user_paused_RSI'}
 
@@ -264,9 +294,59 @@ def complexity_rows(targets):
     return rows
 
 
+def reference_complexity_assignments(targets):
+    """Source-only primary-reference membership, without model predictions."""
+    complexity=complexity_rows(targets)
+    if len({r['id'] for r in complexity})!=len(targets):raise ValueError('duplicate reference complexity IDs')
+    result={}
+    for dimension,definition in REFERENCE_COMPLEXITY_BINS_V1.items():
+        bins={label:[] for label,_,_ in definition};bins['Missing']=[]
+        for row in complexity:
+            value=row[dimension]
+            if value is None:
+                bins['Missing'].append(row['id']);continue
+            if type(value) is not int:raise ValueError(f'invalid reference complexity count: {dimension}')
+            matches=[label for label,lower,upper in definition if lower<=value and (upper is None or value<upper)]
+            if len(matches)!=1:raise ValueError(f'invalid reference complexity count: {dimension}')
+            bins[matches[0]].append(row['id'])
+        result[dimension]={'definition':[{'label':label,'lower_inclusive':lower,'upper_exclusive':upper}
+            for label,lower,upper in definition],'bins':bins}
+    return result
+
+
 def write_json(path,value):
     path.parent.mkdir(parents=True,exist_ok=True)
     path.write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
+
+
+def freeze_reference_bins(assets,destination,annotations=None,annotation_path=None):
+    """Freeze all460 reference-only labels before model outputs, never fake predictions."""
+    output=destination/'reference_complexity_bins.json'
+    if output.exists():raise ValueError('preserve frozen reference bins; choose a new output')
+    if assets.get('full_target_rows')!=460:raise ValueError('full460 reference denominator required')
+    cohorts={};identifiers=[]
+    for name,cohort in assets['cohorts'].items():
+        path=Path(cohort['targets_path'])
+        if file_sha256(path)!=cohort['targets_sha256']:raise ValueError('frozen target SHA mismatch')
+        targets=[json.loads(line) for line in path.open() if line.strip()]
+        if len(targets)!=cohort['rows'] or {t['id'] for t in targets}!=set(cohort['target_ids']):
+            raise ValueError('reference target denominator mismatch')
+        if annotations:
+            record=annotations['cohorts'][name];annotated=Path(record['annotations_path'])
+            if file_sha256(annotated)!=record['annotations_sha256']:raise ValueError('reference annotation SHA mismatch')
+            targets=merge_reference_annotations(targets,[json.loads(line) for line in annotated.open() if line.strip()])
+        identifiers.extend(t['id'] for t in targets)
+        cohorts[name]={'rows':len(targets),'target_ids':[t['id'] for t in targets],
+            'targets_sha256':cohort['targets_sha256'],'reference_complexity':reference_complexity_assignments(targets)}
+    if len(identifiers)!=460 or len(set(identifiers))!=460:raise ValueError('full460 reference ID union mismatch')
+    result={'artifact_type':'frozen_reference_complexity_bins_v1','denominator':460,
+        'source_config_sha256':assets['config_sha256'],'cohorts':cohorts,
+        'bin_definitions_sha256':hashlib.sha256(json.dumps(REFERENCE_COMPLEXITY_BINS_V1,sort_keys=True).encode()).hexdigest(),
+        'new_model_result':False,'model_predictions_read':False,
+        'annotation_manifest_sha256':file_sha256(annotation_path) if annotation_path else None,
+        'producer_code_sha':subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip()}
+    write_json(output,result)
+    return result
 
 
 def plot_results(summaries,destination):
@@ -310,6 +390,7 @@ def main():
     parser.add_argument('--assets',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--analysis-output',type=Path,help='separate destination preserving previous analysis')
+    parser.add_argument('--reference-only',action='store_true',help='freeze full460 source labels without reading predictions')
     parser.add_argument('--mechanism-annotations',type=Path,help='sealed actual-SFT reference annotation manifest')
     parser.add_argument('--route-diversity-manifest',type=Path,action='append',default=[],
                         help='sealed complete enumeration manifest, at most one per condition')
@@ -326,6 +407,11 @@ def main():
         contract=json.loads((adapter/'data_contract.json').read_text())
         annotations=load_mechanism_index(args.mechanism_annotations,assets,model_sha=ADAPTER_SHA,
             train_sha=contract['train_file_sha256'],decisions=contract['n_rows'],reactions=contract['finish_trace_rows'])
+    if args.reference_only:
+        result=freeze_reference_bins(assets,destination,annotations,args.mechanism_annotations)
+        print(json.dumps({'phase':'frozen-reference-complexity','denominator':result['denominator'],
+                          'new_model_result':False,'output':str(destination)}),flush=True)
+        return
     summaries={};provenance=[];all_conditions={};contracts=[];runtime_totals={};wave_inputs={}
     diversity={}
     for path in args.route_diversity_manifest:
@@ -418,6 +504,8 @@ def main():
         'mechanism_annotation_manifest':str(args.mechanism_annotations) if annotations else None,
         'mechanism_annotation_manifest_sha256':file_sha256(args.mechanism_annotations) if annotations else None,
         'inference_input_assets_unchanged':True,
+        'reference_complexity_bins_version':'reference_complexity_bins_v1',
+        'reference_complexity_bins_sha256':hashlib.sha256(json.dumps(REFERENCE_COMPLEXITY_BINS_V1,sort_keys=True).encode()).hexdigest(),
         'actual_observed_results_only':True,'mechanism_annotation_complete':assets['composition_annotation_complete'],
         'C1_claim_allowed':False if not assets['composition_annotation_complete'] else None,
         'route_diversity_manifests':[{'path':str(path),'sha256':file_sha256(path)} for path in diversity.values()],

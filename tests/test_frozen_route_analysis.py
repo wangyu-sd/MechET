@@ -297,3 +297,75 @@ def test_generated_tokens_with_missing_forward_telemetry_are_not_zero_cost_work(
             'new_stock_solved_ids':[],'credited_stock_solved_targets':0}]
     with pytest.raises(ValueError,match='work wave'):
         observed_work_curve([(shard,waves)],per_worker_call_grid=[0,5])
+
+
+def test_reference_complexity_bins_keep_missing_separate_from_observed_zero_and_use_primary_route():
+    from scripts.analyze_frozen_route_search import aggregate_cohort
+    targets=[{'id':'zero','already_in_stock':False,'reference_routes':[
+                    {'reference_route_id':'primary','reaction_edge_count':2,'convergent_branch_count':0},
+                    {'reference_route_id':'alternative','reaction_edge_count':10,'convergent_branch_count':4}]},
+             {'id':'complex','already_in_stock':False,'reference_routes':[
+                    {'reference_route_id':'primary','reaction_edge_count':6,'convergent_branch_count':2}]},
+             {'id':'missing','already_in_stock':False}]
+    def predictions(solved):
+        return [{'id':t['id'],'stock_solved':t['id'] in solved,'already_in_stock':False,
+                 'work':{'sampled_tokens':1}} for t in targets]
+    result=aggregate_cohort(targets,{'greedy':predictions(set()),'tree':predictions({'complex'})})
+    convergence=result['reference_complexity']['convergent_branch_count']
+    assert convergence['bins']['0']['target_ids']==['zero']
+    assert convergence['bins']['2+']['target_ids']==['complex']
+    assert convergence['bins']['Missing']['target_ids']==['missing']
+    assert convergence['bins']['2+']['paired_tree_minus_greedy']['delta']==1
+    assert convergence['bins']['0']['conditions']['tree']['solved']==0
+    edges=result['reference_complexity']['reaction_edge_count']
+    assert edges['bins']['2–3']['target_ids']==['zero']
+    assert edges['bins']['6+']['target_ids']==['complex']
+    assert sum(group['n'] for group in edges['bins'].values())==3
+
+
+def test_reference_complexity_assignment_does_not_change_with_model_outcomes():
+    from scripts.analyze_frozen_route_search import aggregate_cohort
+    targets=[{'id':'a','already_in_stock':False,'reference_routes':[
+        {'reference_route_id':'primary','reaction_edge_count':4,'convergent_branch_count':1}]}]
+    def analysis(hit):
+        return aggregate_cohort(targets,{'tree':[{'id':'a','stock_solved':hit,'already_in_stock':False,
+                                                'work':{'sampled_tokens':1}}]})['reference_complexity']
+    before,after=analysis(False),analysis(True)
+    for dimension in before:
+        assert before[dimension]['definition']==after[dimension]['definition']
+        assert {name:group['target_ids'] for name,group in before[dimension]['bins'].items()}=={
+            name:group['target_ids'] for name,group in after[dimension]['bins'].items()}
+    missing=before['reference_event_length']['bins']['Missing']
+    assert missing['n']==1
+    assert before['reference_event_length']['bins']['0–4']['conditions']['tree']['solved'] is None
+
+
+def test_reference_labels_can_be_frozen_without_any_prediction_or_accuracy_field():
+    from scripts.analyze_frozen_route_search import reference_complexity_assignments
+    source=[{'id':'a','reference_routes':[{'reference_route_id':'primary',
+                                         'reaction_edge_count':3,'convergent_branch_count':0}]}]
+    labels=reference_complexity_assignments(source)
+    assert labels['reaction_edge_count']['bins']['2–3']==['a']
+    assert labels['reference_event_length']['bins']['Missing']==['a']
+    assert all('conditions' not in value and 'solved' not in value for value in labels.values())
+
+
+def test_reference_only_cli_needs_no_inference_files_and_publishes_no_model_scores(tmp_path,monkeypatch):
+    import json,sys
+    from mechet.frozen_route_assets import file_sha256
+    from scripts.analyze_frozen_route_search import main
+    targets=[{'id':str(i),'reference_routes':[{'reference_route_id':f'r{i}',
+               'reaction_edge_count':2,'convergent_branch_count':0}]} for i in range(460)]
+    source=tmp_path/'targets.jsonl';source.write_text(''.join(json.dumps(t)+'\n' for t in targets))
+    assets={'stock_preparation_complete':True,'full_target_rows':460,'config_sha256':'unit',
+        'cohorts':{'unit':{'rows':460,'targets_path':str(source),'targets_sha256':file_sha256(source),
+                         'target_ids':[t['id'] for t in targets]}}}
+    manifest=tmp_path/'assets.json';manifest.write_text(json.dumps(assets))
+    output=tmp_path/'reference-only'
+    monkeypatch.setattr(sys,'argv',['analyze','--assets',str(manifest),'--output',str(output),'--reference-only'])
+    main()
+    result=json.loads((output/'reference_complexity_bins.json').read_text())
+    assert result['denominator']==460
+    assert result['new_model_result'] is False
+    assert len(result['cohorts']['unit']['reference_complexity']['reaction_edge_count']['bins']['2–3'])==460
+    assert not (output/'r1_route_results.json').exists()

@@ -183,3 +183,25 @@ includes some nonordinary BE_DELTA signatures. It is neither current Stage-II
 actual-label exposure (603/6491) nor evidence of route-level model performance.
 The panel and its provenance manifest do not constitute complete Figure3;
 observed full-route outcome and real saved-route panels remain pending.
+
+## Reference-only complexity strata frozen before model outcomes
+
+The current offline analyzer adds10 fixed descriptive count dimensions from
+the PRIMARY source reference: reaction edges, convergent branches, maximum
+precursor multiplicity, changed bonds, mapped reacting atoms, opening/closure
+edge counts, electronic event length, maximum coupled moves and imported
+participants. Counts use the definitions in `complexity_rows`; incomplete
+measurements remain a separate `Missing` group. Bin memberships depend only
+on source references, not model success or discovered shorter routes; every
+target belongs to one bin per dimension. Boundaries are plotting strata with
+open-ended final bins, NOT chemical search ceilings or data filtering.
+Reports include n, IDs and descriptive pointwise95% bootstrap intervals, with
+paired2000-resample differences when both conditions are observed. No adjusted
+multiple-testing significance claim is made.
+
+`analyze_frozen_route_search.py --reference-only` freezes source memberships
+on ALL460 targets without reading predictions or publishing accuracy values.
+Pass the actual-SFT annotation manifest when available. This source-only
+preparation neither changes the running immutable inference code nor creates
+another GPU experiment; after outputs exist, run the newer offline analyzer
+into a separate `--analysis-output` to preserve initial reports.
