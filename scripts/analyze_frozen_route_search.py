@@ -17,6 +17,23 @@ import numpy as np
 REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO/'src'))
 from mechet.frozen_route_assets import normalize_stock_smiles, file_sha256
+from mechet.frozen_route_mechanisms import merge_reference_annotations
+
+
+def load_mechanism_index(path,assets,*,model_sha,train_sha,decisions,reactions):
+    value=json.loads(Path(path).read_text())
+    if (value.get('schema_version')!='actual_sft_frozen_route_annotation_v1'
+            or value.get('model_sha256')!=model_sha
+            or value.get('source_config_sha256')!=assets['config_sha256']):
+        raise ValueError('mechanism annotation source/model mismatch')
+    exposure=value.get('actual_train_exposure',{})
+    if (exposure.get('source_sha256')!=train_sha or exposure.get('decision_rows')!=decisions
+            or exposure.get('reaction_rows')!=reactions):
+        raise ValueError('mechanism actual full training exposure mismatch')
+    for name,cohort in assets['cohorts'].items():
+        if value.get('cohorts',{}).get(name,{}).get('reference_reactions_sha256')!=cohort['reference_reactions_sha256']:
+            raise ValueError('mechanism annotation frozen references mismatch')
+    return value
 
 
 def paired_bootstrap(before,after,*,resamples=2000,seed=17):
@@ -190,12 +207,21 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--assets',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--analysis-output',type=Path,help='separate destination preserving previous analysis')
+    parser.add_argument('--mechanism-annotations',type=Path,help='sealed actual-SFT reference annotation manifest')
     parser.add_argument('--world',type=int,default=8)
     parser.add_argument('--allow-single-condition',action='store_true')
     args=parser.parse_args()
     assets=json.loads(args.assets.read_text())
     if not assets['stock_preparation_complete']:raise ValueError('stock preparation pending')
     from scripts.infer_dynamic_electron_trees import ADAPTER_SHA,REVISION
+    destination=args.analysis_output or args.output
+    annotations=None
+    if args.mechanism_annotations:
+        adapter=Path('/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17')
+        contract=json.loads((adapter/'data_contract.json').read_text())
+        annotations=load_mechanism_index(args.mechanism_annotations,assets,model_sha=ADAPTER_SHA,
+            train_sha=contract['train_file_sha256'],decisions=contract['n_rows'],reactions=contract['finish_trace_rows'])
     summaries={};provenance=[];all_conditions={};contracts=[];runtime_totals={}
     expected={'adapter_sha':ADAPTER_SHA,'revision':REVISION,'model':'Qwen/Qwen3-0.6B',
         'source_sha':assets['full_targets_sha256'],'route_assets_sha':file_sha256(args.assets),
@@ -226,19 +252,26 @@ def main():
         path=Path(cohort['targets_path'])
         if file_sha256(path)!=cohort['targets_sha256']:raise ValueError('frozen target SHA mismatch')
         targets=[json.loads(line) for line in path.open() if line.strip()]
+        if annotations:
+            information=annotations['cohorts'][name]
+            annotated_path=Path(information['annotations_path'])
+            if file_sha256(annotated_path)!=information['annotations_sha256']:
+                raise ValueError('mechanism annotation file SHA mismatch')
+            targets=merge_reference_annotations(targets,[json.loads(line) for line in annotated_path.open() if line.strip()])
         cohort_ids=set(cohort['target_ids'])
         conditions={mode:[row for row in rows if row['id'] in cohort_ids] for mode,rows in all_conditions.items()}
         if not conditions:continue
         summary=aggregate_cohort(targets,conditions)
         summaries[name]=summary
-        write_json(args.output/name/'route_evaluation.json',summary)
+        write_json(destination/name/'route_evaluation.json',summary)
         if name=='retrocast_mkt_cnv160':
-            r2=args.output/'r2';r2.mkdir(parents=True,exist_ok=True)
+            r2=destination/'r2';r2.mkdir(parents=True,exist_ok=True)
             complexity=complexity_rows(targets)
             with (r2/'r2_route_complexity.csv').open('w') as handle:
                 writer=csv.DictWriter(handle,fieldnames=list(complexity[0]));writer.writeheader();writer.writerows(complexity)
             write_json(r2/'r2_composition_strata.json',{'cohort':name,'denominator':160,'strata':summary['strata'],
-                        'annotation_complete':assets['composition_annotation_complete'],'missing_is_not_zero':True})
+                        'annotation_complete':all(t['composition_stratum']!='Unknown' for t in targets),
+                        'actual_sft_index_provided':annotations is not None,'missing_is_not_zero':True})
             write_json(r2/'r2_paired_solved_vs_work.json',summary)
             write_json(r2/'r2_h2_historical_separate.json',{
                 'status':'historical_H2_not_rerun','full_data_0_6B_is_not_H2_heldout':True,
@@ -247,11 +280,14 @@ def main():
                 'reported_direct_pass10':[7629,27104],'reported_direct_nll_top1':[5018,27104],
                 'source':'https://github.com/wangyu-sd/MechET-paper/blob/ee96f346ccfc2c40038dd1c4f9b6e7f955915659/editorial/R1_R2_COMPLETE_ROUTE_SCENARIOS_AND_COMPOSITION_PROTOCOL_20261013.md',
                 'newly_recomputed':False})
-    write_json(args.output/'r1_route_results.json',summaries)
-    write_json(args.output/'r1_runtime_work_totals.json',runtime_totals)
+    write_json(destination/'r1_route_results.json',summaries)
+    write_json(destination/'r1_runtime_work_totals.json',runtime_totals)
     if len(summaries)==4 and all({'greedy','tree'}<=set(summary['conditions']) for summary in summaries.values()):
-        plot_results(summaries,args.output)
-    write_json(args.output/'figure3_manifest.json',{'source_shards':provenance,'assets_sha256':file_sha256(args.assets),
+        plot_results(summaries,destination)
+    write_json(destination/'figure3_manifest.json',{'source_shards':provenance,'assets_sha256':file_sha256(args.assets),
+        'mechanism_annotation_manifest':str(args.mechanism_annotations) if annotations else None,
+        'mechanism_annotation_manifest_sha256':file_sha256(args.mechanism_annotations) if annotations else None,
+        'inference_input_assets_unchanged':True,
         'actual_observed_results_only':True,'mechanism_annotation_complete':assets['composition_annotation_complete'],
         'C1_claim_allowed':False if not assets['composition_annotation_complete'] else None,
         'route_count_exhaustive':False,'figures_are_partial_panels_not_replacement_full_paper_figures':True})

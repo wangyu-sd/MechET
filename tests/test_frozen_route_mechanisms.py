@@ -166,3 +166,32 @@ def test_actual_sft_import_participants_exclude_context_but_count_multiplicity()
         {'smiles':'C','count':3,'purpose':'endpoint_context'}]})
     rows=[imported,decision(1,'apply_electron_flow',flow_args()),decision(2,'finish_trace',{})]
     assert summarize_sft_reaction(rows,'train',structural_precursor='[CH3+].[OH-]')['imported_participants']==2
+
+
+def test_post_search_annotation_merge_preserves_verified_stock_flags_and_source_order():
+    from mechet.frozen_route_mechanisms import merge_reference_annotations
+    reference=edge();reference.update(reference_route_id='ref',reference_edge_id='ref:0')
+    original={'id':'t','already_in_stock':False,'product_unmapped':'CO',
+        'reference_reactions':[reference],
+        'reference_routes':[{'reference_route_id':'ref','all_reference_leaves_in_stock':True,'depth':1}]}
+    annotated=deepcopy(original);annotated['already_in_stock']=None
+    annotated['reference_routes'][0].update(all_reference_leaves_in_stock=None,composition_stratum='C0')
+    annotated['composition_stratum']='C0'
+    result=merge_reference_annotations([original],[annotated])
+    assert result[0]['already_in_stock'] is False
+    assert result[0]['reference_routes'][0]['all_reference_leaves_in_stock'] is True
+    assert result[0]['composition_stratum']=='C0'
+    assert 'composition_stratum' not in original
+
+
+def test_post_search_annotation_cannot_change_a_reference_reaction_or_denominator():
+    import pytest
+    from mechet.frozen_route_mechanisms import merge_reference_annotations
+    reference=edge();reference.update(reference_route_id='ref',reference_edge_id='ref:0')
+    original={'id':'t','product_unmapped':'CO','reference_reactions':[reference],
+              'reference_routes':[{'reference_route_id':'ref','depth':1}]}
+    changed=deepcopy(original);changed['reference_reactions'][0]['source_precursor_smiles']=['C','O']
+    with pytest.raises(ValueError,match='reference'):
+        merge_reference_annotations([original],[changed])
+    with pytest.raises(ValueError,match='denominator'):
+        merge_reference_annotations([original],[])

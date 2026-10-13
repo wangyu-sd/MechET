@@ -143,3 +143,21 @@ def test_no_reference_target_has_missing_complexity_not_empty_route_zero():
     assert row['ring_closure_edge_count_available'] is False
     assert row['reference_depth_available'] is False
     assert row['mapped_reference_edges'] == 0
+
+
+def test_offline_mechanism_index_must_bind_actor_exposure_and_reference_source(tmp_path):
+    import json
+    from scripts.analyze_frozen_route_search import load_mechanism_index
+    assets={'config_sha256':'sources','cohorts':{'c':{'reference_reactions_sha256':'references'}}}
+    manifest={'schema_version':'actual_sft_frozen_route_annotation_v1','model_sha256':'actor',
+        'source_config_sha256':'sources','actual_train_exposure':{'source_sha256':'train','decision_rows':10,'reaction_rows':2},
+        'cohorts':{'c':{'reference_reactions_sha256':'references'}}}
+    path=tmp_path/'manifest.json';path.write_text(json.dumps(manifest))
+    load_mechanism_index(path,assets,model_sha='actor',train_sha='train',decisions=10,reactions=2)
+    for field,value in [('model_sha256','other'),('source_config_sha256','changed')]:
+        bad={**manifest,field:value};path.write_text(json.dumps(bad))
+        with pytest.raises(ValueError,match='annotation'):
+            load_mechanism_index(path,assets,model_sha='actor',train_sha='train',decisions=10,reactions=2)
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError,match='exposure'):
+        load_mechanism_index(path,assets,model_sha='actor',train_sha='subset',decisions=10,reactions=2)

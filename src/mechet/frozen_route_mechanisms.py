@@ -187,3 +187,45 @@ def annotate_reference_targets(targets: list[dict], records_by_chemistry: dict,
         primary=(target.get('reference_routes') or [{}])[0]
         target['composition_stratum']=primary.get('composition_stratum','Unknown')
     return result
+
+
+def merge_reference_annotations(targets: list[dict], annotations: list[dict]) -> list[dict]:
+    """Attach offline labels without changing frozen targets, stock or routes."""
+    indexed={row['id']:row for row in annotations}
+    if len(indexed)!=len(annotations) or len(targets)!=len(annotations) or set(indexed)!={row['id'] for row in targets}:
+        raise ValueError('annotation full denominator/ID mismatch')
+    edge_fields={'annotation_status','mechanism_match_status','program_signature',
+        'primitive_signatures','action_vocabulary_covered'}
+    route_fields={'composition_stratum','composition_reason','reference_event_length',
+                  'coupled_electronic_moves','imported_participants'}
+    result=deepcopy(targets)
+    for target in result:
+        other=indexed[target['id']]
+        for key,value in target.items():
+            if key not in {'reference_routes','reference_reactions','composition_stratum','already_in_stock'} and other.get(key)!=value:
+                raise ValueError(f'annotation changes frozen target: {key}')
+        edges={edge['reference_edge_id']:edge for edge in other.get('reference_reactions',[])}
+        original=target.get('reference_reactions',[])
+        if len(edges)!=len(other.get('reference_reactions',[])) or set(edges)!={e['reference_edge_id'] for e in original}:
+            raise ValueError('annotation changes reference edge population')
+        merged=[]
+        for edge in original:
+            new=edges[edge['reference_edge_id']]
+            for key,value in edge.items():
+                if key not in edge_fields and new.get(key)!=value:
+                    raise ValueError(f'annotation changes frozen reference chemistry: {key}')
+            merged.append(deepcopy(new))
+        target['reference_reactions']=merged
+        routes={route['reference_route_id']:route for route in other.get('reference_routes',[])}
+        original_routes=target.get('reference_routes',[])
+        if len(routes)!=len(other.get('reference_routes',[])) or set(routes)!={r['reference_route_id'] for r in original_routes}:
+            raise ValueError('annotation changes reference route population')
+        for route in original_routes:
+            new=routes[route['reference_route_id']]
+            for key,value in route.items():
+                if key not in route_fields|{'all_reference_leaves_in_stock'} and new.get(key)!=value:
+                    raise ValueError(f'annotation changes frozen reference route: {key}')
+            for key in route_fields:
+                if key in new:route[key]=deepcopy(new[key])
+        target['composition_stratum']=other.get('composition_stratum','Unknown')
+    return result
