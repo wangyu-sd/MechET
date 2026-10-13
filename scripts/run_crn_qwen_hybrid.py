@@ -26,7 +26,7 @@ from mechet.crn_graph_bridge import (
     graph_event_coordinates, route_tool_name, route_tool_name_greedy,
 )
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
-from scripts.pr83_resume import evaluation_manifest, prepare_resume, load_joint_policy_contract
+from scripts.pr83_resume import evaluation_manifest, prepare_resume, load_joint_policy_contract, verify_joint_sources
 from scripts.run_natural_language_value_search import (
     Action, Node, Runtime, policy_prompt, read_selected, rollout,
     validate_v2_adapter_manifest,
@@ -75,6 +75,7 @@ class HybridRuntime(Runtime):
                 route = route_tool_name_greedy(
                     self.model, self.tokenizer, self.device, prompt,
                     max_route_tokens=max_new_tokens,
+                    require_import_eos=bool(getattr(self.args, 'require_import_eos', False)),
                 )
                 kind, tool_score = route.name, route.logprob
                 self.counts["qwen_route_tokens"] += route.name_tokens
@@ -180,6 +181,8 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--graph-rl-head", type=Path, default=None)
     p.add_argument("--joint-policy-dir", type=Path, default=None,
                    help="SHA-bound paired Qwen adapter and graph head export")
+    p.add_argument("--require-import-eos", action="store_true",
+                   help="joint v1 rejects truncated imports even if JSON happens to parse")
     p.add_argument("--graph-flow-topk", type=int, default=1)
     p.add_argument("--graph-initial-budget", type=int, default=4,
                    help="non-oracle electron-event budget supplied to CRN-JEPA")
@@ -229,6 +232,7 @@ def bind_joint_policy(args, contract, directory):
     args.graph_rl_head = Path(directory)/contract['graph_head_relative_path']
     if getattr(args, 'graph_sha256', None) != contract['training_manifest']['crn_pretrained_sha256']:
         raise ValueError('joint inference graph parent mismatch')
+    verify_joint_sources(contract['training_manifest'], ROOT, args.crn_root)
     return args
 
 
@@ -312,6 +316,7 @@ def main() -> int:
             "max_import_tokens": args.max_import_tokens, "max_context": args.max_context,
             "max_decisions": args.max_decisions, "max_imports": args.max_imports,
             "dtype": args.dtype, "no_4bit": args.no_4bit,
+            "require_import_eos": bool(getattr(args, 'require_import_eos', False)),
             "product_only_remap": args.product_only_remap,
             "reject_target_retained_finish": args.reject_target_retained_finish,
         },

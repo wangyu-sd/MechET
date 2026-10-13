@@ -75,3 +75,26 @@ def test_joint_resume_refuses_partial_or_wrong_shape_model_snapshots():
             {'qwen_policy':expected_qwen, 'graph_policy':{'head':torch.zeros(3,4)}})
     validate_joint_weights(expected_qwen, expected_graph,
         {'qwen_policy':expected_qwen, 'graph_policy':expected_graph})
+
+
+def test_source_lock_detects_objective_and_external_crn_changes(tmp_path):
+    from scripts.pr83_resume import joint_source_fingerprints, verify_joint_sources
+    root, crn = tmp_path/'code', tmp_path/'crn'
+    (root/'src'/'mechet').mkdir(parents=True)
+    (root/'scripts').mkdir()
+    (crn/'src'/'crn_jepa').mkdir(parents=True)
+    loss = root/'src'/'mechet'/'graph_endpoint_rl.py'
+    external = crn/'src'/'crn_jepa'/'policy.py'
+    loss.write_text('objective=1\n')
+    external.write_text('decoder=1\n')
+    before = joint_source_fingerprints(root, crn)
+    verify_joint_sources(before, root, crn)
+    loss.write_text('objective=2\n')
+    assert joint_source_fingerprints(root, crn) != before
+    with pytest.raises(ValueError, match='source contract'):
+        verify_joint_sources(before, root, crn)
+    loss.write_text('objective=1\n')
+    external.write_text('decoder=2\n')
+    assert joint_source_fingerprints(root, crn) != before
+    with pytest.raises(ValueError, match='source contract'):
+        verify_joint_sources(before, root, crn)

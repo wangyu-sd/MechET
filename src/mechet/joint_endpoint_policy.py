@@ -37,6 +37,24 @@ def import_generation_budget(prompt_tokens, prefix_tokens, *, max_context, max_t
     return max_tokens-prefix_tokens
 
 
+def delegated_route_tokens(tokenizer, name):
+    """First complete-token stop of an ordinary serialized tool call.
+
+    Qwen's closing quote often shares a BPE token with the comma; never invent
+    a quote-only suffix that differs from the controller's name-stop boundary.
+    Empty synthetic arguments carry no chemistry or gold information.
+    """
+    from mechet.crn_graph_bridge import tool_prefix, TOOL_NAME_PATTERN
+    tokens = tokenizer.encode(tool_prefix(name)+'{}}\n</tool_call>', add_special_tokens=False)
+    for end in range(1, len(tokens)+1):
+        match = TOOL_NAME_PATTERN.search(tokenizer.decode(tokens[:end], skip_special_tokens=False))
+        if match:
+            if match.group(1) != name:
+                raise ValueError('serialized tool name mismatch')
+            return tuple(tokens[:end])
+    raise ValueError('tool name has no declared stopping boundary')
+
+
 def qwen_continuation_log_probability(model, input_ids, continuation_ids):
     """Teacher-force original suffix IDs, including its EOS if generated.
 

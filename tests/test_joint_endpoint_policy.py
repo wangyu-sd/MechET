@@ -68,3 +68,40 @@ def test_forced_import_prefix_counts_toward_same_decoder_budget():
         import_generation_budget(3720, 15, max_context=4096, max_tokens=384)
     with pytest.raises(ValueError, match='prefix'):
         import_generation_budget(100, 385, max_context=4096, max_tokens=384)
+
+
+def test_route_tokens_follow_real_qwen_tool_call_stop_boundary():
+    from mechet.joint_endpoint_policy import delegated_route_tokens
+    from mechet.crn_graph_bridge import TOOL_NAME_PATTERN, tool_prefix
+    from transformers import AutoTokenizer
+    cache = '/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache'
+    try:
+        tokenizer = AutoTokenizer.from_pretrained('Qwen/Qwen3-0.6B',
+            revision='c1899de289a04d12100db370d81485cdf75e47ca',
+            cache_dir=cache, local_files_only=True)
+    except OSError:
+        pytest.skip('pinned local tokenizer not present on this host')
+    for name in ('apply_electron_flow', 'finish_trace'):
+        serialized = tokenizer.encode(tool_prefix(name)+'{}}\n</tool_call>', add_special_tokens=False)
+        for end in range(1, len(serialized)+1):
+            if TOOL_NAME_PATTERN.search(tokenizer.decode(serialized[:end])):
+                expected = tuple(serialized[:end])
+                break
+        assert delegated_route_tokens(tokenizer, name) == expected
+        assert expected[-1] == 497  # actual pinned Qwen token for closing quote+comma
+
+
+def test_import_eos_and_parse_policy_shared_between_proposals_and_follower():
+    from mechet.crn_graph_bridge import parse_qwen_import
+    class Tokenizer:
+        eos_token_id = 99
+        eos_token = '<|im_end|>'
+    raw = '<tool_call>\n{"name":"import_fragments","arguments":{"fragments":[{"smiles":"O","count":1,"purpose":"context"}]}}\n</tool_call>'
+    args = parse_qwen_import(raw+'<|im_end|>', Tokenizer(), (1,99), require_eos=True)
+    assert args['fragments'][0]['smiles'] == 'O'
+    with pytest.raises(ValueError, match='NO_EOS'):
+        parse_qwen_import(raw, Tokenizer(), (1,), require_eos=True)
+    # Historical controller retains its previous acceptance semantics.
+    assert parse_qwen_import(raw, Tokenizer(), (1,), require_eos=False) == args
+    with pytest.raises(ValueError, match='INVALID'):
+        parse_qwen_import('{bad<|im_end|>', Tokenizer(), (1,99), require_eos=True)

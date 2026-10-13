@@ -12,7 +12,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def freeze_runtime(repo, destination):
+def freeze_runtime(repo, destination, *, crn_root=None):
     repo, destination = Path(repo), Path(destination)
     if destination.exists():
         raise FileExistsError('immutable runtime already exists')
@@ -28,6 +28,10 @@ def freeze_runtime(repo, destination):
     subprocess.run(['tar', '-xf', str(archive), '-C', str(staging)], check=True)
     # The tar is generated from our own verified commit, not external data.
     archive.unlink()
+    if crn_root is not None:
+        import shutil
+        shutil.copytree(Path(crn_root)/'src', staging/'crn_snapshot'/'src',
+            ignore=shutil.ignore_patterns('__pycache__', '*.pyc'))
     manifest = dict(commit=commit, sha256={str(p.relative_to(staging)):
         hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(staging.rglob('*')) if p.is_file()})
     (staging/'runtime_provenance.json').write_text(json.dumps(manifest, indent=2)+'\n')
@@ -41,12 +45,14 @@ def main():
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--donor-task', required=True)
     parser.add_argument('--client', type=Path, default=Path('/usr/local/bin/taiji_client'))
+    parser.add_argument('--crn-root', type=Path,
+                        default=ROOT.parent/'CRN-JEPA-pr18')
     parser.add_argument('--submit', action='store_true')
     args = parser.parse_args()
     # Refuse to snapshot code that differs from the tested committed tree.
     for path in ('scripts', 'src', 'configs'):
         subprocess.run(['git', '-C', str(ROOT), 'diff', '--exit-code', 'HEAD', '--', path], check=True)
-    provenance = freeze_runtime(ROOT, args.runtime)
+    provenance = freeze_runtime(ROOT, args.runtime, crn_root=args.crn_root)
     config = json.loads(args.config.read_text())
     config['start_cmd'] = config['start_cmd'].replace('__VERIFIED_RUNTIME_COMMIT__', provenance['commit'])
     if '__VERIFIED_RUNTIME_COMMIT__' in config['start_cmd'] or str(args.runtime) not in config['start_cmd']:

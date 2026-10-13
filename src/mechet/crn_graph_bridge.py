@@ -113,7 +113,7 @@ class GreedyToolRoute:
 
 def route_tool_name_greedy(
     model: Any, tokenizer: Any, device: Any, prompt: str,
-    *, max_route_tokens: int = 64,
+    *, max_route_tokens: int = 64, require_import_eos: bool = False,
 ) -> GreedyToolRoute:
     """Read the actual greedy tool name; finish IMPORT in the same generation.
 
@@ -165,17 +165,25 @@ def route_tool_name_greedy(
     raw = tokenizer.decode(continuation, skip_special_tokens=False)
     import_arguments = None
     if stopper.name == "import_fragments":
-        from scripts.eval_natural_language_event_local import prediction_call
-
-        name, import_arguments, error = prediction_call(raw, tokenizer)
-        if error or name != "import_fragments":
-            raise ValueError(f"QWEN_IMPORT_INVALID:{error or name}")
+        import_arguments = parse_qwen_import(raw, tokenizer, continuation,
+            require_eos=require_import_eos)
     return GreedyToolRoute(
         name=stopper.name, token_ids=continuation,
         logprob=float(scores[0, :stopper.name_tokens].sum().item()),
         import_arguments=import_arguments, raw=raw,
         name_tokens=stopper.name_tokens,
     )
+
+
+def parse_qwen_import(raw, tokenizer, token_ids, *, require_eos):
+    """One shared import termination/parser rule for joint sampling and K1."""
+    from scripts.eval_natural_language_event_local import prediction_call
+    if require_eos and (not token_ids or token_ids[-1] != tokenizer.eos_token_id):
+        raise ValueError('QWEN_IMPORT_INVALID:IMPORT_TRUNCATED_NO_EOS')
+    name, arguments, error = prediction_call(raw, tokenizer)
+    if error or name != 'import_fragments':
+        raise ValueError(f'QWEN_IMPORT_INVALID:{error or name}')
+    return arguments
 
 
 def graph_event_coordinates(actions: Sequence[Mapping[str, Any]], initial_budget: int) -> tuple[int, int]:

@@ -233,12 +233,27 @@ JOINT_CONTROLLER_KEYS = (
     'model', 'model_revision', 'dtype', 'no_4bit', 'tool_route', 'compact_history',
     'graph_initial_budget', 'graph_flow_topk', 'graph_beam', 'graph_source_width',
     'graph_sink_width', 'graph_move_width', 'max_context', 'max_decisions',
-    'max_imports', 'max_import_tokens',
+    'max_imports', 'max_import_tokens', 'require_import_eos',
 )
 
 
 def joint_controller_settings(args):
     return {name:getattr(args, name) for name in JOINT_CONTROLLER_KEYS if hasattr(args, name)}
+
+
+def joint_source_fingerprints(code_root, crn_root):
+    from mechet.crn_graph_bridge import file_sha256
+    code_root, crn_root = Path(code_root), Path(crn_root)
+    return dict(code_sha256={str(path.relative_to(code_root)):file_sha256(path)
+        for folder in ('scripts', 'src') for path in sorted((code_root/folder).rglob('*.py'))},
+        crn_code_sha256={str(path.relative_to(crn_root)):file_sha256(path)
+                        for path in sorted((crn_root/'src').rglob('*.py'))})
+
+
+def verify_joint_sources(manifest, code_root, crn_root):
+    actual = joint_source_fingerprints(code_root, crn_root)
+    if any(not manifest.get(key) or manifest[key] != actual[key] for key in actual):
+        raise ValueError('joint inference source contract mismatch; use the frozen training runtime')
 
 
 def save_joint_training_state(path: Path, state):

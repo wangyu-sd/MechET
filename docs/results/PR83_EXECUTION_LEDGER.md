@@ -309,7 +309,18 @@ Cost: fewer terminal RL updates per root, rather than fabricated local credit.
 - Full strict train source and both parent weight SHAs were independently
   rechecked and match the written contract. Task covers257,167 strict train
   reactions, not unqualified FlowER full. No new reaction smoke was run.
-- Source review/submission pending; static/unit checks are not endpoint gain.
+- Final independent review found three Important parity/provenance issues.
+  All repaired in one RED-to-GREEN pass: use actual Qwen BPE name-stop tokens;
+  share an EOS-required import parser in joint support/follower/inference;
+  bind all MechET/CRN Python sources in resume/inference and snapshot CRN src
+  inside the immutable runtime. Legacy nonjoint import acceptance is unchanged.
+- Final local suite: **673 passed, 8 skipped in 36.99s**, with one known tiny
+  PEFT fixture warning. Source/CLI/Bash/documentation checks pass. The review
+  did not assess GPU throughput or heldout improvement; those remain unmeasured.
+- Minor deferred: a crash after pair-directory publication but before writing
+  the latest-pair pointer can leave that pointer stale; the coherent pair can
+  still be loaded by its explicit directory. No mixed-generation weights.
+- Source is ready for formal submission; unit checks are not endpoint gain.
 
 ## Archived upstream notes merged from PR83 (pre-v4, historical)
 

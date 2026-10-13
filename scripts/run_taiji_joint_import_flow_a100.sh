@@ -14,6 +14,8 @@ source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
 DATA_ROOT=/aaa/fionafyang/buddy1/whaleywang/MechET
 CRN_ROOT=/aaa/fionafyang/buddy1/whaleywang/CRN-JEPA-pr18
+GRAPH_CHECKPOINT="$CRN_ROOT/outputs/auto_research/pr18/full_corpus_pretrain_v1/train_full_8a100_v2/latest.pt"
+[[ ! -d "$CODE_ROOT/crn_snapshot/src" ]] || CRN_ROOT="$CODE_ROOT/crn_snapshot"
 OUTPUT="$DATA_ROOT/outputs/agent/pr84_joint_import_flow_stage1_train257167_20261013_01"
 mountpoint -q /aaa/fionafyang/buddy1
 export PYTHONUNBUFFERED=1 HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false
@@ -52,7 +54,7 @@ exec python -u scripts/train_crn_qwen_joint_earho.py \
   --learning-rate 5e-6 --qwen-learning-rate 1e-6 --slate-kl-weight 0.02 --save-every 32 \
   --model Qwen/Qwen3-0.6B --model-revision c1899de289a04d12100db370d81485cdf75e47ca \
   --policy-adapter "$ADAPTER" --crn-root "$CRN_ROOT" \
-  --graph-checkpoint "$CRN_ROOT/outputs/auto_research/pr18/full_corpus_pretrain_v1/train_full_8a100_v2/latest.pt" \
+  --graph-checkpoint "$GRAPH_CHECKPOINT" \
   --tool-route greedy_name --graph-initial-budget 4 --graph-flow-topk 1 \
   --dtype bfloat16 --max-import-tokens 384 --max-decisions 40 --max-imports 32 --max-context 4096 \
   "${RESUME_ARGS[@]}"

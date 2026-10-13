@@ -20,12 +20,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / 'src')]
 
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
-from mechet.crn_graph_bridge import CALL_BEGIN, file_sha256, graph_event_coordinates, tool_prefix
+from mechet.crn_graph_bridge import CALL_BEGIN, file_sha256, graph_event_coordinates, tool_prefix, parse_qwen_import
 from mechet.endpoints import reference_structural_precursor, split_precursor_endpoints, structural_exact
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from mechet.joint_endpoint_policy import (
     JointProposal, freeze_joint_support, qwen_continuation_log_probability,
-    joint_action_log_probability, conditional_score_gradients, import_generation_budget,
+    joint_action_log_probability, conditional_score_gradients, import_generation_budget, delegated_route_tokens,
 )
 from mechet.graph_endpoint_rl import grounded_event_log_probability, slate_log_probabilities, iid_slate_indices
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS, convert_row
@@ -122,8 +122,8 @@ def collect_joint_support(runtime, node, args, rng):
     proposals = []
     # Canonical name prefixes define explicit delegated route events. Forced
     # prefixes are scored under Qwen; they are not assigned probability one.
-    flow_route = tuple(runtime.tokenizer.encode(CALL_BEGIN+'apply_electron_flow"', add_special_tokens=False))
-    finish_route = tuple(runtime.tokenizer.encode(CALL_BEGIN+'finish_trace"', add_special_tokens=False))
+    flow_route = delegated_route_tokens(runtime.tokenizer, 'apply_electron_flow')
+    finish_route = delegated_route_tokens(runtime.tokenizer, 'finish_trace')
     import_route = tuple(runtime.tokenizer.encode(tool_prefix('import_fragments'), add_special_tokens=False))
     generation_budget = import_generation_budget(len(prompt_ids), len(import_route),
         max_context=args.max_context, max_tokens=args.max_import_tokens)
@@ -137,11 +137,12 @@ def collect_joint_support(runtime, node, args, rng):
                 eos_token_id=runtime.tokenizer.eos_token_id)
         suffix = tuple(out[0, ids.shape[1]:].tolist())
         raw = runtime.tokenizer.decode(import_route+suffix, skip_special_tokens=False)
-        name, arguments, error = prediction_call(raw, runtime.tokenizer)
-        if not suffix or suffix[-1] != runtime.tokenizer.eos_token_id:
-            error = 'IMPORT_TRUNCATED_NO_EOS'
-        elif name != 'import_fragments':
-            error = error or 'IMPORT_WRONG_TOOL'
+        arguments, error = {}, ''
+        try:
+            arguments = parse_qwen_import(raw, runtime.tokenizer, import_route+suffix,
+                                          require_eos=args.require_import_eos)
+        except ValueError as exc:
+            error = str(exc)
         proposals.append(JointProposal('import_fragments', arguments or {}, import_route+suffix, raw, error=error))
     depth, budget = graph_event_coordinates(node.actions, args.graph_initial_budget)
     candidates = runtime.graph.candidates(node.state, limit=args.flow_proposals,
@@ -246,12 +247,14 @@ def verified_replay(runtime, anchor, trace, index):
             return None
         moves = tuple(move.to_raw() for move in aligned)
         arguments = runtime.graph._render(anchor.state, moves)
-        raw = CALL_BEGIN+name+'"'
+        tokens = delegated_route_tokens(runtime.tokenizer, name)
+        raw = runtime.tokenizer.decode(tokens, skip_special_tokens=False)
     elif name == 'finish_trace':
-        raw = CALL_BEGIN+name+'"'
+        tokens = delegated_route_tokens(runtime.tokenizer, name)
+        raw = runtime.tokenizer.decode(tokens, skip_special_tokens=False)
     else:
         raw = tool_prefix(name)+json.dumps(arguments, ensure_ascii=False)+'}\n</tool_call>'+runtime.tokenizer.eos_token
-    tokens = tuple(runtime.tokenizer.encode(raw, add_special_tokens=False))
+        tokens = tuple(runtime.tokenizer.encode(raw, add_special_tokens=False))
     proposal = JointProposal(name, dict(arguments), tokens, raw, moves)
     child, error = execute_proposal(anchor, proposal, runtime.args)
     if child is None or visible(child.state) != visible(trace['nodes'][index+1].state):
@@ -274,8 +277,9 @@ def main():
     import torch
     from peft import get_peft_model_state_dict, set_peft_model_state_dict
     from mechet.graph_earho import AdaptiveHorizon
-    from scripts.pr83_resume import save_joint_training_state, export_joint_policy, validate_joint_weights
+    from scripts.pr83_resume import save_joint_training_state, export_joint_policy, validate_joint_weights, joint_source_fingerprints
     args = prepare_args(joint_training_parser().parse_args())
+    args.require_import_eos = True
     if (args.sample_reactions != 257167 or args.rl_updates != 257167
         or args.source_sha256 != SOURCE_SHA or file_sha256(args.data) != SOURCE_SHA
         or args.data.name != 'train.jsonl' or args.compact_history
@@ -298,17 +302,14 @@ def main():
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
     rng = random.Random(args.seed)
-    code = ('scripts/train_crn_qwen_joint_earho.py', 'src/mechet/joint_endpoint_policy.py',
-        'src/mechet/crn_graph_bridge.py', 'scripts/pr83_resume.py', 'scripts/run_crn_qwen_hybrid.py',
-        'scripts/run_natural_language_value_search.py', 'scripts/train_crn_graph_earho.py',
-        'scripts/build_natural_language_event_sft.py', 'src/mechet/endpoints.py')
+    sources = joint_source_fingerprints(ROOT, args.crn_root)
     settings = {key: value for key, value in vars(args).items()
                 if key not in {'data', 'output', 'resume', 'policy_adapter', 'crn_root',
                                'graph_checkpoint', 'graph_rl_head'}}
     manifest = dict(algorithm=ALGORITHM, selected_ids=[str(r['id']) for r in rows],
         train_source_sha256=SOURCE_SHA, train_source_path=str(args.data.resolve()),
         qwen_adapter_sha256=ADAPTER_SHA, crn_pretrained_sha256=args.graph_sha256,
-        settings=settings, code_sha256={p:file_sha256(ROOT/p) for p in code})
+        settings=settings, **sources)
     saved = prepare_training_resume(args.output, manifest=manifest, resume=args.resume)
     args.capture_generations = True
     runtime = HybridRuntime(args, 0)

@@ -54,6 +54,12 @@ The graph encoder remains frozen, while its source/sink/CONTINUE/COMMIT heads
 are trainable. Tools assign fragment maps, validate events and own transitions.
 No complete reaction-world import stage is added at the beginning.
 
+The new joint controller requires EOS on IMPORT in sampling, follower and
+paired inference; legacy nonjoint controllers retain their previous rule.
+FLOW/FINISH route scores use the first complete-token name-stop boundary of
+ordinary serialized Qwen tool calls, not a quote-only suffix. Paired inference
+must pass `--require-import-eos` and use the exact frozen MechET/CRN runtime.
+
 Use the existing `purpose` declarations to track intended electron participants
 versus background context. Track actual participation by imported map sets
 intersecting subsequently executed moves. Declared purpose is advisory, not a
