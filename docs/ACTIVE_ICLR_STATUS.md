@@ -1,5 +1,18 @@
 # Active ICLR status
 
+## 2026-10-14: full3120 uses renewable work windows too
+
+Stopped only the old capped3120 instance8b1d8145a134ab5e01a135c0d60b028a;
+verified END and zero output directory. Replacement ordinary8A100/QY task
+`meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_02`, instance
+`8b1d8145a134ab5e01a136cd41690531`, has immutable runtimea23cf576 and the same
+frozen Stage-II0.6B/source3120 hashes. Initial state READY, not real inference.
+No fixed chemical or token/time stopping cap; only actual context/RAM guards.
+Tencenttaiji6/Ceph successful donor/default45s logs preserved. Full460 task and
+all unrelated/forward tasks untouched. Receipt in main
+`outputs/submissions/dynamic_electron_tree_20261014_02/submission.json`.
+The earlier "old3120 still queued" operational notes below are historical.
+
 ## 2026-10-14 01:14 CST: full460 route task submitted, dynamic work windows
 
 Task `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261013_01`, instance

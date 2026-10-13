@@ -142,7 +142,10 @@ written only from actual complete outputs. These are provisional panels, not
 the complete locked paper Figures2/3. No new training/RSI, unrequested pilot,
 or unrelated task cancellation.
 
-The already submitted full3120 task is immutable runtime0796e2d and still has
-the old task-level caps. The current no-hard-token/time-cap runner is a new
-version, used by the follow-on full460 route task; changing local files does
-not silently change the queued3120 runtime.
+The original full3120 task at immutable runtime0796e2d had task-level caps.
+On October14 it was stopped while queued and verified END before replacement.
+`meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_02` instead pins
+runtimea23cf576, with renewable windows and the SAME3120 source and actor.
+The initial READY readback establishes submission, not actual inference.
+The full460 route task remains unchanged at runtimee973e1d. No local edit
+silently changes a submitted immutable runtime; the replacement is explicit.

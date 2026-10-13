@@ -1,5 +1,17 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-14 full3120 budget repair submitted:** the old0796e2d task
+> `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261013_01` was stopped
+> while resource-waiting and verified END, with no output directory. Replacement
+> `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_02`, instance
+> `8b1d8145a134ab5e01a136cd41690531`, uses immutable runtimea23cf576 and the
+> SAME3120 source/SHA40204...7e9de75 FlowER Stage-II0.6B.80M/24h are renewable
+> accounting checkpoints, not token/time stopping caps. Ordinary8A100/QY,
+> Tencenttaiji6, successful donor Ceph/default45s logs. Initial readback READY
+> means submitted, not model inference. No unrelated task stopped; full460
+> untouched. Main receipt outputs/submissions/dynamic_electron_tree_20261014_02.
+> Earlier notes that the old capped3120 task remains queued are superseded.
+
 > **2026-10-14 source-only R1/R2 preparation complete:** stocks now ready,
 > all460 target IDs retained. Actual Stage-II SFT census covers257167/2890/28967
 > reactions and2007421/22341/225613 decisions, exact artifact hashes verified.
