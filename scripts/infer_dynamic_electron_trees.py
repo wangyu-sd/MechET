@@ -3,7 +3,8 @@
 
 Eight independent one-GPU workers; batched prompts from different molecules;
 CPU-parallel executor work. No fixed chemical-depth/beam/import cap. Only the
-declared job-level token/wall budget and model/memory limits stop exploration.
+policy-support exhaustion and model/memory limits stop exploration. Token/time
+values are renewable accounting checkpoints, not forced stopping ceilings.
 """
 from __future__ import annotations
 
@@ -22,7 +23,7 @@ import time
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO/'src'))
 sys.path.insert(0, str(REPO))
-from mechet.dynamic_electron_tree import ElectronTree, Proposal, validate_probability_contract, chemical_key, available_host_memory
+from mechet.dynamic_electron_tree import ElectronTree, Proposal, DynamicWorkCheckpoints, validate_probability_contract, chemical_key, available_host_memory
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
 from mechet.reverse_route_network import RouteNetwork
 from mechet.endpoints import reference_structural_precursor, split_precursor_endpoints, structural_exact
@@ -166,14 +167,18 @@ def main():
     p.add_argument('--rank',type=int,required=True)
     p.add_argument('--world',type=int,default=8)
     p.add_argument('--seed',type=int,default=17)
-    p.add_argument('--task-token-budget',type=int,default=80000000)
-    p.add_argument('--wall-hours',type=float,default=24)
+    p.add_argument('--initial-token-checkpoint','--task-token-budget',dest='task_token_budget',
+                   type=int,default=80000000,help='initial shared work checkpoint, NOT a token ceiling')
+    p.add_argument('--initial-wall-checkpoint-hours','--wall-hours',dest='wall_hours',
+                   type=float,default=24,help='initial elapsed-work checkpoint, NOT a time ceiling')
     p.add_argument('--batch-prompts',type=int,default=32)
     p.add_argument('--cpu-workers',type=int,default=8)
     p.add_argument('--max-model-len',type=int,default=8192)
     p.add_argument('--route-assets-manifest',type=Path)
     p.add_argument('--route-cohort')
     args=p.parse_args()
+    if args.world<1 or args.task_token_budget<args.world or not math.isfinite(args.wall_hours) or args.wall_hours<=0:
+        p.error('positive finite checkpoints and world size required')
     if bool(args.route_assets_manifest) != bool(args.route_cohort):
         p.error('route manifest and cohort must be provided together')
     route_mode = args.route_assets_manifest is not None
@@ -197,7 +202,8 @@ def main():
     expected_contract={'model':args.model,'revision':REVISION,'adapter_sha':ADAPTER_SHA,
         'source_sha':args.source_sha,'mode':args.mode,'rank':args.rank,'world':args.world,
         'full_denominator':args.expected_rows,'seed':args.seed,'task_token_budget':args.task_token_budget,
-        'wall_hours':args.wall_hours,'max_model_len':args.max_model_len,'raw_unwarped_nll':True,
+        'wall_hours':args.wall_hours,'task_budget_mode':'renewable_checkpoints_no_token_or_time_cap_v1',
+        'max_model_len':args.max_model_len,'raw_unwarped_nll':True,
         'evaluation_unit':'stock_connected_AND_route' if route_mode else 'single_reaction_endpoint',
         'code_sha':os.environ.get('MECHET_TREE_CODE_SHA','not_supplied'),**route_contract}
     if (root_dir/'complete.json').exists():
@@ -226,6 +232,7 @@ def main():
               'sampling_temperature':0 if args.mode=='greedy' else 1,'top_p':1,'raw_unwarped_nll':True,
               'dynamic_depth':True,'dynamic_breadth':True,'fixed_beam_pruning':False,
               'task_token_budget':args.task_token_budget,'wall_hours':args.wall_hours,
+              'task_budget_mode':'renewable_checkpoints_no_token_or_time_cap_v1',
               'max_model_len':args.max_model_len,'reference_visible_to_policy':False,
               'self_improvement':False,'seed':args.seed,'history_contract':lineage['environment_revision']}
     manifest.update(route_contract)
@@ -253,7 +260,9 @@ def main():
     queue=deque(trees)
     started=time.monotonic()
     total_tokens=0
-    token_budget=args.task_token_budget//args.world
+    checkpoints=DynamicWorkCheckpoints(initial_tokens=args.task_token_budget//args.world,
+                                       initial_seconds=args.wall_hours*3600)
+    checkpoint_events=[]
     raw_file=(root_dir/'raw_generations.jsonl').open('a')
     prompt_file=(root_dir/'policy_contexts.jsonl').open('a')
     seen_prompts=set()
@@ -273,10 +282,15 @@ def main():
         reports.append(report)
     try:
         resource_stop = ''
-        while queue and total_tokens<token_budget and time.monotonic()-started<args.wall_hours*3600:
+        while queue:
             if memory_guard.exhausted(rss=process.memory_info().rss, available=available_host_memory()):
                 resource_stop = 'TASK_HOST_MEMORY_BUDGET'
                 break
+            event=checkpoints.update(tokens=total_tokens,seconds=time.monotonic()-started,active_roots=len(queue))
+            if event:
+                checkpoint_events.append(event)
+                dump(root_dir/'work_checkpoints.json',checkpoint_events)
+                print({**event,'rank':args.rank,'mode':args.mode},flush=True)
             batch=[]
             budget_blocked = False
             visits=len(queue)
@@ -300,8 +314,7 @@ def main():
                     queue.append(identifier);continue
                 allowance=min(context.max_new_tokens,room)
                 n=1 if args.mode=='greedy' else context.stats.next_batch
-                remaining=token_budget-total_tokens-sum(x[4]*x[5] for x in batch)
-                n=min(n,remaining//allowance)
+                n=checkpoints.candidate_count(n,completion_room=allowance)
                 if n<1:
                     budget_blocked = True
                     queue.appendleft(identifier);break
@@ -371,13 +384,14 @@ def main():
                    'denominator':len(selected),'active_roots':len(queue),'output_tokens':total_tokens,
                    'generation_seconds':round(generation_seconds,3),'cpu_join_seconds':round(time.monotonic()-cpu_start,3)},flush=True)
         for identifier in list(trees):
-            reason=resource_stop or ('TASK_TOKEN_BUDGET' if total_tokens>=token_budget else ('TASK_WALL_BUDGET' if time.monotonic()-started>=args.wall_hours*3600 else 'INSUFFICIENT_REMAINING_TOKEN_ROOM'))
+            reason=resource_stop or 'NO_EXECUTABLE_CONTEXT_AVAILABLE'
             finish(identifier,reason)
     finally:
         pool.shutdown(wait=True)
         raw_file.close();prompt_file.close()
     if {r['id'] for r in reports}!={r['id'] for r in selected}:raise RuntimeError('lost full-cohort rows')
     dump(root_dir/'complete.json',{'manifest':manifest,'rows':reports,'tokens':total_tokens,
+                                 'work_checkpoint_events':checkpoint_events,
                                  'model_forward_calls':forwards.total_calls,'seconds':time.monotonic()-started})
     print({'phase':'dynamic-search-complete','rank':args.rank,'mode':args.mode,'rows':len(reports),'tokens':total_tokens},flush=True)
     return 0

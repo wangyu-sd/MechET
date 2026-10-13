@@ -74,7 +74,7 @@ def main():
     if args.routes:
         record['source_config_sha']=hashlib.sha256((REPO/'configs/eval/frozen_route_benchmarks_20261013.json').read_bytes()).hexdigest()
         record['cohort_rows']={'ursa_expert100':100,'ursa_drugs100':100,'retrocast_mkt_cnv160':160,'paroutes_derived_n5_100':100}
-        record['task_budget_scope']='80M output tokens shared by ALL460 targets per condition, 24h per worker/condition'
+        record['task_budget_scope']='dynamic work checkpoints; 80M shared initial tokens/24h initial wall checkpoint; neither stops active search'
     receipt.parent.mkdir(parents=True,exist_ok=True)
     receipt.write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps(record,ensure_ascii=False,indent=2),flush=True)

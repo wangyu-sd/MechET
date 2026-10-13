@@ -2,7 +2,7 @@
 
 The graph pools equivalent chemistry for display/accounting, but keeps distinct
 history/visited-set policy contexts. No gold labels or trained value model are
-available to this controller. The caller owns a GLOBAL compute budget.
+available to this controller. Work checkpoints do not truncate active search.
 """
 from __future__ import annotations
 
@@ -85,6 +85,37 @@ class NoveltyStats:
         # A request microbatch may be split by the backend; this is not a
         # maximum branch count. Every accepted distinct successor is retained.
         return max(4, int(math.ceil(16 * self.unseen_upper)))
+
+
+class DynamicWorkCheckpoints:
+    """Renewable accounting windows, not token/time/chemical stopping caps.
+
+    The caller stops on exhausted policy support or real resource guards. A
+    crossing with pending frontiers is logged and moves the next check forward;
+    it never removes candidates, prunes a route or labels a target complete.
+    """
+    def __init__(self, *, initial_tokens: int, initial_seconds: float):
+        if initial_tokens<1 or not math.isfinite(initial_seconds) or initial_seconds<=0:
+            raise ValueError('positive finite work checkpoints required')
+        self.initial_tokens=initial_tokens
+        self.initial_seconds=initial_seconds
+        self.next_tokens=initial_tokens
+        self.next_seconds=initial_seconds
+
+    @staticmethod
+    def candidate_count(proposed: int, *, completion_room: int) -> int:
+        return proposed if completion_room>0 else 0
+
+    def update(self, *, tokens: int, seconds: float, active_roots: int) -> dict | None:
+        if active_roots<=0 or (tokens<self.next_tokens and seconds<self.next_seconds):
+            return None
+        if tokens>=self.next_tokens:
+            self.next_tokens=max(self.next_tokens*2,tokens+self.initial_tokens)
+        if seconds>=self.next_seconds:
+            self.next_seconds=max(self.next_seconds*2,seconds+self.initial_seconds)
+        return {'phase':'dynamic-work-checkpoint','decision':'CONTINUE_ACTIVE_FRONTIERS',
+                'observed_tokens':tokens,'observed_wall_seconds':seconds,'active_roots':active_roots,
+                'next_token_checkpoint':self.next_tokens,'next_wall_checkpoint_seconds':self.next_seconds}
 
 
 @dataclass

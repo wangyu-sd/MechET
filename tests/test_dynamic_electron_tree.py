@@ -15,6 +15,33 @@ def test_sampling_breadth_grows_with_new_chemical_support_not_fixed_beam():
     assert high.next_batch > low.next_batch
 
 
+def test_active_search_passes_token_and_time_checkpoints_without_truncation():
+    from mechet.dynamic_electron_tree import DynamicWorkCheckpoints
+    budget=DynamicWorkCheckpoints(initial_tokens=100,initial_seconds=10)
+    event=budget.update(tokens=120,seconds=15,active_roots=3)
+    assert event['decision']=='CONTINUE_ACTIVE_FRONTIERS'
+    assert event['observed_tokens']==120
+    assert event['next_token_checkpoint']>120
+    assert event['next_wall_checkpoint_seconds']>15
+    assert budget.update(tokens=100000,seconds=100000,active_roots=1)['active_roots']==1
+
+
+def test_finished_search_does_not_renew_checkpoint_or_invent_work():
+    from mechet.dynamic_electron_tree import DynamicWorkCheckpoints
+    budget=DynamicWorkCheckpoints(initial_tokens=100,initial_seconds=10)
+    assert budget.update(tokens=120,seconds=15,active_roots=0) is None
+    assert budget.update(tokens=50,seconds=5,active_roots=1) is None
+
+
+def test_dynamic_budget_batch_can_generate_past_initial_checkpoint():
+    from mechet.dynamic_electron_tree import DynamicWorkCheckpoints
+    budget=DynamicWorkCheckpoints(initial_tokens=1,initial_seconds=1)
+    # An accounting checkpoint must never reserve zero candidates or drop a
+    # whole wave merely because its output would exceed the old token ceiling.
+    assert budget.candidate_count(16,completion_room=384)==16
+    assert budget.candidate_count(16,completion_room=0)==0
+
+
 def test_same_chemical_state_different_history_is_not_destroyed():
     from mechet.dynamic_electron_tree import context_key, chemical_key
     from scripts.run_natural_language_value_search import Node

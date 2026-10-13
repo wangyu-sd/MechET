@@ -29,7 +29,8 @@ at MechET-paper revision `ee96f346ccfc2c40038dd1c4f9b6e7f955915659`, plus
 - Native executor states/history contexts remain independent; graph chemistry
   merges only for display/outer equivalent precursor obligations.
 - All raw prompts/completions/probabilities and all accepted graphs saved.
-- Tensor/memory and task work budgets only; no unrequested smoke/pilot.
+- Tensor/memory guards only; task work windows renew dynamically rather than
+  impose token/time hard stops (user October14 ruling); no unrequested smoke/pilot.
 - Only canonicalization preserves isotope/stereo/charge; no neutralization,
   tautomer fallback or automatic split of stock salt entries.
 - Only A/B frozen policy conditions; C/D self-improvement deferred explicitly.

@@ -44,14 +44,14 @@ for mode in greedy tree; do
     source=$assets/all_targets.jsonl
     source_sha=$(sha256sum "$source" | awk '{print $1}')
     rows=$(wc -l < "$source")
-    echo "[frozen-routes] mode=$mode full_rows=$rows source_sha=$source_sha shared_budget=80000000"
+    echo "[frozen-routes] mode=$mode full_rows=$rows source_sha=$source_sha dynamic_work_checkpoints_no_hard_token_or_time_cap"
     pids=()
     for rank in $(seq 0 7); do
       CUDA_VISIBLE_DEVICES=$rank python -u scripts/infer_dynamic_electron_trees.py \
         --data "$source" --source-sha "$source_sha" --expected-rows "$rows" \
         --adapter "$adapter" --output "$output" --mode "$mode" --rank "$rank" --world 8 \
         --route-assets-manifest "$assets/manifest.json" --route-cohort all \
-        --task-token-budget 80000000 --wall-hours 24 --cpu-workers 8 --batch-prompts 32 &
+        --initial-token-checkpoint 80000000 --initial-wall-checkpoint-hours 24 --cpu-workers 8 --batch-prompts 32 &
       pids+=("$!")
     done
     status=0

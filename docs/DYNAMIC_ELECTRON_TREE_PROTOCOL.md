@@ -39,12 +39,15 @@ The controller shrinks/expands request microbatches rather than imposing a
 chemical branch cutoff. Incomplete tool calls get more per-call token room;
 they never turn into fabricated valid actions.
 
-Necessary operational bounds are a declared job-level80million output-token
-budget per condition,24-hour wall budget per worker/condition, actual model
-context8192, and memory/allocation protection. These are NOT reaction-horizon
-labels or per-target GT stopping rules. A fair round-robin root queue prevents
+The October14 current runner treats80million output tokens per condition and
+24hours per worker/condition as INITIAL ACCOUNTING CHECKPOINTS, not stopping
+caps. Crossing a checkpoint with active frontiers automatically extends the
+next work window and logs the observed cost/decision. Only observed policy
+support exhaustion, actual model context8192, and memory/allocation protection
+close exploration. This is not a completeness guarantee: unbounded compute is
+not promised and the sampling novelty rule remains a heuristic. A fair root queue prevents
 one target consuming all inference before other test products are attempted.
-Budget-limited/invalid/nonterminal roots stay in3120. They are not forced to
+Resource-limited/invalid/nonterminal roots stay in3120. They are not forced to
 emit FINISH or dropped from evaluation.
 Each worker reserves40% of its initial share of available host/container RAM
 for persistence and other processes; driver growth uses at most60%/8 of that
@@ -88,9 +91,10 @@ are not invented electron ground truth. No new model/reward/critic is introduced
 
 Source declarations: `configs/eval/frozen_route_benchmarks_20261013.json`.
 All460 IDs (100/100/160/100) enter ONE shared scheduler per condition, not
-four independent budget resets. The80M output-token and24h worker-condition
-limits apply jointly to all460; each worker receives one-eighth of that token
-budget. Stocks differ by cohort; observations remain product-only. Remote
+four independent work-window resets. The80M output-token initial checkpoint
+is shared across all460, and each worker starts with one-eighth of that token
+checkpoint;24h is an initial elapsed-work checkpoint. Neither truncates active
+frontiers. Stocks differ by cohort; observations remain product-only. Remote
 CPU stock canonicalization precedes all model generations. Seven raw source
 checksums and all original target/reference populations have been verified.
 The mkt-cnv primary references have2/3/4/5 depths×40; its407 accepted reference
@@ -122,3 +126,8 @@ not a zero center. Paired2000-bootstrap summaries and observed PDF panels are
 written only from actual complete outputs. These are provisional panels, not
 the complete locked paper Figures2/3. No new training/RSI, unrequested pilot,
 or unrelated task cancellation.
+
+The already submitted full3120 task is immutable runtime0796e2d and still has
+the old task-level caps. The current no-hard-token/time-cap runner is a new
+version, used by the follow-on full460 route task; changing local files does
+not silently change the queued3120 runtime.

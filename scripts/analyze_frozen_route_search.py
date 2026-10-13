@@ -200,6 +200,7 @@ def main():
     expected={'adapter_sha':ADAPTER_SHA,'revision':REVISION,'model':'Qwen/Qwen3-0.6B',
         'source_sha':assets['full_targets_sha256'],'route_assets_sha':file_sha256(args.assets),
         'code_sha':assets['preparation_code_sha'],
+        'task_budget_mode':'renewable_checkpoints_no_token_or_time_cap_v1',
         'stock_canonical_shas':{name:stock['canonical_sha256'] for name,stock in assets['stocks'].items()}}
     all_source_ids={identifier for cohort in assets['cohorts'].values() for identifier in cohort['target_ids']}
     for mode in ['greedy','tree']:
@@ -218,7 +219,7 @@ def main():
         runtime_totals[mode]={'output_tokens':sum(shard['tokens'] for shard in shards),
                               'model_forward_calls':sum(shard['model_forward_calls'] for shard in shards)}
         provenance.extend({'path':str(path),'sha256':file_sha256(path)} for path in shard_paths)
-    for key in ['seed','task_token_budget','max_model_len','wall_hours','code_sha']:
+    for key in ['seed','task_token_budget','max_model_len','wall_hours','task_budget_mode','code_sha']:
         if contracts and any(contract[key]!=contracts[0][key] for contract in contracts):
             raise ValueError(f'mixed frozen route conditions: {key}')
     for name,cohort in assets['cohorts'].items():
