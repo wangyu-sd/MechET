@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "program": "PR83_CrnJepaQwenEndpointRLAutoExecution",
+  "program": "PR83_GraphEARHOExecutionCampaign",
   "scope": "stacked_pr83_only",
-  "user_intent": "Keep implementing, debugging and evaluating after first failed or negative result rather than terminating on CI success",
+  "user_intent": "Keep debugging and running the specified EARHO method; do not substitute fixed-reference-tail group SFT for the scientific RL contribution",
   "immutable": {
     "model": "Qwen/Qwen3-0.6B",
     "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
@@ -30,7 +30,10 @@
     "actor_reward": "full_budget_terminal_endpoint",
     "follower_k": 1,
     "full_episode_fraction": 0.25,
-    "locked_test_access": true
+    "locked_test_access": true,
+    "main_rl": "graph_earho_conditional_endpoint_v4",
+    "joint_training_implemented": false,
+    "joint_submission_allowed": false
   },
   "stages": [
     {

@@ -260,3 +260,30 @@ Cost: fewer terminal RL updates per root, rather than fabricated local credit.
   and explicit-H stereo were also checked independently. Minor follow-up:
   persist those broader fixtures and an executor-to-heldout-scoring parity
   regression rather than relying only on the current expression-level test.
+
+## Archived upstream notes merged from PR83 (pre-v4, historical)
+
+The following records describe earlier source-only v2 repairs, not the current
+conditional v4 estimator or the proposed joint-import implementation.
+
+## 2026-10-12 Graph-EARHO methodological correction (source only)
+
+- **Observed problem:** the original PR83 trainer used randomly selected last-three reference FLOW states, fixed 8-step rollout and action-wise teacher-forced mean NLL. This was not our specified EARHO. It is retained strictly as a named fixed-reference-tail ablation.
+- **New code:** `src/mechet/graph_earho.py`, `src/mechet/graph_endpoint_rl.py` (actual graph event likelihood, successor-class objective), `scripts/train_crn_graph_earho.py`; CPU contracts `tests/test_graph_earho_contract.py`.
+- **Method:** product-only first executed divergence; first graph-correctable FLOW gate; conditional reference fallback separately logged for Qwen mistakes; canonical executed-successor equivalence; bounded gold-free continuation; H=2→8 training-only competence promotion; signed class-level gradient; verified reference replay fallback.
+- **Evidence:** no new real GPU training or valid128 endpoint/throughput results yet. Current task status remains unrun; do not mark S04 passed from green source CI.
+
+## 2026-10-12 Graph-EARHO source-level repair
+
+- Corrected potential structural endpoint error from using reference product
+  atom maps instead of the autonomous model's mapped product origin.
+- Replaced gold suffix anchor with actor-owned first graph FLOW-error state;
+  earlier Qwen route/import/finish mistakes are controller-limited, not
+  relabelled as graph on-policy corrections.
+- Bounded continuation no longer compares heterogeneous Qwen-name and
+  Graph-move log-likelihoods across parents. Unknown successors after
+  finite search are censored rather than labelled failed chemistry.
+- Reference replay is map-safe only when graph isomorphism gives a unique
+  FLOW label. Original frozen CRN sampled-slate KL monitors head drift.
+- Source-level tests and CI are NOT GPU-run evidence; no endpoint gain is
+  claimed as of this record.

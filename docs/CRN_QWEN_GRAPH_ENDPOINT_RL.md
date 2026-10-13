@@ -1,4 +1,15 @@
+> **12 October method correction:** The previous fixed-last-three-reference-FLOW reward trainer documented below is **ablation only**, NOT our EARHO main method. The actual Graph-EARHO method restores first autonomous graph-correctable divergence, executed chemical-successor equivalence pooling, receding adaptive horizons, full-product eligibility accounting and exact source/sink/commit likelihood-based successor-class policy gradients. Read [Graph-EARHO method](GRAPH_EARHO_METHOD.md) and run `scripts/train_crn_graph_earho.py`. The original `scripts/train_crn_graph_endpoint_rl.py` remains a controlled diagnostic; do not call its update the paper's main RL or mix its results into the Graph-EARHO row. Neither method yet has authenticated GPU endpoint gains.
+
 # CRN-JEPA FLOW routing with the existing Qwen Tool-SFT actor (opt-in v1)
+
+> **13 October current handoff:** the implemented graph-only condition is the
+> conditional-endpoint v4 estimator in `GRAPH_EARHO_METHOD.md`. The user has
+> requested a proposed joint Qwen import/controller-LoRA + graph-head successor;
+> its written design/plan await review and it is not implemented or submitted.
+> See `ACTIVE_ICLR_STATUS.md` and `results/PR83_JOINT_IMPORT_DIAGNOSTIC_20261013.md`
+> for the completed local baseline/train32 evidence. The sections below retain
+> the historical v1/ablation contracts; their small-run suggestions and old
+> connector/GPU-access limitations are not current execution authorization.
 
 ## Decision
 
@@ -235,3 +246,14 @@ demonstrates endpoint alignment.
 **Stopping rule:** final measured paired outcome (positive or honestly
 negative after two diagnostic corrections), or an explicit integrity/security/
 resource hard blocker with the attempted recoveries and precise unblock path.
+
+## Main Graph-EARHO runtime correction (2026-10-12)
+
+The Graph-EARHO optimization state is now the actor's actual first executed
+FLOW divergence, preserving its private maps, imported species and action
+history; horizon H expands forward continuation. The scorer uses the model
+product's mapping to define target-origin structural precursors. Beam
+selection avoids mixed Qwen/graph NLL ranking; finite-search-unresolved
+accepted successors remain censored/neutral. Reference FLOW replay requires
+unambiguous atom correspondence and a frozen-original CRN sampled-slate KL
+guards policy drift. The fixed-reference-tail RL script is ablation only.
