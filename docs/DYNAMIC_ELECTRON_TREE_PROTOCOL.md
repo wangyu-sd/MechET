@@ -127,6 +127,13 @@ for the same reaction do not multiply outer route counts. This can take
 exponential time. Only a completed full460 condition and fully consumed
 enumerations may seal an exhaustive-count manifest; interrupted counts remain
 partial. No actual model-route counts have been produced yet.
+To include completed counts in the R1/R2 report, run the enumerator once per
+completed condition, then pass each sealed `manifest.json` using repeatable
+`--route-diversity-manifest` arguments to `analyze_frozen_route_search.py`.
+The analysis binds the model/assets, full denominator, exact shard hashes,
+saved graph hashes and counts hash; inconsistent or partial counts are rejected.
+Original inference rows remain unchanged. Without a matching sealed manifest,
+the report continues to expose only the online lower bound, not an exact count.
 Exact corpus-to-reference program annotation is PENDING:
 affected strata remain Unknown, and no C1 novelty claim is permitted. Source
 maps alone never become mechanisms. Disjoint maps are missing correspondence,

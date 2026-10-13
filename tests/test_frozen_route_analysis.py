@@ -161,3 +161,62 @@ def test_offline_mechanism_index_must_bind_actor_exposure_and_reference_source(t
     path.write_text(json.dumps(manifest))
     with pytest.raises(ValueError,match='exposure'):
         load_mechanism_index(path,assets,model_sha='actor',train_sha='subset',decisions=10,reactions=2)
+
+
+def diversity_fixture(tmp_path):
+    import json
+    from mechet.frozen_route_assets import file_sha256
+    root=tmp_path/'rank00';root.mkdir()
+    graph=root/'tree.json';graph.write_text('{"saved_graph":true}')
+    shard=root/'complete.json'
+    rows=[{'id':'a','stock_solved':True,'already_in_stock':False,'tree_artifact':'tree.json',
+           'unique_route_count_lower_bound':1}]
+    shard.write_text(json.dumps({'rows':rows}))
+    counts=tmp_path/'counts.json'
+    counts.write_text(json.dumps({'complete':True,'denominator':1,'rows':[
+        {'id':'a','unique_route_count':3,'route_count_is_exhaustive':True,'already_in_stock':False}]}))
+    value={'mode':'tree','denominator':1,'model_sha256':'actor','assets_sha256':'assets',
+        'counts_sha256':file_sha256(counts),'route_count_is_exhaustive':True,
+        'route_definition':'one_production_choice_per_distinct_nonstock_molecule_DAG_v1',
+        'electron_program_alternatives_counted_as_separate_routes':False,'model_called':False,
+        'source_shards':[{'path':str(shard),'sha256':file_sha256(shard)}],
+        'source_graphs':[{'id':'a','graph_sha256':file_sha256(graph)}]}
+    path=tmp_path/'manifest.json';path.write_text(json.dumps(value))
+    return path,shard,rows,value
+
+
+def test_exact_diversity_is_attached_without_overwriting_raw_predictions(tmp_path):
+    from scripts.analyze_frozen_route_search import attach_exact_diversity
+    path,shard,rows,_=diversity_fixture(tmp_path)
+    enriched=attach_exact_diversity(rows,path,mode='tree',assets_sha='assets',model_sha='actor',shard_paths=[shard])
+    assert enriched[0]['unique_route_count']==3
+    assert enriched[0]['route_count_is_exhaustive'] is True
+    assert 'unique_route_count' not in rows[0]
+    target=[{'id':'a','already_in_stock':False}]
+    enriched[0]['work']={'sampled_tokens':20}
+    from scripts.analyze_frozen_route_search import aggregate_cohort
+    report=aggregate_cohort(target,{'tree':enriched})['conditions']['tree']
+    assert report['unique_route_count']==3
+    assert report['route_count_is_exhaustive'] is True
+
+
+def test_diversity_from_another_or_modified_saved_graph_is_rejected(tmp_path):
+    from scripts.analyze_frozen_route_search import attach_exact_diversity
+    path,shard,rows,_=diversity_fixture(tmp_path)
+    (shard.parent/'tree.json').write_text('{"different_graph":true}')
+    with pytest.raises(ValueError,match='graph'):
+        attach_exact_diversity(rows,path,mode='tree',assets_sha='assets',model_sha='actor',shard_paths=[shard])
+
+
+def test_partial_or_contradictory_diversity_does_not_replace_online_lower_bound(tmp_path):
+    import json
+    from mechet.frozen_route_assets import file_sha256
+    from scripts.analyze_frozen_route_search import attach_exact_diversity
+    path,shard,rows,value=diversity_fixture(tmp_path)
+    counts=path.parent/'counts.json'
+    for complete,count in [(False,3),(True,0)]:
+        counts.write_text(json.dumps({'complete':complete,'denominator':1,'rows':[
+            {'id':'a','unique_route_count':count,'route_count_is_exhaustive':True,'already_in_stock':False}]}))
+        value['counts_sha256']=file_sha256(counts);path.write_text(json.dumps(value))
+        with pytest.raises(ValueError,match='diversity'):
+            attach_exact_diversity(rows,path,mode='tree',assets_sha='assets',model_sha='actor',shard_paths=[shard])

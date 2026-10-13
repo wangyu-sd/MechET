@@ -74,6 +74,53 @@ def validate_shard_contract(manifest,expected,*,rank,world,mode):
         if manifest.get(key)!=value:raise ValueError(f'route shard contract mismatch: {key}')
 
 
+def attach_exact_diversity(rows,path,*,mode,assets_sha,model_sha,shard_paths):
+    """Read sealed enumeration only for these immutable predictions; never edit them."""
+    path=Path(path)
+    manifest=json.loads(path.read_text())
+    expected={'mode':mode,'denominator':len(rows),'model_sha256':model_sha,'assets_sha256':assets_sha,
+        'route_count_is_exhaustive':True,
+        'route_definition':'one_production_choice_per_distinct_nonstock_molecule_DAG_v1',
+        'electron_program_alternatives_counted_as_separate_routes':False,'model_called':False}
+    for key,value in expected.items():
+        if manifest.get(key)!=value:raise ValueError(f'diversity manifest mismatch: {key}')
+    source=[{'path':str(p),'sha256':file_sha256(p)} for p in shard_paths]
+    if manifest.get('source_shards')!=source:raise ValueError('diversity source shard mismatch')
+    counts_path=path.parent/'counts.json'
+    if file_sha256(counts_path)!=manifest.get('counts_sha256'):raise ValueError('diversity counts SHA mismatch')
+    counts=json.loads(counts_path.read_text())
+    identifiers={r['id'] for r in rows}
+    entries=counts.get('rows',[])
+    if (counts.get('complete') is not True or counts.get('denominator')!=len(rows)
+            or len(entries)!=len(rows) or {r['id'] for r in entries}!=identifiers):
+        raise ValueError('diversity incomplete or denominator mismatch')
+    graph_entries=manifest.get('source_graphs',[])
+    hashes={r['id']:r['graph_sha256'] for r in graph_entries}
+    if len(hashes)!=len(graph_entries):raise ValueError('diversity duplicate graph provenance')
+    graph_rows={r['id']:r for r in rows if r.get('tree_artifact')}
+    if set(hashes)!=set(graph_rows):raise ValueError('diversity saved graph provenance mismatch')
+    # Rank membership is taken from the actual saved complete shards, not guessed.
+    locations={}
+    for shard_path in shard_paths:
+        shard=json.loads(shard_path.read_text())
+        for row in shard.get('rows',[]):locations[row['id']]=shard_path.parent
+    for identifier,row in graph_rows.items():
+        directory=locations.get(identifier)
+        if directory is None or file_sha256(directory/row['tree_artifact'])!=hashes[identifier]:
+            raise ValueError('diversity saved graph SHA mismatch')
+    by_id={r['id']:r for r in entries}
+    enriched=[]
+    for row in rows:
+        entry=by_id[row['id']];count=entry.get('unique_route_count')
+        if (type(count) is not int or count<0 or entry.get('route_count_is_exhaustive') is not True
+                or entry.get('already_in_stock')!=row['already_in_stock']
+                or bool(count)!=row['stock_solved']
+                or count<(row.get('unique_route_count_lower_bound') or 0)):
+            raise ValueError('diversity contradicts saved route result')
+        enriched.append({**row,'unique_route_count':count,'route_count_is_exhaustive':True})
+    return enriched
+
+
 def rate_interval(values,*,seed=17):
     if not values:return {'solved':None,'ci95':None,'n':0}
     array=np.asarray(values,dtype=float)
@@ -114,7 +161,9 @@ def aggregate_cohort(targets,conditions):
                 for target in targets)/len(targets)) if any(t.get('reference_routes') for t in targets) else None,
             'unique_route_count_lower_bound':sum(r['unique_route_count_lower_bound'] for r in rows)
                                             if all('unique_route_count_lower_bound' in r for r in rows) else None,
-            'route_count_is_exhaustive':False}
+            'unique_route_count':sum(r['unique_route_count'] for r in rows)
+                if all(r.get('route_count_is_exhaustive') is True and 'unique_route_count' in r for r in rows) else None,
+            'route_count_is_exhaustive':all(r.get('route_count_is_exhaustive') is True for r in rows)}
     paired=(paired_bootstrap([indexed['greedy'][identifier]['stock_solved'] for identifier in identifiers],
                              [indexed['tree'][identifier]['stock_solved'] for identifier in identifiers])
             if 'greedy' in indexed and 'tree' in indexed else None)
@@ -209,6 +258,8 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--analysis-output',type=Path,help='separate destination preserving previous analysis')
     parser.add_argument('--mechanism-annotations',type=Path,help='sealed actual-SFT reference annotation manifest')
+    parser.add_argument('--route-diversity-manifest',type=Path,action='append',default=[],
+                        help='sealed complete enumeration manifest, at most one per condition')
     parser.add_argument('--world',type=int,default=8)
     parser.add_argument('--allow-single-condition',action='store_true')
     args=parser.parse_args()
@@ -223,6 +274,11 @@ def main():
         annotations=load_mechanism_index(args.mechanism_annotations,assets,model_sha=ADAPTER_SHA,
             train_sha=contract['train_file_sha256'],decisions=contract['n_rows'],reactions=contract['finish_trace_rows'])
     summaries={};provenance=[];all_conditions={};contracts=[];runtime_totals={}
+    diversity={}
+    for path in args.route_diversity_manifest:
+        mode=json.loads(path.read_text()).get('mode')
+        if mode not in ('greedy','tree') or mode in diversity:raise ValueError('diversity mode missing or duplicated')
+        diversity[mode]=path
     expected={'adapter_sha':ADAPTER_SHA,'revision':REVISION,'model':'Qwen/Qwen3-0.6B',
         'source_sha':assets['full_targets_sha256'],'route_assets_sha':file_sha256(args.assets),
         'code_sha':assets['preparation_code_sha'],
@@ -241,6 +297,9 @@ def main():
         rows=[row for shard in shards for row in shard['rows']]
         if len(rows)!=len(all_source_ids) or {row['id'] for row in rows}!=all_source_ids:
             raise ValueError('shared full460 denominator mismatch')
+        if mode in diversity:
+            rows=attach_exact_diversity(rows,diversity[mode],mode=mode,assets_sha=file_sha256(args.assets),
+                                       model_sha=ADAPTER_SHA,shard_paths=shard_paths)
         all_conditions[mode]=rows
         runtime_totals[mode]={'output_tokens':sum(shard['tokens'] for shard in shards),
                               'model_forward_calls':sum(shard['model_forward_calls'] for shard in shards)}
@@ -248,6 +307,7 @@ def main():
     for key in ['seed','task_token_budget','max_model_len','wall_hours','task_budget_mode','code_sha']:
         if contracts and any(contract[key]!=contracts[0][key] for contract in contracts):
             raise ValueError(f'mixed frozen route conditions: {key}')
+    if set(diversity)-set(all_conditions):raise ValueError('diversity supplied for incomplete inference condition')
     for name,cohort in assets['cohorts'].items():
         path=Path(cohort['targets_path'])
         if file_sha256(path)!=cohort['targets_sha256']:raise ValueError('frozen target SHA mismatch')
@@ -290,7 +350,9 @@ def main():
         'inference_input_assets_unchanged':True,
         'actual_observed_results_only':True,'mechanism_annotation_complete':assets['composition_annotation_complete'],
         'C1_claim_allowed':False if not assets['composition_annotation_complete'] else None,
-        'route_count_exhaustive':False,'figures_are_partial_panels_not_replacement_full_paper_figures':True})
+        'route_diversity_manifests':[{'path':str(path),'sha256':file_sha256(path)} for path in diversity.values()],
+        'route_count_exhaustive':bool(all_conditions) and set(diversity)==set(all_conditions),
+        'figures_are_partial_panels_not_replacement_full_paper_figures':True})
     print(json.dumps({'phase':'full-route-analysis','cohorts':list(summaries),'rows':sum(s['denominator'] for s in summaries.values()),
                       'solved':{name:{mode:condition['solved'] for mode,condition in summary['conditions'].items()} for name,summary in summaries.items()}}),flush=True)
 
