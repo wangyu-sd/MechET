@@ -1,5 +1,19 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-14 source-only R1/R2 preparation complete:** stocks now ready,
+> all460 target IDs retained. Actual Stage-II SFT census covers257167/2890/28967
+> reactions and2007421/22341/225613 decisions, exact artifact hashes verified.
+> Ordinary train signatures6491/primitives603;1377 non-ordinary programs explicit.
+> RetroCast293/1627 reference edges have exact verified corpus witnesses, but
+> all160 PRIMARY routes retain gaps and remain Unknown (not C1/C2). Source-only
+> index outputs/analysis/r1_r2_actual_sft_mechanism_index_20261014 in main; producer
+> bcf2760, consumer0e546f8;747 unit tests/11 skipped. Stocks URSA255436 unique,
+> buyables313458,n513306; zero invalid rows,1 already-stock mkt target. Strict
+> reference closure mkt138/160 primary,147/160 any reference; do not drop13 or
+> call them unsolvable. No actor generation, weight update or new accuracy result.
+> Full460 task remains resource-waiting at latest live readback. Earlier stock-
+> pending notes below are historical; inference runtime remains pinnede973e1d.
+
 > **2026-10-14 01:14 CST full460 R1/R2 route task:** ordinary8xA100/QY task
 > `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261013_01`, instance
 > `8b1d8038a134b09101a136418a43039c`, is TRAINING_RESOURCE_WAITING. Runtime
