@@ -93,7 +93,8 @@ qwen_logp, graph_logp=None) -> Tensor`.
 
 ### Task 3: Joint frontiers, model-owned imports and endpoint returns
 
-**Files:** Create `scripts/train_crn_qwen_joint_earho.py` and
+**Files:** Create the future `train_crn_qwen_joint_earho.py` under the `scripts`
+directory (not yet implemented; not a runnable entrypoint), and
 `tests/test_joint_earho_training.py`; consume the probability interfaces from
 Task 2 and existing `conditional_endpoint_policy_loss`/`AuditJournal`.
 

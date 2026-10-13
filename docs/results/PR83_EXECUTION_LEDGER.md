@@ -261,6 +261,24 @@ Cost: fewer terminal RL updates per root, rather than fabricated local credit.
   persist those broader fixtures and an executor-to-heldout-scoring parity
   regression rather than relying only on the current expression-level test.
 
+## 2026-10-13 — pushed handoff and documentation CI repair
+
+- Pushed prerequisite repairs and written joint design/plan to draft PR84.
+  Integrated PR83 base `584bee6` on the feature branch without replacing the
+  reviewed v4 implementation. No joint-policy trainer or new Taiji task exists.
+- Remote Docs CI treated the future trainer named in the implementation plan
+  as an installed script. Reproduced the failure. A proposed checker exception
+  was rejected after independent review exposed missed command forms.
+  Discarded that uncommitted exception and its tests; the original strict
+  checker is unchanged. The plan now gives the future filename and directory
+  as an explicit unimplemented interface, not an installed script reference.
+  No placeholder trainer was added and no validation rule was relaxed.
+- Fresh verification of the final delta: **653 passed, 8 skipped in 32.34s**;
+  documentation integrity has no errors or warnings; `git diff --check` passes.
+  Independent follow-up review found no remaining Critical/Important finding.
+- Written architecture review remains pending. Do not report PR submission,
+  green unit tests or available quota as a submitted/running joint experiment.
+
 ## Archived upstream notes merged from PR83 (pre-v4, historical)
 
 The following records describe earlier source-only v2 repairs, not the current
