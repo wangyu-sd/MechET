@@ -77,3 +77,92 @@ def test_exact_match_does_not_neutralize_distinct_charge_or_stereo():
     assert reaction_chemistry_key('CO',['[CH3+]','[OH-]']) != reaction_chemistry_key('CO',['C','O'])
     assert reaction_chemistry_key('F[C@H](Cl)Br',['C']) != reaction_chemistry_key('F[C@@H](Cl)Br',['C'])
     assert reaction_chemistry_key('CO',['O','O']) != reaction_chemistry_key('CO',['O'])
+
+
+def decision(index, name, args, annotated='<A01>C<A02>O'):
+    return {'id':f'r::{index}','source_id':'r','target_smiles':'CO',
+        'expected_precursor':'[CH3+].[OH-]',
+        'metadata':{'executor_replayed':True,'decision_index':index},
+        'messages':[{'role':'user','content':f'ANNOTATED CURRENT STATE: {annotated}\n'},
+                    {'role':'assistant','tool_calls':[{'function':{'name':name,'arguments':args}}]},
+                    {'role':'tool','name':name,'content':'{"ok":true,"code":"PASS","current_state":"[CH3+].[OH-]"}'}]}
+
+
+def flow_args(source='the bond between atoms A01 and A02',destination='atom A02'):
+    return {'direction':'retrosynthetic','electron_flow':[{'source':source,'destination':destination,
+        'instruction':'Return the bonding pair to oxygen.'}],'bond_order_changes':[],'charge_changes':[]}
+
+
+def test_sft_event_signature_uses_actual_grounded_labels_not_old_compiler_metadata():
+    from mechet.frozen_route_mechanisms import sft_event_features
+    row=decision(0,'apply_electron_flow',flow_args())
+    row['metadata']['execution_primitive_signatures']=['obsolete']
+    result=sft_event_features(row)
+    assert result['primitive_sequence']==[
+        '{"electrons":2,"sink_atoms":[[8,0,0]],"sink_bond_order":0,"sink_kind":"ATOM",'
+        '"source_atoms":[[6,0,0],[8,0,0]],"source_bond_order":1,"source_kind":"BOND"}']
+    assert result['ordinary_source_sink_event'] is True
+
+
+def test_sft_alias_numbers_are_local_and_signature_invariant():
+    from mechet.frozen_route_mechanisms import sft_event_features
+    original=decision(0,'apply_electron_flow',flow_args())
+    shifted=decision(0,'apply_electron_flow',flow_args('the bond between atoms A08 and A99','atom A99'),
+                     annotated='<A08>C<A99>O')
+    assert sft_event_features(original)['primitive_sequence']==sft_event_features(shifted)['primitive_sequence']
+
+
+def test_sft_be_delta_never_receives_the_empty_source_sink_pseudo_primitive():
+    from mechet.frozen_route_mechanisms import sft_event_features
+    row=decision(0,'apply_electron_flow',{'direction':'retrosynthetic','electron_flow':[],
+        'bond_order_changes':[{'atoms':['A01','A02'],'delta':-1}],'charge_changes':[]})
+    result=sft_event_features(row)
+    assert result['ordinary_source_sink_event'] is False
+    assert result['primitive_sequence']==[]
+
+
+def test_reaction_summary_requires_contiguous_complete_actual_sft_decisions():
+    import pytest
+    from mechet.frozen_route_mechanisms import summarize_sft_reaction
+    rows=[decision(0,'apply_electron_flow',flow_args()),decision(1,'finish_trace',{})]
+    result=summarize_sft_reaction(rows,'train',structural_precursor='[CH3+].[OH-]')
+    assert result['source_id']=='r'
+    assert result['reference_event_length']==1
+    assert result['coupled_electronic_moves']==1
+    assert result['program_signature'] is not None
+    with pytest.raises(ValueError,match='finish'):
+        summarize_sft_reaction(rows[:1],'train',structural_precursor='[CH3+].[OH-]')
+    with pytest.raises(ValueError,match='index'):
+        summarize_sft_reaction([rows[1],rows[0]],'train',structural_precursor='[CH3+].[OH-]')
+
+
+def test_missing_or_duplicate_annotated_atoms_cannot_invent_grounding():
+    import pytest
+    from mechet.frozen_route_mechanisms import sft_event_features
+    for annotated in ['<A01>CO','<A01>C<A01>O']:
+        with pytest.raises(ValueError,match='annotat'):
+            sft_event_features(decision(0,'apply_electron_flow',flow_args(),annotated))
+
+
+def test_annotation_merges_only_frozen_reference_edges_and_preserves_target_population():
+    from mechet.frozen_route_mechanisms import annotate_reference_targets
+    ref=edge();ref.update(reference_route_id='ref',reference_edge_id='ref:0')
+    target={'id':'t','already_in_stock':False,'reference_reactions':[ref],
+            'reference_routes':[{'reference_route_id':'ref'}]}
+    source=record();source.update(reference_event_length=1,coupled_electronic_moves=1,imported_participants=0)
+    result=annotate_reference_targets([target],{('CO',('[CH3+]','[OH-]')):[source]},
+                                      {'recorded-program'},{'recorded-primitive':10})
+    assert len(result)==1
+    assert result[0]['id']=='t'
+    assert result[0]['composition_stratum']=='C0'
+    assert result[0]['reference_routes'][0]['reference_event_length']==1
+    assert target['reference_reactions'][0]['annotation_status']=='mapping_only'
+
+
+def test_actual_sft_import_participants_exclude_context_but_count_multiplicity():
+    from mechet.frozen_route_mechanisms import summarize_sft_reaction
+    imported=decision(0,'import_fragments',{'fragments':[
+        {'smiles':'O','count':2,'purpose':'electron_participant'},
+        {'smiles':'C','count':3,'purpose':'endpoint_context'}]})
+    rows=[imported,decision(1,'apply_electron_flow',flow_args()),decision(2,'finish_trace',{})]
+    assert summarize_sft_reaction(rows,'train',structural_precursor='[CH3+].[OH-]')['imported_participants']==2
