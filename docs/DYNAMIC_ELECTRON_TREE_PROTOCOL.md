@@ -1,5 +1,20 @@
 # Frozen Qwen dynamic electronic tree, October13 2026
 
+## October14 bootstrap correction (not a model result)
+
+Both `_20261014_02` jobs ended before model initialization: Tencent taiji6
+has no external `zstd` executable. Default POD logs show verified Ceph/bundle
+checksum, then `tar (child): zstd: Cannot exec`. No predictions were produced.
+Use the same authenticated CUDA11.8 runtime bytes repacked as `.tar.gz`:
+SHA256 `b1185493fb316b2d4534d888df2a6cd871dbb74f6c95255235ba4947ae8486a5`.
+Original/new uncompressed tar SHA256 both
+`d275cd531c26c165708be5db00d655100890f184a9693ec795f228bd90207e0d`.
+`unpack_taiji_runtime.sh` checks the pinned gzip SHA before extraction and
+needs only image-provided gzip/tar/coreutils. Actual full archive extraction
+passed with PATH `/usr/bin:/bin`; corruption tests reject before extraction.
+This is a bootstrap fix only: no actor, dataset, chemical search or budget
+policy change. Failed logs remain under the original submission directories.
+
 User-approved scope: first evaluate all3120 mech-USPTO-31k test products,
 submit exactly one8xA100 task (queued is a successful submission), then use
 the same frozen FlowER actor for the R1/R2 complete-route scientific scenarios.

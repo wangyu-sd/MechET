@@ -9,10 +9,10 @@ conda activate meteor
 runtime_code=$(mktemp -d /tmp/mechet_frozen_routes_code.XXXXXX)
 git -C "$source_repo" archive "$MECHET_TREE_CODE_SHA" | tar -x -C "$runtime_code"
 vllm_local=$(mktemp -d /tmp/mechet_frozen_routes_vllm.XXXXXX)
-bundle=$shared/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu118_py311.tar.zst
+bundle=$shared/artifacts/taiji_vllm_runtime/vllm_0_8_5_torch_2_6_cu118_py311.tar.gz
 echo '[frozen-routes] staging authenticated CUDA11.8 vLLM runtime'
-echo "23c44e907d6f50ed75f46f908063a3d6c37144d676dd444cc055df9a93b98f9c  $bundle" | sha256sum --check --strict
-tar --zstd -xf "$bundle" -C "$vllm_local"
+bash "$runtime_code/scripts/unpack_taiji_runtime.sh" "$bundle" \
+  b1185493fb316b2d4534d888df2a6cd871dbb74f6c95255235ba4947ae8486a5 "$vllm_local"
 rdkit_local=$(mktemp -d /tmp/mechet_frozen_routes_rdkit.XXXXXX)
 wheel=$shared/artifacts/wheels/rdkit-2026.3.4-cp311-cp311-manylinux_2_28_x86_64.whl
 echo "a41dde42ecb24e7d93d62b89e8e5d267b02bbac764f965f3968296c99234c685  $wheel" | sha256sum --check --strict
