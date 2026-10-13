@@ -1,5 +1,17 @@
 # Active ICLR status
 
+## 2026-10-13: separate forward next-electron-event SFT submitted
+
+One8xH20/ZJK task `meteor_mechet_forward_event_06b_2ep_8h20_zjk_20261013_01`,
+instance `8b1d89caa134b07c01a13555c25400d2`. Actual20:56CST readback:
+TRAINING_RESOURCE_WAITING; no POD, conversion or optimizer yet. Original
+FlowER forward transitions, complete257167/2890/28967 strict IDs, two epochs,
+global64, BF16. Independent forward LoRA on original pinned Qwen3-0.6B;
+reverse weights hash-protected and unchanged, no other tasks stopped.
+Runtime `2ebb892cac0142705bb74e051f17bf4f4eeabce4`; successful Stage-II H20
+Tencent taiji7/Ceph donor/default log45s heartbeat. See
+`docs/FORWARD_QWEN_EVENT_SFT.md`. Submission is not evidence of running or gain.
+
 ## 2026-10-13: joint import–FLOW formal task running; first update verified
 
 Submitted `meteor_mechet_joint_import_flow_full_1a100_qy_20261013_01`, instance

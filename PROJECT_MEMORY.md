@@ -1,5 +1,18 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-13 independent forward Qwen3-0.6B:** task
+> `meteor_mechet_forward_event_06b_2ep_8h20_zjk_20261013_01`, instance
+> `8b1d89caa134b07c01a13555c25400d2`, ordinary8xH20/ZJK, was submitted.
+> Actual20:56CST state is TRAINING_RESOURCE_WAITING; no POD or training yet.
+> Original forward FlowER transitions over257167/2890/28967 strict reaction
+> IDs; CPU64 full conversion/replay/token audits then two-epoch new forward
+> LoRA, pinned original Qwen3-0.6B. Reverse Stage-II weights remain unchanged
+> and are hash-protected. Proven Stage-II H20 donor Ceph init, Tencent taiji7,
+> default log/45s heartbeat. No unrelated jobs stopped. Runtime commit
+> `2ebb892cac0142705bb74e051f17bf4f4eeabce4`; protocol
+> `docs/FORWARD_QWEN_EVENT_SFT.md`; actual submission record in main repo
+> `outputs/submissions/forward_qwen_sft_20261013/submission.json`.
+
 > **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
 > compact-history task was stopped because its action-conditioned observation
 > and private-map replay contract are diagnostic only.  The first clean v2
