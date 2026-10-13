@@ -1,5 +1,23 @@
 # Active ICLR status
 
+## 2026-10-13 22:58 CST: dynamic full3120 search, no chemical caps
+
+Submitted ONE ordinary8xA100 QY task
+`meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261013_01`, instance
+`8b1d8145a134ab5e01a135c0d60b028a`; **TRAINING_RESOURCE_WAITING**, not running.
+Runtime `0796e2d30eaf57a5f27a6bdccf1ff0be6be7b493`; actual frozen FlowER
+Stage-II Qwen3-0.6B SHA40204c7a...7e9de75, full endpoint RXNMapper test3120.
+No fixed depth/beam/import count; adaptive novelty and retained native-state/
+history contexts, task-only work and physical-memory limits. No RSI/RL.
+Default POD output/45s heartbeat, successful QY donor Ceph/Tencent taiji6.
+696 unit tests passed/11 skipped; NO new inference accuracy measured yet.
+See `docs/DYNAMIC_ELECTRON_TREE_PROTOCOL.md`, main checkout receipt
+`outputs/submissions/dynamic_electron_tree_20261013/submission.json`.
+After submission the paper PR29 R1/R2 full-route protocol was reread at
+ee96f346ccfc2c40038dd1c4f9b6e7f955915659. Public raw460 route targets and three
+stocks are present; full-route execution remains PENDING. Independent forward
+8H20 task left untouched and still resource-waiting.
+
 ## 2026-10-13: separate forward next-electron-event SFT submitted
 
 One8xH20/ZJK task `meteor_mechet_forward_event_06b_2ep_8h20_zjk_20261013_01`,

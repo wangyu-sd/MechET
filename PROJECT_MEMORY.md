@@ -1,5 +1,16 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-13 full3120 dynamic tree:** user confirmed FlowER Stage-II frozen
+> Qwen3-0.6B actual SHA40204c7a...7e9de75 and rejected fixed chemical depth,
+> beam/import caps. Task meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261013_01,
+> instance8b1d8145a134ab5e01a135c0d60b028a, runtime0796e2d, one8A100 QY.
+> Readback22:58 CST TRAINING_RESOURCE_WAITING. Public full3120 endpoint
+> RXNMapper test is used without1253 filtering; only unmapped product visible.
+> Greedy+dynamic conditions save all raw prompts/completions/NLL/context trees.
+> No RSI/RL/weight change, no unrelated cancellation. Follow-on full-route
+> R1/R2 is PENDING; do not conflate reaction trees with stock-connected routes.
+> See current ACTIVE_ICLR_STATUS and docs/DYNAMIC_ELECTRON_TREE_PROTOCOL.md.
+
 > **2026-10-13 independent forward Qwen3-0.6B:** task
 > `meteor_mechet_forward_event_06b_2ep_8h20_zjk_20261013_01`, instance
 > `8b1d89caa134b07c01a13555c25400d2`, ordinary8xH20/ZJK, was submitted.
