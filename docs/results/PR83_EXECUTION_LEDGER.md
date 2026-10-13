@@ -279,6 +279,38 @@ Cost: fewer terminal RL updates per root, rather than fabricated local credit.
 - Written architecture review remains pending. Do not report PR submission,
   green unit tests or available quota as a submitted/running joint experiment.
 
+## 2026-10-13 — user-approved joint import–FLOW implementation
+
+- User explicitly requested direct implementation and training submission.
+  Added joint Qwen policy-LoRA/CRN-head trainer with model-owned import/finish
+  frontiers, raw token-bound summed delegated probabilities, complete frozen
+  proposal support, IID replacement draws, fixed K1 follower terminal returns,
+  separate verified replay and original conditional KL. No GT enters draws.
+- Ruling: one grouped AdamW (Qwen1e-6, graph5e-6) keeps both policies in the same
+  atomic update; cost: no independent optimizer schedule, not required here.
+- Ruling: score support before rewards without retained activations, then use
+  exact score-space chain-rule coefficients for sequential backward; cost:
+  another scoring pass, but no candidate-times-context activation blowup.
+- Ruling: preserve the existing greedy decoder and graph bridge; add explicit
+  paired-model export/controller validation instead of changing old inference.
+  Cost: the new train-only proposal policy is conditional on a finite support,
+  not an unbiased whole-product-start policy gradient or guaranteed improvement.
+- Native randomly initialized tiny Qwen generation/teacher-scoring parity and
+  real PEFT export/reload are unit contracts, not chemical smoke experiments.
+  Explicit prefix tokens count against the unchanged384-token call budget.
+- Both LoRA and graph snapshots, grouped optimizer, RNG and authenticated
+  journal cursors share one checkpoint. Partial/wrong-shaped snapshots and
+  paired-inference precision changes are rejected; raw branch inputs/outputs,
+  errors, import map participation and endpoint returns are persisted.
+- Ruling: Taiji loads an immutable committed-code archive with commit/hash
+  verification, rather than a mutable worktree. Cost: fixes need a new runtime
+  and run ID. Use ordinary main-QY Tencent `:taiji6` successful donor/Ceph init,
+  one A100, default POD progress and <=60s heartbeat. No other task is stopped.
+- Full strict train source and both parent weight SHAs were independently
+  rechecked and match the written contract. Task covers257,167 strict train
+  reactions, not unqualified FlowER full. No new reaction smoke was run.
+- Source review/submission pending; static/unit checks are not endpoint gain.
+
 ## Archived upstream notes merged from PR83 (pre-v4, historical)
 
 The following records describe earlier source-only v2 repairs, not the current

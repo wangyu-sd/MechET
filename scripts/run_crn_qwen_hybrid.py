@@ -26,7 +26,7 @@ from mechet.crn_graph_bridge import (
     graph_event_coordinates, route_tool_name, route_tool_name_greedy,
 )
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
-from scripts.pr83_resume import evaluation_manifest, prepare_resume
+from scripts.pr83_resume import evaluation_manifest, prepare_resume, load_joint_policy_contract
 from scripts.run_natural_language_value_search import (
     Action, Node, Runtime, policy_prompt, read_selected, rollout,
     validate_v2_adapter_manifest,
@@ -178,6 +178,8 @@ def parser() -> argparse.ArgumentParser:
     p.add_argument("--graph-checkpoint", type=Path, required=True)
     p.add_argument("--graph-sha256", default=GRAPH_PRETRAIN_SHA256)
     p.add_argument("--graph-rl-head", type=Path, default=None)
+    p.add_argument("--joint-policy-dir", type=Path, default=None,
+                   help="SHA-bound paired Qwen adapter and graph head export")
     p.add_argument("--graph-flow-topk", type=int, default=1)
     p.add_argument("--graph-initial-budget", type=int, default=4,
                    help="non-oracle electron-event budget supplied to CRN-JEPA")
@@ -219,7 +221,21 @@ def completed_ids(path: Path, expected_ids: set[str]) -> set[str]:
     return done
 
 
+def bind_joint_policy(args, contract, directory):
+    for key, expected in contract['controller'].items():
+        if not hasattr(args, key) or getattr(args, key) != expected:
+            raise ValueError(f'joint inference controller mismatch: {key}')
+    args.policy_adapter = Path(directory)/contract['qwen_adapter_relative_path']
+    args.graph_rl_head = Path(directory)/contract['graph_head_relative_path']
+    if getattr(args, 'graph_sha256', None) != contract['training_manifest']['crn_pretrained_sha256']:
+        raise ValueError('joint inference graph parent mismatch')
+    return args
+
+
 def prepare_args(args):
+    if getattr(args, 'joint_policy_dir', None):
+        contract = load_joint_policy_contract(args.joint_policy_dir)
+        bind_joint_policy(args, contract, args.joint_policy_dir)
     if not 1 <= args.sample_reactions or not 1 <= args.graph_flow_topk <= 32:
         raise ValueError("invalid reaction count or graph-flow candidate budget")
     if (args.max_decisions != 40 or args.max_imports != 32 or
@@ -276,7 +292,8 @@ def main() -> int:
     graph_sha = file_sha256(args.graph_checkpoint)
     if graph_sha != args.graph_sha256:
         raise ValueError("CRN pretrained checkpoint SHA-256 mismatch")
-    policy = "crn_jepa_qwen_routed_flow_singlepass_import_v2"
+    policy = ("joint_import_flow_endpoint_v1" if args.joint_policy_dir
+              else "crn_jepa_qwen_routed_flow_singlepass_import_v2")
     manifest = evaluation_manifest(
         selected_ids=identifiers, source_sha256=source_sha,
         source_path=str(args.data), qwen_adapter_sha256=qwen_adapter_sha,

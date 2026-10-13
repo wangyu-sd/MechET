@@ -1,6 +1,8 @@
 # Joint import–FLOW endpoint optimization: design for review
 
-Status: proposed implementation; no joint-policy checkpoint or Taiji run yet.
+Status: user-approved implementation in progress; no joint-policy checkpoint
+or Taiji run yet. Source uses one grouped AdamW optimizer for atomic Qwen/graph
+updates and sequential score-gradient recomputation to bound GPU memory.
 User direction: submit both a code PR and a tested Taiji training task.
 This document fixes the proposed architectural scope before implementation.
 

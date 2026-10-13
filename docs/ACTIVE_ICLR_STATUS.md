@@ -1,14 +1,18 @@
 # Active ICLR status
 
-## 2026-10-13: joint import–FLOW proposal; training not submitted
+## 2026-10-13: joint import–FLOW implemented locally; submission pending
 
 The user approved the joint-import direction and requested both a code PR and
 a Taiji training task. Written design/plan:
 `docs/superpowers/specs/2026-10-13-joint-import-flow-endpoint-design.md` and
 `docs/superpowers/plans/2026-10-13-joint-import-flow-endpoint-plan.md`.
-These describe proposed trainable Qwen LoRA + graph heads, not an implemented
-joint trainer. The architecture review gate precedes that implementation;
-do not submit the current graph-only trainer under a joint-policy task name.
+The user approved direct implementation. The new joint trainer is
+`scripts/train_crn_qwen_joint_earho.py`: Qwen policy LoRA and graph heads receive
+shared binary terminal credit, with separate replay and original conditional KL.
+Its complete-support IID objective, score-space microbackward, paired export/
+resume and matched inference have local unit checks. Final independent source
+review and formal submission are pending; no joint empirical gain is claimed.
+Do not submit the old graph-only trainer under a joint-policy task name.
 
 The authorized local FP16/T4 diagnostic is finished: validation8 baseline
 1/8 structural endpoints, 6/8 terminals, 22/22 imports accepted and 34/36 FLOW

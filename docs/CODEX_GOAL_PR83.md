@@ -7,7 +7,8 @@ endpoint credit**. This is a deliberate proposed change from frozen-Qwen
 graph-only training. The written design and native implementation plan are
 `docs/superpowers/specs/2026-10-13-joint-import-flow-endpoint-design.md` and
 `docs/superpowers/plans/2026-10-13-joint-import-flow-endpoint-plan.md`.
-They await architecture review; joint training is not implemented or submitted.
+The user has now approved direct implementation and submission. Joint source
+is implemented locally and undergoing final review; no task is submitted yet.
 Do not launch the existing graph-only script and describe it as this new method.
 This is an ongoing handoff, not a DONE/blocked terminal declaration.
 

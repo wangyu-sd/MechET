@@ -227,3 +227,119 @@ def prepare_training_resume(
     output.mkdir(parents=True, exist_ok=True)
     _write_atomic(path, _bytes_json(manifest))
     return None
+
+
+JOINT_CONTROLLER_KEYS = (
+    'model', 'model_revision', 'dtype', 'no_4bit', 'tool_route', 'compact_history',
+    'graph_initial_budget', 'graph_flow_topk', 'graph_beam', 'graph_source_width',
+    'graph_sink_width', 'graph_move_width', 'max_context', 'max_decisions',
+    'max_imports', 'max_import_tokens',
+)
+
+
+def joint_controller_settings(args):
+    return {name:getattr(args, name) for name in JOINT_CONTROLLER_KEYS if hasattr(args, name)}
+
+
+def save_joint_training_state(path: Path, state):
+    """One atomic checkpoint contains BOTH policies, optimizer and journal cursors."""
+    import torch
+    def snapshot(value):
+        if isinstance(value, torch.Tensor):
+            return value.detach().cpu().clone()
+        if isinstance(value, dict):
+            return {key:snapshot(item) for key,item in value.items()}
+        if isinstance(value, (tuple, list)):
+            return type(value)(snapshot(item) for item in value)
+        return value
+    if not state.get('qwen_policy') or not state.get('graph_policy'):
+        raise ValueError('joint checkpoint must contain both policies')
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name+'.tmp')
+    with tmp.open('wb') as handle:
+        torch.save(snapshot(state), handle)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(tmp, path)
+
+
+def validate_joint_weights(qwen_expected, graph_expected, state):
+    for label, expected, key in [('Qwen', qwen_expected, 'qwen_policy'),
+                                  ('graph', graph_expected, 'graph_policy')]:
+        actual = state.get(key, {})
+        if set(actual) != set(expected) or any(
+            actual[name].shape != value.shape or actual[name].dtype != value.dtype
+            for name,value in expected.items() if name in actual):
+            raise ValueError(f'joint resume {label} snapshot is incomplete or incompatible')
+
+
+def export_joint_policy(runtime, output, manifest, stats):
+    """Publish immutable paired adapter/head export, followed by atomic pointer."""
+    import tempfile
+    import torch
+    from mechet.crn_graph_bridge import file_sha256
+    output = Path(output)
+    output.mkdir(parents=True, exist_ok=True)
+    relative = f"pair-{int(stats['optimizer_updates']):09d}"
+    destination = output/relative
+    if destination.exists():
+        checked = load_joint_policy_contract(destination)
+        if checked['training_manifest'] != manifest:
+            raise ValueError('existing joint export has different provenance')
+        return dict(checked, relative_directory=relative)
+    staging = Path(tempfile.mkdtemp(prefix='.joint-export-', dir=output))
+    runtime.model.save_pretrained(staging/'qwen_policy', selected_adapters=['policy'])
+    adapter = staging/'qwen_policy'/'policy'
+    if not (adapter/'adapter_model.safetensors').is_file():
+        raise ValueError('PEFT did not export the selected policy adapter')
+    if runtime.tokenizer is not None:
+        runtime.tokenizer.save_pretrained(adapter)
+    parent = json.loads((runtime.args.policy_adapter/'adapter_manifest.json').read_text())
+    adapter_sha = file_sha256(adapter/'adapter_model.safetensors')
+    parent.update(adapter_sha256=adapter_sha, adapter_path=str(destination/'qwen_policy'/'policy'),
+        parent_adapter_sha256=manifest['qwen_adapter_sha256'],
+        condition_name=manifest['algorithm'], joint_policy=True)
+    (adapter/'adapter_manifest.json').write_bytes(_bytes_json(parent))
+    controller = {key:value for key,value in manifest['settings'].items() if key in JOINT_CONTROLLER_KEYS}
+    head = staging/'graph_earho_policy_head.pt'
+    torch.save(dict(policy_head={key:value.detach().cpu().clone()
+        for key,value in runtime.graph.model.policy.state_dict().items()
+        if not key.startswith('graph_encoder.')}, base_checkpoint_sha256=runtime.graph.sha256,
+        qwen_frozen=False, qwen_adapter_sha256=adapter_sha,
+        algorithm=manifest['algorithm'], source_sha256=manifest['train_source_sha256'],
+        controller=controller), head)
+    contract = dict(schema=1, algorithm=manifest['algorithm'], controller=controller,
+        training_manifest=manifest, optimizer_updates=int(stats['optimizer_updates']),
+        qwen_adapter_relative_path='qwen_policy/policy',
+        graph_head_relative_path=head.name,
+        hashes={str(path.relative_to(staging)):file_sha256(path)
+                for path in staging.rglob('*') if path.is_file()})
+    (staging/'joint_controller_contract.json').write_bytes(_bytes_json(contract))
+    os.replace(staging, destination)
+    pointer = dict(contract, relative_directory=relative)
+    _write_atomic(output/'latest_joint_pair.json', _bytes_json(pointer))
+    return pointer
+
+
+def load_joint_policy_contract(directory):
+    from mechet.crn_graph_bridge import file_sha256
+    directory = Path(directory).resolve()
+    contract = json.loads((directory/'joint_controller_contract.json').read_text())
+    if contract.get('algorithm') != 'joint_import_flow_endpoint_v1':
+        raise ValueError('not a joint-policy artifact')
+    for name in (contract['qwen_adapter_relative_path'], contract['graph_head_relative_path'],
+                 *contract['hashes']):
+        path = (directory/name).resolve()
+        if not path.is_relative_to(directory):
+            raise ValueError('joint artifact path escapes export')
+    required = {contract['graph_head_relative_path'],
+        contract['qwen_adapter_relative_path']+'/adapter_model.safetensors',
+        contract['qwen_adapter_relative_path']+'/adapter_config.json',
+        contract['qwen_adapter_relative_path']+'/adapter_manifest.json'}
+    if not required.issubset(contract['hashes']):
+        raise ValueError('joint export missing required hashes')
+    for name, expected in contract['hashes'].items():
+        if file_sha256(directory/name) != expected:
+            raise ValueError(f'joint artifact hash mismatch: {name}')
+    return contract

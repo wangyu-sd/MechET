@@ -15,9 +15,10 @@ RDKit 2026.03.4, Tencent Taiji CLI.
 
 **Spec:** `docs/superpowers/specs/2026-10-13-joint-import-flow-endpoint-design.md`
 
-**Execution status:** Design/plan awaiting review; joint-policy implementation
-has not started. The independent prerequisite repairs in Task 1 are implemented
-separately. No joint-policy training job has been submitted.
+**Execution status (2026-10-13):** User approved direct inline implementation.
+Tasks 1–4 are implemented and locally verified; Task 5 source/config is
+prepared, pending final independent review and actual Taiji submission.
+No joint-policy checkpoint or empirical improvement is claimed yet.
 
 ## Global Constraints
 
@@ -93,8 +94,7 @@ qwen_logp, graph_logp=None) -> Tensor`.
 
 ### Task 3: Joint frontiers, model-owned imports and endpoint returns
 
-**Files:** Create the future `train_crn_qwen_joint_earho.py` under the `scripts`
-directory (not yet implemented; not a runnable entrypoint), and
+**Files:** Create `scripts/train_crn_qwen_joint_earho.py` and
 `tests/test_joint_earho_training.py`; consume the probability interfaces from
 Task 2 and existing `conditional_endpoint_policy_loss`/`AuditJournal`.
 
@@ -178,6 +178,6 @@ after rechecking its successful instance, group, location and Tencent image.
 ## Handoff
 
 The requested end state is both a code PR and a tested training submission.
-The current handoff submits design/prerequisite repairs for review first;
-Tasks 2–5 require that design review and then native inline execution.
+The user approved the written design and direct inline execution. The final
+source review and full-protocol submission are next; no new smoke is authorized.
 No job should be launched with the graph-only script while calling it joint RL.
