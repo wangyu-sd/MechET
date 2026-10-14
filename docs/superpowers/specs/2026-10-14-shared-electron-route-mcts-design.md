@@ -2,7 +2,11 @@
 
 Status: implemented; CPU suite838 passed,11 skipped,1 pre-existing PEFT warning.
 Independent review's three Important findings were reproduced and fixed with
-regressions. Full460 submission is next; no new model results claimed.
+regressions. Full460 ordinary8A100 task `_20261014_07` submitted23:00:46 CST,
+instance8b1d89c4a13ad33601a13aee1c0b0052; actual inference verified: Ceph/eight
+A100/eight MCTS manifests/full460/raw output and fresh GPU batches. No completed
+benchmark results claimed. Receipt/startup evidence in main repository
+outputs/submissions/r1_r2_full460_shared_mcts_20261014_07.
 
 ## Scope and invariant
 
