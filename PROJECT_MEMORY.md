@@ -1,5 +1,21 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-14 source-field audit — requires user decision, not silently fixed:**
+> Full3120 raw-test audit matches current frozen min-based artifact3120/3120.
+> Reusing the SAME largest-organic rule on rxn_prod_equ changes799 targets
+> (25.6%);798 become larger. Unique selected products2273(min)/3065(equ).
+> Current min-selected inputs repeat isobutene164, dicyclohexylurea607, TPPO33.
+> Cases951/1491: model input really is isobutene; raw equ includes larger
+> deprotected products absent from min. This is a source-protocol limitation,
+> NOT wrong checkpoint/cache reuse. Do NOT label all799 chemically wrong from
+> this proxy audit, or promise equ-largest always identifies desired product.
+> Report outputs/analysis/mech_uspto31k_product_field_audit_20261014/report.json.
+> No dataset/task stopped/modified; changing frozen field/endpoint protocol
+> needs explicit user direction.31k results must retain min-proxy labeling,
+> not be promoted as audited principal-product benchmark. R1/R2 full460 targets
+> and frozen FlowER actor remain unchanged; no new training or smoke authorized.
+
+
 > **2026-10-14 07:55 CST verified _04 startup:** full3120 has all8 matching
 > manifests and ACTUAL saved greedy policy generations; initial snapshot45
 > completed case artifacts/4000 raw decision batches (progress, not accuracy).
