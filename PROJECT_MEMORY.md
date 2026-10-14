@@ -1,5 +1,16 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-14 08:33 CST old min-proxy greedy condition completed:** all3120
+> unique IDs/8 sealed shards,139 endpoint hits(4.46%),2294 terminal cases(73.53%),
+>1885971 decoded tokens/16996 raw decisions. Terminal coverage is NOT chemical
+> correctness. Mark as frozen rxn_prod_min-proxy DIAGNOSTIC, not corrected
+> principal-product benchmark;799-field audit remains. Raw inputs/outputs saved.
+> Dynamic-tree rank directories exist8/8, no completed tree result yet. Full460
+> _04 remains PENDING at08:29 readback. No task stopped or dataset switched;
+> user decision on stopping/rebuilding31k still missing. Diagnostic summary:
+> outputs/analysis/mech_uspto31k_product_field_audit_20261014/greedy_diagnostic_summary.json.
+
+
 > **2026-10-14 source-field audit — requires user decision, not silently fixed:**
 > Full3120 raw-test audit matches current frozen min-based artifact3120/3120.
 > Reusing the SAME largest-organic rule on rxn_prod_equ changes799 targets
