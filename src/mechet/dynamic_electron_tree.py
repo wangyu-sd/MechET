@@ -20,6 +20,7 @@ from scripts.run_natural_language_value_search import (
 )
 from .in_place_grounded_flow import mapped_atom_numbers
 from .proof_program import _canonical_unmapped
+from .shared_electron_search import SharedSearchStore
 
 
 def digest(value: Any) -> str:
@@ -142,7 +143,8 @@ class SearchContext:
 
 
 class ElectronTree:
-    def __init__(self, case_id: str, product: str):
+    def __init__(self, case_id: str, product: str, *, shared_store=None):
+        self.shared_store = shared_store
         mapped = product_only_private_state(product)
         target = visible(mapped)
         root = Node(target, mapped, max(mapped_atom_numbers(mapped), default=0)+1, visited={target})
@@ -188,8 +190,16 @@ class ElectronTree:
                     if isinstance(x, dict): return {k: executable_payload(v) for k,v in x.items() if k != 'instruction'}
                     if isinstance(x, list): return [executable_payload(v) for v in x]
                     return x
-                cache_key = digest([parent_key, action.name, executable_payload(action.arguments)])
+                # finish_trace validates EXACTLY empty arguments. Never strip
+                # an extra field into a falsely valid empty finish call.
+                payload = (executable_payload(action.arguments)
+                           if action.name in {'apply_electron_flow', 'import_fragments'} else action.arguments)
+                cache_key = digest([parent_key, action.name, payload])
                 cached = self.execution_cache.get(cache_key)
+                if cached is None and self.shared_store is not None:
+                    receipt = self.shared_store.execution(cache_key)
+                    if receipt is not None:
+                        cached = (receipt['child'], receipt['error'])
                 if cached is None:
                     # No arbitrary max-imports or chemical path-depth cap. Huge
                     # allocations are rejected as RESOURCE failures before execution.
@@ -211,17 +221,42 @@ class ElectronTree:
                     if not error:
                         child, error = execute(parent.node, action, max_imports=math.inf)
                         self.work['executor_calls'] += 1
-                        self.execution_cache[cache_key] = (child, error)
+                        # execute catches exceptions, including transient host
+                        # failures. Only success or deterministic input/chemical
+                        # rejection can become reusable executor evidence.
+                        reusable = child is not None or (
+                            error.startswith(('ValueError:', 'TypeError:', 'KeyError:', 'OverflowError:'))
+                            and not any(word in error.lower() for word in
+                                        ('memory', 'allocation', 'resource', 'timeout', 'temporary')))
+                        if reusable:
+                            self.execution_cache[cache_key] = (child, error)
+                        if self.shared_store is not None and reusable:
+                            # Only deterministic executor outcomes are shared.
+                            # Resource failures depend on the host and are NOT
+                            # chemical-invalid evidence in another task.
+                            value = None if child is None else {
+                                'target': child.target, 'state': child.state,
+                                'next_map': child.next_map, 'imported': child.imported,
+                                'visited': sorted(child.visited), 'terminal': child.terminal,
+                                'record': {**child.actions[-1], 'arguments': payload}}
+                            self.shared_store.save_execution(cache_key, {'child': value, 'error': error})
                 else:
                     self.work['execution_cache_hits'] += 1
                     cached_child, error = cached
                     if cached_child is not None:
-                        record = dict(cached_child.actions[-1])
+                        if isinstance(cached_child, dict):
+                            record = dict(cached_child['record'])
+                            target, state, next_map = (cached_child[k] for k in ('target', 'state', 'next_map'))
+                            visited, imported, terminal = (cached_child[k] for k in ('visited', 'imported', 'terminal'))
+                        else:
+                            record = dict(cached_child.actions[-1])
+                            target, state, next_map = cached_child.target, cached_child.state, cached_child.next_map
+                            visited, imported, terminal = cached_child.visited, cached_child.imported, cached_child.terminal
                         record['arguments'] = action.arguments
-                        child = Node(target=cached_child.target, state=cached_child.state, next_map=cached_child.next_map,
-                                     actions=parent.node.actions + [record], visited=set(cached_child.visited),
-                                     imported=dict(cached_child.imported), logprob=parent.node.logprob+action.logprob,
-                                     tokens=parent.node.tokens+action.tokens, terminal=cached_child.terminal)
+                        child = Node(target=target, state=state, next_map=next_map,
+                                     actions=parent.node.actions + [record], visited=set(visited),
+                                     imported=dict(imported), logprob=parent.node.logprob+action.logprob,
+                                     tokens=parent.node.tokens+action.tokens, terminal=terminal)
             edge = {'id': f'E{len(self.edges)}', 'parent_context': parent_key,
                     'parent_chemical': parent.chemical_id, 'action': asdict(proposal),
                     'status': 'rejected', 'error': error, 'decision_depth': len(parent.node.actions)+1}

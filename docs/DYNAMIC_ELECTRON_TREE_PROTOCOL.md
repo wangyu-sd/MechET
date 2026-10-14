@@ -1,5 +1,71 @@
 # Frozen Qwen dynamic electronic tree, October13 2026
 
+## October14 shared persistence correction (new runtime, not a new result)
+
+User stopped BOTH `_20261014_04` tree jobs at17:19 CST; Taiji verified END.
+The old runtime5121e5c stored full trees only in `finish()`. Its raw generations
+and prompts survive, but it did NOT save recoverable incremental graphs. Do not
+describe69 first-stock-solution events as69 saved complete paths. Old greedy
+conditions are complete and unchanged. The correction below does not recover
+old RAM, change frozen data, restart a job, or fix the global convergence policy.
+
+The runner now queries `SharedSearchStore` before generation. By default both
+jobs share `outputs/eval/shared_electron_search_v1/`; use `--shared-cache` to
+select another COMMON Ceph directory. Namespaces bind pinned base/adapter,
+history, backend/dtype and actual executor dependency hashes. Request keys bind
+exact native context, rendered prompt token IDs, sampler settings, seed, batch
+size and completion allowance. IDs, source labels and stocks are excluded.
+Case-independent context/batch seeds replace case-dependent seeds; this is an
+explicit NEW sampling contract, not a retroactive modification of old results.
+Different histories, atom addresses and native Kekule states remain distinct.
+
+Existing matching generation batches are reused with original raw/token IDs,
+unwarped likelihood and finish reason. Only missing batches invoke vLLM.
+Cross-process nonblocking flock claims defer busy requests, preventing duplicate
+generation and multi-key deadlocks. Files are checksum protected, fsynced and
+atomically renamed; the shared filesystem must support POSIX flock/rename/fsync.
+Repeated contexts reuse observations, NOT fresh independent samples. Later
+batch indices get new seeds and can add new branches. No chemical pruning is
+introduced. Shared deterministic executor receipts preserve native successors;
+path likelihood is recomputed from the CURRENT path. Host memory/resource
+rejections are journaled but never cached as universal chemical invalidity.
+
+Each case has `MODE/rankXX/journals/HASH_OF_CASE_ID/contract.json` and ordered
+`events/000000000.json`, etc. The initial graph is committed before generation;
+each subsequent commit saves changed parent/child contexts (including complete
+native Node state, imports, visited set, actions, likelihood and sampling stats),
+accepted AND rejected edges, new outer obligations and outer reaction state.
+Whole unchanged trees are not rewritten after every wave. No `finish()` is
+needed to recover the last committed graph. A first/changed stock-connected
+certificate is also saved immediately as `best_route.json`. A process killed
+mid-write may lose an uncommitted expansion, not all previous commits; orphan
+`.partial` files are ignored. Deterministic replay of cached proposals can fill
+the last gap on a fresh attempt. No guarantee of recovering UNSAVED old runs.
+
+Read/materialize the graph while search is still active (no GPU/model calls):
+
+```bash
+python scripts/materialize_electron_search.py \
+  --journal /absolute/run/tree/rank00/journals/CASE_HASH \
+  --output /absolute/new/partial_case_graph.json
+```
+
+For routes also pass `--stock` with the original canonical stock file; its SHA
+must match this CASE's exact cohort binding, not just any stock in the shared
+run manifest. Cohort/stock metadata belongs to per-case journals, never policy
+cache keys. Per-case recovery API is `SearchJournal.restore` (its caller must
+verify the exact stock contract, as the CLI does).
+New attempts can reuse the shared cache; partial raw shards still cannot be
+silently overwritten, and automatic full-job resume/accounting is not claimed.
+Recovered graphs are explicitly partial, never `complete.json` or final accuracy.
+Stocks/closure rules and endpoint evaluation remain task-specific.
+
+`output_tokens`, engine calls and prompt work count ACTUAL new generation;
+`shared_policy_cache_hits`/`reused_output_tokens` report reused observations
+separately. Logical tree sample counts still include reused proposals. Shared
+search conditions must disclose reuse; do not claim independent or matched-work
+gains from duplicated cached observations. CPU tests do not establish model gain.
+
 ## October14 bootstrap correction (not a model result)
 
 Both `_20261014_02` jobs ended before model initialization: Tencent taiji6

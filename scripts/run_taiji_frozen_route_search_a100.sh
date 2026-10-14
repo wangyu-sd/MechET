@@ -3,6 +3,7 @@ set -Eeuo pipefail
 shared=/aaa/fionafyang/buddy1/whaleywang/MechET
 source_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy
 : "${MECHET_TREE_CODE_SHA:?pinned route code SHA required}"
+: "${MECHET_TREE_OUTPUT:?explicit NEW task output directory required}"
 mountpoint -q /aaa/fionafyang/buddy1
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -43,22 +44,29 @@ print({'phase':'frozen-routes-preflight','rdkit':rdkit.__version__,'torch':torch
        'vllm':vllm.__version__,'gpus':8},flush=True)
 PY
 assets=$shared/data/route_benchmarks/frozen_r1_r2_20261013
-output=$shared/outputs/eval/r1_r2_frozen_06b_dynamic_routes_20261013
+output=$MECHET_TREE_OUTPUT
+shared_cache=${MECHET_SHARED_TREE_CACHE:-$shared/outputs/eval/shared_electron_search_v1}
 adapter=$shared/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
 echo "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75  $adapter/adapter_model.safetensors" | sha256sum --check --strict
-echo '[frozen-routes] preparing ALL target/reference/stock rows with remote CPU workers'
-python -u scripts/prepare_frozen_route_benchmarks.py \
-  --config configs/eval/frozen_route_benchmarks_20261013.json --output "$assets" --workers 64
+if [[ ! -f "$assets/manifest.json" ]]; then
+  echo '[frozen-routes] preparing ALL target/reference/stock rows with remote CPU workers'
+  python -u scripts/prepare_frozen_route_benchmarks.py \
+    --config configs/eval/frozen_route_benchmarks_20261013.json --output "$assets" --workers 64
+else
+  echo '[frozen-routes] using existing frozen assets; worker validates source/stock SHAs; no overwrite'
+fi
 for mode in greedy tree; do
     source=$assets/all_targets.jsonl
-    source_sha=$(sha256sum "$source" | awk '{print $1}')
-    rows=$(wc -l < "$source")
+    source_sha=5e2778c6fa828f25d18d2c461ab17021b4ac1519a45bf8388f7f9eb1571ed3c5
+    rows=460
+    echo "$source_sha  $source" | sha256sum --check --strict
     echo "[frozen-routes] mode=$mode full_rows=$rows source_sha=$source_sha dynamic_work_checkpoints_no_hard_token_or_time_cap"
     pids=()
     for rank in $(seq 0 7); do
       CUDA_VISIBLE_DEVICES=$rank python -u scripts/infer_dynamic_electron_trees.py \
         --data "$source" --source-sha "$source_sha" --expected-rows "$rows" \
         --adapter "$adapter" --output "$output" --mode "$mode" --rank "$rank" --world 8 \
+        --shared-cache "$shared_cache" \
         --route-assets-manifest "$assets/manifest.json" --route-cohort all \
         --initial-token-checkpoint 80000000 --initial-wall-checkpoint-hours 24 --cpu-workers 8 --batch-prompts 32 &
       pids+=("$!")

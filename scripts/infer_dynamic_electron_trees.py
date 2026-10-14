@@ -30,6 +30,9 @@ from mechet.endpoints import reference_structural_precursor, split_precursor_end
 from scripts.run_natural_language_value_search import policy_prompt
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
 from scripts.eval_natural_language_event_local import prediction_call
+from mechet.shared_electron_search import (
+    SharedSearchStore, SearchJournal, sampling_seed, resolve_policy_requests, fingerprint,
+)
 
 ADAPTER_SHA = '40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75'
 REVISION = 'c1899de289a04d12100db370d81485cdf75e47ca'
@@ -71,6 +74,8 @@ def record_work_wave(*,wave,elapsed,tokens,forward_calls,runtime_work,trees,seen
         'prompt_tokens':sum(cost['prompt_tokens'] for cost in runtime_work.values()),
         'policy_request_batches':sum(cost['policy_request_batches'] for cost in runtime_work.values()),
         'cpu_executor_thread_seconds':sum(cost.get('cpu_executor_thread_seconds',0.) for cost in runtime_work.values()),
+        'shared_policy_cache_hits':sum(cost.get('shared_policy_cache_hits',0) for cost in runtime_work.values()),
+        'reused_output_tokens':sum(cost.get('reused_output_tokens',0) for cost in runtime_work.values()),
         'new_stock_solved_ids':newly,'credited_stock_solved_targets':len(seen_solutions),
         'boundary':'post_executor_whole_generation_wave_v1','actual_GPU_FLOPs_claim':False}
 
@@ -106,6 +111,8 @@ def load_route_stock(manifest_path, cohort, data_sha, expected_rows):
         'route_assets_sha':sha256(manifest_path),'route_cohort':cohort,
         'stock_source_shas':{name:assets['stocks'][name]['sha256'] for name in stock_sets},
         'stock_canonical_shas':{name:assets['stocks'][name]['canonical_sha256'] for name in stock_sets},
+        'stock_canonical_sha_by_cohort':{
+            name:assets['stocks'][source['stock']]['canonical_sha256'] for name,source in sources.items()},
         'stock_normalization':assets['normalization']}
 
 
@@ -193,6 +200,8 @@ def main():
     p.add_argument('--batch-prompts',type=int,default=32)
     p.add_argument('--cpu-workers',type=int,default=8)
     p.add_argument('--max-model-len',type=int,default=8192)
+    p.add_argument('--shared-cache',type=Path,
+                   help='shared durable state/policy/execution cache; defaults beside output')
     p.add_argument('--route-assets-manifest',type=Path)
     p.add_argument('--route-cohort')
     args=p.parse_args()
@@ -224,6 +233,8 @@ def main():
         'wall_hours':args.wall_hours,'task_budget_mode':'renewable_checkpoints_no_token_or_time_cap_v1',
         'max_model_len':args.max_model_len,'raw_unwarped_nll':True,
         'evaluation_unit':'stock_connected_AND_route' if route_mode else 'single_reaction_endpoint',
+        'persistence_contract':'shared_cache_incremental_journal_v1',
+        'sampling_seed_contract':'case_independent_native_context_v1',
         'code_sha':os.environ.get('MECHET_TREE_CODE_SHA','not_supplied'),**route_contract}
     if (root_dir/'complete.json').exists():
         verify_saved_run(json.loads((root_dir/'complete.json').read_text())['manifest'],expected_contract)
@@ -260,23 +271,51 @@ def main():
     manifest['host_memory_growth_allowance_bytes'] = memory_guard.growth_allowance
     manifest['host_memory_persistence_reserve_bytes'] = memory_guard.reserve
     manifest['work_wave_contract'] = 'post_executor_whole_generation_wave_v1'
+    # Do not include source IDs/stocks/labels in the reusable cache namespace.
+    # Hash executable dependencies conservatively; a changed executor must not
+    # reuse old chemical decisions, even if a caller forgets a code SHA.
+    cache_contract={'model':args.model,'revision':REVISION,'adapter_sha':ADAPTER_SHA,
+        'history_contract':lineage['environment_revision'],'dtype':'bfloat16',
+        'backend':'vllm_0.8.5_V0_TP1','executor_code_sha':fingerprint({
+            str(path.relative_to(REPO)):sha256(path) for path in sorted([
+                *(REPO/'src/mechet').glob('*.py'),
+                REPO/'scripts/run_natural_language_value_search.py',
+                REPO/'scripts/build_natural_language_event_sft.py',
+                REPO/'scripts/eval_natural_language_event_local.py'])}),
+        'sampling_seed_contract':'case_independent_native_context_v1'}
+    shared_store=SharedSearchStore(args.shared_cache or args.output.parent/'shared_electron_search_v1',cache_contract)
+    manifest.update(shared_cache_namespace=shared_store.namespace,shared_cache_path=str(shared_store.root),
+        persistence_contract='shared_cache_incremental_journal_v1',
+        sampling_seed_contract='case_independent_native_context_v1')
     dump(root_dir/'manifest.json',manifest)
     references={r['id']:r for r in selected}
     runtime_work={r['id']:{'policy_request_batches':0,'prompt_tokens':0,
                           'candidate_prompt_token_equivalents':0,'model_forward_batches_participated':0,
+                          'shared_policy_cache_hits':0,'reused_output_tokens':0,
                           'cpu_executor_wall_seconds':0.0,'cpu_executor_thread_seconds':0.0} for r in selected}
     trees={}
     reports=[]
     for row in selected:
         try:
             # ONLY unmapped PRODUCT is exposed to the tree/prompt builder.
-            trees[row['id']]=(RouteNetwork(row['id'],row['product_unmapped'],stock[row['cohort']],mode=args.mode)
-                               if route_mode else ElectronTree(row['id'],row['product_unmapped']))
+            trees[row['id']]=(RouteNetwork(row['id'],row['product_unmapped'],stock[row['cohort']],
+                                          mode=args.mode,shared_store=shared_store)
+                               if route_mode else ElectronTree(row['id'],row['product_unmapped'],shared_store=shared_store))
         except Exception as exc:
             reports.append({'id':row['id'],'top1':False,'top5':False,'top10':False,
                             'any_endpoint_hit':False,'terminal_count':0,'stop_reason':'ROOT_PARSE_FAILURE',
                             'error':str(exc),'stock_solved':False,'already_in_stock':False,
                             'work':{'sampled_tokens':0,'raw_candidates':0}})
+    journals={}
+    for identifier,controller in trees.items():
+        case_contract=dict(manifest)
+        if route_mode:
+            cohort=references[identifier]['cohort']
+            case_contract.update(case_cohort=cohort,
+                case_stock_sha=route_contract['stock_canonical_sha_by_cohort'][cohort])
+        journal=SearchJournal(root_dir/'journals',identifier,case_contract)
+        journal.initialize(controller)
+        journals[identifier]=journal
     queue=deque(trees)
     started=time.monotonic()
     total_tokens=0
@@ -340,6 +379,7 @@ def main():
                 room=args.max_model_len-len(ids)
                 if room<2:
                     context.resource_closed='CONTEXT_MEMORY_BUDGET'
+                    journals[identifier].record(tree,context.key,[])
                     queue.append(identifier);continue
                 allowance=min(context.max_new_tokens,room)
                 n=1 if args.mode=='greedy' else context.stats.next_batch
@@ -350,7 +390,7 @@ def main():
                 params=SamplingParams(n=n,temperature=0 if args.mode=='greedy' else 1,top_p=1,top_k=-1,
                     repetition_penalty=1,presence_penalty=0,frequency_penalty=0,min_tokens=0,
                     max_tokens=allowance,logprobs=0,skip_special_tokens=False,
-                    seed=int(hashlib.sha256(f'{args.seed}:{identifier}:{context.key}:{context.stats.batches}'.encode()).hexdigest()[:8],16))
+                    seed=sampling_seed(args.seed,context.key,context.stats.batches))
                 batch.append((identifier,context.key,ids,params,n,allowance))
                 prompt_key=f'{identifier}:{context.key}'
                 if prompt_key not in seen_prompts:
@@ -362,32 +402,59 @@ def main():
                     continue
                 break
             generation_start=time.monotonic()
-            outputs=engine.generate([{'prompt_token_ids':x[2]} for x in batch],[x[3] for x in batch],
-                                    lora_request=lora,use_tqdm=False)
+            requests=[{'context':x[1],'prompt_ids':x[2],'n':x[4],'max_tokens':x[5],
+                'temperature':0 if args.mode=='greedy' else 1,'top_p':1,'top_k':-1,
+                'repetition_penalty':1,'presence_penalty':0,'frequency_penalty':0,
+                'skip_special_tokens':False,'logprobs':0,'min_tokens':0,
+                'seed':x[3].seed} for x in batch]
+            def generate_missing(missing):
+                outputs=engine.generate([{'prompt_token_ids':r['prompt_ids']} for r in missing],
+                    [SamplingParams(**{k:v for k,v in r.items() if k not in {'context','prompt_ids'}})
+                     for r in missing],lora_request=lora,use_tqdm=False)
+                records=[]
+                for result in outputs:
+                    proposals=[]
+                    for generated in result.outputs:
+                        tokens=list(generated.token_ids)
+                        raw=tokenizer.decode(tokens,skip_special_tokens=False)
+                        name,arguments,error=prediction_call(raw,tokenizer)
+                        value=generated.cumulative_logprob
+                        if value is None or not math.isfinite(value):
+                            raise RuntimeError('missing/nonfinite unwarped model NLL')
+                        proposals.append(asdict(Proposal(name,arguments,raw,float(value),len(tokens),
+                            str(error or ''),generated.finish_reason=='length',tokens)))
+                    records.append({'request_id':str(result.request_id),
+                        'cached_prefix_tokens':getattr(result,'num_cached_tokens',None),
+                        'generations':proposals,'engine_finish_reasons':[x.finish_reason for x in result.outputs]})
+                return records
+            resolved=resolve_policy_requests(shared_store,requests,generate_missing)
             generation_seconds=time.monotonic()-generation_start
             pending=[]
-            for item,result in zip(batch,outputs,strict=True):
+            for item,request,result in zip(batch,requests,resolved,strict=True):
                 identifier,key,_,_,_,allowance=item
-                proposals=[]
-                for generated in result.outputs:
-                    tokens=list(generated.token_ids)
-                    raw=tokenizer.decode(tokens,skip_special_tokens=False)
-                    name,arguments,error=prediction_call(raw,tokenizer)
-                    truncated=generated.finish_reason=='length'
-                    value=generated.cumulative_logprob
-                    if value is None or not math.isfinite(value):
-                        raise RuntimeError('missing/nonfinite unwarped model NLL')
-                    proposals.append(Proposal(name,arguments,raw,float(value),len(tokens),str(error or ''),truncated,tokens))
-                    total_tokens+=len(tokens)
+                if result is None:
+                    queue.append(identifier)  # another worker owns the shared request
+                    continue
+                record,cache_hit=result
+                proposals=[Proposal(**value) for value in record['generations']]
                 tree=trees[identifier]
                 cost=runtime_work[identifier]
-                cost['policy_request_batches']+=1
-                cost['prompt_tokens']+=len(item[2])
-                cost['candidate_prompt_token_equivalents']+=len(item[2])*len(result.outputs)
-                cost['model_forward_batches_participated']+=forwards.by_request.pop(str(result.request_id),0)
+                if cache_hit:
+                    cost['shared_policy_cache_hits']+=1
+                    cost['reused_output_tokens']+=sum(x.tokens for x in proposals)
+                else:
+                    total_tokens+=sum(x.tokens for x in proposals)
+                    cost['policy_request_batches']+=1
+                    cost['prompt_tokens']+=len(item[2])
+                    cost['candidate_prompt_token_equivalents']+=len(item[2])*len(proposals)
+                    cost['model_forward_batches_participated']+=forwards.by_request.pop(record['request_id'],0)
                 raw_file.write(json.dumps({'case_id':identifier,'context':key,'prompt_tokens':len(item[2]),
-                            'request_id':str(result.request_id),'cached_prefix_tokens':getattr(result,'num_cached_tokens',None),
-                            'generations':[asdict(x) for x in proposals], 'engine_finish_reasons':[x.finish_reason for x in result.outputs]},ensure_ascii=False)+'\n')
+                            'request_id':None if cache_hit else record['request_id'],
+                            'cached_prefix_tokens':None if cache_hit else record['cached_prefix_tokens'],
+                            'shared_cache_hit':cache_hit,'shared_request_key':fingerprint(request),
+                            'shared_cache_namespace':shared_store.namespace,
+                            'generations':[asdict(x) for x in proposals],
+                            'engine_finish_reasons':record['engine_finish_reasons']},ensure_ascii=False)+'\n')
                 def incorporate_timed(controller,key,proposals):
                     wall=time.monotonic();cpu=time.thread_time()
                     result=controller.incorporate(key,proposals)
@@ -407,7 +474,12 @@ def main():
                     accepted=[e for e in edges if e.get('child_context')]
                     if accepted:forced[identifier]=accepted[0]['child_context']
                     elif not any(x.truncated for x in proposals):context.resource_closed='GREEDY_INVALID_ACTION'
+                # Durable native contexts, accepted/rejected edges and complete
+                # outer reaction state BEFORE scheduling another expansion.
+                journals[identifier].record(tree,key,edges)
                 queue.append(identifier)
+            if not pending:
+                time.sleep(.05)  # shared requests busy; avoid a CPU spin loop
             raw_file.flush();prompt_file.flush()
             wave_index+=1
             wave_work=save_wave()

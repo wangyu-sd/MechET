@@ -37,12 +37,13 @@ def stock_closure(stock_nodes: set[str], edges: list[dict]) -> dict[str,dict]:
 
 
 class RouteNetwork:
-    def __init__(self, case_id: str, product: str, stock: set[str], *, mode: str):
+    def __init__(self, case_id: str, product: str, stock: set[str], *, mode: str, shared_store=None):
         if mode not in {'tree','greedy'}:raise ValueError('invalid route policy mode')
         self.case_id=case_id
         self.target=chemical_key(product)
         self.stock=stock  # shared immutable stock set, not copied per target
         self.mode=mode
+        self.shared_store=shared_store
         self.already_in_stock=self.target in stock
         self.trees:dict[str,ElectronTree]={}
         self.contexts:dict[str,SearchContext]={}
@@ -72,7 +73,7 @@ class RouteNetwork:
     def _add_obligation(self,molecule):
         if molecule in self.stock or molecule in self.trees:return
         try:
-            tree=ElectronTree(f'{self.case_id}:{digest(molecule)[:16]}',molecule)
+            tree=ElectronTree(f'{self.case_id}:{digest(molecule)[:16]}',molecule, shared_store=self.shared_store)
         except Exception as exc:
             self.failed_obligations.append({'molecule':molecule,'error':str(exc)})
             return

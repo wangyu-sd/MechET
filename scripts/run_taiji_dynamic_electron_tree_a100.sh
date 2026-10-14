@@ -3,6 +3,7 @@ set -Eeuo pipefail
 shared=/aaa/fionafyang/buddy1/whaleywang/MechET
 source_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy
 : "${MECHET_TREE_CODE_SHA:?pinned code SHA required}"
+: "${MECHET_TREE_OUTPUT:?explicit NEW task output directory required}"
 mountpoint -q /aaa/fionafyang/buddy1
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -46,7 +47,8 @@ PY
 source=$shared/data/mech_uspto_31k_full_endpoint_rxnmapper/test.jsonl
 source_sha=819215c5d40720afd998aaf77b7b938045d8171a5487b26bf929897f65a957c4
 adapter=$shared/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
-output=$shared/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013
+output=$MECHET_TREE_OUTPUT
+shared_cache=${MECHET_SHARED_TREE_CACHE:-$shared/outputs/eval/shared_electron_search_v1}
 echo "$source_sha  $source" | sha256sum --check --strict
 echo "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75  $adapter/adapter_model.safetensors" | sha256sum --check --strict
 for mode in greedy tree; do
@@ -55,6 +57,7 @@ for mode in greedy tree; do
     CUDA_VISIBLE_DEVICES=$rank python -u scripts/infer_dynamic_electron_trees.py \
       --data "$source" --source-sha "$source_sha" --expected-rows 3120 \
       --adapter "$adapter" --output "$output" --mode "$mode" --rank "$rank" --world 8 \
+      --shared-cache "$shared_cache" \
       --task-token-budget 80000000 --wall-hours 24 --cpu-workers 8 --batch-prompts 32 &
     pids+=("$!")
   done
