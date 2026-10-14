@@ -27,7 +27,7 @@ multiset. Actual action feedback and product-only addressing remain unchanged.
 
 Model EOS, a generated stop string, one purchasable fragment, or an arbitrary
 intermediate state is NOT a solved route. Completion requires an executable,
-nonproductive/cycle-free reaction sequence with ALL structural leaves in the
+productive, cycle-free reaction sequence with ALL structural leaves in the
 original cohort stock. Formal execution and stock closure do not establish
 experimental chemical feasibility.
 
