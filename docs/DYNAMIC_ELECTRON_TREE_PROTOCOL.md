@@ -1,5 +1,39 @@
 # Frozen Qwen dynamic electronic tree, October13 2026
 
+## October14 full460 route-analysis recovery
+
+The shared-cache `_05` R1/R2 task completed all eight greedy shards, then
+exited before TREE because the analyzer incorrectly compared inference
+`code_sha` to the frozen assets' `preparation_code_sha`. These are independent
+lineages. Keep the original assets and complete outputs immutable; no model or
+source rebuild is needed. Recovered `_05` greedy has36/460 nonzero stock-closed
+targets (Expert1,Drugs15,RetroCast17,Pa-derived3), plus one already-stock target.
+This is NOT the older `_04` greedy's38/460 result. The shared version explicitly
+changed sampling seed binding; it must retain its own observed outputs.
+
+The analyzer now verifies a full, consistent inference commit per condition,
+while separately recording asset preparation provenance. `--greedy-code-sha`
+and `--tree-code-sha` can pin each condition. A cross-runtime comparison needs
+BOTH explicit pins and an identical policy/executor cache namespace, model,
+source, stocks, seed and context/work settings. Different shard ranks or pins
+remain errors. Asset preparation revision never authorizes inference reuse.
+
+To avoid regenerating the full greedy baseline, the launcher accepts
+`MECHET_ROUTE_GREEDY_OUTPUT` plus mandatory `MECHET_GREEDY_CODE_SHA`. It validates
+the original eight completed shards and runs only TREE into a NEW output
+directory. Analysis uses `--greedy-output` to read the originals directly;
+their raw files, hashes and runtime labels are not copied or rewritten. This
+is operational recovery of the existing adaptive search, NOT a newly
+implemented MCTS, Dreamer, value model, RL or a new benchmark population.
+
+The full460 TREE search recurses on every nonstock structural precursor only
+after an executable `finish_trace`, and requires ALL leaves of a complete
+route to close against the target's original cohort stock. Intermediate
+electronic states are not separate synthetic reaction steps. Per-wave native
+journals/shared cache and immediate `best_route.json` remain enabled. This
+repair does not change the previous novelty heuristic or introduce a fixed
+chemical depth/breadth ceiling.
+
 ## October14 shared persistence correction (new runtime, not a new result)
 
 User stopped BOTH `_20261014_04` tree jobs at17:19 CST; Taiji verified END.

@@ -4,6 +4,13 @@ shared=/aaa/fionafyang/buddy1/whaleywang/MechET
 source_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy
 : "${MECHET_TREE_CODE_SHA:?pinned route code SHA required}"
 : "${MECHET_TREE_OUTPUT:?explicit NEW task output directory required}"
+if [[ -n "${MECHET_ROUTE_GREEDY_OUTPUT:-}" ]]; then
+  : "${MECHET_GREEDY_CODE_SHA:?explicit preserved greedy inference SHA required}"
+  if [[ -e "$MECHET_TREE_OUTPUT" || -L "$MECHET_TREE_OUTPUT" ]]; then
+    echo '[frozen-routes] recovery requires a new output; preserve existing greedy/partial artifacts' >&2
+    exit 2
+  fi
+fi
 mountpoint -q /aaa/fionafyang/buddy1
 source /root/miniconda3/etc/profile.d/conda.sh
 conda activate meteor
@@ -55,7 +62,18 @@ if [[ ! -f "$assets/manifest.json" ]]; then
 else
   echo '[frozen-routes] using existing frozen assets; worker validates source/stock SHAs; no overwrite'
 fi
-for mode in greedy tree; do
+modes=(greedy tree)
+analysis_args=(--assets "$assets/manifest.json" --output "$output"
+               --tree-code-sha "$MECHET_TREE_CODE_SHA")
+if [[ -n "${MECHET_ROUTE_GREEDY_OUTPUT:-}" ]]; then
+  modes=(tree)
+  analysis_args+=(--greedy-output "$MECHET_ROUTE_GREEDY_OUTPUT" --greedy-code-sha "$MECHET_GREEDY_CODE_SHA")
+  echo '[frozen-routes] validating preserved full460 greedy; no GPU regeneration or source overwrite'
+  python -u scripts/analyze_frozen_route_search.py "${analysis_args[@]}" --allow-single-condition
+else
+  analysis_args+=(--greedy-code-sha "$MECHET_TREE_CODE_SHA")
+fi
+for mode in "${modes[@]}"; do
     source=$assets/all_targets.jsonl
     source_sha=5e2778c6fa828f25d18d2c461ab17021b4ac1519a45bf8388f7f9eb1571ed3c5
     rows=460
@@ -74,7 +92,7 @@ for mode in greedy tree; do
     status=0
     for pid in "${pids[@]}"; do wait "$pid" || status=1; done
     (( status == 0 )) || { echo '[frozen-routes] worker failed; preserve raw artifacts' >&2; exit 2; }
-  python -u scripts/analyze_frozen_route_search.py --assets "$assets/manifest.json" --output "$output" --allow-single-condition
+  python -u scripts/analyze_frozen_route_search.py "${analysis_args[@]}" --allow-single-condition
 done
-python -u scripts/analyze_frozen_route_search.py --assets "$assets/manifest.json" --output "$output"
+python -u scripts/analyze_frozen_route_search.py "${analysis_args[@]}"
 echo '[frozen-routes] full460 A/B journals and observed R1/R2 analysis completed; RSI not run'

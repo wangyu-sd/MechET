@@ -91,6 +91,104 @@ def test_shard_cannot_masquerade_as_other_rank_condition_or_assets():
             validate_shard_contract({**manifest,field:value},expected,rank=0,world=8,mode='tree')
 
 
+def route_analysis_cli_fixture(tmp_path):
+    """Independent small CPU fixture; never runs an actor or an experiment."""
+    import json
+    from mechet.frozen_route_assets import file_sha256
+    from scripts.infer_dynamic_electron_trees import ADAPTER_SHA, REVISION
+    targets=[{'id':'a','already_in_stock':False}, {'id':'b','already_in_stock':False}]
+    source=tmp_path/'targets.jsonl'
+    source.write_text(''.join(json.dumps(row)+'\n' for row in targets))
+    assets={'stock_preparation_complete':True,'composition_annotation_complete':False,
+        'preparation_code_sha':'a'*40,'full_targets_sha256':file_sha256(source),
+        'stocks':{'unit':{'canonical_sha256':'stock'}},
+        'cohorts':{'unit':{'targets_path':str(source),'targets_sha256':file_sha256(source),
+                           'target_ids':['a','b']}}}
+    manifest=tmp_path/'assets.json';manifest.write_text(json.dumps(assets))
+    output=tmp_path/'run'
+    for mode in ['greedy','tree']:
+        directory=output/mode/'rank00';directory.mkdir(parents=True)
+        contract={'adapter_sha':ADAPTER_SHA,'revision':REVISION,'model':'Qwen/Qwen3-0.6B',
+            'source_sha':file_sha256(source),'route_assets_sha':file_sha256(manifest),
+            'code_sha':'b'*40,'rank':0,'world':1,'mode':mode,
+            'evaluation_unit':'stock_connected_AND_route','route_cohort':'all',
+            'task_budget_mode':'renewable_checkpoints_no_token_or_time_cap_v1',
+            'stock_canonical_shas':{'unit':'stock'},'seed':17,'task_token_budget':80000000,
+            'max_model_len':8192,'wall_hours':24.,'shared_cache_namespace':'same-policy'}
+        rows=[{'id':'a','stock_solved':True,'already_in_stock':False,'work':{'sampled_tokens':1}},
+              {'id':'b','stock_solved':False,'already_in_stock':False,'work':{'sampled_tokens':1}}]
+        (directory/'complete.json').write_text(json.dumps({'manifest':contract,'rows':rows,
+                                                          'tokens':2,'model_forward_calls':2}))
+    return manifest,output
+
+
+def test_analysis_accepts_frozen_assets_prepared_by_an_older_code_revision(tmp_path,monkeypatch):
+    import json,sys
+    from scripts.analyze_frozen_route_search import main
+    assets,output=route_analysis_cli_fixture(tmp_path)
+    monkeypatch.setattr(sys,'argv',['analyze','--assets',str(assets),'--output',str(output),'--world','1'])
+    main()
+    report=json.loads((output/'r1_route_results.json').read_text())
+    assert report['unit']['denominator']==2
+    assert report['unit']['conditions']['tree']['solved']==.5
+    provenance=json.loads((output/'figure3_manifest.json').read_text())
+    assert provenance['asset_preparation_code_sha']=='a'*40
+    assert provenance['inference_code_shas']=={'greedy':'b'*40,'tree':'b'*40}
+
+
+def test_explicit_pins_allow_preserving_greedy_without_rerunning_it(tmp_path,monkeypatch):
+    import json,sys
+    from scripts.analyze_frozen_route_search import main
+    assets,old_output=route_analysis_cli_fixture(tmp_path)
+    new_output=tmp_path/'new-run'
+    (new_output/'tree').mkdir(parents=True)
+    old_tree=old_output/'tree'/'rank00'/'complete.json'
+    shard=json.loads(old_tree.read_text());shard['manifest']['code_sha']='c'*40
+    new_tree=new_output/'tree'/'rank00';new_tree.mkdir()
+    (new_tree/'complete.json').write_text(json.dumps(shard))
+    old_greedy=old_output/'greedy'/'rank00'/'complete.json'
+    original_bytes=old_greedy.read_bytes()
+    monkeypatch.setattr(sys,'argv',['analyze','--assets',str(assets),'--output',str(new_output),'--world','1',
+        '--greedy-output',str(old_output),'--greedy-code-sha','b'*40,'--tree-code-sha','c'*40])
+    main()
+    assert old_greedy.read_bytes()==original_bytes
+    assert not (new_output/'greedy').exists()
+    provenance=json.loads((new_output/'figure3_manifest.json').read_text())
+    assert provenance['inference_code_shas']=={'greedy':'b'*40,'tree':'c'*40}
+    assert provenance['explicit_cross_runtime_comparison'] is True
+    assert any(item['path']==str(old_greedy) for item in provenance['source_shards'])
+    # Declared runtime pins are verified, not just recorded.
+    monkeypatch.setattr(sys,'argv',['analyze','--assets',str(assets),'--output',str(new_output),'--world','1',
+        '--greedy-output',str(old_output),'--greedy-code-sha','d'*40,'--tree-code-sha','c'*40])
+    with pytest.raises(ValueError,match='code_sha'):main()
+    # Even explicit pins must not mix a different policy or executor.
+    shard['manifest']['shared_cache_namespace']='different-policy'
+    (new_tree/'complete.json').write_text(json.dumps(shard))
+    monkeypatch.setattr(sys,'argv',['analyze','--assets',str(assets),'--output',str(new_output),'--world','1',
+        '--greedy-output',str(old_output),'--greedy-code-sha','b'*40,'--tree-code-sha','c'*40])
+    with pytest.raises(ValueError,match='shared_cache_namespace'):main()
+
+
+def test_missing_external_greedy_is_not_silently_accepted_as_a_single_condition(tmp_path,monkeypatch):
+    import sys
+    from scripts.analyze_frozen_route_search import main
+    assets,output=route_analysis_cli_fixture(tmp_path)
+    monkeypatch.setattr(sys,'argv',['analyze','--assets',str(assets),'--output',str(output),'--world','1',
+        '--greedy-output',str(tmp_path/'missing'),'--allow-single-condition'])
+    with pytest.raises(ValueError,match='greedy'):main()
+
+
+def test_analysis_still_rejects_undeclared_mixed_inference_revisions(tmp_path,monkeypatch):
+    import json,sys
+    from scripts.analyze_frozen_route_search import main
+    assets,output=route_analysis_cli_fixture(tmp_path)
+    path=output/'tree'/'rank00'/'complete.json'
+    shard=json.loads(path.read_text());shard['manifest']['code_sha']='c'*40
+    path.write_text(json.dumps(shard))
+    monkeypatch.setattr(sys,'argv',['analyze','--assets',str(assets),'--output',str(output),'--world','1'])
+    with pytest.raises(ValueError,match='mixed frozen route conditions: code_sha'):main()
+
+
 def test_reference_recovery_uses_retained_graph_not_only_best_continuation():
     from scripts.analyze_frozen_route_search import graph_contains_published_route
     source=[{'reference_route_id':'ref','source_product_smiles':'CCO','source_precursor_smiles':['C','CO']},

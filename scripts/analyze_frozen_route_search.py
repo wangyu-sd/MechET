@@ -11,6 +11,7 @@ from collections import defaultdict
 import csv
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 import subprocess
@@ -390,6 +391,9 @@ def main():
     parser.add_argument('--assets',type=Path,required=True)
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--analysis-output',type=Path,help='separate destination preserving previous analysis')
+    parser.add_argument('--greedy-output',type=Path,help='read existing sealed greedy shards without copying or rerunning them')
+    parser.add_argument('--greedy-code-sha',help='explicit expected greedy inference commit, NOT asset preparation commit')
+    parser.add_argument('--tree-code-sha',help='explicit expected tree inference commit, NOT asset preparation commit')
     parser.add_argument('--reference-only',action='store_true',help='freeze full460 source labels without reading predictions')
     parser.add_argument('--mechanism-annotations',type=Path,help='sealed actual-SFT reference annotation manifest')
     parser.add_argument('--route-diversity-manifest',type=Path,action='append',default=[],
@@ -413,25 +417,36 @@ def main():
                           'new_model_result':False,'output':str(destination)}),flush=True)
         return
     summaries={};provenance=[];all_conditions={};contracts=[];runtime_totals={};wave_inputs={}
-    diversity={}
+    diversity={};inference_code_shas={}
     for path in args.route_diversity_manifest:
         mode=json.loads(path.read_text()).get('mode')
         if mode not in ('greedy','tree') or mode in diversity:raise ValueError('diversity mode missing or duplicated')
         diversity[mode]=path
     expected={'adapter_sha':ADAPTER_SHA,'revision':REVISION,'model':'Qwen/Qwen3-0.6B',
         'source_sha':assets['full_targets_sha256'],'route_assets_sha':file_sha256(args.assets),
-        'code_sha':assets['preparation_code_sha'],
         'task_budget_mode':'renewable_checkpoints_no_token_or_time_cap_v1',
         'stock_canonical_shas':{name:stock['canonical_sha256'] for name,stock in assets['stocks'].items()}}
     all_source_ids={identifier for cohort in assets['cohorts'].values() for identifier in cohort['target_ids']}
     for mode in ['greedy','tree']:
-        shard_paths=[args.output/mode/f'rank{rank:02d}'/'complete.json' for rank in range(args.world)]
+        condition_output=(args.greedy_output or args.output) if mode=='greedy' else args.output
+        shard_paths=[condition_output/mode/f'rank{rank:02d}'/'complete.json' for rank in range(args.world)]
         if not all(path.exists() for path in shard_paths):
+            if mode=='greedy' and args.greedy_output:
+                raise ValueError('external greedy condition is incomplete; cannot reuse it')
             if args.allow_single_condition:continue
             raise ValueError(f'full route condition incomplete: {mode}')
         shards=[json.loads(path.read_text()) for path in shard_paths]
+        # Frozen assets can outlive the code which prepared them. Bind inference
+        # to its own declared commit and reject differing ranks, rather than
+        # requiring a dataset rebuild whenever an operational bug is repaired.
+        code_pin=args.greedy_code_sha if mode=='greedy' else args.tree_code_sha
+        code_sha=code_pin or shards[0]['manifest'].get('code_sha','')
+        if not re.fullmatch('[0-9a-f]{40}',code_sha):
+            raise ValueError('route inference code_sha must be a full pinned commit')
+        inference_code_shas[mode]=code_sha
         for rank,shard in enumerate(shards):
-            validate_shard_contract(shard['manifest'],expected,rank=rank,world=args.world,mode=mode)
+            validate_shard_contract(shard['manifest'],{**expected,'code_sha':code_sha},
+                                    rank=rank,world=args.world,mode=mode)
             contracts.append(shard['manifest'])
         if any('work_waves_artifact' in shard for shard in shards):
             timeline=[]
@@ -453,7 +468,17 @@ def main():
         runtime_totals[mode]={'output_tokens':sum(shard['tokens'] for shard in shards),
                               'model_forward_calls':sum(shard['model_forward_calls'] for shard in shards)}
         provenance.extend({'path':str(path),'sha256':file_sha256(path)} for path in shard_paths)
-    for key in ['seed','task_token_budget','max_model_len','wall_hours','task_budget_mode','code_sha']:
+    explicit_cross_runtime=bool(args.greedy_code_sha and args.tree_code_sha
+        and len(set(inference_code_shas.values()))>1)
+    comparison_keys=['seed','task_token_budget','max_model_len','wall_hours','task_budget_mode']
+    if not explicit_cross_runtime:comparison_keys.append('code_sha')
+    else:
+        # A repaired launcher/analyzer may compare to preserved greedy data;
+        # the exact policy/executor namespace must nevertheless be unchanged.
+        if any(not contract.get('shared_cache_namespace') for contract in contracts):
+            raise ValueError('cross-runtime comparison requires shared policy/executor namespace')
+        comparison_keys.append('shared_cache_namespace')
+    for key in comparison_keys:
         if contracts and any(contract[key]!=contracts[0][key] for contract in contracts):
             raise ValueError(f'mixed frozen route conditions: {key}')
     if set(diversity)-set(all_conditions):raise ValueError('diversity supplied for incomplete inference condition')
@@ -501,6 +526,9 @@ def main():
     if len(summaries)==4 and all({'greedy','tree'}<=set(summary['conditions']) for summary in summaries.values()):
         plot_results(summaries,destination)
     write_json(destination/'figure3_manifest.json',{'source_shards':provenance,'assets_sha256':file_sha256(args.assets),
+        'asset_preparation_code_sha':assets['preparation_code_sha'],
+        'inference_code_shas':inference_code_shas,
+        'explicit_cross_runtime_comparison':explicit_cross_runtime,
         'mechanism_annotation_manifest':str(args.mechanism_annotations) if annotations else None,
         'mechanism_annotation_manifest_sha256':file_sha256(args.mechanism_annotations) if annotations else None,
         'inference_input_assets_unchanged':True,
