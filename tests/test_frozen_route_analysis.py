@@ -189,6 +189,17 @@ def test_analysis_still_rejects_undeclared_mixed_inference_revisions(tmp_path,mo
     with pytest.raises(ValueError,match='mixed frozen route conditions: code_sha'):main()
 
 
+def test_mcts_condition_cannot_mix_adaptive_shards_or_fake_an_mcts_label():
+    from scripts.analyze_frozen_route_search import condition_search_algorithm
+    mcts={'search_algorithm':'mcts','mcts_contract':'shared_sampled_puct_mcts_v1',
+          'mcts_c_puct':1.5,'mcts_rollout_concurrency_per_target':8,'stop_after_first_stock_route':True}
+    assert condition_search_algorithm([mcts,mcts])=='mcts'
+    assert condition_search_algorithm([{},{}])=='adaptive'
+    for invalid in [{}, {**mcts,'mcts_contract':'fake'}, {**mcts,'stop_after_first_stock_route':False}]:
+        with pytest.raises(ValueError,match='algorithm'):
+            condition_search_algorithm([mcts,invalid])
+
+
 def test_reference_recovery_uses_retained_graph_not_only_best_continuation():
     from scripts.analyze_frozen_route_search import graph_contains_published_route
     source=[{'reference_route_id':'ref','source_product_smiles':'CCO','source_precursor_smiles':['C','CO']},

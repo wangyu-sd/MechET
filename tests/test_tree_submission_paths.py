@@ -45,3 +45,14 @@ def test_route_recovery_cannot_overwrite_preserved_or_partial_output(tmp_path,al
     assert run.returncode!=0
     assert 'new output' in run.stderr
     assert 'staging' not in run.stdout
+
+
+def test_route_launcher_rejects_unknown_search_algorithm_before_bootstrap(tmp_path):
+    repo=Path(__file__).resolve().parents[1]
+    env={**os.environ,'MECHET_TREE_CODE_SHA':'unit-placeholder','MECHET_TREE_OUTPUT':str(tmp_path/'new'),
+         'MECHET_ROUTE_SEARCH_ALGORITHM':'not-mcts'}
+    run=subprocess.run(['bash',str(repo/'scripts/run_taiji_frozen_route_search_a100.sh')],
+                       env=env,capture_output=True,text=True,timeout=10)
+    assert run.returncode!=0
+    assert 'search algorithm' in run.stderr
+    assert 'staging' not in run.stdout

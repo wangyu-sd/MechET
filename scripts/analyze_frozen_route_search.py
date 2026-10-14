@@ -92,6 +92,19 @@ def validate_shard_contract(manifest,expected,*,rank,world,mode):
         if manifest.get(key)!=value:raise ValueError(f'route shard contract mismatch: {key}')
 
 
+def condition_search_algorithm(manifests):
+    algorithms={m.get('search_algorithm','adaptive') for m in manifests}
+    if len(algorithms)!=1 or not algorithms<={'adaptive','mcts'}:
+        raise ValueError('mixed/unknown search algorithm')
+    algorithm=next(iter(algorithms))
+    if algorithm=='mcts':
+        expected={'mcts_contract':'shared_sampled_puct_mcts_v1','mcts_c_puct':1.5,
+                  'mcts_rollout_concurrency_per_target':8,'stop_after_first_stock_route':True}
+        if any(m.get(k)!=v for m in manifests for k,v in expected.items()):
+            raise ValueError('MCTS search algorithm contract mismatch')
+    return algorithm
+
+
 def attach_exact_diversity(rows,path,*,mode,assets_sha,model_sha,shard_paths):
     """Read sealed enumeration only for these immutable predictions; never edit them."""
     path=Path(path)
@@ -236,6 +249,8 @@ def aggregate_cohort(targets,conditions):
     for mode,rows in conditions.items():
         known=[r['work']['sampled_tokens'] for r in rows]
         summary[mode]={**rate_interval([r['stock_solved'] for r in rows]),
+            'resource_limited_targets':sum(r.get('stop_reason','').startswith(
+                ('TASK_HOST_MEMORY','CONTEXT_MEMORY','COMPLETION_CONTEXT','ROOT_RESOURCE')) for r in rows),
             'zero_step_targets':sum(t['already_in_stock'] for t in targets),
             'total_output_tokens':sum(known),'mean_output_tokens':sum(known)/len(targets),
             'structural_reference_graph_recovery':(sum(graph_contains_published_route(
@@ -350,7 +365,7 @@ def freeze_reference_bins(assets,destination,annotations=None,annotation_path=No
     return result
 
 
-def plot_results(summaries,destination):
+def plot_results(summaries,destination,*,tree_label='Adaptive electron tree'):
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
@@ -360,7 +375,7 @@ def plot_results(summaries,destination):
     names=list(summaries)
     labels=['URSA Expert','URSA Drugs/Clinicals','RetroCast market','PaRoutes-derived']
     positions=np.arange(len(names))
-    for offset,mode,color,label in [(-.18,'greedy','#777777','Frozen policy (greedy)'),(.18,'tree','#416B82','Adaptive electron tree')]:
+    for offset,mode,color,label in [(-.18,'greedy','#777777','Frozen policy (greedy)'),(.18,'tree','#416B82',tree_label)]:
         rates=[summaries[name]['conditions'][mode]['solved'] for name in names]
         intervals=[summaries[name]['conditions'][mode]['ci95'] for name in names]
         axis.bar(positions+offset,100*np.asarray(rates),.34,label=label,color=color)
@@ -373,7 +388,7 @@ def plot_results(summaries,destination):
     r2=summaries['retrocast_mkt_cnv160']
     figure,axis=plt.subplots(figsize=(5.0,3.4))
     bins=list(r2['reference_depth'])
-    for mode,color,offset,label in [('greedy','#777777',-.18,'Frozen policy (greedy)'),('tree','#416B82',.18,'Adaptive electron tree')]:
+    for mode,color,offset,label in [('greedy','#777777',-.18,'Frozen policy (greedy)'),('tree','#416B82',.18,tree_label)]:
         values=[r2['reference_depth'][depth]['conditions'][mode] for depth in bins]
         rates=np.asarray([value['solved'] for value in values])
         axis.bar(np.arange(len(bins))+offset,100*rates,.34,color=color,label=label)
@@ -417,7 +432,7 @@ def main():
                           'new_model_result':False,'output':str(destination)}),flush=True)
         return
     summaries={};provenance=[];all_conditions={};contracts=[];runtime_totals={};wave_inputs={}
-    diversity={};inference_code_shas={}
+    diversity={};inference_code_shas={};search_algorithms={}
     for path in args.route_diversity_manifest:
         mode=json.loads(path.read_text()).get('mode')
         if mode not in ('greedy','tree') or mode in diversity:raise ValueError('diversity mode missing or duplicated')
@@ -436,6 +451,7 @@ def main():
             if args.allow_single_condition:continue
             raise ValueError(f'full route condition incomplete: {mode}')
         shards=[json.loads(path.read_text()) for path in shard_paths]
+        search_algorithms[mode]=condition_search_algorithm([s['manifest'] for s in shards])
         # Frozen assets can outlive the code which prepared them. Bind inference
         # to its own declared commit and reject differing ranks, rather than
         # requiring a dataset rebuild whenever an operational bug is repaired.
@@ -524,10 +540,12 @@ def main():
                       for mode,timeline in wave_inputs.items()},
         'independent_sampling_baseline':'not_run','equal_actual_compute_claim':False})
     if len(summaries)==4 and all({'greedy','tree'}<=set(summary['conditions']) for summary in summaries.values()):
-        plot_results(summaries,destination)
+        plot_results(summaries,destination,tree_label='Shared PUCT MCTS' if search_algorithms.get('tree')=='mcts'
+                     else 'Adaptive electron tree')
     write_json(destination/'figure3_manifest.json',{'source_shards':provenance,'assets_sha256':file_sha256(args.assets),
         'asset_preparation_code_sha':assets['preparation_code_sha'],
         'inference_code_shas':inference_code_shas,
+        'search_algorithms':search_algorithms,
         'explicit_cross_runtime_comparison':explicit_cross_runtime,
         'mechanism_annotation_manifest':str(args.mechanism_annotations) if annotations else None,
         'mechanism_annotation_manifest_sha256':file_sha256(args.mechanism_annotations) if annotations else None,

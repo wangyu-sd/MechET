@@ -1,6 +1,8 @@
 # Shared electronic-route MCTS for full R1/R2
 
-Status: design for user review; NOT implemented or submitted.
+Status: implemented; CPU suite838 passed,11 skipped,1 pre-existing PEFT warning.
+Independent review's three Important findings were reproduced and fixed with
+regressions. Full460 submission is next; no new model results claimed.
 
 ## Scope and invariant
 
@@ -72,6 +74,15 @@ selection and backup only the simulated path, not every graph ancestor.
 Persist node/edge statistics, active rollout paths, reservation leases and
 completed-backup IDs. Release/recover crashed-worker leases without counting
 a second backup. Record actual model calls versus reused cached observations.
+
+Duplicate-only widening batches yield back to selection rather than requiring
+a new unique action before another rollout can proceed. An explicit identical-
+contract `--resume` restores native journals and shared topology/statistics;
+interrupted rollout paths are censored and fresh rollouts traverse the existing
+graph. A crashed unsealed GPU wave may leave forward-call cost incomplete; a
+resume sidecar discloses this, rather than claiming exact recovered compute.
+`complete.json` seals population processing, not chemical search exhaustion:
+resource-limited targets retain their denominator and `search_complete=false`.
 
 ## Completion, work and outputs
 

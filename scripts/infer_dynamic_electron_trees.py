@@ -59,7 +59,7 @@ def continue_empty_wave(*, has_queue, budget_blocked):
     return has_queue and not budget_blocked
 
 
-def record_work_wave(*,wave,elapsed,tokens,forward_calls,runtime_work,trees,seen_solutions):
+def record_work_wave(*,wave,elapsed,tokens,forward_calls,runtime_work,trees,seen_solutions,completed_reports=()):
     """Observed post-executor boundary; inclusive cost of every generated proposal.
 
     Forward calls are engine-global, NOT the sum of request participation.
@@ -68,6 +68,8 @@ def record_work_wave(*,wave,elapsed,tokens,forward_calls,runtime_work,trees,seen
     """
     newly=sorted(identifier for identifier,tree in trees.items()
                  if getattr(tree,'first_solution_work',None) is not None and identifier not in seen_solutions)
+    newly=sorted(set(newly)|{r['id'] for r in completed_reports if r.get('stock_solved')
+                            and not r.get('already_in_stock') and r['id'] not in seen_solutions})
     seen_solutions.update(newly)
     return {'wave':wave,'inference_elapsed_seconds':elapsed,'output_tokens':tokens,
         'model_forward_calls':forward_calls,
@@ -87,6 +89,49 @@ def select_context(controller, mode, forced_key):
         context = controller.contexts[forced_key]
         return None if context.node.terminal or context.resource_closed else context
     return controller.next_context()
+
+
+def make_route_controller(row,stock,*,algorithm,shared_store,mcts_store=None,checkpoint_path=None,mode='tree'):
+    if algorithm=='mcts':
+        if mode!='tree' or mcts_store is None:raise ValueError('MCTS requires tree mode and shared statistics')
+        from scripts.shared_route_mcts import MCTSRouteNetwork
+        return MCTSRouteNetwork(row['id'],row['product_unmapped'],stock,
+            shared_store=shared_store,mcts_store=mcts_store,checkpoint_path=checkpoint_path)
+    if algorithm!='adaptive':raise ValueError('unknown route search algorithm')
+    return RouteNetwork(row['id'],row['product_unmapped'],stock,mode=mode,shared_store=shared_store)
+
+
+def search_progress(controllers,reports,*,denominator,attempted,tokens,calls,elapsed,algorithm):
+    resource_limited=sum(bool(r.get('resource_limited')) or r.get('stop_reason','').startswith(
+        ('TASK_HOST_MEMORY','CONTEXT_MEMORY','COMPLETION_CONTEXT','ROOT_RESOURCE')) for r in reports)
+    finished=len(reports)-resource_limited
+    metrics=[r.get('mcts',{}) for r in reports]
+    completed=sum(m.get('completed_rollouts',0) for m in metrics)
+    positive=sum(m.get('positive_backups',0) for m in metrics)
+    censored=sum(m.get('censored_rollouts',0) for m in metrics)
+    for c in controllers.values():
+        completed+=getattr(c,'completed_rollouts',0)
+        positive+=getattr(c,'positive_backups',0)
+        censored+=getattr(c,'censored_rollouts',0)
+    return {'algorithm':algorithm,'denominator':denominator,'initialized':denominator,
+        'initialized_percent':100.,'attempted':attempted,'attempted_percent':100*attempted/max(1,denominator),
+        'finished':finished,'finished_percent':100*finished/max(1,denominator),
+        'pending':denominator-finished,'resource_limited':resource_limited,
+        'processed':len(reports),'all_targets_processed':len(reports)==denominator,
+        'full_result_complete':finished==denominator,
+        'stock_solved_targets':sum(bool(r.get('stock_solved')) for r in reports)+sum(
+            getattr(c,'first_solution_work',None) is not None for c in controllers.values()),
+        'output_tokens':tokens,'model_forward_calls':calls,'elapsed_seconds':elapsed,
+        'completed_mcts_rollouts':completed,'positive_mcts_backups':positive,'censored_mcts_rollouts':censored}
+
+
+def initialize_or_restore_route(journal,controller,*,stock,resume):
+    if resume and journal.sequence:
+        from scripts.shared_route_mcts import MCTSRouteNetwork
+        return MCTSRouteNetwork.restore(journal,stock=stock,shared_store=controller.shared_store,
+            mcts_store=controller.mcts_store,checkpoint_path=controller.checkpoint_path)
+    journal.initialize(controller)
+    return controller
 
 
 def load_route_stock(manifest_path, cohort, data_sha, expected_rows):
@@ -202,6 +247,9 @@ def main():
     p.add_argument('--max-model-len',type=int,default=8192)
     p.add_argument('--shared-cache',type=Path,
                    help='shared durable state/policy/execution cache; defaults beside output')
+    p.add_argument('--search-algorithm',choices=['adaptive','mcts'],default='adaptive')
+    p.add_argument('--mcts-shared-root',type=Path,help='shared planning graph and N/W statistics')
+    p.add_argument('--resume',action='store_true',help='restore an interrupted MCTS shard with identical contracts')
     p.add_argument('--route-assets-manifest',type=Path)
     p.add_argument('--route-cohort')
     args=p.parse_args()
@@ -210,6 +258,9 @@ def main():
     if bool(args.route_assets_manifest) != bool(args.route_cohort):
         p.error('route manifest and cohort must be provided together')
     route_mode = args.route_assets_manifest is not None
+    algorithm=args.search_algorithm if args.mode=='tree' else 'adaptive'
+    if algorithm=='mcts' and not route_mode:p.error('MCTS requires full-route assets/stock')
+    if args.resume and algorithm!='mcts':p.error('resume currently requires MCTS')
     if sha256(args.data)!=args.source_sha:raise ValueError('source SHA mismatch')
     if sha256(args.adapter/'adapter_model.safetensors')!=ADAPTER_SHA:raise ValueError('Stage-II weight SHA mismatch')
     if not 0<=args.rank<args.world:raise ValueError('invalid shard')
@@ -235,13 +286,18 @@ def main():
         'evaluation_unit':'stock_connected_AND_route' if route_mode else 'single_reaction_endpoint',
         'persistence_contract':'shared_cache_incremental_journal_v1',
         'sampling_seed_contract':'case_independent_native_context_v1',
-        'code_sha':os.environ.get('MECHET_TREE_CODE_SHA','not_supplied'),**route_contract}
+        'code_sha':os.environ.get('MECHET_TREE_CODE_SHA','not_supplied'),
+        'search_algorithm':algorithm,**route_contract}
     if (root_dir/'complete.json').exists():
         verify_saved_run(json.loads((root_dir/'complete.json').read_text())['manifest'],expected_contract)
         print({'phase':'already-complete','rank':args.rank,'mode':args.mode},flush=True);return 0
     # Resume never overwrites a partial raw history under a changed run.
-    if (root_dir/'raw_generations.jsonl').exists():
+    if (root_dir/'raw_generations.jsonl').exists() and not args.resume:
         raise ValueError('partial shard exists; preserve it and select a new attempt directory')
+    saved_manifest=None
+    if args.resume and (root_dir/'manifest.json').exists():
+        saved_manifest=json.loads((root_dir/'manifest.json').read_text())
+        verify_saved_run(saved_manifest,expected_contract)
     lineage=json.loads((args.adapter/'data_contract.json').read_text())
     if lineage.get('environment_revision')!='natural_language_electron_event_history_v2':
         raise ValueError('not the Stage-II compressed-history protocol')
@@ -268,6 +324,11 @@ def main():
     manifest.update(route_contract)
     manifest['evaluation_unit'] = 'stock_connected_AND_route' if route_mode else 'single_reaction_endpoint'
     manifest['code_sha'] = os.environ.get('MECHET_TREE_CODE_SHA','not_supplied')
+    manifest['search_algorithm']=algorithm
+    if algorithm=='mcts':
+        manifest.update(mcts_contract='shared_sampled_puct_mcts_v1',mcts_c_puct=1.5,
+            mcts_rollout_concurrency_per_target=8,stop_after_first_stock_route=True,
+            mcts_shared_root=str(args.mcts_shared_root or args.output.parent/'shared_electron_mcts_v1'))
     manifest['host_memory_growth_allowance_bytes'] = memory_guard.growth_allowance
     manifest['host_memory_persistence_reserve_bytes'] = memory_guard.reserve
     manifest['work_wave_contract'] = 'post_executor_whole_generation_wave_v1'
@@ -287,19 +348,36 @@ def main():
     manifest.update(shared_cache_namespace=shared_store.namespace,shared_cache_path=str(shared_store.root),
         persistence_contract='shared_cache_incremental_journal_v1',
         sampling_seed_contract='case_independent_native_context_v1')
+    if saved_manifest is not None:
+        verify_saved_run(saved_manifest,{k:manifest[k] for k in
+            ('shared_cache_namespace','mcts_contract','mcts_c_puct','mcts_shared_root')})
+        manifest=saved_manifest  # journals bind the exact original header, including host budget
     dump(root_dir/'manifest.json',manifest)
     references={r['id']:r for r in selected}
     runtime_work={r['id']:{'policy_request_batches':0,'prompt_tokens':0,
                           'candidate_prompt_token_equivalents':0,'model_forward_batches_participated':0,
                           'shared_policy_cache_hits':0,'reused_output_tokens':0,
                           'cpu_executor_wall_seconds':0.0,'cpu_executor_thread_seconds':0.0} for r in selected}
-    trees={}
+    trees={};mcts_stores={}
+    if algorithm=='mcts':
+        from scripts.shared_route_mcts import SharedMCTSStore
+        for stock_sha in set(route_contract['stock_canonical_sha_by_cohort'].values()):
+            mcts_stores[stock_sha]=SharedMCTSStore(args.mcts_shared_root or args.output.parent/'shared_electron_mcts_v1',
+                {'policy_executor_namespace':shared_store.namespace,'stock_sha':stock_sha,
+                 'max_model_len':args.max_model_len,'sampling_seed':args.seed,'c_puct':1.5})
     reports=[]
     for row in selected:
+        saved_report=root_dir/'evaluations'/(hashlib.sha256(row['id'].encode()).hexdigest()+'.json')
+        if args.resume and saved_report.exists():
+            report=json.loads(saved_report.read_text())
+            if report['id']!=row['id']:raise ValueError('resume report ID mismatch')
+            reports.append(report);continue
         try:
             # ONLY unmapped PRODUCT is exposed to the tree/prompt builder.
-            trees[row['id']]=(RouteNetwork(row['id'],row['product_unmapped'],stock[row['cohort']],
-                                          mode=args.mode,shared_store=shared_store)
+            trees[row['id']]=(make_route_controller(row,stock[row['cohort']],algorithm=algorithm,
+                mode=args.mode,shared_store=shared_store,
+                mcts_store=mcts_stores.get(route_contract['stock_canonical_sha_by_cohort'][row['cohort']]),
+                checkpoint_path=root_dir/'mcts'/(fingerprint(row['id'])+'.json'))
                                if route_mode else ElectronTree(row['id'],row['product_unmapped'],shared_store=shared_store))
         except Exception as exc:
             reports.append({'id':row['id'],'top1':False,'top5':False,'top10':False,
@@ -314,7 +392,9 @@ def main():
             case_contract.update(case_cohort=cohort,
                 case_stock_sha=route_contract['stock_canonical_sha_by_cohort'][cohort])
         journal=SearchJournal(root_dir/'journals',identifier,case_contract)
-        journal.initialize(controller)
+        if algorithm=='mcts':
+            trees[identifier]=initialize_or_restore_route(journal,controller,stock=stock[cohort],resume=args.resume)
+        else:journal.initialize(controller)
         journals[identifier]=journal
     queue=deque(trees)
     started=time.monotonic()
@@ -327,10 +407,46 @@ def main():
     wave_file=(root_dir/'work_waves.jsonl').open('a')
     wave_index=0
     credited_solutions=set()
+    attempted_targets=set()
+    if args.resume:
+        # Raw saved generations are the durable token-cost source. A crashed,
+        # unsealed GPU wave cannot claim exact recovered forward-call cost.
+        for file_name in ('raw_generations.jsonl','policy_contexts.jsonl','work_waves.jsonl'):
+            path=root_dir/file_name
+            if not path.exists():continue
+            with path.open('rb+') as handle:
+                last_good=0
+                for line in handle:
+                    try:record=json.loads(line)
+                    except json.JSONDecodeError:
+                        tail=line+handle.read()
+                        tail_path=path.with_name(path.name+'.crash_tail.'+str(time.time_ns()))
+                        tail_path.write_bytes(tail);handle.seek(last_good);handle.truncate();break
+                    last_good+=len(line)
+                    if file_name=='raw_generations.jsonl':
+                        identifier=record['case_id'];attempted_targets.add(identifier)
+                        cost=runtime_work[identifier];tokens=sum(g['tokens'] for g in record['generations'])
+                        if record['shared_cache_hit']:
+                            cost['shared_policy_cache_hits']+=1;cost['reused_output_tokens']+=tokens
+                        else:
+                            total_tokens+=tokens;cost['policy_request_batches']+=1
+                            cost['prompt_tokens']+=record['prompt_tokens']
+                            cost['candidate_prompt_token_equivalents']+=record['prompt_tokens']*len(record['generations'])
+                    elif file_name=='work_waves.jsonl':
+                        wave_index=max(wave_index,record['wave']+1)
+                        forwards.total_calls=max(forwards.total_calls,record['model_forward_calls'])
+                        credited_solutions.update(record['new_stock_solved_ids'])
+        dump(root_dir/('resume_'+str(time.time_ns())+'.json'),{
+            'algorithm':'mcts','interrupted_rollouts':'censored_without_failure_backup',
+            'unsealed_crash_wave_GPU_forward_cost_may_be_missing':True})
     def save_wave():
         value=record_work_wave(wave=wave_index,elapsed=time.monotonic()-started,tokens=total_tokens,
-            forward_calls=forwards.total_calls,runtime_work=runtime_work,trees=trees,seen_solutions=credited_solutions)
+            forward_calls=forwards.total_calls,runtime_work=runtime_work,trees=trees,
+            seen_solutions=credited_solutions,completed_reports=reports)
         wave_file.write(json.dumps(value,ensure_ascii=False)+'\n');wave_file.flush()
+        dump(root_dir/'progress.json',search_progress(trees,reports,denominator=len(selected),
+            attempted=len(attempted_targets),tokens=total_tokens,calls=forwards.total_calls,
+            elapsed=time.monotonic()-started,algorithm=algorithm))
         return value
     save_wave()
     seen_prompts=set()
@@ -348,6 +464,8 @@ def main():
         report.update(tree_artifact=f'trees/{stem}.json',evaluation_artifact=f'evaluations/{stem}.json')
         dump(root_dir/'evaluations'/f'{stem}.json',report)
         reports.append(report)
+        if algorithm=='mcts':
+            tree.checkpoint();tree.close()
     try:
         resource_stop = ''
         while queue:
@@ -367,10 +485,21 @@ def main():
                 identifier=queue.popleft()
                 tree=trees[identifier]
                 context=select_context(tree,args.mode,forced.get(identifier))
+                if algorithm=='mcts':
+                    if not tree.already_in_stock:attempted_targets.add(identifier)
+                    events=tree.drain_cached_events()
+                    for parent,edges in events:journals[identifier].record(tree,parent,edges)
+                    if tree.first_solution_work is not None and not events:
+                        journals[identifier].record(tree,tree.trees[tree.target].root_key,[])
                 if context is None:
-                    finish(identifier,'ROUTE_SUPPORT_STABLE_OR_RESOURCE_CLOSED' if route_mode else
+                    if algorithm=='mcts' and tree.has_pending:
+                        queue.append(identifier);continue
+                    finish(identifier,(tree.stop_reason or 'STOCK_CONNECTED_ROUTE') if algorithm=='mcts' else
+                           ('ROUTE_SUPPORT_STABLE_OR_RESOURCE_CLOSED' if route_mode else
                            ('GREEDY_TERMINAL_OR_INVALID' if args.mode=='greedy' else 'ADAPTIVE_SUPPORT_STABLE_OR_RESOURCE_CLOSED'))
+                           )
                     continue
+                attempted_targets.add(identifier)
                 messages=[{'role':'system','content':SYSTEM}, {'role':'user','content':policy_prompt(
                     context.node.target,context.node.state,include_inventory=True,
                     actions=context.node.actions,compact_history=True)}]
@@ -380,9 +509,11 @@ def main():
                 if room<2:
                     context.resource_closed='CONTEXT_MEMORY_BUDGET'
                     journals[identifier].record(tree,context.key,[])
+                    if algorithm=='mcts':tree.censor_selected('CONTEXT_MEMORY_BUDGET')
                     queue.append(identifier);continue
                 allowance=min(context.max_new_tokens,room)
-                n=1 if args.mode=='greedy' else context.stats.next_batch
+                n=(tree.proposal_count(context) if algorithm=='mcts' else
+                   (1 if args.mode=='greedy' else context.stats.next_batch))
                 n=checkpoints.candidate_count(n,completion_room=allowance)
                 if n<1:
                     budget_blocked = True
@@ -398,7 +529,12 @@ def main():
                     prompt_file.write(json.dumps({'case_id':identifier,'context':context.key,'text':prompt,
                                                   'token_ids':ids},ensure_ascii=False)+'\n')
             if not batch:
+                if algorithm=='mcts':
+                    wave_index+=1;save_wave()
+                    print({'phase':'mcts-cooperative-wave','rank':args.rank,'finished':len(reports),
+                        'denominator':len(selected),'active_roots':len(queue)},flush=True)
                 if continue_empty_wave(has_queue=bool(queue), budget_blocked=budget_blocked):
+                    if algorithm=='mcts':time.sleep(.02)
                     continue
                 break
             generation_start=time.monotonic()
@@ -493,13 +629,23 @@ def main():
             finish(identifier,reason)
     finally:
         pool.shutdown(wait=True)
+        if algorithm=='mcts':
+            for controller in trees.values():controller.checkpoint();controller.close()
         raw_file.close();prompt_file.close();wave_file.close()
     if {r['id'] for r in reports}!={r['id'] for r in selected}:raise RuntimeError('lost full-cohort rows')
+    final_progress=search_progress(trees,reports,denominator=len(selected),
+        attempted=len(attempted_targets),tokens=total_tokens,calls=forwards.total_calls,
+        elapsed=time.monotonic()-started,algorithm=algorithm)
     dump(root_dir/'complete.json',{'manifest':manifest,'rows':reports,'tokens':total_tokens,
+                                 'processing_complete':True,'search_complete':final_progress['full_result_complete'],
+                                 'resource_limited_targets':final_progress['resource_limited'],
                                  'work_checkpoint_events':checkpoint_events,
                                  'work_waves_artifact':'work_waves.jsonl',
                                  'work_waves_sha256':sha256(root_dir/'work_waves.jsonl'),
                                  'model_forward_calls':forwards.total_calls,'seconds':time.monotonic()-started})
+    dump(root_dir/'progress.json',search_progress(trees,reports,denominator=len(selected),
+        attempted=len(attempted_targets),tokens=total_tokens,calls=forwards.total_calls,
+        elapsed=time.monotonic()-started,algorithm=algorithm))
     print({'phase':'dynamic-search-complete','rank':args.rank,'mode':args.mode,'rows':len(reports),'tokens':total_tokens},flush=True)
     return 0
 
