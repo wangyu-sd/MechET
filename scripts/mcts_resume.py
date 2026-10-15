@@ -50,6 +50,8 @@ def recover_shard(rows, source_root, output_root, manifest, *, planning, cache):
             stats['restored_controllers'] += 1
             stats['restored_pending_rollouts'] += len(c.rollouts)
             stats['restored_completed_rollouts'] += c.completed_rollouts
+            if stats['restored_controllers'] % 20 == 0:
+                print({'phase': 'restoring-MCTS', 'rank': manifest.get('rank'), **stats}, flush=True)
         return controllers, journals, reports, stats
     except BaseException:
         for c in controllers.values():

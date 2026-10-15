@@ -5,6 +5,10 @@ source_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy
 : "${MECHET_TREE_CODE_SHA:?pinned code SHA required}"
 : "${MECHET_TREE_OUTPUT:?explicit NEW output directory required}"
 : "${MECHET_PRESERVED_GREEDY_OUTPUT:?sealed full3120 baseline required}"
+if [[ ${MECHET_USE_RAY:-0} == 1 && -z ${MECHET_TREE_RESUME_FROM:-} ]]; then
+  echo '[Ray-MCTS] resume source required' >&2
+  exit 2
+fi
 if [[ -e "$MECHET_TREE_OUTPUT" || -L "$MECHET_TREE_OUTPUT" ]]; then
   echo '[rolling-MCTS] output exists; do not overwrite evidence' >&2
   exit 2
@@ -34,6 +38,13 @@ export HF_HUB_CACHE=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cac
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 export VLLM_WORKER_MULTIPROC_METHOD=spawn VLLM_USE_V1=0 NCCL_P2P_DISABLE=1
 cd "$runtime_code"
+if [[ ${MECHET_USE_RAY:-0} == 1 ]]; then
+  ray_local=$(mktemp -d /tmp/mechet_mcts_ray.XXXXXX)
+  ray_wheel=$shared/artifacts/wheels/ray_mcts_20261015/ray-2.44.1-cp311-cp311-manylinux2014_x86_64.whl
+  echo "6e6bd0430d2eb664ae632c96e74c01e4a1bf14ab2a15102e1809b05ea9e0c2c7  $ray_wheel" | sha256sum --check --strict
+  python -m pip install --no-deps --no-index --target "$ray_local" "$ray_wheel"
+  export PYTHONPATH=$ray_local:$PYTHONPATH
+fi
 python -u - <<'PY'
 import os,json,torch,vllm,rdkit
 from pathlib import Path
@@ -60,7 +71,39 @@ print({'phase':'rolling-MCTS-preflight','full_denominator':3120,'preserved_greed
        'gpus':8,'torch':torch.__version__,'vllm':vllm.__version__,'shared_cache':cache.namespace},flush=True)
 PY
 pids=()
-trap 'for pid in "${pids[@]}"; do if kill -0 "$pid" 2>/dev/null; then kill -TERM "$pid"; fi; done' EXIT
+server_pid=''
+cleanup() {
+  for pid in "${pids[@]}"; do if kill -0 "$pid" 2>/dev/null; then kill -TERM "$pid"; fi; done
+  # Workers drain raw results/checkpoints before the tree owner is stopped.
+  for pid in "${pids[@]}"; do wait "$pid" || true; done
+  if [[ -n "$server_pid" ]]; then
+    if kill -0 "$server_pid" 2>/dev/null; then kill -TERM "$server_pid"; fi
+    wait "$server_pid" || true
+  fi
+}
+trap cleanup EXIT
+trap 'exit 130' TERM INT
+extra_args=()
+if [[ -n ${MECHET_TREE_RESUME_FROM:-} ]]; then
+  extra_args+=(--resume-from "$MECHET_TREE_RESUME_FROM")
+fi
+if [[ ${MECHET_USE_RAY:-0} == 1 ]]; then
+  python -u scripts/start_ray_mcts_actor.py --source-output "$MECHET_TREE_RESUME_FROM" \
+    --output "$MECHET_TREE_OUTPUT" --address-file "$runtime_code/ray_address.json" &
+  server_pid=$!
+  while [[ ! -f "$runtime_code/ray_address.json" ]]; do
+    if ! kill -0 "$server_pid" 2>/dev/null; then
+      wait "$server_pid" || true
+      echo '[Ray-MCTS] tree owner failed before publishing readiness' >&2
+      exit 2
+    fi
+    sleep 1
+  done
+  export RAY_ADDRESS
+  RAY_ADDRESS=$(python -c "import json;print(json.load(open('ray_address.json'))['address'])")
+  ray_namespace=$(python -c "import json;print(json.load(open('ray_address.json'))['namespace'])")
+  extra_args+=(--ray-actor single-reaction-tree --ray-namespace "$ray_namespace")
+fi
 for rank in $(seq 0 7); do
   CUDA_VISIBLE_DEVICES=$rank python -u scripts/infer_single_reaction_mcts.py \
     --data "$shared/data/mech_uspto_31k_full_endpoint_rxnmapper/test.jsonl" \
@@ -68,11 +111,15 @@ for rank in $(seq 0 7); do
     --output "$MECHET_TREE_OUTPUT" --rank "$rank" --world 8 --program-goal 10 \
     --inflight-requests 128 --cpu-workers 16 \
     --shared-cache "$shared/outputs/eval/shared_electron_search_v1" \
-    --mcts-shared-root "$shared/outputs/eval/shared_single_reaction_mcts_v1" &
+    --mcts-shared-root "$shared/outputs/eval/shared_single_reaction_mcts_v1" "${extra_args[@]}" &
   pids+=("$!")
 done
 while (( ${#pids[@]}>0 )); do
   live=()
+  if [[ -n "$server_pid" ]] && ! kill -0 "$server_pid" 2>/dev/null; then
+    echo '[Ray-MCTS] shared tree owner stopped; preserve outputs for recovery' >&2
+    exit 2
+  fi
   for pid in "${pids[@]}"; do
     if kill -0 "$pid" 2>/dev/null; then live+=("$pid")
     elif ! wait "$pid"; then
@@ -83,6 +130,11 @@ while (( ${#pids[@]}>0 )); do
   pids=("${live[@]}")
   if (( ${#pids[@]}>0 )); then sleep 1; fi
 done
+if [[ -n "$server_pid" ]]; then
+  kill -TERM "$server_pid"
+  wait "$server_pid"
+  server_pid=''
+fi
 trap - EXIT
 python -u scripts/summarize_dynamic_electron_trees.py \
   --data "$shared/data/mech_uspto_31k_full_endpoint_rxnmapper/test.jsonl" --output "$MECHET_TREE_OUTPUT" --mode tree
