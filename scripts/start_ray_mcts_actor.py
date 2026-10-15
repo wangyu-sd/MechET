@@ -59,7 +59,7 @@ def main():
     namespace = 'mechet-' + fingerprint(str(args.output.resolve()))[:12]
     ctx = ray.init(num_cpus=min(32, len(os.sched_getaffinity(0))), include_dashboard=False,
                    object_store_memory=256 * 1024 * 1024, namespace=namespace,
-                   _node_ip_address='127.0.0.1', log_to_driver=True)
+                   log_to_driver=True)
     actor = start_actor(root, contract, legacy, namespace=namespace)
     ray.get(actor.call.remote('identity', (), {}))  # constructor/durable recovery must succeed
     dump(args.address_file, {'address': ctx.address_info['gcs_address'], 'namespace': namespace,

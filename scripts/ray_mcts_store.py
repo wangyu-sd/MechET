@@ -16,6 +16,7 @@ import queue
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 
 from mechet.shared_electron_search import durable_json, fingerprint, read_record
 
@@ -107,6 +108,11 @@ class MemoryMCTSCore:
             self._owner_lock.close(); raise ValueError('another live MCTS tree owner') from None
         self._lock = threading.RLock(); self._checkpoint_lock = threading.Lock()
         self.nodes = {}; self.backups = {}; self.logged_backups = set()
+        self._readers = ThreadPoolExecutor(max_workers=32, thread_name_prefix='legacy-prefetch')
+        self._legacy_ids = {p.stem for p in (self.legacy_root / 'nodes').glob('*/*.json')} if self.legacy_root else set()
+        self._legacy_backup_ids = {p.stem for p in (self.legacy_root / 'backups').glob('*.json')} if self.legacy_root else set()
+        self._legacy_rollout_ids = {p.stem for p in (self.legacy_root / 'rollouts').glob('*.lock')} if self.legacy_root else set()
+        self._legacy_claims = {}
         self.owners = {}; self.leases = {}; self.expansions = {}
         self.recovery_workers = set(); self.expected_workers = 8
         self.sequence = 0; self.closed = False; self.legacy_reads = 0
@@ -120,7 +126,18 @@ class MemoryMCTSCore:
             self._replay()
             self.writer = GroupedWAL(self.root / 'transactions.jsonl', self.sequence)
         except BaseException:
+            self._readers.shutdown(wait=True)
             self._owner_lock.close(); raise
+
+    def _prefetch(self, sids):
+        with self._lock:
+            missing = set(sids).intersection(self._legacy_ids).difference(self.nodes)
+        def load(sid):
+            return sid, read_record(self.legacy_root / 'nodes' / sid[:2] / (sid + '.json'))
+        for sid, value in self._readers.map(load, missing):
+            with self._lock:
+                if sid not in self.nodes:
+                    self.nodes[sid] = value; self.legacy_reads += 1
 
     def _replay(self):
         path = self.root / 'transactions.jsonl'
@@ -133,6 +150,9 @@ class MemoryMCTSCore:
                     record = json.loads(line); value = record['payload']
                     if record['sha256'] != fingerprint(value): raise ValueError('checksum')
                     if value['sequence'] != self.sequence + 1: raise ValueError('sequence')
+                    op = value['operation']
+                    if op['name'] == 'backup': self._prefetch(s for s, _ in op['data']['path'])
+                    elif op['name'] in ('reserve', 'add_edges'): self._prefetch([op['data']['sid']])
                     self._apply(value['operation']); self.sequence = value['sequence']
                 except (ValueError, KeyError, TypeError) as exc:
                     raise ValueError('corrupt MCTS transaction journal') from exc
@@ -188,6 +208,11 @@ class MemoryMCTSCore:
         else: raise ValueError('unknown MCTS transaction')
 
     def _mutation(self, name, data):
+        if name == 'backup':
+            self._prefetch(s for s, _ in data['path'])
+            self.backup_record(data['uid'])
+        elif name in ('reserve', 'add_edges'):
+            self._prefetch([data['sid']])
         with self._lock:
             if self.closed: raise RuntimeError('tree owner closed')
             self._apply({'name': name, 'data': data})
@@ -197,17 +222,17 @@ class MemoryMCTSCore:
 
     def intern(self, state):
         sid = fingerprint({k: v for k, v in state.items() if k != 'native'})
+        self._prefetch([sid])
         with self._lock:
             if sid in self.nodes:
                 seq = self.sequence
-            elif self.legacy_root and (self.legacy_root / 'nodes' / sid[:2] / (sid + '.json')).exists():
-                self._node(sid); seq = self.sequence
             else: seq = None
         if seq is None: self._mutation('intern', {'sid': sid, 'state': state})
         else: self.writer.wait(seq)
         return sid
 
     def snapshot(self, sid):
+        self._prefetch([sid])
         with self._lock:
             value = self._node(sid)
             for uid in list(value['reservations']):
@@ -218,6 +243,11 @@ class MemoryMCTSCore:
             result = copy.deepcopy(value); seq = self.sequence
         self.writer.wait(seq)
         return result
+
+    def snapshots(self, sids):
+        sids = list(dict.fromkeys(sids))
+        self._prefetch(sids)
+        return {sid: self.snapshot(sid) for sid in sids}
 
     def reserve(self, uid, sid, edge):
         self._mutation('reserve', {'uid': uid, 'sid': sid, 'edge': edge})
@@ -245,11 +275,16 @@ class MemoryMCTSCore:
 
     def _backup_record(self, uid):
         if uid not in self.backups:
-            path = self.legacy_root / 'backups' / (uid + '.json') if self.legacy_root else None
+            path = self.legacy_root / 'backups' / (uid + '.json') if uid in self._legacy_backup_ids else None
             self.backups[uid] = read_record(path) if path and path.exists() else None
         return self.backups[uid]
 
     def backup_record(self, uid):
+        with self._lock: known = uid in self.backups
+        if not known:
+            path = self.legacy_root / 'backups' / (uid + '.json') if uid in self._legacy_backup_ids else None
+            value = read_record(path) if path else None
+            with self._lock: self.backups.setdefault(uid, value)
         with self._lock:
             result = copy.deepcopy(self._backup_record(uid)); seq = self.sequence
         self.writer.wait(seq)
@@ -269,21 +304,39 @@ class MemoryMCTSCore:
         import psutil
         with self._lock:
             owner = self.leases.get(uid)
-            if owner is None: return False
+            if owner is None:
+                if uid not in self._legacy_rollout_ids: return False
+                if uid in self._legacy_claims: return True
+                return self._legacy_alive(uid)
             pid, created = self.owners[owner]
             try: return psutil.Process(pid).create_time() == created and psutil.Process(pid).is_running()
             except psutil.Error: return False
+
+    def _legacy_alive(self, uid):
+        with (self.legacy_root / 'rollouts' / (uid + '.lock')).open('a+') as handle:
+            try: fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError: return True
+            return False
 
     def claim_rollout(self, uid, owner):
         with self._lock:
             if owner not in self.owners: raise ValueError('unknown rollout owner')
             if self.alive(uid): raise ValueError('rollout still has a live owner')
+            if uid in self._legacy_rollout_ids and uid not in self._legacy_claims:
+                handle = (self.legacy_root / 'rollouts' / (uid + '.lock')).open('a+')
+                try: fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    handle.close(); raise ValueError('legacy rollout still has a live owner') from None
+                self._legacy_claims[uid] = handle
             self.leases[uid] = owner
         return uid
 
     def release_rollout(self, uid, owner):
         with self._lock:
-            if self.leases.get(uid) == owner: self.leases[uid] = None
+            if self.leases.get(uid) == owner:
+                self.leases[uid] = None
+                handle = self._legacy_claims.pop(uid, None)
+                if handle is not None: handle.close()
 
     def claim_expansion(self, sid, owner):
         with self._lock:
@@ -320,7 +373,11 @@ class MemoryMCTSCore:
             if self.closed: return
             self.closed = True
         try: self.writer.close()
-        finally: self._owner_lock.close()
+        finally:
+            self._readers.shutdown(wait=True)
+            for handle in self._legacy_claims.values(): handle.close()
+            self._legacy_claims.clear()
+            self._owner_lock.close()
 
 
 class ActorHost:

@@ -34,7 +34,8 @@ def policy_cache_contract():
 
 
 def make_controller(row,**kwargs):
-    return SingleReactionMCTS(row['id'],row['product_unmapped'],**kwargs)
+    from scripts.mcts_resume import ResumableSingleReactionMCTS
+    return ResumableSingleReactionMCTS(row['id'],row['product_unmapped'],**kwargs)
 
 
 def search_is_complete(reports,expected):

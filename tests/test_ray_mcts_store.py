@@ -245,3 +245,81 @@ def test_runtime_contract_matches_unchanged_legacy_planner(tmp_path):
         'policy_executor_namespace': 'native', 'max_model_len': 8192,
         'sampling_seed': 17, 'program_goal': 10}).contract
     assert single_planning_contract('native', 8192, 17, 10) == expected
+
+
+def test_slow_legacy_read_does_not_block_unrelated_tree_nodes(tmp_path, monkeypatch):
+    import threading
+    from scripts import ray_mcts_store as module
+    from scripts.single_reaction_mcts import SingleReactionMCTSStore
+    legacy = SingleReactionMCTSStore(tmp_path / 'legacy', {})
+    a = legacy.intern({'active': 'a', 'solved': False})
+    b = legacy.intern({'active': 'b', 'solved': False})
+    core = module.MemoryMCTSCore(tmp_path / 'memory', legacy.contract, legacy_root=legacy.root)
+    blocked, release = threading.Event(), threading.Event()
+    original = module.read_record
+    def slow(path):
+        if Path(path).name == a + '.json':
+            blocked.set(); assert release.wait(5)
+        return original(path)
+    from pathlib import Path
+    monkeypatch.setattr(module, 'read_record', slow)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(core.snapshot, a)
+        assert blocked.wait(2)
+        second = pool.submit(core.snapshot, b)
+        try:
+            assert second.result(timeout=1)['state']['active'] == 'b'
+        finally:
+            release.set(); first.result(); core.close()
+
+
+def test_batch_snapshot_returns_detached_nodes_without_changing_statistics(tmp_path):
+    core = make_core(tmp_path); sid = seed(core)
+    try:
+        values = core.snapshots([sid, sid])
+        assert list(values) == [sid]
+        values[sid]['visits'] = 999
+        assert core.snapshot(sid)['visits'] == 0
+    finally:
+        core.close()
+
+
+def test_ray_migration_rejects_real_live_legacy_rollout(tmp_path):
+    from scripts.single_reaction_mcts import SingleReactionMCTSStore
+    from scripts.ray_mcts_store import MemoryMCTSCore
+    legacy = SingleReactionMCTSStore(tmp_path / 'legacy', {})
+    lease = legacy.start_rollout()
+    core = MemoryMCTSCore(tmp_path / 'memory', legacy.contract, legacy_root=legacy.root)
+    try:
+        core.register_owner('new', os.getpid())
+        assert core.alive(lease.uid)
+        with pytest.raises(ValueError, match='live'):
+            core.claim_rollout(lease.uid, 'new')
+        lease.close()
+        core.claim_rollout(lease.uid, 'new')
+        assert legacy.alive(lease.uid)  # owner fence is held across the migration
+        core.release_rollout(lease.uid, 'new')
+        assert not legacy.alive(lease.uid)
+    finally:
+        lease.close(); core.close()
+
+
+def test_dead_worker_legacy_fence_transfers_to_replacement_owner(tmp_path):
+    import subprocess
+    import sys
+    from scripts.single_reaction_mcts import SingleReactionMCTSStore
+    from scripts.ray_mcts_store import MemoryMCTSCore
+    legacy = SingleReactionMCTSStore(tmp_path / 'legacy', {})
+    lease = legacy.start_rollout(); uid = lease.uid; lease.close()
+    core = MemoryMCTSCore(tmp_path / 'memory', legacy.contract, legacy_root=legacy.root)
+    child = subprocess.Popen([sys.executable, '-c', 'import time;time.sleep(30)'])
+    try:
+        core.register_owner('old', child.pid); core.claim_rollout(uid, 'old')
+        child.terminate(); child.wait(timeout=5)
+        core.register_owner('new', os.getpid()); core.claim_rollout(uid, 'new')
+        assert legacy.alive(uid)
+        core.release_rollout(uid, 'new')
+        assert not legacy.alive(uid)
+    finally:
+        if child.poll() is None: child.terminate(); child.wait(timeout=5)
+        core.close()

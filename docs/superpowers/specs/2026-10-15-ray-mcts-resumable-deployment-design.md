@@ -1,8 +1,9 @@
 # Resumable Ray MCTS deployment
 
-Status: design for user review; implementation and replacement submission have
-not started. The explicitly requested old 31k task has been stopped and Taiji
-reports END. This document does not claim that a replacement is queued.
+Status: approved in chat; user explicitly waived further document-review pauses.
+Implementation and independent-review fixes pass 906 software tests (11 skipped).
+The full3120 CPU-only legacy migration is running; replacement submission and
+actual GPU throughput verification remain pending. The old31k task is END.
 
 ## Requested outcome
 

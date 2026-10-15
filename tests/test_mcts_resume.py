@@ -102,6 +102,96 @@ def test_graph_native_payload_recovers_context_ahead_of_journal(tmp_path):
         restored.close()
 
 
+def test_committed_native_transition_is_not_counted_again_after_resume(tmp_path):
+    from scripts.mcts_resume import restore_single_controller
+    c, store, journal, checkpoint = fixture_controller(tmp_path)
+    import_chloride(c, journal)
+    c.close()
+    restored = restore_single_controller(journal, checkpoint_path=checkpoint, mcts_store=store)
+    try:
+        restored.next_context()
+        assert restored.work['sampled_tokens'] == 4
+        assert restored.work['raw_candidates'] == 1
+        assert len(restored.trees[restored.target].edges) == 1
+    finally: restored.close()
+
+
+def test_new_rollout_admission_is_checkpointed_before_cached_backup(tmp_path, monkeypatch):
+    from scripts.mcts_resume import ResumableSingleReactionMCTS, restore_single_controller
+    from mechet.shared_electron_search import SearchJournal
+    from mechet.dynamic_electron_tree import Proposal
+    c, store, _, _ = fixture_controller(tmp_path)
+    ctx = c.next_context(); c.incorporate(ctx.key, [Proposal('finish_trace', {}, 'finish', -1., 3)])
+    c.close()
+    checkpoint = tmp_path / 'new.json'
+    new = ResumableSingleReactionMCTS('new', 'CO', mcts_store=store,
+        checkpoint_path=checkpoint, program_goal=1)
+    journal = SearchJournal(tmp_path / 'journals2', 'new', {}); journal.initialize(new)
+    new.checkpoint()
+    original = new.checkpoint
+    def crash_after_backup():
+        if new.completed_rollouts: raise RuntimeError('simulated crash after backup')
+        original()
+    monkeypatch.setattr(new, 'checkpoint', crash_after_backup)
+    with pytest.raises(RuntimeError, match='simulated crash'):
+        new.next_context()
+    new.close()
+    restored = restore_single_controller(journal, checkpoint_path=checkpoint, mcts_store=store)
+    try:
+        assert restored.completed_rollouts == 1
+        assert restored.next_context() is None
+    finally: restored.close()
+
+
+def test_unjournaled_batch_recovers_rejected_proposals_and_full_multiplicity(tmp_path):
+    from dataclasses import asdict
+    from scripts.mcts_resume import restore_single_controller
+    from mechet.dynamic_electron_tree import Proposal
+    c, store, journal, checkpoint = fixture_controller(tmp_path)
+    ctx = c.next_context(); selected = dict(c.selected)
+    proposals = [Proposal('import_fragments', {'fragments': [
+        {'smiles': '[Cl-]', 'count': 1, 'purpose': 'electron_participant'}]}, 'import', -1., 4),
+        Proposal('unknown', {}, 'invalid', -2., 3, 'bad tool')]
+    c.incorporate(ctx.key, proposals); c.close()
+    evidence = [{'context': ctx.key, 'generations': [asdict(p) for p in proposals],
+                 'planning_expansion': {'sid': selected['sid'], 'batch': selected['batch']}}]
+    restored = restore_single_controller(journal, checkpoint_path=checkpoint, mcts_store=store,
+                                         policy_records=evidence)
+    try:
+        assert restored.work['sampled_tokens'] == 7
+        assert restored.work['raw_candidates'] == 2
+        assert len(restored.trees[restored.target].edges) == 2
+        assert any(e['status'] == 'rejected' for e in restored.trees[restored.target].edges)
+        restored.next_context()
+        assert restored.work['sampled_tokens'] == 7
+    finally: restored.close()
+
+
+def test_legacy_raw_request_hash_recovers_exact_committed_batch(tmp_path):
+    from dataclasses import asdict
+    from scripts.mcts_resume import restore_single_controller
+    from mechet.shared_electron_search import fingerprint, sampling_seed
+    from mechet.dynamic_electron_tree import Proposal
+    c, store, journal, checkpoint = fixture_controller(tmp_path)
+    ctx = c.next_context()
+    proposals = [Proposal('import_fragments', {'fragments': [
+        {'smiles': '[Cl-]', 'count': 1, 'purpose': 'electron_participant'}]}, 'import', -1., 4),
+        Proposal('unknown', {}, 'invalid', -2., 3, 'bad tool')]
+    request = {'context': ctx.key, 'prompt_ids': [101, 102], 'n': 16, 'max_tokens': 384,
+        'temperature': 1, 'top_p': 1, 'top_k': -1, 'repetition_penalty': 1,
+        'presence_penalty': 0, 'frequency_penalty': 0, 'skip_special_tokens': False,
+        'logprobs': 0, 'min_tokens': 0, 'seed': sampling_seed(17, ctx.key, 0)}
+    c.incorporate(ctx.key, proposals); c.close()
+    records = [{'context': ctx.key, 'generations': [asdict(p) for p in proposals],
+        'shared_request_key': fingerprint(request), '_prompt_lookup': lambda key: [101, 102]}]
+    restored = restore_single_controller(journal, checkpoint_path=checkpoint,
+        mcts_store=store, policy_records=records)
+    try:
+        assert restored.work['sampled_tokens'] == 7
+        assert restored.work['raw_candidates'] == 2
+    finally: restored.close()
+
+
 def test_resume_rejects_changed_goal_or_live_owner(tmp_path):
     from scripts.mcts_resume import restore_single_controller
     from mechet.shared_electron_search import read_record, durable_json
