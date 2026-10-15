@@ -72,6 +72,7 @@ def main():
     p.add_argument('--max-model-len',type=int,default=8192)
     p.add_argument('--shared-cache',type=Path,required=True)
     p.add_argument('--mcts-shared-root',type=Path,required=True)
+    p.add_argument('--resume-from',type=Path,help='prior output root; read-only continuation source')
     args=p.parse_args()
     if not 0<=args.rank<args.world or min(args.program_goal,args.cpu_workers,args.io_workers,args.inflight_requests)<1:
         p.error('invalid shard or concurrency')
@@ -116,10 +117,20 @@ def main():
         'io_workers_per_GPU':args.io_workers,'max_pending_policy_writes':args.inflight_requests,
         'stopping_contract':'ten_trajectory_attempts_including_invalid_and_censored_not_ten_successes',
         'hard_token_or_wall_cap':False,'max_model_len':args.max_model_len,
-        'stock_or_recursive_reaction_search':False,'fresh_attempt_no_old_graph_resume':True}
+        'stock_or_recursive_reaction_search':False,'fresh_attempt_no_old_graph_resume':not bool(args.resume_from),
+        'resume_source':str(args.resume_from.resolve()) if args.resume_from else None}
     dump(root/'manifest.json',manifest)
     controllers={};journals={};reports=[]
-    for row in selected:
+    resume_stats={};prior_work={}
+    if args.resume_from:
+        from scripts.mcts_resume import recover_shard
+        source_root=args.resume_from/'tree'/f'rank{args.rank:02d}'
+        controllers,journals,reports,resume_stats=recover_shard(selected,source_root,root,manifest,
+            planning=planning,cache=cache)
+        prior_work=json.loads((source_root/'progress.json').read_text())
+        dump(root/'recovery.json',{'source':str(source_root),'prior_progress':prior_work,**resume_stats})
+        print({'phase':'MCTS-restored','rank':args.rank,**resume_stats},flush=True)
+    for row in ([] if args.resume_from else selected):
         try:c=make_controller(row,mcts_store=planning,shared_store=cache,
             checkpoint_path=root/'mcts'/(fingerprint(row['id'])+'.json'),program_goal=args.program_goal)
         except ValueError as exc:
@@ -148,6 +159,10 @@ def main():
             'finished':len(reports)-limited,'finished_percent':100*(len(reports)-limited)/len(selected),
             'resource_limited':limited,'pending':len(selected)-len(reports)+limited,
             'output_tokens':total_tokens,'model_forward_calls':forwards.total_calls,'elapsed_seconds':last_progress-started,
+            'prior_output_tokens':prior_work.get('output_tokens',0),
+            'prior_model_forward_calls':prior_work.get('model_forward_calls',0),
+            'prior_elapsed_seconds':prior_work.get('elapsed_seconds',0),
+            'work_counter_scope':'new_continuation_run; prior work reported separately',
             'ready_states':len(ready),'CPU_planning_requests':len(preparing),'GPU_inflight_requests':len(gpu),
             'CPU_executor_requests':len(executing),'peak_GPU_inflight_requests':peak_gpu,
             'GPU_aborted_requests':aborted_gpu,

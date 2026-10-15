@@ -1,0 +1,65 @@
+# Resumable Ray MCTS Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans inline. User explicitly waived further document review gates.
+
+**Goal:** Continue the stopped full3120 MCTS from its saved state on one eight-A100 instance, accelerating tree access with Ray and verifying restart and throughput.
+
+**Architecture:** Preserve existing planner source hashes and scientific contracts. Add a compatible resumable controller, a Ray-owned in-memory tree with ordered durable transactions, and integrate them into the rolling runner. Old artifacts stay read-only.
+
+**Tech Stack:** Python3.11, existing RDKit, Torch2.6 CUDA11.8, vLLM0.8.5, compatible pinned Ray Core.
+
+**Spec:** docs/superpowers/specs/2026-10-15-ray-mcts-resumable-deployment-design.md
+
+## Global Constraints
+
+- All3120 frozen source IDs; same actor and native-cache SHA contracts.
+- Ten total attempts; no new chemical search cap; no gold feedback.
+- No unrequested model smoke or unrelated task cancellation.
+- Native journals, raw generations, likelihoods, paths and exactly-once backups persist.
+- One ordinary8A100 Tencent successful-donor task, meteor prefix,45-second default stdout heartbeat.
+- User approved the in-chat design and explicitly said not to stop for file review.
+
+## Review Focus
+
+- A backup committed before the controller checkpoint must not count twice after restore.
+- A completed checkpoint without its report must finalize without new sampling.
+- A pending selected expansion must retain its UID/path, not become a censored attempt.
+- Journal/graph lag must recover native contexts without changing actor or endpoints.
+- An actor/host crash must recover durable transactions and refuse a second live writer.
+
+### Task 1: Compatible controller and full-population recovery
+
+**Files:** Create scripts/mcts_resume.py and tests/test_mcts_resume.py; modify scripts/infer_single_reaction_mcts.py.
+
+**Interfaces:** restore_single_controller(journal, checkpoint_path, mcts_store, shared_store) returns a resumable SingleReactionMCTS-compatible controller. Runner accepts explicit --resume-from and validates original manifests.
+
+- [ ] Write failing executor-backed tests for pending paths, stale checkpoint/committed backup, goal-complete finalization and contract mismatch. Run targeted pytest; Expected: missing implementation fails.
+- [ ] Implement restoration with unchanged original planner/hash files, reclaim saved UID leases, hydrate contexts, reconcile completed backups, retain completed-program sets.
+- [ ] Test targets do not lose history or reset counts; Expected: targeted tests pass.
+- [ ] Integrate runner recovery without overwriting original artifacts, carry prior reports/cost counters with separate resumed/new work accounting.
+- [ ] Run whole pytest suite; Expected: no new failures. Commit task and record result.
+
+### Task 2: Durable in-memory tree and Ray ownership
+
+**Files:** Create scripts/ray_mcts_store.py, tests/test_ray_mcts_store.py and dependency lock/launcher changes.
+
+**Interfaces:** Ray store provides existing intern/snapshot/expansion/reservation/backup API; preserves contract, supports reopen and immutable legacy read-through. Recovery calls use resume_rollout(uid) and backup_record(uid).
+
+- [ ] Write failing tests for old/new topology equivalence, reserve/backup idempotency, transaction replay, incomplete WAL tail, corrupt records, ownership and real Ray restart.
+- [ ] Implement memory store with serialized state mutation, batched durable journal writer and snapshot/replay; Ray actors separate tree ownership from GPU workers.
+- [ ] Test source contracts remain byte-compatible and old tree files unchanged; Expected: targeted pass.
+- [ ] Verify exact pinned Ray runtime in a local isolated dependency overlay, no Torch/CUDA upgrades.
+- [ ] Run whole pytest suite; Expected: no new failures. Commit task.
+
+### Task 3: Full continuation deployment and monitoring
+
+**Files:** Update pinned task launcher; add one meteor8A100 config, submission/monitor receipts and status records.
+
+**Interfaces:** Explicit old-output resume source; new output; immutable committed runtime. Queue watcher polls the exact instance every600seconds and switches to startup/throughput validation.
+
+- [ ] Test launcher resume arguments, output guards, signals and no secret output. Expected: software tests pass.
+- [ ] Audit all3120 saved IDs/contracts and recover them without model generation. Expected: no lost IDs or reset attempts.
+- [ ] Run final whole-branch review and full suite. Expected: no Critical/Important unresolved.
+- [ ] Submit exactly one ordinary8A100 from successful Tencent/Ceph donor; verify actual instance state.
+- [ ] Monitor every600seconds if queued, then verify eight real engines/default logs/new raw results and measure two progress windows.
+- [ ] Record observed throughput, recovery provenance and remaining limitations. Completion requires real deployment, not only create/start success.
