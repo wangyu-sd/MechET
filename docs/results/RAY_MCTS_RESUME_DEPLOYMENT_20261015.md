@@ -1,5 +1,35 @@
 # Ray/vLLM continuation of the stopped full3120 MCTS
 
+## Current state, 2026-10-16
+
+The first instance allocated8A100/Ceph and emitted45-second default-log
+heartbeats, then failed during native recovery before model generation.
+Its complete source/partial output remain preserved. The committed cached-path
+repair and full3120 native round-trip audit are documented in
+`MCTS_RAY_NATIVE_RECOVERY_FIX_20261016.md` (927tests passed/11skipped).
+
+Replacement `meteor_mechet_uspto31k_mcts_ray_resume_8a100_qy_20261016_03`,
+instance`8b1d8242a13fde4101a1413c9f36031d`, was submitted04:24:14CST and initial
+platform readback isTRAINING_RUNNING. Runtime0ec4ff84175f6e75a45b671ccbcd7b4188d52568,
+config586a977; same ordinary8A100/QY/Tencenttaiji6/proven-donorCeph/default45s
+stdout. Explicit source is the first instance's partial output, with compatible
+ancestors and the same migration03 Ray WAL. No restart from products, hardware/
+actor/search change or unrelated cancellation. Receipt in
+`outputs/submissions/uspto31k_mcts_ray_resume_20261016_03/`.
+Actual new generation and two throughput windows remain required.
+
+At04:33CST, actual POD inspection verified Ceph, eight A100-SXM4-40GB
+devices, eight live inference owners and eight390-row manifests with matching
+runtime/source/adapter hashes and the explicit partial-output resume source.
+All worker stdout descriptors and the45-second heartbeat writer point to
+PID1's default stdout pipe; heartbeat write counters increase. Recovery is
+still advancing (1866 new-output checkpoint files plus88 reused reports at
+the04:33:47 snapshot), with zero new raw-generation bytes/tokens so far.
+The platform log API still returns its bootstrap segment, so fresh API-visible
+default progress is not yet verified. These counts describe restoration,
+not new model work or endpoint accuracy. Checksum-protected runtime snapshots
+are saved beside the new submission receipt; live read-only monitor94512.
+
 ## Deployment state
 
 At 2026-10-15 23:39 CST, submitted exactly one ordinary eight-A100 task in

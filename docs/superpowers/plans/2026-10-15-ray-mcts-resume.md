@@ -110,5 +110,7 @@ and two observed throughput windows remain unverified; Task3 is not complete.
   paths/4445terminal programs preserved,150.63s,no model generation/source write.
 - [x] Final full suite927passed/11skipped/1existingwarning83.04s; frozen source
   contract comparison and shell syntax passed.
-- [ ] Commit repair and submit one fresh-output8A100 continuation of the partial
-  failed instance; then verify real generation and two throughput windows.
+- [x] Commit repair and submit one fresh-output8A100 continuation of the partial
+  failed instance (0ec4ff8/config586a977,instance8b1d8242a13fde4101a1413c9f36031d).
+- [ ] Verify actual post-repair eight-worker recovery, fresh default logs/new
+  model generations and two throughput windows; initialRUNNING alone is not done.
