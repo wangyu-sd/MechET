@@ -33,11 +33,11 @@
 
 **Interfaces:** restore_single_controller(journal, checkpoint_path, mcts_store, shared_store) returns a resumable SingleReactionMCTS-compatible controller. Runner accepts explicit --resume-from and validates original manifests.
 
-- [ ] Write failing executor-backed tests for pending paths, stale checkpoint/committed backup, goal-complete finalization and contract mismatch. Run targeted pytest; Expected: missing implementation fails.
-- [ ] Implement restoration with unchanged original planner/hash files, reclaim saved UID leases, hydrate contexts, reconcile completed backups, retain completed-program sets.
-- [ ] Test targets do not lose history or reset counts; Expected: targeted tests pass.
-- [ ] Integrate runner recovery without overwriting original artifacts, carry prior reports/cost counters with separate resumed/new work accounting.
-- [ ] Run whole pytest suite; Expected: no new failures. Commit task and record result.
+- [x] Write failing executor-backed tests for pending paths, stale checkpoint/committed backup, goal-complete finalization and contract mismatch. Run targeted pytest; Expected: missing implementation fails.
+- [x] Implement restoration with unchanged original planner/hash files, reclaim saved UID leases, hydrate contexts, reconcile completed backups, retain completed-program sets.
+- [x] Test targets do not lose history or reset counts; Expected: targeted tests pass.
+- [x] Integrate runner recovery without overwriting original artifacts, carry prior reports/cost counters with separate resumed/new work accounting.
+- [x] Run whole pytest suite; Expected: no new failures. Commit task and record result.
 
 ### Task 2: Durable in-memory tree and Ray ownership
 
@@ -45,11 +45,11 @@
 
 **Interfaces:** Ray store provides existing intern/snapshot/expansion/reservation/backup API; preserves contract, supports reopen and immutable legacy read-through. Recovery calls use resume_rollout(uid) and backup_record(uid).
 
-- [ ] Write failing tests for old/new topology equivalence, reserve/backup idempotency, transaction replay, incomplete WAL tail, corrupt records, ownership and real Ray restart.
-- [ ] Implement memory store with serialized state mutation, batched durable journal writer and snapshot/replay; Ray actors separate tree ownership from GPU workers.
-- [ ] Test source contracts remain byte-compatible and old tree files unchanged; Expected: targeted pass.
-- [ ] Verify exact pinned Ray runtime in a local isolated dependency overlay, no Torch/CUDA upgrades.
-- [ ] Run whole pytest suite; Expected: no new failures. Commit task.
+- [x] Write failing tests for old/new topology equivalence, reserve/backup idempotency, transaction replay, incomplete WAL tail, corrupt records, ownership and real Ray restart.
+- [x] Implement memory store with serialized state mutation, batched durable journal writer and snapshot/replay; Ray actors separate tree ownership from GPU workers.
+- [x] Test source contracts remain byte-compatible and old tree files unchanged; Expected: targeted pass.
+- [x] Verify exact pinned Ray runtime in a local isolated dependency overlay, no Torch/CUDA upgrades.
+- [x] Run whole pytest suite; Expected: no new failures. Commit task.
 
 ### Task 3: Full continuation deployment and monitoring
 
@@ -57,10 +57,10 @@
 
 **Interfaces:** Explicit old-output resume source; new output; immutable committed runtime. Queue watcher polls the exact instance every600seconds and switches to startup/throughput validation.
 
-- [ ] Test launcher resume arguments, output guards, signals and no secret output. Expected: software tests pass.
-- [ ] Audit all3120 saved IDs/contracts and recover them without model generation. Expected: no lost IDs or reset attempts.
-- [ ] Run final whole-branch review and full suite. Expected: no Critical/Important unresolved.
-- [ ] Submit exactly one ordinary8A100 from successful Tencent/Ceph donor; verify actual instance state.
+- [x] Test launcher resume arguments, output guards, signals and no secret output. Expected: software tests pass.
+- [x] Audit all3120 saved IDs/contracts and recover them without model generation. Expected: no lost IDs or reset attempts.
+- [x] Run final whole-branch review and full suite. Expected: no Critical/Important unresolved.
+- [x] Submit exactly one ordinary8A100 from successful Tencent/Ceph donor; verify actual instance state.
 - [ ] Monitor every600seconds if queued, then verify eight real engines/default logs/new raw results and measure two progress windows.
 - [ ] Record observed throughput, recovery provenance and remaining limitations. Completion requires real deployment, not only create/start success.
 
@@ -74,11 +74,25 @@ implementation correction, not a new experiment, actor or search condition.
   journal with executor-backed software tests; both failed as expected.
 - [x] Restore the newest saved checkpoint with the nearest initialized compatible
   ancestor journal; reuse ancestor reports and never write to source evidence.
-- [ ] Publish a checksum-protected origin companion outside the fresh output
+- [x] Publish a checksum-protected origin companion outside the fresh output
   directory, so even missing rank manifests can be recovered without weakening
   the existing-output guard. Validate output binding and scientific contracts.
 - [x] Test actual Ray bootstrap from such a partial startup, including lookup of
   the original checkpoint and reopening the same durable store.
-- [ ] Run the complete suite and audit artifact selection for all3120 original
+- [x] Run the complete suite and audit artifact selection for all3120 original
   IDs. Add the current queued job's compatible origin metadata without changing
   its submitted runtime, source data or queue position; no new GPU job is needed.
+
+### Recovery progress metadata follow-up
+
+- [x] Treat missing startup progress as optional accounting, not missing search
+  state; fall back to the nearest compatible recorded ancestor.
+- [x] Normalize carried historical token/forward/time counters once, without
+  summing copied snapshots from every ancestor. Regression reproduced lost
+  prior costs; targeted origin/runner suite23passed and all8 real shard metadata
+  comparisons passed without model generation or source writes.
+- [x] Run the final whole suite and commit this accounting-only follow-up.
+
+Final accounting verification:923passed/11skipped/1existing PEFTwarning101.98s;
+shell syntax and frozen planner/executor comparison passed. Runtime deployment
+and two observed throughput windows remain unverified; Task3 is not complete.

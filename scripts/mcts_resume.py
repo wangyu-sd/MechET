@@ -101,6 +101,21 @@ def resume_lineage(root, expected=None):
     return result
 
 
+def read_prior_progress(root):
+    """Recorded historical costs, once; progress is not a required checkpoint."""
+    for source, _ in resume_lineage(root):
+        path = source / 'progress.json'
+        if not path.exists(): continue
+        value = json.loads(path.read_text())
+        for key in ('output_tokens', 'model_forward_calls', 'elapsed_seconds'):
+            value[key] = value.get(key, 0) + value.pop('prior_' + key, 0)
+        value['progress_source'] = str(path)
+        value['historical_costs_available'] = value.get('prior_work_available', True)
+        value['work_counter_scope'] = 'recorded_source_snapshot_including_carried_prior_once'
+        return value
+    return {'progress_source': None, 'historical_costs_available': False}
+
+
 class ReadOnlySearchJournal(SearchJournal):
     """Restore source evidence without mkdir, file locks or new empty headers."""
     def __init__(self, root, case_id, manifest):

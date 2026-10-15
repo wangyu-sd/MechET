@@ -134,11 +134,11 @@ def main():
     controllers={};journals={};reports=[]
     resume_stats={};prior_work={}
     if args.resume_from:
-        from scripts.mcts_resume import recover_shard
+        from scripts.mcts_resume import recover_shard, read_prior_progress
         source_root=args.resume_from/'tree'/f'rank{args.rank:02d}'
         controllers,journals,reports,resume_stats=recover_shard(selected,source_root,root,manifest,
             planning=planning,cache=cache)
-        prior_work=json.loads((source_root/'progress.json').read_text())
+        prior_work=read_prior_progress(source_root)
         dump(root/'recovery.json',{'source':str(source_root),'prior_progress':prior_work,**resume_stats})
         print({'phase':'MCTS-restored','rank':args.rank,**resume_stats},flush=True)
     if args.ray_actor:planning.recovery_ready()
@@ -174,6 +174,8 @@ def main():
             'prior_output_tokens':prior_work.get('output_tokens',0),
             'prior_model_forward_calls':prior_work.get('model_forward_calls',0),
             'prior_elapsed_seconds':prior_work.get('elapsed_seconds',0),
+            'prior_work_available':prior_work.get('historical_costs_available',True),
+            'prior_progress_source':prior_work.get('progress_source'),
             'work_counter_scope':'new_continuation_run; prior work reported separately',
             'ready_states':len(ready),'CPU_planning_requests':len(preparing),'GPU_inflight_requests':len(gpu),
             'CPU_executor_requests':len(executing),'peak_GPU_inflight_requests':peak_gpu,

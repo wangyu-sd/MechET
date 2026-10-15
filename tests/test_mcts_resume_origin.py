@@ -171,3 +171,37 @@ def test_missing_rank_manifest_does_not_discard_committed_current_journal(tmp_pa
         assert {str(p.relative_to(output)): p.read_bytes() for p in output.rglob('*') if p.is_file()} == before
     finally:
         restored.close()
+
+
+def test_partial_startup_reads_nearest_saved_progress_without_new_work(tmp_path):
+    from scripts.mcts_resume import read_prior_progress
+    output, parent, _, _ = publish(tmp_path)
+    path = parent / 'tree/rank00/progress.json'
+    path.write_text(json.dumps({'output_tokens': 101, 'model_forward_calls': 7, 'elapsed_seconds': 12.5}))
+    value = read_prior_progress(output / 'tree/rank00')
+    assert (value['output_tokens'], value['model_forward_calls'], value['elapsed_seconds']) == (101, 7, 12.5)
+    assert value['progress_source'] == str(path) and value['historical_costs_available'] is True
+
+
+def test_repeated_resume_counts_carried_prior_costs_once_not_every_ancestor(tmp_path):
+    from scripts.mcts_resume import read_prior_progress
+    output, parent, _, _ = publish(tmp_path)
+    (parent / 'tree/rank00/progress.json').write_text(json.dumps(
+        {'output_tokens': 101, 'model_forward_calls': 7, 'elapsed_seconds': 12.5}))
+    root = output / 'tree/rank00'; root.mkdir(parents=True)
+    (root / 'progress.json').write_text(json.dumps({'output_tokens': 23, 'prior_output_tokens': 101,
+        'model_forward_calls': 2, 'prior_model_forward_calls': 7,
+        'elapsed_seconds': 4, 'prior_elapsed_seconds': 12.5}))
+    value = read_prior_progress(root)
+    assert (value['output_tokens'], value['model_forward_calls'], value['elapsed_seconds']) == (124, 9, 16.5)
+    assert value['progress_source'] == str(root / 'progress.json')
+    (root / 'progress.json').write_text(json.dumps(value))
+    repeated = read_prior_progress(root)
+    assert (repeated['output_tokens'], repeated['model_forward_calls'], repeated['elapsed_seconds']) == (124, 9, 16.5)
+
+
+def test_missing_progress_is_explicitly_unavailable_not_a_missing_checkpoint_error(tmp_path):
+    from scripts.mcts_resume import read_prior_progress
+    output, _, _, _ = publish(tmp_path)
+    value = read_prior_progress(output / 'tree/rank00')
+    assert value['progress_source'] is None and value['historical_costs_available'] is False

@@ -129,8 +129,23 @@ Audit: `outputs/analysis/mcts_resume_lineage_audit_20261016_01/audit_complete.js
 
 The queued inference instance remains pinned to7bbc16f; it has not been silently
 retargeted to edited working-tree code or resubmitted. The new entry is for a
-subsequent explicit continuation if necessary. A compatible origin companion
-can be published for that existing instance without changing its queue position.
+subsequent explicit continuation if necessary. Its compatible origin companion
+was published at01:26 CST without creating the inference output directory or
+changing the queue position. Publisher2ff5943 and inference runtime7bbc16f
+remain separately recorded in
+`outputs/submissions/uspto31k_mcts_ray_resume_20261015_02/resume_origin_publication.json`.
+Companion SHA256:
+`b66e6eb2fc80f9db4202a4f42133d82bd29ec0ca4a2c594ba678b9772e87bf07`.
+
+A final accounting boundary was reproduced and fixed: missing startup progress
+does not invalidate saved search state, and repeated resumptions carry recorded
+prior token/forward/time costs exactly once. The reader takes the nearest
+compatible snapshot rather than summing copied ancestor snapshots; unavailable
+costs are explicitly marked unavailable. All8 actual shard metadata comparisons
+passed, with no model generation or source writes. Targeted origin/runner tests:
+23passed. Final whole suite: **923passed,11skipped,one existing PEFT warning**,
+101.98s. Shell syntax, frozen-source comparison and `git diff --check` passed.
+These later recovery-entry fixes do not change the queued immutable runtime.
 
 ## Remaining runtime gates
 
