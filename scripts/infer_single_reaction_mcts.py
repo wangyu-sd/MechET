@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Full3120 single-reaction MCTS with continuous GPU batching and CPU overlap."""
 from __future__ import annotations
-import argparse,json,math,os,sys,time,threading
+import argparse,json,math,os,sys,time,threading,signal
 from pathlib import Path
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -73,6 +73,8 @@ def main():
     p.add_argument('--shared-cache',type=Path,required=True)
     p.add_argument('--mcts-shared-root',type=Path,required=True)
     p.add_argument('--resume-from',type=Path,help='prior output root; read-only continuation source')
+    p.add_argument('--ray-actor',help='named Ray tree owner; omit for legacy file-store tests')
+    p.add_argument('--ray-namespace',default='mechet-mcts')
     args=p.parse_args()
     if not 0<=args.rank<args.world or min(args.program_goal,args.cpu_workers,args.io_workers,args.inflight_requests)<1:
         p.error('invalid shard or concurrency')
@@ -98,8 +100,14 @@ def main():
     forwards=ForwardCallCounter(engine);tokenizer=engine.get_tokenizer()
     process=psutil.Process();guard=HostMemoryGuard(world=args.world,initial_rss=process.memory_info().rss,available=available_host_memory())
     cache=SharedSearchStore(args.shared_cache,policy_cache_contract())
-    planning=FastSingleReactionMCTSStore(args.mcts_shared_root,{'policy_executor_namespace':cache.namespace,
-        'max_model_len':args.max_model_len,'sampling_seed':args.seed,'program_goal':args.program_goal})
+    if args.ray_actor:
+        from scripts.ray_mcts_store import RayMCTSStore,single_planning_contract
+        planning=RayMCTSStore(args.ray_actor,namespace=args.ray_namespace)
+        if planning.contract!=single_planning_contract(cache.namespace,args.max_model_len,args.seed,args.program_goal):
+            raise ValueError('Ray tree scientific contract mismatch')
+    else:
+        planning=FastSingleReactionMCTSStore(args.mcts_shared_root,{'policy_executor_namespace':cache.namespace,
+            'max_model_len':args.max_model_len,'sampling_seed':args.seed,'program_goal':args.program_goal})
     manifest={'model':'Qwen/Qwen3-0.6B','revision':REVISION,'adapter_sha':ADAPTER_SHA,'source_sha':SOURCE_SHA,
         'full_denominator':3120,'shard_rows':len(selected),'rank':args.rank,'world':args.world,'mode':'tree',
         'seed':args.seed,'raw_unwarped_nll':True,'search_algorithm':'single_reaction_mcts',
@@ -118,7 +126,9 @@ def main():
         'stopping_contract':'ten_trajectory_attempts_including_invalid_and_censored_not_ten_successes',
         'hard_token_or_wall_cap':False,'max_model_len':args.max_model_len,
         'stock_or_recursive_reaction_search':False,'fresh_attempt_no_old_graph_resume':not bool(args.resume_from),
-        'resume_source':str(args.resume_from.resolve()) if args.resume_from else None}
+        'resume_source':str(args.resume_from.resolve()) if args.resume_from else None,
+        'tree_store_backend':'ray_memory_grouped_WAL_v1' if args.ray_actor else 'legacy_file_store',
+        'raw_history_sources':[str(args.resume_from.resolve())] if args.resume_from else []}
     dump(root/'manifest.json',manifest)
     controllers={};journals={};reports=[]
     resume_stats={};prior_work={}
@@ -130,6 +140,7 @@ def main():
         prior_work=json.loads((source_root/'progress.json').read_text())
         dump(root/'recovery.json',{'source':str(source_root),'prior_progress':prior_work,**resume_stats})
         print({'phase':'MCTS-restored','rank':args.rank,**resume_stats},flush=True)
+    if args.ray_actor:planning.recovery_ready()
     for row in ([] if args.resume_from else selected):
         try:c=make_controller(row,mcts_store=planning,shared_store=cache,
             checkpoint_path=root/'mcts'/(fingerprint(row['id'])+'.json'),program_goal=args.program_goal)
@@ -249,9 +260,12 @@ def main():
     pool=ThreadPoolExecutor(max_workers=args.cpu_workers)
     pipe=ContinuousBatchEngine(engine.llm_engine,params_factory=params,
         lora=LoRARequest('frozen_flowER_stage2',1,str(args.adapter.resolve())),max_inflight=args.inflight_requests)
+    interrupted=threading.Event()
+    old_term=signal.signal(signal.SIGTERM,lambda *_:interrupted.set())
     try:
         progress(True)
         while ready or preparing or executing or gpu or writer.has_pending:
+            if interrupted.is_set():break
             if guard.exhausted(rss=process.memory_info().rss,available=available_host_memory()):
                 resource_reason='TASK_HOST_MEMORY_BUDGET';break
             while True:
@@ -291,7 +305,7 @@ def main():
     finally:
         try:
             pipe.close()
-            if resource_reason:
+            if resource_reason or interrupted.is_set():
                 # The owner has stopped, so this queue can no longer grow.
                 # Backpressure may have left FINISHED GPU outputs unpolled:
                 # persist/count them without executing chemistry after a stop.
@@ -326,6 +340,11 @@ def main():
                     for c in controllers.values():
                         try:c.checkpoint()
                         finally:c.close()
+                    signal.signal(signal.SIGTERM,old_term)
+    if interrupted.is_set():
+        progress(True);waves.close()
+        print({'phase':'MCTS-interrupted-resumable','rank':args.rank,'no_attempt_charged':True},flush=True)
+        return 130
     if resource_reason:
         for identifier in list(controllers):finish(identifier,resource_reason)
     if {r['id'] for r in reports}!=set(references):raise RuntimeError('full3120 shard lost IDs')

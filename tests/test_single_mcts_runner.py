@@ -275,3 +275,46 @@ def test_resource_shutdown_drains_completed_gpu_results_behind_full_io_queue(
     assert len(raw) == 2 and {r['case_id'] for r in raw} == {'unit-case', 'unit-case-b'}
     assert sum(r['work']['policy_request_batches'] for r in sealed['rows']) == 2
     assert json.loads((root / 'progress.json').read_text())['GPU_inflight_requests'] == 0
+
+
+def test_full_runner_resume_keeps_done_reports_and_has_zero_new_sampling(cpu_single_mcts_runner, monkeypatch):
+    import json
+    run, runner, engine = cpu_single_mcts_runner
+    _, old = run('original')
+    calls = engine.calls
+    original = runner.argparse.ArgumentParser.parse_args
+    def parse(parser, *args, **kwargs):
+        parsed = original(parser, *args, **kwargs)
+        parsed.resume_from = old.parent.parent
+        return parsed
+    monkeypatch.setattr(runner.argparse.ArgumentParser, 'parse_args', parse)
+    status, new = run('continued')
+    assert status == 0 and engine.calls == calls
+    sealed = json.loads((new / 'complete.json').read_text())
+    assert len(sealed['rows']) == 1 and sealed['tokens'] == 0
+    assert sealed['manifest']['resume_source'] == str(old.parent.parent)
+    assert json.loads((new / 'recovery.json').read_text())['reused_finished_reports'] == 1
+
+
+def test_sigterm_drains_raw_results_without_consuming_pending_attempt(cpu_single_mcts_runner, monkeypatch):
+    import json
+    import signal
+    from scripts.mcts_runtime_io import DurablePolicyWriter
+    from mechet.shared_electron_search import read_record
+    run, runner, _ = cpu_single_mcts_runner
+    handlers = {}
+    def install(sig, handler):
+        previous = handlers.get(sig, signal.SIG_DFL); handlers[sig] = handler
+        return previous
+    original_submit = DurablePolicyWriter.submit
+    def interrupt(self, *args, **kwargs):
+        original_submit(self, *args, **kwargs)
+        handlers[signal.SIGTERM](signal.SIGTERM, None)
+    monkeypatch.setattr(signal, 'signal', install)
+    monkeypatch.setattr(DurablePolicyWriter, 'submit', interrupt)
+    status, root = run('interrupted')
+    assert status == 130 and not (root / 'complete.json').exists()
+    saved = read_record(next((root / 'mcts').glob('*.json')))
+    assert saved['metrics']['completed_rollouts'] == saved['metrics']['censored_rollouts'] == 0
+    assert len(saved['pending_rollouts']) == 1
+    assert (root / 'raw_generations.jsonl').read_text().strip()
