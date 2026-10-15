@@ -1,0 +1,108 @@
+# Ray/vLLM continuation of the stopped full3120 MCTS
+
+## Deployment state
+
+At 2026-10-15 23:39 CST, submitted exactly one ordinary eight-A100 task in
+`AI4LSLab_KEMO_QY_A100`, location `qy`:
+
+- Task: `meteor_mechet_uspto31k_mcts_ray_resume_8a100_qy_20261015_02`.
+- Instance: `8b1d899ea13fdea001a14037bb080126`.
+- Pinned runtime: `7bbc16f7bb314c5a059ac5e08e9b1c398d70512d`.
+- Image: `mirrors.tencent.com/whaleywang/metabo:taiji6`.
+- Proven successful-donor private Ceph init; no credentials enter Git.
+- Unbuffered default POD stdout/stderr and a 45-second heartbeat.
+
+Initial authoritative `instance_list` readback is `TRAINING_RESOURCE_WAITING`.
+Submission is not successful inference. A read-only monitor checks the exact
+instance every 600 seconds. Actual allocation, recovery, GPU generation and two
+throughput windows remain unverified at this record's creation.
+
+## Preserved scientific contract
+
+This changes tree storage/coordination and adds compatible checkpoint recovery;
+it does not change the actor, source products, search algorithm or sampling.
+All 3,120 original test IDs remain. The source is still the frozen
+`rxn_prod_min`-proxy **diagnostic**, not an audited principal-product benchmark.
+The actor is FlowER Stage-II Qwen3-0.6B, adapter SHA
+`40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75`.
+Ten total single-reaction trajectory attempts include invalid/censored attempts;
+they are not ten successful endpoints and not recursive stock-connected routes.
+GT remains post-search scoring only. The native cache namespace, planner source
+hashes, tokenizer/history, seeds and mean-NLL ranking are unchanged.
+
+## Completed all-population recovery
+
+The original stopped task remains END. Its source is preserved read-only:
+`outputs/eval/mech_uspto31k_full_mcts_rolling_20261015_01`.
+No unrelated task was stopped; fresh readback left R1/R2 and joint-import-flow
+training at `TRAINING_RUNNING`.
+
+Full CPU-only migration completed in 1,478.37 seconds, without model generation:
+
+| Quantity | Original stopped checkpoints | Recovered |
+|---|---:|---:|
+| Unique source IDs | 3,120 | 3,120 |
+| Reused finished reports | 125 | 125 |
+| Controllers to continue/finalize | 2,995 | 2,995 |
+| Completed attempts | 8,870 | 8,874 |
+| Pending rollout paths | 19,952 | 19,948 |
+| Collected terminal contexts | 4,441 | 4,445 |
+
+Four shared backups were already durable before their original controller
+checkpoints advanced. Recovery reconciled those four exactly once; it did not
+generate four new trials. Completed-plus-pending totals are unchanged. Formal
+terminal contexts are not claims of chemically correct or GT-matching endpoints.
+
+An independent read-only audit verified all 3,120 IDs, exact finished reports,
+and byte-equivalent UID/sid/path records for all 19,948 remaining rollouts.
+The four removed pending UIDs each have an original durable backup. The original
+completed-but-unreported case remains eligible for no-sampling finalization.
+
+Migration tree metrics: 141,004 planning nodes read, WAL sequence 4 committed 4,
+writer queue 0, eight registered recovery workers. The reopened Ray store uses
+the same append-only WAL plus immutable original-node read-through; it does not
+interpret the WAL directory as legacy node JSON.
+
+## Software verification
+
+Final full suite: **908 passed, 11 skipped, one existing PEFT warning** in 94.50s.
+This includes real Ray actor restart and a separate-process bootstrap client,
+abrupt process loss, torn WAL tails, writer failure, exact-once backup, UID
+admission before cached execution, full preserved native proposal batches,
+legacy live-owner fencing/dead-worker transfer and unrelated-node concurrency
+during a slow legacy read or lock probe. Shell syntax and `git diff --check`
+also passed. These are software checks, not model smoke evaluations.
+
+Independent review found three Important recovery gaps; all were reproduced
+with failing tests and repaired. Full CPU migration attempts 01/02 exposed
+global-lock Ceph serialization and were intentionally stopped after diagnosis;
+their partial outputs/failure receipts are retained. They are not model results.
+The successful third migration moves cold reads and per-UID file probes outside
+the global tree lock. A same-image running POD reports a soft/hard file limit
+of 1,000,000, sufficient for the central legacy lease fences.
+
+## Durable evidence outside Git
+
+All paths below are relative to `/aaa/fionafyang/buddy1/whaleywang/MechET/`:
+
+- `outputs/eval/mech_uspto31k_mcts_ray_migration_20261015_03/migration_complete.json`
+- `outputs/analysis/mcts_ray_resume_path_audit_20261015_03/audit_complete.json`
+- `outputs/submissions/uspto31k_mcts_ray_resume_20261015_02/submission.json`
+- `outputs/submissions/uspto31k_mcts_ray_resume_20261015_02/queue_checks.jsonl`
+- New inference output: `outputs/eval/mech_uspto31k_full_mcts_ray_20261015_02`
+
+Raw model receipts, old native journals/trees, source data and actor weights are
+not copied into Git. No GitHub push, PR or merge was requested by this deployment.
+
+## Remaining runtime gates
+
+- Verify actual POD, Ceph, eight intended GPUs and eight inference owners.
+- Verify all eight source/actor/backend manifests and recovered counters.
+- Verify fresh default-log output and newly saved non-cache model generations.
+- Measure at least two subsequent windows of new tokens, completed attempts,
+  finished cases, CPU/GPU occupancy and persistence backlog; do not infer a
+  speedup from restored historical counters or a GPU-utilization snapshot.
+
+Explicit resume after interruption is supported. Automatic platform restart is
+not configured. No claim is made to attribute original pre-stop rollout UIDs
+that were never saved to any controller, or to recover unrecorded GPU work.

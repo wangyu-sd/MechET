@@ -1,9 +1,10 @@
 # Resumable Ray MCTS deployment
 
 Status: approved in chat; user explicitly waived further document-review pauses.
-Implementation and independent-review fixes pass 906 software tests (11 skipped).
-The full3120 CPU-only legacy migration is running; replacement submission and
-actual GPU throughput verification remain pending. The old31k task is END.
+Implementation and review/performance fixes pass 908 software tests (11 skipped).
+The full3120 CPU-only migration and independent path audit passed. One8A100
+continuation was submitted at23:39 CST and is resource-waiting; actual GPU
+recovery/generation/throughput verification remains pending. The old31k is END.
 
 ## Requested outcome
 
