@@ -36,3 +36,28 @@ found `infer_single_reaction_mcts.py` rejects existing output and lacks a resume
 entry; inherited route-controller restoration also does not match the single-
 reaction constructor/checkpoint schema. Recovery must be implemented and tested
 before a continuation is represented as resumable.
+
+## Complete post-stop checkpoint audit
+
+A read-only 16-thread audit checked all 3120 controller checkpoint checksums,
+hashed filenames, exact source-ID/shard assignments, journal-header checksums,
+case identities, and program-goal contracts. All 3120 passed; no missing or
+extra source IDs were found. This did not replay every native journal event or
+prove the currently absent restore entry works.
+
+Stopped-state totals: 8870 completed rollouts, zero censored rollouts, 19952
+pending rollout paths, 4441 collected terminal program contexts. Maximum saved
+pending path length was 13. There are 125 evaluation reports but 126 checkpoints
+whose trajectory-attempt goal is complete. Thus migration must finish the
+one completed-but-not-reported target without regenerating its trajectories.
+The pre-stop progress counters are not the exact final stopped-state totals.
+
+The report gap is rank05 `mech-uspto31k-full:test:22809`: checkpoint records
+10 completed rollouts, 8 positive backups, 8 collected program contexts, and
+zero pending rollouts. Shared root visits are global statistics, not this
+target's local attempt count. Neither 8 positive backups nor 8 program contexts
+establishes GT endpoint correctness.
+
+Elapsed read-only audit time: 63.48 seconds. No model sampling, training,
+evaluation experiment, new dependency installation or replacement submission
+was performed by this audit.

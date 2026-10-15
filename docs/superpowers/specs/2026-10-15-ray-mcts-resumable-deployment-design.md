@@ -89,6 +89,10 @@ Local disk/RAM is only a cache. Initial deployment needs no LMDB/Redis service.
    programs, and reconcile pending UID/path reservations with durable backups.
    Resume a pending trajectory from its saved state rather than charging a
    deployment interruption as an additional chemical failure or attempt.
+   Also finalize already-goal-complete checkpoints lacking their evaluation
+   report without rerunning inference. The stopped full3120 audit found 126
+   goal-complete checkpoints but only 125 reports, so this is a real crash
+   boundary rather than a hypothetical test requirement.
 6. Reconcile crash windows between expansion persistence, native journaling,
    backup and controller checkpointing. Native payloads and durable policy
    receipts are evidence for reconstruction; missing evidence is a migration
@@ -106,7 +110,8 @@ Before submission, software tests must cover batch-versus-serial PUCT behavior,
 exact state/history identity, concurrent reservations, duplicate backup,
 actor restart, writer failure, incomplete tail, report/checkpoint ordering,
 and migration of both finished and pending legacy targets. Test the backup
-committed/checkpoint stale crash window explicitly. Demonstrate node-loss
+committed/checkpoint stale and goal-complete/report-missing crash windows
+explicitly. Demonstrate node-loss
 recovery from the shared durable path, not merely a surviving Python object.
 
 Run the relevant and full repository regression suite. Record the Ray/runtime
