@@ -61,8 +61,8 @@
 - [x] Audit all3120 saved IDs/contracts and recover them without model generation. Expected: no lost IDs or reset attempts.
 - [x] Run final whole-branch review and full suite. Expected: no Critical/Important unresolved.
 - [x] Submit exactly one ordinary8A100 from successful Tencent/Ceph donor; verify actual instance state.
-- [ ] Monitor every600seconds if queued, then verify eight real engines/default logs/new raw results and measure two progress windows.
-- [ ] Record observed throughput, recovery provenance and remaining limitations. Completion requires real deployment, not only create/start success.
+- [x] Monitor every600seconds if queued, then verify eight real engines/default logs/new raw results and measure two progress windows. Runtime verification at05:13CST: all8 restored; fresh delivery to default log pipes is verified by kernel write counters at45s and advancing progress output, not by CLI/viewer freshness (which is explicitly unverified).
+- [x] Record observed throughput, recovery provenance and remaining limitations. Two full8GPU windows:219643/119.933s and248532/121.049s,combined1942.78newtokens/s;89newattempt completions/3newly sealed reports,writer queues0. All3120current IDs/source shards verified; full evaluation remains running.
 
 ### Task3 recovery-start interruption boundary (implementation supplement)
 
@@ -112,5 +112,9 @@ and two observed throughput windows remain unverified; Task3 is not complete.
   contract comparison and shell syntax passed.
 - [x] Commit repair and submit one fresh-output8A100 continuation of the partial
   failed instance (0ec4ff8/config586a977,instance8b1d8242a13fde4101a1413c9f36031d).
-- [ ] Verify actual post-repair eight-worker recovery, fresh default logs/new
-  model generations and two throughput windows; initialRUNNING alone is not done.
+- [x] Verify actual post-repair eight-worker recovery, fresh default logs/new
+  model generations and two throughput windows; see runtime_verification.json
+  for direct default-pipe delivery evidence, not a CLI/viewer freshness claim.
+  Fresh CLI/viewer text remains unverified and is not claimed. Additional
+  owner-liveness optimizationa7f19dc passes930tests and a real-root software
+  microbenchmark, but is not hot-swapped into current0ec4ff8 inference.

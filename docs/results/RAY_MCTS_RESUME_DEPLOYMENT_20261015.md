@@ -16,7 +16,43 @@ stdout. Explicit source is the first instance's partial output, with compatible
 ancestors and the same migration03 Ray WAL. No restart from products, hardware/
 actor/search change or unrelated cancellation. Receipt in
 `outputs/submissions/uspto31k_mcts_ray_resume_20261016_03/`.
-Actual new generation and two throughput windows remain required.
+At05:09:38CST all eight shards finished restoration and entered live inference.
+At05:13:39CST two post-all-eight recovery throughput windows were observed.
+The original125 reports,2995 controllers,19948 pending UID paths and7624
+controller completions (8874 including old reports) are retained. The current
+population audit separately read all checkpoint/report IDs: exactly3120,
+with the original eight390-ID shard assignments and frozen source SHA.
+
+| full8GPU observation | seconds | new tokens | completed attempts | newly sealed reports |
+|---|---:|---:|---:|---:|
+|05:09:38–05:11:38CST|119.933|219643|53|2|
+|05:11:38–05:13:39CST|121.049|248532|36|1|
+
+Combined throughput is1942.78newtokens/second. Restored historical counters
+are excluded from these deltas. Writer backlog was0 in all three boundary
+snapshots; CPU snapshots6.6–8.0%, GPU snapshots0–55%: this is not a claim that
+GPUs are saturated or that cluster speedup is11x. The second boundary has
+164/3120 sealed reports; a later05:15:38 snapshot has167/3120 (5.35%). These
+are completion counts, not endpoint accuracy, and the full evaluation continues.
+
+Every rank has a saved non-cache generation, independently verified by exact
+raw-line offset and SHA. Default stdout/stderr for all eight workers point to
+PID1's log pipes (read-only POD probe34984). The45s heartbeat PID68 writes to
+the same stdout pipe; successful kernel write_chars rise12444→12852→13464
+over the throughput snapshots, and progress records continue advancing. This
+verifies fresh default-stream emission, not CLI/viewer freshness: `logs` still
+returns its bootstrap segment, so no fresh UI text claim is made.
+
+Current runtime remains0ec4ff8 and the same persistent Ray WAL. The additional
+owner-probe optimizationa7f19dc is tested/committed but NOT hot-swapped into
+this running instance; see `MCTS_RAY_OWNER_PROBE_20261016.md`. No extra GPU job,
+unrelated cancellation, scientific protocol change or model smoke was made.
+Durable evidence beside the submission: `runtime_verification.json`,
+`current_population_verification.json`, `noncache_generation_evidence.json`
+and `post_recovery_observations.json`. A local final audit initially preceded
+the population receipt and failed with missing-file evidence; it was rerun
+only after that exact population verifier completed successfully, not by
+restarting inference.
 
 At04:33CST, actual POD inspection verified Ceph, eight A100-SXM4-40GB
 devices, eight live inference owners and eight390-row manifests with matching
@@ -177,14 +213,20 @@ passed, with no model generation or source writes. Targeted origin/runner tests:
 101.98s. Shell syntax, frozen-source comparison and `git diff --check` passed.
 These later recovery-entry fixes do not change the queued immutable runtime.
 
-## Remaining runtime gates
+## Runtime gates observed; remaining observability limitation
 
-- Verify actual POD, Ceph, eight intended GPUs and eight inference owners.
-- Verify all eight source/actor/backend manifests and recovered counters.
-- Verify fresh default-log output and newly saved non-cache model generations.
-- Measure at least two subsequent windows of new tokens, completed attempts,
-  finished cases, CPU/GPU occupancy and persistence backlog; do not infer a
-  speedup from restored historical counters or a GPU-utilization snapshot.
+- Actual POD/Ceph/eight intended GPUs/eight inference owners verified.
+- Eight source/actor/backend manifests, original recovery counters and all3120
+  current ID assignments verified against frozen source and full path audits.
+- Fresh kernel delivery to default stdout verified, all eight worker stderr
+  descriptors also default; saved non-cache generations verified on every rank.
+- Two full-eight-worker windows measured above, with new tokens, completed
+  attempts, reports, CPU/GPU snapshots and empty persistence backlog. No speedup
+  is inferred from restored counters or GPU snapshots.
+- CLI/viewer freshness is NOT verified; the API still serves bootstrap text.
+  Keep this limitation distinct from the verified default-pipe emission and
+  actual inference. Full3120 result/endpoint accuracy remain outstanding and
+  are not requirements of this resume-deployment task.
 
 Explicit resume after interruption is supported. The public config requests
 fault tolerance off, but task-detail readback reports it on; automatic recovery
