@@ -323,3 +323,31 @@ def test_dead_worker_legacy_fence_transfers_to_replacement_owner(tmp_path):
     finally:
         if child.poll() is None: child.terminate(); child.wait(timeout=5)
         core.close()
+
+
+@pytest.mark.parametrize('method', ['alive', 'claim_rollout'])
+def test_slow_legacy_fence_does_not_block_unrelated_in_memory_nodes(tmp_path, monkeypatch, method):
+    from pathlib import Path
+    import threading
+    from scripts.single_reaction_mcts import SingleReactionMCTSStore
+    from scripts.ray_mcts_store import MemoryMCTSCore
+    legacy = SingleReactionMCTSStore(tmp_path / 'legacy', {})
+    lease = legacy.start_rollout(); uid = lease.uid; lease.close()
+    core = MemoryMCTSCore(tmp_path / 'memory', legacy.contract, legacy_root=legacy.root)
+    sid = core.intern({'active': 'unrelated', 'solved': False})
+    core.register_owner('worker', os.getpid())
+    blocked, release = threading.Event(), threading.Event()
+    original = Path.open
+    def slow(path, *args, **kwargs):
+        if path.name == uid + '.lock':
+            blocked.set(); assert release.wait(5)
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(Path, 'open', slow)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(getattr(core, method), uid, *(['worker'] if method == 'claim_rollout' else []))
+        assert blocked.wait(2)
+        second = pool.submit(core.snapshot, sid)
+        try:
+            assert second.result(timeout=1)['state']['active'] == 'unrelated'
+        finally:
+            release.set(); first.result(); core.close()

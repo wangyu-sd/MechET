@@ -113,6 +113,7 @@ class MemoryMCTSCore:
         self._legacy_backup_ids = {p.stem for p in (self.legacy_root / 'backups').glob('*.json')} if self.legacy_root else set()
         self._legacy_rollout_ids = {p.stem for p in (self.legacy_root / 'rollouts').glob('*.lock')} if self.legacy_root else set()
         self._legacy_claims = {}
+        self._lease_locks = {}
         self.owners = {}; self.leases = {}; self.expansions = {}
         self.recovery_workers = set(); self.expected_workers = 8
         self.sequence = 0; self.closed = False; self.legacy_reads = 0
@@ -235,11 +236,16 @@ class MemoryMCTSCore:
         self._prefetch([sid])
         with self._lock:
             value = self._node(sid)
-            for uid in list(value['reservations']):
-                # Unknown legacy reservations must survive until every rank has
-                # registered its saved UID leases, or virtual counts change.
-                if (uid in self.leases or len(self.recovery_workers) == self.expected_workers) and not self.alive(uid):
-                    value['reservations'].pop(uid, None)
+            eligible = [uid for uid in value['reservations'] if uid in self.leases
+                        or len(self.recovery_workers) == self.expected_workers]
+        for uid in eligible:
+            # Per-UID ordering fences lease changes, without holding the global
+            # tree lock across an old Ceph lock probe.
+            with self._lease_lock(uid):
+                if not self.alive(uid):
+                    with self._lock: self._node(sid)['reservations'].pop(uid, None)
+        with self._lock:
+            value = self._node(sid)
             result = copy.deepcopy(value); seq = self.sequence
         self.writer.wait(seq)
         return result
@@ -302,15 +308,23 @@ class MemoryMCTSCore:
 
     def alive(self, uid):
         import psutil
-        with self._lock:
-            owner = self.leases.get(uid)
-            if owner is None:
-                if uid not in self._legacy_rollout_ids: return False
-                if uid in self._legacy_claims: return True
-                return self._legacy_alive(uid)
-            pid, created = self.owners[owner]
+        with self._lease_lock(uid):
+            with self._lock:
+                if uid in self.leases:
+                    owner = self.leases[uid]
+                    if owner is None: return False
+                    pid, created = self.owners[owner]
+                else:
+                    if uid not in self._legacy_rollout_ids: return False
+                    if uid in self._legacy_claims: return True
+                    pid = None
+            if pid is None: return self._legacy_alive(uid)
             try: return psutil.Process(pid).create_time() == created and psutil.Process(pid).is_running()
             except psutil.Error: return False
+
+    def _lease_lock(self, uid):
+        with self._lock:
+            return self._lease_locks.setdefault(uid, threading.RLock())
 
     def _legacy_alive(self, uid):
         with (self.legacy_root / 'rollouts' / (uid + '.lock')).open('a+') as handle:
@@ -319,8 +333,9 @@ class MemoryMCTSCore:
             return False
 
     def claim_rollout(self, uid, owner):
-        with self._lock:
-            if owner not in self.owners: raise ValueError('unknown rollout owner')
+        with self._lease_lock(uid):
+            with self._lock:
+                if owner not in self.owners: raise ValueError('unknown rollout owner')
             if self.alive(uid): raise ValueError('rollout still has a live owner')
             if uid in self._legacy_rollout_ids and uid not in self._legacy_claims:
                 handle = (self.legacy_root / 'rollouts' / (uid + '.lock')).open('a+')
@@ -328,15 +343,17 @@ class MemoryMCTSCore:
                 except BlockingIOError:
                     handle.close(); raise ValueError('legacy rollout still has a live owner') from None
                 self._legacy_claims[uid] = handle
-            self.leases[uid] = owner
+            with self._lock: self.leases[uid] = owner
         return uid
 
     def release_rollout(self, uid, owner):
-        with self._lock:
-            if self.leases.get(uid) == owner:
-                self.leases[uid] = None
-                handle = self._legacy_claims.pop(uid, None)
-                if handle is not None: handle.close()
+        with self._lease_lock(uid):
+            with self._lock:
+                handle = None
+                if self.leases.get(uid) == owner:
+                    self.leases[uid] = None
+                    handle = self._legacy_claims.pop(uid, None)
+            if handle is not None: handle.close()
 
     def claim_expansion(self, sid, owner):
         with self._lock:
