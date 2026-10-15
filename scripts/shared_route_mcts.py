@@ -299,7 +299,7 @@ class MCTSRouteNetwork(RouteNetwork):
         if self.selected is not None: return self.contexts[self.selected['context']]
         # Multiple live rollouts prevent one deep electronic continuation from
         # consuming a target forever before an alternative gets explored.
-        if len(self.rollouts)<8:
+        if len(self.rollouts)<getattr(self,'rollout_concurrency',8):
             self.rollouts.append({'lease':self.mcts_store.start_rollout(), 'sid':self.mcts_root,'path':[]})
         rollout = self.rollouts.popleft()
         for _ in range(64):  # cooperative CPU quantum, NOT a chemical horizon
