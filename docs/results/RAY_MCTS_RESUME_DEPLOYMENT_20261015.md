@@ -17,6 +17,15 @@ Submission is not successful inference. A read-only monitor checks the exact
 instance every 600 seconds. Actual allocation, recovery, GPU generation and two
 throughput windows remain unverified at this record's creation.
 
+The first 600-second readback at23:50 CST remains resource-waiting. The exact
+scheduler message is `WAITING_8B1D81A3A13FDE3301A1402CFA5E010C`: this instance
+is behind the earlier eight-A100 `crn_pr25_sequence_head_8a100_20261015_01`.
+That predecessor reports `底层资源不足，请稍侯重试或排队等待。` Task readback
+confirms the intended application group and `location=qy`; no incorrect-region
+evidence was found. Group quota112/using87/waiting16 and cluster-level nine
+available A100 hosts do not prove a group-eligible full eight-GPU allocation.
+No unrelated job was stopped or modified to obtain resources.
+
 ## Preserved scientific contract
 
 This changes tree storage/coordination and adds compatible checkpoint recovery;
@@ -103,6 +112,9 @@ not copied into Git. No GitHub push, PR or merge was requested by this deploymen
   finished cases, CPU/GPU occupancy and persistence backlog; do not infer a
   speedup from restored historical counters or a GPU-utilization snapshot.
 
-Explicit resume after interruption is supported. Automatic platform restart is
-not configured. No claim is made to attribute original pre-stop rollout UIDs
+Explicit resume after interruption is supported. The public config requests
+fault tolerance off, but task-detail readback reports it on; automatic recovery
+is NOT verified. The existing-output guard refuses silent reuse/overwrite, so
+an interruption still requires an explicit fresh-output continuation. No claim
+is made to attribute original pre-stop rollout UIDs
 that were never saved to any controller, or to recover unrecorded GPU work.
