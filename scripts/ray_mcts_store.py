@@ -233,6 +233,9 @@ class MemoryMCTSCore:
         return sid
 
     def snapshot(self, sid):
+        return self._snapshot(sid, {})
+
+    def _snapshot(self, sid, owner_liveness):
         self._prefetch([sid])
         with self._lock:
             value = self._node(sid)
@@ -242,7 +245,7 @@ class MemoryMCTSCore:
             # Per-UID ordering fences lease changes, without holding the global
             # tree lock across an old Ceph lock probe.
             with self._lease_lock(uid):
-                if not self.alive(uid):
+                if not self.alive(uid, _owner_liveness=owner_liveness):
                     with self._lock: self._node(sid)['reservations'].pop(uid, None)
         with self._lock:
             value = self._node(sid)
@@ -253,7 +256,11 @@ class MemoryMCTSCore:
     def snapshots(self, sids):
         sids = list(dict.fromkeys(sids))
         self._prefetch(sids)
-        return {sid: self.snapshot(sid) for sid in sids}
+        # Many roots/paths share thousands of UIDs belonging to the same few
+        # worker processes. Probe each incarnation once in this read, not once
+        # per reservation. Never retain liveness across independent reads.
+        owner_liveness = {}
+        return {sid: self._snapshot(sid, owner_liveness) for sid in sids}
 
     def reserve(self, uid, sid, edge):
         self._mutation('reserve', {'uid': uid, 'sid': sid, 'edge': edge})
@@ -306,7 +313,7 @@ class MemoryMCTSCore:
         import psutil
         with self._lock: self.owners[owner] = (int(pid), psutil.Process(pid).create_time())
 
-    def alive(self, uid):
+    def alive(self, uid, *, _owner_liveness=None):
         import psutil
         with self._lease_lock(uid):
             with self._lock:
@@ -319,8 +326,13 @@ class MemoryMCTSCore:
                     if uid in self._legacy_claims: return True
                     pid = None
             if pid is None: return self._legacy_alive(uid)
-            try: return psutil.Process(pid).create_time() == created and psutil.Process(pid).is_running()
-            except psutil.Error: return False
+            key = (owner, pid, created)
+            if _owner_liveness is not None and key in _owner_liveness:
+                return _owner_liveness[key]
+            try: live = psutil.Process(pid).create_time() == created and psutil.Process(pid).is_running()
+            except psutil.Error: live = False
+            if _owner_liveness is not None: _owner_liveness[key] = live
+            return live
 
     def _lease_lock(self, uid):
         with self._lock:

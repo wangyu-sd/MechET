@@ -99,6 +99,53 @@ def test_pending_leases_can_be_reclaimed_after_owner_restart(tmp_path):
         core.close()
 
 
+@pytest.mark.parametrize('batch', [False, True])
+def test_snapshot_process_probes_scale_with_owners_not_reservations(tmp_path, monkeypatch, batch):
+    """A shared root must not reread /proc for every UID owned by one worker."""
+    import psutil
+    core = make_core(tmp_path)
+    first = seed(core)
+    second = core.intern({'active': 'second', 'solved': False})
+    core.add_edges(second, [{'id': 'b', 'child': None, 'count': 1}], observation='second')
+    for owner in ('one', 'two'):
+        core.register_owner(owner, os.getpid())
+        for i in range(20):
+            uid = f'{owner}-{i}'
+            core.claim_rollout(uid, owner)
+            core.reserve(uid, first, 'a')
+            core.reserve(uid, second, 'b')
+    real_init = psutil.Process.__init__
+    probes = []
+    def observed_process(process, pid=None):
+        probes.append(pid)
+        return real_init(process, pid)  # preserve the real class and PID checks
+    monkeypatch.setattr(psutil.Process, '__init__', observed_process)
+    try:
+        values = core.snapshots([first, second]) if batch else {first: core.snapshot(first)}
+        assert all(len(v['reservations']) == 40 for v in values.values())
+        assert all(v['visits'] == 0 and v['value_sum'] == 0 for v in values.values())
+        assert len(probes) <= 6, f'{len(probes)} process probes for only two owners'
+    finally:
+        core.close()
+
+
+def test_snapshot_owner_liveness_is_rechecked_on_the_next_read(tmp_path):
+    core = make_core(tmp_path)
+    sid = seed(core)
+    core.register_owner('worker', os.getpid())
+    core.claim_rollout('uid', 'worker')
+    core.reserve('uid', sid, 'a')
+    try:
+        assert core.snapshot(sid)['reservations'] == {'uid': 'a'}
+        pid, created = core.owners['worker']
+        core.owners['worker'] = (pid, created + 1)  # an obsolete PID incarnation
+        assert core.snapshot(sid)['reservations'] == {}
+        assert not core.alive('uid')
+        assert core.snapshot(sid)['visits'] == 0
+    finally:
+        core.close()
+
+
 def test_memory_and_legacy_selection_match_without_ceph_node_probes(tmp_path):
     from scripts.single_reaction_mcts import SingleReactionMCTSStore
     from scripts.ray_mcts_store import MemoryMCTSCore
