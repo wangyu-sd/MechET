@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Full3120 single-reaction MCTS with continuous GPU batching and CPU overlap."""
 from __future__ import annotations
-import argparse,json,math,os,sys,time
+import argparse,json,math,os,sys,time,threading
 from pathlib import Path
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
@@ -10,7 +10,8 @@ from dataclasses import asdict
 REPO=Path(__file__).resolve().parents[1]
 sys.path[:0]=[str(REPO),str(REPO/'src')]
 from scripts.infer_dynamic_electron_trees import ADAPTER_SHA,REVISION,sha256,dump,load_source,evaluate,ForwardCallCounter,HostMemoryGuard
-from scripts.single_reaction_mcts import SingleReactionMCTS,SingleReactionMCTSStore
+from scripts.single_reaction_mcts import SingleReactionMCTS
+from scripts.mcts_runtime_io import FastSingleReactionMCTSStore,DurablePolicyWriter
 from scripts.rolling_vllm_search import ContinuousBatchEngine
 from scripts.run_natural_language_value_search import policy_prompt
 from scripts.build_natural_language_event_sft import SYSTEM,TOOLS
@@ -67,11 +68,12 @@ def main():
     p.add_argument('--program-goal',type=int,default=10)
     p.add_argument('--inflight-requests',type=int,default=128)
     p.add_argument('--cpu-workers',type=int,default=16)
+    p.add_argument('--io-workers',type=int,default=2)
     p.add_argument('--max-model-len',type=int,default=8192)
     p.add_argument('--shared-cache',type=Path,required=True)
     p.add_argument('--mcts-shared-root',type=Path,required=True)
     args=p.parse_args()
-    if not 0<=args.rank<args.world or min(args.program_goal,args.cpu_workers,args.inflight_requests)<1:
+    if not 0<=args.rank<args.world or min(args.program_goal,args.cpu_workers,args.io_workers,args.inflight_requests)<1:
         p.error('invalid shard or concurrency')
     if sha256(args.data)!=SOURCE_SHA:raise ValueError('frozen full3120 source SHA mismatch')
     if sha256(args.adapter/'adapter_model.safetensors')!=ADAPTER_SHA:raise ValueError('frozen actor SHA mismatch')
@@ -95,7 +97,7 @@ def main():
     forwards=ForwardCallCounter(engine);tokenizer=engine.get_tokenizer()
     process=psutil.Process();guard=HostMemoryGuard(world=args.world,initial_rss=process.memory_info().rss,available=available_host_memory())
     cache=SharedSearchStore(args.shared_cache,policy_cache_contract())
-    planning=SingleReactionMCTSStore(args.mcts_shared_root,{'policy_executor_namespace':cache.namespace,
+    planning=FastSingleReactionMCTSStore(args.mcts_shared_root,{'policy_executor_namespace':cache.namespace,
         'max_model_len':args.max_model_len,'sampling_seed':args.seed,'program_goal':args.program_goal})
     manifest={'model':'Qwen/Qwen3-0.6B','revision':REVISION,'adapter_sha':ADAPTER_SHA,'source_sha':SOURCE_SHA,
         'full_denominator':3120,'shard_rows':len(selected),'rank':args.rank,'world':args.world,'mode':'tree',
@@ -109,6 +111,9 @@ def main():
         'batching':'continuous_public_add_request_step_single_GPU_owner_v1',
         'inflight_requests_per_GPU':args.inflight_requests,'cpu_workers_per_GPU':args.cpu_workers,
         'samples_per_expansion':16,'max_num_seqs':256,'fixed_depth_or_total_branch_cap':False,
+        'rollout_liveness':'process_owned_lease_fastpath_v1',
+        'policy_persistence':'bounded_async_commit_before_execute_v1',
+        'io_workers_per_GPU':args.io_workers,'max_pending_policy_writes':args.inflight_requests,
         'stopping_contract':'ten_trajectory_attempts_including_invalid_and_censored_not_ten_successes',
         'hard_token_or_wall_cap':False,'max_model_len':args.max_model_len,
         'stock_or_recursive_reaction_search':False,'fresh_attempt_no_old_graph_resume':True}
@@ -125,9 +130,12 @@ def main():
         j=SearchJournal(root/'journals',row['id'],manifest);j.initialize(c);journals[row['id']]=j
     ready=deque(controllers);preparing={};executing={};gpu={};attempted=set()
     costs={k:{'policy_request_batches':0,'prompt_tokens':0,'shared_policy_cache_hits':0,'reused_output_tokens':0,
-              'cpu_executor_wall_seconds':0.,'cpu_executor_thread_seconds':0.} for k in controllers}
-    total_tokens=0;started=time.monotonic();last_progress=0.;sequence=0;peak_gpu=0
-    raw=(root/'raw_generations.jsonl').open('a');prompts=(root/'policy_contexts.jsonl').open('a')
+              'cpu_executor_wall_seconds':0.,'cpu_executor_thread_seconds':0.,
+              'policy_persistence_wall_seconds':0.} for k in controllers}
+    total_tokens=0;started=time.monotonic();last_progress=0.;sequence=0;peak_gpu=0;aborted_gpu=0
+    writer=DurablePolicyWriter(root/'raw_generations.jsonl',cache.namespace,
+        workers=args.io_workers,max_pending=args.inflight_requests)
+    prompts=(root/'policy_contexts.jsonl').open('a');prompt_lock=threading.Lock()
     waves=(root/'work_waves.jsonl').open('a');prompt_seen=set();resource_reason=''
 
     def progress(force=False):
@@ -142,9 +150,11 @@ def main():
             'output_tokens':total_tokens,'model_forward_calls':forwards.total_calls,'elapsed_seconds':last_progress-started,
             'ready_states':len(ready),'CPU_planning_requests':len(preparing),'GPU_inflight_requests':len(gpu),
             'CPU_executor_requests':len(executing),'peak_GPU_inflight_requests':peak_gpu,
+            'GPU_aborted_requests':aborted_gpu,
             'completed_mcts_rollouts':sum(c.completed_rollouts for c in controllers.values())+sum(r.get('mcts',{}).get('completed_rollouts',0) for r in reports),
             'collected_terminal_programs':sum(len(c.completed_programs) for c in controllers.values())+sum(r.get('collected_programs',0) for r in reports),
             'shared_policy_cache_hits':sum(v['shared_policy_cache_hits'] for v in costs.values()),
+            'policy_persistence':writer.metrics(),'rollout_liveness':planning.liveness_metrics(),
             'full_result_complete':len(reports)==len(selected) and not limited,
             'boundary':'rolling_observation_not_synchronized_generation_wave_v1'}
         dump(root/'progress.json',value);waves.write(json.dumps(value)+'\n');waves.flush()
@@ -172,6 +182,14 @@ def main():
         request={'context':ctx.key,'prompt_ids':ids,'n':16,'max_tokens':min(ctx.max_new_tokens,room),
             'temperature':1,'top_p':1,'top_k':-1,'repetition_penalty':1,'presence_penalty':0,'frequency_penalty':0,
             'skip_special_tokens':False,'logprobs':0,'min_tokens':0,'seed':sampling_seed(args.seed,ctx.key,ctx.stats.batches)}
+        # Prompt I/O belongs to the CPU preparation stage, not the GPU-owner
+        # scheduler. Serialize appends and publish seen only after flush.
+        prompt_key=(identifier,ctx.key)
+        with prompt_lock:
+            if prompt_key not in prompt_seen:
+                prompts.write(json.dumps({'case_id':identifier,'context':ctx.key,
+                    'text':prompt,'token_ids':ids},ensure_ascii=False)+'\n');prompts.flush()
+                prompt_seen.add(prompt_key)
         lease,cached=cache.acquire_request(request)
         return identifier,request,lease,cached,prompt
 
@@ -185,16 +203,32 @@ def main():
         journals[identifier].record(c,key,edges)
         return time.monotonic()-wall,time.thread_time()-cpu
 
-    def accept(identifier,request,record,cache_hit,pool):
+    def account(identifier,request,record,cache_hit):
+        # Account observed GPU output at admission, not after asynchronous I/O:
+        # a resource stop must not erase already generated, subsequently drained tokens.
         nonlocal total_tokens
         cost=costs[identifier];tokens=sum(g['tokens'] for g in record['generations'])
         if cache_hit:cost['shared_policy_cache_hits']+=1;cost['reused_output_tokens']+=tokens
         else:
             total_tokens+=tokens;cost['policy_request_batches']+=1;cost['prompt_tokens']+=len(request['prompt_ids'])
-        raw.write(json.dumps({'case_id':identifier,'context':request['context'],'prompt_tokens':len(request['prompt_ids']),
-            'shared_cache_hit':cache_hit,'shared_request_key':fingerprint(request),
-            'shared_cache_namespace':cache.namespace,**record},ensure_ascii=False)+'\n');raw.flush()
+
+    def accept(identifier,request,record,pool):
         future=pool.submit(execute,identifier,request,record);executing[future]=identifier
+
+    def persist_gpu_output(done):
+        rid,result=done;identifier,request,lease=gpu.pop(rid)
+        try:
+            record=decode_request(result,tokenizer)
+            writer.submit(identifier,request,record,lease=lease)
+        except BaseException:
+            lease.close();raise
+        # Ownership transferred successfully. An accounting error must not
+        # close the lease concurrently with its persistence worker.
+        account(identifier,request,record,False)
+        forwards.by_request.pop(rid,None)
+
+    def record_persistence(persisted):
+        costs[persisted.case_id]['policy_persistence_wall_seconds']+=persisted.wall_seconds
 
     def params(request):return SamplingParams(**{k:v for k,v in request.items() if k not in {'context','prompt_ids'}})
     pool=ThreadPoolExecutor(max_workers=args.cpu_workers)
@@ -202,50 +236,81 @@ def main():
         lora=LoRARequest('frozen_flowER_stage2',1,str(args.adapter.resolve())),max_inflight=args.inflight_requests)
     try:
         progress(True)
-        while ready or preparing or executing or gpu:
+        while ready or preparing or executing or gpu or writer.has_pending:
             if guard.exhausted(rss=process.memory_info().rss,available=available_host_memory()):
                 resource_reason='TASK_HOST_MEMORY_BUDGET';break
+            while True:
+                persisted=writer.poll()
+                if persisted is None:break
+                record_persistence(persisted)
+                accept(persisted.case_id,persisted.request,persisted.record,pool)
             # Admit independent CASES, never concurrent writes to one controller.
             while ready and len(preparing)+len(executing)<2*args.cpu_workers and len(gpu)+len(preparing)<args.inflight_requests:
                 identifier=ready.popleft();attempted.add(identifier)
                 preparing[pool.submit(prepare,identifier)]=identifier
             for future in [f for f in preparing if f.done()]:
-                identifier=preparing.pop(future)
-                _,request,lease,cached,prompt=future.result();c=controllers[identifier]
+                identifier=preparing[future]
+                _,request,lease,cached,_=future.result();c=controllers[identifier]
+                if request is not None and cached is not None and not writer.available:
+                    continue  # retain the completed preparation until I/O capacity returns
+                preparing.pop(future)
                 if request is None:
                     if c.has_pending:ready.append(identifier)
                     else:finish(identifier,c.stop_reason or 'TERMINAL_PROGRAM_GOAL_REACHED')
                     continue
-                key=(identifier,request['context'])
-                if key not in prompt_seen:
-                    prompt_seen.add(key);prompts.write(json.dumps({'case_id':identifier,'context':request['context'],
-                        'text':prompt,'token_ids':request['prompt_ids']},ensure_ascii=False)+'\n');prompts.flush()
-                if cached is not None:accept(identifier,request,cached,True,pool)
+                if cached is not None:
+                    writer.submit(identifier,request,cached,cache_hit=True)
+                    account(identifier,request,cached,True)
                 elif lease is None:ready.append(identifier)
                 else:
                     rid=pipe.submit(request);gpu[rid]=(identifier,request,lease);peak_gpu=max(peak_gpu,len(gpu))
-            while True:
+            while writer.available:
                 done=pipe.poll()
                 if done is None:break
-                rid,result=done;identifier,request,lease=gpu.pop(rid)
-                try:
-                    record=decode_request(result,tokenizer);lease.commit(record)
-                finally:lease.close()
-                accept(identifier,request,record,False,pool)
+                persist_gpu_output(done)
             for future in [f for f in executing if f.done()]:
                 identifier=executing.pop(future);wall,cpu=future.result()
                 costs[identifier]['cpu_executor_wall_seconds']+=wall;costs[identifier]['cpu_executor_thread_seconds']+=cpu
                 ready.append(identifier)
             progress();time.sleep(.002)
     finally:
-        pipe.close();pool.shutdown(wait=True)
-        for _,_,lease in gpu.values():lease.close()
-        for future in preparing:
-            if future.done() and future.exception() is None:
-                lease=future.result()[2]
-                if lease:lease.close()
-        raw.close();prompts.close()
-        for c in controllers.values():c.checkpoint();c.close()
+        try:
+            pipe.close()
+            if resource_reason:
+                # The owner has stopped, so this queue can no longer grow.
+                # Backpressure may have left FINISHED GPU outputs unpolled:
+                # persist/count them without executing chemistry after a stop.
+                while True:
+                    if not writer.available:
+                        persisted=writer.poll()
+                        if persisted is not None:record_persistence(persisted)
+                        else:time.sleep(.002)
+                        continue
+                    done=pipe.poll()
+                    if done is None:break
+                    persist_gpu_output(done)
+                while writer.has_pending:
+                    persisted=writer.poll()
+                    if persisted is not None:record_persistence(persisted)
+                    else:time.sleep(.002)
+        finally:
+            try:
+                pool.shutdown(wait=True)
+            finally:
+                try:
+                    writer.close()  # drain admitted writes; errors prevent complete.json
+                finally:
+                    aborted_gpu+=len(gpu)
+                    for _,_,lease in gpu.values():lease.close()
+                    gpu.clear()
+                    for future in preparing:
+                        if future.done() and future.exception() is None:
+                            lease=future.result()[2]
+                            if lease:lease.close()
+                    prompts.close()
+                    for c in controllers.values():
+                        try:c.checkpoint()
+                        finally:c.close()
     if resource_reason:
         for identifier in list(controllers):finish(identifier,resource_reason)
     if {r['id'] for r in reports}!=set(references):raise RuntimeError('full3120 shard lost IDs')

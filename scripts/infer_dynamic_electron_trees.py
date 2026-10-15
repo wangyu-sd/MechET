@@ -360,9 +360,9 @@ def main():
                           'cpu_executor_wall_seconds':0.0,'cpu_executor_thread_seconds':0.0} for r in selected}
     trees={};mcts_stores={}
     if algorithm=='mcts':
-        from scripts.shared_route_mcts import SharedMCTSStore
+        from scripts.mcts_runtime_io import FastSharedMCTSStore
         for stock_sha in set(route_contract['stock_canonical_sha_by_cohort'].values()):
-            mcts_stores[stock_sha]=SharedMCTSStore(args.mcts_shared_root or args.output.parent/'shared_electron_mcts_v1',
+            mcts_stores[stock_sha]=FastSharedMCTSStore(args.mcts_shared_root or args.output.parent/'shared_electron_mcts_v1',
                 {'policy_executor_namespace':shared_store.namespace,'stock_sha':stock_sha,
                  'max_model_len':args.max_model_len,'sampling_seed':args.seed,'c_puct':1.5})
     reports=[]
