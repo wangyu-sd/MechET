@@ -43,7 +43,8 @@ def test_ray_launcher_requires_explicit_resume_source_before_environment_setup(t
     assert 'resume source required' in result.stderr
 
 
-def test_runtime_server_accepts_a_separate_client_process(tmp_path):
+@pytest.mark.parametrize('partial_startup', [False, True])
+def test_runtime_server_accepts_a_separate_client_process(tmp_path, partial_startup):
     pytest.importorskip('ray')
     import os
     import subprocess
@@ -61,6 +62,13 @@ def test_runtime_server_accepts_a_separate_client_process(tmp_path):
             'shared_cache_namespace': 'native', 'seed': 17, 'program_goal': 10,
             'mcts_shared_root': str(tmp_path / 'legacy')}))
     durable_json(source / 'tree/rank00/mcts/fixture.json', {'planning_contract': contract})
+    if partial_startup:
+        from scripts.mcts_resume import write_resume_origin
+        from scripts.start_ray_mcts_actor import load_resume_manifests
+        partial = tmp_path / 'partial'
+        write_resume_origin(partial, source, load_resume_manifests(source),
+            store_root=partial / 'ray_tree_store', legacy_root=tmp_path / 'legacy', code_sha='unit-runtime')
+        source = partial
     address = tmp_path / 'address.json'
     server = subprocess.Popen([sys.executable, '-u', 'scripts/start_ray_mcts_actor.py',
         '--source-output', str(source), '--output', str(tmp_path / 'new'),

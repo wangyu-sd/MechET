@@ -6,7 +6,139 @@ from pathlib import Path
 
 from scripts.single_reaction_mcts import SingleReactionMCTS
 from scripts.shared_route_mcts import RolloutLease, MCTSRouteNetwork
-from mechet.shared_electron_search import read_record
+from mechet.shared_electron_search import read_record, SearchJournal, fingerprint, durable_json
+
+
+CONTRACT_KEYS = ('source_sha', 'adapter_sha', 'revision', 'rank', 'world', 'program_goal',
+    'seed', 'max_model_len', 'history_contract', 'shared_cache_namespace',
+    'evaluation_unit', 'source_protocol', 'stopping_contract')
+
+
+def origin_path(output):
+    return Path(str(Path(output).resolve()) + '.resume_origin.json')
+
+
+def validate_origin(value, output):
+    if value.get('schema') != 'mcts_resume_origin_v1' or value.get('output') != str(Path(output).resolve()):
+        raise ValueError('resume origin output binding mismatch')
+    if Path(value['source_output']).resolve() == Path(output).resolve():
+        raise ValueError('cyclic resume origin')
+    rows = value['source_manifests']
+    if len(rows) != 8 or any(r.get('rank') != i or r.get('world') != 8
+            or r.get('shard_rows') != 390 for i, r in enumerate(rows)):
+        raise ValueError('resume origin full3120 shard contract mismatch')
+    keys = [k for k in CONTRACT_KEYS if k != 'rank'] + ['mcts_shared_root', 'tree_store_backend']
+    if any(any(r.get(k) != rows[0].get(k) for k in keys) for r in rows):
+        raise ValueError('resume origin mixed source contract')
+
+
+def origin_rank_manifest(origin, rank):
+    return {**origin['source_manifests'][rank], 'resume_source': origin['source_output'],
+        'mcts_shared_root': origin['store_root'], 'tree_store_backend': 'ray_memory_grouped_WAL_v1',
+        'code_sha': origin['runtime_code_sha']}
+
+
+def check_origin_manifest(actual, expected):
+    keys = (*CONTRACT_KEYS, 'resume_source', 'mcts_shared_root', 'tree_store_backend', 'code_sha')
+    if any(actual.get(k) != expected.get(k) for k in keys):
+        raise ValueError('resume origin conflicts with real manifest contract')
+
+
+def write_resume_origin(output, source_output, manifests, *, store_root, legacy_root, code_sha):
+    """Durable sibling metadata; never create the fresh inference output itself."""
+    value = {'schema': 'mcts_resume_origin_v1', 'output': str(Path(output).resolve()),
+        'source_output': str(Path(source_output).resolve()), 'source_manifests': manifests,
+        'store_root': str(Path(store_root).resolve()),
+        'legacy_root': str(Path(legacy_root).resolve()) if legacy_root else None,
+        'runtime_code_sha': code_sha}
+    validate_origin(value, output)
+    path = origin_path(output)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with Path(str(path) + '.lock').open('a+') as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        for rank in range(8):
+            manifest = Path(output) / 'tree' / f'rank{rank:02d}' / 'manifest.json'
+            if manifest.exists():
+                check_origin_manifest(json.loads(manifest.read_text()), origin_rank_manifest(value, rank))
+        if path.exists():
+            if read_record(path) != value: raise ValueError('conflicting resume origin')
+        else:
+            durable_json(path, value)
+    return path
+
+
+def rank_manifest(root):
+    root = Path(root); path = root / 'manifest.json'
+    actual = json.loads(path.read_text()) if path.exists() else None
+    companion = origin_path(root.parent.parent) if root.parent.name == 'tree' else None
+    if companion is None or not companion.exists():
+        if actual is None: raise FileNotFoundError(path)
+        return actual
+    origin = read_record(companion); validate_origin(origin, root.parent.parent)
+    rank = int(root.name.removeprefix('rank'))
+    if not 0 <= rank < 8: raise ValueError('resume origin rank mismatch')
+    expected = origin_rank_manifest(origin, rank)
+    if actual is not None:
+        check_origin_manifest(actual, expected)
+        return actual
+    return {**expected, '__origin_virtual__': True, '__origin_legacy_root': origin['legacy_root']}
+
+
+def resume_lineage(root, expected=None):
+    """Newest-to-oldest compatible evidence; never manufacture a new target."""
+    result = []; visited = set()
+    while root is not None:
+        root = Path(root)
+        if root.resolve() in visited: raise ValueError('cyclic resume provenance')
+        visited.add(root.resolve())
+        manifest = rank_manifest(root)
+        if expected is None: expected = manifest
+        if any(manifest.get(k) != expected.get(k) for k in CONTRACT_KEYS):
+            raise ValueError('resume manifest contract mismatch')
+        result.append((root, manifest))
+        previous = manifest.get('resume_source')
+        root = Path(previous) / 'tree' / f"rank{manifest['rank']:02d}" if previous else None
+    return result
+
+
+class ReadOnlySearchJournal(SearchJournal):
+    """Restore source evidence without mkdir, file locks or new empty headers."""
+    def __init__(self, root, case_id, manifest):
+        self.root = Path(root) / fingerprint(case_id)
+        self.contract = {'schema': 'electron_search_journal_v1', 'case_id': case_id, **manifest}
+        actual = read_record(self.root / 'contract.json')
+        keys = (*CONTRACT_KEYS, 'schema', 'case_id', 'code_sha')
+        mismatch = (any(actual.get(k) != self.contract.get(k) for k in keys)
+                    if manifest.get('__origin_virtual__') else actual != self.contract)
+        if mismatch:
+            raise ValueError('search journal contract mismatch')
+        self.contract = actual
+        paths = sorted(self.root.glob('events/*.json'))
+        self.sequence = len(paths)
+        if [p.name for p in paths] != [f'{i:09d}.json' for i in range(self.sequence)]:
+            raise ValueError('search journal has missing commits')
+
+    def _commit(self, event):
+        raise PermissionError('source search journal is read-only')
+
+
+def case_evidence(lineage, identifier):
+    filename = fingerprint(identifier) + '.json'
+    for index, (root, manifest) in enumerate(lineage):
+        report = root / 'evaluations' / filename
+        if report.exists(): return report, None, None
+        checkpoint = root / 'mcts' / filename
+        if not checkpoint.exists(): continue
+        for journal_root, journal_manifest in lineage[index:]:
+            directory = journal_root / 'journals' / fingerprint(identifier)
+            if not (directory / 'contract.json').exists():
+                if list(directory.glob('events/*.json')):
+                    raise ValueError('source journal commits have no contract')
+                continue
+            journal = ReadOnlySearchJournal(journal_root / 'journals', identifier, journal_manifest)
+            if journal.sequence: return None, checkpoint, journal
+        raise ValueError('saved checkpoint has no initialized source journal')
+    raise ValueError('target has no recoverable saved report or checkpoint')
 
 
 class PolicyEvidence:
@@ -17,7 +149,7 @@ class PolicyEvidence:
         visited = set() if visited is None else set(visited)
         if self.root.resolve() in visited: raise ValueError('cyclic raw evidence provenance')
         visited.add(self.root.resolve())
-        manifest = json.loads((self.root / 'manifest.json').read_text())
+        manifest = rank_manifest(self.root)
         previous = manifest.get('resume_source')
         if previous:
             self.previous = PolicyEvidence(Path(previous) / 'tree' / f"rank{manifest['rank']:02d}", visited)
@@ -153,12 +285,7 @@ def recover_shard(rows, source_root, output_root, manifest, *, planning, cache):
     from mechet.shared_electron_search import SearchJournal, fingerprint
     from scripts.infer_dynamic_electron_trees import dump
     source_root, output_root = Path(source_root), Path(output_root)
-    old = json.loads((source_root / 'manifest.json').read_text())
-    keys = ('source_sha', 'adapter_sha', 'revision', 'rank', 'world', 'program_goal',
-            'seed', 'max_model_len', 'history_contract', 'shared_cache_namespace',
-            'evaluation_unit', 'source_protocol', 'stopping_contract')
-    if any(old.get(k) != manifest.get(k) for k in keys):
-        raise ValueError('resume manifest contract mismatch')
+    lineage = resume_lineage(source_root, manifest)
     controllers, journals, reports = {}, {}, []
     stats = {'reused_finished_reports': 0, 'restored_controllers': 0,
              'restored_pending_rollouts': 0, 'restored_completed_rollouts': 0}
@@ -166,21 +293,20 @@ def recover_shard(rows, source_root, output_root, manifest, *, planning, cache):
         evidence = PolicyEvidence(source_root)
         for row in rows:
             identifier = row['id']; filename = fingerprint(identifier) + '.json'
-            report_path = source_root / 'evaluations' / filename
-            if report_path.exists():
+            report_path, checkpoint_path, source_journal = case_evidence(lineage, identifier)
+            if report_path is not None:
                 report = json.loads(report_path.read_text())
                 if report['id'] != identifier:
                     raise ValueError('resume report identity contract mismatch')
                 if any(word in report.get('stop_reason', '') for word in ('MEMORY', 'RESOURCE', 'CONTEXT_BUDGET')):
                     raise ValueError('resource-limited report requires explicit recovery policy')
                 if report.get('tree_artifact'):
-                    report['tree_artifact'] = str((source_root / report['tree_artifact']).resolve())
+                    report['tree_artifact'] = str((report_path.parent.parent / report['tree_artifact']).resolve())
                 report['resumed_from'] = str(report_path)
                 dump(output_root / 'evaluations' / filename, report)
                 reports.append(report); stats['reused_finished_reports'] += 1
                 continue
-            j = SearchJournal(source_root / 'journals', identifier, old)
-            c = restore_single_controller(j, checkpoint_path=source_root / 'mcts' / filename,
+            c = restore_single_controller(source_journal, checkpoint_path=checkpoint_path,
                 mcts_store=planning, shared_store=cache, output_checkpoint=output_root / 'mcts' / filename,
                 policy_records=evidence.records(identifier))
             if c.case_id != identifier:

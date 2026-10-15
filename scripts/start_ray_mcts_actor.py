@@ -17,24 +17,37 @@ def storage_paths(manifest, output):
     if manifest.get('tree_store_backend') == 'ray_memory_grouped_WAL_v1':
         # Reopen the same append-only journal. It is a persistent shared store,
         # not a legacy directory containing per-node JSON files.
+        if not (previous / 'contract.json').exists() and manifest.get('__origin_virtual__'):
+            legacy = manifest['__origin_legacy_root']
+            return previous, Path(legacy) if legacy else None
         header = read_record(previous / 'contract.json')
         return previous, Path(header['legacy_root']) if header['legacy_root'] else None
     return Path(output) / 'ray_tree_store', previous
 
 
 def load_resume_manifests(source):
+    from scripts.mcts_resume import rank_manifest
     rows = []
     keys = ('world', 'source_sha', 'adapter_sha', 'revision', 'seed', 'program_goal',
             'history_contract', 'max_model_len', 'shared_cache_namespace', 'mcts_shared_root',
             'source_protocol', 'evaluation_unit', 'stopping_contract')
     for rank in range(8):
-        row = json.loads((Path(source) / 'tree' / f'rank{rank:02d}' / 'manifest.json').read_text())
+        row = rank_manifest(Path(source) / 'tree' / f'rank{rank:02d}')
         if row.get('rank') != rank or row.get('world') != 8 or row.get('shard_rows') != 390:
             raise ValueError('full3120 shard contract mismatch')
         if rows and any(row.get(k) != rows[0].get(k) for k in keys):
             raise ValueError('mixed resume shard contract')
         rows.append(row)
     return rows
+
+
+def resume_checkpoint(source):
+    from scripts.mcts_resume import resume_lineage
+    for rank in range(8):
+        for root, _ in resume_lineage(Path(source) / 'tree' / f'rank{rank:02d}'):
+            first = next((root / 'mcts').glob('*.json'), None)
+            if first is not None: return first
+    raise ValueError('resume ancestry has no saved planner checkpoint')
 
 
 def main():
@@ -50,10 +63,13 @@ def main():
         raise ValueError('source/actor resume SHA mismatch')
     contract = single_planning_contract(manifest['shared_cache_namespace'],
         manifest['max_model_len'], manifest['seed'], manifest['program_goal'])
-    first = next((args.source_output / 'tree/rank00/mcts').glob('*.json'))
+    first = resume_checkpoint(args.source_output)
     if read_record(first)['planning_contract'] != contract:
         raise ValueError('legacy planner source contract changed')
     root, legacy = storage_paths(manifest, args.output)
+    from scripts.mcts_resume import write_resume_origin
+    write_resume_origin(args.output, args.source_output, rows, store_root=root,
+        legacy_root=legacy, code_sha=os.environ.get('MECHET_TREE_CODE_SHA', 'not_supplied'))
     import ray
     if ray.__version__ != '2.44.1': raise ValueError('pinned Ray2.44.1 required')
     namespace = 'mechet-' + fingerprint(str(args.output.resolve()))[:12]

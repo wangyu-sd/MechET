@@ -103,6 +103,35 @@ All paths below are relative to `/aaa/fionafyang/buddy1/whaleywang/MechET/`:
 Raw model receipts, old native journals/trees, source data and actor weights are
 not copied into Git. No GitHub push, PR or merge was requested by this deployment.
 
+## 2026-10-16: interruption during recovery itself
+
+Fault injection reproduced two additional startup boundaries: a partially
+restored output may not yet contain its inherited finished report/checkpoint,
+or may have a newer checkpoint but an as-yet uninitialized journal. The new
+entry follows the compatible resume-source chain, retains the newest checkpoint
+and chooses the nearest initialized journal without creating source headers or
+locks. Missing/corrupt committed records and incompatible contracts still fail
+closed; this is not permission to regenerate a target from its product.
+
+A checksum-protected `.resume_origin.json` sibling binds output, original
+source, eight shard manifests and persistent store identity. It can recover an
+interrupted startup even before any worker manifest was published, without
+creating the fresh output directory or weakening its overwrite guard. Origin
+publication is fenced and refuses conflicting metadata. A real Ray server plus
+separate client passed the no-worker-manifest startup test.
+
+The updated full software suite passed **920 tests, 11 skipped, one existing
+PEFT warning**, in82.45s. The independent full3120 artifact-selection audit
+passed in21.32s: exactly125 original reports /2995 original checkpoints,
+8874 completed attempts /19948 pending paths /4445 terminal contexts. No model
+generation occurred and the frozen executor/planner files are unchanged.
+Audit: `outputs/analysis/mcts_resume_lineage_audit_20261016_01/audit_complete.json`.
+
+The queued inference instance remains pinned to7bbc16f; it has not been silently
+retargeted to edited working-tree code or resubmitted. The new entry is for a
+subsequent explicit continuation if necessary. A compatible origin companion
+can be published for that existing instance without changing its queue position.
+
 ## Remaining runtime gates
 
 - Verify actual POD, Ceph, eight intended GPUs and eight inference owners.

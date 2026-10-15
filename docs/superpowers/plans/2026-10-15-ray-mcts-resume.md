@@ -63,3 +63,22 @@
 - [ ] Submit exactly one ordinary8A100 from successful Tencent/Ceph donor; verify actual instance state.
 - [ ] Monitor every600seconds if queued, then verify eight real engines/default logs/new raw results and measure two progress windows.
 - [ ] Record observed throughput, recovery provenance and remaining limitations. Completion requires real deployment, not only create/start success.
+
+### Task3 recovery-start interruption boundary (implementation supplement)
+
+The requested abrupt-host-restart contract includes interruption while restoring
+the old population, not only interruption after inference begins. This is an
+implementation correction, not a new experiment, actor or search condition.
+
+- [x] Reproduce missing current report/checkpoint and an empty newly-created
+  journal with executor-backed software tests; both failed as expected.
+- [x] Restore the newest saved checkpoint with the nearest initialized compatible
+  ancestor journal; reuse ancestor reports and never write to source evidence.
+- [ ] Publish a checksum-protected origin companion outside the fresh output
+  directory, so even missing rank manifests can be recovered without weakening
+  the existing-output guard. Validate output binding and scientific contracts.
+- [x] Test actual Ray bootstrap from such a partial startup, including lookup of
+  the original checkpoint and reopening the same durable store.
+- [ ] Run the complete suite and audit artifact selection for all3120 original
+  IDs. Add the current queued job's compatible origin metadata without changing
+  its submitted runtime, source data or queue position; no new GPU job is needed.

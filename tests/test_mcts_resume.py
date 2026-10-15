@@ -234,3 +234,70 @@ def test_runner_refuses_actor_mismatch_before_restoring_any_target(tmp_path):
     (old / 'manifest.json').write_text(json.dumps({'adapter_sha': 'wrong'}))
     with pytest.raises(ValueError, match='contract'):
         recover_shard([], old, tmp_path / 'new', {'adapter_sha': 'right'}, planning=None, cache=None)
+
+
+def test_interrupted_restore_reuses_ancestor_report_without_writing_source(tmp_path):
+    import json
+    from scripts.mcts_resume import recover_shard
+    from mechet.shared_electron_search import fingerprint
+    previous = tmp_path / 'previous'; old = previous / 'tree/rank00'
+    old.mkdir(parents=True)
+    manifest = {'source_sha': 'source', 'adapter_sha': 'actor', 'rank': 0, 'world': 1,
+        'program_goal': 1, 'seed': 17, 'max_model_len': 8192,
+        'history_contract': 'history', 'shared_cache_namespace': 'cache'}
+    (old / 'manifest.json').write_text(json.dumps(manifest))
+    report = old / 'evaluations' / (fingerprint('done') + '.json')
+    report.parent.mkdir(); report.write_text(json.dumps({'id': 'done', 'top1': True,
+        'stop_reason': 'MCTS_TRAJECTORY_ATTEMPT_GOAL_REACHED'}))
+    partial = tmp_path / 'partial/tree/rank00'; partial.mkdir(parents=True)
+    (partial / 'manifest.json').write_text(json.dumps({**manifest, 'resume_source': str(previous)}))
+    before = {str(p.relative_to(partial)): p.read_bytes() for p in partial.rglob('*') if p.is_file()}
+    controllers, journals, reports, stats = recover_shard(
+        [{'id': 'done', 'product_unmapped': 'CO'}], partial, tmp_path / 'new',
+        manifest, planning=None, cache=None)
+    assert not controllers and not journals
+    assert reports[0]['top1'] is True and reports[0]['resumed_from'] == str(report)
+    assert stats['reused_finished_reports'] == 1
+    assert {str(p.relative_to(partial)): p.read_bytes() for p in partial.rglob('*') if p.is_file()} == before
+
+
+def test_interrupted_journal_initialization_keeps_latest_checkpoint_and_old_path(tmp_path):
+    import json
+    from scripts.mcts_resume import recover_shard
+    from scripts.single_reaction_mcts import SingleReactionMCTS, SingleReactionMCTSStore
+    from mechet.shared_electron_search import SearchJournal, fingerprint, read_record, durable_json
+    previous = tmp_path / 'previous'; old = previous / 'tree/rank00'; old.mkdir(parents=True)
+    manifest = {'source_sha': 'source', 'adapter_sha': 'actor', 'rank': 0, 'world': 1,
+        'program_goal': 2, 'seed': 17, 'max_model_len': 8192,
+        'history_contract': 'history', 'shared_cache_namespace': 'cache'}
+    (old / 'manifest.json').write_text(json.dumps(manifest))
+    store = SingleReactionMCTSStore(tmp_path / 'shared', {'program_goal': 2})
+    filename = fingerprint('case') + '.json'
+    c = SingleReactionMCTS('case', 'CO', mcts_store=store,
+        checkpoint_path=old / 'mcts' / filename, program_goal=2)
+    j = SearchJournal(old / 'journals', 'case', manifest); j.initialize(c)
+    import_chloride(c, j); context = c.next_context()
+    expected_key, expected_state = context.key, context.node.state
+    saved = read_record(old / 'mcts' / filename); c.close()
+    partial = tmp_path / 'partial/tree/rank00'; partial.mkdir(parents=True)
+    current = {**manifest, 'resume_source': str(previous)}
+    (partial / 'manifest.json').write_text(json.dumps(current))
+    saved['stop_reason'] = 'latest-checkpoint-marker'
+    durable_json(partial / 'mcts' / filename, saved)
+    SearchJournal(partial / 'journals', 'case', current)  # crash before initialize()
+    before = {str(p.relative_to(partial)): p.read_bytes() for p in partial.rglob('*') if p.is_file()}
+    controllers, _, _, stats = recover_shard([{'id': 'case', 'product_unmapped': 'CO'}],
+        partial, tmp_path / 'new', manifest, planning=store, cache=None)
+    restored = controllers['case']
+    try:
+        assert restored.stop_reason == 'latest-checkpoint-marker'
+        assert restored.rollouts[0]['lease'].uid == saved['pending_rollouts'][0]['uid']
+        assert restored.rollouts[0]['path'] == [tuple(p) for p in saved['pending_rollouts'][0]['path']]
+        assert restored.contexts[expected_key].node.state == expected_state
+        assert {r['lease'].uid: {'sid': r['sid'], 'path': [list(p) for p in r['path']]}
+                for r in restored.rollouts} == {
+                    r['uid']: {'sid': r['sid'], 'path': r['path']} for r in saved['pending_rollouts']}
+        assert stats['restored_controllers'] == 1
+        assert {str(p.relative_to(partial)): p.read_bytes() for p in partial.rglob('*') if p.is_file()} == before
+    finally:
+        restored.close()
