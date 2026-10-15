@@ -207,6 +207,67 @@ def test_resume_rejects_changed_goal_or_live_owner(tmp_path):
         restore_single_controller(journal, checkpoint_path=checkpoint, mcts_store=store)
 
 
+@pytest.mark.parametrize('stale_checkpoint', [False, True])
+@pytest.mark.parametrize('whole_cached_suffix', [False, True])
+def test_committed_terminal_without_case_raw_receipt_survives_two_resumes(tmp_path, stale_checkpoint, whole_cached_suffix):
+    """Cached planning completion can be durable before its native journal."""
+    from scripts.mcts_resume import restore_single_controller
+    from mechet.shared_electron_search import SearchJournal, read_record, durable_json
+    from mechet.dynamic_electron_tree import Proposal
+    from mechet.natural_language_electron_flow import render_event_arguments
+    c, store, journal, checkpoint = fixture_controller(tmp_path)
+    c.next_context()
+    early = read_record(checkpoint)
+    initial_work = dict(c.work)
+    import_chloride(c, None if whole_cached_suffix else journal)
+    ctx = c.next_context()
+    moves = [{'source': {'kind': 'LP', 'atoms': [3]},
+              'sink': {'kind': 'BOND', 'atoms': [1, 3]}, 'electrons': 2},
+             {'source': {'kind': 'BOND', 'atoms': [1, 2]},
+              'sink': {'kind': 'ATOM', 'atoms': [2]}, 'electrons': 2}]
+    edges = c.incorporate(ctx.key, [Proposal('apply_electron_flow',
+        render_event_arguments(ctx.node.state, moves), 'event', -1., 4)])
+    if not whole_cached_suffix: journal.record(c, ctx.key, edges)
+    recorded_work = initial_work if whole_cached_suffix else dict(c.work)
+    # This is graph coverage derived from recovered nodes, not a model cost.
+    recorded_work['unique_chemical_successors'] = 2
+    ctx = c.next_context()
+    c.incorporate(ctx.key, [Proposal('finish_trace', {}, 'finish', -1., 3)])
+    stale = read_record(checkpoint)
+    while c.has_pending: c.next_context()
+    terminal_key, = c.completed_programs
+    terminal_node = c.contexts[terminal_key].node
+    terminal_state = terminal_node.state
+    c.close()
+    if stale_checkpoint: durable_json(checkpoint, early if whole_cached_suffix else stale)
+    first_cp = tmp_path / 'first_resume.json'
+    # An already shared/cached transition need not have a new case raw batch.
+    restored = restore_single_controller(journal, checkpoint_path=checkpoint,
+        mcts_store=store, output_checkpoint=first_cp, policy_records=iter(()))
+    try:
+        assert restored.completed_rollouts == 1 and restored.positive_backups == 1
+        assert restored.completed_programs == {terminal_key}
+        assert restored.contexts[terminal_key].node.terminal
+        assert restored.contexts[terminal_key].node.state == terminal_state
+        assert restored.contexts[terminal_key].node == terminal_node  # exact path/NLL, not only SMILES
+        assert len(restored.trees[restored.target].edges) == 3  # connected import -> flow -> finish
+        assert dict(restored.work) == recorded_work  # no invented model cost
+        fresh = SearchJournal(tmp_path / 'resumed_journals', c.case_id, {})
+        fresh.initialize(restored)
+    finally: restored.close()
+    repeated = restore_single_controller(fresh, checkpoint_path=first_cp,
+        mcts_store=store, policy_records=iter(()))
+    try:
+        assert repeated.completed_programs == {terminal_key}
+        assert repeated.contexts[terminal_key].node.state == terminal_state
+        assert repeated.contexts[terminal_key].node == terminal_node
+        assert repeated.completed_rollouts == 1 and repeated.censored_rollouts == 0
+        assert repeated.next_context() is None
+        assert store.snapshot(repeated.mcts_root)['visits'] == 1
+        assert dict(repeated.work) == recorded_work
+    finally: repeated.close()
+
+
 def test_runner_reuses_finished_report_without_new_controller(tmp_path):
     import json
     from scripts.mcts_resume import recover_shard

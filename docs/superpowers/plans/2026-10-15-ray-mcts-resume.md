@@ -96,3 +96,19 @@ implementation correction, not a new experiment, actor or search condition.
 Final accounting verification:923passed/11skipped/1existing PEFTwarning101.98s;
 shell syntax and frozen planner/executor comparison passed. Runtime deployment
 and two observed throughput windows remain unverified; Task3 is not complete.
+
+### Task3 actual-deployment cached-path failure
+
+- [x] Read the actual default POD traceback after the first instance failed
+  during restoration, before model generation; preserve its partial output.
+- [x] Reproduce positive backup/native-journal lag and a wholly cached suffix
+  in executor-backed tests; cover two consecutive restores and exact path/NLL.
+- [x] Reconstruct only committed historical UID paths, not new model samples;
+  retain existing edges and original attempt/backup/model-cost accounting.
+- [x] Verify all3120 latest/ancestor records and166543 native JSON round trips;
+  all4 missing terminals recovered,125reports/2995CPs/8874attempts/19948pending
+  paths/4445terminal programs preserved,150.63s,no model generation/source write.
+- [x] Final full suite927passed/11skipped/1existingwarning83.04s; frozen source
+  contract comparison and shell syntax passed.
+- [ ] Commit repair and submit one fresh-output8A100 continuation of the partial
+  failed instance; then verify real generation and two throughput windows.

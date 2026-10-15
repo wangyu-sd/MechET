@@ -276,6 +276,86 @@ def _restore_native_evidence(c, states, records):
                 c._ensure_transition(sid, edge)
 
 
+def _restore_completed_native_contexts(c, states, *, checkpoint_history=(), committed_backups=()):
+    """Rebuild a committed cached finish, without sampling or charging work.
+
+    A backup can precede the per-case native journal. Solved planning nodes
+    intentionally lack a native payload, so hydrating seen states alone cannot
+    restore their terminal. Replay the committed whole path, in a disposable
+    native tree, and require every recorded context identity. Historical pending
+    UIDs bind the backup to this case even after an earlier resume reconciled it.
+    """
+    import copy
+    from mechet.dynamic_electron_tree import Proposal
+    from mechet.shared_electron_search import context_record, restore_tree, tree_snapshot
+    missing = c.completed_programs.difference(c.contexts)
+    if not missing: return
+    backups = list(committed_backups)
+    for path in checkpoint_history:
+        if not Path(path).exists(): continue
+        saved = read_record(path)
+        if saved['case_id'] != c.case_id or saved['planning_contract'] != c.mcts_store.contract:
+            raise ValueError('native recovery checkpoint history contract mismatch')
+        for pending in saved['pending_rollouts']:
+            record = backup_record(c.mcts_store, pending['uid'])
+            if record is not None: backups.append(record)
+    paths = {}
+
+    def collect(record):
+        if not record or not record['reward']: return
+        path = tuple(tuple(pair) for pair in record['path'])
+        if not path or path[0][0] != c.mcts_root: return
+        sid, eid = path[-1]
+        edge = c.mcts_store.snapshot(sid)['edges'][eid]
+        if not edge.get('child'): return
+        leaf = c.mcts_store.snapshot(edge['child'])['state']
+        key = leaf.get('terminal_context')
+        if leaf['solved'] and key in missing: paths[path] = (key, edge['child'])
+
+    for record in backups: collect(record)
+    if missing.difference(key for key, _ in paths.values()):
+        # Legacy complete checkpoints do not retain their completed UID list.
+        # Only positive committed backups on their observed nodes are evidence;
+        # an unvisited generated terminal is not a recovery witness.
+        uids = {uid for value in states.values() for uid, pair in value['backed_up'].items() if pair[1]}
+        for uid in sorted(uids): collect(backup_record(c.mcts_store, uid))
+    native = c.trees[c.target]; recovered = {}; witnessed_states = set(); native_edges = []
+    for path, (key, leaf) in sorted(paths.items()):
+        scratch = restore_tree(copy.deepcopy(tree_snapshot(native)))
+        for sid, eid in path:
+            value = c.mcts_store.snapshot(sid); edge = value['edges'][eid]
+            parent = value['state']['active']
+            if parent not in scratch.contexts:
+                raise ValueError(f'{c.case_id}: committed path has no native predecessor')
+            child = c.mcts_store.snapshot(edge['child'])['state']
+            expected = child.get('terminal_context') if child['solved'] else child['active']
+            known = [e for e in scratch.edges if e['parent_context'] == parent
+                     and e.get('child_context') == expected
+                     and _semantic(e['action']) == _semantic(edge['proposal'])]
+            result = known[:1] if known else scratch.incorporate(parent, [Proposal(**edge['proposal'])])
+            if len(result) != 1 or result[0].get('child_context') != expected:
+                raise ValueError(f'{c.case_id}: committed terminal differs from native replay')
+            native_edges.extend(result); c.applied.add((sid, eid))
+            witnessed_states.add(sid); witnessed_states.add(edge['child'])
+        context = scratch.contexts[key]
+        if not context.node.terminal:
+            raise ValueError(f'{c.case_id}: committed success is not a terminal')
+        if key in recovered and context_record(recovered[key][0]) != context_record(context):
+            raise ValueError(f'{c.case_id}: ambiguous committed terminal likelihood witness')
+        recovered[key] = (context, scratch)
+    if missing.difference(recovered):
+        raise ValueError(f'{c.case_id}: saved completed program lacks recoverable native context: '
+                         f'{sorted(missing.difference(recovered))}')
+    for context, scratch in recovered.values():
+        for key, value in scratch.contexts.items():
+            native.contexts.setdefault(key, value)
+            native.chemical_nodes.setdefault(value.chemical_id, scratch.chemical_nodes[value.chemical_id])
+    for edge in native_edges:
+        if edge not in native.edges: native.edges.append(edge)
+    c.seen_states.update(witnessed_states)
+    c._index_contexts(c.target)
+
+
 class ResumableSingleReactionMCTS(SingleReactionMCTS):
     def next_context(self):
         count = self.completed_rollouts + self.censored_rollouts
@@ -323,7 +403,8 @@ def recover_shard(rows, source_root, output_root, manifest, *, planning, cache):
                 continue
             c = restore_single_controller(source_journal, checkpoint_path=checkpoint_path,
                 mcts_store=planning, shared_store=cache, output_checkpoint=output_root / 'mcts' / filename,
-                policy_records=evidence.records(identifier))
+                policy_records=evidence.records(identifier),
+                checkpoint_history=(root / 'mcts' / filename for root, _ in lineage))
             if c.case_id != identifier:
                 c.close(); raise ValueError('resume controller identity contract mismatch')
             controllers[identifier] = c
@@ -363,7 +444,8 @@ def resume_rollout(store, uid):
 
 
 def restore_single_controller(journal, *, checkpoint_path, mcts_store,
-                              shared_store=None, output_checkpoint=None, policy_records=None):
+                              shared_store=None, output_checkpoint=None, policy_records=None,
+                              checkpoint_history=()):
     saved = read_record(checkpoint_path)
     if saved.get('planning_contract') != mcts_store.contract:
         raise ValueError('MCTS checkpoint contract mismatch')
@@ -392,8 +474,7 @@ def restore_single_controller(journal, *, checkpoint_path, mcts_store,
     for value in states.values():
         c._hydrate(value['state'])
     _restore_native_evidence(c, states, policy_records)
-    if not c.completed_programs.issubset(c.contexts):
-        raise ValueError('saved completed program lacks recoverable native context')
+    committed_backups = []
     try:
         for pending in saved['pending_rollouts']:
             uid = pending['uid']
@@ -404,6 +485,7 @@ def restore_single_controller(journal, *, checkpoint_path, mcts_store,
                 mcts_store.backup(uid, committed['path'], committed['reward'])
                 c.completed_rollouts += 1
                 if committed['reward']:
+                    committed_backups.append(committed)
                     sid, eid = committed['path'][-1]
                     child = mcts_store.snapshot(sid)['edges'][eid]['child']
                     state = mcts_store.snapshot(child)['state']
@@ -420,6 +502,10 @@ def restore_single_controller(journal, *, checkpoint_path, mcts_store,
         c.has_pending = count < c.program_goal
         if not c.has_pending:
             c.stop_reason = 'MCTS_TRAJECTORY_ATTEMPT_GOAL_REACHED'
+        _restore_completed_native_contexts(c, states, checkpoint_history=checkpoint_history,
+                                          committed_backups=committed_backups)
+        if any(not c.contexts[key].node.terminal for key in c.completed_programs):
+            raise ValueError(f'{c.case_id}: saved success references a nonterminal native context')
         c.checkpoint()
         return c
     except BaseException:
