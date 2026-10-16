@@ -7,6 +7,17 @@ H20s**. The new four-rank configuration preserves two epochs and global batch64
 with per-device batch4 and accumulation4, instead of the earlier eight-rank
 accumulation2. Dataset, objectives and protected reverse branch are unchanged.
 
+Replacement task `meteor_mechet_forward_event_06b_2ep_4h20_zjk_20261016_01`,
+instance `8b1d8921a13fde2a01a143c120e408c3`, was submitted at 16:08 CST
+and obtained four H20s at 16:09. Runtime is
+`887da22e3882c263ca1283085f9c5e4925112114`, configuration commit `b81aa88`.
+Ceph and the four GPUs are verified. Full server-side conversion is running
+with 64 workers; complete validation replay passed (2,890 reactions/21,723
+records, zero errors, same SHA as local repair). Optimizer training has not
+started at this startup check. Receipt and live phase snapshots are under main
+`outputs/submissions/forward_qwen_sft_4h20_20261016/`. Dataset and model outputs
+use fresh `v2_20261016` / `4h20_20261016` paths, not the failed old artifact.
+
 ## Data and direction
 
 Use the original `flower_new_dataset/{train,val,test}.txt` forward transitions,
