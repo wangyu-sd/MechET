@@ -18,7 +18,7 @@ All chemistry: RDKit MolDraw2DSVG / a vector-capable molecule renderer (not a ge
 
 Suggested asymmetric composition at 183 mm width:
 
-\`\`\`text
+```text
        FIGURE 2 · R1 (layout at final double-column width)
  ┌────────────────────────────────────────────────────────────┐
  │ a  Dominant budget–utility evidence (full width; ~36% h)   │
@@ -34,27 +34,27 @@ Suggested asymmetric composition at 183 mm width:
  │    → distinct successor states → distinct terminal choices │
  │    source-map atoms, molecular structures, electronic arrow │
  └────────────────────────────────────────────────────────────┘
-\`\`\`
+```
 
-Actual panel count/layout may be adapted for molecule legibility; **a and d deserve room**, not four identical tiles. Figure 2(a) can be small multiples sharing x-axis if actual benchmark conditions are available, or a single aggregate across correctly specified cohorts. Labels must show method, frozen model, exact cohort n, and budget definition. Do **not** plot a complete 460-identity route curve when actual runs are only a small search-tree subset. For early data, output a separate truthful \`fig2_r1_observed_tree_analysis\` with (a) tree-size/depth/terminal distributions on observed n, (b) macro tree, (c) candidate and cost funnel and (d) chemical zoom. Preserve the formal a-panel for final real complete-route results.
+Actual panel count/layout may be adapted for molecule legibility; **a and d deserve room**, not four identical tiles. Figure 2(a) can be small multiples sharing x-axis if actual benchmark conditions are available, or a single aggregate across correctly specified cohorts. Labels must show method, frozen model, exact cohort n, and budget definition. Do **not** plot a complete 460-identity route curve when actual runs are only a small search-tree subset. For early data, output a separate truthful `fig2_r1_observed_tree_analysis` with (a) tree-size/depth/terminal distributions on observed n, (b) macro tree, (c) candidate and cost funnel and (d) chemical zoom. Preserve the formal a-panel for final real complete-route results.
 
 **Panel b: tree grammar**
 - A filled dot represents a **recorded committed chemical search state**, not an experiment-isolated intermediate. Depth from the root is action-search depth, **not reaction-route depth**.
 - A directed line represents a model-proposed action; FLOW, IMPORT and FINISH use a restrained action-type encoding (prefer line dash/weight or small mark to avoid confounding status colors).
 - Rejected proposals are **short open-ended stubs/crosses from the parent**, not fake child molecule states.
 - State/terminal/reached-stock statuses encoded with combination of hollow/solid markers, grayscale/blue-teal and labels; true route-wide stock closure requires the separate outer AND tree.
-- Node radius from \`visit_count\` **only if recorded MCTS visits exist**; otherwise use a constant size or recorded expansion count and label it exactly. Never invent pseudo-visits.
+- Node radius from `visit_count` **only if recorded MCTS visits exist**; otherwise use a constant size or recorded expansion count and label it exactly. Never invent pseudo-visits.
 - Tree layout top-down or left-right deterministic; preserve hierarchy. For dense trees, visualize **all recorded nodes lightly** with a strong central path and contextual subtree opacity. If subtrees are collapsed for readability, include their actual count and full-tree totals. An inset makes a chosen node branch understandable.
 - Transpositions/shared successors are **graph** edges; use clear subtle curved arcs or a separately flagged aggregate view. Do not draw a false simple tree to hide merges.
 
 **Panel d: chemical microscope**
 - Parent state shown as real RDKit molecular mixture (if many disconnected fragments, show the exact changing component at visual focus and reference the remaining inventory);
-- two actual actions \`a\` and \`a'\` with exact electron-source/sink information, atom-map correspondence and executor before/after;
+- two actual actions `a` and `a'` with exact electron-source/sink information, atom-map correspondence and executor before/after;
 - final accepted states / terminal precursors, if those trajectories are actually observed, with the meaningful changed bond(s) accentuated;
 - a small evidence ribbon: action accepted? unique successor? terminal route? matched precursor? chemical precedent Tier? **Every attribute has an actual record source**.
-- Do not label \`baseline rescue\` without same target and work-matched baseline data.
+- Do not label `baseline rescue` without same target and work-matched baseline data.
 
-**R1 metric insets:** \`Solved@B\` on full routes if known; \`PoolRecall@B\` vs frozen RankedTop1@B where reference and coherent pool exist; useful unique precursors per token; source-derived time cost; duplicate successor share. The narrative is "quality per work" rather than "largest possible tree".
+**R1 metric insets:** `Solved@B` on full routes if known; `PoolRecall@B` vs frozen RankedTop1@B where reference and coherent pool exist; useful unique precursors per token; source-derived time cost; duplicate successor share. The narrative is "quality per work" rather than "largest possible tree".
 
 ## Figure 3 (R2) — compositional reuse and complex inverse chemistry
 
@@ -62,7 +62,7 @@ Actual panel count/layout may be adapted for molecule legibility; **a and d dese
 
 Suggested asymmetry:
 
-\`\`\`text
+```text
        FIGURE 3 · R2
  ┌───────────────────────────────────┬────────────────────────┐
  │ a  Dominant predictive chemistry  │ b  Small audited        │
@@ -74,13 +74,13 @@ Suggested asymmetry:
  │    bond-change highlights, import species and local        │
  │    primitive source counts under the stated split          │
  └────────────────────────────────────────────────────────────┘
-\`\`\`
+```
 
 **Panel a priorities:** If authenticated H2-trained Direct/Open-Flow/Closed-Loop/Closed-Edit outputs exist, show first-candidate or Pass@K with the EXACT same 27,104 test IDs, true training exposure, correct base scale and paired uncertainty. Include primitive familiarity and real reaction-centre/ring/coupled-move complexity strata when row-level data exist. Separately, if the 160 RetroCast source-reference routes have full verified programs, plot C0/C1 (C2/Unknown separately), depth 2/3/4/5, stock-connected Solved@B under the same R1 predictions. These are **not** interchangeable populations; label them distinctly rather than combining in one apparent cohort.
 
 **Panel b:** actual strict training signature accumulation against fractions 1/10/50/100%, with only observed source data. Terminal text annotations "604 primitive signatures" and "6,553 complete ordered signatures" refer to the specific train corpus and signature implementation. Do not extrapolate every point or claim 6,553 experimentally different mechanisms.
 
-**Panel c:** choose an actual executed full program with reliable mapped reaction, trace and exposure ledger. For a C1 "unseen combination" caption, require a genuinely H2-exposure-controlled model. If a full-data model generated the example, call it an **executed complex program**, NOT strict C1 generalization. Clear labeled arrows (symbolic electron movement), only the modified atom neighborhood enlarged, one genuine terminal pair, optionally a modest reference disconnection. Link every illustrated move to \`attempt_id\` and saved state.
+**Panel c:** choose an actual executed full program with reliable mapped reaction, trace and exposure ledger. For a C1 "unseen combination" caption, require a genuinely H2-exposure-controlled model. If a full-data model generated the example, call it an **executed complex program**, NOT strict C1 generalization. Clear labeled arrows (symbolic electron movement), only the modified atom neighborhood enlarged, one genuine terminal pair, optionally a modest reference disconnection. Link every illustrated move to `attempt_id` and saved state.
 
 ## Extended Data / Supplementary visual suite
 
@@ -102,7 +102,7 @@ Suggested asymmetry:
 - Do not annotate 200 individual nodes with tiny text. One root label, one actual fork zoom, one terminal and one legend is preferable.
 - Callouts should identify **why** a chosen electron-flow branch matters (new bond cleavage, different precursor set, valid source evidence) instead of restating a score without chemical meaning.
 - Highlight reacting bonds in actual chemical drawings; maintain proportional bond lengths and consistent source heteroatom colors.
-- Direct labels beat giant legends. Use caption to define \`accepted\`, \`reference matched\`, \`supported analogue\`, \`complete stock-connected\`; these are different outcomes.
+- Direct labels beat giant legends. Use caption to define `accepted`, `reference matched`, `supported analogue`, `complete stock-connected`; these are different outcomes.
 - If a figure currently lacks authenticated route data, do not create a fancy template filled with manufactured results. Render genuine observed summary data into a truthful interim figure and log the missing final panel.
 
 ## Captions: journal-ready grammar (fill only from measured artifacts)
@@ -111,4 +111,4 @@ Suggested asymmetry:
 
 **Figure 3 —** *Compositional reuse in complex reverse electronic transformations.* (a) Endpoint recovery under a genuinely composition-disjoint test or route-level complexity strata, with the correct population and training ancestry. (b) The number of distinct local and complete ordered electronic signatures across training-set fractions. (c) An authenticated model-generated electron-flow trajectory, with exact local operation types, altered bonds, state sequence and precursor projection.
 
-Caption prose is a **template**, not evidence that each panel has already been measured. Once rendered, rewrite to name exact dataset, n, bootstrap unit, uncertainty, time/search budget, node/edge meanings, the source identity of the chemistry and what the cited literature does or does not confirm. Do not put placeholder \`[TARGET]\`, "expected 80%", or source-free reaction arrows in the exported publication PDF.
+Caption prose is a **template**, not evidence that each panel has already been measured. Once rendered, rewrite to name exact dataset, n, bootstrap unit, uncertainty, time/search budget, node/edge meanings, the source identity of the chemistry and what the cited literature does or does not confirm. Do not put placeholder `[TARGET]`, "expected 80%", or source-free reaction arrows in the exported publication PDF.
