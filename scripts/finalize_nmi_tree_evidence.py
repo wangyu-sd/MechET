@@ -17,6 +17,46 @@ from mechet.analysis.chemical_evidence import validate_evidence
 from scripts.analyze_nmi_tree_evidence import _write_json, _dump_line, _deterministic_gzip_text
 
 
+def report_pointer(entry, local_pointer):
+    index = entry.get("report_index")
+    return (f"/rows/{index}" if index is not None else "") + local_pointer
+
+
+def verify_delivery_artifacts(root):
+    root = Path(root)
+    names = ["figure_manifest.json", "figure_qa.json", "enrichment_manifest.json", "chemistry_figure_manifest.json",
+        "work_manifest.json", "captions.md", "case_registry.csv", "schema_manifest.json"]
+    for name in names:
+        if not (root / name).is_file():
+            raise ValueError("missing delivery artifact: " + name)
+    inventory_sha = file_digest(root / "input_inventory.json")
+    main = json.loads((root / names[0]).read_text())
+    qa = json.loads((root / names[1]).read_text())
+    enrichment = json.loads((root / names[2]).read_text())
+    chemistry = json.loads((root / names[3]).read_text())
+    work = json.loads((root / names[4]).read_text())
+    if qa["figure_manifest_sha256"] != file_digest(root / "figure_manifest.json"):
+        raise ValueError("stale figure QA manifest binding")
+    for manifest in [main, enrichment, work]:
+        if manifest.get("input_inventory_sha256") != inventory_sha:
+            raise ValueError("stale delivery inventory binding")
+    if chemistry.get("enrichment_manifest_sha256") != file_digest(root / "enrichment_manifest.json"):
+        raise ValueError("stale chemistry enrichment binding")
+    for record in enrichment["tables"].values():
+        if file_digest(root / record["path"]) != record["sha256"]:
+            raise ValueError("enrichment table hash differs")
+    for manifest, checks in [(main, qa["figures"]), (chemistry, chemistry["qa"]), (work, work["qa"])]:
+        if not manifest["figures"] or set(manifest["figures"]) != set(checks):
+            raise ValueError("missing figure QA records")
+        for name, files in manifest["figures"].items():
+            if not checks[name]["machine_checks_passed"]:
+                raise ValueError("failed figure QA: " + name)
+            for record in files.values():
+                if not Path(record["path"]).is_file() or file_digest(record["path"]) != record["sha256"]:
+                    raise ValueError("figure hash differs: " + name)
+    return {name: file_digest(root / name) for name in names}
+
+
 def verified_analysis(root):
     root = Path(root)
     if json.loads((root / "progress.json").read_text())["phase"] != "complete":
@@ -93,7 +133,7 @@ def finalize(root, *, supplemental_root=None, flat_paths=(), evidence_path=None)
             evidence.append({**verified, "tree_id": entry["tree_id"], "tree_sha256": entry["tree_sha256"],
                 "reaction_id": reaction["id"], "terminal_context": reaction["program"]["terminal_context"],
                 "report_path": entry["report_path"], "report_sha256": entry.get("report_sha256"),
-                "source_pointer": f"/complete_reaction_edges/{index}", "generated_pair_binding": "RDKit_stereo_canonical_exact",
+                "source_pointer": report_pointer(entry, f"/complete_reaction_edges/{index}"), "generated_pair_binding": "RDKit_stereo_canonical_exact",
                 "whole_route_verified": False, "conditions_verified": False, "physical_mechanism_verified": False})
     with (root / "chemical_evidence.jsonl").open("w") as f:
         for row in evidence:
@@ -118,6 +158,9 @@ def finalize(root, *, supplemental_root=None, flat_paths=(), evidence_path=None)
         "remaining_editorial_decision": "six figures plus Table1 exceed six combined display items; not silently edited",
         "paper_main_modified": False, "historical_16_work_packages": "retained; no original work package is canceled or replaced by observed figures"}
     _write_json(root / "analysis_availability.json", availability)
+    from mechet.analysis.table_schema import logical_schema_manifest
+    _write_json(root / "schema_manifest.json", logical_schema_manifest())
+    artifact_hashes = verify_delivery_artifacts(root)
     manifest = {"schema": "nmi_existing_tree_delivery_v1", "analysis_root": str(root),
         "original_source_manifest_sha256": file_digest(root / "source_manifest.json"),
         "supplemental_root": str(supplemental_root) if supplemental_root else None,
@@ -127,6 +170,8 @@ def finalize(root, *, supplemental_root=None, flat_paths=(), evidence_path=None)
         "evidence_registry_sha256": file_digest(evidence_path) if evidence_path else None,
         "chemical_evidence_sha256": file_digest(root / "chemical_evidence.jsonl"),
         "producer_sha256": file_digest(__file__), "unhandled_artifacts_are_pending_not_zero_results": True}
+    manifest["verified_delivery_artifacts"] = artifact_hashes
+    manifest["all_required_machine_checks_passed"] = True
     _write_json(root / "delivery_manifest.json", manifest)
     return manifest
 

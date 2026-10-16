@@ -1,0 +1,644 @@
+{
+  "schema": "nmi_figure_qa_v1",
+  "figure_manifest_sha256": "3bdb5389583ec29e42cef32cf9754e730ffb1129e6b572e74bf96dc2ea5cd9b2",
+  "figures": {
+    "case_1_atlas": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 0,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 246,
+        "editable_text_elements": 5
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 119.23888888888888,
+        "fonts": [
+          {
+            "name": "/XMUYQR+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1408,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_1_microscope": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 4,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 532,
+        "editable_text_elements": 8
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 159.8083333333333,
+        "fonts": [
+          {
+            "name": "/PLKGGV+Arial-BoldMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          },
+          {
+            "name": "/PWDLPT+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1887,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_1_action_program": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 7,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 500,
+        "editable_text_elements": 9
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 168.98055555555553,
+        "fonts": [
+          {
+            "name": "/KBBJQS+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1995,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "tree_atlas": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 0,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 246,
+        "editable_text_elements": 5
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 119.23888888888888,
+        "fonts": [
+          {
+            "name": "/XMUYQR+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1408,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "node_microscope": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 4,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 532,
+        "editable_text_elements": 8
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 159.8083333333333,
+        "fonts": [
+          {
+            "name": "/PLKGGV+Arial-BoldMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          },
+          {
+            "name": "/PWDLPT+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1887,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_2_atlas": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 0,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 1555,
+        "editable_text_elements": 5
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 119.23888888888888,
+        "fonts": [
+          {
+            "name": "/LENQOQ+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1408,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_2_microscope": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 4,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 451,
+        "editable_text_elements": 8
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 159.8083333333333,
+        "fonts": [
+          {
+            "name": "/PLKGGV+Arial-BoldMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          },
+          {
+            "name": "/PWDLPT+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1887,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_2_action_program": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 8,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 426,
+        "editable_text_elements": 10
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 168.98055555555553,
+        "fonts": [
+          {
+            "name": "/DBWIMS+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1995,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_2_action_program_page_2": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 5,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 558,
+        "editable_text_elements": 7
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 130.88055555555556,
+        "fonts": [
+          {
+            "name": "/JFSIRX+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1546,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_3_atlas": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 0,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 1151,
+        "editable_text_elements": 5
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 119.23888888888888,
+        "fonts": [
+          {
+            "name": "/ZLXAFK+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1408,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_3_microscope": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 4,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 447,
+        "editable_text_elements": 8
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 159.8083333333333,
+        "fonts": [
+          {
+            "name": "/PLKGGV+Arial-BoldMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          },
+          {
+            "name": "/PWDLPT+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1887,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "case_3_action_program": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 5,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 390,
+        "editable_text_elements": 7
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 130.88055555555556,
+        "fonts": [
+          {
+            "name": "/CHLVGC+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1546,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "fig2_r1_observed_tree_analysis": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 104,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 531,
+        "editable_text_elements": 42
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 169.33333333333334,
+        "fonts": [
+          {
+            "name": "/AETMAY+Arial-BoldMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          },
+          {
+            "name": "/MXHVGG+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 2000,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "fig3_r2_observed_chemistry": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 127,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 491,
+        "editable_text_elements": 38
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 169.33333333333334,
+        "fonts": [
+          {
+            "name": "/ZAODWY+Arial-BoldMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          },
+          {
+            "name": "/XURJWM+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 2000,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "extended_data_morphology": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 59,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 14,
+        "editable_text_elements": 18
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 82.90277777777777,
+        "fonts": [
+          {
+            "name": "/CEJKGW+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 979,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "extended_data_executor_errors": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 50,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 11,
+        "editable_text_elements": 13
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 82.90277777777777,
+        "fonts": [
+          {
+            "name": "/NCNPFT+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 979,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "extended_data_execution_funnel": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 51,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 9,
+        "editable_text_elements": 16
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 82.90277777777777,
+        "fonts": [
+          {
+            "name": "/MAZNUO+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 979,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "extended_data_endpoint_ranking": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 54,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 10,
+        "editable_text_elements": 18
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 77.61111111111111,
+        "fonts": [
+          {
+            "name": "/ZMKPGT+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 916,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "extended_data_chemical_ambiguity": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 3,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 174,
+        "editable_text_elements": 5
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 128.76388888888889,
+        "fonts": [
+          {
+            "name": "/VIXIZH+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 1521,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    }
+  }
+}

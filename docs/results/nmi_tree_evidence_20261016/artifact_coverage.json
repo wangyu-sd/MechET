@@ -1,0 +1,49 @@
+{
+  "original_input_records": 16534,
+  "accounted_for_records": 16534,
+  "canonical_run_target_graphs": 9374,
+  "unhandled_original_records": 0,
+  "unhandled_statuses": {},
+  "input_roots": [
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261015_02",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_03",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_rolling_20261015_01",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_shared_electron_tree_20261014_05",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_mcts_ray_migration_20261015_01",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_mcts_ray_migration_20261015_02",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_mcts_ray_migration_20261015_03",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_dynamic_routes_20261013",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_routes_20261014_05",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_routes_20261014_06"
+  ],
+  "cross_run_metric_pooling": false,
+  "storage_replicas_are_not_independent_targets": true,
+  "historical_parent_linked_cases": 1,
+  "flat_tables": {
+    "trees": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/flat_tables/trees.jsonl.gz",
+      "sha256": "6e15d5b3abea66d694453e2499719cc8809d4ceea0a545ff9e836272197e1338",
+      "rows": 1
+    },
+    "nodes": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/flat_tables/nodes.jsonl.gz",
+      "sha256": "2f027fa972bddfd2f2dc939b782f2ee83beafc35090839706afbffc1c07cf9b5",
+      "rows": 21
+    },
+    "attempted_edges": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/flat_tables/attempted_edges.jsonl.gz",
+      "sha256": "5fb56bb5c02d643a9514a19591eee2c3956a67ec876d732b3b24aee1a6f733ea",
+      "rows": 31
+    },
+    "terminals": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/flat_tables/terminals.jsonl.gz",
+      "sha256": "5b1615ba602c1f9df1f2d02810a72d963a31d214068933aee3948fffc9c0cf6a",
+      "rows": 3
+    }
+  },
+  "shared_cache_WAL": "preserved source of shared transitions/planning statistics, not independent target trees; exported case snapshots analyzed",
+  "original_files_modified": false,
+  "new_sampling": false
+}

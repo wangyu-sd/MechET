@@ -634,3 +634,96 @@ def test_microscope_does_not_present_symmetric_context_choices_as_distinct_chemi
     style = yaml.safe_load((Path(__file__).parents[1] / "configs/figures/mechet_nmi_tree_style_v1.yaml").read_text())
     _, info = tree_svg(normalized(raw), style)
     assert info["microscope_parent_node_id"] == fork["parent"]["node_id"]
+
+
+def test_observed_costs_keep_real_zero_missing_and_shared_work_separate():
+    from mechet.analysis.tree_costs import observed_work_metrics
+    rows = [{"target_id": "a", "report": {"wall_seconds": 10, "work": {"sampled_tokens": 0, "executor_calls": 0, "execution_cache_hits": 0}}},
+        {"target_id": "b", "report": {"wall_seconds": 30, "work": {"sampled_tokens": 100, "executor_calls": 5, "execution_cache_hits": 15, "cpu_executor_wall_seconds": 2, "cpu_executor_thread_seconds": .4}}},
+        {"target_id": "c", "report": {"work": {}}}]
+    costs = observed_work_metrics(rows)
+    assert costs["fields"]["sampled_tokens"]["observed_n"] == 2
+    assert costs["fields"]["sampled_tokens"]["missing_n"] == 1
+    assert costs["fields"]["sampled_tokens"]["median"] == 50
+    assert costs["fields"]["wall_seconds"]["p90"] == 28
+    assert costs["per_target"][0]["ratios"]["execution_cache_hit_fraction"] is None
+    assert costs["per_target"][1]["ratios"]["execution_cache_hit_fraction"] == .75
+    assert costs["per_target"][1]["ratios"]["executor_wall_seconds_per_call"] == .4
+    assert costs["global_GPU_work_inferred"] is False
+
+
+def test_literature_report_pointer_resolves_complete_shard_storage():
+    from scripts.finalize_nmi_tree_evidence import report_pointer
+    assert report_pointer({"report_index": 3}, "/complete_reaction_edges/1") == "/rows/3/complete_reaction_edges/1"
+    assert report_pointer({"report_index": None}, "/complete_reaction_edges/1") == "/complete_reaction_edges/1"
+
+
+def test_count_visit_axis_never_displays_negative_counts():
+    from pathlib import Path
+    import yaml
+    import xml.etree.ElementTree as ET
+    from scripts.render_nmi_chemistry_extended import render_summary
+    style = yaml.safe_load((Path(__file__).parents[1] / "configs/figures/mechet_nmi_tree_style_v1.yaml").read_text())
+    summary = {"changed_atoms": {"2": 1}, "changed_bonds": {"1": 1}, "program_classes": {},
+        "planning_visits": {"0": 84, "1": 13, "1000": 3}, "planning_visits_missing": 0}
+    svg = render_summary(summary, style)["extended_data_mcts_visits"]
+    assert "−" not in " ".join(ET.fromstring(svg).itertext())
+
+
+def test_typed_schema_allows_missing_child_but_rejects_numeric_node_handles():
+    from mechet.analysis.table_schema import validate_row
+    edge = normalized()["attempted_edges"][2]
+    validate_row("attempted_edges", edge)
+    with pytest.raises(ValueError, match="child_node_id"):
+        validate_row("attempted_edges", {**edge, "child_node_id": 7})
+
+
+def test_delivery_seal_rejects_missing_and_stale_figure_qa(tmp_path):
+    from scripts.finalize_nmi_tree_evidence import verify_delivery_artifacts
+    from mechet.analysis.tree_records import file_digest
+    from scripts.render_nmi_tree_figures import export, svg_document, label
+    from pathlib import Path
+    import yaml
+    with pytest.raises(ValueError, match="missing delivery artifact"):
+        verify_delivery_artifacts(tmp_path)
+    style = yaml.safe_load((Path(__file__).parents[1] / "configs/figures/mechet_nmi_tree_style_v1.yaml").read_text())
+    files = export(svg_document(label(5, 10, "Source") + '<path d="M5 20 L50 20"/>', style, height_pt=100), tmp_path / "figure", style)
+    inventory = tmp_path / "input_inventory.json"
+    inventory.write_text('{}')
+    sha = file_digest(inventory)
+    def save(name, value):
+        (tmp_path / name).write_text(json.dumps(value))
+    save("figure_manifest.json", {"input_inventory_sha256": sha, "figures": {"f": files}})
+    save("figure_qa.json", {"figure_manifest_sha256": file_digest(tmp_path / "figure_manifest.json"), "figures": {"f": {"machine_checks_passed": True}}})
+    save("enrichment_manifest.json", {"input_inventory_sha256": sha, "tables": {}})
+    save("chemistry_figure_manifest.json", {"enrichment_manifest_sha256": file_digest(tmp_path / "enrichment_manifest.json"), "figures": {"c": files}, "qa": {"c": {"machine_checks_passed": True}}})
+    save("work_manifest.json", {"input_inventory_sha256": sha, "figures": {"w": files}, "qa": {"w": {"machine_checks_passed": True}}})
+    for name in ["captions.md", "case_registry.csv", "schema_manifest.json"]:
+        (tmp_path / name).write_text("actual artifact")
+    hashes = verify_delivery_artifacts(tmp_path)
+    assert hashes["figure_manifest.json"] == file_digest(tmp_path / "figure_manifest.json")
+    save("figure_qa.json", {"figure_manifest_sha256": "stale", "figures": {"f": {"machine_checks_passed": True}}})
+    with pytest.raises(ValueError, match="QA manifest"):
+        verify_delivery_artifacts(tmp_path)
+
+
+def test_work_report_exports_source_bound_missing_costs_without_inventing_time(tmp_path):
+    from scripts.analyze_nmi_tree_evidence import analyze
+    from scripts.analyze_nmi_work_evidence import build_work_report
+    from pathlib import Path
+    root = tmp_path / "run"
+    shard = root / "tree/rank00"
+    (shard / "trees").mkdir(parents=True)
+    (shard / "evaluations").mkdir()
+    (shard / "trees/case.json").write_text(json.dumps(native_fixture()))
+    (shard / "evaluations/case.json").write_text(json.dumps({"id": "case:1", "tree_artifact": "trees/case.json"}))
+    output = tmp_path / "analysis"
+    analyze([root], output)
+    style = Path(__file__).parents[1] / "configs/figures/mechet_nmi_tree_style_v1.yaml"
+    result = build_work_report(output, style, run_id="run")
+    assert result["costs"]["fields"]["wall_seconds"]["median"] is None
+    assert result["costs"]["fields"]["wall_seconds"]["missing_n"] == 1
+    assert result["costs"]["per_target"][0]["report_sha256"]
+    assert result["costs_by_run"]["run"] == result["costs"]
+    assert result["cross_run_cost_pooling"] is False
+    assert all(check["machine_checks_passed"] for check in result["qa"].values())

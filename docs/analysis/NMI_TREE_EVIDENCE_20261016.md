@@ -29,6 +29,31 @@ different and has an unusual sulfur-containing participant. We show that actual
 decision rather than label it experimentally impossible without evidence. Better
 ranking alone cannot repair the many pools that contain no recorded match.
 
+The linked legacy single-reaction archives are complete saved greedy conditions,
+not MCTS replicas: October 13 has 139/3,120 reference hits and October 14 `_05`
+has 144/3,120. They retain their original proxy-endpoint diagnostic. Do not
+compare their full-cohort percentages to the unfinished MCTS subset as if target
+selection and work were matched.
+
+## Recorded work, without invented GPU accounting
+
+All 171 primary R1 reports contain timing and charged-work records. Median/P90
+elapsed time is 36,153.60/117,810.65 seconds (10.04/32.73 hours); sampled tokens
+392,892/1,449,980; prompt tokens 186,734/652,116; executor calls 811/3,874;
+executor wall time 1,311.35/5,190.04 seconds and executor thread time
+14.36/62.04 seconds. These are source-recorded per-target distributions, not an
+additive GPU/CPU decomposition or time-to-first-solution measurement. The one
+already-stock target retains its real zero sampled work. Across the 170 reports
+with nonzero execution requests, the median execution-cache hit fraction is
+0.7145, using hits/(hits+calls) separately per target.
+
+`work_manifest.json` includes separate cost summaries and source-bound target
+records for every normalized native run in this collection, with no cross-run
+pooling. Missing values remain missing, separate from real zeros. The all-zero
+`model_forward_batches_participated` instrumentation field cannot establish zero
+model work. No global GPU utilization, equal-compute gain or missing policy-time
+decomposition is inferred. The cost figure displays only the primary R1 run.
+
 ## Figures and chemical meaning
 
 `fig2_r1_observed_tree_analysis` combines frozen-cohort closure lower bounds,
@@ -132,6 +157,10 @@ python scripts/render_nmi_chemistry_extended.py --analysis-root "$task_output" \
   --style configs/figures/mechet_nmi_tree_style_v1.yaml \
   --run-id r1_r2_frozen_06b_shared_mcts_20261014_07
 
+python scripts/analyze_nmi_work_evidence.py --analysis-root "$task_output" \
+  --style configs/figures/mechet_nmi_tree_style_v1.yaml \
+  --run-id r1_r2_frozen_06b_shared_mcts_20261014_07
+
 python scripts/finalize_nmi_tree_evidence.py --analysis-root "$task_output" \
   --single-analysis-root "$task_output/single_reaction_archives" \
   --flat-tree "$task_repo/outputs/eval/qwen_electron_tree_val56_20261013/tree.json" \
@@ -152,8 +181,9 @@ snapshot, not a simultaneous final state of live remote jobs.
 Large typed tables use deterministic UTF-8 JSONL.gz rather than committing
 multi-GB predictions. `trees`, `nodes`, `attempted_edges`, `terminals` and
 `routes` have explicit primary IDs. Null fields mean unavailable, never zero.
-Schema descriptions are in the loader docstrings and tests; each source
-manifest records table hashes and row counts. Single-reaction and flat adapters
+`schema_manifest.json` declares JSON field types, nullability, primary and foreign
+keys, and counting units; it is not a claim of independent chemical replay.
+Each source manifest records table hashes and row counts. Single-reaction and flat adapters
 have separate output manifests; `artifact_coverage.json` reconciles them without
 counting storage aliases as new observations. Run cohorts are never pooled.
 
@@ -164,6 +194,12 @@ selection. `captions.md` describes the measured panels. `figure_qa.json` checks
 183-mm page width, height below 170 mm, vector paths, embedded PDF fonts,
 SVG identifier/reference integrity and 300-dpi previews. It explicitly does
 not substitute for visual or chemistry review.
+
+The delivery seal rechecks all base/supplement table hashes and every exported
+SVG/PDF/PNG, binds the main and extended figure QA and enrichment/work manifests,
+and includes captions, case registry and schema hashes. It fails on missing,
+stale or machine-QA-failed figures. Human visual review and the independent code
+review dispositions are recorded in the bounded published result directory.
 
 The checked source-data directory is
 `outputs/paper/nmi_tree_evidence/observed_20261016_v1` in the shared data

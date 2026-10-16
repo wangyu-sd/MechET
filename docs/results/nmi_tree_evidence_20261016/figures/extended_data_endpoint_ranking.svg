@@ -1,0 +1,189 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="183mm" height="77.61111111111111mm" viewBox="0 0 518.740157480315 220"><rect width="100%" height="100%" fill="#FFFFFF"/><style>text{font-family:Arial,Helvetica,Liberation Sans,DejaVu Sans;font-size:6.5px;fill:#29383F}</style><text x="6" y="12" >Recorded candidate generation versus NLL selection</text><ns0:svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:ns0="http://www.w3.org/2000/svg" xmlns:ns2="http://creativecommons.org/ns#" xmlns:ns4="http://www.w3.org/1999/xlink" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" width="510" height="180" viewBox="0 0 510 180" version="1.1" x="5" y="20">
+ <ns0:metadata>
+  <rdf:RDF>
+   <ns2:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <ns2:Agent>
+      <dc:title>Matplotlib v3.10.6, https://matplotlib.org/</dc:title>
+     </ns2:Agent>
+    </dc:creator>
+   </ns2:Work>
+  </rdf:RDF>
+ </ns0:metadata>
+ <ns0:defs>
+  <ns0:style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</ns0:style>
+ </ns0:defs>
+ <ns0:g id="panel-859e55ed469dd102-figure_1">
+  <ns0:g id="panel-859e55ed469dd102-patch_1">
+   <ns0:path d="M 0 180  L 510 180  L 510 0  L 0 0  L 0 180  z " style="fill: none" />
+  </ns0:g>
+  <ns0:g id="panel-859e55ed469dd102-axes_1">
+   <ns0:g id="panel-859e55ed469dd102-patch_2">
+    <ns0:path d="M 76.5 129.6  L 489.6 129.6  L 489.6 14.4  L 76.5 14.4  L 76.5 129.6  z " style="fill: none" />
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-patch_3">
+    <ns0:path d="M 95.277273 129.6  L 157.868182 129.6  L 157.868182 96.269078  L 95.277273 96.269078  z " clip-path="url(#panel-859e55ed469dd102-p9140d0fffa)" style="fill: #3f6d85" />
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-patch_4">
+    <ns0:path d="M 199.595455 129.6  L 262.186364 129.6  L 262.186364 54.605425  L 199.595455 54.605425  z " clip-path="url(#panel-859e55ed469dd102-p9140d0fffa)" style="fill: #5b8398" />
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-patch_5">
+    <ns0:path d="M 303.913636 129.6  L 366.504545 129.6  L 366.504545 47.314286  L 303.913636 47.314286  z " clip-path="url(#panel-859e55ed469dd102-p9140d0fffa)" style="fill: #697b83" />
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-patch_6">
+    <ns0:path d="M 408.231818 129.6  L 470.822727 129.6  L 470.822727 47.314286  L 408.231818 47.314286  z " clip-path="url(#panel-859e55ed469dd102-p9140d0fffa)" style="fill: #377a74" />
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-matplotlib.axis_1">
+    <ns0:g id="panel-859e55ed469dd102-xtick_1">
+     <ns0:g id="panel-859e55ed469dd102-line2d_1">
+      <ns0:defs>
+       <ns0:path id="panel-859e55ed469dd102-mfd5633f596" d="M 0 0  L 0 3.5  " style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:defs>
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-mfd5633f596" x="126.572727" y="129.6" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_1">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: middle" x="126.572727" y="140.9125" transform="rotate(-0 126.572727 140.9125)">NLL Top-1</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-xtick_2">
+     <ns0:g id="panel-859e55ed469dd102-line2d_2">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-mfd5633f596" x="230.890909" y="129.6" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_2">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: middle" x="230.890909" y="140.894688" transform="rotate(-0 230.890909 140.894688)">NLL Top-5</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-xtick_3">
+     <ns0:g id="panel-859e55ed469dd102-line2d_3">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-mfd5633f596" x="335.209091" y="129.6" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_3">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: middle" x="335.209091" y="140.9125" transform="rotate(-0 335.209091 140.9125)">NLL Top-10</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-xtick_4">
+     <ns0:g id="panel-859e55ed469dd102-line2d_4">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-mfd5633f596" x="439.527273" y="129.6" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_4">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: middle" x="439.527273" y="140.894688" transform="rotate(-0 439.527273 140.894688)">Recorded pool recall</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-text_5">
+     <ns0:text style="font-size: 6.5px; font-family: 'Arial'; text-anchor: middle; fill: #29383f" x="283.05" y="150.836797" transform="rotate(-0 283.05 150.836797)">Same recorded pools; observed n = 1,711; rxn_prod_min proxy diagnostic</ns0:text>
+    </ns0:g>
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-matplotlib.axis_2">
+    <ns0:g id="panel-859e55ed469dd102-ytick_1">
+     <ns0:g id="panel-859e55ed469dd102-line2d_5">
+      <ns0:defs>
+       <ns0:path id="panel-859e55ed469dd102-m921acbb492" d="M 0 0  L -3.5 0  " style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:defs>
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-m921acbb492" x="76.5" y="129.6" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_6">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="131.747344" transform="rotate(-0 69.5 131.747344)">0</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-ytick_2">
+     <ns0:g id="panel-859e55ed469dd102-line2d_6">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-m921acbb492" x="76.5" y="111.778373" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_7">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="113.925716" transform="rotate(-0 69.5 113.925716)">1</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-ytick_3">
+     <ns0:g id="panel-859e55ed469dd102-line2d_7">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-m921acbb492" x="76.5" y="93.956745" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_8">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="96.104089" transform="rotate(-0 69.5 96.104089)">2</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-ytick_4">
+     <ns0:g id="panel-859e55ed469dd102-line2d_8">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-m921acbb492" x="76.5" y="76.135118" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_9">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="78.282461" transform="rotate(-0 69.5 78.282461)">3</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-ytick_5">
+     <ns0:g id="panel-859e55ed469dd102-line2d_9">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-m921acbb492" x="76.5" y="58.31349" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_10">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="60.460834" transform="rotate(-0 69.5 60.460834)">4</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-ytick_6">
+     <ns0:g id="panel-859e55ed469dd102-line2d_10">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-m921acbb492" x="76.5" y="40.491863" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_11">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="42.639206" transform="rotate(-0 69.5 42.639206)">5</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-ytick_7">
+     <ns0:g id="panel-859e55ed469dd102-line2d_11">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-859e55ed469dd102-m921acbb492" x="76.5" y="22.670235" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-859e55ed469dd102-text_12">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="24.817579" transform="rotate(-0 69.5 24.817579)">6</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-859e55ed469dd102-text_13">
+     <ns0:text style="font-size: 6.5px; font-family: 'Arial'; text-anchor: middle; fill: #29383f" x="60.795391" y="72" transform="rotate(-90 60.795391 72)">Observed-target endpoint hit (%)</ns0:text>
+    </ns0:g>
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-patch_7">
+    <ns0:path d="M 76.5 129.6  L 76.5 14.4  " style="fill: none; stroke: #29383f; stroke-width: 0.65; stroke-linejoin: miter; stroke-linecap: square" />
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-patch_8">
+    <ns0:path d="M 76.5 129.6  L 489.6 129.6  " style="fill: none; stroke: #29383f; stroke-width: 0.65; stroke-linejoin: miter; stroke-linecap: square" />
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-text_14">
+    <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: middle; fill: #29383f" x="126.572727" y="91.269078" transform="rotate(-0 126.572727 91.269078)">32/1,711</ns0:text>
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-text_15">
+    <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: middle; fill: #29383f" x="230.890909" y="49.605425" transform="rotate(-0 230.890909 49.605425)">72/1,711</ns0:text>
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-text_16">
+    <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: middle; fill: #29383f" x="335.209091" y="42.314286" transform="rotate(-0 335.209091 42.314286)">79/1,711</ns0:text>
+   </ns0:g>
+   <ns0:g id="panel-859e55ed469dd102-text_17">
+    <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: middle; fill: #29383f" x="439.527273" y="42.314286" transform="rotate(-0 439.527273 42.314286)">79/1,711</ns0:text>
+   </ns0:g>
+  </ns0:g>
+ </ns0:g>
+ <ns0:defs>
+  <ns0:clipPath id="panel-859e55ed469dd102-p9140d0fffa">
+   <ns0:rect x="76.5" y="14.4" width="413.1" height="115.2" />
+  </ns0:clipPath>
+ </ns0:defs>
+</ns0:svg></svg>

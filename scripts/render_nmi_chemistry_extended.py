@@ -35,6 +35,7 @@ def render_summary(summary, style):
             ax.set_ylabel("Recorded fraction")
             ax.set_ylim(0, 1.03)
             ax.set_xscale("symlog", linthresh=1)
+            ax.set_xlim(left=0)
             handles, _ = ax.get_legend_handles_labels()
             if handles:
                 ax.legend(frameon=False, fontsize=6, loc="lower right")

@@ -1,0 +1,184 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="183mm" height="83.96111111111111mm" viewBox="0 0 518.740157480315 238"><rect width="100%" height="100%" fill="#FFFFFF"/><style>text{font-family:Arial,Helvetica,Liberation Sans,DejaVu Sans;font-size:6.5px;fill:#29383F}</style><text x="6" y="12" >Descriptive symbolic reaction-centre changes</text><ns0:svg xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:ns0="http://www.w3.org/2000/svg" xmlns:ns2="http://creativecommons.org/ns#" xmlns:ns4="http://www.w3.org/1999/xlink" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" width="510" height="190" viewBox="0 0 510 190" version="1.1" x="5" y="20">
+ <ns0:metadata>
+  <rdf:RDF>
+   <ns2:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <ns2:Agent>
+      <dc:title>Matplotlib v3.10.6, https://matplotlib.org/</dc:title>
+     </ns2:Agent>
+    </dc:creator>
+   </ns2:Work>
+  </rdf:RDF>
+ </ns0:metadata>
+ <ns0:defs>
+  <ns0:style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</ns0:style>
+ </ns0:defs>
+ <ns0:g id="panel-33ea56e914dbc83d-figure_1">
+  <ns0:g id="panel-33ea56e914dbc83d-patch_1">
+   <ns0:path d="M 0 190  L 510 190  L 510 0  L 0 0  L 0 190  z " style="fill: none" />
+  </ns0:g>
+  <ns0:g id="panel-33ea56e914dbc83d-axes_1">
+   <ns0:g id="panel-33ea56e914dbc83d-patch_2">
+    <ns0:path d="M 76.5 136.8  L 489.6 136.8  L 489.6 15.2  L 76.5 15.2  L 76.5 136.8  z " style="fill: none" />
+   </ns0:g>
+   <ns0:g id="panel-33ea56e914dbc83d-matplotlib.axis_1">
+    <ns0:g id="panel-33ea56e914dbc83d-xtick_1">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_1">
+      <ns0:defs>
+       <ns0:path id="panel-33ea56e914dbc83d-mfd5633f596" d="M 0 0  L 0 3.5  " style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:defs>
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-mfd5633f596" x="76.5" y="136.8" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_1">
+      
+      <ns0:g transform="translate(74.82 148.094687)">
+       <ns0:text>
+        <ns0:tspan x="0" y="-0.6875" style="font-size: 6px; font-family: 'Arial'">0</ns0:tspan>
+       </ns0:text>
+      </ns0:g>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-xtick_2">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_2">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-mfd5633f596" x="265.130364" y="136.8" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_2">
+      
+      <ns0:g transform="translate(260.420364 149.9875)">
+       <ns0:text>
+        <ns0:tspan x="0" y="-0.799625" style="font-size: 6px; font-family: 'Arial'">1</ns0:tspan>
+        <ns0:tspan x="3.336914" y="-0.799625" style="font-size: 6px; font-family: 'Arial'">0</ns0:tspan>
+        <ns0:tspan x="6.778369" y="-4.98125" style="font-size: 4.2px; font-family: 'Arial'">0</ns0:tspan>
+       </ns0:text>
+      </ns0:g>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-xtick_3">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_3">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-mfd5633f596" x="434.897691" y="136.8" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_3">
+      
+      <ns0:g transform="translate(430.187691 149.9875)">
+       <ns0:text>
+        <ns0:tspan x="0" y="-0.799625" style="font-size: 6px; font-family: 'Arial'">1</ns0:tspan>
+        <ns0:tspan x="3.336914" y="-0.799625" style="font-size: 6px; font-family: 'Arial'">0</ns0:tspan>
+        <ns0:tspan x="6.778369" y="-4.98125" style="font-size: 4.2px; font-family: 'Arial'">1</ns0:tspan>
+       </ns0:text>
+      </ns0:g>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-text_4">
+     <ns0:text style="font-size: 6.5px; font-family: 'Arial'; text-anchor: middle; fill: #29383f" x="283.05" y="159.915859" transform="rotate(-0 283.05 159.915859)">Graph change per distinct accepted FLOW transition</ns0:text>
+    </ns0:g>
+   </ns0:g>
+   <ns0:g id="panel-33ea56e914dbc83d-matplotlib.axis_2">
+    <ns0:g id="panel-33ea56e914dbc83d-ytick_1">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_4">
+      <ns0:defs>
+       <ns0:path id="panel-33ea56e914dbc83d-m921acbb492" d="M 0 0  L -3.5 0  " style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:defs>
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-m921acbb492" x="76.5" y="136.8" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_5">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="138.947344" transform="rotate(-0 69.5 138.947344)">0.0</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-ytick_2">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_5">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-m921acbb492" x="76.5" y="113.18835" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_6">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="115.335693" transform="rotate(-0 69.5 115.335693)">0.2</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-ytick_3">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_6">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-m921acbb492" x="76.5" y="89.576699" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_7">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="91.724043" transform="rotate(-0 69.5 91.724043)">0.4</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-ytick_4">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_7">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-m921acbb492" x="76.5" y="65.965049" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_8">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="68.112392" transform="rotate(-0 69.5 68.112392)">0.6</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-ytick_5">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_8">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-m921acbb492" x="76.5" y="42.353398" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_9">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="44.500742" transform="rotate(-0 69.5 44.500742)">0.8</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-ytick_6">
+     <ns0:g id="panel-33ea56e914dbc83d-line2d_9">
+      <ns0:g>
+       <ns0:use ns4:href="#panel-33ea56e914dbc83d-m921acbb492" x="76.5" y="18.741748" style="stroke: #000000; stroke-width: 0.8" />
+      </ns0:g>
+     </ns0:g>
+     <ns0:g id="panel-33ea56e914dbc83d-text_10">
+      <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: end" x="69.5" y="20.889091" transform="rotate(-0 69.5 20.889091)">1.0</ns0:text>
+     </ns0:g>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-text_11">
+     <ns0:text style="font-size: 6.5px; font-family: 'Arial'; text-anchor: middle; fill: #29383f" x="55.868125" y="76" transform="rotate(-90 55.868125 76)">Recorded fraction</ns0:text>
+    </ns0:g>
+   </ns0:g>
+   <ns0:g id="panel-33ea56e914dbc83d-line2d_10">
+    <ns0:path d="M 265.130364 136.796018  L 316.235422 136.796018  L 316.235422 133.753413  L 346.129964 133.753413  L 346.129964 51.1889  L 367.34048 51.1889  L 367.34048 44.701461  L 383.792634 44.701461  L 383.792634 36.511517  L 397.235022 36.511517  L 397.235022 33.903001  L 408.6004 33.903001  L 408.6004 23.0229  L 418.445538 23.0229  L 418.445538 20.641384  L 427.129565 20.641384  L 427.129565 19.747321  L 434.897691 19.747321  L 434.897691 19.319205  L 441.924817 19.319205  L 441.924817 18.950827  L 448.34008 18.950827  L 448.34008 18.845292  L 454.24155 18.845292  L 454.24155 18.769625  L 459.705458 18.769625  L 459.705458 18.757677  L 464.792234 18.757677  L 464.792234 18.753695  L 469.550595 18.753695  L 469.550595 18.751704  L 474.020389 18.751704  L 474.020389 18.74573  L 478.234622 18.74573  L 478.234622 18.743739  L 482.220945 18.743739  L 482.220945 18.741748  " clip-path="url(#panel-33ea56e914dbc83d-p522f8921f7)" style="fill: none; stroke: #3f6d85; stroke-width: 1.35; stroke-linecap: square" />
+   </ns0:g>
+   <ns0:g id="panel-33ea56e914dbc83d-line2d_11">
+    <ns0:path d="M 76.5 136.792035  L 265.130364 136.792035  L 265.130364 133.721553  L 316.235422 133.721553  L 316.235422 52.200447  L 346.129964 52.200447  L 346.129964 46.792256  L 367.34048 46.792256  L 367.34048 36.352218  L 383.792634 36.352218  L 383.792634 35.366557  L 397.235022 35.366557  L 397.235022 30.655299  L 408.6004 30.655299  L 408.6004 22.658504  L 418.445538 22.658504  L 418.445538 20.613507  L 427.129565 20.613507  L 427.129565 19.701522  L 434.897691 19.701522  L 434.897691 19.544215  L 441.924817 19.544215  L 441.924817 19.2296  L 448.34008 19.2296  L 448.34008 18.918967  L 454.24155 18.918967  L 454.24155 18.815423  L 459.705458 18.815423  L 459.705458 18.773607  L 464.792234 18.773607  L 464.792234 18.759669  L 469.550595 18.759669  L 469.550595 18.755686  L 474.020389 18.755686  L 474.020389 18.749713  L 478.234622 18.749713  L 478.234622 18.747721  L 482.220945 18.747721  L 482.220945 18.74573  L 486.002749 18.74573  L 486.002749 18.741748  " clip-path="url(#panel-33ea56e914dbc83d-p522f8921f7)" style="fill: none; stroke: #5b8398; stroke-width: 1.35; stroke-linecap: square" />
+   </ns0:g>
+   <ns0:g id="panel-33ea56e914dbc83d-patch_3">
+    <ns0:path d="M 76.5 136.8  L 76.5 15.2  " style="fill: none; stroke: #29383f; stroke-width: 0.65; stroke-linejoin: miter; stroke-linecap: square" />
+   </ns0:g>
+   <ns0:g id="panel-33ea56e914dbc83d-patch_4">
+    <ns0:path d="M 76.5 136.8  L 489.6 136.8  " style="fill: none; stroke: #29383f; stroke-width: 0.65; stroke-linejoin: miter; stroke-linecap: square" />
+   </ns0:g>
+   <ns0:g id="panel-33ea56e914dbc83d-legend_1">
+    <ns0:g id="panel-33ea56e914dbc83d-line2d_12">
+     <ns0:path d="M 394.18125 119.406563  L 400.18125 119.406563  L 400.18125 119.406563  L 406.18125 119.406563  L 406.18125 119.406563  " style="fill: none; stroke: #3f6d85; stroke-width: 1.35; stroke-linecap: square" />
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-text_12">
+     <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: start; fill: #29383f" x="410.98125" y="121.506563" transform="rotate(-0 410.98125 121.506563)">Changed atoms (n=59,289)</ns0:text>
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-line2d_13">
+     <ns0:path d="M 394.18125 128.037188  L 400.18125 128.037188  L 400.18125 128.037188  L 406.18125 128.037188  L 406.18125 128.037188  " style="fill: none; stroke: #5b8398; stroke-width: 1.35; stroke-linecap: square" />
+    </ns0:g>
+    <ns0:g id="panel-33ea56e914dbc83d-text_13">
+     <ns0:text style="font-size: 6px; font-family: 'Arial'; text-anchor: start; fill: #29383f" x="410.98125" y="130.137188" transform="rotate(-0 410.98125 130.137188)">Changed bonds (n=59,289)</ns0:text>
+    </ns0:g>
+   </ns0:g>
+  </ns0:g>
+ </ns0:g>
+ <ns0:defs>
+  <ns0:clipPath id="panel-33ea56e914dbc83d-p522f8921f7">
+   <ns0:rect x="76.5" y="15.2" width="413.1" height="121.6" />
+  </ns0:clipPath>
+ </ns0:defs>
+</ns0:svg><text x="6" y="222" >Bond, charge and component deltas describe executor states; they do not certify laboratory feasibility.</text></svg>

@@ -1,0 +1,23 @@
+{
+  "schema": "nmi_tree_evidence_availability_v1",
+  "new_sampling": false,
+  "observed_tree_analysis": "available; original and single-reaction adapters linked by source hashes",
+  "FlowER_28971_endpoint_benchmark": "PENDING in this evidence collection; no extrapolation from route trees",
+  "mech31k_3120_corrected_endpoint_benchmark": "PENDING; current saved MCTS endpoint scores use rxn_prod_min proxy diagnostic",
+  "R1_route_cohorts": "460 frozen IDs retained; observed completed trees give a nonzero stock-AND closure lower bound",
+  "equal_compute_route_comparison": "PENDING; current greedy and MCTS use unequal work and shared reuse",
+  "paired_target_bootstrap_for_equal_compute_gain": "not_establishable_without_matched_work_outputs",
+  "H2_27104_predictive_comparison": "PENDING; full-data 0.6B actor is not an authenticated H2-trained actor",
+  "RetroCast_C0_C1_C2": "Unknown for all current 160 reference routes; depth is descriptive, not a composition label",
+  "historical_signature_basis": "strict train 257167; local604/ordered6553; imports omitted and within-event order can matter",
+  "current_actor_signature_basis": "actual 0.6B full-data exposure local603/ordered6491; nonordinary1377 kept separate",
+  "independent_forward_round_trip": "not_available_in_this_saved_tree_collection",
+  "literature_reviewed_complete_reaction_records": 1,
+  "literature_verified_structural_pairs": 1,
+  "literature_sampling_unit": "fixed illustrated complete reactions only; no population-wide support percentage",
+  "training_source_overlap": "unknown unless a source audit is supplied; public patent support is not proof of holdout novelty",
+  "runtime_decomposition": "only source-recorded fields; no inferred GPU utilization or missing timing decomposition",
+  "remaining_editorial_decision": "six figures plus Table1 exceed six combined display items; not silently edited",
+  "paper_main_modified": false,
+  "historical_16_work_packages": "retained; no original work package is canceled or replaced by observed figures"
+}
