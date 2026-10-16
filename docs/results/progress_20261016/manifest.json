@@ -1,0 +1,14 @@
+{
+  "kind": "frozen_progress_snapshot_not_final_benchmark",
+  "task_snapshot_time": "2026-10-16T16:35:20.778850+08:00",
+  "case_snapshot_time": "2026-10-16T16:36:41.114873+08:00",
+  "files": {
+    "result_summary.json": "4c725ea341f58b5e28b16484d7b63c3d11a739725b840b04e323a5e1e1b28520",
+    "r1r2_case_snapshot.json": "f56376bbd80cccc7fb9ddf856d4f8ab46d012a3bc26e8befb802d867eb3c1dfb",
+    "mech31k_preserved_case_snapshot.json": "9c45af7bd2e6e07c9473c2f89354691490ea0e1069968c497110445384a47922",
+    "task_states.json": "33c1739a973e7fbca5fce2165c8f05b48f16697e841e160f2f7b0f76b08aa226"
+  },
+  "r1r2_cases": 170,
+  "preserved_31k_cases": 1711,
+  "no_raw_tree_or_private_init_uploaded": true
+}

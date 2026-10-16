@@ -8,7 +8,7 @@ Successor-equivalent action strings contribute a SINGLE branch outcome.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Sequence
 
 
@@ -208,6 +208,7 @@ class VerifiedOutcome:
 
 def successor_group_advantages(
     outcomes: Sequence[VerifiedOutcome],
+    *, endpoint_only: bool = False,
 ) -> tuple[float, ...]:
     """Assign signed credit only from supported chemical observations.
 
@@ -217,6 +218,10 @@ def successor_group_advantages(
     """
     if not outcomes:
         raise ValueError("empty executed branch group")
+    if endpoint_only:
+        # Local successor labels remain replay supervision, not positive
+        # endpoint evidence. Unknown finite-horizon outcomes stay censored.
+        outcomes = tuple(replace(o, reference_successor=False) for o in outcomes)
     if not any(o.positive for o in outcomes):
         return (0.0,) * len(outcomes)
     if all(o.positive for o in outcomes) and len({o.reward for o in outcomes}) == 1:
@@ -258,14 +263,19 @@ class AdaptiveHorizon:
 
     def advance(
         self, *, total_groups: int, effective_groups: int,
-        productive_groups: int,
+        productive_groups: int, endpoint_groups: int | None = None,
     ) -> tuple["AdaptiveHorizon", bool]:
         if not 0 <= productive_groups <= total_groups or not 0 <= effective_groups <= total_groups:
             raise ValueError("invalid curriculum evidence")
+        if endpoint_groups is not None and not 0 <= endpoint_groups <= productive_groups:
+            raise ValueError("invalid endpoint curriculum evidence")
+        # None preserves the historical local-support ablation API. Main
+        # training always supplies independently counted endpoint evidence.
+        promotion_support = productive_groups if endpoint_groups is None else endpoint_groups
         promoted = (
             total_groups > 0
             and effective_groups >= self.min_effective_groups
-            and productive_groups / total_groups >= self.min_productive_fraction
+            and promotion_support / total_groups >= self.min_productive_fraction
             and self.current < self.maximum
         )
         return (

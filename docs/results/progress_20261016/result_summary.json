@@ -1,0 +1,55 @@
+{
+  "r1r2": {
+    "denominator": 460,
+    "finished": 170,
+    "finished_percent": 36.95652173913044,
+    "pending": 290,
+    "nonzero_stock_connected": 169,
+    "already_in_stock": 1,
+    "cohorts": {
+      "ursa_expert100": {
+        "denominator": 100,
+        "finished": 18,
+        "nonzero_stock_connected": 18,
+        "already_in_stock": 0
+      },
+      "ursa_drugs100": {
+        "denominator": 100,
+        "finished": 41,
+        "nonzero_stock_connected": 41,
+        "already_in_stock": 0
+      },
+      "retrocast_mkt_cnv160": {
+        "denominator": 160,
+        "finished": 91,
+        "nonzero_stock_connected": 90,
+        "already_in_stock": 1
+      },
+      "paroutes_derived_n5_100": {
+        "denominator": 100,
+        "finished": 20,
+        "nonzero_stock_connected": 20,
+        "already_in_stock": 0
+      }
+    },
+    "full_result_complete": false,
+    "scope": "observed stock closure, not independent chemistry validation or equal-compute comparison",
+    "read_seconds": 3.4277349933981895
+  },
+  "mech31k_preserved": {
+    "denominator": 3120,
+    "finished": 1711,
+    "finished_percent": 54.83974358974359,
+    "pending": 1409,
+    "endpoint_hits": {
+      "top1": 32,
+      "top5": 72,
+      "top10": 79,
+      "any_endpoint_hit": 79
+    },
+    "scope": "frozen rxn_prod_min-proxy diagnostic; preserved failed_03 artifacts; new_04 is queued",
+    "full_result_complete": false,
+    "read_seconds": 4.628121092915535
+  },
+  "checked_at": "2026-10-16T16:36:41.114873+08:00"
+}

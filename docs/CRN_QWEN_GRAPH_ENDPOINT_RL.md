@@ -2,6 +2,15 @@
 
 # CRN-JEPA FLOW routing with the existing Qwen Tool-SFT actor (opt-in v1)
 
+> **13 October current handoff:** the implemented graph-only condition is the
+> conditional-endpoint v4 estimator in `GRAPH_EARHO_METHOD.md`. The user has
+> requested a proposed joint Qwen import/controller-LoRA + graph-head successor;
+> its written design/plan await review and it is not implemented or submitted.
+> See `ACTIVE_ICLR_STATUS.md` and `results/PR83_JOINT_IMPORT_DIAGNOSTIC_20261013.md`
+> for the completed local baseline/train32 evidence. The sections below retain
+> the historical v1/ablation contracts; their small-run suggestions and old
+> connector/GPU-access limitations are not current execution authorization.
+
 ## Decision
 
 Only replace the **source/sink electron-flow argument generator**. Do not replace
@@ -141,6 +150,51 @@ improvement from oracle-state Event@K.
   obscure a negative pilot. Preserve the historical Qwen path untouched.
 - Full benchmark: 28,971 FlowER endpoint rows vs 28,967 strict-process rows;
   these denominators are never interchangeable.
+
+## 2026-10-11 product-start pilot status
+
+The original prefix-NLL router in this PR was not equivalent to the Qwen
+greedy tool-name decision: on the same frozen 128 validation IDs it yielded
+0/128 structural endpoints, whereas pure Qwen yielded 47/128. In that run,
+125/128 first calls selected FLOW even though the reference first call was
+IMPORT on 126/128. This is a routing-protocol failure, not evidence that the
+graph FLOW model or endpoint RL cannot work.
+
+The first opt-in `greedy_name` router generated the quoted tool name, then
+started a second Qwen generation for IMPORT arguments. With the same Stage-II
+history adapter and 128 IDs, this pilot hybrid reached
+46/128 structural endpoints and 114/128 terminal episodes; pure Qwen remained
+47/128. Paired counts were 38 both-correct, 8 hybrid-only and 9 Qwen-only.
+However, the first IMPORT arguments differed from the pure-Qwen run on 17/128
+cases. Thus the 46-vs-47 comparison is **not** a graph-only intervention and
+does not establish an endpoint gain or loss attributable to the graph head.
+The runtime now generates IMPORT arguments to EOS in the same greedy Qwen call
+that selected IMPORT, while stopping FLOW immediately after its name. A real
+Qwen3-0.6B + adapter token-level local check found identical full-call and
+single-call IMPORT tokens on one divergent pilot ID (`val_201`); this is not
+yet a rerun of the 128 cases. The new run contract uses
+`single_generate_to_eos_v2` and cannot resume the older two-pass artifacts.
+The historical prefix-NLL route remains only a labeled diagnostic ablation.
+
+The train-only 64-anchor graph-head RL task was stopped at user request before
+it wrote a training report or policy-head checkpoint. Consequently, there is
+**no post-RL validation or full-test result** for this hybrid. Do not report
+the stopped job as a completed RL run or submit the prepared post-RL evaluator
+without a new verified head and positive effective RL groups. The full-test
+runner is prepared but unexecuted; it audits all 28,967 strict test rows and
+explicitly records the four unsupported official endpoint rows in the 28,971
+official denominator.
+
+The full strict-test comparison is prepared, not run. The pure-Qwen control
+uses the unchanged matched-v2 greedy runtime through a separate resumable
+eight-shard wrapper (`scripts/run_crn_qwen_pure_baseline.py`). It shares the
+same 28,967 strict test IDs, product-only remapping, Stage-II adapter, 40/32/4096
+budgets and 384-token full-call limit. The aggregator verifies complete shards,
+identical selected IDs, source hash, model revision and adapter SHA before a
+paired report. The four nonconserving official rows are explicit unsupported
+failures for the graph hybrid; they must not be silently called evaluated graph
+predictions or used to assert a pure-Qwen result on those four rows. No prepared
+Taiji config is a submitted or completed experiment.
 
 ## Limitations of this PR
 

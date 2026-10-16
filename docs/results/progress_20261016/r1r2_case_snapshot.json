@@ -1,0 +1,1702 @@
+[
+  {
+    "id": "retrocast_mkt_cnv160:n5-07606",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/04684bb9d7ed9aaae82b316a9ea2a5aeb96ca0782936bf9fbafd4ab8ed016d37.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07614",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/0fbbc20f80f60d7382ea53dc10461d5fcb490a3a89df59349f29bfc4e4fd85fb.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00161",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/12d7e8a434c50792d6d4b09c596790d2a7635f871340797e9fe3e1d25b5f7dee.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-02804",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/2bb8ab9831e844df961190aaf1b310bc6e166a03064301e27e24c53bfa9e9e5f.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-08342",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/3e53ca99e8057d190abba899e3be9f49f7571f288931b03a40ee600da54a5b6b.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07586",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/52af19882e4fa18af763f5cbc7ad9cc508cd1dfc22e9a0599642b8df6da47653.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07747",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/549cc9cecb10900d46dcf3378ad61b7bedafdd99c8db2f339bc2c877680f5c79.json"
+  },
+  {
+    "id": "ursa_drugs100:Cabozantinib S-malate",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/8b4ee51d6807d371a02cee3c8680b290a7b3236ab6e7dea93c928cdf2a3280fc.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-05468",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/922358373dff85be1f159376dd466ce074415a7c219c925901383ede12b29b25.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-05867",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/9b34830013fe69487124aea34d829dcfaaf6f298afa91977ae4c0ef3351452fe.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03816",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/9df8288e02f8a8dd7004f6c6acb8a9f0a5e469b64463eb72b18774019ea89ac5.json"
+  },
+  {
+    "id": "ursa_drugs100:Apararenone",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/a6014e0128d90af414bbe4576843f4bdccca7a6ff57dac6213cbd1f438dbd04a.json"
+  },
+  {
+    "id": "ursa_drugs100:Zanubrutinib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/ac45a39d161a46083969f12f74fe7d6f3e4cce64a7efd3a1b9813a89ef39dcb7.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1766-0764",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/ae20bbd82705810f48902c998ab9c5614f2a9b759b0295ea8399c08ebea33604.json"
+  },
+  {
+    "id": "ursa_drugs100:GSK329",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/b67bb87ffc498603f4ea33ac3c9fed4ba2b65d507ce20e69a4dcf3db91956917.json"
+  },
+  {
+    "id": "ursa_drugs100:Brigatinib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/c0b344c7560a97ffa131d0b154bd8e6fe788420e2824f537eca9b56b7b0d70fd.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00388",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/c8a4029cb22a5f070568504130f9f27b408b510d5c1312d331311d41d2f9af44.json"
+  },
+  {
+    "id": "ursa_drugs100:Compound 38",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/d57eb44e9fb00ef845d40384521121dae8687f6f1eb2ae0731021fac9a79cc55.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-09767",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/d77c242c5ac78266283b7aa80b6f0d718384514991485afb91333510dda08ab4.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00374",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/1cc9d8b58f1b5a1164b5b3f9c57c1f7f5e9380e5c81637f988a5cf98feed5a65.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-09675",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/263b00c71abeed9c8f0c6f39affefa4597f8563776fb9fb0b943ee586cc24752.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1765-0440",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/2be5361abefa6c40668506d1b8e64e145cecdf45a30cf34b9d62c3b5aa841638.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00162",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/2e106b91981617101a0027f6e74c6909043d4203be4954ad4b7a1f559d60c423.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-09425",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/38e6361d97c6eb36eadcaf517ee8d4c0ce87e3a13ecbc6be19aeb5724cc6619f.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00116",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/3ba7c61380ea6d9247e8f41cbea595f6b267e2710f7d479171e623e1ed451097.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1762-1516",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/4bdc37cd6da9bc64d7703d9bc12bb7caa555e9fee7ac12f0c580040ef18bb154.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03169",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/612934fb63941c07c6d9d89fabf41f0b4d7cddda7fcd161f86836d98d35af972.json"
+  },
+  {
+    "id": "ursa_drugs100:ATX968",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/61d51a4388efe53b5c8e62f2dda63a51465af99de5fd2d6d57716fd2468f3d02.json"
+  },
+  {
+    "id": "ursa_expert100:X404-208-1309",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/6689c9e8a10f0ac0d1298366c5bb1dc4da1d7d61646cbb98f5a2bba2281f20e8.json"
+  },
+  {
+    "id": "ursa_drugs100:GLPG3667",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/6fa02e669b404ac77e16065da020642191625ec96f2a64d7e788c0acf22f0940.json"
+  },
+  {
+    "id": "ursa_drugs100:Apalutamide",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/72abbd493acb4ff2681da43d58e71c146228518309342a8895863613f799e718.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03258",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/83b46c7bf2f4c72db9bf7cda435631ebda26979092e2f2cc71859086e39ba730.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-01678",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/8542b996db188d9f4f9a7212a3b4d105c476b60c59090c9244bfce7324be260e.json"
+  },
+  {
+    "id": "ursa_drugs100:MK-8189",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/938b74fe6b840e7f6906007167f3f8f6ee726d270c91a3c14f01e0c9c027cbe8.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-08752",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/9fd66cc2584155de84e325db6a3c601817cae5b06142a210abfcba8e2f801bab.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-04359",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/adadceeed1208748941b6d3a91946861fa1b2f738c87b2a42fda0db1fda1f91b.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-03457",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/d633de424807514dbdeb67c8e1db8a4cd2bed9fed2a1007095ab7ce2fc1600d4.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02598",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/db0fc7866200f05df301e3122cc8951c05baeaa676f0875b51e5f3e3a2c99411.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-09511",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/evaluations/dd278f1cd670488034236310ba3150f1bd1e4d22e45f7290f08affae9cdc1807.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02980",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/0d8275bd00741aca2eb3665d3a1a8088201640019dc3bf4a7338a699bdf607c1.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-01837",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/1e6f1ca440a9aab147cd74ec64ad719aa89532c8700c365c3c5aab3671922420.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-09293",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/41945b8555ecbc181573d8731a6f4fa2d0d56b596d093c8b5b6cee8a3a30be8c.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-09058",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/451fb44111ea6c2778a466e6d144fa7ace1678edd51a32e5c4cf1ce1454f38d7.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00278",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/49709118c33d143fdb4433a3412a9c0da866f4b4fcc81bed36ddc238a8f4969a.json"
+  },
+  {
+    "id": "ursa_drugs100:CEE321",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/4f6c210e9e373abc416877863cb29321c13882579c98bdaa19e607480c88ffea.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-09117",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/5863eac980694a80e3412251540595b256741aa33643d890064ffddeff51ea2b.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-04334",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/5ed989775f81176f39878cbed18765f7c60bf085c202eb0586721b25c3243b72.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00268",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/611005e5473b7ccc784615d458f7eab6b4ec25e33f0530409cd3fea03ac2cf47.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00078",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/6df4d733ae5ba544df8e263ddc7e1827509b9591314e6da05b07b350dc1a4686.json"
+  },
+  {
+    "id": "ursa_drugs100:Vernakalant hydrochloride",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/8577da1ab9f2ca466127a0763dab1d9af6e520555e8b07be371239abb3591fc4.json"
+  },
+  {
+    "id": "ursa_drugs100:Compound 36",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/8ab21ee0b79a4260ca0d551ff4586b15d3f9f4a62cb88e84a64007fe6578a125.json"
+  },
+  {
+    "id": "ursa_drugs100:Compound 35",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/9723ea74964416d6fc7d4cf783316080c627f8c1849aceca11b179d1544a2690.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-05995",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/a4a76461ed8e148b61d2f06f5aa74d7a3bbec8e121b443bf2030d76c89d734c0.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03978",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/a6a2568e670c602623d89d28145da8dfa1a8ea5ac8505132c846eab9d626bab0.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00576",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/bdbf892bee53ccfde2417a3769409a704ea34a4b1a6238cdbff683dcddb4dae3.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-04011",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/cd2c1f01ab938548da2403a78598200f18e24589b6c78a75d25eaf12eb8b8b75.json"
+  },
+  {
+    "id": "ursa_drugs100:Binimetinib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/d18f3854c2b99280eef15f20234c27c33b7315a7d9ccd71035be1c15e14184b5.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-08366",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/e01989d99ff05b6c24835696f8887dfda284c0cf57d1fbfe2b5e9d230480ef8a.json"
+  },
+  {
+    "id": "ursa_drugs100:Lomitapide",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/eca239897b3443ecb86431bf356bc5b219baaa14b3d1f20ae3670fa8c8500469.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1768-0722",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/ecdbf7433f44438eeb7f1666d3398be5caa4372fe519c73c9de8abacf3b3dc99.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-01308",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/ecebd8c6ddd6ec9dcd083e6fbdb424c0c6a8b306e89fcf64f6767efb903a3ebb.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03899",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/f04703cfe51d1e856ae995915579d6860a04defd00b6b1d12c67a5100a8908c9.json"
+  },
+  {
+    "id": "ursa_drugs100:Macitentan",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/0be4f090efd4f49c2203e7fd2701ed34c13d796bb732410c3df8f76cdafd08e8.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02334",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/1126745ed9e701dbbad6f64d70aef1c4fb6f3108db8247696a2c7cebc2c68128.json"
+  },
+  {
+    "id": "ursa_drugs100:Compound 17",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/117cffba50d9855be1c808d1babd3da1098f3756721fb0ef05cc374f6931eacf.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-04165",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/2b4dada845ad8830e056e70c01ad694d06f4e2642e9fddeab72f6e36c29e5ab2.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03670",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/38a2d4912aafdcfc09e4cd3545fcc66b16877be15b9295bf7059b7476ef4d3b1.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03895",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/3fb30aa661d1e0d9e3e35b08b46434e8ed8113e8dd2092a9e5c5f1e4a01dab11.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-04013",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/4229269e77f424bcb0d92df9c6b6d9e53076f00df12b165d8d50bf32c5149148.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-01959",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/5e49493bd3b150fd4fcca71d6e5276c75d4c38217bd346a60d5a99a3fa6da2d9.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00823",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/671dd81d54f72889e800c04d3c96c6b151d25da491c864f4738881f5e48c8b10.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1764-2345",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/a33ecdc4040c59cb5d9c0482a3acbc784491f26316316f9d76ee7146ba09df21.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-05610",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/aba18f649dbaa8225077caae84df9558a2a85af236c357f18558aa739de46a3c.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02115",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/c0455d60578cc2a23638b4a77f15449d665b6554b9b3bfcf788ea37ab6646679.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-02678",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/c26d47fde2d7b6a261cc44b3a97ec48605b7b71f0b3b1df197f6f69539c08f8c.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-04782",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/c55c6b5f6e5f3230878de4d282f01987d89f8cea9cdbca96e71a577c03f402e9.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1768-3704",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/cf3b52454bb536f23e4c15026079660c7fba8a8e491c339e2548b26009dd3a9b.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00909",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/e279c8645853cba3e3b3ebf08ef09e70548f1ae619d058c542633987ca2e00f2.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07183",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/01d9cb7f46deaac2c730998704cb3ba5a75f3a5343618190c5ae5c5c33621e89.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-07528",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/04ac899bb2bb27ba3a11cfe776027ee3976809aa81f4e8cddb00c587aadb8a4f.json"
+  },
+  {
+    "id": "ursa_drugs100:Glasdegib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/10eae774c56d1266475349ad78265f28474b1fd26313ac37f80aa48b8565261c.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00369",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/160e47f9eea20295e1aa22d084858b19ac405dbed75c24d19fc9a84d0b9b4ba0.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-05377",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/17d99ab488f6eb076ae60b68c2be929b9fd47c847ab27a4916bad03e4dad227e.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00735",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/1c7445e1d902defd11b2173c2d88b0eaaa4d40cc09820b2e94629b9c1d7222b7.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-01688",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/2af1775ee43cb6cb868c979169abaddffbdfac87810542716a841879750d5c23.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1763-4916",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/32acbaf8ccc34144b42ab569f552e22df8c1adc1f4727e4e7f3f18a6675b49ad.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00080",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/3357e7d37cd8a0c749baae80548263052e2cbafa1da43a261067d05a7b4c2a55.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1761-6535",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/410429ebfa818c483574b0f81476e5696d3561026678428ecc32d47067a96581.json"
+  },
+  {
+    "id": "ursa_drugs100:BAY-805",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/5e515a602872f9ba906d25541088d407c4aca87f898b172a29169f8a4cdaa43c.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07940",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/71d4e91465cd9a1d78b60be0dfab91bc67a155ffb4b1927ca621d566ccff1927.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00195",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/71daa3a2311cd26b4126d7bf9ed293596369a544d14103538ce42ddf9cbe14c9.json"
+  },
+  {
+    "id": "ursa_drugs100:Sebetralstat",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/76b844c84f65266a04ce916d5a7b7341b8b9590bf6eabe5bc5ee42bbbd1f2d6b.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02609",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/7ef9e71e1da7bde1b5cbd42f26f1d09db79468e865f7133482d59564d5c6fbb1.json"
+  },
+  {
+    "id": "ursa_drugs100:Ebastine",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/7f50178831e8b6ee88b0dfde6ce1dff38f1813ae5cc659d3e68dd31dfd461d4b.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-05934",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/84049332175274f2ca74bd385df64dfecf3478aa362bcd1f6ba5492907a7e7a0.json"
+  },
+  {
+    "id": "ursa_drugs100:Tucatinib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/922d78f16a9c9e8b57affb33cd52a9495b699f4a583134c77ebb4a57ea0d5dd9.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02057",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/a170ee81f4e7c51d15fbc2f65899aca35cd19891a98c734cd19a175cbcd622d0.json"
+  },
+  {
+    "id": "ursa_drugs100:Osimertinib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/a1aabb9a4b151c6aa8c17166ef3cf47886dc7f1354db69c8efac3d884517b2d5.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1767-1670",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/a70ec748476137115368f6a01f777777452d0b7bb89495eea5a0ca302beda994.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-03658",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/afc98640d76b7b8196c7769b1cdc197f26e07d4aca854730473c1c0d3d927f47.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02032",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/b8b8dd3b49201565c0dc43afb6fee532c25cbd908b5af8dfb661c81444c795e0.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-03258",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/bff3fc9e14ba20b382c96fab451bba2c390afb32b787250f7f3f2742e829d432.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00853",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/c2c6c8b0c7684e121fd23a87a81081e03a1dbb97f4e1f1f6a648ca91c52a9a3d.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1764-0025",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/d2bd76a3e3e2062b620ce0f6ea62f0d4a671c0faf028646b4b84445e1a674705.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02322",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/f10de831c7d132fec69877e4aa2cb6b935bfff73d26fdf687ea1e5d5ebb4574f.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-08849",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/1ad623526960cb6fd15983eda15dcec257eaa97e5b1b7aa10d6ab0a3ced4c6e4.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-09365",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/2179f52ff591ef24033b57e8f6aa43a7841a2f2c7aecea5d155bf6c50b56d3d5.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-05797",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/2d93f860df8a552199d5b90993240a4144f2f99d94d0eae90f89971e87690397.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07932",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/4742a4c5e515ef42aa6d9705e76cd55aec1f91da21ad3a2c34ee8de66a1e69de.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-01213",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/48bfd7b86544f05ab7495eed1672804f676ae5915f531f4053f59e5e282b4f7c.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00947",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/4cd110e49476d6581db732f3eeeac28c92c444e06e60db72bcc608cda1ff8736.json"
+  },
+  {
+    "id": "ursa_drugs100:BAY-184",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/581677efe61d5e90216ffb6cd4f961396c2d0bdfee3ee0550da914653c284c79.json"
+  },
+  {
+    "id": "ursa_drugs100:Icotinib hydrochloride",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/671d151467608ff4cc4a96417640eb1ccce985cb9b7b68d86987adca45092f2e.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-08786",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/68cd66544b0ef234813d19e97a11e7584e57fb97dc4942ca29bcb422fc9f1830.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02556",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/92cd387cf9c49559aa77926bb004b599c2e92bc2d00c853b8be5bff9249e083d.json"
+  },
+  {
+    "id": "ursa_drugs100:Compound 10",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/9b7a963d9d7ad06b134c1f1d47e4b0ca87b8bfa8b6c5e9f5c133b9ca27d8b540.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07078",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/ab5bda39e882c0260e2083793eeb833d3f708a49c29bf3bcca7370713119bb48.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-03151",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/c4330595c320ee2d2423be2bb5f8757c6dcda3f94ed5477d764acd733c649ed9.json"
+  },
+  {
+    "id": "ursa_drugs100:BAY-6096",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/c44730eec043687d4e037cc97554efe9a93c819565727a008961f2600dc4b9f5.json"
+  },
+  {
+    "id": "ursa_drugs100:Larotrectinib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/c8dc05a4b1401f3269fea759f9bf4729b3c752302206f4bb25151e4aa7d48131.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-09530",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/d0ac525a5220191649a7aa6ebd54ae76f265f027a9999aae84d37544f83ea1bf.json"
+  },
+  {
+    "id": "ursa_drugs100:Vadadustat",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/f9adcd536ec4dec11243c53faa79bb5863686d417e070a95ec5b0c0fd1f09a2f.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00045",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/f9e554b7fbeda970c499beb7758a6ad2bac03e1cea9199857e64a9da2094ab19.json"
+  },
+  {
+    "id": "ursa_drugs100:Selexipag",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/faba6d9595880db32c99c062169860e732b277e56dec598f7e83f5275a1f3d08.json"
+  },
+  {
+    "id": "ursa_drugs100:Sildenafil",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/evaluations/fcff887c44833da5490e8fcba5fb15da7d450f9f7bef50781d7d948d37dcd4a8.json"
+  },
+  {
+    "id": "ursa_expert100:X404-133-0167",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/05ce39e9b2ef03e940478916189b03c36c84b945fdf3ace6ef44f122c00fe402.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-08737",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/0a7275100836a372452bbd0967913495100746e8c15c778855809c8958708533.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02035",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/10702edfdc3a0fcb9dbe2d8704cfc63fc8e199d1c6494956a41f8713826349ea.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1761-3479",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/1d32e2009fe321b6338aa8d1bd1cce120d222c7afc932a4664f100ef8381041c.json"
+  },
+  {
+    "id": "ursa_drugs100:Tivozanib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/2228952305b9c05fbca226ebf89f08ab6a52bfb60d85afb85d4bcccbe0fcab38.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02289",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/22bd5d9245c5fdc37ee14eda10d1e8724a53ca98fa73f71d6d0d9e1fd270f6d8.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-06430",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/2b2070be77557c36e3913c7d8adb1a0cbcabba0f03f37560e64b2b392f212d30.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-04968",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/333122bd95ef625c1a6f324ff8b531a7e996dd789e9a9528c88ab8f14a82bd7c.json"
+  },
+  {
+    "id": "ursa_drugs100:Nivasorexant",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/3590824b5dad4271cc6c4ae8d2af22888e3f9a433d97f40d8398dd91d7a888df.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-06573",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/387d4706d4c5619c96ed86c389f32b21fcfcaf123c1d0fe1fc99d9abf6f6b64a.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-04837",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/38e18afe55d0642de830c5a40ce9ce11cea00f3f904ee02978cd36e780fc2204.json"
+  },
+  {
+    "id": "ursa_drugs100:Olmutinib",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/4644a82bd587d74aee860c6e6d07b969b1b5befe92a36734fb40e9e53c982c90.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07565",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/5f8aac601811a2d908e749eb95e33d032811a24978cd2401009c7fdef2875622.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-08549",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/76da5287e6d39a742fe1fc2a931a460c937ba71fb9d5cdd349cf7ff1c8e3f4dd.json"
+  },
+  {
+    "id": "ursa_drugs100:Mirabegron",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/8638bcedbcecb219ca6e44fd7c82d096f6f715104a0a417d0d3e575c95204a23.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-06874",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/8ccdfe16eae6c2ca1dcbf170804b82740b8b9a183f090f4e0c031b3c019aabd1.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1763-4338",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/91a61f0c77256b148951dd601378d2829974bc1dc026b734e5e1ac7cb6d8b8a7.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-01262",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/963f783d3df991eb667d5f8bbcb1ec185da67115146849111b1e8dbe51510d98.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03796",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/a1b39a0aba72aa4fc2cb8ab51791d6f7fa17ac620627142728e02d153576a485.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03001",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/b34582146b24fa201a746ccc2070a1cd093a3e053450d37d42889b13f15c8762.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1768-2834",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/b81c8fc4ad8540fd774a7d2c524a495fe4c84e8f0923f029401e189604cb5eb1.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03701",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/c74f76a2078a9b144d8b9771dec2a86566af133073a35e272eda21e2dcf75974.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1766-2225",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/fd8baaf8dba12057031672a1d89afcb8dec12dd1d3230033879aa08c9ec45aed.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-02068",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/feec3c58630ba88d6f8dd4bfc5397f46e2b306999dff55177cbe1f8bd78ea482.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-07429",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/015bd959791cd0a94b66d53b58bbba9567f2c5583f55838e38bcf4a40e2cf568.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1769-4280",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/046ae62dfe79d8944115b1ae6e41808dfac8b48ab85c990090046a563ad52bf2.json"
+  },
+  {
+    "id": "ursa_drugs100:Voxelotor",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/1e6ecde1bb57b35d157c14ac1abd02036c7c4bcf240ad03a91526e26c67d4626.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00491",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/22fd95a535baf6c3bb7f52267c443169cad17382f911a40d18a457c1261674d8.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-08791",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/45309f17e728a6ce936d2fc0c440ce0e36322d13e7322aab2005bd2a00d8ed11.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-09828",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/4b635e09b040d2d0a35c0c89c1f39a4a6abeefca12b039ffc4a277a100a70a3f.json"
+  },
+  {
+    "id": "ursa_expert100:X404-1767-0002",
+    "cohort": "ursa_expert100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/4fd6043d3796f54cc7b19fff200257cb7b0d8886df5dc34158ebb9ae217e73b4.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-08936",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/5cc17470a997e0af8d8add71b223276a8a59a0af06b9840227fb267f22c0dc30.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-07815",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/5e1091cb1eec4e98a6a96e56e6b1ec738f9e62b6a6337f3049a6f48a02fe9afc.json"
+  },
+  {
+    "id": "paroutes_derived_n5_100:n5-03612",
+    "cohort": "paroutes_derived_n5_100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/6036313c5319ebf8fca2364818e7ce3e40756129e38f3863a4af727e8aa08089.json"
+  },
+  {
+    "id": "ursa_drugs100:Fulacimstat",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/775630502a1a3cb4b49c56abf0ad15e262c0fd06e588f02afa52f1415b59358e.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00349",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/79917c5886c0e7363ce23371164402589e1302d16e56c0ea8d8252eb525acc6f.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-08852",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": false,
+    "already_in_stock": true,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/822b6f0bfd6689563d2e6ad7d3266b204216ae850398bd506d53bea68e539245.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03630",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/89910df2e497ab057668724b7fba3a7a5470caf95ca949497dbb06d03c856945.json"
+  },
+  {
+    "id": "ursa_drugs100:Conivaptan hydrochloride",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/8b92336e21a8032d899b57dc4701ced61019661900809357f0b8031fdf6ead2a.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00213",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/9826be2e2f4ee0c85d7cce926e297d6827920d42fca65d27854875d4a3663d33.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-03643",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/a852d30d864a474fc4a9e2f01c1ed2965a0f655fae7e2f930588e8433089cf8a.json"
+  },
+  {
+    "id": "ursa_drugs100:Anagliptin",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/b98365301d8532e024ef676492c43c750ffd5bdbf15ff501afb82acdc2c87bb1.json"
+  },
+  {
+    "id": "ursa_drugs100:Reldesemtiv",
+    "cohort": "ursa_drugs100",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/efae98f23dacfcf0816e1171ffe7cf829099e62e9fc9b87e69d0188219734eaa.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00284",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/f7c50ea317806ef40c3e7d14b5cd084a88df58c3e314760d3ed65677ba6f44a1.json"
+  },
+  {
+    "id": "retrocast_mkt_cnv160:n5-00706",
+    "cohort": "retrocast_mkt_cnv160",
+    "stock_solved": true,
+    "already_in_stock": false,
+    "stop_reason": "STOCK_CONNECTED_ROUTE",
+    "search_algorithm": "shared_sampled_puct_mcts_v1",
+    "chemical_plausibility": "not_independently_verified",
+    "source_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/evaluations/fd292e8ac6b310243f22d63818858ebc0f98e1848459bf6c6e41b0574a2c6a90.json"
+  }
+]

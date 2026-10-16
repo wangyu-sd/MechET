@@ -104,6 +104,8 @@ def source_functions():
         "Transition": pure.Transition,
         "first_executed_divergence": pure.first_executed_divergence,
         "execute": execute,
+        # Abstract fixtures keep distinct states; real origin/stereo is tested separately.
+        "executed_successor_key": lambda state: state,
     }
     exec(compile(ast.fix_missing_locations(program), str(script), "exec"), scope)
     return scope

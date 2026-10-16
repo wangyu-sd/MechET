@@ -1,0 +1,78 @@
+condition_name: flower_forward_graph_history_v2_qwen3_0_6b_independent_lora_4h20
+scientific_hypothesis: blind_forward_electron_flow_for_round_trip_verification
+model_name_or_path: Qwen/Qwen3-0.6B
+train_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_forward_qwen_event_v2_20261016/train.jsonl
+validation_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_forward_qwen_event_v2_20261016/valid.jsonl
+test_file: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_forward_qwen_event_v2_20261016/test.jsonl
+pretokenized_cache_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_forward_qwen_event_v2_20261016/qwen3_0_6b_tokens_16384
+pretokenization_world_size: 4
+output_dir: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/forward_event_flowER_qwen3_0_6b_4h20_20261016_seed17
+limit_examples: 0
+training:
+  qlora: false
+  attention_implementation: sdpa
+  require_flash_sdp: false
+  bf16: true
+  fp16: false
+  tf32: true
+  learning_rate: 2.0e-5
+  num_train_epochs: 2
+  max_steps: -1
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  eval_accumulation_steps: 1
+  eval_strategy: "no"
+  max_length: 16384
+  window_context_tokens: 14336
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  gradient_checkpointing: true
+  use_liger_kernel: false
+  torch_compile: false
+  include_tokens_per_second: true
+  include_num_input_tokens_seen: true
+  dataloader_num_workers: 4
+  logging_steps: 10
+  save_steps: 1000
+  save_total_limit: 3
+  seed: 17
+  data_seed: 17
+  trust_remote_code: true
+  report_to: []
+  model_revision: c1899de289a04d12100db370d81485cdf75e47ca
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj]
+contract:
+  stage: forward_next_event_sft
+  require_trace_owned: false
+  require_tool_decision: true
+  decision_contract: forward_inventory_tool_decision_v1
+  stable_id_manifest: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_forward_qwen_event_v2_20261016/manifest.json
+  validation_report: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_forward_qwen_event_v2_20261016/manifest.json
+  terminal_tool: finish_forward
+  free_form_proof_submission: false
+  source_dataset: FlowER_original_forward_state_transitions
+  reaction_denominator: {train: 257167, valid: 2890, test: 28967}
+  official_reaction_denominator: {train: 257171, valid: 2890, test: 28971}
+  expected_decision_rows: {train: 1902076, valid: 21723, test: 216568}
+  raw_source_sha256:
+    train: ff46fd15e9cc6576bb5da36970c3c6cbfdf359824147773d6084e354fa51ef95
+    valid: 4a5a8ba2b5dc1bb8184a9941172656f107fda164f60d9d73c15adbb07e923953
+    test: 804380f219e0da5f6f717e6d798556610eba6246f5752a3f186dac4d064a5137
+  history_contract: recorded_forward_graph_path_actions_v2
+  forward_state_normalization: canonical_private_mapped_before_alias_v1
+  source_explicit_hydrogens_retained: true
+  final_product_model_visible: false
+  model_visible_atom_maps: false
+  model_predicts_state: false
+  environment_revision: forward_inventory_tool_decision_v1
+  executor_revision: MECH_PROOF_v1_full_coverage_v4
+  rdkit_revision: 2026.03.4
+  anti_forgetting_strategy: independent_forward_lora_frozen_reverse_branch
+  protected_reverse_adapter: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
+  protected_reverse_weights_sha256: 40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75

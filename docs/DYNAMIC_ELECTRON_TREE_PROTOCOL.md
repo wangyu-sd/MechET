@@ -1,0 +1,338 @@
+# Frozen Qwen dynamic electronic tree, October13 2026
+
+## October14 full460 route-analysis recovery
+
+The shared-cache `_05` R1/R2 task completed all eight greedy shards, then
+exited before TREE because the analyzer incorrectly compared inference
+`code_sha` to the frozen assets' `preparation_code_sha`. These are independent
+lineages. Keep the original assets and complete outputs immutable; no model or
+source rebuild is needed. Recovered `_05` greedy has36/460 nonzero stock-closed
+targets (Expert1,Drugs15,RetroCast17,Pa-derived3), plus one already-stock target.
+This is NOT the older `_04` greedy's38/460 result. The shared version explicitly
+changed sampling seed binding; it must retain its own observed outputs.
+
+The analyzer now verifies a full, consistent inference commit per condition,
+while separately recording asset preparation provenance. `--greedy-code-sha`
+and `--tree-code-sha` can pin each condition. A cross-runtime comparison needs
+BOTH explicit pins and an identical policy/executor cache namespace, model,
+source, stocks, seed and context/work settings. Different shard ranks or pins
+remain errors. Asset preparation revision never authorizes inference reuse.
+
+To avoid regenerating the full greedy baseline, the launcher accepts
+`MECHET_ROUTE_GREEDY_OUTPUT` plus mandatory `MECHET_GREEDY_CODE_SHA`. It validates
+the original eight completed shards and runs only TREE into a NEW output
+directory. Analysis uses `--greedy-output` to read the originals directly;
+their raw files, hashes and runtime labels are not copied or rewritten. This
+is operational recovery of the existing adaptive search, NOT a newly
+implemented MCTS, Dreamer, value model, RL or a new benchmark population.
+
+The full460 TREE search recurses on every nonstock structural precursor only
+after an executable `finish_trace`, and requires ALL leaves of a complete
+route to close against the target's original cohort stock. Intermediate
+electronic states are not separate synthetic reaction steps. Per-wave native
+journals/shared cache and immediate `best_route.json` remain enabled. This
+repair does not change the previous novelty heuristic or introduce a fixed
+chemical depth/breadth ceiling.
+
+## October14 shared persistence correction (new runtime, not a new result)
+
+User stopped BOTH `_20261014_04` tree jobs at17:19 CST; Taiji verified END.
+The old runtime5121e5c stored full trees only in `finish()`. Its raw generations
+and prompts survive, but it did NOT save recoverable incremental graphs. Do not
+describe69 first-stock-solution events as69 saved complete paths. Old greedy
+conditions are complete and unchanged. The correction below does not recover
+old RAM, change frozen data, restart a job, or fix the global convergence policy.
+
+The runner now queries `SharedSearchStore` before generation. By default both
+jobs share `outputs/eval/shared_electron_search_v1/`; use `--shared-cache` to
+select another COMMON Ceph directory. Namespaces bind pinned base/adapter,
+history, backend/dtype and actual executor dependency hashes. Request keys bind
+exact native context, rendered prompt token IDs, sampler settings, seed, batch
+size and completion allowance. IDs, source labels and stocks are excluded.
+Case-independent context/batch seeds replace case-dependent seeds; this is an
+explicit NEW sampling contract, not a retroactive modification of old results.
+Different histories, atom addresses and native Kekule states remain distinct.
+
+Existing matching generation batches are reused with original raw/token IDs,
+unwarped likelihood and finish reason. Only missing batches invoke vLLM.
+Cross-process nonblocking flock claims defer busy requests, preventing duplicate
+generation and multi-key deadlocks. Files are checksum protected, fsynced and
+atomically renamed; the shared filesystem must support POSIX flock/rename/fsync.
+Repeated contexts reuse observations, NOT fresh independent samples. Later
+batch indices get new seeds and can add new branches. No chemical pruning is
+introduced. Shared deterministic executor receipts preserve native successors;
+path likelihood is recomputed from the CURRENT path. Host memory/resource
+rejections are journaled but never cached as universal chemical invalidity.
+
+Each case has `MODE/rankXX/journals/HASH_OF_CASE_ID/contract.json` and ordered
+`events/000000000.json`, etc. The initial graph is committed before generation;
+each subsequent commit saves changed parent/child contexts (including complete
+native Node state, imports, visited set, actions, likelihood and sampling stats),
+accepted AND rejected edges, new outer obligations and outer reaction state.
+Whole unchanged trees are not rewritten after every wave. No `finish()` is
+needed to recover the last committed graph. A first/changed stock-connected
+certificate is also saved immediately as `best_route.json`. A process killed
+mid-write may lose an uncommitted expansion, not all previous commits; orphan
+`.partial` files are ignored. Deterministic replay of cached proposals can fill
+the last gap on a fresh attempt. No guarantee of recovering UNSAVED old runs.
+
+Read/materialize the graph while search is still active (no GPU/model calls):
+
+```bash
+python scripts/materialize_electron_search.py \
+  --journal /absolute/run/tree/rank00/journals/CASE_HASH \
+  --output /absolute/new/partial_case_graph.json
+```
+
+For routes also pass `--stock` with the original canonical stock file; its SHA
+must match this CASE's exact cohort binding, not just any stock in the shared
+run manifest. Cohort/stock metadata belongs to per-case journals, never policy
+cache keys. Per-case recovery API is `SearchJournal.restore` (its caller must
+verify the exact stock contract, as the CLI does).
+New attempts can reuse the shared cache; partial raw shards still cannot be
+silently overwritten, and automatic full-job resume/accounting is not claimed.
+Recovered graphs are explicitly partial, never `complete.json` or final accuracy.
+Stocks/closure rules and endpoint evaluation remain task-specific.
+
+`output_tokens`, engine calls and prompt work count ACTUAL new generation;
+`shared_policy_cache_hits`/`reused_output_tokens` report reused observations
+separately. Logical tree sample counts still include reused proposals. Shared
+search conditions must disclose reuse; do not claim independent or matched-work
+gains from duplicated cached observations. CPU tests do not establish model gain.
+
+## October14 bootstrap correction (not a model result)
+
+Both `_20261014_02` jobs ended before model initialization: Tencent taiji6
+has no external `zstd` executable. Default POD logs show verified Ceph/bundle
+checksum, then `tar (child): zstd: Cannot exec`. No predictions were produced.
+Use the same authenticated CUDA11.8 runtime bytes repacked as `.tar.gz`:
+SHA256 `b1185493fb316b2d4534d888df2a6cd871dbb74f6c95255235ba4947ae8486a5`.
+Original/new uncompressed tar SHA256 both
+`d275cd531c26c165708be5db00d655100890f184a9693ec795f228bd90207e0d`.
+`unpack_taiji_runtime.sh` checks the pinned gzip SHA before extraction and
+needs only image-provided gzip/tar/coreutils. Actual full archive extraction
+passed with PATH `/usr/bin:/bin`; corruption tests reject before extraction.
+This is a bootstrap fix only: no actor, dataset, chemical search or budget
+policy change. Failed logs remain under the original submission directories.
+
+The `_03` retries passed gzip extraction but then failed before model loading:
+the CUDA11.8 archive is an overlay, not a full environment (`cachetools` missing).
+Restore the existing EARHO CUDA11 layering: separately stage the non-CUDA
+dependencies from the authenticated pruned runtime and APPEND this directory
+after the image base site-packages via `vllm_cuda11_sitecustomize.py`.
+Dependency gzip SHA256:
+`817efd049ae42972a4be38b1b43c9f975fb068050c8f52923cfcc85178bd389d`.
+The archive excludes torch/functorch/nvidia/triton/vllm/xformers/cupy/cupyx/cuda;
+the original CUDA11.8 base Torch remains authoritative. Full local imports
+of Torch, RDKit, vLLM, vLLM._C, xFormers, LLM/SamplingParams and LoRARequest
+passed with the filtered dependency directory; no model was instantiated.
+The incomplete directory-based repack is `.partial` and must never be staged.
+
+User-approved scope: first evaluate all3120 mech-USPTO-31k test products,
+submit exactly one8xA100 task (queued is a successful submission), then use
+the same frozen FlowER actor for the R1/R2 complete-route scientific scenarios.
+**RSI, RL and self-distillation are paused/not authorized.** Actual actor is
+Qwen3-0.6B, not the conversational typo0.8B; user confirmed this checkpoint.
+
+## Frozen model and full population
+
+FlowER Stage-II compressed-history LoRA weights SHA256
+`40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75`,
+original Qwen revision `c1899de289a04d12100db370d81485cdf75e47ca`.
+This is transfer to mech-USPTO, not the separate31k eight-epoch State-SFT actor.
+Test source is `data/mech_uspto_31k_full_endpoint_rxnmapper/test.jsonl`,
+SHA256 `819215c5d40720afd998aaf77b7b938045d8171a5487b26bf929897f65a957c4`.
+All3120 unique IDs remain denominator. Only unmapped product enters the policy;
+private atom addresses come from that product, not reaction-pair atom mapping.
+No reference proof requirement,1253-row filter, new exclusion or test training.
+
+## Adaptive search, not fixed truncation
+
+No fixed chemical depth, beam width or max-import count. Every accepted
+successor is retained; parents can be resampled and deferred contexts remain
+available. Chemical nodes are pooled for graph display/accounting, while
+private state, import inventory, accepted-action history and visited-state set
+identify independent future policy contexts. Reaching one FINISH does not
+stop other contexts. Duplicate executable payloads reuse transitions but every
+original raw sample, likelihood and sampling cost is saved.
+The context/cache key preserves the exact authoritative native Kekule string;
+canonical equivalent molecules are merged only for display. All terminal
+contexts survive until product-atom ancestry is used to extract structural
+precursors, after which structural candidates are deduplicated for ranking.
+
+A Good--Turing-style singleton mass plus3/N sampling margin controls sampling
+effort. This is a **novelty heuristic**, not a proof of exhaustive chemistry.
+Lower-mean-NLL contexts and unsaturated support get more inference effort.
+The controller shrinks/expands request microbatches rather than imposing a
+chemical branch cutoff. Incomplete tool calls get more per-call token room;
+they never turn into fabricated valid actions.
+
+The October14 current runner treats80million output tokens per condition and
+24hours per worker/condition as INITIAL ACCOUNTING CHECKPOINTS, not stopping
+caps. Crossing a checkpoint with active frontiers automatically extends the
+next work window and logs the observed cost/decision. Only observed policy
+support exhaustion, actual model context8192, and memory/allocation protection
+close exploration. This is not a completeness guarantee: unbounded compute is
+not promised and the sampling novelty rule remains a heuristic. A fair root queue prevents
+one target consuming all inference before other test products are attempted.
+Resource-limited/invalid/nonterminal roots stay in3120. They are not forced to
+emit FINISH or dropped from evaluation.
+Each worker reserves40% of its initial share of available host/container RAM
+for persistence and other processes; driver growth uses at most60%/8 of that
+available RAM. Cgroup limits are included. RAM closure saves the whole pending
+cohort with `TASK_HOST_MEMORY_BUDGET`; it is not a chemical state-count cap.
+JSON is streamed to avoid allocating a second complete serialized tree.
+
+## Throughput and likelihoods
+
+Eight independent TP1 vLLM0.8.5 engines; cross-molecule prompt microbatches,
+prefix caching and64 CPU threads total for node execution. Do not reuse the
+old serial selected-case demonstration as a full runner.
+vLLM0.8.5 logprobs are post-warp. Use sampling temperature1/top_p1/top_k-1,
+no penalties, for genuine unwarped action likelihoods; greedy uses temperature0.
+Rank unique structural terminals by accumulated action-token mean NLL;
+GT matching occurs only AFTER search. Preserve all terminal mixtures and
+zero-change results, rather than hiding them with a reference-dependent gate.
+
+Per worker save `policy_contexts.jsonl`, `raw_generations.jsonl`, every full
+chemical/context tree and per-ID ranked candidates/errors/work. No raw prompt
+or output is discarded. Aggregation rejects lost/extra/duplicate source IDs.
+Greedy and search outputs are separate conditions; higher raw search accuracy
+is not called a compute-matched gain without accounting for their work.
+The single-trajectory greedy control reports Top1 only; Top5/Top10 are null.
+Partial shards are preserved and require a new attempt directory, not an
+overwrite or an unverified resume. Completed shards may be reused only within
+the same frozen run.
+
+## Complete-route follow-on, not self-improvement
+
+Use the user's cited paper R1/R2 protocol: URSA Expert100+Drugs/Clinicals100,
+publication-frozen RetroCast mkt-cnv160/buyables-stock, explicitly named
+source-fixed PaRoutes-derived100/n5-stock. Preserve dataset/stock versions,
+overlap, zero-step in-stock targets, full AND leaf closure, source reference
+route complexity, and missing electronic annotations as Unknown.
+Single-reaction31k outcomes alone do not establish stock-connected route success.
+No URSA/ChemCensor proprietary scorer is downloaded/integrated. Source maps
+are not invented electron ground truth. No new model/reward/critic is introduced.
+
+## R1/R2 runnable implementation and review fixes, October14
+
+Source declarations: `configs/eval/frozen_route_benchmarks_20261013.json`.
+All460 IDs (100/100/160/100) enter ONE shared scheduler per condition, not
+four independent work-window resets. The80M output-token initial checkpoint
+is shared across all460, and each worker starts with one-eighth of that token
+checkpoint;24h is an initial elapsed-work checkpoint. Neither truncates active
+frontiers. Stocks differ by cohort; observations remain product-only. Remote
+CPU stock canonicalization precedes all model generations. Seven raw source
+checksums and all original target/reference populations have been verified.
+The mkt-cnv primary references have2/3/4/5 depths×40; its407 accepted reference
+variants contain1627 edges. PaRoutes-derived100 has387 edges; three targets
+overlap mkt-cnv. These are not independent cohorts.
+
+`reverse_route_network.RouteNetwork` recursively starts the same ElectronTree
+on each nonstock structural precursor. Full AND closure is a least fixed point;
+cycles cannot create stock solutions. Already-stock targets are separate
+zero-step cases, not nontrivial generated routes. All inner graphs and terminal
+programs remain saved. Whole purchased salt entries are preserved; otherwise
+connected components are obligations, with no invented ion availability,
+charge-neutralization or tautomer fallback.
+
+Combined-shard source/stock/model/revision/runtime/seed/budget identities are
+checked before aggregation or completed-result reuse. V0 TP1 scheduled model
+executor calls are measured separately from API batches. Per-target participated
+batches must NOT be summed as unique global calls; complete-shard counters
+provide the latter. JSON stays in Ceph; default POD stdout remains live.
+
+The next instrumented runtime also writes `work_waves.jsonl` after each FULL
+generation/executor wave: unique engine-global scheduled forward calls, all
+generated tokens (including failures), logical prompt tokens, executor CPU
+thread time, and newly stock-connected target IDs. The complete shard seals
+the journal hash. `r1_observed_solved_vs_work.json` uses balanced per-worker
+observed call checkpoints; credit comes only from complete wave boundaries.
+The x coordinate reports actual summed forward calls, not nominal budgets,
+per-request double counting, uncached prefill tokens, GPU FLOPs or invented
+global wall-clock ordering. Work above a finished run is never extrapolated.
+This instrumentation does not change generation or impose a search cutoff.
+The original460 runtimee973e1d lacked these journals. It was stopped while
+queued, verified END with no output, then explicitly replaced by
+`meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_02`, immutable
+runtime4817754d. This does not alter stocks, IDs, actor or sampling. Initial
+followup state TRAINING_RESOURCE_WAITING, not model inference. Independent matched-work sampling
+and the complete Figure2b comparison are still pending.
+
+R2 reuses exactly the same160 R1 rows and precomputed source complexities.
+Published structural route recovery tests whether the FULL reference edge set
+is present in the accepted graph after search, not just in a best continuation.
+The online unique generated route counts are LOWER BOUNDS. Offline
+`scripts/enumerate_frozen_route_diversity.py` enumerates all acyclic,
+stock-connected production-choice DAGs in each saved graph, with no fixed
+depth, width or count cutoff. One distinct nonstock molecule uses one production
+choice; precursor multiplicity is retained, and alternative electron programs
+for the same reaction do not multiply outer route counts. This can take
+exponential time. Only a completed full460 condition and fully consumed
+enumerations may seal an exhaustive-count manifest; interrupted counts remain
+partial. No actual model-route counts have been produced yet.
+To include completed counts in the R1/R2 report, run the enumerator once per
+completed condition, then pass each sealed `manifest.json` using repeatable
+`--route-diversity-manifest` arguments to `analyze_frozen_route_search.py`.
+The analysis binds the model/assets, full denominator, exact shard hashes,
+saved graph hashes and counts hash; inconsistent or partial counts are rejected.
+Original inference rows remain unchanged. Without a matching sealed manifest,
+the report continues to expose only the online lower bound, not an exact count.
+The actual-SFT exact-match reference census is complete; unmatched or unsupported
+reference edges remain unannotated. All160 primary routes remain Unknown, and
+no C1 novelty claim is permitted. Source
+maps alone never become mechanisms. Disjoint maps are missing correspondence,
+not a zero center. Paired2000-bootstrap summaries and observed PDF panels are
+written only from actual complete outputs. These are provisional panels, not
+the complete locked paper Figures2/3. No new training/RSI, unrequested pilot,
+or unrelated task cancellation.
+
+The original full3120 task at immutable runtime0796e2d had task-level caps.
+On October14 it was stopped while queued and verified END before replacement.
+`meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_02` instead pins
+runtimea23cf576, with renewable windows and the SAME3120 source and actor.
+The initial READY readback establishes submission, not actual inference.
+The full460 route task was separately replaced at runtime4817754d to capture
+whole-wave work accounting, without changing sampling/source/actor. No local edit
+silently changes a submitted immutable runtime; the replacement is explicit.
+
+## Historical Figure3b panel, separate exposure basis
+
+`scripts/plot_frozen_operator_growth.py` consumes the frozen historical
+`outputs/issue79/nmi_operator_basis_train_20261002.json` in main (report SHA
+`a7e2c029d53a51eeeab89befc44440d5c91d0ef689199349beb04084c889d6d1`).
+The full original source SHA is checked before rendering PDF/SVG. Six recorded
+nested seed42 identifier-hash coverage points end at604 local primitives and
+6553 ordered program signatures across257167 strict train reactions. The
+horizontal axis is training-pool coverage, NOT optimizer steps or a new model
+learning curve. V1 omits import identities, is coupled-order sensitive and
+includes some nonordinary BE_DELTA signatures. It is neither current Stage-II
+actual-label exposure (603/6491) nor evidence of route-level model performance.
+The panel and its provenance manifest do not constitute complete Figure3;
+observed full-route outcome and real saved-route panels remain pending.
+
+## Reference-only complexity strata frozen before model outcomes
+
+The current offline analyzer adds10 fixed descriptive count dimensions from
+the PRIMARY source reference: reaction edges, convergent branches, maximum
+precursor multiplicity, changed bonds, mapped reacting atoms, opening/closure
+edge counts, electronic event length, maximum coupled moves and imported
+participants. Counts use the definitions in `complexity_rows`; incomplete
+measurements remain a separate `Missing` group.
+Ring opening/closure fields measure negative/positive source ring-count changes
+and are topology proxies, not independent evidence of a ring-opening mechanism.
+Bin memberships depend only
+on source references, not model success or discovered shorter routes; every
+target belongs to one bin per dimension. Boundaries are plotting strata with
+open-ended final bins, NOT chemical search ceilings or data filtering.
+Reports include n, IDs and descriptive pointwise95% bootstrap intervals, with
+paired2000-resample differences when both conditions are observed. No adjusted
+multiple-testing significance claim is made.
+
+`analyze_frozen_route_search.py --reference-only` freezes source memberships
+on ALL460 targets without reading predictions or publishing accuracy values.
+Pass the actual-SFT annotation manifest when available. This source-only
+preparation neither changes the running immutable inference code nor creates
+another GPU experiment; after outputs exist, run the newer offline analyzer
+into a separate `--analysis-output` to preserve initial reports.

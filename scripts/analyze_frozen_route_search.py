@@ -1,0 +1,564 @@
+#!/usr/bin/env python3
+"""Analyze immutable full-cohort R1 outputs; reuse mkt-cnv160 for R2.
+
+Only observed route outcomes enter metrics/figures. Unknown electronic
+annotation is not C2. Greedy/tree actual compute is reported, not claimed
+matched merely because nominal task budget ceilings agree.
+"""
+from __future__ import annotations
+import argparse
+from collections import defaultdict
+import csv
+import hashlib
+import json
+import re
+from pathlib import Path
+import sys
+import subprocess
+import numpy as np
+
+REPO=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(REPO/'src'))
+from mechet.frozen_route_assets import normalize_stock_smiles, file_sha256
+from mechet.frozen_route_mechanisms import merge_reference_annotations
+
+
+# Descriptive reference-only bins frozen before any full460 model output.
+# Upper endpoints are exclusive; None means no upper bound, not a search cap.
+REFERENCE_COMPLEXITY_BINS_V1={
+    'reaction_edge_count':[('0–1',0,2),('2–3',2,4),('4–5',4,6),('6+',6,None)],
+    'convergent_branch_count':[('0',0,1),('1',1,2),('2+',2,None)],
+    'maximum_precursor_multiplicity':[('0–1',0,2),('2',2,3),('3',3,4),('4+',4,None)],
+    'changed_bonds_shared_mapped_atoms':[('0',0,1),('1–2',1,3),('3–5',3,6),('6+',6,None)],
+    'mapped_reacting_atom_count_shared':[('0',0,1),('1–2',1,3),('3–5',3,6),('6+',6,None)],
+    'ring_closure_edge_count':[('0',0,1),('1',1,2),('2+',2,None)],
+    'ring_opening_edge_count':[('0',0,1),('1',1,2),('2+',2,None)],
+    'reference_event_length':[('0–4',0,5),('5–8',5,9),('9+',9,None)],
+    'coupled_electronic_moves':[('0–1',0,2),('2',2,3),('3+',3,None)],
+    'imported_participants':[('0',0,1),('1',1,2),('2–3',2,4),('4+',4,None)]}
+
+
+def load_mechanism_index(path,assets,*,model_sha,train_sha,decisions,reactions):
+    value=json.loads(Path(path).read_text())
+    if (value.get('schema_version')!='actual_sft_frozen_route_annotation_v1'
+            or value.get('model_sha256')!=model_sha
+            or value.get('source_config_sha256')!=assets['config_sha256']):
+        raise ValueError('mechanism annotation source/model mismatch')
+    exposure=value.get('actual_train_exposure',{})
+    if (exposure.get('source_sha256')!=train_sha or exposure.get('decision_rows')!=decisions
+            or exposure.get('reaction_rows')!=reactions):
+        raise ValueError('mechanism actual full training exposure mismatch')
+    for name,cohort in assets['cohorts'].items():
+        if value.get('cohorts',{}).get(name,{}).get('reference_reactions_sha256')!=cohort['reference_reactions_sha256']:
+            raise ValueError('mechanism annotation frozen references mismatch')
+    return value
+
+
+def paired_bootstrap(before,after,*,resamples=2000,seed=17):
+    if len(before)!=len(after) or not before:raise ValueError('paired target lengths must agree and be nonempty')
+    differences=np.asarray(after,dtype=float)-np.asarray(before,dtype=float)
+    rng=np.random.default_rng(seed)
+    samples=differences[rng.integers(0,len(before),size=(resamples,len(before)))].mean(axis=1)
+    return {'n':len(before),'resamples':resamples,'delta':float(differences.mean()),
+            'ci95':[float(x) for x in np.quantile(samples,[.025,.975])]}
+
+
+def edge_key(product,precursors):
+    return (normalize_stock_smiles(product),tuple(sorted(normalize_stock_smiles(x) for x in precursors)))
+
+
+def published_route_recovered(generated,reference_reactions):
+    if not generated or not reference_reactions:return False
+    actual={edge_key(edge['product'],edge['precursors']) for edge in generated}
+    alternatives=defaultdict(set)
+    for edge in reference_reactions:
+        alternatives[edge['reference_route_id']].add(edge_key(edge['source_product_smiles'],edge['source_precursor_smiles']))
+    return any(actual==reference for reference in alternatives.values())
+
+
+def graph_contains_published_route(generated,reference_reactions):
+    if not generated or not reference_reactions:return False
+    actual={edge_key(edge['product'],edge['precursors']) for edge in generated}
+    alternatives=defaultdict(set)
+    for edge in reference_reactions:
+        alternatives[edge['reference_route_id']].add(edge_key(edge['source_product_smiles'],edge['source_precursor_smiles']))
+    return any(reference<=actual for reference in alternatives.values())
+
+
+def validate_shard_contract(manifest,expected,*,rank,world,mode):
+    required={**expected,'rank':rank,'world':world,'mode':mode,
+              'evaluation_unit':'stock_connected_AND_route','route_cohort':'all'}
+    for key,value in required.items():
+        if manifest.get(key)!=value:raise ValueError(f'route shard contract mismatch: {key}')
+
+
+def condition_search_algorithm(manifests):
+    algorithms={m.get('search_algorithm','adaptive') for m in manifests}
+    if len(algorithms)!=1 or not algorithms<={'adaptive','mcts'}:
+        raise ValueError('mixed/unknown search algorithm')
+    algorithm=next(iter(algorithms))
+    if algorithm=='mcts':
+        expected={'mcts_contract':'shared_sampled_puct_mcts_v1','mcts_c_puct':1.5,
+                  'mcts_rollout_concurrency_per_target':8,'stop_after_first_stock_route':True}
+        if any(m.get(k)!=v for m in manifests for k,v in expected.items()):
+            raise ValueError('MCTS search algorithm contract mismatch')
+    return algorithm
+
+
+def attach_exact_diversity(rows,path,*,mode,assets_sha,model_sha,shard_paths):
+    """Read sealed enumeration only for these immutable predictions; never edit them."""
+    path=Path(path)
+    manifest=json.loads(path.read_text())
+    expected={'mode':mode,'denominator':len(rows),'model_sha256':model_sha,'assets_sha256':assets_sha,
+        'route_count_is_exhaustive':True,
+        'route_definition':'one_production_choice_per_distinct_nonstock_molecule_DAG_v1',
+        'electron_program_alternatives_counted_as_separate_routes':False,'model_called':False}
+    for key,value in expected.items():
+        if manifest.get(key)!=value:raise ValueError(f'diversity manifest mismatch: {key}')
+    source=[{'path':str(p),'sha256':file_sha256(p)} for p in shard_paths]
+    if manifest.get('source_shards')!=source:raise ValueError('diversity source shard mismatch')
+    counts_path=path.parent/'counts.json'
+    if file_sha256(counts_path)!=manifest.get('counts_sha256'):raise ValueError('diversity counts SHA mismatch')
+    counts=json.loads(counts_path.read_text())
+    identifiers={r['id'] for r in rows}
+    entries=counts.get('rows',[])
+    if (counts.get('complete') is not True or counts.get('denominator')!=len(rows)
+            or len(entries)!=len(rows) or {r['id'] for r in entries}!=identifiers):
+        raise ValueError('diversity incomplete or denominator mismatch')
+    graph_entries=manifest.get('source_graphs',[])
+    hashes={r['id']:r['graph_sha256'] for r in graph_entries}
+    if len(hashes)!=len(graph_entries):raise ValueError('diversity duplicate graph provenance')
+    graph_rows={r['id']:r for r in rows if r.get('tree_artifact')}
+    if set(hashes)!=set(graph_rows):raise ValueError('diversity saved graph provenance mismatch')
+    # Rank membership is taken from the actual saved complete shards, not guessed.
+    locations={}
+    for shard_path in shard_paths:
+        shard=json.loads(shard_path.read_text())
+        for row in shard.get('rows',[]):locations[row['id']]=shard_path.parent
+    for identifier,row in graph_rows.items():
+        directory=locations.get(identifier)
+        if directory is None or file_sha256(directory/row['tree_artifact'])!=hashes[identifier]:
+            raise ValueError('diversity saved graph SHA mismatch')
+    by_id={r['id']:r for r in entries}
+    enriched=[]
+    for row in rows:
+        entry=by_id[row['id']];count=entry.get('unique_route_count')
+        if (type(count) is not int or count<0 or entry.get('route_count_is_exhaustive') is not True
+                or entry.get('already_in_stock')!=row['already_in_stock']
+                or bool(count)!=row['stock_solved']
+                or count<(row.get('unique_route_count_lower_bound') or 0)):
+            raise ValueError('diversity contradicts saved route result')
+        enriched.append({**row,'unique_route_count':count,'route_count_is_exhaustive':True})
+    return enriched
+
+
+def rate_interval(values,*,seed=17):
+    if not values:return {'solved':None,'ci95':None,'n':0}
+    array=np.asarray(values,dtype=float)
+    rng=np.random.default_rng(seed)
+    rates=array[rng.integers(0,len(array),size=(2000,len(array)))].mean(axis=1)
+    return {'solved':float(array.mean()),'ci95':[float(x) for x in np.quantile(rates,[.025,.975])],'n':len(values)}
+
+
+def observed_work_curve(shards_and_waves,*,per_worker_call_grid,target_ids=None):
+    """Observed balanced worker prefixes, no interpolation or extra-work extrapolation.
+
+    An indivisible generation/execution wave is credited at its end. The x
+    coordinate is the sum of UNIQUE scheduled model forward calls actually
+    observed in these prefixes, not the sum of per-request participation.
+    """
+    all_rows=[r for shard,_ in shards_and_waves for r in shard['rows']]
+    all_ids={r['id'] for r in all_rows}
+    if not all_rows or len(all_ids)!=len(all_rows):raise ValueError('work wave denominator mismatch')
+    target_ids=all_ids if target_ids is None else set(target_ids)
+    if not target_ids or not target_ids<=all_ids:raise ValueError('work wave target denominator mismatch')
+    prepared=[]
+    for shard,waves in shards_and_waves:
+        ids={r['id'] for r in shard['rows']}
+        expected_solved={r['id'] for r in shard['rows'] if r['stock_solved'] and not r['already_in_stock']}
+        seen=set();previous=(-1,-1,-1)
+        prefixes=[]
+        for index,wave in enumerate(waves):
+            totals=tuple(wave[key] for key in ['model_forward_calls','output_tokens','prompt_tokens'])
+            if (wave['wave']!=index or any(type(n) is not int or n<0 for n in totals)
+                    or any(n<p for n,p in zip(totals,previous)) or (totals[1]>0 and totals[0]==0)):
+                raise ValueError('work wave counters/order mismatch')
+            added=wave['new_stock_solved_ids']
+            if len(set(added))!=len(added) or set(added)&seen or not set(added)<=expected_solved:
+                raise ValueError('work wave phantom/repeated solution')
+            seen.update(added)
+            if wave['credited_stock_solved_targets']!=len(seen):raise ValueError('work wave solution counter mismatch')
+            prefixes.append((wave,set(seen)));previous=totals
+        if (not waves or waves[0]['model_forward_calls']!=0 or waves[0]['output_tokens']!=0
+                or prefixes[0][1] or seen!=expected_solved
+                or waves[-1]['output_tokens']!=shard['tokens']
+                or waves[-1]['model_forward_calls']!=shard['model_forward_calls']):
+            raise ValueError('work wave incomplete/final totals mismatch')
+        prepared.append(prefixes)
+    points=[]
+    if any(type(n) is not int or n<0 for n in per_worker_call_grid):raise ValueError('invalid work curve grid')
+    for budget in sorted(set(per_worker_call_grid)):
+        selected=[next((value for value in reversed(prefixes) if value[0]['model_forward_calls']<=budget),prefixes[0])
+                  for prefixes in prepared]
+        solved=set().union(*(seen for _,seen in selected))&target_ids
+        points.append({'per_worker_model_call_checkpoint':budget,
+            'actual_model_forward_calls':sum(w['model_forward_calls'] for w,_ in selected),
+            'output_tokens':sum(w['output_tokens'] for w,_ in selected),
+            'prompt_tokens':sum(w['prompt_tokens'] for w,_ in selected),
+            'solved_targets':len(solved),**rate_interval([i in solved for i in sorted(target_ids)]),
+            'evaluated_beyond_observed_work':False})
+    return {'denominator':len(target_ids),'shared_run_denominator':len(all_ids),'world':len(prepared),
+        'work_axis':'unique_scheduled_model_forward_calls_not_GPU_FLOPs',
+        'checkpoint_selection':'observed_whole_wave_prefix_per_worker_no_interpolation',
+        'global_wall_clock_order_reconstructed':False,'equal_actual_compute_claim':False,'points':points}
+
+
+def aggregate_cohort(targets,conditions):
+    identifiers=[row['id'] for row in targets]
+    if len(set(identifiers))!=len(identifiers):raise ValueError('source denominator contains duplicate IDs')
+    indexed={}
+    for mode,rows in conditions.items():
+        if len(rows)!=len(identifiers) or {row['id'] for row in rows}!=set(identifiers):
+            raise ValueError(f'full prediction denominator mismatch: {mode}')
+        indexed[mode]={row['id']:row for row in rows}
+        for target in targets:
+            row=indexed[mode][target['id']]
+            if row.get('already_in_stock')!=target['already_in_stock']:
+                raise ValueError('prediction/source zero-step stock flag mismatch')
+            if row['stock_solved'] and row['already_in_stock']:
+                raise ValueError('zero-step target mislabeled as nontrivial route')
+    def group(subset):
+        return {'n':len(subset),'target_ids':[t['id'] for t in subset],
+            'conditions':{mode:rate_interval([indexed[mode][t['id']]['stock_solved'] for t in subset]) for mode in indexed},
+            'paired_tree_minus_greedy':paired_bootstrap(
+                [indexed['greedy'][t['id']]['stock_solved'] for t in subset],
+                [indexed['tree'][t['id']]['stock_solved'] for t in subset])
+                if subset and 'greedy' in indexed and 'tree' in indexed else None}
+    strata={label:group([target for target in targets if target.get('composition_stratum','Unknown')==label])
+            for label in ['C0','C1','C2','Unknown']}
+    depth={str(value):group([target for target in targets if target.get('reference_depth')==value])
+           for value in sorted({target['reference_depth'] for target in targets if target.get('reference_depth') is not None})}
+    assignments=reference_complexity_assignments(targets)
+    targets_by_id={t['id']:t for t in targets}
+    binned={dimension:{'definition':assignment['definition'],
+            'bins':{label:group([targets_by_id[i] for i in ids]) for label,ids in assignment['bins'].items()},
+            'assignment':'primary_source_reference_not_model_discovered_route',
+            'multiple_comparison_adjustment':'none_descriptive_pointwise_95pct_intervals'}
+            for dimension,assignment in assignments.items()}
+    summary={}
+    for mode,rows in conditions.items():
+        known=[r['work']['sampled_tokens'] for r in rows]
+        summary[mode]={**rate_interval([r['stock_solved'] for r in rows]),
+            'resource_limited_targets':sum(r.get('stop_reason','').startswith(
+                ('TASK_HOST_MEMORY','CONTEXT_MEMORY','COMPLETION_CONTEXT','ROOT_RESOURCE')) for r in rows),
+            'zero_step_targets':sum(t['already_in_stock'] for t in targets),
+            'total_output_tokens':sum(known),'mean_output_tokens':sum(known)/len(targets),
+            'structural_reference_graph_recovery':(sum(graph_contains_published_route(
+                indexed[mode][target['id']].get('generated_reaction_graph',[]),target.get('reference_reactions',[]))
+                for target in targets)/len(targets)) if any(t.get('reference_routes') for t in targets) else None,
+            'unique_route_count_lower_bound':sum(r['unique_route_count_lower_bound'] for r in rows)
+                                            if all('unique_route_count_lower_bound' in r for r in rows) else None,
+            'unique_route_count':sum(r['unique_route_count'] for r in rows)
+                if all(r.get('route_count_is_exhaustive') is True and 'unique_route_count' in r for r in rows) else None,
+            'route_count_is_exhaustive':all(r.get('route_count_is_exhaustive') is True for r in rows)}
+    paired=(paired_bootstrap([indexed['greedy'][identifier]['stock_solved'] for identifier in identifiers],
+                             [indexed['tree'][identifier]['stock_solved'] for identifier in identifiers])
+            if 'greedy' in indexed and 'tree' in indexed else None)
+    return {'denominator':len(targets),'conditions':summary,'strata':strata,'reference_depth':depth,
+            'reference_complexity':binned,'reference_complexity_bins_version':'reference_complexity_bins_v1',
+            'reference_complexity_bins_sha256':hashlib.sha256(json.dumps(REFERENCE_COMPLEXITY_BINS_V1,sort_keys=True).encode()).hexdigest(),
+            'paired_tree_minus_greedy':paired,'equal_actual_compute_claim':False,
+            'target_ids':identifiers,'self_improvement_conditions':'not_run_user_paused_RSI'}
+
+
+def complexity_rows(targets):
+    """Primary source-reference route only, with per-dimension availability.
+
+    Atom/changed-bond counts sum per reaction (not unique atoms over a route).
+    Ring delta is source forward product minus the entire reactant mixture's
+    RDKit ring count; its sign counts are separate so closure/opening cannot
+    cancel. Zero ring delta does not rule out ring reorganization. Stereo counts
+    count declared chiral atoms, not proof of complete stereochemical labeling.
+    No missing source measurement or electronic program becomes a zero.
+    """
+    rows=[]
+    for target in targets:
+        reference=(target.get('reference_routes') or [{}])[0]
+        relevant=[edge for edge in target.get('reference_reactions',[])
+                  if edge['reference_route_id']==reference.get('reference_route_id')]
+        def total(key):
+            return sum(edge[key] for edge in relevant) if relevant and all(edge.get(key) is not None for edge in relevant) else None
+        ring_available=bool(relevant) and all(edge.get('ring_count_change') is not None for edge in relevant)
+        dimensions={
+            'reference_depth':target.get('reference_depth'),'reaction_edge_count':reference.get('reaction_edge_count'),
+            'convergent_branch_count':reference.get('convergent_branch_count'),
+            'maximum_precursor_multiplicity':reference.get('maximum_precursor_multiplicity'),
+            'changed_bonds_shared_mapped_atoms':total('changed_bonds_shared_mapped_atoms'),
+            'mapped_reacting_atom_count_shared':total('mapped_reacting_atom_count_shared'),
+            'ring_count_change':total('ring_count_change'),
+            'ring_closure_edge_count':sum(edge['ring_count_change']>0 for edge in relevant) if ring_available else None,
+            'ring_opening_edge_count':sum(edge['ring_count_change']<0 for edge in relevant) if ring_available else None,
+            'stereo_atom_count':total('stereo_atom_count'),
+            'explicit_hydrogen_atom_count':total('explicit_hydrogen_atom_count'),
+            'reference_event_length':reference.get('reference_event_length'),
+            'coupled_electronic_moves':reference.get('coupled_electronic_moves'),
+            'imported_participants':reference.get('imported_participants')}
+        rows.append({'id':target['id'],'reference_route_id':reference.get('reference_route_id'),
+            **dimensions,**{f'{key}_available':value is not None for key,value in dimensions.items()},
+            'mapped_reference_edges':sum(edge.get('mapping_valid') is True for edge in relevant),
+            'composition_stratum':target.get('composition_stratum','Unknown')})
+    return rows
+
+
+def reference_complexity_assignments(targets):
+    """Source-only primary-reference membership, without model predictions."""
+    complexity=complexity_rows(targets)
+    if len({r['id'] for r in complexity})!=len(targets):raise ValueError('duplicate reference complexity IDs')
+    result={}
+    for dimension,definition in REFERENCE_COMPLEXITY_BINS_V1.items():
+        bins={label:[] for label,_,_ in definition};bins['Missing']=[]
+        for row in complexity:
+            value=row[dimension]
+            if value is None:
+                bins['Missing'].append(row['id']);continue
+            if type(value) is not int:raise ValueError(f'invalid reference complexity count: {dimension}')
+            matches=[label for label,lower,upper in definition if lower<=value and (upper is None or value<upper)]
+            if len(matches)!=1:raise ValueError(f'invalid reference complexity count: {dimension}')
+            bins[matches[0]].append(row['id'])
+        result[dimension]={'definition':[{'label':label,'lower_inclusive':lower,'upper_exclusive':upper}
+            for label,lower,upper in definition],'bins':bins}
+    return result
+
+
+def write_json(path,value):
+    path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
+
+
+def freeze_reference_bins(assets,destination,annotations=None,annotation_path=None):
+    """Freeze all460 reference-only labels before model outputs, never fake predictions."""
+    output=destination/'reference_complexity_bins.json'
+    if output.exists():raise ValueError('preserve frozen reference bins; choose a new output')
+    if assets.get('full_target_rows')!=460:raise ValueError('full460 reference denominator required')
+    cohorts={};identifiers=[]
+    for name,cohort in assets['cohorts'].items():
+        path=Path(cohort['targets_path'])
+        if file_sha256(path)!=cohort['targets_sha256']:raise ValueError('frozen target SHA mismatch')
+        targets=[json.loads(line) for line in path.open() if line.strip()]
+        if len(targets)!=cohort['rows'] or {t['id'] for t in targets}!=set(cohort['target_ids']):
+            raise ValueError('reference target denominator mismatch')
+        if annotations:
+            record=annotations['cohorts'][name];annotated=Path(record['annotations_path'])
+            if file_sha256(annotated)!=record['annotations_sha256']:raise ValueError('reference annotation SHA mismatch')
+            targets=merge_reference_annotations(targets,[json.loads(line) for line in annotated.open() if line.strip()])
+        identifiers.extend(t['id'] for t in targets)
+        cohorts[name]={'rows':len(targets),'target_ids':[t['id'] for t in targets],
+            'targets_sha256':cohort['targets_sha256'],'reference_complexity':reference_complexity_assignments(targets)}
+    if len(identifiers)!=460 or len(set(identifiers))!=460:raise ValueError('full460 reference ID union mismatch')
+    result={'artifact_type':'frozen_reference_complexity_bins_v1','denominator':460,
+        'source_config_sha256':assets['config_sha256'],'cohorts':cohorts,
+        'bin_definitions_sha256':hashlib.sha256(json.dumps(REFERENCE_COMPLEXITY_BINS_V1,sort_keys=True).encode()).hexdigest(),
+        'new_model_result':False,'model_predictions_read':False,
+        'annotation_manifest_sha256':file_sha256(annotation_path) if annotation_path else None,
+        'producer_code_sha':subprocess.check_output(['git','-C',str(REPO),'rev-parse','HEAD'],text=True).strip()}
+    write_json(output,result)
+    return result
+
+
+def plot_results(summaries,destination,*,tree_label='Adaptive electron tree'):
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({'font.family':'serif','font.serif':['Times New Roman','Liberation Serif','DejaVu Serif'],
+                         'pdf.fonttype':42,'font.size':11,'axes.spines.top':False,'axes.spines.right':False})
+    figure,axis=plt.subplots(figsize=(7.2,3.5))
+    names=list(summaries)
+    labels=['URSA Expert','URSA Drugs/Clinicals','RetroCast market','PaRoutes-derived']
+    positions=np.arange(len(names))
+    for offset,mode,color,label in [(-.18,'greedy','#777777','Frozen policy (greedy)'),(.18,'tree','#416B82',tree_label)]:
+        rates=[summaries[name]['conditions'][mode]['solved'] for name in names]
+        intervals=[summaries[name]['conditions'][mode]['ci95'] for name in names]
+        axis.bar(positions+offset,100*np.asarray(rates),.34,label=label,color=color)
+        axis.errorbar(positions+offset,100*np.asarray(rates),yerr=100*np.array([[r-i[0] for r,i in zip(rates,intervals)],
+                        [i[1]-r for r,i in zip(rates,intervals)]]),fmt='none',ecolor='black',capsize=3,linewidth=.8)
+    axis.set_xticks(positions,[f'{label}\n(n={summaries[name]["denominator"]})' for label,name in zip(labels,names)])
+    axis.set_ylabel('Stock-connected targets (%)');axis.set_ylim(0,100)
+    axis.legend(frameon=False);figure.tight_layout()
+    figure.savefig(destination/'figure2_route_solved.pdf');plt.close(figure)
+    r2=summaries['retrocast_mkt_cnv160']
+    figure,axis=plt.subplots(figsize=(5.0,3.4))
+    bins=list(r2['reference_depth'])
+    for mode,color,offset,label in [('greedy','#777777',-.18,'Frozen policy (greedy)'),('tree','#416B82',.18,tree_label)]:
+        values=[r2['reference_depth'][depth]['conditions'][mode] for depth in bins]
+        rates=np.asarray([value['solved'] for value in values])
+        axis.bar(np.arange(len(bins))+offset,100*rates,.34,color=color,label=label)
+        axis.errorbar(np.arange(len(bins))+offset,100*rates,
+            yerr=100*np.array([[rate-value['ci95'][0] for rate,value in zip(rates,values)],
+                              [value['ci95'][1]-rate for rate,value in zip(rates,values)]]),fmt='none',ecolor='black',capsize=3,linewidth=.8)
+    axis.set_xticks(np.arange(len(bins)),[f'{depth}\n(n={r2["reference_depth"][depth]["n"]})' for depth in bins])
+    axis.set_xlabel('Reference synthesis depth');axis.set_ylabel('Stock-connected targets (%)');axis.set_ylim(0,100)
+    axis.legend(frameon=False);figure.tight_layout()
+    figure.savefig(destination/'figure3_compositional_complexity.pdf');plt.close(figure)
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--assets',type=Path,required=True)
+    parser.add_argument('--output',type=Path,required=True)
+    parser.add_argument('--analysis-output',type=Path,help='separate destination preserving previous analysis')
+    parser.add_argument('--greedy-output',type=Path,help='read existing sealed greedy shards without copying or rerunning them')
+    parser.add_argument('--greedy-code-sha',help='explicit expected greedy inference commit, NOT asset preparation commit')
+    parser.add_argument('--tree-code-sha',help='explicit expected tree inference commit, NOT asset preparation commit')
+    parser.add_argument('--reference-only',action='store_true',help='freeze full460 source labels without reading predictions')
+    parser.add_argument('--mechanism-annotations',type=Path,help='sealed actual-SFT reference annotation manifest')
+    parser.add_argument('--route-diversity-manifest',type=Path,action='append',default=[],
+                        help='sealed complete enumeration manifest, at most one per condition')
+    parser.add_argument('--world',type=int,default=8)
+    parser.add_argument('--allow-single-condition',action='store_true')
+    args=parser.parse_args()
+    assets=json.loads(args.assets.read_text())
+    if not assets['stock_preparation_complete']:raise ValueError('stock preparation pending')
+    from scripts.infer_dynamic_electron_trees import ADAPTER_SHA,REVISION
+    destination=args.analysis_output or args.output
+    annotations=None
+    if args.mechanism_annotations:
+        adapter=Path('/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17')
+        contract=json.loads((adapter/'data_contract.json').read_text())
+        annotations=load_mechanism_index(args.mechanism_annotations,assets,model_sha=ADAPTER_SHA,
+            train_sha=contract['train_file_sha256'],decisions=contract['n_rows'],reactions=contract['finish_trace_rows'])
+    if args.reference_only:
+        result=freeze_reference_bins(assets,destination,annotations,args.mechanism_annotations)
+        print(json.dumps({'phase':'frozen-reference-complexity','denominator':result['denominator'],
+                          'new_model_result':False,'output':str(destination)}),flush=True)
+        return
+    summaries={};provenance=[];all_conditions={};contracts=[];runtime_totals={};wave_inputs={}
+    diversity={};inference_code_shas={};search_algorithms={}
+    for path in args.route_diversity_manifest:
+        mode=json.loads(path.read_text()).get('mode')
+        if mode not in ('greedy','tree') or mode in diversity:raise ValueError('diversity mode missing or duplicated')
+        diversity[mode]=path
+    expected={'adapter_sha':ADAPTER_SHA,'revision':REVISION,'model':'Qwen/Qwen3-0.6B',
+        'source_sha':assets['full_targets_sha256'],'route_assets_sha':file_sha256(args.assets),
+        'task_budget_mode':'renewable_checkpoints_no_token_or_time_cap_v1',
+        'stock_canonical_shas':{name:stock['canonical_sha256'] for name,stock in assets['stocks'].items()}}
+    all_source_ids={identifier for cohort in assets['cohorts'].values() for identifier in cohort['target_ids']}
+    for mode in ['greedy','tree']:
+        condition_output=(args.greedy_output or args.output) if mode=='greedy' else args.output
+        shard_paths=[condition_output/mode/f'rank{rank:02d}'/'complete.json' for rank in range(args.world)]
+        if not all(path.exists() for path in shard_paths):
+            if mode=='greedy' and args.greedy_output:
+                raise ValueError('external greedy condition is incomplete; cannot reuse it')
+            if args.allow_single_condition:continue
+            raise ValueError(f'full route condition incomplete: {mode}')
+        shards=[json.loads(path.read_text()) for path in shard_paths]
+        search_algorithms[mode]=condition_search_algorithm([s['manifest'] for s in shards])
+        # Frozen assets can outlive the code which prepared them. Bind inference
+        # to its own declared commit and reject differing ranks, rather than
+        # requiring a dataset rebuild whenever an operational bug is repaired.
+        code_pin=args.greedy_code_sha if mode=='greedy' else args.tree_code_sha
+        code_sha=code_pin or shards[0]['manifest'].get('code_sha','')
+        if not re.fullmatch('[0-9a-f]{40}',code_sha):
+            raise ValueError('route inference code_sha must be a full pinned commit')
+        inference_code_shas[mode]=code_sha
+        for rank,shard in enumerate(shards):
+            validate_shard_contract(shard['manifest'],{**expected,'code_sha':code_sha},
+                                    rank=rank,world=args.world,mode=mode)
+            contracts.append(shard['manifest'])
+        if any('work_waves_artifact' in shard for shard in shards):
+            timeline=[]
+            for path,shard in zip(shard_paths,shards):
+                if shard['manifest'].get('work_wave_contract')!='post_executor_whole_generation_wave_v1':
+                    raise ValueError('mixed/missing work wave contract')
+                wave_path=path.parent/shard['work_waves_artifact']
+                if file_sha256(wave_path)!=shard['work_waves_sha256']:raise ValueError('work wave SHA mismatch')
+                timeline.append((shard,[json.loads(line) for line in wave_path.open() if line.strip()]))
+                provenance.append({'path':str(wave_path),'sha256':file_sha256(wave_path)})
+            wave_inputs[mode]=timeline
+        rows=[row for shard in shards for row in shard['rows']]
+        if len(rows)!=len(all_source_ids) or {row['id'] for row in rows}!=all_source_ids:
+            raise ValueError('shared full460 denominator mismatch')
+        if mode in diversity:
+            rows=attach_exact_diversity(rows,diversity[mode],mode=mode,assets_sha=file_sha256(args.assets),
+                                       model_sha=ADAPTER_SHA,shard_paths=shard_paths)
+        all_conditions[mode]=rows
+        runtime_totals[mode]={'output_tokens':sum(shard['tokens'] for shard in shards),
+                              'model_forward_calls':sum(shard['model_forward_calls'] for shard in shards)}
+        provenance.extend({'path':str(path),'sha256':file_sha256(path)} for path in shard_paths)
+    explicit_cross_runtime=bool(args.greedy_code_sha and args.tree_code_sha
+        and len(set(inference_code_shas.values()))>1)
+    comparison_keys=['seed','task_token_budget','max_model_len','wall_hours','task_budget_mode']
+    if not explicit_cross_runtime:comparison_keys.append('code_sha')
+    else:
+        # A repaired launcher/analyzer may compare to preserved greedy data;
+        # the exact policy/executor namespace must nevertheless be unchanged.
+        if any(not contract.get('shared_cache_namespace') for contract in contracts):
+            raise ValueError('cross-runtime comparison requires shared policy/executor namespace')
+        comparison_keys.append('shared_cache_namespace')
+    for key in comparison_keys:
+        if contracts and any(contract[key]!=contracts[0][key] for contract in contracts):
+            raise ValueError(f'mixed frozen route conditions: {key}')
+    if set(diversity)-set(all_conditions):raise ValueError('diversity supplied for incomplete inference condition')
+    for name,cohort in assets['cohorts'].items():
+        path=Path(cohort['targets_path'])
+        if file_sha256(path)!=cohort['targets_sha256']:raise ValueError('frozen target SHA mismatch')
+        targets=[json.loads(line) for line in path.open() if line.strip()]
+        if annotations:
+            information=annotations['cohorts'][name]
+            annotated_path=Path(information['annotations_path'])
+            if file_sha256(annotated_path)!=information['annotations_sha256']:
+                raise ValueError('mechanism annotation file SHA mismatch')
+            targets=merge_reference_annotations(targets,[json.loads(line) for line in annotated_path.open() if line.strip()])
+        cohort_ids=set(cohort['target_ids'])
+        conditions={mode:[row for row in rows if row['id'] in cohort_ids] for mode,rows in all_conditions.items()}
+        if not conditions:continue
+        summary=aggregate_cohort(targets,conditions)
+        summary['observed_work_curves']={mode:observed_work_curve(timeline,
+            per_worker_call_grid=[0,100,1000,10000,100000,1000000,10000000],target_ids=cohort_ids)
+            for mode,timeline in wave_inputs.items()}
+        summaries[name]=summary
+        write_json(destination/name/'route_evaluation.json',summary)
+        if name=='retrocast_mkt_cnv160':
+            r2=destination/'r2';r2.mkdir(parents=True,exist_ok=True)
+            complexity=complexity_rows(targets)
+            with (r2/'r2_route_complexity.csv').open('w') as handle:
+                writer=csv.DictWriter(handle,fieldnames=list(complexity[0]));writer.writeheader();writer.writerows(complexity)
+            write_json(r2/'r2_composition_strata.json',{'cohort':name,'denominator':160,'strata':summary['strata'],
+                        'annotation_complete':all(t['composition_stratum']!='Unknown' for t in targets),
+                        'actual_sft_index_provided':annotations is not None,'missing_is_not_zero':True})
+            write_json(r2/'r2_paired_solved_vs_work.json',summary)
+            write_json(r2/'r2_h2_historical_separate.json',{
+                'status':'historical_H2_not_rerun','full_data_0_6B_is_not_H2_heldout':True,
+                'original_train_valid_test':[223863,6200,27104],
+                'reported_direct_generation_first':[4030,27104],
+                'reported_direct_pass10':[7629,27104],'reported_direct_nll_top1':[5018,27104],
+                'source':'https://github.com/wangyu-sd/MechET-paper/blob/ee96f346ccfc2c40038dd1c4f9b6e7f955915659/editorial/R1_R2_COMPLETE_ROUTE_SCENARIOS_AND_COMPOSITION_PROTOCOL_20261013.md',
+                'newly_recomputed':False})
+    write_json(destination/'r1_route_results.json',summaries)
+    write_json(destination/'r1_runtime_work_totals.json',runtime_totals)
+    write_json(destination/'r1_observed_solved_vs_work.json',{
+        'conditions':{mode:observed_work_curve(timeline,per_worker_call_grid=[0,100,1000,10000,100000,1000000,10000000])
+                      for mode,timeline in wave_inputs.items()},
+        'independent_sampling_baseline':'not_run','equal_actual_compute_claim':False})
+    if len(summaries)==4 and all({'greedy','tree'}<=set(summary['conditions']) for summary in summaries.values()):
+        plot_results(summaries,destination,tree_label='Shared PUCT MCTS' if search_algorithms.get('tree')=='mcts'
+                     else 'Adaptive electron tree')
+    write_json(destination/'figure3_manifest.json',{'source_shards':provenance,'assets_sha256':file_sha256(args.assets),
+        'asset_preparation_code_sha':assets['preparation_code_sha'],
+        'inference_code_shas':inference_code_shas,
+        'search_algorithms':search_algorithms,
+        'explicit_cross_runtime_comparison':explicit_cross_runtime,
+        'mechanism_annotation_manifest':str(args.mechanism_annotations) if annotations else None,
+        'mechanism_annotation_manifest_sha256':file_sha256(args.mechanism_annotations) if annotations else None,
+        'inference_input_assets_unchanged':True,
+        'reference_complexity_bins_version':'reference_complexity_bins_v1',
+        'reference_complexity_bins_sha256':hashlib.sha256(json.dumps(REFERENCE_COMPLEXITY_BINS_V1,sort_keys=True).encode()).hexdigest(),
+        'actual_observed_results_only':True,'mechanism_annotation_complete':assets['composition_annotation_complete'],
+        'C1_claim_allowed':False if not assets['composition_annotation_complete'] else None,
+        'route_diversity_manifests':[{'path':str(path),'sha256':file_sha256(path)} for path in diversity.values()],
+        'route_count_exhaustive':bool(all_conditions) and set(diversity)==set(all_conditions),
+        'figures_are_partial_panels_not_replacement_full_paper_figures':True})
+    print(json.dumps({'phase':'full-route-analysis','cohorts':list(summaries),'rows':sum(s['denominator'] for s in summaries.values()),
+                      'solved':{name:{mode:condition['solved'] for mode,condition in summary['conditions'].items()} for name,summary in summaries.items()}}),flush=True)
+
+
+if __name__=='__main__':main()

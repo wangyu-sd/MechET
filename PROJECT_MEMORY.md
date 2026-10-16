@@ -1,5 +1,166 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-16 16:35 CST three-line progress upload.**
+> R1/R2 actual8A100 task_07 RUNNING:170/460finished(36.96%),169nonzero
+> stock-connected +1already-stock,290pending; cohorts18/41/90/20, full greedy
+> baseline1/15/17/3. Stock closure is not independent chemistry/equal-work gain.
+>31k_04 still resource-waiting/transition (no new output); old_03 preserves
+>1711/3120reports,1409pending; Top1/5/10hits32/72/79 on finished cases only,
+> frozen min-proxy DIAGNOSTIC, ten TOTAL trajectory-attempt budget unchanged.
+> Forward4H20 RUNNING:valid2890/21723 and test28967/216568 complete0errors;
+> train257167 conversion active, optimizer/checkpoint not yet started.
+> Source-bound report: `docs/results/EXPERIMENT_PROGRESS_20261016.md`.
+
+> **2026-10-14 08:33 CST old min-proxy greedy condition completed:** all3120
+> unique IDs/8 sealed shards,139 endpoint hits(4.46%),2294 terminal cases(73.53%),
+>1885971 decoded tokens/16996 raw decisions. Terminal coverage is NOT chemical
+> correctness. Mark as frozen rxn_prod_min-proxy DIAGNOSTIC, not corrected
+> principal-product benchmark;799-field audit remains. Raw inputs/outputs saved.
+> Dynamic-tree rank directories exist8/8, no completed tree result yet. Full460
+> _04 remains PENDING at08:29 readback. No task stopped or dataset switched;
+> user decision on stopping/rebuilding31k still missing. Diagnostic summary:
+> outputs/analysis/mech_uspto31k_product_field_audit_20261014/greedy_diagnostic_summary.json.
+
+
+> **2026-10-14 source-field audit — requires user decision, not silently fixed:**
+> Full3120 raw-test audit matches current frozen min-based artifact3120/3120.
+> Reusing the SAME largest-organic rule on rxn_prod_equ changes799 targets
+> (25.6%);798 become larger. Unique selected products2273(min)/3065(equ).
+> Current min-selected inputs repeat isobutene164, dicyclohexylurea607, TPPO33.
+> Cases951/1491: model input really is isobutene; raw equ includes larger
+> deprotected products absent from min. This is a source-protocol limitation,
+> NOT wrong checkpoint/cache reuse. Do NOT label all799 chemically wrong from
+> this proxy audit, or promise equ-largest always identifies desired product.
+> Report outputs/analysis/mech_uspto31k_product_field_audit_20261014/report.json.
+> No dataset/task stopped/modified; changing frozen field/endpoint protocol
+> needs explicit user direction.31k results must retain min-proxy labeling,
+> not be promoted as audited principal-product benchmark. R1/R2 full460 targets
+> and frozen FlowER actor remain unchanged; no new training or smoke authorized.
+
+
+> **2026-10-14 07:55 CST verified _04 startup:** full3120 has all8 matching
+> manifests and ACTUAL saved greedy policy generations; initial snapshot45
+> completed case artifacts/4000 raw decision batches (progress, not accuracy).
+> Eight A100-SXM4-40GB use31.9--32.1GiB/device and14--18% GPU snapshot.
+> All8 worker stdout FDs match PID1's default pipe; no file redirection.
+> CLI log API was empty at snapshot, so UI log freshness is not yet proven.
+> Tree condition follows full greedy completion; no tree result claimed yet.
+> Full460 _04 remains PENDING. See startup_verified.json in3120 _04 receipt
+> directory. Unit/runtime fixes are verified, full experimental goal remains active.
+
+
+> **2026-10-14 07:51 CST complete-dependency retries supersede _03:**
+> Both _03 jobs are verified END/false before model loading (cachetools absent).
+> Original failure logs preserved. Runtime5121e5c restores existing CUDA11
+> layering: gzip Cu118 vLLM/xFormers overlay + separately checksummed non-CUDA
+> fallback appended after base packages; no CUDA12 Torch/driver overrides.
+> Actual gzip extraction + automatic complete imports passed locally with
+> Torch2.6.0+cu118/vLLM0.8.5/RDKit2026.03.4.778 unit tests passed/11 skipped.
+> New ordinary QY8A100 tasks: full3120
+> `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_04`, instance
+>8b1d8155a134b10601a137ada4f70708; full460
+> `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_04`, instance
+>8b1d891ba134b07e01a137ada9c206f5. First readback TRAINING_INIT for both;
+> actual GPU generation not yet verified. Same40204... actor/full datasets/
+> stocks/seeds/no-hard-cap search; Tencenttaiji6/Ceph/default45s stdout retained.
+> Receipts: outputs/submissions/dynamic_electron_tree_20261014_04 and
+> outputs/submissions/r1_r2_full460_routes_20261014_04. Others/forward untouched.
+
+
+> **2026-10-14 07:39 CST bootstrap retries supersede _02 queue notes:**
+> Both previous full3120/full460 _02 instances are verified END/false before
+> model initialization: missing external zstd command. Default POD logs saved
+> under their original submission directories; no model predictions produced.
+> Fixed runtime522c048 uses authenticated gzip repack (same uncompressed SHA),
+> actual no-zstd full archive extraction passed;777 unit tests passed/11 skipped.
+> New full3120 `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_03`,
+> instance8b1d8155a134b10601a137a1e8b70704: TRAINING_RUNNING at first readback,
+> startup only, GPU inference/default progress not yet verified. New full460
+> `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_03`, instance
+>8b1d822aa134b09001a137a1ebb306c1: PENDING at first readback. Same actor40204...,
+> full3120/460 sources/stocks/renewable work/no chemical/token/time caps, ordinary
+>8A100 each/QY/Tencenttaiji6/proven Ceph/default45s logs. Receipts in
+> outputs/submissions/dynamic_electron_tree_20261014_03 and
+> outputs/submissions/r1_r2_full460_routes_20261014_03. Others/forward untouched.
+
+
+> **2026-10-14 full460 observed-work replacement:** old full460 instance
+>8b1d8038a134b09101a136418a43039c was stopped while queued and verified END,
+> with no output. New task `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261014_02`,
+> instance8b1d8145a134ab5e01a136e9abba05b2, is TRAINING_RESOURCE_WAITING.
+> Runtime4817754d, same frozen0.6B/source460/stocks/sampling; adds whole-wave
+> work journals for unique model calls/all tokens/first stock solutions. No
+> chemical/token/time caps, no RL/RSI. One8A100/QY/Tencenttaiji6/proven Ceph,
+> default45s logs.31k task and others untouched. Receipt in main
+> outputs/submissions/r1_r2_full460_routes_20261014_02.771 unit tests passed,
+>11 skipped; NO new model outcome. Independent matched-work baseline pending.
+> Earlier e973e1d full460 queue notes are superseded, not retroactively changed.
+
+> **2026-10-14 full3120 budget repair submitted:** the old0796e2d task
+> `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261013_01` was stopped
+> while resource-waiting and verified END, with no output directory. Replacement
+> `meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261014_02`, instance
+> `8b1d8145a134ab5e01a136cd41690531`, uses immutable runtimea23cf576 and the
+> SAME3120 source/SHA40204...7e9de75 FlowER Stage-II0.6B.80M/24h are renewable
+> accounting checkpoints, not token/time stopping caps. Ordinary8A100/QY,
+> Tencenttaiji6, successful donor Ceph/default45s logs. Initial readback READY
+> means submitted, not model inference. No unrelated task stopped; full460
+> untouched. Main receipt outputs/submissions/dynamic_electron_tree_20261014_02.
+> Earlier notes that the old capped3120 task remains queued are superseded.
+
+> **2026-10-14 source-only R1/R2 preparation complete:** stocks now ready,
+> all460 target IDs retained. Actual Stage-II SFT census covers257167/2890/28967
+> reactions and2007421/22341/225613 decisions, exact artifact hashes verified.
+> Ordinary train signatures6491/primitives603;1377 non-ordinary programs explicit.
+> RetroCast293/1627 reference edges have exact verified corpus witnesses, but
+> all160 PRIMARY routes retain gaps and remain Unknown (not C1/C2). Source-only
+> index outputs/analysis/r1_r2_actual_sft_mechanism_index_20261014 in main; producer
+> bcf2760, consumer0e546f8;747 unit tests/11 skipped. Stocks URSA255436 unique,
+> buyables313458,n513306; zero invalid rows,1 already-stock mkt target. Strict
+> reference closure mkt138/160 primary,147/160 any reference; do not drop13 or
+> call them unsolvable. No actor generation, weight update or new accuracy result.
+> Full460 task remains resource-waiting at latest live readback. Earlier stock-
+> pending notes below are historical; inference runtime remains pinnede973e1d.
+
+> **2026-10-14 01:14 CST full460 R1/R2 route task:** ordinary8xA100/QY task
+> `meteor_mechet_r1_r2_full460_dynamic_routes_8a100_qy_20261013_01`, instance
+> `8b1d8038a134b09101a136418a43039c`, is TRAINING_RESOURCE_WAITING. Runtime
+> `e973e1d64138b146b3f1ac77f8daf2a52409ee94`, frozen FlowER Stage-II0.6B
+> SHA40204c7a...7e9de75. All100/100/160/100 targets, source stocks and AND
+> closure retained. Per user's no-hard-limit request, token/time windows renew
+> automatically:80M/24h are initial accounting checkpoints, NOT stopping caps.
+> Novelty remains a heuristic; physical RAM/model-context guards remain. No
+> RSI/RL/new model training. Tencenttaiji6, successful donor Ceph, default POD
+> logs/45s heartbeat. Receipt in main outputs/submissions/r1_r2_full460_routes_20261013.
+> Local734 unit tests passed/11 skipped; NO new model outcome or stock-normalization
+> result yet. Exact mechanism indexing/exposure parity and full figure panels
+> remain pending. Earlier full3120 runtime0796e2d remains queued and immutable,
+> with its old task caps; do not claim changing local code modified that task.
+
+> **2026-10-13 full3120 dynamic tree:** user confirmed FlowER Stage-II frozen
+> Qwen3-0.6B actual SHA40204c7a...7e9de75 and rejected fixed chemical depth,
+> beam/import caps. Task meteor_mechet_uspto31k_full_dynamic_tree_8a100_qy_20261013_01,
+> instance8b1d8145a134ab5e01a135c0d60b028a, runtime0796e2d, one8A100 QY.
+> Readback22:58 CST TRAINING_RESOURCE_WAITING. Public full3120 endpoint
+> RXNMapper test is used without1253 filtering; only unmapped product visible.
+> Greedy+dynamic conditions save all raw prompts/completions/NLL/context trees.
+> No RSI/RL/weight change, no unrelated cancellation. Follow-on full-route
+> R1/R2 is PENDING; do not conflate reaction trees with stock-connected routes.
+> See current ACTIVE_ICLR_STATUS and docs/DYNAMIC_ELECTRON_TREE_PROTOCOL.md.
+
+> **2026-10-13 independent forward Qwen3-0.6B:** task
+> `meteor_mechet_forward_event_06b_2ep_8h20_zjk_20261013_01`, instance
+> `8b1d89caa134b07c01a13555c25400d2`, ordinary8xH20/ZJK, was submitted.
+> Actual20:56CST state is TRAINING_RESOURCE_WAITING; no POD or training yet.
+> Original forward FlowER transitions over257167/2890/28967 strict reaction
+> IDs; CPU64 full conversion/replay/token audits then two-epoch new forward
+> LoRA, pinned original Qwen3-0.6B. Reverse Stage-II weights remain unchanged
+> and are hash-protected. Proven Stage-II H20 donor Ceph init, Tencent taiji7,
+> default log/45s heartbeat. No unrelated jobs stopped. Runtime commit
+> `2ebb892cac0142705bb74e051f17bf4f4eeabce4`; protocol
+> `docs/FORWARD_QWEN_EVENT_SFT.md`; actual submission record in main repo
+> `outputs/submissions/forward_qwen_sft_20261013/submission.json`.
+
 > **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
 > compact-history task was stopped because its action-conditioned observation
 > and private-map replay contract are diagnostic only.  The first clean v2

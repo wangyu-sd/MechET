@@ -1,5 +1,56 @@
 # CODEX GOAL — PR #83: ship and measure CRN-JEPA + frozen Qwen + graph-only endpoint RL
 
+## Latest user direction — 2026-10-13
+
+The user requested both a code PR and a new Taiji task for **joint import–FLOW
+endpoint credit**. This is a deliberate proposed change from frozen-Qwen
+graph-only training. The written design and native implementation plan are
+`docs/superpowers/specs/2026-10-13-joint-import-flow-endpoint-design.md` and
+`docs/superpowers/plans/2026-10-13-joint-import-flow-endpoint-plan.md`.
+The user has now approved direct implementation and submission. Joint source
+is implemented locally and undergoing final review; no task is submitted yet.
+Do not launch the existing graph-only script and describe it as this new method.
+This is an ongoing handoff, not a DONE/blocked terminal declaration.
+
+An explicitly authorized T4/FP16 diagnostic finished: validation8 baseline
+1/8 exact endpoints; graph-only train32 processed all roots with zero updates
+(30 controller gates, two explicit-H alignment exceptions). The explicit-H
+alignment and reward/evaluator discrepancy are now source-level prerequisites
+fixed with regressions, not an empirical joint-model improvement. Preserve the
+original artifacts and use the latest ACTIVE status/ledger for real task state.
+Historical small-job instructions below do not authorize further smoke jobs.
+
+## Current user override — 2026-10-12
+
+The user requires full-scale evaluation and forbids new smoke, pilot, or small
+subset jobs unless explicitly requested. This overrides the historical 8/16/128
+validation and 64-root training steps below. Those sections retain the original
+PR handoff for lineage; they no longer authorize small jobs.
+
+The formal campaign uses the exact Stage-I adapter specified in this document,
+without compact history. Run pure Qwen and frozen Graph-Qwen on all 2,890 valid
+and 28,967 strict test reactions; retain the four unsupported official test rows
+in the 28,971 denominator. Traverse all 257,167 strict training reactions for
+graph-head-only endpoint optimization, recording reference replay failures and
+unsupported/no-FLOW rows. Re-evaluate the trained head on the same complete
+validation/test IDs and compare against the frozen graph control. Training
+rewards, learning rate and horizon are frozen before accessing test scores.
+
+Use `scripts/run_pr83_formal_campaign.py` for sequential formal submission:
+one eight-A100 host for independent evaluation shards, then one A100 for graph
+head training, then the eight-worker post-training evaluation. At most one
+campaign task is active. The smaller allocation applies to the single-policy
+trainer; eight-GPU evaluation runs eight independent policy workers. Every job
+uses the proven private Ceph initialization and default POD heartbeat logs.
+
+Historical Stage-II validation outputs are preserved as a separate condition;
+they do not satisfy the Stage-I formal comparison. The completed single-pass
+Stage-II run recorded 46/128 endpoints versus 47/128 pure Qwen and identical
+first calls on all 128 IDs. No endpoint gain is established by that result.
+
+The original 64-root RL task was stopped at the user's request. It remains
+stopped; the formal campaign creates a distinct train257167 attempt.
+
 **Status: EXECUTE, not another proposal.** This document is the handoff for the
 existing stacked MechET code PR #83, branch
 `feature/crn-jepa-qwen-electron-routing-20261011`, based on PR #82.

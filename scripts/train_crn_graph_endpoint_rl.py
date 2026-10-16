@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bounded train-only endpoint RL for CRN-JEPA FLOW; Qwen stays frozen.
+"""Historical fixed-GT-tail reward/replay ablation; NOT main Graph-EARHO.
 
 Each training reaction supplies a verified reference prefix. Choose a late
 electron-flow frontier, sample a stochastic slate from the graph policy's
@@ -23,7 +23,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-from mechet.crn_graph_bridge import file_sha256
+from mechet.crn_graph_bridge import file_sha256, graph_event_coordinates
 from mechet.graph_endpoint_rl import (
     VerifiedBranch, graph_policy_gradient_loss, success_gated_advantages,
 )
@@ -109,10 +109,8 @@ def continue_to_terminal(runtime: HybridRuntime, node: Node, args, max_steps: in
 
 
 def main():
-    import torch
     p = parser()
     p.description = __doc__
-    p.add_argument("--source-sha256", required=True)
     p.add_argument("--rl-updates", type=int, default=64)
     p.add_argument("--slate", type=int, default=8)
     p.add_argument("--temperature", type=float, default=1.0)
@@ -122,12 +120,15 @@ def main():
     p.add_argument("--save-every", type=int, default=4,
                    help="persist atomic optimizer/model/RNG checkpoint every N sampled training roots")
     args = prepare_args(p.parse_args())
+    import torch
     sys.path.insert(0, str((args.crn_root / "src").resolve()))
     from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
     from crn_jepa.models.grounded_graph import build_grounded_graph
     from crn_jepa.models.pr18_full_corpus_objectives import teacher_forced_from_tokens
     if args.data.name != "train.jsonl" or "test" in str(args.data).lower():
         raise ValueError("endpoint RL only accepts an authenticated train.jsonl")
+    if not args.source_sha256:
+        raise ValueError("endpoint RL requires a pinned train source SHA-256")
     observed_sha = file_sha256(args.data)
     if observed_sha != args.source_sha256:
         raise ValueError("training source SHA-256 mismatch")
@@ -163,6 +164,11 @@ def main():
             "learning_rate": args.learning_rate,
             "reference_weight": args.reference_weight,
             "compact_history": args.compact_history,
+            "tool_route": args.tool_route,
+            "greedy_import_decode": "single_generate_to_eos_v2",
+            "graph_initial_budget": args.graph_initial_budget,
+            "graph_flow_topk": args.graph_flow_topk,
+            "max_context": args.max_context,
             "max_import_tokens": args.max_import_tokens,
             "graph_beam": args.graph_beam,
             "graph_source_width": args.graph_source_width,
@@ -260,9 +266,16 @@ def main():
             stats["replay_failures"] += 1
             audit.append({"source_id": row_id, "status": "replay_failure",
                           "error": str(exc)})
+            print(json.dumps({"stage": "pr83-graph-rl", "processed": len(audit),
+                              "requested": args.rl_updates, "id": row_id,
+                              "status": "replay_failure", "stats": stats}), flush=True)
             continue
         if not frontiers:
             stats["no_flow"] += 1
+            audit.append({"source_id": row_id, "status": "no_supported_flow"})
+            print(json.dumps({"stage": "pr83-graph-rl", "processed": len(audit),
+                              "requested": args.rl_updates, "id": row_id,
+                              "status": "no_supported_flow", "stats": stats}), flush=True)
             continue
         # Curriculum: favor last three executable FLOW decisions. This
         # increases exact endpoint signal without changing inference prompts.
@@ -272,8 +285,12 @@ def main():
         try:
             # CRN-JEPA cannot score BE_DELTA in this v1 action decoder.
             reference_actions = tuple(GroundedMove.from_raw(m) for m in reference_moves)
+            event_depth, remaining_budget = graph_event_coordinates(
+                anchor.actions, args.graph_initial_budget,
+            )
             slate = runtime.graph.candidates(
                 anchor.state, limit=32,
+                event_depth=event_depth, remaining_budget=remaining_budget,
                 beam_size=args.graph_beam,
                 source_width=args.graph_source_width,
                 sink_width=args.graph_sink_width,
@@ -284,6 +301,7 @@ def main():
             )
             if not candidates:
                 stats["no_flow"] += 1
+                audit.append({"source_id": row_id, "status": "no_candidate_slate"})
                 continue
             reference_endpoint = reference_structural_precursor(dict(row))
             outcomes = []
@@ -325,7 +343,7 @@ def main():
             graph = build_grounded_graph(anchor.state, None)
             inventory = MechETGroundedInventory(anchor.state)
             nodes, context, prefix = world.policy.encode_directional_observation(
-                graph, event_depth=0, remaining_budget=1,
+                graph, event_depth=event_depth, remaining_budget=remaining_budget,
                 direction="retrosynthetic_inverse",
             )
             nlls = [
@@ -359,10 +377,15 @@ def main():
             audit.append({
                 "source_id": row_id, "status": "updated",
                 "depth_from_reference_end": depth_from_end,
+                "graph_event_depth": event_depth,
+                "graph_remaining_budget": remaining_budget,
                 "candidate_rewards": [r.reward for r in outcomes],
                 "advantages": list(advantages),
                 "loss": float(loss.detach().item()),
             })
+            print(json.dumps({"stage": "pr83-graph-rl", "processed": len(audit),
+                              "requested": args.rl_updates, "id": row_id,
+                              "status": "updated", "stats": stats}), flush=True)
         except (ValueError, RuntimeError, KeyError) as exc:
             if "out of memory" in str(exc).lower():
                 # Keep the last *completed* snapshot. Never mark the current
@@ -371,6 +394,10 @@ def main():
                 raise
             audit.append({"source_id": row_id, "status": "skipped",
                           "error": f"{type(exc).__name__}:{exc}"})
+            print(json.dumps({"stage": "pr83-graph-rl", "processed": len(audit),
+                              "requested": args.rl_updates, "id": row_id,
+                              "status": "skipped", "error": str(exc),
+                              "stats": stats}), flush=True)
             continue
         finally:
             world.policy.eval()
@@ -386,9 +413,21 @@ def main():
         if not key.startswith("graph_encoder.")
     }
     checkpoint_path = args.output / "graph_endpoint_rl_head.pt"
+    controller = {
+        "tool_route": args.tool_route,
+        "greedy_import_decode": "single_generate_to_eos_v2",
+        "compact_history": args.compact_history,
+        "graph_initial_budget": args.graph_initial_budget,
+        "graph_flow_topk": args.graph_flow_topk,
+        "max_import_tokens": args.max_import_tokens,
+        "max_context": args.max_context,
+        "max_decisions": args.max_decisions,
+        "max_imports": args.max_imports,
+    }
     torch.save({
         "policy_head": head, "base_checkpoint_sha256": runtime.graph.sha256,
         "train_source_sha256": observed_sha, "qwen_frozen": True,
+        "controller": controller,
         "rl_algorithm": "success_gated_truncated_slate_policy_gradient_v1",
     }, checkpoint_path)
     with (args.output / "training_groups.jsonl").open("w") as sink:
@@ -403,9 +442,11 @@ def main():
         "frozen_qwen_adapter_sha256":
             file_sha256(args.policy_adapter / "adapter_model.safetensors"),
         "source_sha256": observed_sha,
+        "controller": controller,
         "stats": stats,
         "effective_rl_updates": stats["effective_rl_groups"],
         "resumed_roots": start_index,
+        "processed_roots": args.rl_updates,
         "latest_train_state": str(checkpoint_path_latest),
         "note": "If effective_rl_updates=0, checkpoint was reference-replay SFT only, NOT endpoint RL evidence.",
         "locked_test_accessed": False,

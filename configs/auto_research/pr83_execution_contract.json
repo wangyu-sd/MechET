@@ -13,12 +13,27 @@
     "valid_reactions": 2890,
     "strict_test_reactions": 28967,
     "full_endpoint_test_reactions": 28971,
-    "eval_sample_size": 128,
+    "eval_sample_size": 2890,
+    "eval_test_size": 28967,
+    "training_roots": 257167,
+    "compact_history": false,
+    "new_smoke_or_subset_jobs_allowed": false,
     "seed": 17,
     "max_decisions": 40,
     "max_imports": 32,
-    "locked_test_access": false,
-    "main_rl": "graph_earho_executed_successor_v2"
+    "policy_algorithm": "graph_earho_conditional_endpoint_v4",
+    "policy_objective": "conditional_endpoint",
+    "dtype": "bfloat16",
+    "no_4bit": true,
+    "sampling": "iid_with_replacement",
+    "exploration_proposals": 4,
+    "actor_reward": "full_budget_terminal_endpoint",
+    "follower_k": 1,
+    "full_episode_fraction": 0.25,
+    "locked_test_access": true,
+    "main_rl": "graph_earho_conditional_endpoint_v4",
+    "joint_training_implemented": false,
+    "joint_submission_allowed": false
   },
   "stages": [
     {
@@ -40,7 +55,7 @@
       "depends_on": [
         "S01"
       ],
-      "goal": "8 to 16 independent product-start input and tool-routing/executor parity",
+      "goal": "Unit contracts for product-start input, tool routing and executor parity; no new subset GPU job",
       "success": "Saved per-input Qwen-vs-router and graph-executor diagnostics"
     },
     {
@@ -48,23 +63,23 @@
       "depends_on": [
         "S02"
       ],
-      "goal": "Paired original Qwen and frozen CRN/Qwen valid128 K1",
-      "success": "Complete 128 IDs per policy, endpoint and timing report"
+      "goal": "Paired Stage-I original Qwen and frozen CRN/Qwen full valid/test K1",
+      "success": "Complete 2890 valid and 28967 strict test IDs per policy; 28971 official denominator"
     },
     {
       "id": "S04",
       "depends_on": [
         "S03"
       ],
-      "goal": "Train-only Graph-EARHO with product-first-divergence diagnosis, controller-blocked classification, executed-successor equivalence pooling, bounded continuation, adaptive correction horizon and graph-head updates. Fixed last-three reference group RL is an ablation only.",
-      "success": "Log first graph-correctable vs Qwen-limited frontiers, successor equivalence class counts, effective contrast, endpoint positives, horizon promotions, optimizer updates and checkpoint lineage"
+      "goal": "Traverse all 257167 strict train roots; frozen-support IID slate8 conditional endpoint RL, independently scheduled full-budget groups and separate verified replay",
+      "success": "Verified processed IDs, draw-level terminal returns, effective_rl_groups, autonomous trajectory journal and v4 head SHA; not a measured heldout gain"
     },
     {
       "id": "S05",
       "depends_on": [
         "S04"
       ],
-      "goal": "Paired same-ID valid128 pre/post graph-head RL",
+      "goal": "Paired same-ID full valid/test pre/post graph-head training",
       "success": "Measured paired outcome, same resource and endpoint denominator"
     },
     {

@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 import random
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
@@ -31,20 +31,22 @@ from mechet.graph_earho import (
     AdaptiveHorizon, ExecutedAlternative, Transition,
     VerifiedOutcome, first_executed_divergence,
     pool_executed_successors, select_receding_flow_anchor,
-    Divergence,
+    Divergence, successor_group_advantages,
 )
 from mechet.graph_endpoint_rl import (
     grounded_event_log_probability, successor_class_policy_loss,
     truncated_slate_reference_kl,
+    slate_log_probabilities, iid_slate_indices, leave_one_out_advantages,
+    conditional_endpoint_policy_loss,
 )
-from mechet.in_place_grounded_flow import mapped_atom_numbers
+from mechet.in_place_grounded_flow import mapped_atom_numbers, mapped_state_signature
 from mechet.natural_language_anchor_branch_rl import contains_unchanged_target
 from mechet.natural_language_electron_flow import compile_event_arguments
 from scripts.build_natural_language_event_sft import convert_row
-from scripts.pr83_resume import prepare_training_resume
+from scripts.pr83_resume import prepare_training_resume, AuditJournal
 from scripts.run_crn_qwen_hybrid import HybridRuntime, parser, prepare_args
 from scripts.run_natural_language_value_search import (
-    Action, Node, execute, product_only_private_state, read_selected, visible,
+    Action, Node, execute, product_only_private_state, read_selected, visible, rollout,
 )
 
 
@@ -163,8 +165,10 @@ def align_reference_moves(reference_mapped_state, actor_mapped_state, moves):
 
     if visible(reference_mapped_state) != visible(actor_mapped_state):
         return None
-    reference = Chem.MolFromSmiles(reference_mapped_state)
-    current = Chem.MolFromSmiles(actor_mapped_state)
+    parser_params = Chem.SmilesParserParams()
+    parser_params.removeHs = False  # proton-transfer events address these atoms
+    reference = Chem.MolFromSmiles(reference_mapped_state, parser_params)
+    current = Chem.MolFromSmiles(actor_mapped_state, parser_params)
     if reference is None or current is None:
         return None
     old_atom_maps = tuple(atom.GetAtomMapNum() for atom in reference.GetAtoms())
@@ -222,11 +226,34 @@ def sample_slate(candidates, k: int, rng, temperature: float):
     return [candidates[i] for _, i in keys[:k]]
 
 
+def merge_proposal_support(beam, exploration):
+    """Freeze unique ORDERED action sequences; no reference action is inserted."""
+    by_event = {}
+    for candidate in (*beam, *exploration):
+        key = json.dumps(candidate.moves, sort_keys=True, separators=(",", ":"))
+        by_event.setdefault(key, candidate)
+    return tuple(by_event.values())
+
+
 @dataclass(frozen=True)
 class ContinuationResult:
     terminals: tuple[Node, ...]
     censored: bool
     attempted: int
+
+
+def executed_successor_key(mapped_state: str) -> str:
+    """Retain private atom origins, bond form and stereo for reward pooling."""
+    from rdkit import Chem
+    parameters = Chem.SmilesParserParams()
+    parameters.removeHs = False
+    mol = Chem.MolFromSmiles(mapped_state, parameters)
+    if mol is None:
+        raise ValueError("invalid executed successor")
+    return json.dumps([
+        mapped_state_signature(mapped_state),
+        Chem.MolToSmiles(mol, canonical=True, isomericSmiles=True),
+    ], separators=(",", ":"))
 
 
 def bounded_continuation(runtime, start, args, *, decisions: int):
@@ -276,7 +303,10 @@ def bounded_continuation(runtime, start, args, *, decisions: int):
                     terminals.append(child)
                 else:
                     key = (
-                        visible(child.state),
+                        executed_successor_key(child.state),
+                        child.next_map, len(child.actions),
+                        tuple(sorted(getattr(child, "imported", {}).items())),
+                        tuple(sorted(child.visited)),
                         tuple(record["name"] for record in child.actions)
                         if args.compact_history else (),
                     )
@@ -303,17 +333,22 @@ def graph_head_parameters(world):
     return [p for p in world.policy.parameters() if p.requires_grad]
 
 
-def main() -> int:
-    import torch
+def training_parser():
+    """Compose the inherited inference CLI without duplicate options."""
     cli = parser()
     cli.description = __doc__
-    cli.add_argument("--source-sha256", required=True)
     cli.add_argument("--rl-updates", type=int, default=64)
     cli.add_argument("--slate", type=int, default=8)
     cli.add_argument("--temperature", type=float, default=1.0)
     cli.add_argument("--continuation-horizon", type=int, default=8,
                      help="max adaptive correction horizon; initial horizon is two")
-    cli.add_argument("--rollout-beam-width", type=int, default=2)
+    cli.add_argument("--rollout-beam-width", type=int, default=1)
+    cli.add_argument("--actor-reward", choices=("endpoint", "endpoint_successor"),
+                     default="endpoint", help="local-successor reward is a named ablation")
+    cli.add_argument("--policy-objective", choices=("conditional_endpoint", "legacy_class"),
+                     default="conditional_endpoint")
+    cli.add_argument("--exploration-proposals", type=int, default=4,
+                     help="native pointer draws added to the support before normalization")
     cli.add_argument("--curriculum-round", type=int, default=16)
     cli.add_argument("--min-effective-groups", type=int, default=4)
     cli.add_argument("--productive-pass-rate", type=float, default=0.1)
@@ -321,12 +356,20 @@ def main() -> int:
     cli.add_argument("--learning-rate", type=float, default=5e-6)
     cli.add_argument("--reference-weight", type=float, default=0.1)
     cli.add_argument("--slate-kl-weight", type=float, default=0.02,
-                     help="frozen CRN policy KL on identical sampled event slate")
+                     help="frozen CRN policy KL on the complete fixed event support")
     cli.add_argument("--save-every", type=int, default=4)
-    args = prepare_args(cli.parse_args())
-    # A genuine bounded FLOW beam requires more than one same-policy option.
-    # K=1 held-out evaluation is separate and retains its own declared budget.
-    args.graph_flow_topk = max(args.graph_flow_topk, args.rollout_beam_width)
+    return cli
+
+
+def main() -> int:
+    import torch
+    args = prepare_args(training_parser().parse_args())
+    if args.actor_reward == "endpoint" and (
+        args.rollout_beam_width != 1 or args.graph_flow_topk != 1
+    ):
+        raise ValueError("endpoint-primary reward requires the matched K1 greedy continuation")
+    if args.policy_objective == "conditional_endpoint" and args.actor_reward != "endpoint":
+        raise ValueError("conditional endpoint gradients cannot use local-successor actor rewards")
     sys.path.insert(0, str((args.crn_root / "src").resolve()))
     from crn_jepa.grounded_actions import GroundedMove, MechETGroundedInventory
     from crn_jepa.models.grounded_graph import build_grounded_graph
@@ -342,6 +385,7 @@ def main() -> int:
             and 1 <= args.curriculum_round and args.save_every >= 1
             and 0 < args.reference_weight <= 1.0
             and 0 <= args.slate_kl_weight <= 1.0
+            and 0 <= args.exploration_proposals <= 32
             and args.temperature > 0):
         raise ValueError("invalid bounded Graph-EARHO training contract")
     if args.graph_rl_head:
@@ -356,7 +400,10 @@ def main() -> int:
         "scripts/run_natural_language_value_search.py",
     )
     manifest = {
-        "schema_version": 2, "algorithm": "graph_earho_executed_successor_v2",
+        "schema_version": 4,
+        "algorithm": ("graph_earho_conditional_endpoint_v4"
+                      if args.policy_objective == "conditional_endpoint"
+                      else "graph_earho_legacy_class_v4"),
         "train_source_sha256": args.source_sha256,
         "train_source_path": str(args.data.resolve()),
         "selected_ids": [str(row["id"]) for row in rows],
@@ -366,11 +413,18 @@ def main() -> int:
         ),
         "crn_pretrained_sha256": file_sha256(args.graph_checkpoint),
         "settings": {
+            "dtype": args.dtype, "no_4bit": args.no_4bit,
             "sample_reactions": args.sample_reactions,
             "seed": args.seed, "rl_updates": args.rl_updates,
             "slate": args.slate, "temperature": args.temperature,
             "continuation_horizon": args.continuation_horizon,
             "rollout_beam_width": args.rollout_beam_width,
+            "actor_reward": args.actor_reward,
+            "policy_objective": args.policy_objective,
+            "exploration_proposals": args.exploration_proposals,
+            "tool_route": args.tool_route,
+            "greedy_import_decode": "single_generate_to_eos_v2",
+            "graph_initial_budget": args.graph_initial_budget,
             "graph_flow_topk": args.graph_flow_topk,
             "graph_beam": args.graph_beam,
             "graph_source_width": args.graph_source_width,
@@ -436,9 +490,11 @@ def main() -> int:
         "censored_successor_classes": 0, "wrong_terminal_classes": 0,
         "replay_label_unavailable": 0, "replay_only_updates": 0,
         "slate_kl_total": 0.0, "full_horizon_branches": 0,
+        "full_autonomous_episodes": 0, "full_autonomous_endpoint_hits": 0,
+        "iid_draws": 0, "unique_ordered_proposals": 0, "endpoint_reward_draws": 0,
     }
-    audit = []
-    round_status = {"total": 0, "effective": 0, "productive": 0}
+    saved_journals = None
+    round_status = {"total": 0, "effective": 0, "productive": 0, "endpoint": 0}
     cursor = 0
     checkpoint = args.output / "latest_train_state.pt"
     if saved_file:
@@ -461,9 +517,14 @@ def main() -> int:
         optimizer.load_state_dict(state["optimizer"])
         rng.setstate(state["rng_state"])
         stats = dict(state["stats"])
-        audit = list(state["audit"])
+        saved_journals = state["journals"]
         horizon = AdaptiveHorizon(**state["horizon"])
         round_status = dict(state["round_status"])
+
+    audit = AuditJournal(args.output / "training_groups.jsonl",
+                         restored_state=saved_journals["groups"] if saved_journals else None)
+    episodes = AuditJournal(args.output / "autonomous_train_episodes.jsonl",
+                            restored_state=saved_journals["episodes"] if saved_journals else None)
 
     def save(next_index):
         state = {
@@ -477,7 +538,8 @@ def main() -> int:
             "rng_state": rng.getstate(),
             "torch_rng_state": torch.get_rng_state(),
             "cuda_rng_state": torch.cuda.get_rng_state_all(),
-            "stats": stats, "audit": audit,
+            "stats": stats,
+            "journals": {"groups": audit.checkpoint_state(), "episodes": episodes.checkpoint_state()},
             "horizon": {
                 "current": horizon.current, "maximum": horizon.maximum,
                 "min_effective_groups": horizon.min_effective_groups,
@@ -503,6 +565,13 @@ def main() -> int:
         state_was_valid = False
         abort = False
         try:
+            # Schedule BEFORE outcomes, including Qwen-blocked/no-flow roots.
+            full_requested = rng.random() < horizon.full_episode_fraction
+            if full_requested:
+                autonomous = rollout(runtime, row, args)
+                episodes.append({"reaction_id": reaction_id, "prediction": autonomous})
+                stats["full_autonomous_episodes"] += 1
+                stats["full_autonomous_endpoint_hits"] += int(autonomous["top1_structural_exact"])
             trace = replay_train_trace(row)
             divergence, actor_anchor = observe_policy_divergence(runtime, trace, args)
             if divergence.index is None:
@@ -525,7 +594,6 @@ def main() -> int:
             stats["graph_correctable_frontiers"] += 1
             train_from_policy = True  # controller-limited cases already skipped
             gold_names = [item.name for item in trace["reference"]]
-            full_requested = rng.random() < horizon.full_episode_fraction
             choice = select_receding_flow_anchor(
                 divergence=divergence, reference_names=gold_names,
                 horizon=horizon.current, full_product=full_requested,
@@ -559,32 +627,69 @@ def main() -> int:
                 sink_width=args.graph_sink_width,
                 move_width=args.graph_move_width,
             )
-            if len(slate) < args.slate:
+            conditional = args.policy_objective == "conditional_endpoint"
+            if conditional:
+                exploration = runtime.graph.exploration_candidates(
+                    anchor.state, count=args.exploration_proposals, rng=rng)
+                support = merge_proposal_support(slate, exploration)
+            else:
+                support = tuple(slate)
+            if not support or (not conditional and len(support) < args.slate):
                 stats["insufficient_slate"] += 1
                 audit.append({
                     "reaction_id": reaction_id, "status": "insufficient_slate",
-                    "found": len(slate), "needed": args.slate,
+                    "found": len(support), "needed": 1 if conditional else args.slate,
                 })
                 continue
-            candidates = sample_slate(slate, args.slate, rng, args.temperature)
+            # Score the COMPLETE fixed support BEFORE draws or returns.
+            # Evaluation mode keeps generation/scoring dropout identical while
+            # autograd still trains the non-encoder heads.
+            world.policy.eval()
+            graph = build_grounded_graph(anchor.state, None)
+            inventory = MechETGroundedInventory(anchor.state)
+            with torch.no_grad():
+                nodes, pooled = world.policy.graph_encoder(graph)
+            context = world.policy.direction_context(pooled, "retrosynthetic_inverse")
+            prefix = torch.tanh(world.policy.prefix_init(context))
+            if conditional:
+                logps = [grounded_event_log_probability(
+                    world.policy, graph, inventory,
+                    tuple(GroundedMove.from_raw(v) for v in candidate.moves),
+                    nodes, context, prefix) for candidate in support]
+                behavior_logq = slate_log_probabilities(logps, temperature=args.temperature).detach()
+                draw_indices = iid_slate_indices(behavior_logq, args.slate, rng)
+                candidates = [support[i] for i in draw_indices]
+                stats["iid_draws"] += len(draw_indices)
+                stats["unique_ordered_proposals"] += len(set(draw_indices))
+            else:
+                candidates = sample_slate(support, args.slate, rng, args.temperature)
+                support = tuple(candidates)
+                draw_indices = tuple(range(len(candidates)))
+                logps = [grounded_event_log_probability(
+                    world.policy, graph, inventory,
+                    tuple(GroundedMove.from_raw(v) for v in candidate.moves),
+                    nodes, context, prefix) for candidate in candidates]
             alternatives = []
             child_by_index = {}
+            execution_cache = {}
             for k, candidate in enumerate(candidates):
                 a = Action(
                     name="apply_electron_flow", arguments=candidate.arguments,
                     raw="<graph_earho_sample>", logprob=candidate.logprob,
                     tokens=max(1, len(candidate.moves)),
                 )
-                child, error = execute(
-                    anchor, a, max_imports=args.max_imports,
-                    reject_target_retained_finish=True,
-                )
+                cache_key = draw_indices[k]
+                if cache_key not in execution_cache:
+                    execution_cache[cache_key] = execute(
+                        anchor, a, max_imports=args.max_imports,
+                        reject_target_retained_finish=True)
+                child, error = execution_cache[cache_key]
                 child_by_index[k] = child
                 stats["sampled_actions"] += 1
                 stats["executor_accepted"] += int(child is not None)
                 alternatives.append(ExecutedAlternative(
                     candidate_index=k, accepted=child is not None,
-                    successor_key=visible(child.state) if child else None,
+                    successor_key=executed_successor_key(child.state) if child else None,
                     logprob=float(candidate.logprob), error=str(error),
                 ))
             groups = pool_executed_successors(alternatives)
@@ -619,7 +724,6 @@ def main() -> int:
                 endings = continuation.terminals
                 endpoint_hit = any(
                     end.terminal
-                    and not contains_unchanged_target(end.state, anchor.target)
                     and bool(endpoint)
                     and structural_exact(
                         split_precursor_endpoints(
@@ -629,8 +733,9 @@ def main() -> int:
                     )
                     for end in endings
                 )
-                # A nonterminating/cutoff search is CENSORED, not a failure
-                # of the initial accepted electron-flow action.
+                # Preserve detailed continuation status separately. In the v4
+                # full-budget objective, no terminal exact endpoint means R=0;
+                # short-H groups never contribute actor gradients.
                 no_op = bool(
                     endings and not endpoint_hit and any(
                         contains_unchanged_target(e.state, anchor.target)
@@ -639,18 +744,20 @@ def main() -> int:
                 )
                 wrong_terminal = bool(
                     endings and not endpoint_hit and not continuation.censored
-                    and not no_op and not reference_hit
+                    and not no_op
                 )
                 outcome = VerifiedOutcome(
                     executed=child is not None,
                     endpoint_exact=bool(endpoint_hit),
                     reference_successor=reference_hit,
                     wrong_terminal=wrong_terminal,
-                    target_retained_noop=no_op and not reference_hit,
+                    target_retained_noop=no_op,
                     exhausted=bool(child is not None and continuation.censored),
                 )
                 outcomes.append(outcome)
-                stats["censored_successor_classes"] += int(outcome.unresolved)
+                actor_outcome = (replace(outcome, reference_successor=False)
+                                 if args.actor_reward == "endpoint" else outcome)
+                stats["censored_successor_classes"] += int(actor_outcome.unresolved)
                 stats["wrong_terminal_classes"] += int(wrong_terminal)
                 group_rows.append({
                     "representative": group.representative_index,
@@ -664,11 +771,25 @@ def main() -> int:
                     "endpoint_exact": endpoint_hit,
                     "reference_successor": reference_hit,
                     "wrong_terminal": wrong_terminal,
-                    "censored": outcome.unresolved,
+                    "censored": actor_outcome.unresolved,
                     "continued_terminals": len(endings),
                     "continuation_calls": continuation.attempted,
                 })
-            adv = successor_group_advantages(outcomes)
+            draw_returns = [0.0] * len(candidates)
+            for group, outcome in zip(groups, outcomes, strict=True):
+                for member in group.member_indices:
+                    draw_returns[member] = float(outcome.endpoint_exact)
+            if conditional:
+                # No selective dropping of unfinished short-H draws. Either
+                # the whole group was independently scheduled for full return
+                # observation, or its actor term is identically zero.
+                adv = (tuple(leave_one_out_advantages(draw_returns).tolist())
+                       if full_requested else (0.0,) * len(draw_returns))
+                if full_requested:
+                    stats["endpoint_reward_draws"] += sum(draw_returns)
+            else:
+                adv = successor_group_advantages(
+                    outcomes, endpoint_only=args.actor_reward == "endpoint")
             supported_contrast = any(abs(v) > 1e-12 for v in adv)
             endpoint_positive = sum(o.endpoint_exact for o in outcomes)
             if supported_contrast and train_from_policy:
@@ -690,26 +811,9 @@ def main() -> int:
                 round_status["total"] += 1
                 round_status["effective"] += int(supported_contrast)
                 round_status["productive"] += int(any(o.positive for o in outcomes))
+                round_status["endpoint"] += int(endpoint_positive > 0 and full_requested)
             else:
                 stats["conditional_endpoint_positive_classes"] += endpoint_positive
-            # Single graph forward shared across all grouped action alternatives.
-            world.policy.train()
-            world.policy.graph_encoder.eval()
-            graph = build_grounded_graph(anchor.state, None)
-            inventory = MechETGroundedInventory(anchor.state)
-            nodes, pooled = world.policy.graph_encoder(graph)
-            context = world.policy.direction_context(
-                pooled, "retrosynthetic_inverse"
-            )
-            prefix = torch.tanh(world.policy.prefix_init(context))
-            logps = [
-                grounded_event_log_probability(
-                    world.policy, graph, inventory,
-                    tuple(GroundedMove.from_raw(v) for v in candidate.moves),
-                    nodes, context, prefix,
-                )
-                for candidate in candidates
-            ]
             reference_nll = (
                 teacher_forced_from_tokens(
                     world.policy, graph, inventory, gold_moves,
@@ -725,10 +829,16 @@ def main() -> int:
                     "reason": "all-negative/censored and no safe gold map alignment",
                 })
                 continue
-            loss = successor_class_policy_loss(
-                logps, [group.member_indices for group in groups],
-                adv, reference_nll, reference_weight=args.reference_weight,
-            )
+            if conditional:
+                loss = conditional_endpoint_policy_loss(
+                    logps, draw_indices, draw_returns, temperature=args.temperature,
+                    actor_enabled=full_requested)
+                if reference_nll is not None:
+                    loss = loss + args.reference_weight * reference_nll
+            else:
+                loss = successor_class_policy_loss(
+                    logps, [group.member_indices for group in groups],
+                    adv, reference_nll, reference_weight=args.reference_weight)
             slate_kl = loss.new_zeros(())
             if args.slate_kl_weight:
                 with torch.no_grad():
@@ -744,13 +854,18 @@ def main() -> int:
                             tuple(GroundedMove.from_raw(v) for v in candidate.moves),
                             nodes.detach(), old_context, old_prefix,
                         )
-                        for candidate in candidates
+                        for candidate in support
                     ]
-                slate_kl = truncated_slate_reference_kl(logps, original_logps)
+                # Exact conditional KL over the WHOLE support, not only draws.
+                slate_kl = truncated_slate_reference_kl(
+                    [p / args.temperature for p in logps],
+                    [p / args.temperature for p in original_logps])
                 loss = loss + args.slate_kl_weight * slate_kl
             optimizer.zero_grad(set_to_none=True)
+            if not torch.isfinite(loss).all():
+                raise FloatingPointError("nonfinite conditional endpoint/replay objective")
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(parameters, 1.0)
+            torch.nn.utils.clip_grad_norm_(parameters, 1.0, error_if_nonfinite=True)
             optimizer.step()
             stats["slate_kl_total"] += float(slate_kl.detach().item())
             stats["optimizer_updates"] += 1
@@ -763,7 +878,13 @@ def main() -> int:
                 "anchor_index": choice.decision_index,
                 "horizon": horizon.current, "full_product": choice.full_product,
                 "groups": group_rows,
-                "group_advantages": list(adv),
+                "group_advantages": list(adv) if not conditional else None,
+                "draw_advantages": list(adv) if conditional else None,
+                "draw_indices": list(draw_indices),
+                "draw_endpoint_returns": draw_returns,
+                "support_size": len(support),
+                "sampling": "iid_with_replacement" if conditional else "legacy_gumbel_without_replacement",
+                "actor_return_observed_to_full_budget": full_requested,
                 "effective_rl_group": supported_contrast,
                 "safe_reference_alignment": gold_moves is not None,
                 "slate_kl": float(slate_kl.detach().item()),
@@ -787,6 +908,7 @@ def main() -> int:
                     total_groups=round_status["total"],
                     effective_groups=round_status["effective"],
                     productive_groups=round_status["productive"],
+                    endpoint_groups=round_status["endpoint"],
                 )
                 stats["curriculum_promotions"] += int(promoted)
                 audit.append({
@@ -796,9 +918,13 @@ def main() -> int:
                     "promoted": promoted,
                     "round_groups": dict(round_status),
                 })
-                round_status = {"total": 0, "effective": 0, "productive": 0}
+                round_status = {"total": 0, "effective": 0, "productive": 0, "endpoint": 0}
             if not abort and (index + 1) % args.save_every == 0:
                 save(index + 1)
+            print(json.dumps({"stage": "graph-earho", "processed": stats["processed"],
+                              "requested": args.rl_updates, "horizon": horizon.current,
+                              "endpoint_positive_classes": stats["on_policy_endpoint_positive_classes"],
+                              "optimizer_updates": stats["optimizer_updates"]}), flush=True)
     save(args.rl_updates)
     if stats["optimizer_updates"] == 0:
         raise RuntimeError(
@@ -807,6 +933,15 @@ def main() -> int:
         )
     head_path = args.output / "graph_earho_policy_head.pt"
     tmp = head_path.with_suffix(".pt.tmp")
+    controller = {
+        "dtype": args.dtype, "no_4bit": args.no_4bit,
+        "tool_route": args.tool_route, "greedy_import_decode": "single_generate_to_eos_v2",
+        "compact_history": args.compact_history,
+        "graph_initial_budget": args.graph_initial_budget,
+        "graph_flow_topk": args.graph_flow_topk,
+        "max_import_tokens": args.max_import_tokens, "max_context": args.max_context,
+        "max_decisions": args.max_decisions, "max_imports": args.max_imports,
+    }
     torch.save({
         "policy_head": {
             key: value.detach().cpu().clone()
@@ -817,11 +952,11 @@ def main() -> int:
         "qwen_frozen": True,
         "algorithm": manifest["algorithm"],
         "source_sha256": args.source_sha256,
+        "controller": controller,
     }, tmp)
     os.replace(tmp, head_path)
-    with (args.output / "training_groups.jsonl").open("w") as stream:
-        for item in audit:
-            stream.write(json.dumps(item, sort_keys=True) + "\n")
+    audit.close()
+    episodes.close()
     summary = {
         "algorithm": manifest["algorithm"],
         "source_sha256": args.source_sha256,
@@ -829,10 +964,13 @@ def main() -> int:
         "graph_pretrained_sha256": runtime.graph.sha256,
         "graph_earho_head_sha256": file_sha256(head_path),
         "stats": stats,
+        "controller": controller,
+        "processed_roots": stats["processed"],
         "promoted_horizon": horizon.current,
         "resumed_root_index": cursor,
         "has_on_policy_endpoint_reward_support": (
-            stats["on_policy_endpoint_positive_classes"] > 0
+            stats["endpoint_reward_draws"] > 0 if args.policy_objective == "conditional_endpoint"
+            else stats["on_policy_endpoint_positive_classes"] > 0
         ),
         "has_graph_successor_class_gradient": stats["effective_rl_groups"] > 0,
         "note": (
@@ -844,6 +982,8 @@ def main() -> int:
             "evidence. Match product-start validation against frozen graph."
         ),
         "locked_test_accessed": False,
+        "objective_scope": "fixed-support local frontier endpoint value with a frozen K1 follower",
+        "full_product_trajectory_log": "autonomous_train_episodes.jsonl",
     }
     (args.output / "train_report.json").write_text(
         json.dumps(summary, indent=2) + "\n"

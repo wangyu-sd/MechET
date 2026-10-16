@@ -37,6 +37,26 @@ def entry(case):
 
 
 class ResumeTests(unittest.TestCase):
+    def test_independent_shards_keep_their_own_manifest_and_tail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "run"
+            frozen = manifest(ids=("b",))
+            frozen["policy"] = "crn_jepa_qwen_routed_flow_singlepass_import_v2"
+            kwargs = dict(manifest=frozen, selected_ids=("b",),
+                          manifest_name="run_manifest.shard-01-of-02.json",
+                          results_name="results.shard-01-of-02.jsonl")
+            resume.prepare_resume(target, **kwargs)
+            (target / "other-shard.txt").write_text("preserve")
+            saved = entry("b")
+            saved["policy"] = frozen["policy"]
+            raw = (json.dumps(saved) + "\n").encode()
+            result_path = target / kwargs["results_name"]
+            result_path.write_bytes(raw + b'{"id":')
+            restored = resume.prepare_resume(target, resume=True, **kwargs)
+            self.assertEqual([row["id"] for row in restored], ["b"])
+            self.assertEqual(result_path.read_bytes(), raw)
+            self.assertEqual((target / "other-shard.txt").read_text(), "preserve")
+
     def test_fresh_resume_and_completed_id_prefix(self):
         with tempfile.TemporaryDirectory() as tmp:
             target = Path(tmp) / "run"
