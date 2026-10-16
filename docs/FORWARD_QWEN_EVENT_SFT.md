@@ -28,6 +28,25 @@ current product mixture. Recorded self-loops supervise termination. Reference
 replay must match the recorded next state including maps. Any unresolved row
 keeps the complete artifact training-disabled, rather than being dropped.
 
+### October 16 processing corrections
+
+Raw records are grouped by trajectory ID across the entire source file, not
+by adjacent runs: validation alone contains 17 interleaved IDs. A byte-range
+index preserves every repeated row, first-occurrence reaction order, and
+within-reaction export order without retaining the multi-GB training text.
+The export order is not execution order. Histories follow one deterministic
+recorded root-to-state graph path, never a concatenation of alternative
+branches. `history_decision_indices` retains provenance; unrooted states are
+reported as errors rather than silently relabelled as initial states.
+
+Before generating temporary aliases, both training and forward execution
+canonicalize the **current private mapped graph** with explicit hydrogen
+nodes retained. This prevents identical reagent copies from swapping private
+identities after an executor SMILES round-trip. It uses no future state or
+target to normalize the input. Shared inverse serialization is unchanged.
+
+See [the repair and requested smoke record](results/FORWARD_DATA_REPAIR_SMOKE_20261016.md).
+
 ## Model and retention
 
 Pinned original Qwen3-0.6B base, new LoRA r16/alpha32 on attention projections,

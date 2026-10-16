@@ -17,7 +17,7 @@ from rdkit import Chem
 from .forward_expert import verify_electron_step
 from .mech_graph import parse_flower_line
 from .natural_language_electron_flow import build_inventory, compile_event_arguments, render_event_arguments
-from .proof_program import ProofEdge, _get_be_delta, sides_equal
+from .proof_program import ProofEdge, _canonical_mapped, _get_be_delta, sides_equal
 from .proof_to_trace import infer_moves_from_edge
 
 SYSTEM = (
@@ -63,7 +63,7 @@ def forward_tools() -> list[dict[str, Any]]:
 
 
 def forward_prompt(mapped_state: str, history: Sequence[Mapping[str, Any]] = ()) -> str:
-    inventory = build_inventory(mapped_state)
+    inventory = build_inventory(_canonical_mapped(mapped_state))
     text = 'CURRENT MIXTURE: ' + inventory.visible_smiles + '\n' + inventory.prompt
     if history:
         text += ('\nACCEPTED FORWARD HISTORY (temporary names belong to their own past states):\n'
@@ -72,6 +72,10 @@ def forward_prompt(mapped_state: str, history: Sequence[Mapping[str, Any]] = ())
 
 
 def execute_forward_call(state: str, name: str, arguments: Mapping[str, Any]) -> dict[str, Any]:
+    # Canonicalize the private mapped graph BEFORE deriving mapless aliases.
+    # Otherwise interchangeable reagent copies can swap aliases after replay.
+    # No future state or target participates in this normalization.
+    state = _canonical_mapped(state)
     if name == 'finish_forward':
         if arguments:
             raise ValueError('finish_forward takes no arguments')
@@ -88,6 +92,7 @@ def build_transition_row(line: str, *, reaction_id: str, decision_index: int,
     if parsed is None:
         raise ValueError('malformed FlowER transition')
     source, destination, trajectory_id = parsed
+    source, destination = _canonical_mapped(source), _canonical_mapped(destination)
     # Same atom-map namespace, not mapless equality: preserve the actual pairing.
     terminal = sides_equal(source, destination, ignore_maps=False)
     if terminal:
@@ -128,6 +133,7 @@ def build_transition_row(line: str, *, reaction_id: str, decision_index: int,
             'executor_replayed': True, 'final_product_model_visible': False,
             'source_explicit_hydrogens_retained': True,
             'history_contract': 'recorded_forward_path_actions_v1',
+            'forward_state_normalization': 'canonical_private_mapped_before_alias_v1',
             'be_delta_fallback': bool(arguments.get('bond_order_changes') or arguments.get('charge_changes')),
         },
     }

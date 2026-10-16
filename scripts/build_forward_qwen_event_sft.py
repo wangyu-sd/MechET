@@ -8,7 +8,7 @@ never policy inputs. Existing inverse artifacts are read-only eligibility lists.
 from __future__ import annotations
 
 import argparse
-from collections import deque
+from collections import defaultdict, deque
 from concurrent.futures import ProcessPoolExecutor
 import copy
 import hashlib
@@ -25,7 +25,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / 'src'))
 sys.path.insert(0, str(REPO))
-from mechet.forward_qwen_events import build_transition_row
+from mechet.forward_qwen_events import build_transition_row, forward_prompt
 from mechet.mech_graph import parse_flower_line
 from mechet.proof_program import _canonical_mapped
 
@@ -42,7 +42,10 @@ def sha256(path: Path) -> str:
 
 def convert_group(task: tuple[str, list[str]]) -> dict[str, Any]:
     reaction_id, lines = task
-    rows, errors, histories = [], [], {}
+    rows, errors = [], []
+    edges, incoming = defaultdict(list), set()
+    states = {}
+    converted = []
     terminal_rows = 0
     for index, line in enumerate(lines):
         try:
@@ -51,43 +54,83 @@ def convert_group(task: tuple[str, list[str]]) -> dict[str, Any]:
                 raise ValueError('invalid source transition')
             before, after, _ = parsed
             key = _canonical_mapped(before)
-            history = histories.get(key, [])
+            next_key = _canonical_mapped(after)
             row = build_transition_row(line, reaction_id=reaction_id,
-                                       decision_index=index, history=history)
+                                       decision_index=index)
             function = row['messages'][2]['tool_calls'][0]['function']
+            states.setdefault(key, before)
+            states.setdefault(next_key, after)
             if function['name'] == 'finish_forward':
                 terminal_rows += 1
             else:
-                # First recorded valid path to a join is sufficient context.
-                # Do not append unrelated alternative branches as history.
-                histories.setdefault(_canonical_mapped(after), history + [function])
+                edges[key].append((next_key, index, function))
+                incoming.add(next_key)
+            converted.append((index, key, before, row))
             rows.append(row)
         except Exception as exc:
             errors.append({'reaction_id': reaction_id, 'decision_index': index,
                            'error': str(exc), 'source_line': line.strip()})
+    # Export order is not a topological order. Build one deterministic recorded
+    # root-to-state path before rendering histories; never concatenate branches.
+    histories = {key: ([], []) for key in states if key not in incoming}
+    queue = deque(histories)
+    while queue:
+        key = queue.popleft()
+        history, indices = histories[key]
+        for next_key, index, function in edges[key]:
+            if next_key not in histories:
+                histories[next_key] = (history + [function], indices + [index])
+                queue.append(next_key)
+    for index, key, before, row in converted:
+        if key not in histories:
+            errors.append({'reaction_id': reaction_id, 'decision_index': index,
+                           'error': 'UNROOTED_RECORDED_FORWARD_STATE',
+                           'source_line': lines[index].strip()})
+            continue
+        history, indices = histories[key]
+        row['messages'][1]['content'] = forward_prompt(before, history)
+        row['metadata']['history_decision_indices'] = indices
+        row['metadata']['history_contract'] = 'recorded_forward_graph_path_actions_v2'
     if not terminal_rows:
         errors.append({'reaction_id': reaction_id, 'error': 'MISSING_RECORDED_TERMINAL'})
     return {'rows': rows, 'errors': errors, 'terminal_rows': terminal_rows}
 
 
 def source_groups(path: Path):
-    seen, group, current = set(), [], None
-    with path.open() as handle:
-        for number, line in enumerate(handle, 1):
+    """Group by reaction ID, not by adjacent runs in the original export.
+
+    FlowER may interleave alternative paths of one reaction with other IDs.
+    Index byte ranges rather than retaining the multi-GB training file in RAM.
+    Both first-seen reaction order and every within-reaction row are preserved.
+    """
+    ranges: dict[str, list[tuple[int, int]]] = {}
+    offset, current = 0, None
+    heartbeat = time.monotonic()
+    with path.open('rb') as handle:
+        for number, encoded in enumerate(handle, 1):
+            line = encoded.decode('utf-8')
             parsed = parse_flower_line(line)
             if parsed is None:
                 raise ValueError(f'malformed source row {path}:{number}')
             trajectory_id = parsed[2]
-            if current is not None and trajectory_id != current:
-                seen.add(current)
-                yield current, group
-                if trajectory_id in seen:
-                    raise ValueError(f'non-contiguous source trajectory {trajectory_id}')
-                group = []
+            end = offset + len(encoded)
+            blocks = ranges.setdefault(trajectory_id, [])
+            if trajectory_id == current:
+                blocks[-1] = (blocks[-1][0], end)
+            else:
+                blocks.append((offset, end))
             current = trajectory_id
-            group.append(line)
-    if current is not None:
-        yield current, group
+            offset = end
+            if time.monotonic() - heartbeat >= 45:
+                print({'phase': 'forward-source-index', 'source': str(path),
+                       'rows': number, 'reactions': len(ranges), 'bytes': offset}, flush=True)
+                heartbeat = time.monotonic()
+        for trajectory_id, blocks in ranges.items():
+            group = []
+            for start, end in blocks:
+                handle.seek(start)
+                group.extend(handle.read(end - start).decode('utf-8').splitlines(keepends=True))
+            yield trajectory_id, group
 
 
 def eligibility(proof_file: Path, expected: int) -> dict[str, str]:
@@ -109,7 +152,7 @@ def build_split(raw: Path, proof_file: Path, output: Path, expected: int, worker
     print({'phase': 'forward-build', 'source': str(raw), 'eligible_reactions': len(ids),
            'cpu_workers': workers}, flush=True)
     pending, covered, excluded = deque(), set(), []
-    rows = failures = terminals = completed = 0
+    rows = failures = terminals = completed = source_rows = 0
     started = time.monotonic()
     output.parent.mkdir(parents=True, exist_ok=True)
     # Never append to a partial build: reconstruct the artifact deterministically.
@@ -139,12 +182,15 @@ def build_split(raw: Path, proof_file: Path, output: Path, expected: int, worker
                     excluded.append({'trajectory_id': trajectory_id, 'transitions': len(lines)})
                     continue
                 pending.append((trajectory_id, pool.submit(convert_group, (ids[trajectory_id], lines))))
+                source_rows += len(lines)
                 if len(pending) >= workers * 2:
                     consume()
             while pending:
                 consume()
     missing = sorted(set(ids) - covered)
-    return {'file': str(output), 'rows': rows, 'reactions': len(covered), 'terminal_rows': terminals,
+    return {'file': str(output), 'rows': rows, 'source_rows': source_rows,
+            'source_rows_preserved': rows == source_rows,
+            'reactions': len(covered), 'terminal_rows': terminals,
             'errors': failures, 'missing_reaction_ids': missing, 'excluded_source_groups': excluded,
             'source_path': str(raw), 'source_sha256': sha256(raw),
             'eligibility_path': str(proof_file), 'eligibility_sha256': sha256(proof_file),
@@ -189,7 +235,8 @@ def main() -> int:
                   'length_filtering': False, 'overlap_filtering': False, 'dedup_filtering': False,
                   'training_allowed': False}
         (args.output_dir / 'build_progress.json').write_text(json.dumps(report, indent=2))
-        if splits[split]['errors'] or splits[split]['missing_reaction_ids'] or splits[split]['reactions'] != EXPECTED[split]:
+        if (splits[split]['errors'] or splits[split]['missing_reaction_ids']
+                or not splits[split]['source_rows_preserved'] or splits[split]['reactions'] != EXPECTED[split]):
             raise ValueError(f'full forward split failed: inspect {args.output_dir}/build_progress.json')
     report.update(training_allowed=True, status='validated_complete')
     (args.output_dir / 'manifest.json').write_text(json.dumps(report, indent=2))
