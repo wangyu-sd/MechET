@@ -1,5 +1,6 @@
 # Existing reverse-electron-flow trees: measured evidence
 
+Delivered in code [PR #87](https://github.com/wangyu-sd/MechET/pull/87).
 Implements code [PR #86](https://github.com/wangyu-sd/MechET/pull/86), separately
 from the operational progress already uploaded in
 [PR #84](https://github.com/wangyu-sd/MechET/pull/84). No new model sampling,

@@ -45,6 +45,7 @@ Cabozantinib structural-pair precedent.
 - Source/asset publication is a new code PR stacked on PR #84's exact
   `d77cf1584520dc2bb26dc409c12a59266eeb8a02` base. It does not merge PR #84/86,
   modify the manuscript or include unrelated dirty operational notes.
+  Published as [code PR #87](https://github.com/wangyu-sd/MechET/pull/87).
 
 ## Reproducible software verification
 
@@ -70,3 +71,11 @@ copy of each source manifest preserves its original bytes; hashes refer to the
 decompressed JSON, not the gzip envelope. Original data are retained unchanged
 outside Git. Preview filenames, source IDs and absolute raw paths remain in the
 published manifests so publication does not depend on an unsaved conversation.
+
+Final isolated-tree publication audit verified the bytes of all 69 declared
+figure files, all eight sealed delivery metadata files, and both compressed
+source-manifest round trips. The initial published commit was `e78a9b8` and its
+exact head was verified through GitHub. A later documentation-only commit closes
+the execution ledger; it does not alter model outputs or tested implementation.
+Generated SVG whitespace and standard CSV CRLF are preserved to retain artifact
+hash identity; the source/documentation whitespace check passed.
