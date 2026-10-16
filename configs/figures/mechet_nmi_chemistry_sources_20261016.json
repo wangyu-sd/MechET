@@ -1,0 +1,31 @@
+{
+  "schema": "nmi_complete_reaction_source_registry_v1",
+  "review_date": "2026-10-16",
+  "records": [
+    {
+      "run_id": "r1_r2_frozen_06b_shared_mcts_20261014_07",
+      "target_id": "ursa_drugs100:Cabozantinib S-malate",
+      "product": "COc1cc2nccc(Oc3ccc(NC(=O)C4(C(=O)Nc5ccc(F)cc5)CC4)cc3)c2cc1OC",
+      "structural_precursors": ["COc1cc2nccc(Oc3ccc(N)cc3)c2cc1OC", "O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1"],
+      "tier": "A",
+      "evidence_status": "verified",
+      "review_method": "assistant source review of explicit named structures and preparative procedure; automated stereo-canonical binding to generated complete pair",
+      "source_type": "patent",
+      "patent_id": "US20160022662A1",
+      "DOI": null,
+      "source_url": "https://patents.google.com/patent/US20160022662A1/en",
+      "source_reaction_locator": "Description: preparation of cabozantinib free base, after preparation of 1-(4-fluoro-phenylcarbamoyl)-cyclopropanecarbonyl chloride",
+      "retrieval_query": "cabozantinib free base acid chloride quinoline phenylamine preparation",
+      "product_match": true,
+      "precursor_match": true,
+      "stereo_match": true,
+      "matched_atoms": null,
+      "mapping_identity": "same named constitutional structures; no external atom-by-atom mechanism mapping provided",
+      "source_overlap": "unknown",
+      "conditions_match": false,
+      "source_conditions": "K2CO3, THF/water, 20–30 C",
+      "scope": "complete structural amide-coupling pair only; not the actor auxiliary mixture, proton-transfer sequence, downstream salt formation or entire stock route",
+      "unverified_neighboring_route_step": "The cited acid-to-acid-chloride preparation uses oxalyl chloride, not the model route's thionyl chloride; it does not establish that full second model-generated reaction."
+    }
+  ]
+}
