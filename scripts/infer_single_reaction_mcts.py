@@ -13,6 +13,7 @@ from scripts.infer_dynamic_electron_trees import ADAPTER_SHA,REVISION,sha256,dum
 from scripts.single_reaction_mcts import SingleReactionMCTS
 from scripts.mcts_runtime_io import FastSingleReactionMCTSStore,DurablePolicyWriter
 from scripts.rolling_vllm_search import ContinuousBatchEngine
+from scripts.vllm_safe_lora_expand import install_safe_lora_expand
 from scripts.run_natural_language_value_search import policy_prompt
 from scripts.build_natural_language_event_sft import SYSTEM,TOOLS
 from scripts.eval_natural_language_event_local import prediction_call
@@ -94,10 +95,14 @@ def main():
     from vllm import LLM,SamplingParams
     from vllm.lora.request import LoRARequest
     if vllm.__version__.split('+')[0]!='0.8.5':raise ValueError('pinned vLLM0.8.5 required')
+    # Install BEFORE profiling: replacing this after initialization would leave
+    # warm-up using the faulty kernel and hide runtime provenance from receipts.
+    lora_runtime=install_safe_lora_expand(vllm.__version__)
+    print({'phase':'LoRA-expand-runtime','rank':args.rank,**lora_runtime},flush=True)
     engine=LLM(model='Qwen/Qwen3-0.6B',revision=REVISION,tokenizer='Qwen/Qwen3-0.6B',
         trust_remote_code=True,dtype='bfloat16',tensor_parallel_size=1,gpu_memory_utilization=.82,
         max_model_len=args.max_model_len,max_num_seqs=256,enable_prefix_caching=True,enable_lora=True,
-        max_lora_rank=16,enforce_eager=True,num_scheduler_steps=1,seed=args.seed+args.rank)
+        max_lora_rank=16,max_loras=1,enforce_eager=True,num_scheduler_steps=1,seed=args.seed+args.rank)
     forwards=ForwardCallCounter(engine);tokenizer=engine.get_tokenizer()
     process=psutil.Process();guard=HostMemoryGuard(world=args.world,initial_rss=process.memory_info().rss,available=available_host_memory())
     cache=SharedSearchStore(args.shared_cache,policy_cache_contract())
@@ -115,6 +120,9 @@ def main():
         'evaluation_unit':'single_reaction_endpoint','source_protocol':'frozen_rxn_prod_min_proxy_DIAGNOSTIC',
         'code_sha':os.environ.get('MECHET_TREE_CODE_SHA','not_supplied'),
         'history_contract':lineage['environment_revision'],'shared_cache_namespace':cache.namespace,
+        'lora_expand_runtime':lora_runtime,
+        'runtime_continuation_contract':'same_unmerged_weights; historical_policy_receipts_retained; '
+            'new_GPU_expand_implementation_not_bitwise_identical',
         'shared_cache_path':str(cache.root),'mcts_shared_root':str(planning.root),'program_goal':args.program_goal,
         'reward_contract':'productive_strict_finish_v1_NOT_gold_endpoint_correctness',
         'reference_visible_to_policy':False,'ranking':'unwarped_assistant_mean_NLL',
@@ -248,6 +256,7 @@ def main():
         rid,result=done;identifier,request,lease=gpu.pop(rid)
         try:
             record=decode_request(result,tokenizer)
+            record['generation_runtime']=lora_runtime
             writer.submit(identifier,request,record,lease=lease)
         except BaseException:
             lease.close();raise

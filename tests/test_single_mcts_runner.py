@@ -72,6 +72,18 @@ def cpu_single_mcts_runner(tmp_path, monkeypatch):
                         lambda tokenizer, messages, tools: json.dumps(messages, sort_keys=True))
     imported = '<tool_call>{"name":"import_fragments","arguments":{"fragments":[{"smiles":"[Cl-]","count":1,"purpose":"electron_participant"}]}}</tool_call>'
     finished = '<tool_call>{"name":"finish_trace","arguments":{}}</tool_call>'
+    installed = {'value': False}
+
+    def install_kernel(version):
+        # The fake GPU has no actual Punica module. Numerical and real module
+        # installation are covered separately; here check runner ordering.
+        assert version == '0.8.5'
+        installed['value'] = True
+        return {'kernel': 'torch_single_adapter_expand_v1', 'vllm': version,
+                'weight_merge': False, 'bitwise_equivalence_claimed': False,
+                'multiple_adapters_supported': False}
+
+    monkeypatch.setattr(runner, 'install_safe_lora_expand', install_kernel, raising=False)
 
     class Params:
         def __init__(self, **kwargs):
@@ -81,6 +93,7 @@ def cpu_single_mcts_runner(tmp_path, monkeypatch):
         calls = 0
 
         def __init__(self, **kwargs):
+            assert installed['value'], 'kernel must be installed before GPU profiling'
             self.llm_engine = self
             self.active = {}
             self.request_count = 0
@@ -137,6 +150,7 @@ def test_real_rolling_runner_keeps_raw_journal_and_reuses_cache(cpu_single_mcts_
         sealed = json.loads((root / 'complete.json').read_text())
         assert len(sealed['rows']) == 1 and sealed['search_complete']
         assert sealed['manifest']['policy_persistence'] == 'bounded_async_commit_before_execute_v1'
+        assert sealed['manifest']['lora_expand_runtime']['kernel'] == 'torch_single_adapter_expand_v1'
         progress = json.loads((root / 'progress.json').read_text())
         assert progress['policy_persistence']['pending_batches'] == 0
         assert progress['rollout_liveness']['local_checks'] > 0
@@ -147,6 +161,7 @@ def test_real_rolling_runner_keeps_raw_journal_and_reuses_cache(cpu_single_mcts_
         assert all(len(row['generations']) == 16 for row in raw)
         assert {tuple(row['generations'][0]['token_ids']) for row in raw} == {(11, 12), (21, 22)}
         assert all(g['logprob'] == -1. for row in raw for g in row['generations'])
+        assert all(row['generation_runtime']['kernel'] == 'torch_single_adapter_expand_v1' for row in raw)
         prompts = [json.loads(line) for line in (root / 'policy_contexts.jsonl').read_text().splitlines()]
         assert len(prompts) == 2 and all(row['token_ids'] for row in prompts)
         manifest = json.loads((root / 'manifest.json').read_text())
