@@ -1,0 +1,32 @@
+{
+  "checked_at": "2026-10-16T16:35:20.778850+08:00",
+  "tasks": [
+    {
+      "line": "r1r2",
+      "task": "meteor_mechet_r1_r2_full460_shared_mcts_8a100_qy_20261014_07",
+      "instance": "8b1d89c4a13ad33601a13aee1c0b0052",
+      "state": "TRAINING_RUNNING",
+      "message": "MPIJob ai4lslab-kemo-qy-a100-qingyuan-1/ts-8b1d89c4a13ad33601a13aee1c0b0052 is running.",
+      "created": "2026-10-14 23:00:46",
+      "last_modify": "2026-10-14 23:00:57"
+    },
+    {
+      "line": "mech31k",
+      "task": "meteor_mechet_uspto31k_mcts_ray_resume_8a100_qy_20261016_04",
+      "instance": "8b1d89f5a13f013001a143290e8a0a56",
+      "state": "RESOURCE_WAIT_TRANSITION",
+      "message": "底层资源不足，请稍侯重试或排队等待。",
+      "created": "2026-10-16 13:22:07",
+      "last_modify": "2026-10-16 16:35:19"
+    },
+    {
+      "line": "forward",
+      "task": "meteor_mechet_forward_event_06b_2ep_4h20_zjk_20261016_01",
+      "instance": "8b1d8921a13fde2a01a143c120e408c3",
+      "state": "TRAINING_RUNNING",
+      "message": "MPIJob ai4lslab-kemo-zjk-h20-beijing-1/ts-8b1d8921a13fde2a01a143c120e408c3 is running.",
+      "created": "2026-10-16 16:08:13",
+      "last_modify": "2026-10-16 16:09:43"
+    }
+  ]
+}

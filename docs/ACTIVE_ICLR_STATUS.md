@@ -1,5 +1,16 @@
 # Active ICLR status
 
+> **2026-10-16 16:35 CST three-line progress upload.**
+> R1/R2 actual8A100 task_07 RUNNING:170/460finished(36.96%),169nonzero
+> stock-connected +1already-stock,290pending; cohorts18/41/90/20, full greedy
+> baseline1/15/17/3. Stock closure is not independent chemistry/equal-work gain.
+>31k_04 still resource-waiting/transition (no new output); old_03 preserves
+>1711/3120reports,1409pending; Top1/5/10hits32/72/79 on finished cases only,
+> frozen min-proxy DIAGNOSTIC, ten TOTAL trajectory-attempt budget unchanged.
+> Forward4H20 RUNNING:valid2890/21723 and test28967/216568 complete0errors;
+> train257167 conversion active, optimizer/checkpoint not yet started.
+> Source-bound report: `docs/results/EXPERIMENT_PROGRESS_20261016.md`.
+
 > **2026-10-14 08:33 CST old min-proxy greedy condition completed:** all3120
 > unique IDs/8 sealed shards,139 endpoint hits(4.46%),2294 terminal cases(73.53%),
 >1885971 decoded tokens/16996 raw decisions. Terminal coverage is NOT chemical
