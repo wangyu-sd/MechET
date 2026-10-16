@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 # Remote complete data conversion, tokenizer audit, then an isolated forward LoRA.
 set -Eeuo pipefail
+world_size=${MECHET_FORWARD_WORLD_SIZE:-8}
+if [[ ! "$world_size" =~ ^[1-9][0-9]*$ ]]; then
+  echo 'MECHET_FORWARD_WORLD_SIZE must be a positive integer' >&2
+  exit 2
+fi
+export MECHET_FORWARD_WORLD_SIZE=$world_size
 shared_repo=/aaa/fionafyang/buddy1/whaleywang/MechET
 source_repo=/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy
 : "${MECHET_FORWARD_RUNTIME_SHA:?require immutable runtime commit}"
@@ -28,10 +34,11 @@ export HF_HUB_CACHE=$local_hf
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 cd "$runtime_repo"
-config_template=$runtime_repo/configs/agent/forward_event_flowER_qwen3_0_6b_h20_20261013.yaml
-data_dir=$shared_repo/data/flower_forward_qwen_event_v1_20261013
+config_template=$runtime_repo/${MECHET_FORWARD_CONFIG_TEMPLATE_REL:-configs/agent/forward_event_flowER_qwen3_0_6b_h20_20261013.yaml}
+data_dir=${MECHET_FORWARD_DATA_DIR:-$shared_repo/data/flower_forward_qwen_event_v1_20261013}
 rendered_config=$data_dir/training_config.yaml
 export MECHET_FORWARD_CONFIG_TEMPLATE=$config_template
+export MECHET_FORWARD_DATA_DIR=$data_dir
 python - <<'PY'
 import os, rdkit, torch, yaml
 from pathlib import Path
@@ -41,11 +48,20 @@ contract = cfg['contract']
 check_adapter_isolation(Path(contract['protected_reverse_adapter']), Path(cfg['output_dir']), contract['protected_reverse_weights_sha256'])
 assert not cfg.get('initial_adapter_path')
 assert not Path(cfg['output_dir'], 'adapter_model.safetensors').exists(), 'forward adapter already exists'
+world_size = int(os.environ['MECHET_FORWARD_WORLD_SIZE'])
 names = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
-assert len(names) == 8 and all('H20' in n.upper() for n in names), names
+assert len(names) == world_size and all('H20' in n.upper() for n in names), names
+assert cfg['pretokenization_world_size'] == world_size
+training = cfg['training']
+global_batch = world_size * training['per_device_train_batch_size'] * training['gradient_accumulation_steps']
+assert global_batch == 64, global_batch
+data_dir = Path(os.environ['MECHET_FORWARD_DATA_DIR'])
+assert all(Path(cfg[key]).parent == data_dir for key in ['train_file', 'validation_file', 'test_file'])
+assert Path(contract['stable_id_manifest']) == data_dir / 'manifest.json'
 assert torch.cuda.is_bf16_supported()
 assert rdkit.__version__ == '2026.03.4', rdkit.__version__
-print({'phase':'forward-preflight-passed', 'gpus':names, 'protected_reverse_sha':contract['protected_reverse_weights_sha256']}, flush=True)
+print({'phase':'forward-preflight-passed', 'gpus':names, 'global_batch':global_batch,
+       'data_dir':str(data_dir), 'protected_reverse_sha':contract['protected_reverse_weights_sha256']}, flush=True)
 PY
 echo '[forward-sft] preparing all strict FlowER reactions with server CPUs'
 python -u scripts/build_forward_qwen_event_sft.py \
@@ -54,7 +70,7 @@ python -u scripts/build_forward_qwen_event_sft.py \
   --output-dir "$data_dir" --config-template "$config_template" \
   --rendered-config "$rendered_config" --workers "${MECHET_FORWARD_CPU_WORKERS:-64}"
 echo '[forward-sft] distributed full-data tokenization with explicit assistant masks'
-torchrun --standalone --nproc_per_node=8 scripts/prepare_tool_sft_arrow.py --config "$rendered_config"
+torchrun --standalone --nproc_per_node="$world_size" scripts/prepare_tool_sft_arrow.py --config "$rendered_config"
 python - "$rendered_config" <<'PY'
 import json, sys, yaml
 from pathlib import Path
@@ -66,6 +82,10 @@ for split, name in [('train','train'),('validation','valid')]:
     audit=manifest['splits'][split]
     validate_forward_token_cache(audit, dataset['splits'][name]['rows'])
     assert manifest['sources'][split]['sha256'] == dataset['splits'][name]['output_sha256']
+for split, expected in cfg['contract'].get('expected_decision_rows', {}).items():
+    assert dataset['splits'][split]['rows'] == expected, (split, dataset['splits'][split]['rows'], expected)
+for split, expected in cfg['contract'].get('raw_source_sha256', {}).items():
+    assert dataset['splits'][split]['source_sha256'] == expected, split
 print({'phase':'full-forward-token-audit-passed', 'train_rows':manifest['splits']['train']['n_rows'],
        'validation_rows':manifest['splits']['validation']['n_rows']}, flush=True)
 PY
@@ -80,7 +100,7 @@ else
   echo "[forward-sft] node disk free=$free_bytes cache=$cache_bytes; using sealed shared Arrow mmap without duplicating cache"
 fi
 echo '[forward-sft] starting TWO full epochs; global batch 64; frozen reverse branch untouched'
-torchrun --standalone --nproc_per_node=8 scripts/train_tool_sft.py --config "$rendered_config"
+torchrun --standalone --nproc_per_node="$world_size" scripts/train_tool_sft.py --config "$rendered_config"
 python - "$rendered_config" <<'PY'
 import json, sys, yaml
 from pathlib import Path

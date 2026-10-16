@@ -2,6 +2,10 @@
 
 Approved October 13, 2026: add a forward Qwen3-0.6B adapter for the
 reverse-electron-network verification workflow, on one ordinary 8-H20 server.
+On October 16 the user changed the replacement request to **four ordinary
+H20s**. The new four-rank configuration preserves two epochs and global batch64
+with per-device batch4 and accumulation4, instead of the earlier eight-rank
+accumulation2. Dataset, objectives and protected reverse branch are unchanged.
 
 ## Data and direction
 

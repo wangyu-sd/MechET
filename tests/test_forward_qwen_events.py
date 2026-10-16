@@ -1,10 +1,22 @@
 """Catch inverse labels, target leakage and unsafe forward adapter writes."""
 import json
+import os
 from pathlib import Path
+import subprocess
 
 import pytest
 
 from mechet.natural_language_electron_flow import compile_event_arguments
+
+
+@pytest.mark.parametrize('world_size', ['0', '-1', 'many'])
+def test_forward_launcher_rejects_invalid_world_size_before_bootstrap(world_size):
+    env = dict(os.environ, MECHET_FORWARD_WORLD_SIZE=world_size)
+    env.pop('MECHET_FORWARD_RUNTIME_SHA', None)
+    script = Path(__file__).resolve().parents[1] / 'scripts/run_taiji_forward_qwen_sft_h20.sh'
+    result = subprocess.run(['bash', str(script)], env=env, capture_output=True, text=True)
+    assert result.returncode == 2
+    assert 'MECHET_FORWARD_WORLD_SIZE' in result.stderr
 
 
 def test_forward_substitution_executes_from_reactants_without_target_in_prompt():
