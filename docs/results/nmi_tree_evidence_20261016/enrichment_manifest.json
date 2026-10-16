@@ -1,0 +1,138 @@
+{
+  "schema": "nmi_tree_chemistry_enrichment_v1",
+  "producer_files": {
+    "scripts/enrich_nmi_tree_evidence.py": "2c71b532caccecee2d2ca6b3a28d4eca56ca88c56b3ac7baad76fadbd1508499",
+    "src/mechet/analysis/tree_chemistry.py": "6dbdddbfc5edf710ad8f837335ef64af2873ed83232c3f92ae10f57e0116d77e",
+    "src/mechet/natural_language_electron_flow.py": "238b5b8abef15f4f410d0ca6128b0ba7e41fe7b4ec1a81ca14e430e2c8f4de26",
+    "src/mechet/proof_to_trace.py": "82199192ede849161967590db3a296c78b41a7b9083a00edb37e0846c82129a7"
+  },
+  "input_inventory_sha256": "aae0a3d7ba36e48d1e9aa5268cb22ee70c2d1a7ccd370de11f9e6baa4a4f126d",
+  "actor_exposure_manifest_sha256": "60bc0cc49cfb8a65e4ca9e98c2ac8f1e4ba42a65325046e5c4e3405370bbef4f",
+  "actor_exposure_manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/analysis/r1_r2_actual_sft_mechanism_index_20261014/manifest.json",
+  "source_training_text_rehashed": false,
+  "runs": {
+    "mech_uspto31k_full_mcts_ray_20261015_02": {
+      "targets": 47,
+      "edge_chemistry": 573,
+      "delta_available": 573,
+      "changed_bonds": 1279,
+      "ring_cycle_rank_changed_events": 9,
+      "programs": 234,
+      "complete_ordinary_actor_programs": 234,
+      "training_unseen_generated_signature": 233,
+      "planning_states": 1436
+    },
+    "mech_uspto31k_full_mcts_ray_20261016_03": {
+      "targets": 1711,
+      "edge_chemistry": 63899,
+      "delta_available": 63899,
+      "changed_bonds": 166864,
+      "ring_cycle_rank_changed_events": 4985,
+      "programs": 10479,
+      "complete_ordinary_actor_programs": 10460,
+      "training_unseen_generated_signature": 5271,
+      "planning_states": 179140
+    },
+    "mech_uspto31k_full_mcts_rolling_20261015_01": {
+      "targets": 125,
+      "edge_chemistry": 1453,
+      "delta_available": 1453,
+      "changed_bonds": 3216,
+      "ring_cycle_rank_changed_events": 34,
+      "programs": 650,
+      "complete_ordinary_actor_programs": 650,
+      "training_unseen_generated_signature": 639,
+      "planning_states": 3668
+    },
+    "mech_uspto31k_mcts_ray_migration_20261015_01": {
+      "targets": 5,
+      "edge_chemistry": 83,
+      "delta_available": 83,
+      "changed_bonds": 171,
+      "ring_cycle_rank_changed_events": 0,
+      "programs": 36,
+      "complete_ordinary_actor_programs": 36,
+      "training_unseen_generated_signature": 36,
+      "planning_states": 182
+    },
+    "mech_uspto31k_mcts_ray_migration_20261015_02": {
+      "targets": 28,
+      "edge_chemistry": 352,
+      "delta_available": 352,
+      "changed_bonds": 747,
+      "ring_cycle_rank_changed_events": 5,
+      "programs": 146,
+      "complete_ordinary_actor_programs": 146,
+      "training_unseen_generated_signature": 146,
+      "planning_states": 839
+    },
+    "mech_uspto31k_mcts_ray_migration_20261015_03": {
+      "targets": 125,
+      "edge_chemistry": 1453,
+      "delta_available": 1453,
+      "changed_bonds": 3216,
+      "ring_cycle_rank_changed_events": 34,
+      "programs": 650,
+      "complete_ordinary_actor_programs": 650,
+      "training_unseen_generated_signature": 639,
+      "planning_states": 3668
+    },
+    "r1_r2_frozen_06b_dynamic_routes_20261013": {
+      "targets": 1
+    },
+    "r1_r2_frozen_06b_dynamic_routes_20261013:greedy": {
+      "targets": 460,
+      "edge_chemistry": 4736,
+      "delta_available": 4736,
+      "changed_bonds": 12177,
+      "ring_cycle_rank_changed_events": 219,
+      "programs": 1454,
+      "complete_ordinary_actor_programs": 1454,
+      "training_unseen_generated_signature": 584
+    },
+    "r1_r2_frozen_06b_shared_mcts_20261014_07": {
+      "targets": 171,
+      "edge_chemistry": 59289,
+      "delta_available": 59289,
+      "changed_bonds": 175298,
+      "ring_cycle_rank_changed_events": 7011,
+      "programs": 7082,
+      "complete_ordinary_actor_programs": 7064,
+      "training_unseen_generated_signature": 3672,
+      "planning_states": 243091
+    },
+    "r1_r2_frozen_06b_shared_routes_20261014_05:greedy": {
+      "targets": 460,
+      "edge_chemistry": 4837,
+      "delta_available": 4837,
+      "changed_bonds": 12486,
+      "ring_cycle_rank_changed_events": 221,
+      "programs": 1477,
+      "complete_ordinary_actor_programs": 1477,
+      "training_unseen_generated_signature": 600
+    },
+    "r1_r2_frozen_06b_shared_routes_20261014_06": {
+      "targets": 1
+    }
+  },
+  "tables": {
+    "edge_chemistry": {
+      "rows": 136675,
+      "path": "edge_chemistry.jsonl.gz",
+      "sha256": "5faafa90e73402ccbe2d0e98cd9484f5b4e5f084a2eb110168247779951b9207"
+    },
+    "programs": {
+      "rows": 22208,
+      "path": "programs.jsonl.gz",
+      "sha256": "47950768505af292f4dd10caa46c5dd1d030ab2b9ddaee3d646c50e7096d1249"
+    },
+    "planning_states": {
+      "rows": 432024,
+      "path": "planning_states.jsonl.gz",
+      "sha256": "d4b760e55085727ecbc975ccfa71b44e944cf82ee4f0e56d0e0151f73313d108"
+    }
+  },
+  "chemical_feasibility_claim": false,
+  "route_C1_claim": false,
+  "new_sampling": false
+}

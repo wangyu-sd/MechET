@@ -1,0 +1,350 @@
+{
+  "schema": "nmi_chemistry_figure_manifest_v1",
+  "run_id": "r1_r2_frozen_06b_shared_mcts_20261014_07",
+  "summary": {
+    "run_id": "r1_r2_frozen_06b_shared_mcts_20261014_07",
+    "flow_delta_status": {
+      "available": 59289
+    },
+    "changed_atoms": {
+      "3": 41464,
+      "7": 5464,
+      "9": 449,
+      "8": 1196,
+      "4": 3258,
+      "5": 4113,
+      "2": 1528,
+      "6": 1310,
+      "11": 185,
+      "10": 215,
+      "14": 6,
+      "17": 3,
+      "13": 38,
+      "12": 53,
+      "19": 1,
+      "16": 1,
+      "15": 2,
+      "1": 2,
+      "18": 1
+    },
+    "changed_bonds": {
+      "2": 40940,
+      "7": 4016,
+      "9": 458,
+      "8": 1027,
+      "3": 2716,
+      "4": 5243,
+      "5": 495,
+      "6": 2366,
+      "1": 1542,
+      "12": 156,
+      "10": 79,
+      "15": 7,
+      "11": 158,
+      "13": 52,
+      "18": 1,
+      "16": 2,
+      "0": 4,
+      "14": 21,
+      "20": 2,
+      "17": 3,
+      "19": 1
+    },
+    "cycle_rank_delta": {
+      "0": 52278,
+      "-1": 5491,
+      "1": 1454,
+      "-2": 28,
+      "2": 34,
+      "-3": 3,
+      "3": 1
+    },
+    "net_charge_delta": {
+      "0": 59289
+    },
+    "source_sink_types": {
+      "BOND→ATOM": 56333,
+      "LP→BOND": 54444,
+      "BOND→BOND": 12516,
+      "BOND→RADICAL_PAIR": 285,
+      "RADICAL_PAIR→BOND": 58,
+      "LP→ATOM": 7
+    },
+    "component_moves": {
+      "2": 51918,
+      "3": 5080,
+      "4": 709,
+      "1": 1536,
+      "5": 39
+    },
+    "program_classes": {
+      "seen_ordered_signature": 3392,
+      "unseen_ordered_signature": 3672,
+      "unavailable_or_unauthenticated": 18
+    },
+    "primitive_frequency": {
+      "100+": 5347,
+      "0": 1119,
+      "5–99": 580,
+      "1–4": 18
+    },
+    "planning_visits": {
+      "0": 205652,
+      "1": 28384,
+      "2": 4914,
+      "8": 125,
+      "12": 47,
+      "5": 506,
+      "3": 1623,
+      "7": 210,
+      "11": 72,
+      "4": 811,
+      "18": 19,
+      "32": 4,
+      "6": 273,
+      "20": 6,
+      "10": 56,
+      "63": 1,
+      "9": 119,
+      "52": 1,
+      "19": 8,
+      "15": 18,
+      "41": 2,
+      "28": 4,
+      "13": 44,
+      "181": 1,
+      "27": 7,
+      "14": 21,
+      "23": 10,
+      "16": 16,
+      "47": 2,
+      "36": 3,
+      "17": 12,
+      "25": 8,
+      "35": 3,
+      "260": 1,
+      "40": 3,
+      "164": 1,
+      "26": 3,
+      "53": 1,
+      "79": 1,
+      "24": 7,
+      "54": 4,
+      "71": 1,
+      "29": 3,
+      "21": 16,
+      "64": 3,
+      "22": 12,
+      "65": 2,
+      "152": 1,
+      "57": 1,
+      "113": 1,
+      "103": 1,
+      "31": 4,
+      "74": 1,
+      "30": 3,
+      "109": 2,
+      "82": 1,
+      "44": 2,
+      "153": 1,
+      "72": 1,
+      "176": 1,
+      "38": 1,
+      "81": 1,
+      "34": 1,
+      "48": 3,
+      "49": 1,
+      "86": 2,
+      "42": 1,
+      "33": 1,
+      "68": 1,
+      "43": 2,
+      "45": 1,
+      "67": 1,
+      "59": 3,
+      "186": 1,
+      "145": 1,
+      "155": 1,
+      "66": 1,
+      "133": 1,
+      "78": 1,
+      "108": 1,
+      "55": 1,
+      "51": 1,
+      "84": 1,
+      "39": 1,
+      "73": 1
+    },
+    "planning_visits_missing": 0,
+    "route_C1_claim": false,
+    "counting_unit": "per-target native snapshots; shared contexts counted again across targets; ordinary component moves are not whole FLOW calls",
+    "experimental_chemical_validity_claim": false
+  },
+  "enrichment_manifest_sha256": "bebe2c885f5282cd3e5c281a21ee2f3f22bf3dc0f1b1a99e3d881d30561d346d",
+  "figures": {
+    "extended_data_local_chemistry": {
+      "svg": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_local_chemistry.svg",
+        "sha256": "8a09f79beffc03aec8f9718cf7a1ab3dbe633168dbe803ac31263e03592c2645"
+      },
+      "pdf": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_local_chemistry.pdf",
+        "sha256": "aa47dda6255b5bd333f859428c5e51da7f831675744da9f91275ff8d01788f72"
+      },
+      "png": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_local_chemistry.png",
+        "sha256": "a8583c40cbd3bec95cd549d306e5eff855d532e6c89f9bd50504b07e6cc5d98b"
+      }
+    },
+    "extended_data_program_support": {
+      "svg": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_program_support.svg",
+        "sha256": "e84f40f0c5a9840ceb1a882541d7ddef277541c5019f8398cef2f105d8c1a2d2"
+      },
+      "pdf": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_program_support.pdf",
+        "sha256": "afa303268542462c7ac5fb45d201b965c63a2cf3865da4fde5db330884cb83bb"
+      },
+      "png": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_program_support.png",
+        "sha256": "f18a20261955896ad9f66c6c2be427f81e0f9c96b5f2adf84c9b726a0a5c1af6"
+      }
+    },
+    "extended_data_mcts_visits": {
+      "svg": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_mcts_visits.svg",
+        "sha256": "e1272285c7f598edaa65dd1371b8e9b7f39fcf626d2d000f29931676172b6e40"
+      },
+      "pdf": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_mcts_visits.pdf",
+        "sha256": "9c4c72b0d9bdc946c85b04434e02d6a4777373e12c2712b2d5794a6d9c9d827f"
+      },
+      "png": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/figures/extended_data_mcts_visits.png",
+        "sha256": "e48c608b627caba2de81890107d68306ff152533d84b0ff932d81898b64844fc"
+      }
+    }
+  },
+  "qa": {
+    "extended_data_local_chemistry": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 47,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 10,
+        "editable_text_elements": 15
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 83.96111111111111,
+        "fonts": [
+          {
+            "name": "/UGXRRM+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 991,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "extended_data_program_support": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 39,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 9,
+        "editable_text_elements": 11
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 83.96111111111111,
+        "fonts": [
+          {
+            "name": "/TWGDGR+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 991,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    },
+    "extended_data_mcts_visits": {
+      "machine_checks_passed": true,
+      "problems": [],
+      "svg": {
+        "ids": 47,
+        "duplicate_ids": 0,
+        "unresolved_references": [],
+        "raster_images": 0,
+        "vector_paths": 8,
+        "editable_text_elements": 15
+      },
+      "pdf": {
+        "pages": 1,
+        "width_mm": 182.99999983055554,
+        "height_mm": 83.96111111111111,
+        "fonts": [
+          {
+            "name": "/USGHFI+ArialMT",
+            "subtype": "/TrueType",
+            "embedded": true
+          }
+        ],
+        "all_fonts_embedded": true
+      },
+      "png": {
+        "width_px": 2161,
+        "height_px": 991,
+        "effective_dpi": 299.9420767804564
+      },
+      "visual_inspection_status": "not_established_by_machine_checks",
+      "chemistry_correctness_status": "requires_source_and_drawing_review"
+    }
+  },
+  "source_tables": {
+    "edge_chemistry": {
+      "rows": 136675,
+      "path": "edge_chemistry.jsonl.gz",
+      "sha256": "5faafa90e73402ccbe2d0e98cd9484f5b4e5f084a2eb110168247779951b9207"
+    },
+    "programs": {
+      "rows": 22208,
+      "path": "programs.jsonl.gz",
+      "sha256": "47950768505af292f4dd10caa46c5dd1d030ab2b9ddaee3d646c50e7096d1249"
+    },
+    "planning_states": {
+      "rows": 432024,
+      "path": "planning_states.jsonl.gz",
+      "sha256": "d4b760e55085727ecbc975ccfa71b44e944cf82ee4f0e56d0e0151f73313d108"
+    }
+  },
+  "style_sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26",
+  "producer_files": {
+    "scripts/render_nmi_chemistry_extended.py": "d57402d3bba9b92f6375ab1f72c63f1e63040bf590cfa4cea49d8d55d9c7ce27",
+    "src/mechet/analysis/enrichment_summary.py": "1ee4b241bc4e2f8d4c06d5f2be3187ab4729381d3ec7cad559609022ce0d1321"
+  },
+  "new_sampling": false,
+  "route_C1_claim": false
+}

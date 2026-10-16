@@ -1,0 +1,252 @@
+{
+  "schema": "nmi_tree_tables_v1",
+  "storage": "UTF-8 typed JSONL.gz; nested objects/arrays retained losslessly",
+  "null_semantics": "null means unrecorded/not establishable, not zero or failure; absent optional keys differ from explicit null",
+  "tables": {
+    "trees": {
+      "primary_key": [
+        "tree_id"
+      ],
+      "unit": "source-scoped target graph snapshot",
+      "properties": {
+        "tree_id": [
+          "string"
+        ],
+        "target_id": [
+          "string"
+        ],
+        "run_id": [
+          "string"
+        ],
+        "has_complete_node_lineage": [
+          "boolean"
+        ]
+      }
+    },
+    "nodes": {
+      "primary_key": [
+        "node_id"
+      ],
+      "unit": "native policy context, not globally unique molecule",
+      "properties": {
+        "tree_id": [
+          "string"
+        ],
+        "target_id": [
+          "string"
+        ],
+        "node_id": [
+          "string"
+        ],
+        "parent_node_ids": [
+          "array"
+        ],
+        "private_state": [
+          "string"
+        ],
+        "state_unmapped": [
+          "string",
+          "null"
+        ],
+        "depth": [
+          "integer",
+          "null"
+        ],
+        "visits": [
+          "integer",
+          "number",
+          "null"
+        ],
+        "terminal": [
+          "boolean"
+        ]
+      }
+    },
+    "attempted_edges": {
+      "primary_key": [
+        "attempt_id"
+      ],
+      "unit": "one recorded action attempt; coupled FLOW remains one edge",
+      "properties": {
+        "tree_id": [
+          "string"
+        ],
+        "target_id": [
+          "string"
+        ],
+        "attempt_id": [
+          "string"
+        ],
+        "parent_node_id": [
+          "string",
+          "null"
+        ],
+        "child_node_id": [
+          "string",
+          "null"
+        ],
+        "execution_accepted": [
+          "boolean"
+        ],
+        "tool_payload": [
+          "object"
+        ],
+        "component_moves": [
+          "array",
+          "null"
+        ],
+        "before_state": [
+          "string",
+          "null"
+        ],
+        "after_state": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "terminals": {
+      "primary_key": [
+        "terminal_id"
+      ],
+      "unit": "recorded complete reaction context, not unique precursor set",
+      "properties": {
+        "tree_id": [
+          "string"
+        ],
+        "target_id": [
+          "string"
+        ],
+        "terminal_id": [
+          "string"
+        ],
+        "structural_precursor": [
+          "string",
+          "null"
+        ],
+        "full_mixture": [
+          "string",
+          "null"
+        ],
+        "mean_nll": [
+          "integer",
+          "number",
+          "null"
+        ],
+        "matches_reference": [
+          "boolean",
+          "null"
+        ]
+      }
+    },
+    "routes": {
+      "primary_key": [
+        "tree_id"
+      ],
+      "unit": "one reported selected AND-route witness per target snapshot",
+      "properties": {
+        "tree_id": [
+          "string"
+        ],
+        "target_id": [
+          "string"
+        ],
+        "stock_solved_recorded": [
+          "boolean"
+        ],
+        "stock_leaves": [
+          "array"
+        ],
+        "reaction_edge_ids": [
+          "array"
+        ],
+        "stock_recheck": [
+          "object"
+        ]
+      }
+    },
+    "edge_chemistry": {
+      "primary_key": [
+        "attempt_id"
+      ],
+      "unit": "distinct accepted FLOW context transition",
+      "properties": {
+        "tree_id": [
+          "string"
+        ],
+        "target_id": [
+          "string"
+        ],
+        "attempt_id": [
+          "string"
+        ],
+        "delta": [
+          "object",
+          "null"
+        ],
+        "delta_status": [
+          "string"
+        ]
+      }
+    },
+    "programs": {
+      "primary_key": [
+        "terminal_id"
+      ],
+      "unit": "complete terminal context with named exposure scope",
+      "properties": {
+        "tree_id": [
+          "string"
+        ],
+        "target_id": [
+          "string"
+        ],
+        "terminal_id": [
+          "string"
+        ],
+        "actor_exposure_authenticated": [
+          "boolean"
+        ],
+        "complete_signature": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    "planning_states": {
+      "primary_key": [
+        "tree_id",
+        "planning_id"
+      ],
+      "unit": "per-target planning context including remaining AND obligations",
+      "properties": {
+        "tree_id": [
+          "string"
+        ],
+        "target_id": [
+          "string"
+        ],
+        "planning_id": [
+          "string"
+        ],
+        "visits": [
+          "integer",
+          "number",
+          "null"
+        ],
+        "edges": [
+          "array"
+        ]
+      }
+    }
+  },
+  "additional_recorded_fields": "retained; this logical contract does not strip fields",
+  "foreign_keys": {
+    "nodes.tree_id": "trees.tree_id",
+    "attempted_edges.parent_node_id": "nodes.node_id when available",
+    "attempted_edges.child_node_id": "nodes.node_id or null for rejected/unrecorded successor",
+    "terminals.terminal_id": "nodes.node_id",
+    "planning_states.child_planning_id": "may refer to a shared context absent from this per-case export; explicit presence flag retained"
+  },
+  "validation_scope": "declared logical contract and unit-tested adapters; not an independent replay or row-by-row chemical validation"
+}

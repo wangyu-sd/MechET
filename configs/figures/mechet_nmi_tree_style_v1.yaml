@@ -1,0 +1,109 @@
+# Visual contract from MechET PR #86, e8b259539150ca1c9daed39fb5b7630aeb4e4867.
+version: 1
+format:
+  full_width_mm: 183
+  single_column_mm: 89
+  max_height_mm: 170
+  export_vector: [pdf, svg]
+  export_preview: png
+  preview_dpi: 300
+  color_space: RGB
+  background: '#FFFFFF'
+  transparent_molecule_canvas: true
+fonts:
+  family: Arial
+  fallbacks: [Helvetica, Liberation Sans, DejaVu Sans]
+  figure_text_pt: 6.5
+  figure_text_min_pt: 5.0
+  figure_text_max_pt: 7.0
+  panel_letter_pt: 8.0
+  panel_letter_weight: bold
+  tick_label_pt: 6.0
+  vector_pdf_fonttype: 42
+  vector_ps_fonttype: 42
+palette:
+  ink: '#29383F'
+  text_secondary: '#617078'
+  neutral_dark: '#697B83'
+  neutral_mid: '#A8B5B8'
+  neutral_light: '#DCE4E4'
+  pale_gray: '#F2F5F4'
+  search_blue: '#5B8398'
+  search_blue_dark: '#3F6D85'
+  import_ochre: '#BEA176'
+  flow_blue: '#648DA3'
+  terminal_teal: '#66988F'
+  terminal_teal_dark: '#377A74'
+  evidence_analogue: '#9FBAB0'
+  rejected_clay: '#B98075'
+  unknown_gray: '#99A3A7'
+  paper_white: '#FFFFFF'
+semantic:
+  baseline_series: neutral_mid
+  mechet_series: search_blue_dark
+  independent_sampling_series: neutral_dark
+  search_series: search_blue
+  action_import: import_ochre
+  action_flow: flow_blue
+  action_finish: terminal_teal
+  node_intermediate: neutral_mid
+  node_accepted_terminal: terminal_teal
+  node_route_stock_connected: terminal_teal_dark
+  action_executor_rejected: rejected_clay
+  missing_unknown: unknown_gray
+  literature_exact_A: terminal_teal_dark
+  literature_analogue_B: evidence_analogue
+  literature_unresolved_C: unknown_gray
+  literature_documented_conflict_D: rejected_clay
+charts:
+  axis_line_pt: 0.65
+  data_line_pt: 1.35
+  uncertainty_line_pt: 0.7
+  marker_size_pt: 3.2
+  gridlines: false
+  error_bars: true
+  min_figure_panel_padding_mm: 3.2
+  avoid_large_legends: true
+  annotate_exact_n: true
+  uncertainty_default: paired_target_bootstrap_95ci
+  paired_bootstrap_draws: 2000
+tree:
+  layout: layered_dag
+  direction: left_to_right
+  deterministic_layout_seed: 17
+  intermediate_node_radius_pt: 1.35
+  terminal_node_radius_pt: 2.15
+  selected_path_line_pt: 1.65
+  context_edge_line_pt: 0.40
+  rejected_attempt_line_style: dashed
+  rejected_attempt_child: null
+  non_selected_alpha: 0.24
+  node_size_by_visit_count_only_if_recorded: true
+  must_label_n_nodes_edges_depth: true
+  collapse_subtrees_with_counts_only: true
+  chemistry_magnification: true
+  root_must_be_recorded_state: true
+molecules:
+  backend: RDKit_MolDraw2DSVG
+  preserve_element_colors: true
+  carbon_bond_color: ink
+  standard_bond_line_width_px: 2.0
+  keep_stereochemistry: true
+  reaction_center_highlight: true
+  show_full_atom_maps_only_on_changed_region: true
+  never_squeeze_molecule_as_bitmap: true
+  normalize_view_extent_without_changing_bond_proportions: true
+  electron_arrow_color: search_blue_dark
+  electron_arrow_line_pt: 1.0
+  allow_only_source_mapped_electron_arrows: true
+  symbolic_state_caption: Executor-owned symbolic molecular state
+  no_experimental_intermediate_claim: true
+output:
+  prefix: outputs/paper/nmi_tree_evidence
+  never_commit_raw_predictions: true
+  require_figure_manifest: true
+  require_source_ids_in_case_registry: true
+  require_vector_text_and_structure: true
+  preview_at_final_width: true
+  reject_fabricated_panels: true
+  current_run_uses_observed_suffix: true

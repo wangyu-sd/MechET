@@ -1,0 +1,101 @@
+{
+  "schema": "nmi_existing_tree_delivery_v1",
+  "analysis_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1",
+  "original_source_manifest_sha256": "5fd0f5fcb12a95a4b753047bc9b3e047fb91594ba26af59a710fcf606f75c217",
+  "supplemental_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/single_reaction_archives",
+  "supplemental_source_manifest_sha256": "52922790e688a9d6c3dce59bff022162f970327bd45314b71f5905908e534f58",
+  "flat_original_sources": [
+    {
+      "run_id": "qwen_electron_tree_val56_20261013",
+      "tree_sha256": "12f874bf482b7ddf6fa9c46b0b72690094692dd24b933bbecd5e022a583f27e9",
+      "tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/qwen_electron_tree_val56_20261013/tree.json"
+    }
+  ],
+  "coverage": {
+    "original_input_records": 16534,
+    "accounted_for_records": 16534,
+    "canonical_run_target_graphs": 9374,
+    "unhandled_original_records": 0,
+    "unhandled_statuses": {},
+    "input_roots": [
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261015_02",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_03",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_rolling_20261015_01",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_shared_electron_tree_20261014_05",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_mcts_ray_migration_20261015_01",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_mcts_ray_migration_20261015_02",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_mcts_ray_migration_20261015_03",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_dynamic_routes_20261013",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_routes_20261014_05",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_routes_20261014_06"
+    ],
+    "cross_run_metric_pooling": false,
+    "storage_replicas_are_not_independent_targets": true,
+    "historical_parent_linked_cases": 1,
+    "flat_tables": {
+      "trees": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/flat_tables/trees.jsonl.gz",
+        "sha256": "6e15d5b3abea66d694453e2499719cc8809d4ceea0a545ff9e836272197e1338",
+        "rows": 1
+      },
+      "nodes": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/flat_tables/nodes.jsonl.gz",
+        "sha256": "2f027fa972bddfd2f2dc939b782f2ee83beafc35090839706afbffc1c07cf9b5",
+        "rows": 21
+      },
+      "attempted_edges": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/flat_tables/attempted_edges.jsonl.gz",
+        "sha256": "5fb56bb5c02d643a9514a19591eee2c3956a67ec876d732b3b24aee1a6f733ea",
+        "rows": 31
+      },
+      "terminals": {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_tree_evidence/observed_20261016_v1/flat_tables/terminals.jsonl.gz",
+        "sha256": "5b1615ba602c1f9df1f2d02810a72d963a31d214068933aee3948fffc9c0cf6a",
+        "rows": 3
+      }
+    },
+    "shared_cache_WAL": "preserved source of shared transitions/planning statistics, not independent target trees; exported case snapshots analyzed",
+    "original_files_modified": false,
+    "new_sampling": false
+  },
+  "availability": {
+    "schema": "nmi_tree_evidence_availability_v1",
+    "new_sampling": false,
+    "observed_tree_analysis": "available; original and single-reaction adapters linked by source hashes",
+    "FlowER_28971_endpoint_benchmark": "PENDING in this evidence collection; no extrapolation from route trees",
+    "mech31k_3120_corrected_endpoint_benchmark": "PENDING; current saved MCTS endpoint scores use rxn_prod_min proxy diagnostic",
+    "R1_route_cohorts": "460 frozen IDs retained; observed completed trees give a nonzero stock-AND closure lower bound",
+    "equal_compute_route_comparison": "PENDING; current greedy and MCTS use unequal work and shared reuse",
+    "paired_target_bootstrap_for_equal_compute_gain": "not_establishable_without_matched_work_outputs",
+    "H2_27104_predictive_comparison": "PENDING; full-data 0.6B actor is not an authenticated H2-trained actor",
+    "RetroCast_C0_C1_C2": "Unknown for all current 160 reference routes; depth is descriptive, not a composition label",
+    "historical_signature_basis": "strict train 257167; local604/ordered6553; imports omitted and within-event order can matter",
+    "current_actor_signature_basis": "actual 0.6B full-data exposure local603/ordered6491; nonordinary1377 kept separate",
+    "independent_forward_round_trip": "not_available_in_this_saved_tree_collection",
+    "literature_reviewed_complete_reaction_records": 1,
+    "literature_verified_structural_pairs": 1,
+    "literature_sampling_unit": "fixed illustrated complete reactions only; no population-wide support percentage",
+    "training_source_overlap": "unknown unless a source audit is supplied; public patent support is not proof of holdout novelty",
+    "runtime_decomposition": "only source-recorded fields; no inferred GPU utilization or missing timing decomposition",
+    "remaining_editorial_decision": "six figures plus Table1 exceed six combined display items; not silently edited",
+    "paper_main_modified": false,
+    "historical_16_work_packages": "retained; no original work package is canceled or replaced by observed figures"
+  },
+  "evidence_registry_sha256": "ec75cda8a6c6461434bd9cf80dc8022e45a934832775cbe02c070e47261fbb2f",
+  "chemical_evidence_sha256": "58f4fda6666b1fbea102ed97a6c183a9383c272fe550ff94bee3ab74ebfaed74",
+  "producer_sha256": "34897017f4b93f74e30b16c369f485cb6b2644294667e36c081cde2d07c73bde",
+  "unhandled_artifacts_are_pending_not_zero_results": true,
+  "verified_delivery_artifacts": {
+    "figure_manifest.json": "3bdb5389583ec29e42cef32cf9754e730ffb1129e6b572e74bf96dc2ea5cd9b2",
+    "figure_qa.json": "6ffbef7a3885dbc8315c6043fc2806be06613a6baf685d88c873f46e1c46ce48",
+    "enrichment_manifest.json": "bebe2c885f5282cd3e5c281a21ee2f3f22bf3dc0f1b1a99e3d881d30561d346d",
+    "chemistry_figure_manifest.json": "c5c7e6ffa4a0a417afa8e350e83499e3de110c909209cf8b72ae575ea115ca5c",
+    "work_manifest.json": "825363622dde039fcd79b722a3d6294d8cab6172c61f7c3f80884fbb7ae1f4b1",
+    "captions.md": "d448802af07a4481a3caaf5364a8986c4952f0a7f9ade02c9bd875df458ee792",
+    "case_registry.csv": "5b4b98d357e61cf5a6507b213b02135c4185453e9b549610620f16b78b239840",
+    "schema_manifest.json": "b4c8e7ab7b63c64b48607d989133a5c0b97aa4eb3ef1027853671be01c0e6d31"
+  },
+  "all_required_machine_checks_passed": true
+}
