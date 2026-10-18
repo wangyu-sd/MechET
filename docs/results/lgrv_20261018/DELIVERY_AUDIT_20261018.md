@@ -5,7 +5,22 @@ not legacy Top-K/reference ranking. This is a progress audit, **not a claim
 that the entire PR89 goal is complete**. No model/GPU/Taiji jobs were launched
 or changed in this delivery; paper and code main remain unmerged.
 
-**Current v11 (19October):**44 TierA/18,166 unresolved, all21 sealed hashes
+**Current v12 (19October):**46 TierA/1 query-scoped TierB/18,163 unresolved.
+All18,210 queries/six conditions and original query/context/hit sequences
+remain; all21 output hashes/current producer hashes checked. Complete17-file
+analysis/3-file coverage distributions, all47 case paired memberships and
+120-query work states are retained. Two exact preparations and one performed
+Suzuki analogue are physically rebound to raw/text/unique witnesses and
+independent named structures. Analogue source is an original capped candidate;
+its relevance to only query857b0658 is a documented inference, not exact
+experimental query validation. The existing query identity field is now also
+enforced inside assess():3regressions RED->GREEN, full1,256passed/14skipped/
+one existing warning184.90s. Published44A unchanged. R1 any-exact11/all-essential1;
+31k proxy MCTS23(22exact+1analogue)/Greedy18/17. Two new exact structures have
+one visually inspected plate; population Figure2/3 remain explicitlyv11.
+No model/GPU/Taiji/merge. Broader source review and final whole-goal audit open.
+
+**Historical v11 (19October):**44 TierA/18,166 unresolved, all21 sealed hashes
 and complete original query/context/hit sequences checked. Six further
 performed preparations have independent named-structure transcriptions and
 full referenced-method inspection. All44 cases and exact paired memberships

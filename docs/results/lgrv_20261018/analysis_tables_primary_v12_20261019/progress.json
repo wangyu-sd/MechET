@@ -1,0 +1,88 @@
+{
+  "phase": "structured_retrieval_complete_primary_coverage_explicit",
+  "unique_reaction_queries": 18210,
+  "tier_counts": {
+    "C": 18163,
+    "A": 46,
+    "B": 1
+  },
+  "unique_reactions_with_index_hit": 165,
+  "source_records_retrieved": 210,
+  "family_policy": "full_stereo_local_v2",
+  "retrieval_context_statuses": {
+    "available": 17755,
+    "no_reaction_center": 354,
+    "conflicting_native_families": 101
+  },
+  "stereo_lookup_work": {
+    "legacy_family_lookups": 20005,
+    "incompatible_family_candidates": 30668,
+    "source_records_considered": 39767
+  },
+  "independent_policy_controls": {
+    "manifest_sha256": "0b0cd9ecc0f3b3e5a858c3dc89626213e429f9b08591ace6447a3207a8598198",
+    "spec_sha256": "bbb7a0efcbfd3f8aebcf8cc30e9530d773bb8d8300080f5e8626718165933b58",
+    "family_policy": "full_stereo_local_v2",
+    "control_count": 12,
+    "chemical_accuracy_established": false
+  },
+  "source_checked_reactions": 47,
+  "source_supported_reactions": 47,
+  "primary_registry_sha256": null,
+  "primary_registry_manifests": [
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_source_seed_20261018.json",
+      "sha256": "662029270bc5648545983b4315f1eccb84dec4c5e97a1a4afce8992b5e039bcc"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v2.json",
+      "sha256": "4cdbc9d61eec31992408f278a5cd81f2b6ef2cb5821992361586fd39a0dd0050"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v3.json",
+      "sha256": "75babca7abd5d2c3b1f0a83891fb1fd53746f12f213255407c0da9068977156c"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v4.json",
+      "sha256": "235de6c211db57eec22fbaa2467912436abd8325fcbde6c3fb9fc5777bc8471f"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v5.json",
+      "sha256": "2dc201804f7493676fd03eb0509aca51e190531bba6d0a0a61a0bc333f9e3928"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v6.json",
+      "sha256": "a4ddcdf07505d8f0d526bbc4659eaa8bb5dc246bc0d4d0829dd8dd33f5d93215"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261019_v1.json",
+      "sha256": "6b1e677bb22903941c54e3fe1f7c62398b42f017a8640cc4de7821d76baae74c"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261019_v2.json",
+      "sha256": "7dd46cea40806c8086341f5971c8b1dc55cf65ea1292135ae5be2ed9ae8a3bbf"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261019_v3.json",
+      "sha256": "5bc7291fb1347c52833e05260244b518071f43b27214094b5883038648998816"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261019_v4.json",
+      "sha256": "19f99a17deeac9fc7d4265bd8fd66ea9328f5462900686f8f19e268b75ff6cba"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261019_v5.json",
+      "sha256": "a5070a8c7b052187b4e6e35b059f1092895f49f3eb9d18dc6193f06673b726a7"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261019_v6.json",
+      "sha256": "29373efb443fd245a97f5354bf4db4a15235a19c1279e69eced4c8375f9c3c2c"
+    }
+  ],
+  "unresolved_means": "no checked supporting primary source under frozen retrieval, not impossible chemistry",
+  "remaining_work": [
+    "additional primary document checks",
+    "analogue policy validation",
+    "publication figures"
+  ]
+}

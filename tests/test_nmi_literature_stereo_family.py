@@ -135,9 +135,43 @@ def test_checked_analogue_grading_uses_full_stereo_context_not_unstable_legacy_h
     q['stereo_family_context']=m.family_context(q['precursors_raw'][0],q['product_raw'])
     product=s['mapped_product'] if case!='opposite_stereo' else s['mapped_product'].replace('[C@@H:25]','[C@H:25]')
     checked=primary(tmp_path,source_product=product,source_precursors=[s['mapped_precursors']],
+        analogue_query_reaction_key=q['reaction_key'],
         analogue_compatibility_checked=case!='no_manual_analogue_review',
         substrate_differences='hypothetical remote aryl F in this SOFTWARE fixture',
         functional_group_compatibility='unchanged N-O/alkene reacting environment',stereo_compatibility_checked=True)
     result=assess(q,[],[checked])
     assert result['tier']==('B' if case=='same_stereo' else 'C')
     assert result['physical_mechanism_verified'] is False
+
+
+@pytest.mark.parametrize('binding',[None,'another-query'])
+def test_analogue_notes_without_this_query_identity_cannot_support_a_family(tmp_path,binding):
+    from test_nmi_literature_protocol import primary
+    from mechet.analysis.literature_evidence import assess
+    m=implementation();s=source();q=remote_query(s)
+    q['stereo_family_context']=m.family_context(q['precursors_raw'][0],q['product_raw'])
+    checked=primary(tmp_path,source_product=s['mapped_product'],source_precursors=[s['mapped_precursors']],
+        analogue_query_reaction_key=binding,analogue_compatibility_checked=True,
+        substrate_differences='hypothetical remote aryl F; SOFTWARE fixture only',
+        functional_group_compatibility='unchanged reacting environment',stereo_compatibility_checked=True)
+    result=assess(q,[],[checked])
+    assert result['tier']=='C'
+    assert result['supported'] is False
+
+
+def test_review_of_one_remote_substituent_does_not_promote_another_query(tmp_path):
+    from test_nmi_literature_protocol import primary
+    from mechet.analysis.literature_evidence import assess
+    m=implementation();s=source();reviewed=remote_query(s)
+    unreviewed=make_reaction(reviewed['product_raw'].replace('[F:10000]','[Cl:10000]'),
+        [reviewed['precursors_raw'][0].replace('[F:10000]','[Cl:10000]')])
+    for q in (reviewed,unreviewed):
+        q['stereo_family_context']=m.family_context(q['precursors_raw'][0],q['product_raw'])
+    assert reviewed['reaction_key']!=unreviewed['reaction_key']
+    assert reviewed['stereo_family_context']['family_key_v2']==unreviewed['stereo_family_context']['family_key_v2']
+    checked=primary(tmp_path,source_product=s['mapped_product'],source_precursors=[s['mapped_precursors']],
+        analogue_query_reaction_key=reviewed['reaction_key'],analogue_compatibility_checked=True,
+        substrate_differences='hypothetical remote aryl F; SOFTWARE fixture only',
+        functional_group_compatibility='unchanged reacting environment',stereo_compatibility_checked=True)
+    assert assess(reviewed,[],[checked])['tier']=='B'
+    assert assess(unreviewed,[],[checked])['tier']=='C'

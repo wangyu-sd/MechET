@@ -1,0 +1,169 @@
+{
+  "schema": "lgrv_checked_preparation_gallery_v1",
+  "source_query_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/unique_reaction_queries_enriched.jsonl.gz",
+  "source_query_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "primary_registry_manifests": [
+    {
+      "path": "configs/analysis/lgrv_primary_sources_20261019_v6.json",
+      "sha256": "29373efb443fd245a97f5354bf4db4a15235a19c1279e69eced4c8375f9c3c2c"
+    }
+  ],
+  "figures": {
+    "extended_data_primary_preparations_v12": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v12/figures/extended_data_primary_preparations_v12.svg",
+          "sha256": "be9db1622c8a0e042beac637b231c8233ce9792446e9933d520b8862dae7abbe"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v12/figures/extended_data_primary_preparations_v12.pdf",
+          "sha256": "1915e5e6de574fa81523c3f36abf6089efdf0d8ff70697962355f73fda5593f0"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v12/figures/extended_data_primary_preparations_v12.png",
+          "sha256": "4c313b08e0d1caf03e78b9d112385bfe2c43b3b0538f7f49884058bced19928b"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 6,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 458,
+          "editable_text_elements": 11
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 94.19166666666666,
+          "fonts": [
+            {
+              "name": "/KEDZAL+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/BPVGMW+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1112,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "13f3b21a75e3fe325f4d21e6a3ee4b2afd1c9dc1bd7ccebefecb63e70a4d9bcc",
+          "41ef57976a0a2b91871f3410c5df011cd96c83c91b67cf5039a9c3d5adea17ad"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "13f3b21a75e3fe325f4d21e6a3ee4b2afd1c9dc1bd7ccebefecb63e70a4d9bcc",
+            "evidence": {
+              "reaction_key": "13f3b21a75e3fe325f4d21e6a3ee4b2afd1c9dc1bd7ccebefecb63e70a4d9bcc",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7842688B2:example101b:piperidinol-quinolone-ether",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7842688B2/en",
+              "locator": "Example101b at normalized text359213-359760; explicitly refers to General MethodD at182063 and substrates Example100c/13b. Not deprotection Example101a or the three-carbon linker Example102.",
+              "document_sha256": "efe3605e102ab924b639bc9f190a9c7bf33f386e729d9ab91cad52899cda0ba2",
+              "raw_document_sha256": "a2a1b81487760af480cf091279e33c6e5ca46819f2dcf789e251e83eb86788cf",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7842688B2:example101b:piperidinol-quinolone-ether",
+            "source_url": "https://patents.google.com/patent/US7842688B2/en",
+            "locator": "Example101b at normalized text359213-359760; explicitly refers to General MethodD at182063 and substrates Example100c/13b. Not deprotection Example101a or the three-carbon linker Example102.",
+            "source_conditions": "NaH60%/DMF,-10 C1h then room temperature18h (MethodD). Example101b:opaque oil,Rf0.21,Rt5.80; yield unstated. Boc and two-plus-two-carbon linker retained.",
+            "source_document_sha256": "efe3605e102ab924b639bc9f190a9c7bf33f386e729d9ab91cad52899cda0ba2",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/evaluation.json",
+              "report_sha256": "4e35ee13609669dfeaecb8e7e03a4164b942c0bf7f68a085802e9ca1c436bff4",
+              "report_row_index": 2654,
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/rank06/manifest.json",
+              "manifest_sha256": "13baad4b9cceb50c8a5da435c0a8825222346fbf98959576a5f0dd6606938561",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "337cba2fb0a445a747cce0d2f4713769d17f7324"
+            },
+            "raw_product": "COCCCN1C(=O)CCc2ccc(COC3CN(C(=O)OC(C)(C)C)CCC3c3ccc(OCCOCCc4ccccc4OC)cc3)cc21",
+            "structural_components": [
+              "COCCCN1C(=O)CCc2ccc(CCl)cc21",
+              "COc1ccccc1CCOCCOc1ccc(C2CCN(C(=O)OC(C)(C)C)CC2O)cc1"
+            ],
+            "source_conditions_full": "Example101b uses piperidinol0.500g and chloromethylquinolone0.312g. General MethodD:NaH60% dispersion/DMF,-10 C1h then room temperature18h; aqueousNaHCO3 workup,MTBE extraction and chromatography. Opaque oil,Rf0.21(1:1EtOAc/heptane),Rt5.80. No isolated percentage yield. General-method equivalents/volumes are not asserted as measured Example101b quantities."
+          },
+          {
+            "reaction_key": "41ef57976a0a2b91871f3410c5df011cd96c83c91b67cf5039a9c3d5adea17ad",
+            "evidence": {
+              "reaction_key": "41ef57976a0a2b91871f3410c5df011cd96c83c91b67cf5039a9c3d5adea17ad",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US6969713B2:example92ii:cis-dimethylpiperazine-chloroacetamide",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US6969713B2/en",
+              "locator": "Example92ii at236750-237650, with explicitly referenced Example80ii/iii at228012-230075 and upstream Example33 chloroacetamide method. The product of92i is a distinct source-supported reaction already recorded separately.",
+              "document_sha256": "1c1f706221e0725ddf055aad0ab42eb45c670a0d4e77162d1653eadb85ffc858",
+              "raw_document_sha256": "fb7cb977cdd347fdb5f900072216d3acb38df77aad4090b6454f8a11076936d7",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US6969713B2:example92ii:cis-dimethylpiperazine-chloroacetamide",
+            "source_url": "https://patents.google.com/patent/US6969713B2/en",
+            "locator": "Example92ii at236750-237650, with explicitly referenced Example80ii/iii at228012-230075 and upstream Example33 chloroacetamide method. The product of92i is a distinct source-supported reaction already recorded separately.",
+            "source_conditions": "DIPEA/KI,NMP,90 C3h (Example80iii). Example92ii:0.25g,APCI452(M+H),1H NMR; yield unstated. Source cis relative stereochemistry retained.",
+            "source_document_sha256": "1c1f706221e0725ddf055aad0ab42eb45c670a0d4e77162d1653eadb85ffc858",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/0a7275100836a372452bbd0967913495100746e8c15c778855809c8958708533.json",
+              "report_sha256": "62f764b261899a6a703f3e4a849555f96ce44860c60bbe60be3becb74fde929b",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/manifest.json",
+              "manifest_sha256": "9a8b69e89186f41adefadefff3b20ec7b9d6638093a4261e7dfc46e388209598",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+              "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+            },
+            "raw_product": "Cc1ccc(C#N)cc1NC(=O)CN1C[C@@H](C)N(S(=O)(=O)c2cccc(C#N)c2)[C@@H](C)C1",
+            "structural_components": [
+              "C[C@@H]1CNC[C@H](C)N1S(=O)(=O)c1cccc(C#N)c1",
+              "Cc1ccc(C#N)cc1NC(=O)CCl"
+            ],
+            "source_conditions_full": "Example92ii couples92i chloroacetamide0.19g with80ii piperazine0.2g by80iii:DIPEA/KI,NMP,90 C3h,aqueous/DCM workup. Its own isolated white solid0.25g,APCI452(M+H),1H NMR. No percentage yield. Example80iii's quantities/1.04g brown foam/597 mass belong to another substrate and are not transferred. Upstream chloroacetylation/debenzylation/desulfonylation are not current coupling conditions."
+          }
+        ]
+      }
+    }
+  },
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "visual_inspection_status": "actual PNG opened and inspected: structures, cis relative stereochemistry, labels, conditions and clipping checked",
+  "selection": "both new exact preparations; scoped analogue remains separately tabulated and is not depicted as an exact experiment",
+  "style_path": "configs/figures/mechet_nmi_tree_style_v1.yaml",
+  "style_sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26",
+  "producer_files": {
+    "src/mechet/analysis/literature_figures.py": "f6f296aa79dd99904bd28623e7c402c844eff749df178e7513e4cd2779036e98",
+    "src/mechet/analysis/literature_evidence.py": "5d7a54c6bf8d963e531e86a44cc1f0d59be1208dc5b2180ccd7cdc6018a292ab",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_checked_registry.py": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6"
+  }
+}

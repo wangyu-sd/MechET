@@ -6,7 +6,32 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v11 source review:** six further performed preparations bring exact
+**Current v12 source review:** two further exact preparations and one
+query-scoped experimental analogue give **46 TierA,1 TierB,18,163 unresolved**
+over the same18,210 queries/six conditions. The [complete tables and all47
+cases](analysis_tables_primary_v12_20261019/README.md),
+[whole coverage audit](coverage_review_v12_20261019/README.md),
+[120-query work-state inventory](primary_review_states_v12_20261019/README.md)
+and [six-condition scalar summary](POPULATION_RESULTS_PRIMARY_V12_20261019.json)
+retain every method. All21 sealed hashes and complete original query/context/
+candidate sequences are verified unchanged. R1 stock-route support remains
+11 any-exact/1 all-essential; its all-terminal support is18 reactions across
+17 targets. The31k proxy diagnostic has23 supported MCTS targets(22exact+1
+analogue), versus18/17 Greedy targets, descriptive under unequal work.
+
+The [new source review and reproducible checks](primary_review_v12_20261019/README.md)
+bind actual preparations/conditions and explicit substrate differences.
+The analogue checker now independently enforces the existing
+`analogue_query_reaction_key`: a review of one substrate cannot confer support
+on every same-local-family query. Three regressions fail before this fix and
+pass afterward; full CPU gate1,256 passed/14 skipped/one existing warning,
+184.90s. Earlier v11 had no TierB, so its44 exact supports are unaffected.
+The [two new exact RDKit cases](additional_preparation_gallery_20261019_v12/README.md)
+have one inspected plate. Figure2/3 and extended population panels remain
+explicitly **v11**, not relabelled with v12 counts. Wider primary review and
+final whole-goal review remain open. No model/GPU task or merge occurred.
+
+**Historical v11 source review:** six further performed preparations bring exact
 source-supported complete reactions **38→44** under the unchanged18,210-query,
 six-condition corpus/stereo/local/cap5 policy. All21 sealed hashes and entire
 original query/context/hit sequences are checked. All44 cases, exact paired

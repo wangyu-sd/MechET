@@ -1,0 +1,37 @@
+{
+  "schema": "lgrv_query_bound_preparation_review_v1",
+  "complete": true,
+  "frozen_analysis_manifest_sha256": "11e49dd8695ca3b1ed3cdf46e7dbad449f3b299fc8aa35591467cbb7999d8056",
+  "review_spec_sha256": "149f837655e4310ba86109da98bfe1ef6c0d42c59212385c001a4eeaf47cdd58",
+  "registry_sha256": "29373efb443fd245a97f5354bf4db4a15235a19c1279e69eced4c8375f9c3c2c",
+  "producer_sha256": "cf485073c52fa80444069f7a866927b91721be510d3a1bb8fd5fac0a7969bd5e",
+  "records": [
+    {
+      "source_id": "US7842688B2:example101b:piperidinol-quinolone-ether",
+      "query_reaction_key": "13f3b21a75e3fe325f4d21e6a3ee4b2afd1c9dc1bd7ccebefecb63e70a4d9bcc",
+      "source_reaction_key": "13f3b21a75e3fe325f4d21e6a3ee4b2afd1c9dc1bd7ccebefecb63e70a4d9bcc",
+      "tier": "A",
+      "raw_document_sha256": "a2a1b81487760af480cf091279e33c6e5ca46819f2dcf789e251e83eb86788cf",
+      "document_sha256": "efe3605e102ab924b639bc9f190a9c7bf33f386e729d9ab91cad52899cda0ba2"
+    },
+    {
+      "source_id": "US6969713B2:example92ii:cis-dimethylpiperazine-chloroacetamide",
+      "query_reaction_key": "41ef57976a0a2b91871f3410c5df011cd96c83c91b67cf5039a9c3d5adea17ad",
+      "source_reaction_key": "41ef57976a0a2b91871f3410c5df011cd96c83c91b67cf5039a9c3d5adea17ad",
+      "tier": "A",
+      "raw_document_sha256": "fb7cb977cdd347fdb5f900072216d3acb38df77aad4090b6454f8a11076936d7",
+      "document_sha256": "1c1f706221e0725ddf055aad0ab42eb45c670a0d4e77162d1653eadb85ffc858"
+    },
+    {
+      "source_id": "US7572820B2:example321A:thiazole-Suzuki:query857b0658",
+      "query_reaction_key": "857b0658abffea92efad3c8e06c0a431bdc9515f0a6606ca6c1247789363e20c",
+      "source_reaction_key": "39765b96687b46b181827ad00ee53e674f8dab20e897205b476d2f1f3ccde687",
+      "tier": "B",
+      "raw_document_sha256": "a0717ebb8d2caf6e3201afbdb63808ba405ce01659fec6bb343124a470938d7f",
+      "document_sha256": "5971a867db5798dd41c467f9750f33d959184a22daf287c6dcd9b2477beb02cf"
+    }
+  ],
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "population_reaggregation_completed_by_this_recipe": false
+}

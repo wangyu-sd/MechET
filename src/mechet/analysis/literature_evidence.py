@@ -81,6 +81,9 @@ def assess(reaction, hits, primary_sources=()):
                 same_family=bool(context.get('status')=='available' and context.get('family_key_v2') and
                                  context['family_key_v2']==other.get('family_key_v2'))
             if (same_family
+              # Substrate/condition review belongs to this source-query pair,
+              # not every reaction that shares the local edit environment.
+              and source.get('analogue_query_reaction_key') == reaction['reaction_key']
               and source.get('analogue_compatibility_checked') is True
               and source.get('substrate_differences') and source.get('functional_group_compatibility')
               and source.get('stereo_compatibility_checked') is True):
