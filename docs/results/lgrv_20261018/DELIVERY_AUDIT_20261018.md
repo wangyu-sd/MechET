@@ -20,12 +20,24 @@ eight generation-wave prefixes were reaudited, not replaced by cached token cost
 **Independent-control implementation increment:** rolling batches, pinned lazy
 vLLM transport, complete durable inputs/raw outputs/native journals and
 episode-index-prefix aggregation now exist, with26 focused CPU tests. Formal
-manifest-authenticated CLI/cross-shard collection and actual control outputs
-remain absent; no model or GPU job was executed. This supersedes the v6
+manifest-authenticated CLI/cross-shard collection was absent at that increment
+and is now implemented as described below; actual control outputs remain unrun.
+No model or GPU job was executed. This supersedes the v6
 transport-status note below, without changing the historical manifest/results.
 The final whole CPU gate for this runtime increment passed1,240/14skipped,
 one existing PEFT warning,142.96s; prior v7 source-analysis verification below
 retains its original1,229-test record.
+
+**19October formal control preparation:** CLI validation rederived the real
+full460/fixed200 prepared plan, original stocks/weights/eight headers and exact
+product-only artifacts; shard counts58/58/58/58/57/57/57/57 match. The saved
+validation receipt is not a model result. The formal CLI and cross-shard
+collector are covered by39 combined focused tests; raw outputs and every
+contiguous native journal event are checked, stock-AND closure is recomputed,
+and incomplete ranks retain their full denominator. The approved missing-
+independent-output condition asks for preparation only, so no new inference
+is required or claimed. The final whole CPU suite passed1,253/14skipped,
+one existing PEFT warning,182.18s. Conventional planner preparation still remains.
 
 **Latest increment:** full v6 adds six directly checked primary preparations:
 15 supported net reactions/18,195 unresolved, under unchanged retrieval. The
@@ -53,11 +65,12 @@ one existing warning,194.15s. Existing figure exports remain labelled v5.
 | Actual work, including pending targets, cache distinguished | All8 exact wave-prefix reaudit;852,951,580 new tokens;184,560,843 cached returns excluded | Verified; GPU-active seconds unknown |
 | Chemistry-led Figure2/3 and supported cases | Current v7 Figure2/3, actual saved inverse FLOW/fork plates, preserved earlier galleries plus seven new selectivity/preparation cases on three plates | Exported and visually inspected; net precedent does not prove microscopic arrows |
 | Paired/complexity/work extended panels | Three new183mm vector/PDF/PNG panels with full data and manifest; all five population-figure exports rehashed | Complete current-evidence panels; additional composition/complexity splits can be extended |
-| Missing independent-K / complete-reaction planner controls | Independent controller/full460/fixed200 manifest plus rolling transport, durable raw I/O and prefix aggregator implemented; formal authenticated CLI/cross-shard collection and predictions still missing | **Incomplete; no surrogate baseline or unauthorized GPU launch** |
+| Missing independent-K control: prepare manifest/runner only | Full460/fixed200 plan rederived against real sources; rolling transport, authenticated CLI, durable raw I/O, native journal audit and cross-shard prefix collection tested | Complete preparation; no control predictions, model quality or speedup claim |
+| Missing conventional complete-reaction planner control | No prepared equivalent conventional controller yet | **Incomplete; no surrogate baseline or unauthorized GPU launch** |
 | Final whole-goal scientific/code audit and fresh whole-branch review | This audit identifies remaining requirements; earlier incremental reviews are retained | **Incomplete; do not mark the goal achieved** |
 
-Current software gate:1,240 passed/14 skipped/one existing PEFT warning,
-142.96s, CPU-only. The32 existing extended/population tests passed, including real-file
+Current software gate:1,253 passed/14 skipped/one existing PEFT warning,
+182.18s, CPU-only. The32 existing extended/population tests passed, including real-file
 exports, rejected mismatched work receipts, unknown mappings and unchanged
 original target populations. These are software checks, not experimental
 model performance. GPU checks were not rerun on occupied unrelated hardware.

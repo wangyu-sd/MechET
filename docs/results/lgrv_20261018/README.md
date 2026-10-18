@@ -10,11 +10,13 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 transport, durable complete input/output journals and non-ranking episode-prefix
 aggregation are now implemented and covered by26 focused CPU software tests.
 See the [prepared control runtime](independent_control_preparation_20261018/README.md).
-Formal manifest-authenticated CLI/cross-shard collection and actual predictions
-remain missing. No model, training or GPU task was launched; these tests are
+The formal CLI/cross-shard collector now also exists and the real full460/fixed200
+plan passed CPU rederivation; see its19October validation receipt. The39 combined
+focused tests include source corruption, partial shards and native/raw evidence.
+Actual independent predictions remain unrun. No model, training or GPU task was launched; these tests are
 not evidence of a model-performance gain.
-Final whole-repository CPU verification: **1,240 passed/14 skipped**, one
-existing PEFT warning,142.96s.
+Final whole-repository CPU verification after the formal CLI/collector:
+**1,253 passed/14 skipped**, one existing PEFT warning,182.18s.
 
 **Current v7 source review:** seven more performed preparations bring exact
 source-supported complete reactions **15→22** under identical18,210-query
@@ -45,8 +47,9 @@ public patent URLs. All104 were acquired/verified,71 new to the prior cache.
 This is improved evidence coverage, not a chemical accuracy estimate.
 
 The [independent-route controller and full460/fixed200 manifest](independent_control_preparation_20261018/README.md)
-are prepared and tested, but actor transport/CLI and actual control predictions
-remain missing. No new GPU/model job was launched. Current whole CPU gate:
+were prepared at this v6 stage; transport/CLI were still absent then and have
+since been implemented as documented above. Actual control predictions remain
+unrun. No new GPU/model job was launched. Historical v6 whole CPU gate:
 **1,222 passed/14 skipped**, one existing PEFT warning,194.15s. Existing v5
 figures below retain their original v5 counts; they are not v6 exports.
 

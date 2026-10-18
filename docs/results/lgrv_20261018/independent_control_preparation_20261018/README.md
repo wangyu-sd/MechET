@@ -75,10 +75,62 @@ existing13 controller tests and two continuous-adapter tests,26 focused tests
 pass. Scripted completions
 are software fixtures, not model results or a smoke experiment.
 The final whole-repository CPU suite passed **1,240 tests/14 skipped**, with
-one existing PEFT warning,142.96s. No production code changed after that run.
+one existing PEFT warning,142.96s. The runtime/controller are unchanged since
+that gate; the subsequently added CLI has its separate final verification below.
 
-**Still missing:** the formal manifest-authenticated CLI and cross-shard result
-collection, actual independently generated control predictions, conventional
-complete-reaction planner control and final whole-goal review. No inference,
-training or Taiji task was launched. Do not substitute a prepared runtime for
-a completed experiment in the paper.
+## Formal CLI and cross-shard collection (19 October)
+
+`scripts/independent_route_cli.py` now provides `validate`, `run` and `collect`.
+The formal CLI pins the approved plan/actor hashes; it does not expose a
+subset, changed seed, episode-budget or expected-hash override. Validation
+reruns the original CPU preparation into a temporary directory, compares the
+whole regenerated plan and both product-only/paired-ID files, and rechecks
+all source bytes, physical weights, stocks and eight original actor headers.
+It does not merely accept hashes asserted by a new self-sealed input.
+
+The real prepared full460/fixed200 plan passed this command with no model
+load; [the saved actual stdout](CLI_VALIDATION_20261019.json) retains the
+validation-only schema and eight shard sizes58/58/58/58/57/57/57/57. CLI source
+SHA256 at that execution:
+`12eae729d81c65739009201e8b9f64b43376df59d8b918a271e56cd28f0dee32`.
+
+```bash
+PYTHONPATH=.:src python -m scripts.independent_route_cli validate \
+  --plan /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/prepared_independent_controls_20261018_v1/independent_plan.json \
+  --route-assets /aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/frozen_r1_r2_20261013/manifest.json
+```
+
+`run` additionally requires `--output`, one `--rank` in0..7 and a separately
+authorized `--authorize-model-execution` flag. Each worker owns its disjoint
+original target slice and all10 independent episodes per target. Default
+stdout logs continue during backend initialization and policy execution.
+The flag is not permission to launch a task under this PR's no-new-GPU boundary;
+no `run` command or platform submission has been executed here.
+
+`collect` takes the same source arguments plus `--output <run-root>` and an
+optional fresh `--receipt <path>`. It rechecks eight source/runtime contracts,
+episode ownership and unmodified full populations; verifies original inputs,
+raw/parsed outputs, tree records and every contiguous native journal commit;
+and recomputes stock-AND closure from the saved reaction graph. Counts are
+first1/4/10 episode-index unions, never ranked candidates. Missing ranks,
+unreported episodes, censoring and already-stock targets remain explicit.
+One worker's100% does not establish full460 completion. Raw returned-token
+work from unreported episodes is retained; progress-only extra work is a
+separate lower bound, not silently added twice. Collection is not a liveness
+claim about an active writer, and existing receipts cannot be overwritten.
+
+Thirteen CLI tests add full460 software fixtures, source-rederivation and
+corruption cases, all-eight partition coverage, partial file collection,
+missing raw/native transitions, foreign ownership and authorization checks.
+The worker's zero-step test uses synthetic already-stock fixtures and no
+policy requests, not model inference. All39 focused CLI/runtime/controller/
+continuous-adapter tests passed. The final full CPU suite passed **1,253 tests/
+14 skipped**, one existing PEFT warning,182.18s. No production code changed
+after that run; the earlier1,240-test gate above is its historical runtime-only
+verification stage.
+
+The independent-control **prepare-manifest/runner-only** requirement is now
+implemented; this is not a new empirical baseline. Actual control predictions
+remain unrun, as required by the no-new-model boundary. Conventional complete-
+reaction planner preparation, broader primary/analogue review and final
+whole-goal review remain unfinished. No training or Taiji task was launched.
