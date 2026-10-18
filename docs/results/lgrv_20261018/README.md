@@ -6,6 +6,16 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (18 October, supersedes older processing notes)
 
+**Independent-control runtime:** the rolling batch scheduler, lazy pinned-vLLM
+transport, durable complete input/output journals and non-ranking episode-prefix
+aggregation are now implemented and covered by26 focused CPU software tests.
+See the [prepared control runtime](independent_control_preparation_20261018/README.md).
+Formal manifest-authenticated CLI/cross-shard collection and actual predictions
+remain missing. No model, training or GPU task was launched; these tests are
+not evidence of a model-performance gain.
+Final whole-repository CPU verification: **1,240 passed/14 skipped**, one
+existing PEFT warning,142.96s.
+
 **Current v7 source review:** seven more performed preparations bring exact
 source-supported complete reactions **15→22** under identical18,210-query
 retrieval. All21 sealed output hashes were checked. MCTS now has8 targets with
