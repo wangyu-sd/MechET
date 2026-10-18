@@ -31,9 +31,9 @@ def _authenticated_manifest(root, name, required_table):
     return manifest,file_sha256(path)
 
 
-def enrich_queries(freeze_root, program_root, output_root):
-    """Write a separate full-pool mapping view after all input checks pass."""
-    freeze_root,program_root,output_root=map(Path,(freeze_root,program_root,output_root))
+def _prepare_queries(freeze_root, program_root):
+    """Recompute the complete mapping view from its original input artifacts."""
+    freeze_root,program_root=map(Path,(freeze_root,program_root))
     freeze,freeze_sha=_authenticated_manifest(freeze_root,'prediction_freeze_manifest.json','unique_reaction_queries.jsonl.gz')
     programs,program_sha=_authenticated_manifest(program_root,'program_join_manifest.json','program_reaction_links.jsonl.gz')
     if (programs['actor_sha256']!=freeze['actor_sha256'] or
@@ -97,6 +97,13 @@ def enrich_queries(freeze_root, program_root, output_root):
             counts['unavailable']+=1
         counts['mapped_after']+=row['mapping_status']=='mapped_center_available'
         row['native_mapping']=provenance;enriched.append(row)
+    return enriched,counts,freeze,freeze_sha,program_sha
+
+
+def enrich_queries(freeze_root, program_root, output_root):
+    """Write a separate full-pool mapping view after all input checks pass."""
+    freeze_root,program_root,output_root=map(Path,(freeze_root,program_root,output_root))
+    enriched,counts,freeze,freeze_sha,program_sha=_prepare_queries(freeze_root,program_root)
     # Only after complete validation; never overwrite a freeze or old analysis.
     output_root.mkdir(parents=True,exist_ok=False)
     name='unique_reaction_queries_enriched.jsonl.gz'
@@ -115,6 +122,30 @@ def enrich_queries(freeze_root, program_root, output_root):
         'output_files':{name:{'sha256':file_sha256(output_root/name)}}}
     (output_root/'mapping_enrichment_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     return manifest
+
+
+def load_query_view(freeze_root, program_root, view_root):
+    """Authenticate and rederive a saved view; self-consistent edits do not pass.
+
+    Reusing a historical producer is allowed only when every derived row and
+    count exactly agrees with the current, source-authenticated computation.
+    """
+    view_root=Path(view_root)
+    manifest,_=_authenticated_manifest(view_root,'mapping_enrichment_manifest.json',
+                                      'unique_reaction_queries_enriched.jsonl.gz')
+    expected,counts,freeze,freeze_sha,program_sha=_prepare_queries(freeze_root,program_root)
+    if (manifest.get('schema')!='lgrv_native_mapping_enrichment_v1' or
+        manifest.get('actor_sha256')!=freeze['actor_sha256'] or
+        manifest.get('prediction_freeze_manifest_sha256')!=freeze_sha or
+        manifest.get('program_join_manifest_sha256')!=program_sha or
+        manifest.get('counts')!=dict(counts) or manifest.get('center_radius')!=1 or
+        manifest.get('source_grades_unchanged') is not True or
+        manifest.get('new_model_inference') is not False):
+        raise ValueError('native query-view input identity, policy or counts differ')
+    actual=list(_rows(view_root/'unique_reaction_queries_enriched.jsonl.gz'))
+    if actual!=expected:
+        raise ValueError('query view differs from authenticated native-program recomputation')
+    return actual,manifest
 
 
 if __name__=='__main__':

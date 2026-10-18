@@ -69,8 +69,14 @@ and [complete18,210-query mapping view](native_mapping_full_20261018/unique_reac
 are byte-identical Git copies, not a sampled showcase or selected success set.
 This is a prepared retrieval view, **not** a rerun of the evidence analysis;
 the four checked source reactions and the published v3 tables are unchanged.
-Independent analogue calibration, integration into the evidence/figure
-consumers, and full-population re-retrieval remain required.
+The evidence CLI now accepts `--native-mapping-view`, and the population
+renderer consumes its authenticated copied table rather than silently
+reverting to the old queries. Both rederive every row from the pinned native
+programs; self-consistently resealed invented mappings are rejected. The real
+complete18,210-query consumer audit passed. Existing v3 outputs are unchanged.
+Independent analogue-policy validation and full-population re-retrieval remain
+separate requirements; the current control failure below must be resolved
+before enriched-population retrieval is launched.
 
 ```bash
 PYTHONPATH=src python -m mechet.analysis.literature_mapping \
@@ -78,6 +84,45 @@ PYTHONPATH=src python -m mechet.analysis.literature_mapping \
   --program-join-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/program_join_pr88_20261018_v3" \
   --output-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/new_native_mapping_view"
 ```
+
+### Independent structure-policy controls: one real representation defect
+
+The frozen [control specification](../../../configs/analysis/lgrv_independent_retrieval_controls_20261018.json)
+uses all three actual reactions from [Organic Syntheses95,80–96](https://www.orgsyn.org/demo.aspx?prep=v95p0080),
+procedures A–C, each with four declared structure-policy variants. Every source
+structure was reconciled to its original ORD row. None of the three source
+reaction keys occurs in the frozen18,210 MechET query pool. Training-source
+overlap is still unknown. These controls are not model evaluations or proof
+of experimental performance on hypothetical substituted molecules.
+
+Actual result: **11/12 passed**, with all12 machine-only evidence grades C.
+The [complete control inputs/outputs and manifest](independent_policy_controls_20261018/policy_control_results.json)
+and the three-source SQLite control index are copied byte-for-byte into this
+delivery. This is an independent source-anchored policy-control index, never a
+replacement for the93-file production source corpus.
+The remote-fluoro analogue of procedure C was unexpectedly unresolved. Its
+full product stereocentre remains R on both sides of the comparison, but
+RDKit's truncated radius-1 fragment emits `C[C@@H:1](C)C` versus
+`C[C@H:1](C)C`. Both fragments have three indistinguishable methyl groups and
+lose that invalid local stereotag when parsed. Thus full-molecule traversal
+parity has leaked into a nominally local retrieval key. The radius and source
+cap were not adjusted to hide this failure; the failed result is retained.
+
+The primary procedure was actually read using the web reader. Direct HTML
+download returned HTTP403, so no raw HTML cache/hash or automatic
+`source_passage_checked` claim is fabricated. The original lawful ORD bytes
+remain available. Procedure B reports98%ee, whereas the ORD row says99%; that
+disagreement is not transferred into any MechET yield or evidence claim.
+
+Next fix must make local serialization stable **without erasing genuine full
+stereochemistry**, and must preserve original source-index bytes/provenance.
+The failed control remains a gate, not an excuse to relabel the expected hit
+or launch the enriched full retrieval first.
+
+Software verification after integration: **1,165 passed/14 skipped**, one
+existing PEFT warning,136.74s. The100-test focused mapping/population/protocol
+suite and7 policy-runner tests also passed. Software checks do not turn the
+observed11/12 independent control result into a passed calibration gate.
 
 ## Completed
 

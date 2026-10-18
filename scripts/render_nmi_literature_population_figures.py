@@ -12,6 +12,7 @@ sys.path[:0]=[str(ROOT),str(ROOT/'src')]
 from mechet.analysis.figure_qa import inspect_figure
 from mechet.analysis.literature_population_figures import prepare_panels,render_population,RUNS
 from mechet.analysis.literature_programs import composition_metrics
+from mechet.analysis.literature_mapping import load_query_view
 from mechet.analysis.literature_evidence import assess
 from mechet.analysis.literature_reaction_keys import make_reaction
 from mechet.analysis.literature_route_metrics import aggregate_routes,source_supported
@@ -102,6 +103,21 @@ def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,ex
     evidence_rows=list(rows(analysis_root/'reaction_evidence.jsonl.gz'))
     evidence={r['reaction_key']:r for r in evidence_rows}
     queries=list(rows(freeze_root/'unique_reaction_queries.jsonl.gz'))
+    mapping_sha=delivery.get('native_mapping_enrichment_manifest_sha256')
+    mapping_inputs=[]
+    if mapping_sha:
+        if program_join_root is None:
+            raise ValueError('native query view requires authenticated complete program join')
+        names=('mapping_enrichment_manifest.json','unique_reaction_queries_enriched.jsonl.gz')
+        if not set(names)<=delivery['output_files'].keys():
+            raise ValueError('analysis does not bind both native query-view artifacts')
+        if file_sha256(analysis_root/names[0])!=mapping_sha:
+            raise ValueError('native query-view manifest checksum differs')
+        queries,_=load_query_view(freeze_root,program_join_root,analysis_root)
+        mapping_inputs=[analysis_root/name for name in names]
+    elif any((analysis_root/name).exists() for name in
+             ('mapping_enrichment_manifest.json','unique_reaction_queries_enriched.jsonl.gz')):
+        raise ValueError('unbound native query-view artifacts may not be silently ignored')
     if (len(evidence_rows)!=len(evidence) or set(evidence)!={r['reaction_key'] for r in queries} or
         coverage['unique_reaction_queries']!=len(queries) or
         Counter(r['tier'] for r in evidence_rows)!=Counter(metrics['literature_tiers']) or
@@ -182,16 +198,18 @@ def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,ex
         if not qa['machine_checks_passed']:
             raise ValueError('population vector-export QA failed: '+str(qa['problems']))
     panel_path=output_root/'panel_source_data.json';panel_path.write_text(json.dumps(data,indent=2)+'\n')
-    inputs=[analysis_root/'analysis_manifest.json',corpus_path,Path(corpus['source_manifest']),fpath,
+    inputs=[*mapping_inputs,analysis_root/'analysis_manifest.json',corpus_path,Path(corpus['source_manifest']),fpath,
             assets_path,target_path,coverage_path,metrics_path,link_path,program_path,
             analysis_root/'reaction_evidence.jsonl.gz',Path(case_spec),Path(exposure_path),style_path,config_path]
     producer=[Path(__file__),ROOT/'src/mechet/analysis/literature_population_figures.py',
               ROOT/'scripts/render_nmi_literature_figures.py',ROOT/'scripts/render_nmi_tree_figures.py',
-              ROOT/'src/mechet/analysis/literature_figures.py',ROOT/'src/mechet/analysis/figure_qa.py']
+              ROOT/'src/mechet/analysis/literature_figures.py',ROOT/'src/mechet/analysis/figure_qa.py',
+              ROOT/'src/mechet/analysis/literature_mapping.py']
     manifest={'schema':'lgrv_population_figure_manifest_v1','figures':figures,
         'actor_sha256':freeze['actor_sha256'],'original_route_target_denominator':460,
         'unique_reaction_queries':len(queries),'matched_compute_claim':False,'ranking_primary':False,
         'reference_C0_C1_C2':'Unknown','new_model_inference':False,
+        'native_mapping_enrichment_manifest_sha256':mapping_sha,
         'source_files':[{'path':str(p.resolve()),'sha256':file_sha256(p)} for p in inputs],
         'producer_files':{str(p.relative_to(ROOT)):file_sha256(p) for p in producer},
         'panel_source_data_sha256':file_sha256(panel_path),'visual_inspection_status':'pending',

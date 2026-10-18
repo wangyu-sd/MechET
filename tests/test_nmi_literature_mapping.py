@@ -141,3 +141,31 @@ def test_archived_full_mixture_auxiliary_projection_is_preserved_without_inventi
     assert row['auxiliary_raw']==[]
     assert row['auxiliary_role_basis']==q['auxiliary_role_basis']
     assert row['mapping_status']=='mapped_center_available'
+
+
+def test_query_view_consumer_revalidates_saved_programs_not_just_declared_counts(tmp_path):
+    freeze,programs,q,_,_=fixture(tmp_path)
+    out=tmp_path/'derived';module=implementation();module.enrich_queries(freeze,programs,out)
+    queries,manifest=module.load_query_view(freeze,programs,out)
+    assert len(queries)==1 and queries[0]['reaction_key']==q['reaction_key']
+    assert queries[0]['native_mapping']['status']=='unique_native_family'
+    assert manifest['counts']['newly_resolved']==1
+
+
+@pytest.mark.parametrize('mutation',['family','raw_precursors','auxiliary_projection','duplicate_query','claimed_count','parent_manifest'])
+def test_query_view_consumer_refuses_self_consistent_but_invented_mapping(tmp_path,mutation):
+    freeze,programs,_,_,_=fixture(tmp_path)
+    out=tmp_path/'derived';module=implementation();module.enrich_queries(freeze,programs,out)
+    table=out/'unique_reaction_queries_enriched.jsonl.gz';rows=read_table(out)
+    if mutation=='family':rows[0]['reaction_family_key']='f'*64
+    if mutation=='raw_precursors':rows[0]['precursors_raw']=['CCC','N']
+    if mutation=='auxiliary_projection':rows[0]['auxiliary_components']=['[Na+]']
+    if mutation=='duplicate_query':rows.append(copy.deepcopy(rows[0]))
+    with gzip.open(table,'wt') as f:
+        for row in rows:f.write(json.dumps(row)+'\n')
+    path=out/'mapping_enrichment_manifest.json';m=json.loads(path.read_bytes())
+    m['output_files'][table.name]['sha256']=file_sha256(table)
+    if mutation=='claimed_count':m['counts']['newly_resolved']=99
+    if mutation=='parent_manifest':m['program_join_manifest_sha256']='f'*64
+    path.write_text(json.dumps(m))
+    with pytest.raises(ValueError):module.load_query_view(freeze,programs,out)

@@ -144,9 +144,11 @@ def population_files(tmp_path):
     spec.write_text(json.dumps(selected))
     tree=json.loads((report.parent.parent/'trees/t.json').read_text())
     programs=join_report_programs(json.loads(report.read_text()),tree,[occ],json.loads(exposure.read_text()),actor_sha='b'*64)
+    for row in programs:row['actor_exposure_manifest_sha256']=file_sha256(exposure)
     program_root=tmp_path/'programs';program_root.mkdir()
     links=program_root/'program_reaction_links.jsonl.gz';write_rows(links,programs)
     pm={'complete':True,'actor_sha256':'b'*64,'actor_exposure_manifest_sha256':file_sha256(exposure),
+        'unmatched_occurrence_count':0,
         'prediction_freeze_manifest_sha256':file_sha256(frozen_path),
         'output_files':{links.name:{'sha256':file_sha256(links)}}}
     (program_root/'program_join_manifest.json').write_text(json.dumps(pm))
@@ -202,8 +204,21 @@ def seal_analysis(arguments,program_root):
     (analysis/'analysis_manifest.json').write_text(json.dumps(payload))
 
 
-def test_population_delivery_exports_actual_unresolved_case_without_inventing_support(tmp_path):
-    arguments,program_root=population_files(tmp_path);seal_analysis(arguments,program_root)
+@pytest.mark.parametrize('native_mapping',[False,True])
+def test_population_delivery_exports_actual_unresolved_case_without_inventing_support(tmp_path,native_mapping):
+    arguments,program_root=population_files(tmp_path)
+    if native_mapping:
+        import shutil
+        from mechet.analysis.literature_mapping import enrich_queries
+        view=tmp_path/'native_view';enrich_queries(arguments[1],program_root,view)
+        for name in ('mapping_enrichment_manifest.json','unique_reaction_queries_enriched.jsonl.gz'):
+            shutil.copyfile(view/name,arguments[0]/name)
+    seal_analysis(arguments,program_root)
+    if native_mapping:
+        from mechet.analysis.literature_sources import file_sha256
+        p=arguments[0]/'analysis_manifest.json';m=json.loads(p.read_bytes())
+        m['native_mapping_enrichment_manifest_sha256']=file_sha256(arguments[0]/'mapping_enrichment_manifest.json')
+        p.write_text(json.dumps(m))
     run=importlib.import_module('scripts.render_nmi_literature_population_figures').render_population_figures
     result=run(*arguments,program_join_root=program_root)
     assert result['original_route_target_denominator']==460
@@ -214,6 +229,32 @@ def test_population_delivery_exports_actual_unresolved_case_without_inventing_su
     assert 'US20160022662A1 supports' not in captions
     assert 'has603' not in captions
     assert '0 local primitive' in captions
+    if native_mapping:
+        assert result['native_mapping_enrichment_manifest_sha256']==m['native_mapping_enrichment_manifest_sha256']
+
+
+def test_population_delivery_rejects_resealed_but_invented_native_family(tmp_path):
+    import shutil
+    from mechet.analysis.literature_mapping import enrich_queries
+    from mechet.analysis.literature_sources import file_sha256
+    arguments,program_root=population_files(tmp_path)
+    view=tmp_path/'view';enrich_queries(arguments[1],program_root,view)
+    table=view/'unique_reaction_queries_enriched.jsonl.gz'
+    with gzip.open(table,'rt') as f:records=[json.loads(l) for l in f]
+    records[0]['reaction_family_key']='f'*64
+    with gzip.open(table,'wt') as f:
+        for row in records:f.write(json.dumps(row)+'\n')
+    p=view/'mapping_enrichment_manifest.json';m=json.loads(p.read_bytes())
+    m['output_files'][table.name]['sha256']=file_sha256(table);p.write_text(json.dumps(m))
+    for name in (p.name,table.name):shutil.copyfile(view/name,arguments[0]/name)
+    seal_analysis(arguments,program_root)
+    p=arguments[0]/'analysis_manifest.json';m=json.loads(p.read_bytes())
+    m['native_mapping_enrichment_manifest_sha256']=file_sha256(arguments[0]/'mapping_enrichment_manifest.json')
+    p.write_text(json.dumps(m))
+    run=importlib.import_module('scripts.render_nmi_literature_population_figures').render_population_figures
+    with pytest.raises(ValueError,match='query view|native-program'):
+        run(*arguments,program_join_root=program_root)
+    assert not arguments[-1].exists()
 
 
 @pytest.mark.parametrize('mutation',[

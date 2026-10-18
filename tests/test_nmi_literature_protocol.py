@@ -355,7 +355,8 @@ def test_net_reaction_precedent_never_proves_internal_arrow_order():
     assert result['physical_intermediates_experimentally_verified'] is False
 
 
-def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_hits(tmp_path):
+@pytest.mark.parametrize('native_mapping',[False,True])
+def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_hits(tmp_path,native_mapping):
     # Filesystem unit integration only: synthetic fixtures, no model or real
     # benchmark sampling. Catches CLI contract/joins and fabricated A metrics.
     import gzip,json,pathlib,subprocess,sys,yaml
@@ -367,7 +368,7 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     (analysis/'source_manifest.json').write_text('{}')
     snapshot = tmp_path/'snapshot.json';snapshot.write_text('{}')
     assets = tmp_path/'assets.json';assets.write_text('{}')
-    reaction = keys.make_reaction('CO',['CBr','[OH-]'])
+    reaction = keys.make_reaction('CCCO',['CCCBr','[OH-]']) if native_mapping else keys.make_reaction('CO',['CBr','[OH-]'])
     runs = ['r1_mcts_pr88','r1_greedy_dynamic','r1_greedy_shared','mech31k_mcts_pr88',
             'mech31k_greedy_dynamic','mech31k_greedy_shared']
     def write(name,rows):
@@ -392,18 +393,32 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     program_root=tmp_path/'programs';program_root.mkdir()
     with gzip.open(program_root/'program_reaction_links.jsonl.gz','wt') as f:
         for run in runs:
-            f.write(json.dumps({'run_id':run,'target_id':'a','reaction_key':reaction['reaction_key'],
+            row={'run_id':run,'target_id':'a','reaction_key':reaction['reaction_key'],
                 'complete_signature':'unseen','exposure_class':'unseen_ordinary',
-                'all_primitives_seen_at_least_five':True,'complexity':{}})+'\n')
+                'all_primitives_seen_at_least_five':True,'complexity':{}}
+            if native_mapping:
+                product='[CH3:1][CH2:2][CH2:3][OH:4]'
+                precursors='[CH3:1][CH2:2][CH2:3][Br:5].[OH-:4]'
+                center=keys.mapped_center(precursors,product)
+                row.update(program_record_id=run,actor_sha256='fixture-actor',
+                    actor_exposure_manifest_sha256='e'*64,program_state_binding={'valid':True},
+                    mapped_product=product,mapped_structural_precursors=precursors,
+                    mapping_status=center['mapping_status'],reaction_family_key=center['reaction_family_key'])
+            f.write(json.dumps(row)+'\n')
     (program_root/'observed_work.json').write_text(json.dumps({}))
     (program_root/'program_join_manifest.json').write_text(json.dumps({
         'complete':True,'actor_sha256':'fixture-actor','unmatched_occurrence_count':0,
+        'actor_exposure_manifest_sha256':'e'*64,
         'prediction_freeze_manifest_sha256':sources.file_sha256(freeze/'prediction_freeze_manifest.json'),
         'output_files':{name:{'sha256':sources.file_sha256(program_root/name)}
                         for name in ['program_reaction_links.jsonl.gz','observed_work.json']}}))
     db = tmp_path/'index';db.mkdir()
     source_index = index.ReactionIndex(db/'reactions.sqlite')
-    source_index.add({'source_id':'s','product':'CO','precursors':['CBr','[OH-]'],'license':'CC-BY-SA-4.0'})
+    if native_mapping:
+        source_index.add({'source_id':'analogue-only',
+            'product':'[CH3:1][CH2:2][CH2:3][CH2:4][OH:5]',
+            'precursors':['[CH3:1][CH2:2][CH2:3][CH2:4][Br:6].[OH-:5]'],'license':'CC-BY-SA-4.0'})
+    else:source_index.add({'source_id':'s','product':'CO','precursors':['CBr','[OH-]'],'license':'CC-BY-SA-4.0'})
     source_index.close()
     (db/'source_corpus_manifest.json').write_text(json.dumps({'complete':True,'index_sha256':sources.file_sha256(db/'reactions.sqlite')}))
     config = tmp_path/'retrieval.yaml'
@@ -412,10 +427,15 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
         'main_outcome':'literature_evidence_for_complete_synthetic_reaction_steps_and_stock_routes'}))
     output = tmp_path/'result'
     script = pathlib.Path(__file__).resolve().parents[1]/'scripts/verify_nmi_literature_reactions.py'
-    completed = subprocess.run([sys.executable,str(script),'--tree-analysis-root',str(analysis),
+    command=[sys.executable,str(script),'--tree-analysis-root',str(analysis),
         '--progress-snapshot',str(snapshot),'--source-reaction-index',str(db/'reactions.sqlite'),
         '--route-assets-manifest',str(assets),'--output-root',str(output),'--retrieval-config',str(config),
-        '--prediction-freeze-root',str(freeze),'--program-join-root',str(program_root)],capture_output=True,text=True)
+        '--prediction-freeze-root',str(freeze),'--program-join-root',str(program_root)]
+    if native_mapping:
+        view=tmp_path/'native_view'
+        module('literature_mapping').enrich_queries(freeze,program_root,view)
+        command+=['--native-mapping-view',str(view)]
+    completed = subprocess.run(command,capture_output=True,text=True)
     assert completed.returncode == 0,completed.stderr
     delivery=json.loads((output/'analysis_manifest.json').read_text())
     assert delivery['complete'] is True
@@ -424,6 +444,12 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
         assert delivery['output_files'][name]['sha256']==sources.file_sha256(output/name)
     metrics = json.loads((output/'metrics.json').read_text())
     assert metrics['literature_tiers'] == {'C':1}
+    if native_mapping:
+        hits=list(json.loads(l) for l in gzip.open(output/'literature_hits.jsonl.gz','rt'))
+        assert [h['source_id'] for h in hits]==['analogue-only']
+        assert hits[0]['match_type']=='local_edit_analogue_candidate'
+        assert delivery['native_mapping_enrichment_manifest_sha256']==sources.file_sha256(view/'mapping_enrichment_manifest.json')
+        assert delivery['output_files']['unique_reaction_queries_enriched.jsonl.gz']['sha256']==sources.file_sha256(view/'unique_reaction_queries_enriched.jsonl.gz')
     assert metrics['runs']['r1_mcts_pr88']['denominator'] == 2
     assert metrics['runs']['r1_mcts_pr88']['pending_reports'] == 1
     assert metrics['runs']['r1_mcts_pr88']['counts']['StockSolved@B'] == 1
@@ -453,6 +479,8 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     pm=program_root/'program_join_manifest.json';partial=json.loads(pm.read_text())
     partial['unmatched_occurrence_count']=1;pm.write_text(json.dumps(partial))
     command=list(completed.args)
+    if native_mapping:
+        i=command.index('--native-mapping-view');del command[i:i+2]
     command[command.index('--output-root')+1]=str(tmp_path/'checked_d')
     command+=['--primary-source-registry',str(registry)]
     second=subprocess.run(command,capture_output=True,text=True)

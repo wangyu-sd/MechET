@@ -19,6 +19,7 @@ from mechet.analysis.literature_route_metrics import aggregate_routes,disconnect
 from mechet.analysis.literature_sources import file_sha256
 from mechet.analysis.mechanism_consistency import assess_mechanism
 from mechet.analysis.literature_programs import composition_metrics
+from mechet.analysis.literature_mapping import load_query_view
 from mechet.analysis.literature_comparison import compare_disconnections, discovery_efficiency, reaction_target_outcomes
 
 
@@ -39,6 +40,7 @@ def main():
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--primary-source-registry',type=Path,action='append',default=[])
     parser.add_argument('--program-join-root',type=Path)
+    parser.add_argument('--native-mapping-view',type=Path)
     args = parser.parse_args()
     import yaml
     config = yaml.safe_load(args.retrieval_config.read_text())
@@ -69,6 +71,13 @@ def main():
                 raise ValueError('program join artifact checksum differs: '+name)
         for row in rows(args.program_join_root/'program_reaction_links.jsonl.gz'):
             programs[row['run_id']].append(row)
+    native_mapping=None
+    query_rows=rows(args.prediction_freeze_root/'unique_reaction_queries.jsonl.gz')
+    if args.native_mapping_view:
+        if args.program_join_root is None:
+            raise ValueError('native mapping view requires the authenticated complete program join')
+        query_rows,native_mapping=load_query_view(args.prediction_freeze_root,args.program_join_root,
+                                                args.native_mapping_view)
     corpus = json.loads((args.source_reaction_index.parent/'source_corpus_manifest.json').read_bytes())
     if corpus.get('complete') is not True:
         raise ValueError('source index incomplete or checksum differs')
@@ -84,9 +93,12 @@ def main():
             primary[record['contradicted_reaction_key']].append(record)
     output = args.output_root;output.mkdir(parents=True,exist_ok=False)
     save(output/'source_corpus_manifest.json',corpus);save(output/'prediction_freeze_manifest.json',freeze)
+    if native_mapping:
+        for name in ('mapping_enrichment_manifest.json','unique_reaction_queries_enriched.jsonl.gz'):
+            shutil.copyfile(args.native_mapping_view/name,output/name)
     evidence = {};tiers=Counter();retrieval=Counter()
     with gzip.open(output/'literature_hits.jsonl.gz','wt') as hits_file, gzip.open(output/'reaction_evidence.jsonl.gz','wt') as evidence_file:
-        for number,reaction in enumerate(rows(args.prediction_freeze_root/'unique_reaction_queries.jsonl.gz'),1):
+        for number,reaction in enumerate(query_rows,1):
             key = reaction['reaction_key']
             hits = source_index.query(reaction,cap=int(config['literature']['primary_search_cap_per_unique_reaction']))
             for hit in hits:
@@ -213,6 +225,7 @@ def main():
         'retrieval_config_sha256':file_sha256(args.retrieval_config),
         'primary_registry_manifests':registry['source_manifests'],
         'program_join_manifest_sha256':metrics['r2_program_join_manifest_sha256'],
+        'native_mapping_enrichment_manifest_sha256':file_sha256(args.native_mapping_view/'mapping_enrichment_manifest.json') if native_mapping else None,
         'producer_files':{str(p.relative_to(ROOT)):file_sha256(p) for p in producer},
         'output_files':{p.name:{'sha256':file_sha256(p)} for p in sorted(output.iterdir()) if p.is_file()}})
     print(json.dumps({'phase':'retrieval_complete','unique_reactions':len(evidence),'tiers':dict(tiers)}),flush=True)
