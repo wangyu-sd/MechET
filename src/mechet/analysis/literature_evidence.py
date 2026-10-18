@@ -8,6 +8,21 @@ from pathlib import Path
 from .literature_reaction_keys import make_reaction
 
 
+def load_primary_registries(paths):
+    from .literature_sources import file_sha256
+    records={};manifests=[]
+    for path in paths:
+        path=Path(path)
+        registry=json.loads(path.read_bytes())
+        manifests.append({'path':str(path.resolve()),'sha256':file_sha256(path)})
+        for source in registry['records']:
+            identity=source['source_id']
+            if identity in records and records[identity]!=source:
+                raise ValueError('primary source identity reused with conflicting payload')
+            records[identity]=source
+    return {'records':list(records.values()),'source_manifests':manifests}
+
+
 def _passage_checked(source):
     text = source.get('checked_passage', '')
     try:

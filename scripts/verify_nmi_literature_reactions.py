@@ -12,12 +12,14 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
-from mechet.analysis.literature_evidence import assess
+from mechet.analysis.literature_evidence import assess,load_primary_registries
 from mechet.analysis.literature_index import ReactionIndex
 from mechet.analysis.literature_reaction_keys import make_reaction
-from mechet.analysis.literature_route_metrics import aggregate_routes,disconnection_counts,paired_targets,source_supported
+from mechet.analysis.literature_route_metrics import aggregate_routes,disconnection_counts,paired_observed_targets,source_supported
 from mechet.analysis.literature_sources import file_sha256
 from mechet.analysis.mechanism_consistency import assess_mechanism
+from mechet.analysis.literature_programs import composition_metrics
+from mechet.analysis.literature_comparison import compare_disconnections, discovery_efficiency, reaction_target_outcomes
 
 
 def rows(path):
@@ -35,7 +37,8 @@ def main():
     for name in ['tree-analysis-root','progress-snapshot','source-reaction-index','route-assets-manifest',
                  'output-root','retrieval-config','prediction-freeze-root']:
         parser.add_argument('--'+name,type=Path,required=True)
-    parser.add_argument('--primary-source-registry',type=Path)
+    parser.add_argument('--primary-source-registry',type=Path,action='append',default=[])
+    parser.add_argument('--program-join-root',type=Path)
     args = parser.parse_args()
     import yaml
     config = yaml.safe_load(args.retrieval_config.read_text())
@@ -54,16 +57,30 @@ def main():
             raise ValueError('frozen input checksum differs: '+str(path))
     if freeze['actor_sha256']!=config['actor']['weight_sha256']:
         raise ValueError('actor identity differs')
+    programs=defaultdict(list);program_manifest=None
+    if args.program_join_root:
+        program_manifest=json.loads((args.program_join_root/'program_join_manifest.json').read_bytes())
+        if (program_manifest.get('complete') is not True or
+            program_manifest.get('actor_sha256')!=freeze['actor_sha256'] or
+            program_manifest.get('prediction_freeze_manifest_sha256')!=file_sha256(args.prediction_freeze_root/'prediction_freeze_manifest.json')):
+            raise ValueError('program join does not belong to completed frozen actor/population')
+        for name,description in program_manifest['output_files'].items():
+            if file_sha256(args.program_join_root/name)!=description['sha256']:
+                raise ValueError('program join artifact checksum differs: '+name)
+        for row in rows(args.program_join_root/'program_reaction_links.jsonl.gz'):
+            programs[row['run_id']].append(row)
     corpus = json.loads((args.source_reaction_index.parent/'source_corpus_manifest.json').read_bytes())
     if corpus.get('complete') is not True or file_sha256(args.source_reaction_index)!=corpus['index_sha256']:
         raise ValueError('source index incomplete or checksum differs')
-    registry = json.loads(args.primary_source_registry.read_bytes()) if args.primary_source_registry else {'records':[]}
+    registry = load_primary_registries(args.primary_source_registry)
     primary = defaultdict(list)
     for record in registry['records']:
         key = make_reaction(record['source_product'],record['source_precursors'])['reaction_key']
         primary[key].append(record)
         if record.get('analogue_query_reaction_key'):
             primary[record['analogue_query_reaction_key']].append(record)
+        if record.get('contradicted_reaction_key') and record['contradicted_reaction_key']!=key:
+            primary[record['contradicted_reaction_key']].append(record)
     output = args.output_root;output.mkdir(parents=True,exist_ok=False)
     save(output/'source_corpus_manifest.json',corpus);save(output/'prediction_freeze_manifest.json',freeze)
     evidence = {};tiers=Counter();retrieval=Counter()
@@ -98,12 +115,20 @@ def main():
                'retrieval':dict(retrieval),'runs':{},'paired':{},'ranking_is_primary':False,'no_new_inference':True,
                'source_overlap':'unknown unless separately documented','unsupported_is_not_invalid':True,
                'r2_reference_C0_C1_C2':'Unknown for all160; not inferred from generated signature novelty',
-               'r2_complete_program_join':'pending','matched_compute_claim':False}
+               'r2_complete_program_join':('complete' if program_manifest['unmatched_occurrence_count']==0 else 'partial') if program_manifest else 'pending',
+               'r2_program_join_manifest_sha256':file_sha256(args.program_join_root/'program_join_manifest.json') if program_manifest else None,
+               'composition':{},'paired_disconnections':{},'efficiency':{},'matched_compute_claim':False}
+    observed_work={}
+    if program_manifest:
+        shutil.copyfile(args.program_join_root/'program_reaction_links.jsonl.gz',output/'program_reaction_links.jsonl.gz')
+        shutil.copyfile(args.program_join_root/'observed_work.json',output/'observed_work.json')
+        observed_work=json.loads((args.program_join_root/'observed_work.json').read_bytes())
     with gzip.open(output/'route_evidence.jsonl.gz','wt') as handle:
         for run,universe in populations.items():
             result = {'denominator':len(universe),'observed_reports':len(observed[run]),
                 'pending_reports':len(set(universe)-observed[run]),
                 'supported_disconnections':disconnection_counts(occurrences[run],evidence,universe=universe)}
+            result['reaction_source_outcomes']=reaction_target_outcomes(occurrences[run],evidence,universe=universe)
             if freeze['runs'][run]['mode']=='route':
                 route_metrics = aggregate_routes(route_rows[run],evidence,universe=universe,observed_ids=observed[run])
                 for route in route_metrics.pop('route_evidence'):
@@ -115,27 +140,65 @@ def main():
                                'ExactSourceSupported':len(exact),'attempt_budget':10 if 'mcts' in run else 'one_greedy_episode',
                                'source_protocol':'frozen rxn_prod_min proxy DIAGNOSTIC; not stock-route planning'})
             metrics['runs'][run] = result
+            if program_manifest:
+                metrics['composition'][run]=composition_metrics(programs[run],evidence,route_rows[run],universe=universe)
+            metrics['efficiency'][run]=discovery_efficiency(observed_work.get(run,{}),
+                supported_disconnections=result['supported_disconnections']['unique_supported_reactions'],
+                covered_targets=result.get('counts',{}).get('PrecedentCoveredSolved@B'))
     with (output/'baseline_comparison.csv').open('w') as handle:
-        writer=csv.DictWriter(handle,fieldnames=['baseline','outcome','denominator','both','method_only','baseline_only','neither','difference','interpretation'])
+        fields=['baseline','outcome','denominator','both','method_only','baseline_only','neither','difference','interpretation',
+                'method_pending_reports','baseline_pending_reports','full_population_outcome',
+                'observed_both_denominator','observed_both_both','observed_both_method_only',
+                'observed_both_baseline_only','observed_both_neither','observed_both_difference']
+        writer=csv.DictWriter(handle,fieldnames=fields)
         writer.writeheader()
+        def write_pair(baseline,name,paired):
+            flat={key:paired[key] for key in fields if key in paired}
+            flat.update({'observed_both_'+key:paired['observed_both'][key] for key in
+                         ('denominator','both','method_only','baseline_only','neither','difference')})
+            writer.writerow({'baseline':baseline,'outcome':name,**flat})
         for baseline in ['r1_greedy_dynamic','r1_greedy_shared']:
             comparison={}
             for name in ['StockSolved@B','PrecedentCoveredSolved@B']:
                 method={r['target_id'] for r in metrics['runs']['r1_mcts_pr88']['targets'] if r[name]}
                 control={r['target_id'] for r in metrics['runs'][baseline]['targets'] if r[name]}
-                paired=paired_targets(populations['r1_mcts_pr88'],method,control,bootstrap_draws=config['output']['pairwise_ci_bootstrap_draws'])
+                paired=paired_observed_targets(populations['r1_mcts_pr88'],method,control,
+                    method_observed=observed['r1_mcts_pr88'],baseline_observed=observed[baseline],
+                    bootstrap_draws=config['output']['pairwise_ci_bootstrap_draws'])
                 comparison[name]=paired
-                writer.writerow({'baseline':baseline,'outcome':name,**{key:paired[key] for key in writer.fieldnames if key in paired}})
+                write_pair(baseline,name,paired)
             metrics['paired'][baseline]=comparison
+            metrics['paired_disconnections'][baseline]=compare_disconnections(
+                occurrences['r1_mcts_pr88'],occurrences[baseline],evidence,universe=populations['r1_mcts_pr88'])
+        for baseline in ['mech31k_greedy_dynamic','mech31k_greedy_shared']:
+            if baseline not in populations:
+                continue
+            method='mech31k_mcts_pr88';comparison={}
+            if set(populations[method])!=set(populations[baseline]):
+                raise ValueError('single-reaction baseline target identities differ')
+            for name,field in [('AnySourceSupportedReaction','any_supported_targets'),('ExactSourceSupported','exact_supported_targets')]:
+                left=metrics['runs'][method]['reaction_source_outcomes'][field]
+                right=metrics['runs'][baseline]['reaction_source_outcomes'][field]
+                paired=paired_observed_targets(populations[method],left,right,
+                    method_observed=observed[method],baseline_observed=observed[baseline],
+                    bootstrap_draws=config['output']['pairwise_ci_bootstrap_draws'])
+                comparison[name]=paired
+                write_pair(baseline,name,paired)
+            metrics['paired'][baseline]=comparison
+            metrics['paired_disconnections'][baseline]=compare_disconnections(
+                occurrences[method],occurrences[baseline],evidence,universe=populations[method])
     with gzip.open(output/'source_passages.jsonl.gz','wt') as handle:
         for record in registry['records']:
             # No full copyrighted text or accumulated long excerpts in export.
             handle.write(json.dumps({k:v for k,v in record.items() if k not in {'document_text','checked_passage'}})+'\n')
     coverage={'unique_reaction_queries':len(evidence),'tier_counts':dict(tiers),**retrieval,
-              'source_checked_reactions':sum(source_supported(r) for r in evidence.values()),
-              'primary_registry_sha256':file_sha256(args.primary_source_registry) if args.primary_source_registry else None,
+              'source_checked_reactions':sum(r.get('verification_status') in {'source_passage_checked','source_human_reviewed'} for r in evidence.values()),
+              'source_supported_reactions':sum(source_supported(r) for r in evidence.values()),
+              'primary_registry_sha256':registry['source_manifests'][0]['sha256'] if len(registry['source_manifests'])==1 else None,
+              'primary_registry_manifests':registry['source_manifests'],
               'unresolved_means':'no checked supporting primary source under frozen retrieval, not impossible chemistry',
-              'remaining_work':['additional primary document checks','authenticated full R2 join','analogue policy validation','publication figures']}
+              'remaining_work':['additional primary document checks','analogue policy validation','publication figures']+(
+                  [] if program_manifest and program_manifest['unmatched_occurrence_count']==0 else ['authenticated full R2 join'])}
     save(output/'metrics.json',metrics);save(output/'evidence_coverage.json',coverage)
     save(output/'progress.json',{'phase':'structured_retrieval_complete_primary_coverage_explicit',**coverage})
     print(json.dumps({'phase':'retrieval_complete','unique_reactions':len(evidence),'tiers':dict(tiers)}),flush=True)

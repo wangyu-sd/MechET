@@ -124,6 +124,21 @@ def test_source_checked_exact_reaction_is_a_not_physical_arrow_proof(tmp_path):
     assert result['physical_mechanism_verified'] is False
 
 
+def test_multiple_primary_registries_preserve_seed_and_new_sources_without_id_conflicts(tmp_path):
+    import json
+    paths=[tmp_path/'seed.json',tmp_path/'extra.json']
+    paths[0].write_text(json.dumps({'records':[{'source_id':'seed','source_product':'CO'}]}))
+    paths[1].write_text(json.dumps({'records':[{'source_id':'extra','source_product':'CCl'}]}))
+    evidence=module('literature_evidence')
+    assert hasattr(evidence,'load_primary_registries'), 'cannot combine independently frozen source registries'
+    registry=evidence.load_primary_registries(paths)
+    assert [r['source_id'] for r in registry['records']]==['seed','extra']
+    assert len(registry['source_manifests'])==2
+    paths[1].write_text(json.dumps({'records':[{'source_id':'seed','source_product':'CCl'}]}))
+    with pytest.raises(ValueError,match='source identity'):
+        evidence.load_primary_registries(paths)
+
+
 def test_no_hit_is_unresolved_not_contradiction():
     reaction = module('literature_reaction_keys').make_reaction('CO', ['CBr','[OH-]'])
     result = module('literature_evidence').assess(reaction, [])
@@ -246,6 +261,20 @@ def test_target_universe_is_retained_and_pairing_uses_ids_not_row_order():
     assert paired['interpretation'] == 'recorded-run descriptive; unequal work is not a causal search gain'
 
 
+def test_paired_discovery_keeps_full_denominator_and_separate_observed_intersection():
+    metrics=module('literature_route_metrics')
+    assert hasattr(metrics,'paired_observed_targets'), 'pending reports are not explicit in paired results'
+    result=metrics.paired_observed_targets(['a','b','c'],{'a'},{'b'},
+        method_observed={'a'},baseline_observed={'a','b','c'},bootstrap_draws=2000)
+    assert result['denominator']==3
+    assert result['baseline_only']==1
+    assert result['method_pending_reports']==2
+    assert result['observed_both']['denominator']==1
+    assert result['observed_both']['method_only']==1
+    assert result['observed_both']['baseline_only']==0
+    assert result['pending_is_failure'] is False
+
+
 def test_machine_only_tier_a_flag_cannot_leak_into_route_support():
     metrics = module('literature_route_metrics')
     result = metrics.route_evidence({'reaction_keys':['a'],'stock_verified':True,'already_in_stock':False},
@@ -339,7 +368,8 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     snapshot = tmp_path/'snapshot.json';snapshot.write_text('{}')
     assets = tmp_path/'assets.json';assets.write_text('{}')
     reaction = keys.make_reaction('CO',['CBr','[OH-]'])
-    runs = ['r1_mcts_pr88','r1_greedy_dynamic','r1_greedy_shared','mech31k_mcts_pr88']
+    runs = ['r1_mcts_pr88','r1_greedy_dynamic','r1_greedy_shared','mech31k_mcts_pr88',
+            'mech31k_greedy_dynamic','mech31k_greedy_shared']
     def write(name,rows):
         with gzip.open(freeze/(name+'.jsonl.gz'),'wt') as handle:
             for row in rows:
@@ -357,6 +387,20 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
         'runs':{r:{'mode':'route' if r.startswith('r1') else 'single'} for r in runs},
         'output_files':{p.name:{'sha256':sources.file_sha256(p)} for p in freeze.glob('*.jsonl.gz')}}
     (freeze/'prediction_freeze_manifest.json').write_text(json.dumps(manifest))
+    # A real frozen program-link artifact must be consumed by the evaluation,
+    # rather than leaving R2 permanently marked pending after annotation.
+    program_root=tmp_path/'programs';program_root.mkdir()
+    with gzip.open(program_root/'program_reaction_links.jsonl.gz','wt') as f:
+        for run in runs:
+            f.write(json.dumps({'run_id':run,'target_id':'a','reaction_key':reaction['reaction_key'],
+                'complete_signature':'unseen','exposure_class':'unseen_ordinary',
+                'all_primitives_seen_at_least_five':True,'complexity':{}})+'\n')
+    (program_root/'observed_work.json').write_text(json.dumps({}))
+    (program_root/'program_join_manifest.json').write_text(json.dumps({
+        'complete':True,'actor_sha256':'fixture-actor','unmatched_occurrence_count':0,
+        'prediction_freeze_manifest_sha256':sources.file_sha256(freeze/'prediction_freeze_manifest.json'),
+        'output_files':{name:{'sha256':sources.file_sha256(program_root/name)}
+                        for name in ['program_reaction_links.jsonl.gz','observed_work.json']}}))
     db = tmp_path/'index';db.mkdir()
     source_index = index.ReactionIndex(db/'reactions.sqlite')
     source_index.add({'source_id':'s','product':'CO','precursors':['CBr','[OH-]'],'license':'CC-BY-SA-4.0'})
@@ -371,7 +415,7 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     completed = subprocess.run([sys.executable,str(script),'--tree-analysis-root',str(analysis),
         '--progress-snapshot',str(snapshot),'--source-reaction-index',str(db/'reactions.sqlite'),
         '--route-assets-manifest',str(assets),'--output-root',str(output),'--retrieval-config',str(config),
-        '--prediction-freeze-root',str(freeze)],capture_output=True,text=True)
+        '--prediction-freeze-root',str(freeze),'--program-join-root',str(program_root)],capture_output=True,text=True)
     assert completed.returncode == 0,completed.stderr
     metrics = json.loads((output/'metrics.json').read_text())
     assert metrics['literature_tiers'] == {'C':1}
@@ -382,6 +426,36 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     assert metrics['runs']['mech31k_mcts_pr88']['AnySourceSupportedReaction'] == 0
     assert (output/'baseline_comparison.csv').exists()
     assert (output/'source_passages.jsonl.gz').exists()
+    assert metrics['r2_complete_program_join']=='complete'
+    assert metrics['composition']['r1_mcts_pr88']['unseen_ordinary']['unique_complete_reactions']==1
+    assert metrics['composition']['r1_mcts_pr88']['UnseenProgramToSupportedReaction']['targets']==0
+    assert (output/'program_reaction_links.jsonl.gz').exists()
+    assert metrics['runs']['mech31k_mcts_pr88']['reaction_source_outcomes']['unique_generated_reactions']==1
+    assert metrics['paired']['mech31k_greedy_dynamic']['AnySourceSupportedReaction']['denominator']==2
+    assert metrics['paired_disconnections']['mech31k_greedy_shared']['target_reaction_pairs']['method_only']==0
+    assert metrics['paired']['r1_greedy_dynamic']['StockSolved@B']['observed_both']['denominator']==1
+    import csv
+    with (output/'baseline_comparison.csv').open() as f:first=next(csv.DictReader(f))
+    assert first['method_pending_reports']=='1'
+    assert first['observed_both_denominator']=='1'
+    assert 'lower bound' in first['full_population_outcome']
+    # A checked contradiction counts as inspected, never as positive support;
+    # a partial program join must remain on the outstanding-work list.
+    contradiction=primary(tmp_path,contradicted_reaction_key=reaction['reaction_key'],
+                          contradiction_class='fixture-only-conflict',contradiction_evidence='synthetic fixture',
+                          source_precursors=['CCl','[OH-]'])
+    registry=tmp_path/'contradiction.json';registry.write_text(json.dumps({'records':[contradiction]}))
+    pm=program_root/'program_join_manifest.json';partial=json.loads(pm.read_text())
+    partial['unmatched_occurrence_count']=1;pm.write_text(json.dumps(partial))
+    command=list(completed.args)
+    command[command.index('--output-root')+1]=str(tmp_path/'checked_d')
+    command+=['--primary-source-registry',str(registry)]
+    second=subprocess.run(command,capture_output=True,text=True)
+    assert second.returncode==0,second.stderr
+    coverage=json.loads((tmp_path/'checked_d/evidence_coverage.json').read_text())
+    assert coverage['source_checked_reactions']==1
+    assert coverage['source_supported_reactions']==0
+    assert 'authenticated full R2 join' in coverage['remaining_work']
 
 
 def test_aggregate_tree_path_resolution_handles_resumed_absolute_and_new_relative(tmp_path):

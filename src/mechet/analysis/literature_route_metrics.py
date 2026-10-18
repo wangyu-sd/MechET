@@ -44,6 +44,26 @@ def paired_targets(universe, method_positive, baseline_positive, *, bootstrap_dr
     return result
 
 
+def paired_observed_targets(universe, method_positive, baseline_positive, *,
+                            method_observed, baseline_observed, bootstrap_draws=2000, seed=17):
+    universe=list(universe);allowed=set(universe)
+    method_observed,baseline_observed=map(set,(method_observed,baseline_observed))
+    method_positive,baseline_positive=map(set,(method_positive,baseline_positive))
+    if ((method_observed|baseline_observed)-allowed or
+        method_positive-method_observed or baseline_positive-baseline_observed):
+        raise ValueError('observed/positive targets disagree with paired universe')
+    result=paired_targets(universe,method_positive,baseline_positive,
+                          bootstrap_draws=bootstrap_draws,seed=seed)
+    common=method_observed&baseline_observed
+    result.update(method_pending_reports=len(allowed-method_observed),
+                  baseline_pending_reports=len(allowed-baseline_observed),pending_is_failure=False,
+                  full_population_outcome='recorded positive discovery lower bound; neither includes unobserved targets',
+                  observed_both=paired_targets([t for t in universe if t in common],
+                    method_positive&common,baseline_positive&common,
+                    bootstrap_draws=bootstrap_draws,seed=seed))
+    return result
+
+
 def disconnection_counts(occurrences, evidence, *, universe):
     by_target = {key:set() for key in universe}
     for row in occurrences:

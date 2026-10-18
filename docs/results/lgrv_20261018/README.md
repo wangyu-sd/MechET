@@ -81,6 +81,47 @@ efficiency comparisons, chemical case selection and the final Figure2/3/4
 exports remain unfinished. No population Tier-A/B rate is claimed here.
 The goal and original scope remain active; unit tests do not replace results.
 
+## Follow-up: actual program joins and a complete source-backed case
+
+`scripts/annotate_nmi_literature_programs.py` now joins saved terminal contexts
+to the frozen complete-reaction pool, authenticates the actor exposure, records
+native source hashes/pointers and graph-complexity features, and preserves the
+original target populations. Both real serializers (nested route network and
+flat single-reaction tree) have regression coverage. Explicit compatible-cache
+adoption rechecks source bytes and only adopts a completed report prefix; it
+does not replay GPU inference or overwrite the failed version.
+
+All fixed200 R1 reports have been associated: **7,996/7,996 reaction occurrence
+records**, **11,480 terminal programs**, including **6,288 training-unseen
+ordinary program occurrences /3,890 distinct unseen v1 signatures**. This
+is not a chemical correctness rate. The combined six-condition annotation
+and post-review action-state binding audit remain in progress. These are
+archival v1 linkage/signature counts. See [the exact R1 snapshot](R1_PROGRAM_JOIN_SNAPSHOT.json)
+for exposure scope, overlap limitations and immutable source-prefix hashes.
+
+One **two-reaction Cabozantinib free-base route** now has checked exact net
+precedent on both essential edges. The new source checks the acid-chloride
+formation performed **in situ**, not an isolated characterized intermediate.
+Its generated five-FLOW program is training-unseen under the fixed v1
+abstraction, although every primitive occurs in at least4,677 training
+reactions. See [the case and limitations](CABOZANTINIB_CASE.md). This is one
+traceable positive case, not full-corpus coverage or a matched-compute gain.
+
+The evidence CLI now accepts a saved program-join root and multiple independent
+primary registries. It joins R2 to actual source-supported chemical reactions,
+compares both31k Greedies at the same target IDs with2,000 paired bootstrap
+draws, and separates distinct reaction identities from target–reaction pairs.
+Paired tables retain the full original denominator and separately show the
+common completed-report intersection; pending reports are never called failures.
+Source-inspected coverage includes documented contradictions, while positive
+source support remains a different field.
+Work summaries expose cache/restart and missing-cost fields; summed target
+elapsed seconds are **not** represented as global GPU time.
+
+The final reviewed feature set has **75 focused tests passed**; the fresh
+whole suite has **1,079 passed /13 skipped**, with one existing PEFT warning.
+No new model experiment was performed.
+
 ## Exact source versions
 
 | Source | Frozen version |
@@ -138,6 +179,20 @@ python scripts/freeze_nmi_literature_predictions.py \
   --route-assets-manifest "$DATA_ROOT/data/route_benchmarks/frozen_r1_r2_20261013/manifest.json" \
   --output-root "$FREEZE_ROOT" --workers 16
 
+python scripts/annotate_nmi_literature_programs.py \
+  --prediction-freeze-root "$FREEZE_ROOT" \
+  --actor-exposure-manifest "$DATA_ROOT/outputs/analysis/r1_r2_actual_sft_mechanism_index_20261014/manifest.json" \
+  --output-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/program_join_pr88_20261018_v3" \
+  --workers 4
+
+# The actual v3 continuation uses an immutable committed runtime plus:
+# --compatible-program-cache .../program_join_pr88_20261018_v1
+# --cache-manifest-sha256 a23e58337c56c41d5eb58dfe7f2019a715f03b0f95f4d0d90f501820c730eef3
+# --cache-links-sha256 d0252d47fc1134a7892e92ccfcb57117a2d3d1bae67a35359d517202818a1259
+# It revalidates action payloads and endpoint/continuity binding before reuse.
+# v1's source-layout failure remains preserved. The v2 preflight was stopped
+# before output when source code changed during its Ceph wait; no GPU stopped.
+
 # Only after BOTH index and prediction-freeze manifests say complete=true.
 # Use a new output root; prior analysis is never overwritten.
 python scripts/verify_nmi_literature_reactions.py \
@@ -148,6 +203,8 @@ python scripts/verify_nmi_literature_reactions.py \
   --prediction-freeze-root "$FREEZE_ROOT" \
   --retrieval-config configs/analysis/nmi_r1_r2_matched_baselines_20261017.yaml \
   --primary-source-registry configs/analysis/lgrv_primary_source_seed_20261018.json \
+  --primary-source-registry configs/analysis/lgrv_primary_sources_20261018_v2.json \
+  --program-join-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/program_join_pr88_20261018_v3" \
   --output-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/source_checked_20261018_v1"
 ```
 
