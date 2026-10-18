@@ -1,0 +1,21 @@
+{
+  "schema": "lgrv_query_bound_preparation_review_v1",
+  "complete": true,
+  "frozen_analysis_manifest_sha256": "a74e73035d8784224e09e1624c26940d6bb50c2cc6786e8c660e0e187eca1795",
+  "review_spec_sha256": "d2b8e4b662ee8d99c742012db12e44b96bb646cd2f5a30c45944f1388be81fef",
+  "registry_sha256": "47c1d6ced8f8f292456be8890c59189cc0f7bbf8a683bc63615673e3e2ca4015",
+  "producer_sha256": "cf485073c52fa80444069f7a866927b91721be510d3a1bb8fd5fac0a7969bd5e",
+  "records": [
+    {
+      "source_id": "US8586565B2:exampleA23:correct-fluoro-aminophenol-pyridyl-ether",
+      "query_reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+      "source_reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+      "tier": "A",
+      "raw_document_sha256": "2d9312fcb56ba25711fea9c1593da0804101ae6be58041eaa3a3dd7acfb61f92",
+      "document_sha256": "f2cf5d863017560ac9fe322eef6581bcc2520ab1c79d68579f7670e28d8a0313"
+    }
+  ],
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "population_reaggregation_completed_by_this_recipe": false
+}

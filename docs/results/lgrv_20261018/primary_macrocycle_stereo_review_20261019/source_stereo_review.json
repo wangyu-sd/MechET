@@ -1,0 +1,70 @@
+{
+  "schema": "lgrv_checked_stereo_identity_limit_bound_v1",
+  "query_reaction_key": "6d5e4875c4da2cf531497445573d5c825042f576a85ee9d561af5860d6e7eb32",
+  "source_constitution_only_product": "O=C1C(NC(=O)OC(C)(C)C)CCCCCC=CC2CC2(C(=O)NS(=O)(=O)C2CC2)NC(=O)C2CC(OC(=O)c3ccc4ccccc4c3)CN12",
+  "source_constitution_only_precursors": [
+    "O=C1C(NC(=O)OC(C)(C)C)CCCCCC=CC2CC2(C(=O)NS(=O)(=O)C2CC2)NC(=O)C2CC(O)CN12",
+    "ClC(=O)c1ccc2ccccc2c1"
+  ],
+  "source_relative_stereochemistry": "Original Example55 structure image C00168 explicitly shows multiple solid/hashed stereobonds on the proline,cyclopropane and macrocycle scaffold. Those constraints are absent from the frozen query. Exact stereochemical correspondence and alkene geometry have not been independently transcribed/reconciled.",
+  "source_stereochemical_structure_transcription": "The carbonyl-first graph records constitution only,not a full source stereostructure. It must not be used as an exact experimental source by erasing the image's stereochemistry.",
+  "checked_passage": "Example 55 Preparation of Compound 18 Prepared by way of method I",
+  "performed_preparation_observation": "Example55 reports the hydroxy macrocycle100mg0.175mmol plus2-naphthoyl chloride66mg0.35mmol to give33mg26%,98.5%HPLC,MS721(M-H),HRMScalc740.3329/found740.3321(M+NH4),mp156-158 C. Named product and independently transcribed carbonyl-first constitution match the frozen key,but the actual linked structure image imposes stereochemistry not encoded by that key.",
+  "general_method_scope": "Complete MethodI at449234 was read:pyridine,dryN2,LCMS monitoring,5h,Et2O dilution,acid/brine washing,chromatography/trituration. No explicit reaction temperature is specified there. Its named10-oxa/benzoyl substrate is not silently transferred to the diaza/non-oxa naphthoyl Example55. MethodI's31mg26% and other characterization belong to its own example,not55.",
+  "query_evidence_tier_retained": "C",
+  "generated_reaction_proven_wrong": false,
+  "full_stereospecific_identity_verified": false,
+  "scope": "Actual performed preparation and source image were inspected. This unresolved identity is not an experimentally contradicted generated reaction and does not validate individual inverse FLOW operations.",
+  "source_documents": [
+    {
+      "source_url": "https://patents.google.com/patent/US7772183B2/en",
+      "document_sha256": "93b614d748ef27f8cd650deafa6c8c2ba7f4c4398dedc3b436a127128f0a30b6"
+    }
+  ],
+  "source_images": [
+    {
+      "source_url": "https://patentimages.storage.googleapis.com/6f/5c/2f/4ca36c8ebf32df/US07772183-20100810-C00168.png",
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/US7772183B2_Example55_C00168.png",
+      "sha256": "135b6bd15602bffd731b88c964720333465f95b3162cd8ef252907c45c24772c",
+      "linked_from_source_url": "https://patents.google.com/patent/US7772183B2/en",
+      "html_figure_id": "CHEM-US-00168",
+      "visual_inspection_status": "actual downloaded original patent PNG opened and inspected; solid/hashed stereobonds visible,not inferred from an extracted SMILES"
+    }
+  ],
+  "reviewer": "assistant_primary_source_review_20261019",
+  "source_human_reviewed": false,
+  "independent_policy_calibration": false,
+  "new_model_inference": false,
+  "source_image_bindings": [
+    {
+      "source_url": "https://patentimages.storage.googleapis.com/6f/5c/2f/4ca36c8ebf32df/US07772183-20100810-C00168.png",
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/US7772183B2_Example55_C00168.png",
+      "sha256": "135b6bd15602bffd731b88c964720333465f95b3162cd8ef252907c45c24772c",
+      "linked_from_source_url": "https://patents.google.com/patent/US7772183B2/en",
+      "html_figure_id": "CHEM-US-00168",
+      "visual_inspection_status": "actual downloaded original patent PNG opened and inspected; solid/hashed stereobonds visible,not inferred from an extracted SMILES",
+      "linked_raw_document_sha256": "2c00c313430639fe0eb626effd3df53dca9f2a69736c5e16995b77882e73151f"
+    }
+  ],
+  "source_bindings": [
+    {
+      "source_url": "https://patents.google.com/patent/US7772183B2/en",
+      "document_sha256": "93b614d748ef27f8cd650deafa6c8c2ba7f4c4398dedc3b436a127128f0a30b6",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/fdef6d5a2fbc182ead8935b7e98ffe92f5c80dec9db8d0d9ba3903416e14a9cf.json",
+      "source_receipt_sha256": "9e66556affc73ee226a96ccfb20a6c670744447b875f512003501cb1e85fd844",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/fdef6d5a2fbc182ead8935b7e98ffe92f5c80dec9db8d0d9ba3903416e14a9cf.html",
+      "raw_document_sha256": "2c00c313430639fe0eb626effd3df53dca9f2a69736c5e16995b77882e73151f",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/fdef6d5a2fbc182ead8935b7e98ffe92f5c80dec9db8d0d9ba3903416e14a9cf.txt",
+      "normalized_passage_offset": 461758,
+      "checked_passage_sha256": "88b6cc2a7c4814a60b01898287f013904505b5cf7b87495b3c76944e99d8c8dc",
+      "source_paragraph_checked": true,
+      "full_stereospecific_identity_verified": false
+    }
+  ],
+  "query_reaction_smiles": "CC(C)(C)OC(=O)NC1CCCCCC=CC2CC2(C(=O)NS(=O)(=O)C2CC2)NC(=O)C2CC(O)CN2C1=O.O=C(Cl)c1ccc2ccccc2c1>>CC(C)(C)OC(=O)NC1CCCCCC=CC2CC2(C(=O)NS(=O)(=O)C2CC2)NC(=O)C2CC(OC(=O)c3ccc4ccccc4c3)CN2C1=O",
+  "source_query_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v12/unique_reaction_queries_enriched.jsonl.gz",
+  "source_query_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "review_spec_sha256": "10172864207f713750bfc1da09458ccdfd300ee0370cf341139f455bf69039ef",
+  "producer_sha256": "94584d43b2965ae6176919375014d6acf18b4aac4205dcc0e047f76b7a2e2b21",
+  "evidence_grades_changed": false
+}

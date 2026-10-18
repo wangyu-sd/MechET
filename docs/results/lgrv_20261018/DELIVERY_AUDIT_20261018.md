@@ -5,7 +5,23 @@ not legacy Top-K/reference ranking. This is a progress audit, **not a claim
 that the entire PR89 goal is complete**. No model/GPU/Taiji jobs were launched
 or changed in this delivery; paper and code main remain unmerged.
 
-**Current v12 (19October):**46 TierA/1 query-scoped TierB/18,163 unresolved.
+**Current v13 (19October):**47TierA/1query-scopedTierB/18,162unresolved,
+same18,210queries/sixconditions/all21hashes/query-context-hit sequences.
+Recovered original A23,not the earlier nonmatching A26;one exact source
+added,no policy relaxation. Complete48-case paired memberships/17whole
+analysis+3coverage tables/119-query review states retained. Raw macrocycle
+figureC00168 was actually downloaded/opened,source page/image hashes bound;
+multiple source stereobonds absent from query retainC.335f source product
+reconciled but substrate differences/unresolved148h method retainC. Review
+states33pointer-unresolved/80cached-pending/4applicability/2stereo,all77
+remaining referenced documents available,not77verified reactions. Five image
+provenance regressions RED->GREEN;full1,261passed14skipped1existingwarning,
+253.89s. R1allterminal19reactions18targets;stock-route11/1 unchanged,
+31kproxy23/18/17 unchanged. Allfivev12populationPNGspreviews actually opened;
+all15exports/source/producerQAchecked,not relabelledv13. NewA23plate inspected.
+No model/GPU/Taiji/merge;broaderprimary/finalwhole-goalreview open.
+
+**Historical v12 (19October):**46 TierA/1 query-scoped TierB/18,163 unresolved.
 All18,210 queries/six conditions and original query/context/hit sequences
 remain; all21 output hashes/current producer hashes checked. Complete17-file
 analysis/3-file coverage distributions, all47 case paired memberships and

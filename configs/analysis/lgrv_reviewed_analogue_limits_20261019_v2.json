@@ -1,0 +1,30 @@
+{
+  "scope": "Performed source335f is independently reconciled to the original capped analogue candidate,but the query's several substrate differences and an unresolved148h method cross-reference do not justify automatic TierB. This is an explicit checked-but-unresolved review,not negative chemistry or independent policy calibration.",
+  "records": [
+    {
+      "source_id": "US8618107B2:example335f:query6569547b-applicability-unresolved",
+      "patent_id": "US8618107B2",
+      "source_url": "https://patents.google.com/patent/US8618107B2/en",
+      "document_sha256": "acefaef050d4840ad27ca346bdf9dc2b078e97b8a43bd1daeee81c3d510c7125",
+      "checked_passage": "335f as a yellow solid (100 mg, 51%). LCMS: [M+H] + 680",
+      "locator": "Example335f at1127450-1128250,after335a-e and before hydrolysis to335. Whole Example148 at672958-675870 contains148a/148b;335f cites Examples148h,not an unambiguously identified procedure in this source snapshot.",
+      "source_product": "Cn1cc(-c2c(COC(C)=O)c(N3CCn4c(cc5c4CCCC5)C3=O)cc(F)c2)cc(Nc2ccc(N3CC4CN(C)CC4C3)cn2)c1=O",
+      "source_precursors": ["CC1(C)OB(c2c(COC(C)=O)c(N3CCn4c(cc5c4CCCC5)C3=O)cc(F)c2)OC1(C)C", "Cn1cc(Br)cc(Nc2ccc(N3CC4CN(C)CC4C3)cn2)c1=O"],
+      "expected_exact_reaction_key": "061fb909dddbfefb35c9e6df6d3d99df58c9a975d852e0fdbb6695415fff2d3d",
+      "structural_reconciliation": "Independent N-methylpyridone-first source transcription matches the original candidate exactly:5-aryl3-aminopyridyl2-pyridone,arylorthoCH2OAc/otherorthoN-lactam/metaF,and fused5-methylhexahydropyrrolopyrrole on the aminopyridyl ring. This is isolated acetyl-protected335f,not deprotected alcohol335. No query structure is substituted for the source substrate.",
+      "source_conditions": "335f uses boronate210d142mg0.29mmol and bromide335e119mg0.29mmol; isolated yellow solid100mg51%,LCMS680(M+H). Reference is Examples148h. Actual148b reports Pd(dppf)Cl2/K3PO4.3H2O/NaOAc inMeCN110 C2h for a different substrate,but its conditions are NOT silently assigned to335f because the148h pointer is unresolved. Subsequent LiOH hydrolysis to335 is a different reaction.",
+      "reported_isolated_yield_percent": 51,
+      "analogue_query_reaction_key": "6569547b41b6ec6dcfc8c34e440c807c7d39b96cdbe9ab68b7e17a78d9576842",
+      "analogue_compatibility_checked": false,
+      "substrate_differences": "Query replaces the boronate-bearing fluoro-substituted phenyl/lactam scaffold with a pyridyl/tert-butylfluorophthalazinone environment,has freeCH2OH rather thanCH2OAc,and replaces the remote fused diamine with oxetanyl piperazine. The pyridone bromide coupling center is conserved,but multiple electronic/coordination/protection changes remain.",
+      "functional_group_compatibility": "The source proves a related Suzuki-type product was isolated,not that this exact heteroaryl boronate/free alcohol/other diazine scaffold will tolerate the same conditions. The ambiguous general-method pointer additionally prevents assigning a specific condition class confidently. RetainC until a stronger source/applicability reconciliation;do not label query chemically wrong.",
+      "stereo_compatibility_checked": false,
+      "query_evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false,
+      "independent_policy_calibration": false,
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019"
+    }
+  ]
+}

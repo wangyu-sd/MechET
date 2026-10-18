@@ -6,7 +6,30 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v12 source review:** two further exact preparations and one
+**Current v13 source review:** directly inspecting A23 beyond the previously
+checked nonmatching A26 recovers one further exact preparation. The unchanged
+18,210-query/six-condition analysis now has **47 TierA,1 query-scoped TierB,
+18,162 unresolved**. [Complete tables/all48 cases](analysis_tables_primary_v13_20261019/README.md),
+[whole coverage](coverage_review_v13_20261019/README.md),
+[119-query work states](primary_review_states_v13_20261019/README.md) and
+[six-condition summary](POPULATION_RESULTS_PRIMARY_V13_20261019.json) retain
+all methods. Original query/context/candidate sequences and all21 sealed
+output hashes are verified. R1 all-terminal support is19 reactions/18 targets;
+stock-route any-exact11/all-essential1 and31k proxy23/18/17 are unchanged.
+
+The [new preparation/scope review](primary_review_v13_20261019/README.md)
+and [A23 RDKit plate](additional_preparation_gallery_20261019_v13/README.md)
+retain source identities and positional chemistry. A checked
+[macrocycle source image](primary_macrocycle_stereo_review_20261019/README.md)
+and a performed335f analogue retain specific stereo/applicability limits,
+not unread-source labels. Full CPU gate **1,261 passed/14 skipped**, one
+existing warning,253.89s. All five refreshed
+[v12 population figures](population_figures_primary_v12_20261019/README.md)
+were opened and inspected,with all15 exports/source hashes checked;they
+remain explicitly v12,not relabelled as v13. Wider original-source review and
+final whole-goal review remain open. No model/GPU/Taiji task or merge.
+
+**Historical v12 source review:** two further exact preparations and one
 query-scoped experimental analogue give **46 TierA,1 TierB,18,163 unresolved**
 over the same18,210 queries/six conditions. The [complete tables and all47
 cases](analysis_tables_primary_v12_20261019/README.md),

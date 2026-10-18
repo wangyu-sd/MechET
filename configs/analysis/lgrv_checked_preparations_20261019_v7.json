@@ -1,0 +1,23 @@
+{
+  "scope": "One exact performed A23 preparation recovered by inspecting the original patent beyond the previously checked, nonmatching A26 positional isomer. Source preparation and its explicitly referenced general method were directly read; no new retrieval candidate or model prediction.",
+  "records": [
+    {
+      "source_id": "US8586565B2:exampleA23:correct-fluoro-aminophenol-pyridyl-ether",
+      "patent_id": "US8586565B2",
+      "source_url": "https://patents.google.com/patent/US8586565B2/en",
+      "document_sha256": "f2cf5d863017560ac9fe322eef6581bcc2520ab1c79d68579f7670e28d8a0313",
+      "checked_passage": "4-(2-chloro-pyridin-4-yloxy)-2-fluorophenylamine (11 g, 86% yield).",
+      "locator": "ExampleA23 at normalized320039-320450; explicitly follows ExampleA2 at296901. A26 at322804 is the other fluorophenol positional isomer, not this reaction. US7790756B2 A23 at325100 corroborates the same preparation and is not counted as an independent reaction.",
+      "source_product": "n1c(Cl)cc(Oc2ccc(N)c(F)c2)cc1",
+      "source_precursors": ["n1c(Cl)cc(Cl)cc1", "Oc1ccc(N)c(F)c1"],
+      "expected_exact_reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+      "source_conditions": "ExampleA23:2,4-dichloropyridine8.0g54mmol and3-fluoro4-aminophenol8.0g62.9mmol; product11g86%,1H NMR,ESI239.2(M+H). Explicitly followsA2:KOtBu/anhydrousDMA,argon evacuation/backfill,room-temperature30min before electrophile addition,100 C overnight;EtOAc/water/brine workup and silica chromatography. A2's picolinamide substrate identities,quantities and77%yield are not transferred. A26's2-fluoro4-aminophenol/67%yield are not this preparation.",
+      "reported_isolated_yield_percent": 86,
+      "structural_reconciliation": "Independent pyridine-N-first traversal places pyridine N1, retainedCl at C2 and aryloxy at C4. On the phenol-derived ring,amine is para to O and F is meta to O/ortho to amine. This is3-fluoro4-aminophenol,notA26's2-fluoro4-aminophenol. Product and both essential source substrates reconcile exactly to the frozen complete reaction key. No stereo,isotope,salt or protecting-group normalization was applied.",
+      "previous_partial_review_scope": "The earlier source-mismatch review correctly identified thatA26 was not this query,but did not inspect matchingA23. That versioned negative source-assignment observation remains intact;it does not disqualify the actualA23 preparation or prove the generated reaction wrong.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019"
+    }
+  ]
+}

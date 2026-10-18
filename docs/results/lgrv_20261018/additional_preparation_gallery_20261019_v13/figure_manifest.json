@@ -1,0 +1,128 @@
+{
+  "schema": "lgrv_checked_preparation_gallery_v1",
+  "source_query_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v12/unique_reaction_queries_enriched.jsonl.gz",
+  "source_query_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "primary_registry_manifests": [
+    {
+      "path": "configs/analysis/lgrv_primary_sources_20261019_v7.json",
+      "sha256": "47c1d6ced8f8f292456be8890c59189cc0f7bbf8a683bc63615673e3e2ca4015"
+    }
+  ],
+  "figures": {
+    "extended_data_primary_preparations_v13": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v13/figures/extended_data_primary_preparations_v13.svg",
+          "sha256": "a55cf656d132b804b0ec822c0b7761ed4dbd04a355ddfeb83332bd0c53bde232"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v13/figures/extended_data_primary_preparations_v13.pdf",
+          "sha256": "5919d9da2fcce1a308ca2cc4fef4da5a3b24029e4840429b539058ac3488f5db"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v13/figures/extended_data_primary_preparations_v13.png",
+          "sha256": "93d0964592dffb6803d0b21f68eb35c55d9469a103f0f094b2f8421bfbb9e14f"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 3,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 97,
+          "editable_text_elements": 7
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 56.44444444444444,
+          "fonts": [
+            {
+              "name": "/IYQRWQ+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/SSOLBX+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 667,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+            "evidence": {
+              "reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US8586565B2:exampleA23:correct-fluoro-aminophenol-pyridyl-ether",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US8586565B2/en",
+              "locator": "ExampleA23 at normalized320039-320450; explicitly follows ExampleA2 at296901. A26 at322804 is the other fluorophenol positional isomer, not this reaction. US7790756B2 A23 at325100 corroborates the same preparation and is not counted as an independent reaction.",
+              "document_sha256": "f2cf5d863017560ac9fe322eef6581bcc2520ab1c79d68579f7670e28d8a0313",
+              "raw_document_sha256": "2d9312fcb56ba25711fea9c1593da0804101ae6be58041eaa3a3dd7acfb61f92",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US8586565B2:exampleA23:correct-fluoro-aminophenol-pyridyl-ether",
+            "source_url": "https://patents.google.com/patent/US8586565B2/en",
+            "locator": "ExampleA23 at normalized320039-320450; explicitly follows ExampleA2 at296901. A26 at322804 is the other fluorophenol positional isomer, not this reaction. US7790756B2 A23 at325100 corroborates the same preparation and is not counted as an independent reaction.",
+            "source_conditions": "KOtBu/anhydrousDMA,argon,100 C overnight (A2 method). A23:11g86%,NMR/ESI239.2(M+H). Correct F position:ortho toNH2,meta toO; notA26.",
+            "source_document_sha256": "f2cf5d863017560ac9fe322eef6581bcc2520ab1c79d68579f7670e28d8a0313",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/3e53ca99e8057d190abba899e3be9f49f7571f288931b03a40ee600da54a5b6b.json",
+              "report_sha256": "8c7946fc96782dbabd919e89b6628e474f0a51c89b28691679dfa56dfd5a9035",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/manifest.json",
+              "manifest_sha256": "848ec6f0c1e82a48565069dd593950e77bb7445e651cb63467e133b05a298949",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+              "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+            },
+            "raw_product": "Nc1ccc(Oc2ccnc(Cl)c2)cc1F",
+            "structural_components": [
+              "Clc1ccnc(Cl)c1",
+              "Nc1ccc(O)cc1F"
+            ],
+            "source_conditions_full": "ExampleA23:2,4-dichloropyridine8.0g54mmol and3-fluoro4-aminophenol8.0g62.9mmol; product11g86%,1H NMR,ESI239.2(M+H). Explicitly followsA2:KOtBu/anhydrousDMA,argon evacuation/backfill,room-temperature30min before electrophile addition,100 C overnight;EtOAc/water/brine workup and silica chromatography. A2's picolinamide substrate identities,quantities and77%yield are not transferred. A26's2-fluoro4-aminophenol/67%yield are not this preparation."
+          }
+        ]
+      }
+    }
+  },
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "visual_inspection_status": "actual PNG opened and inspected: pyridine2-Cl/4-O substitution, phenyl F ortho to NH2 and meta to O, conditions and clipping checked",
+  "selection": "newly recovered exact A23 preparation; A26 positional-isomer mismatch is not attributed to this query",
+  "style_path": "configs/figures/mechet_nmi_tree_style_v1.yaml",
+  "style_sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26",
+  "producer_files": {
+    "src/mechet/analysis/literature_figures.py": "f6f296aa79dd99904bd28623e7c402c844eff749df178e7513e4cd2779036e98",
+    "src/mechet/analysis/literature_evidence.py": "5d7a54c6bf8d963e531e86a44cc1f0d59be1208dc5b2180ccd7cdc6018a292ab",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_checked_registry.py": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6"
+  }
+}
