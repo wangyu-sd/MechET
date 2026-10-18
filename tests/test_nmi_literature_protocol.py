@@ -1,0 +1,405 @@
+"""LGRV contracts: failures here must catch inflated chemical evidence."""
+import importlib
+import hashlib
+
+import pytest
+
+
+def module(name):
+    # A missing implementation is reported as a behavioral assertion during RED.
+    try:
+        return importlib.import_module('mechet.analysis.' + name)
+    except ModuleNotFoundError as error:
+        pytest.fail(f'LGRV implementation missing: {error.name}')
+
+
+def test_reaction_identity_ignores_maps_and_component_order_not_multiplicity():
+    keys = module('literature_reaction_keys')
+    one = keys.make_reaction('[CH3:7][OH:9]', ['[CH3:1][Br:2]', '[OH-:3]'])
+    two = keys.make_reaction('CO', ['[OH-]', 'BrC'])
+    assert one['reaction_key'] == two['reaction_key']
+    assert one['reaction_key'] != keys.make_reaction('CO', ['CBr', '[OH-]', '[OH-]'])['reaction_key']
+
+
+@pytest.mark.parametrize('a,b', [('C[C@H](O)F', 'C[C@@H](O)F'),
+                               ('C[C@H](O)F', 'CC(O)F'),
+                               ('[13CH3]O', 'CO'), ('C[NH3+]', 'CN'),
+                               ('CO.[Na+]', 'CO')])
+def test_no_silent_stereo_isotope_charge_or_salt_normalization(a, b):
+    keys = module('literature_reaction_keys')
+    assert keys.make_reaction(a, ['CC'])['reaction_key'] != keys.make_reaction(b, ['CC'])['reaction_key']
+
+
+def test_auxiliary_roles_do_not_change_structural_reaction_key():
+    keys = module('literature_reaction_keys')
+    a = keys.make_reaction('CO', ['CBr', '[OH-]'], auxiliary=['O', '[Na+]'])
+    b = keys.make_reaction('CO', ['CBr', '[OH-]'])
+    assert a['reaction_key'] == b['reaction_key']
+    assert a['auxiliary_components'] == ['O', '[Na+]']
+    assert keys.make_reaction('CO', ['CBr', 'O'])['reaction_key'] != b['reaction_key']
+
+
+def test_mapped_center_is_invariant_to_consistent_renumbering():
+    keys = module('literature_reaction_keys')
+    a = keys.make_reaction('[CH3:1][OH:2]', ['[CH3:1][Br:3]', '[OH-:2]'])
+    b = keys.make_reaction('[CH3:9][OH:7]', ['[OH-:7]', '[CH3:9][Br:6]'])
+    assert a['mapping_status'] == 'mapped_center_available'
+    assert a['reaction_family_key'] == b['reaction_family_key']
+    assert a['changed_bond_count'] == 2
+    assert a['reaction_family_key'] != keys.make_reaction('[CH3:1][NH2:2]', ['[CH3:1][Br:3]', '[NH2-:2]'])['reaction_family_key']
+
+
+def test_unmapped_or_duplicate_maps_never_manufacture_a_family():
+    keys = module('literature_reaction_keys')
+    for product, precursors in [('CO', ['CBr', '[OH-]']),
+                                ('[CH3:1][OH:2]', ['[CH3:1][Br:1]', '[OH-:2]'])]:
+        result = keys.make_reaction(product, precursors)
+        assert result['mapping_status'] == 'mapping_unknown'
+        assert result['reaction_family_key'] is None
+
+
+def test_invalid_smiles_not_silently_discarded():
+    with pytest.raises(ValueError, match='SMILES'):
+        module('literature_reaction_keys').make_reaction('invalid', ['C'])
+
+
+def test_index_matches_both_sides_and_deduplicates_known_patent_family(tmp_path):
+    index = module('literature_index').ReactionIndex(tmp_path / 'sources.sqlite')
+    for source_id, family, reactants in [('s1','family1',['CBr','[OH-]']),
+                                       ('s2','family1',['CBr','[OH-]']),
+                                       ('s3','family2',['CI','[OH-]'])]:
+        index.add({'source_id': source_id, 'patent_family': family,
+                   'product': 'CO', 'precursors': reactants, 'license': 'CC-BY-SA-4.0'})
+    key = module('literature_reaction_keys').make_reaction('CO', ['CBr', '[OH-]'])
+    hits = index.query(key, cap=5)
+    assert [h['source_id'] for h in hits] == ['s1']
+    assert hits[0]['match_type'] == 'exact'
+    assert index.count() == 3
+    index.close()
+
+
+def primary(**changes):
+    payload = b'Example 1. The isolated product was obtained from the stated substrates.'
+    return {'source_id':'test-source', 'source_url':'https://example.org/patent/1',
+            'source_product':'CO', 'source_precursors':['CBr','[OH-]'],
+            'document_sha256':hashlib.sha256(payload).hexdigest(),
+            'checked_passage_sha256':hashlib.sha256(payload).hexdigest(),
+            'document_text':payload.decode(),
+            'checked_passage':payload.decode(), 'locator':'Example 1',
+            'performed_example':True, 'passage_checked':True,
+            'checker':'test_fixture_not_empirical_evidence', **changes}
+
+
+def test_exact_machine_hit_without_primary_passage_is_not_verified_a():
+    evidence = module('literature_evidence')
+    reaction = module('literature_reaction_keys').make_reaction('CO', ['CBr','[OH-]'])
+    result = evidence.assess(reaction, [{'source_id':'s', 'product':'CO',
+                                        'precursors':['CBr','[OH-]'], 'match_type':'exact'}])
+    assert result['tier'] == 'C'
+    assert result['verification_status'] == 'machine_structural_match'
+    assert result['supported'] is False
+
+
+@pytest.mark.parametrize('changes', [{'performed_example':False}, {'passage_checked':False},
+                                    {'locator':''}, {'checked_passage':''},
+                                    {'source_precursors':['CI','[OH-]']},
+                                    {'checked_passage_sha256':'0'*64}])
+def test_claims_missing_passage_or_wrong_structures_never_earn_a(changes):
+    reaction = module('literature_reaction_keys').make_reaction('CO', ['CBr','[OH-]'])
+    result = module('literature_evidence').assess(reaction, [], [primary(**changes)])
+    assert result['tier'] == 'C'
+    assert result['supported'] is False
+
+
+def test_source_checked_exact_reaction_is_a_not_physical_arrow_proof():
+    reaction = module('literature_reaction_keys').make_reaction('CO', ['CBr','[OH-]'])
+    result = module('literature_evidence').assess(reaction, [], [primary()])
+    assert result['tier'] == 'A'
+    assert result['verification_status'] == 'source_passage_checked'
+    assert result['supported'] is True
+    assert result['physical_mechanism_verified'] is False
+
+
+def test_no_hit_is_unresolved_not_contradiction():
+    reaction = module('literature_reaction_keys').make_reaction('CO', ['CBr','[OH-]'])
+    result = module('literature_evidence').assess(reaction, [])
+    assert result['tier'] == 'C'
+    assert result['retrieval_status'] == 'unresolved'
+
+
+def test_stereo_unspecified_source_cannot_verify_stereospecific_product():
+    reaction = module('literature_reaction_keys').make_reaction('C[C@H](O)F', ['CC(Br)F','[OH-]'])
+    result = module('literature_evidence').assess(reaction, [], [primary(
+        source_product='CC(O)F', source_precursors=['CC(Br)F','[OH-]'])])
+    assert result['tier'] == 'C'
+
+
+def test_source_download_requires_exact_bytes_and_preserves_existing_file(tmp_path):
+    sources = module('literature_sources')
+    source = tmp_path / 'origin'
+    source.write_bytes(b'official source payload')
+    output = tmp_path / 'download'
+    sha = hashlib.sha256(source.read_bytes()).hexdigest()
+    sources.fetch_verified(source.as_uri(), output, sha)
+    assert output.read_bytes() == b'official source payload'
+    source.write_bytes(b'corrupt new source')
+    sources.fetch_verified(source.as_uri(), output, sha)  # verified cache, no rewrite
+    assert output.read_bytes() == b'official source payload'
+    with pytest.raises(ValueError, match='checksum'):
+        sources.fetch_verified(source.as_uri(), tmp_path / 'bad', sha)
+    assert not (tmp_path / 'bad').exists()
+
+
+def test_complete_reaction_extraction_does_not_use_reference_or_auxiliary_substrates():
+    predictions = module('literature_predictions')
+    report = {'id':'t1','target':'CO','expected_structural_precursor':'POISON_GT',
+              'ranked_candidates':[{'context':'c1','structural_precursor':'CBr.[OH-]',
+                                    'structural_precursor_mapped':'[CH3:1][Br:3].[OH-:2]',
+                                    'full_mixture':'CBr.[OH-].O.[Na+]'}]}
+    records = list(predictions.single_reactions(report, run_id='run1', source={'report_sha256':'f'*64}))
+    assert len(records) == 1
+    assert records[0]['structural_components'] == ['CBr', '[OH-]']
+    assert 'POISON_GT' not in str(records)
+    assert records[0]['target_id'] == 't1'
+    assert records[0]['terminal_record_id'] == 'c1'
+
+
+def test_multistep_reaction_extraction_is_synthetic_edges_not_flow_operations():
+    predictions = module('literature_predictions')
+    report = {'id':'t','target':'CO','generated_reaction_graph':[
+        {'product':'CO','precursors':['CBr','[OH-]']},
+        {'product':'CBr','precursors':['C','BrBr']}],
+        'complete_reaction_edges':[], 'enumerated_stock_connected_routes':[]}
+    records = list(predictions.route_reactions(report, run_id='r', source={'report_sha256':'f'*64}))
+    assert len(records) == 2
+    assert {r['reaction_smiles'] for r in records} == {'CBr.[OH-]>>CO', 'BrBr.C>>CBr'}
+
+
+def test_snapshot_selection_is_hash_bound_and_keeps_only_declared_reports(tmp_path):
+    predictions = module('literature_predictions')
+    import csv, json
+    root = tmp_path / 'reports'; root.mkdir()
+    (root / 'saved.json').write_text(json.dumps({'id':'saved','target':'CO'}))
+    (root / 'new.json').write_text(json.dumps({'id':'new','target':'CC'}))
+    manifest = tmp_path / 'r1_case_results.csv'
+    with manifest.open('w') as handle:
+        writer = csv.DictWriter(handle,fieldnames=['stable_id','report_relative_path','report_sha256'])
+        writer.writeheader(); writer.writerow({'stable_id':'saved','report_relative_path':'saved.json',
+                                               'report_sha256':hashlib.sha256((root/'saved.json').read_bytes()).hexdigest()})
+    selected = predictions.frozen_reports(root,manifest)
+    assert [r[0]['id'] for r in selected] == ['saved']
+    (root/'saved.json').write_text('{}')
+    with pytest.raises(ValueError,match='checksum'):
+        predictions.frozen_reports(root,manifest)
+
+
+def test_official_catalog_ignores_mirror_test_fixtures_but_checks_git_lfs_identity():
+    sources = module('literature_sources')
+    path = 'data/ab/ord_dataset-abcdef.parquet'
+    pointer = b'version https://git-lfs.github.com/spec/v1\noid sha256:'+b'1'*64+b'\nsize 10\n'
+    git_sha = hashlib.sha1(b'blob '+str(len(pointer)).encode()+b'\0'+pointer).hexdigest()
+    entry = {'path':path,'type':'file','size':10,'lfs':{'oid':'1'*64}}
+    fixture = {'path':'data/ab/test.pb','type':'file','size':5}
+    selected, excluded = sources.official_ord_catalog([entry,fixture],[{'path':path,'type':'blob','sha':git_sha}])
+    assert selected == [entry]
+    assert excluded == ['data/ab/test.pb']
+    entry['lfs']['oid'] = '2'*64
+    with pytest.raises(ValueError,match='official Git LFS'):
+        sources.official_ord_catalog([entry],[{'path':path,'type':'blob','sha':git_sha}])
+
+
+@pytest.mark.parametrize('n', [2,3,5])
+def test_route_coverage_requires_every_edge_not_a_supported_average(n):
+    metrics = module('literature_route_metrics')
+    route = {'route_key':'r','reaction_keys':[str(i) for i in range(n)],'stock_verified':True,'already_in_stock':False}
+    evidence = {str(i):{'tier':'A','supported':True,'verification_status':'source_passage_checked'} for i in range(n-1)}
+    result = metrics.route_evidence(route,evidence)
+    assert result['precedent_covered'] is False
+    assert result['all_exact'] is False
+    assert result['any_exact'] is True
+    assert result['coverage'] == (n-1)/n
+    assert result['unresolved_reaction_keys'] == [str(n-1)]
+    evidence[str(n-1)] = {'tier':'B','supported':True,'verification_status':'source_passage_checked'}
+    assert metrics.route_evidence(route,evidence)['precedent_covered'] is True
+    assert metrics.route_evidence(route,evidence)['all_exact'] is False
+
+
+def test_zero_step_and_false_stock_cannot_be_supported_routes():
+    metrics = module('literature_route_metrics')
+    for route in [{'reaction_keys':[],'stock_verified':True,'already_in_stock':True},
+                  {'reaction_keys':['a'],'stock_verified':False,'already_in_stock':False}]:
+        result = metrics.route_evidence(route,{'a':{'tier':'A','supported':True,'verification_status':'source_passage_checked'}})
+        assert result['precedent_covered'] is False
+        assert result['all_exact'] is False
+
+
+def test_target_universe_is_retained_and_pairing_uses_ids_not_row_order():
+    metrics = module('literature_route_metrics')
+    paired = metrics.paired_targets(['a','b','c','d'], {'a','b'},{'b','c'},bootstrap_draws=2000)
+    assert paired['both'] == 1 and paired['method_only'] == 1 and paired['baseline_only'] == 1 and paired['neither'] == 1
+    assert paired['denominator'] == 4
+    assert paired['difference'] == 0
+    assert paired['interpretation'] == 'recorded-run descriptive; unequal work is not a causal search gain'
+
+
+def test_machine_only_tier_a_flag_cannot_leak_into_route_support():
+    metrics = module('literature_route_metrics')
+    result = metrics.route_evidence({'reaction_keys':['a'],'stock_verified':True,'already_in_stock':False},
+        {'a':{'tier':'A','supported':True,'verification_status':'machine_structural_match'}})
+    assert result['precedent_covered'] is False
+
+
+def test_same_target_multiple_programs_dont_inflate_supported_disconnections():
+    metrics = module('literature_route_metrics')
+    occurrences = [{'target_id':'a','reaction_key':'r1'}, {'target_id':'a','reaction_key':'r1'},
+                   {'target_id':'b','reaction_key':'r1'}]
+    evidence = {'r1':{'tier':'A','supported':True,'verification_status':'source_passage_checked'}}
+    result = metrics.disconnection_counts(occurrences,evidence,universe=['a','b','c'])
+    assert result['unique_supported_reactions'] == 1
+    assert result['supported_per_target'] == {'a':1,'b':1,'c':0}
+    assert result['any_supported_targets'] == 2
+
+
+def test_ord_adapter_preserves_declared_roles_and_primary_source_locator():
+    sources = module('literature_sources')
+    raw = {'reaction_id':'ord-test', 'inputs':{
+        'substrate':{'components':[{'reaction_role':'REACTANT','identifiers':[{'type':'SMILES','value':'CBr'}]}]},
+        'nucleophile':{'components':[{'reaction_role':'REACTANT','identifiers':[{'type':'SMILES','value':'[OH-]'}]}]},
+        'solvent':{'components':[{'reaction_role':'SOLVENT','identifiers':[{'type':'SMILES','value':'O'}]}]}},
+        'outcomes':[{'products':[{'is_desired_product':True,'identifiers':[{'type':'SMILES','value':'CO'}]}]}],
+        'notes':{'procedure_details':'Example 4. An isolated product was obtained.'},
+        'provenance':{'patent':'US1234567A','is_mined':True}}
+    records = sources.ord_records(raw,dataset={'dataset_id':'d','file_sha256':'f'*64},row_index=12)
+    assert len(records) == 1
+    assert sorted(records[0]['precursors']) == ['CBr','[OH-]']
+    assert records[0]['agents'] == ['O']
+    assert records[0]['product'] == 'CO'
+    assert records[0]['patent_id'] == 'US1234567A'
+    assert records[0]['source_locator']['parquet_row'] == 12
+    assert records[0]['verification_status'] == 'machine_structural_match'
+    assert records[0]['performed_example_verified'] is False
+
+
+def test_ord_missing_structural_reactant_smiles_is_not_silently_removed():
+    sources = module('literature_sources')
+    raw = {'reaction_id':'r','inputs':{'a':{'components':[
+        {'reaction_role':'REACTANT','identifiers':[{'type':'SMILES','value':'CBr'}]},
+        {'reaction_role':'REACTANT','identifiers':[{'type':'NAME','value':'unknown essential substrate'}]}]}},
+        'outcomes':[{'products':[{'identifiers':[{'type':'SMILES','value':'CO'}]}]}]}
+    with pytest.raises(ValueError,match='structural reactant'):
+        sources.ord_records(raw,dataset={'dataset_id':'d','file_sha256':'f'*64},row_index=0)
+
+
+def test_passage_hash_alone_without_matching_original_document_cannot_verify_a():
+    reaction = module('literature_reaction_keys').make_reaction('CO',['CBr','[OH-]'])
+    for changes in [{'document_text':''},{'document_text':'unrelated document'}, {'document_sha256':'0'*64}]:
+        result = module('literature_evidence').assess(reaction,[],[primary(**changes)])
+        assert result['tier'] == 'C'
+
+
+def test_parquet_adapter_preserves_absolute_rows_and_dataset_identity(tmp_path):
+    import json
+    pa = pytest.importorskip('pyarrow')
+    pq = pytest.importorskip('pyarrow.parquet')
+    sources = module('literature_sources')
+    path = tmp_path/'source.parquet'
+    schema = pa.schema([('reaction_id',pa.string()),('reaction',pa.binary())],
+                       metadata={b'ord.dataset_id':b'original-dataset',b'ord.name':b'unit-test'})
+    table = pa.Table.from_pylist([{'reaction_id':f'r{i}','reaction':json.dumps({'value':i}).encode()} for i in range(3)],schema=schema)
+    pq.write_table(table,path,row_group_size=1)
+    rows = list(sources.iter_ord_messages(path,json.loads,batch_size=1))
+    assert [row[0] for row in rows] == [0,1,2]
+    assert [row[1]['dataset_id'] for row in rows] == ['original-dataset']*3
+    assert [row[2]['value'] for row in rows] == [0,1,2]
+
+
+def test_net_reaction_precedent_never_proves_internal_arrow_order():
+    mechanisms = module('mechanism_consistency')
+    row = {'occurrence_id':'o','reaction_key':'r','run_id':'run','target_id':'t','source':{},
+           'formal_status':'recorded_executor_accepted_complete_reaction'}
+    result = mechanisms.assess_mechanism(row,{'tier':'A','supported':True})
+    assert result['mechanistic_consistency'] == 'formal_only'
+    assert result['physical_intermediates_experimentally_verified'] is False
+
+
+def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_hits(tmp_path):
+    # Filesystem unit integration only: synthetic fixtures, no model or real
+    # benchmark sampling. Catches CLI contract/joins and fabricated A metrics.
+    import gzip,json,pathlib,subprocess,sys,yaml
+    keys = module('literature_reaction_keys')
+    sources = module('literature_sources')
+    index = module('literature_index')
+    freeze = tmp_path/'freeze';freeze.mkdir()
+    analysis = tmp_path/'old_analysis';analysis.mkdir()
+    (analysis/'source_manifest.json').write_text('{}')
+    snapshot = tmp_path/'snapshot.json';snapshot.write_text('{}')
+    assets = tmp_path/'assets.json';assets.write_text('{}')
+    reaction = keys.make_reaction('CO',['CBr','[OH-]'])
+    runs = ['r1_mcts_pr88','r1_greedy_dynamic','r1_greedy_shared','mech31k_mcts_pr88']
+    def write(name,rows):
+        with gzip.open(freeze/(name+'.jsonl.gz'),'wt') as handle:
+            for row in rows:
+                handle.write(json.dumps(row)+'\n')
+    write('unique_reaction_queries',[reaction])
+    write('generated_reaction_steps',[{**reaction,'occurrence_id':r,'run_id':r,'target_id':'a','source':{},
+          'formal_status':'recorded_executor_accepted_complete_reaction'} for r in runs])
+    write('target_population',[{'run_id':r,'target_id':t,'report_status':'observed' if t=='a' else 'pending'}
+                               for r in runs for t in ['a','b']])
+    write('frozen_routes',[{'run_id':r,'target_id':'a','reaction_keys':[reaction['reaction_key']],
+                           'stock_verified':True,'already_in_stock':False} for r in runs[:3]])
+    manifest = {'complete':True,'actor_sha256':'fixture-actor',
+        'progress_snapshot_sha256':sources.file_sha256(snapshot),'route_assets_manifest_sha256':sources.file_sha256(assets),
+        'prior_analysis_source_manifest_sha256':sources.file_sha256(analysis/'source_manifest.json'),
+        'runs':{r:{'mode':'route' if r.startswith('r1') else 'single'} for r in runs},
+        'output_files':{p.name:{'sha256':sources.file_sha256(p)} for p in freeze.glob('*.jsonl.gz')}}
+    (freeze/'prediction_freeze_manifest.json').write_text(json.dumps(manifest))
+    db = tmp_path/'index';db.mkdir()
+    source_index = index.ReactionIndex(db/'reactions.sqlite')
+    source_index.add({'source_id':'s','product':'CO','precursors':['CBr','[OH-]'],'license':'CC-BY-SA-4.0'})
+    source_index.close()
+    (db/'source_corpus_manifest.json').write_text(json.dumps({'complete':True,'index_sha256':sources.file_sha256(db/'reactions.sqlite')}))
+    config = tmp_path/'retrieval.yaml'
+    config.write_text(yaml.safe_dump({'literature':{'protocol':'LGRV-v1','primary_search_cap_per_unique_reaction':5},
+        'actor':{'weight_sha256':'fixture-actor'},'output':{'pairwise_ci_bootstrap_draws':2000},
+        'main_outcome':'literature_evidence_for_complete_synthetic_reaction_steps_and_stock_routes'}))
+    output = tmp_path/'result'
+    script = pathlib.Path(__file__).resolve().parents[1]/'scripts/verify_nmi_literature_reactions.py'
+    completed = subprocess.run([sys.executable,str(script),'--tree-analysis-root',str(analysis),
+        '--progress-snapshot',str(snapshot),'--source-reaction-index',str(db/'reactions.sqlite'),
+        '--route-assets-manifest',str(assets),'--output-root',str(output),'--retrieval-config',str(config),
+        '--prediction-freeze-root',str(freeze)],capture_output=True,text=True)
+    assert completed.returncode == 0,completed.stderr
+    metrics = json.loads((output/'metrics.json').read_text())
+    assert metrics['literature_tiers'] == {'C':1}
+    assert metrics['runs']['r1_mcts_pr88']['denominator'] == 2
+    assert metrics['runs']['r1_mcts_pr88']['pending_reports'] == 1
+    assert metrics['runs']['r1_mcts_pr88']['counts']['StockSolved@B'] == 1
+    assert metrics['runs']['r1_mcts_pr88']['counts']['PrecedentCoveredSolved@B'] == 0
+    assert metrics['runs']['mech31k_mcts_pr88']['AnySourceSupportedReaction'] == 0
+    assert (output/'baseline_comparison.csv').exists()
+    assert (output/'source_passages.jsonl.gz').exists()
+
+
+def test_aggregate_tree_path_resolution_handles_resumed_absolute_and_new_relative(tmp_path):
+    predictions = module('literature_predictions')
+    tree = tmp_path/'rank00/trees/tree.json';tree.parent.mkdir(parents=True);tree.write_text('{}')
+    source = {'report_path':str(tmp_path/'evaluation.json'),'report_row_index':233}
+    assert predictions.resolve_tree_artifact({'tree_artifact':'trees/tree.json'},source) == tree
+    assert predictions.resolve_tree_artifact({'tree_artifact':str(tree)},source) == tree
+    duplicate = tmp_path/'rank01/trees/tree.json';duplicate.parent.mkdir(parents=True);duplicate.write_text('{}')
+    with pytest.raises(ValueError,match='ambiguous'):
+        predictions.resolve_tree_artifact({'tree_artifact':'trees/tree.json'},source)
+
+
+def test_primary_document_cache_binds_source_bytes_and_normalized_text(tmp_path):
+    sources = module('literature_sources')
+    original = tmp_path/'source.html'
+    original.write_text('<html><p id="p-2">Example 2. Product <b>isolated</b>.</p></html>')
+    result = sources.snapshot_primary_document(original.as_uri(),tmp_path/'cache')
+    assert result['raw_document_sha256'] == sources.file_sha256(original)
+    text = __import__('pathlib').Path(result['document_path']).read_text()
+    assert text == 'Example 2. Product isolated .'
+    assert result['document_sha256'] == hashlib.sha256(text.encode()).hexdigest()
+    original.write_text('changed remote source')
+    cached = sources.snapshot_primary_document(original.as_uri(),tmp_path/'cache')
+    assert cached == result

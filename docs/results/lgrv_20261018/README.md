@@ -1,0 +1,141 @@
+# PR89 literature evidence execution
+
+Status: **implementation and full-population processing in progress**. This is
+not a completed chemical-validation result. No GPU job, model inference,
+training, ranking evaluation, MCTS restart or paper merge was performed.
+
+## Completed
+
+- Read the updated PR89 LGRV-v1 specification. Its complete-reaction evidence
+  protocol supersedes the obsolete ranking-oriented review comment.
+- Implement conservative reaction identity, explicit auxiliary roles, local
+  mapped-edit retrieval keys, SQLite source retrieval, independent evidence
+  states, AND-route evidence aggregation and paired-target statistics.
+- Implement immutable prediction extraction, official-source downloader,
+  streaming ORD protobuf/Parquet adapter, parallel source index builder and
+  evidence-analysis CLI. The source match alone never becomes verified A/B.
+- Download **all93 official production ORD Parquet files**, **1,256,763,947
+  bytes**, cross-checking every mirror LFS content SHA against its official Git
+  pointer. The official mirror's five extra test fixtures are explicitly
+  excluded; this is not a reaction-level filter. File hashes and URLs are in
+  [the download manifest](source_corpus_download_manifest.json).
+- File-footer inventory: **2,428,291 source reaction rows**, including
+  **1,771,032 USPTO/Lowe rows across41 yearly patent datasets**. These are
+  source records, not unique chemical reactions or verified model predictions.
+- Re-fetch and check the existing Cabozantinib free-base acid-chloride/aniline
+  coupling in [US20160022662A1](https://patents.google.com/patent/US20160022662A1/en).
+  The primary registry binds the original cached bytes, normalized document,
+  actual performed preparation, substrate/product structures and a14-word
+  passage. This remains **one source-checked complete reaction**, not evidence
+  for all symbolic FLOW actions or the full route. Source conditions differ
+  from the actor's auxiliary mixture; the adjacent acid-chloride preparation
+  is not silently promoted to supported chemistry.
+- Complete the full frozen prediction extraction: **26,330 reaction occurrence
+  records**, **18,210 distinct complete reaction queries**, **474 saved AND-stock
+  routes**, and **10,740 target/run rows** across six conditions. Counts are not
+  literature support or chemistry correctness. Exact per-condition denominators
+  and full artifact hashes are in [the freeze summary](prediction_freeze_summary.json).
+- Software checks: **41 LGRV tests passed**; fresh full repository run **1,045
+  passed /13 skipped**, with one pre-existing PEFT vocabulary-config warning.
+
+## Processing
+
+- The completed prediction freeze uses precisely PR88's200 saved R1 reports and original
+  **460-target** universe; both complete460-target Greedies; completed3120
+  MCTS targets and both complete3120-target Greedies. It never copies reference
+  precursors into retrieval queries. No additional report from the growing R1
+  run is silently included.
+- Source indexing streams the entire downloaded corpus using16 CPU processes.
+  Binary source data and generated SQLite shards remain outside Git. Source
+  conversion failures are retained in per-file failure ledgers; they are not
+  classified as chemical negatives.
+- Prediction freeze v1 stopped on a serializer compatibility error: aggregate
+  31k rows mix absolute resumed-tree pointers and relative new-tree pointers.
+  The resolver now handles both and rejects ambiguous ownership, with a
+  regression test. v1 is an **incomplete diagnostic**, preserved read-only;
+  v2 is the completed replacement. Cached immutable shard contracts avoid repeated Ceph
+  manifest reads. No model output or original source report was changed.
+
+## Not yet delivered
+
+Full source retrieval, new primary-document checks beyond the seed, complete
+R2 program-exposure joins, validated analogue retrieval settings, all-work
+efficiency comparisons, chemical case selection and the final Figure2/3/4
+exports remain unfinished. No population Tier-A/B rate is claimed here.
+The goal and original scope remain active; unit tests do not replace results.
+
+## Exact source versions
+
+| Source | Frozen version |
+|---|---|
+| ORD official Git | `704870642e5c93a141e6666436bc14a9b5f880ed` |
+| ORD official HF read mirror | `46980f8cb68aa43ed9707edec319d4eac5a2bfed` |
+| ORD schema generated protobuf | `51b3a4968835f0090268cab9c0be034b48ac62d4` |
+| `reaction_pb2.py` SHA256 | `f33ac383b4c0517355188a6e2b4d77bc679dc9ea553b16d467043e478f4f16dd` |
+| Data/code licenses | ORD data CC-BY-SA-4.0; ORD schema code Apache-2.0 |
+| Source/training independence | Unknown unless separately demonstrated |
+
+The official ORD repository documents the lawful HF read mirror and source
+format: [ORD data](https://github.com/open-reaction-database/ord-data),
+[schema](https://docs.open-reaction-database.org/en/stable/schema.html).
+No gated or subscription corpus was accessed.
+
+## Reproduce
+
+Run from the PR89 checkout with RDKit, PyArrow, protobuf, PyYAML and pytest.
+Set `DATA_ROOT` to the shared operational repository containing the frozen
+source artifacts. Local analysis variables below do not replace system paths.
+
+```bash
+DATA_ROOT=/aaa/fionafyang/buddy1/whaleywang/MechET
+ORD_ROOT=$DATA_ROOT/data/raw/literature/ord_46980f8cb68aa43ed9707edec319d4eac5a2bfed
+INDEX_ROOT=$DATA_ROOT/data/derived/literature/ord_lgrv_46980f8_v1
+FREEZE_ROOT=$DATA_ROOT/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2
+
+python scripts/download_nmi_literature_sources.py \
+  --output-root "$ORD_ROOT" \
+  --revision 46980f8cb68aa43ed9707edec319d4eac5a2bfed \
+  --github-revision 704870642e5c93a141e6666436bc14a9b5f880ed \
+  --github-client gh --workers 8
+
+# Download the official generated codec into an analysis-only directory.
+# Verify its SHA against the table above before executing the index builder.
+curl --fail --location --output /tmp/mechet_lgrv_reaction_pb2.py \
+  https://raw.githubusercontent.com/open-reaction-database/ord-schema/51b3a4968835f0090268cab9c0be034b48ac62d4/ord_schema/proto/reaction_pb2.py
+
+python scripts/build_nmi_literature_index.py \
+  --source-manifest "$ORD_ROOT/source_corpus_manifest.json" \
+  --codec-file /tmp/mechet_lgrv_reaction_pb2.py \
+  --codec-sha256 f33ac383b4c0517355188a6e2b4d77bc679dc9ea553b16d467043e478f4f16dd \
+  --codec-source-revision 51b3a4968835f0090268cab9c0be034b48ac62d4 \
+  --output-root "$INDEX_ROOT" --workers 16
+
+python scripts/freeze_nmi_literature_predictions.py \
+  --repository-data-root "$DATA_ROOT" \
+  --tree-analysis-root "$DATA_ROOT/outputs/paper/nmi_tree_evidence/observed_20261016_v1" \
+  --progress-snapshot docs/results/progress_20261017/snapshot.json \
+  --route-assets-manifest "$DATA_ROOT/data/route_benchmarks/frozen_r1_r2_20261013/manifest.json" \
+  --output-root "$FREEZE_ROOT" --workers 16
+
+# Only after BOTH index and prediction-freeze manifests say complete=true.
+# Use a new output root; prior analysis is never overwritten.
+python scripts/verify_nmi_literature_reactions.py \
+  --tree-analysis-root "$DATA_ROOT/outputs/paper/nmi_tree_evidence/observed_20261016_v1" \
+  --progress-snapshot docs/results/progress_20261017/snapshot.json \
+  --source-reaction-index "$INDEX_ROOT/reactions.sqlite" \
+  --route-assets-manifest "$DATA_ROOT/data/route_benchmarks/frozen_r1_r2_20261013/manifest.json" \
+  --prediction-freeze-root "$FREEZE_ROOT" \
+  --retrieval-config configs/analysis/nmi_r1_r2_matched_baselines_20261017.yaml \
+  --primary-source-registry configs/analysis/lgrv_primary_source_seed_20261018.json \
+  --output-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/source_checked_20261018_v1"
+```
+
+The primary seed registry references the captured document path on Ceph. On a
+different machine, call `snapshot_primary_document` on its public URL, verify
+both hashes in the registry, then explicitly relocate `document_path`. A
+changed live page is a new snapshot, not an automatic checksum exception.
+
+The two PR88 input files under `docs/results/progress_20261017/` are copied
+byte-for-byte from PR88 commit`22e5a9798376787b6d4cf44eadbdb7bc6901ac17`,
+not silently represented as PR87's older171-target snapshot. The source PRs
+remain separate. No software fixture is described as an experimental smoke result.
