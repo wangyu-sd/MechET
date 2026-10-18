@@ -6,7 +6,30 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v9 source review:** five further performed preparations bring exact
+**Current v10 source review:** two further performed preparations bring exact
+source-supported complete reactions **36→38**, with unchanged18,210 queries,
+six conditions, corpus, local/stereo rules and cap5. All21 sealed output hashes
+and full original query/context/hit sequences are checked. There are36 indexed
+supports plus2 independently checked seeds;129 indexed-candidate queries remain
+unresolved. The [complete review-state inventory](primary_review_states_v10_20261019/README.md)
+distinguishes92 cached-but-unreviewed queries,33 without original-preparation
+pointers,3 inspected applicability-unresolved cases and1 partially inspected
+source-isomer mismatch. Cached documents are not checked preparations.
+
+[Complete v10 tables and all38 cases](analysis_tables_primary_v10_20261019/README.md),
+[whole coverage audit](coverage_review_v10_20261019/README.md),
+[two additional RDKit reactions](additional_preparation_gallery_20261019_v10/README.md)
+and [six-condition scalar summary](POPULATION_RESULTS_PRIMARY_V10_20261019.json)
+retain all methods. R1 MCTS remains10 targets with an exact-supported step
+on a stock-closed route and1 with every essential step supported. The31k proxy
+diagnostic has17/17/16 supported targets for MCTS/Greedy I/II, not a chemical
+accuracy or matched-compute claim. No model/GPU task ran. The [v10 Figure2/3
+and three extended panels](population_figures_primary_v10_20261019/README.md)
+are regenerated and all five actual previews inspected; all15 export hashes,
+source hashes and vector/font/geometry checks passed. Earlier exports retain
+their original versioned counts. Wider source review and final audit remain open.
+
+**Historical v9 source review:** five further performed preparations bring exact
 source-supported complete reactions **31→36**, with unchanged18,210 queries,
 six conditions, corpus, local/stereo rules and cap5. All21 sealed output hashes
 and full original query/context/hit sequences are checked. There are34 indexed

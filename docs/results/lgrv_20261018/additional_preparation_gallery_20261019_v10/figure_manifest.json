@@ -1,0 +1,169 @@
+{
+  "schema": "lgrv_checked_preparation_gallery_v1",
+  "source_query_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v9/unique_reaction_queries_enriched.jsonl.gz",
+  "source_query_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "primary_registry_manifests": [
+    {
+      "path": "configs/analysis/lgrv_primary_sources_20261019_v4.json",
+      "sha256": "19f99a17deeac9fc7d4265bd8fd66ea9328f5462900686f8f19e268b75ff6cba"
+    }
+  ],
+  "figures": {
+    "extended_data_primary_preparations_v10": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v10/figures/extended_data_primary_preparations_v10.svg",
+          "sha256": "04cc80eb3996453fc0843eac7b519383dda026e2e1714b9ca3c9cbc4e29a38fa"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v10/figures/extended_data_primary_preparations_v10.pdf",
+          "sha256": "c180b2009cad14ad57003e4282c33ce057538876c887f1eb1af37f78dc9e301f"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v10/figures/extended_data_primary_preparations_v10.png",
+          "sha256": "5568b137c86949c9971092f7a28a402a4ec7560532410507d1a9befb0868134e"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 5,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 327,
+          "editable_text_elements": 12
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 94.19166666666666,
+          "fonts": [
+            {
+              "name": "/FKWKHE+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/QUHKBP+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1112,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "49ab91c0db29dc3a13db8e447bdf0762b34cfb1d72253cef45c5512ce2805afa",
+          "e3b536a20fd4e7a1ade852f85730d51acb52fb4caafae561f4fccba79d20854f"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "49ab91c0db29dc3a13db8e447bdf0762b34cfb1d72253cef45c5512ce2805afa",
+            "evidence": {
+              "reaction_key": "49ab91c0db29dc3a13db8e447bdf0762b34cfb1d72253cef45c5512ce2805afa",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7173043B2:example27.4:fluorophenyl-benzothiophene-bromobutyl-ether",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7173043B2/en",
+              "locator": "Example27.4 around normalized offset233655, explicitly following27.1 at232900. Not Example2.6's isothiazole or Example27.3's three-carbon linker.",
+              "document_sha256": "ae5782e2449e237bc4d89d3ff9bb5ae1b527115aa3ce80a573d596012839b7c8",
+              "raw_document_sha256": "69008cc9e1717da722a850ad58cb75c94e7a64ea94b6d5a84ab7bf2088032923",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7173043B2:example27.4:fluorophenyl-benzothiophene-bromobutyl-ether",
+            "source_url": "https://patents.google.com/patent/US7173043B2/en",
+            "locator": "Example27.4 around normalized offset233655, explicitly following27.1 at232900. Not Example2.6's isothiazole or Example27.3's three-carbon linker.",
+            "source_conditions": "US7173043B2, Example 27.4 / 27.1: benzothiophenol + 1,4-dibromobutane; K2CO3 / acetone, 45 C, 10 h; excess dibromide removed in vacuo. MS 378 (M, 1 Br). No individual yield or purity reported; not the isothiazole or three-carbon-linker analogue.",
+            "source_document_sha256": "ae5782e2449e237bc4d89d3ff9bb5ae1b527115aa3ce80a573d596012839b7c8",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/evaluations/mech-uspto31k-full:test:21577.json",
+              "report_sha256": "11da96ee7020e0a265eb709a603593f249bfdb554c894863657873d52cf98989",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/trees/mech-uspto31k-full:test:21577.json",
+              "target_tree_sha256": "ff7c0da17a93c484271f13d6635945a296f1670114617794f3ee125dda3b93a6",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/manifest.json",
+              "manifest_sha256": "d93b8703abff32ceac975f7cf9afee9163f12e7fb658e91bd7f7ba54ab1a6459",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "Fc1ccc(-c2csc3cc(OCCCCBr)ccc23)cc1",
+            "structural_components": [
+              "BrCCCCBr",
+              "Oc1ccc2c(-c3ccc(F)cc3)csc2c1"
+            ],
+            "source_conditions_full": "Example27.4 converts the named fluorophenyl benzothiophenol and1,4-dibromobutane, following27.1: K2CO3/acetone,45 C10 h, filtration/evaporation and excess dibromide removed in vacuo. MS378(M,1Br) is given for27.4. The2.0 g substrate/2.7 g crude mass and other quantities in27.1 belong to its para-bromophenyl analogue, not this example; no individual yield or purity inferred."
+          },
+          {
+            "reaction_key": "e3b536a20fd4e7a1ade852f85730d51acb52fb4caafae561f4fccba79d20854f",
+            "evidence": {
+              "reaction_key": "e3b536a20fd4e7a1ade852f85730d51acb52fb4caafae561f4fccba79d20854f",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US5110940:example108:tetrazolyl-allylic-alcohol-oxidation",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US5110940/en",
+              "locator": "Example108 around normalized offset438268, oxidation of the alcohol prepared immediately before it, not Example109's subsequent two-carbon homologation.",
+              "document_sha256": "07fd7affcd8512978c44b563aba727962293360435d4f10601c7e37d60d53bb4",
+              "raw_document_sha256": "cd0fe6c140717e8c558e546c2806a6c018ac771b384ce598a2689eaca197ebd7",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US5110940:example108:tetrazolyl-allylic-alcohol-oxidation",
+            "source_url": "https://patents.google.com/patent/US5110940/en",
+            "locator": "Example108 around normalized offset438268, oxidation of the alcohol prepared immediately before it, not Example109's subsequent two-carbon homologation.",
+            "source_conditions": "US5110940, Example 108: allylic alcohol 2.2 g + activated MnO2 7 g, CH2Cl2 100 mL, 20 h; temperature unspecified. Reported quantitative yield and mp 208 C (decomp). Elemental-analysis discrepancy retained; no numerical isolated yield or purity claim. N2-trityl tetrazole and diaryl alkene retained.",
+            "source_document_sha256": "07fd7affcd8512978c44b563aba727962293360435d4f10601c7e37d60d53bb4",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/evaluation.json",
+              "report_sha256": "4e35ee13609669dfeaecb8e7e03a4164b942c0bf7f68a085802e9ca1c436bff4",
+              "report_row_index": 1705,
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_03/tree/rank04/manifest.json",
+              "manifest_sha256": "9e2b163705c3507e1f2841569cc763bb783e09edc0289ca4b31360bc090f2691",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "0ec4ff84175f6e75a45b671ccbcd7b4188d52568"
+            },
+            "raw_product": "O=CC(=C(c1ccc(F)cc1)c1ccc(F)cc1)c1nnn(C(c2ccccc2)(c2ccccc2)c2ccccc2)n1",
+            "structural_components": [
+              "OCC(=C(c1ccc(F)cc1)c1ccc(F)cc1)c1nnn(C(c2ccccc2)(c2ccccc2)c2ccccc2)n1"
+            ],
+            "source_conditions_full": "Protected allylic alcohol2.2 g/4.0 mmol in CH2Cl2 100 mL, activated MnO2 7 g, stir20 h; insolubles filtered and filtrate concentrated. Temperature is not stated. Source reports quantitative yield as text, mp208 C(decomp), and elemental analysis; calculated C75.81/H4.37/N10.11 versus found C73.56/H4.44/N9.54 are retained as a limitation, not asserted analytical purity."
+          }
+        ]
+      }
+    }
+  },
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "visual_inspection_status": "assistant_opened_actual_png; both source-bound structures, linker and tetrazole positions, labels, conditions and clipping inspected; machine QA is separate",
+  "selection": "all two newly source-checked exact preparations, not population chemical accuracy",
+  "style_path": "configs/figures/mechet_nmi_tree_style_v1.yaml",
+  "style_sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26",
+  "producer_files": {
+    "src/mechet/analysis/literature_figures.py": "f6f296aa79dd99904bd28623e7c402c844eff749df178e7513e4cd2779036e98",
+    "src/mechet/analysis/literature_evidence.py": "b422c67d447213064f2308069609d2792748fdc7d9f89803020d19da4b31da57",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_checked_registry.py": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6"
+  }
+}
