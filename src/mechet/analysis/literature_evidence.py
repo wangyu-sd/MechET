@@ -71,11 +71,20 @@ def assess(reaction, hits, primary_sources=()):
             continue
         if candidate['reaction_key'] == reaction['reaction_key']:
             supported.append(('A',source))
-        elif (reaction.get('reaction_family_key') and candidate.get('reaction_family_key') == reaction['reaction_family_key']
+        else:
+            same_family=bool(reaction.get('reaction_family_key') and
+                             candidate.get('reaction_family_key')==reaction['reaction_family_key'])
+            if 'stereo_family_context' in reaction:
+                from .literature_stereo_family import family_context
+                context=reaction['stereo_family_context']
+                other=family_context('.'.join(source['source_precursors']),source['source_product'])
+                same_family=bool(context.get('status')=='available' and context.get('family_key_v2') and
+                                 context['family_key_v2']==other.get('family_key_v2'))
+            if (same_family
               and source.get('analogue_compatibility_checked') is True
               and source.get('substrate_differences') and source.get('functional_group_compatibility')
               and source.get('stereo_compatibility_checked') is True):
-            supported.append(('B',source))
+                supported.append(('B',source))
     if supported:
         tier, source = sorted(supported,key=lambda item:(item[0],item[1]['source_id']))[0]
         return {**base, 'tier':tier, 'supported':True, 'selected_source':source['source_id'],

@@ -355,7 +355,7 @@ def test_net_reaction_precedent_never_proves_internal_arrow_order():
     assert result['physical_intermediates_experimentally_verified'] is False
 
 
-@pytest.mark.parametrize('native_mapping',[False,True])
+@pytest.mark.parametrize('native_mapping',[False,True,'full_stereo_local_v2'])
 def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_hits(tmp_path,native_mapping):
     # Filesystem unit integration only: synthetic fixtures, no model or real
     # benchmark sampling. Catches CLI contract/joins and fabricated A metrics.
@@ -435,6 +435,32 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
         view=tmp_path/'native_view'
         module('literature_mapping').enrich_queries(freeze,program_root,view)
         command+=['--native-mapping-view',str(view)]
+    if native_mapping=='full_stereo_local_v2':
+        from mechet.analysis.literature_policy_controls import evaluate_controls
+        repo=pathlib.Path(__file__).resolve().parents[1]
+        control_spec=repo/'configs/analysis/lgrv_independent_retrieval_controls_20261018.json'
+        control_root=tmp_path/'policy_controls';control_root.mkdir()
+        result=evaluate_controls(json.loads(control_spec.read_bytes()),control_root/'control_sources.sqlite',family_policy=native_mapping)
+        result.update(source_independence_passed=True,source_key_overlap_with_frozen_mechet_pool=[])
+        (control_root/'policy_control_results.json').write_text(json.dumps(result))
+        spec=json.loads(control_spec.read_bytes())
+        raw_control_source=db/spec['ord_relative_path'];raw_control_source.parent.mkdir(parents=True)
+        raw_control_source.write_bytes(b'software fixture source catalogue payload, not an experimental result')
+        catalog=db/'source_catalogue.json';catalog.write_text(json.dumps({'download_complete':True,
+            'files':[{'path':spec['ord_relative_path'],'sha256':sources.file_sha256(raw_control_source)}]}))
+        cp=db/'source_corpus_manifest.json';c=json.loads(cp.read_bytes())
+        c.update(source_manifest=str(catalog),source_manifest_sha256=sources.file_sha256(catalog));cp.write_text(json.dumps(c))
+        (control_root/'policy_control_manifest.json').write_text(json.dumps({
+            'complete':True,'all_controls_passed':True,'family_policy':native_mapping,
+            'control_spec_sha256':sources.file_sha256(control_spec),
+            'source_catalogue_sha256':sources.file_sha256(catalog),
+            'source_file_sha256':sources.file_sha256(raw_control_source),
+            'prediction_freeze_manifest_sha256':sources.file_sha256(freeze/'prediction_freeze_manifest.json'),
+            'family_implementation_sha256':sources.file_sha256(repo/'src/mechet/analysis/literature_stereo_family.py'),
+            'producer_sha256':sources.file_sha256(repo/'src/mechet/analysis/literature_policy_controls.py'),
+            'output_files':{p.name:{'sha256':sources.file_sha256(p)} for p in control_root.iterdir()}}))
+        command+=['--family-policy',native_mapping,'--policy-control-root',str(control_root),
+                  '--policy-control-spec',str(control_spec)]
     completed = subprocess.run(command,capture_output=True,text=True)
     assert completed.returncode == 0,completed.stderr
     delivery=json.loads((output/'analysis_manifest.json').read_text())
@@ -450,6 +476,11 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
         assert hits[0]['match_type']=='local_edit_analogue_candidate'
         assert delivery['native_mapping_enrichment_manifest_sha256']==sources.file_sha256(view/'mapping_enrichment_manifest.json')
         assert delivery['output_files']['unique_reaction_queries_enriched.jsonl.gz']['sha256']==sources.file_sha256(view/'unique_reaction_queries_enriched.jsonl.gz')
+    if native_mapping=='full_stereo_local_v2':
+        assert delivery['family_policy']==native_mapping
+        contexts=list(json.loads(l) for l in gzip.open(output/'retrieval_query_contexts.jsonl.gz','rt'))
+        assert len(contexts)==1 and contexts[0]['status']=='available'
+        assert delivery['policy_control_manifest_sha256']==sources.file_sha256(control_root/'policy_control_manifest.json')
     assert metrics['runs']['r1_mcts_pr88']['denominator'] == 2
     assert metrics['runs']['r1_mcts_pr88']['pending_reports'] == 1
     assert metrics['runs']['r1_mcts_pr88']['counts']['StockSolved@B'] == 1
@@ -470,6 +501,16 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     assert first['method_pending_reports']=='1'
     assert first['observed_both_denominator']=='1'
     assert 'lower bound' in first['full_population_outcome']
+    if native_mapping=='full_stereo_local_v2':
+        rp=control_root/'policy_control_results.json';tampered=json.loads(rp.read_bytes())
+        tampered['controls'][0]['passed']=False;rp.write_text(json.dumps(tampered))
+        mp=control_root/'policy_control_manifest.json';tampered_manifest=json.loads(mp.read_bytes())
+        tampered_manifest['output_files'][rp.name]['sha256']=sources.file_sha256(rp)
+        mp.write_text(json.dumps(tampered_manifest))
+        invalid=list(completed.args);invalid[invalid.index('--output-root')+1]=str(tmp_path/'forged_gate')
+        rejected=subprocess.run(invalid,capture_output=True,text=True)
+        assert rejected.returncode!=0 and 'control' in rejected.stderr
+        assert not (tmp_path/'forged_gate').exists()
     # A checked contradiction counts as inspected, never as positive support;
     # a partial program join must remain on the outstanding-work list.
     contradiction=primary(tmp_path,contradicted_reaction_key=reaction['reaction_key'],
@@ -481,6 +522,9 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     command=list(completed.args)
     if native_mapping:
         i=command.index('--native-mapping-view');del command[i:i+2]
+    if native_mapping=='full_stereo_local_v2':
+        for flag in ('--family-policy','--policy-control-root','--policy-control-spec'):
+            i=command.index(flag);del command[i:i+2]
     command[command.index('--output-root')+1]=str(tmp_path/'checked_d')
     command+=['--primary-source-registry',str(registry)]
     second=subprocess.run(command,capture_output=True,text=True)

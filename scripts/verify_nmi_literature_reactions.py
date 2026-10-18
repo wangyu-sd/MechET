@@ -41,6 +41,10 @@ def main():
     parser.add_argument('--primary-source-registry',type=Path,action='append',default=[])
     parser.add_argument('--program-join-root',type=Path)
     parser.add_argument('--native-mapping-view',type=Path)
+    parser.add_argument('--family-policy',choices=('legacy_v1','full_stereo_local_v2'),default='legacy_v1')
+    parser.add_argument('--policy-control-root',type=Path)
+    parser.add_argument('--policy-control-spec',type=Path)
+    parser.add_argument('--retrieval-context-workers',type=int,default=1)
     args = parser.parse_args()
     import yaml
     config = yaml.safe_load(args.retrieval_config.read_text())
@@ -81,6 +85,21 @@ def main():
     corpus = json.loads((args.source_reaction_index.parent/'source_corpus_manifest.json').read_bytes())
     if corpus.get('complete') is not True:
         raise ValueError('source index incomplete or checksum differs')
+    contexts=None;policy_gate=None
+    if args.family_policy=='full_stereo_local_v2':
+        from mechet.analysis.literature_retrieval_contexts import prepare_contexts,check_policy_controls
+        if not native_mapping or not args.policy_control_root or not args.policy_control_spec:
+            raise ValueError('full-stereo policy requires native query view and completed independent controls')
+        if file_sha256(corpus['source_manifest'])!=corpus['source_manifest_sha256']:
+            raise ValueError('source catalogue identity differs before policy controls')
+        query_rows=list(query_rows)
+        policy_gate=check_policy_controls(args.policy_control_root,args.policy_control_spec,
+            freeze_sha256=file_sha256(args.prediction_freeze_root/'prediction_freeze_manifest.json'),
+            source_catalogue=corpus['source_manifest'],queries=query_rows)
+        print(json.dumps({'phase':'full_stereo_context_preparation','queries':len(query_rows),
+            'programs':sum(map(len,programs.values())),'cpu_workers':args.retrieval_context_workers}),flush=True)
+        contexts=prepare_contexts(query_rows,(p for group in programs.values() for p in group),
+            actor_sha256=freeze['actor_sha256'],workers=args.retrieval_context_workers)
     source_index=FrozenReactionIndex(args.source_reaction_index,index_sha256=corpus['index_sha256'])
     registry = load_primary_registries(args.primary_source_registry)
     primary = defaultdict(list)
@@ -96,11 +115,26 @@ def main():
     if native_mapping:
         for name in ('mapping_enrichment_manifest.json','unique_reaction_queries_enriched.jsonl.gz'):
             shutil.copyfile(args.native_mapping_view/name,output/name)
+    if contexts is not None:
+        with gzip.open(output/'retrieval_query_contexts.jsonl.gz','wt') as handle:
+            for context in contexts.values():handle.write(json.dumps(context)+'\n')
+        for name in ('policy_control_manifest.json','policy_control_results.json','control_sources.sqlite'):
+            shutil.copyfile(args.policy_control_root/name,output/name)
+        shutil.copyfile(args.policy_control_spec,output/'policy_control_spec.json')
+    family_statuses=Counter(c['status'] for c in contexts.values()) if contexts is not None else None
+    lookup_audits=Counter()
     evidence = {};tiers=Counter();retrieval=Counter()
     with gzip.open(output/'literature_hits.jsonl.gz','wt') as hits_file, gzip.open(output/'reaction_evidence.jsonl.gz','wt') as evidence_file:
         for number,reaction in enumerate(query_rows,1):
             key = reaction['reaction_key']
-            hits = source_index.query(reaction,cap=int(config['literature']['primary_search_cap_per_unique_reaction']))
+            cap=int(config['literature']['primary_search_cap_per_unique_reaction'])
+            if contexts is None:hits=source_index.query(reaction,cap=cap)
+            else:
+                from mechet.analysis.literature_stereo_family import query_sources
+                reaction={**reaction,'stereo_family_context':contexts[key]}
+                hits,audit=query_sources(source_index,reaction,contexts[key],cap=cap)
+                for field in ('legacy_family_lookups','incompatible_family_candidates','source_records_considered'):
+                    lookup_audits[field]+=audit[field]
             for hit in hits:
                 hits_file.write(json.dumps({'query_reaction_key':key,**hit})+'\n')
             evidence[key] = assess(reaction,hits,primary.get(key,[]));tiers[evidence[key]['tier']] += 1
@@ -204,6 +238,8 @@ def main():
             # No full copyrighted text or accumulated long excerpts in export.
             handle.write(json.dumps({k:v for k,v in record.items() if k not in {'document_text','checked_passage'}})+'\n')
     coverage={'unique_reaction_queries':len(evidence),'tier_counts':dict(tiers),**retrieval,
+              'family_policy':args.family_policy,'retrieval_context_statuses':dict(family_statuses) if family_statuses is not None else None,
+              'stereo_lookup_work':dict(lookup_audits),'independent_policy_controls':policy_gate,
               'source_checked_reactions':sum(r.get('verification_status') in {'source_passage_checked','source_human_reviewed'} for r in evidence.values()),
               'source_supported_reactions':sum(source_supported(r) for r in evidence.values()),
               'primary_registry_sha256':registry['source_manifests'][0]['sha256'] if len(registry['source_manifests'])==1 else None,
@@ -226,6 +262,8 @@ def main():
         'primary_registry_manifests':registry['source_manifests'],
         'program_join_manifest_sha256':metrics['r2_program_join_manifest_sha256'],
         'native_mapping_enrichment_manifest_sha256':file_sha256(args.native_mapping_view/'mapping_enrichment_manifest.json') if native_mapping else None,
+        'family_policy':args.family_policy,
+        'policy_control_manifest_sha256':policy_gate['manifest_sha256'] if policy_gate else None,
         'producer_files':{str(p.relative_to(ROOT)):file_sha256(p) for p in producer},
         'output_files':{p.name:{'sha256':file_sha256(p)} for p in sorted(output.iterdir()) if p.is_file()}})
     print(json.dumps({'phase':'retrieval_complete','unique_reactions':len(evidence),'tiers':dict(tiers)}),flush=True)

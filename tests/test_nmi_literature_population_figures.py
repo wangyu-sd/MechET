@@ -204,7 +204,7 @@ def seal_analysis(arguments,program_root):
     (analysis/'analysis_manifest.json').write_text(json.dumps(payload))
 
 
-@pytest.mark.parametrize('native_mapping',[False,True])
+@pytest.mark.parametrize('native_mapping',[False,True,'full_stereo_local_v2'])
 def test_population_delivery_exports_actual_unresolved_case_without_inventing_support(tmp_path,native_mapping):
     arguments,program_root=population_files(tmp_path)
     if native_mapping:
@@ -213,11 +213,49 @@ def test_population_delivery_exports_actual_unresolved_case_without_inventing_su
         view=tmp_path/'native_view';enrich_queries(arguments[1],program_root,view)
         for name in ('mapping_enrichment_manifest.json','unique_reaction_queries_enriched.jsonl.gz'):
             shutil.copyfile(view/name,arguments[0]/name)
+    if native_mapping=='full_stereo_local_v2':
+        from collections import Counter
+        from mechet.analysis.literature_policy_controls import evaluate_controls
+        from mechet.analysis.literature_retrieval_contexts import prepare_contexts
+        from mechet.analysis.literature_sources import file_sha256
+        repo=Path(__file__).parents[1]
+        spec_path=repo/'configs/analysis/lgrv_independent_retrieval_controls_20261018.json'
+        spec=json.loads(spec_path.read_bytes());analysis,freeze=arguments[:2]
+        cp=analysis/'source_corpus_manifest.json';corpus=json.loads(cp.read_bytes())
+        catalog_path=Path(corpus['source_manifest']);catalog=json.loads(catalog_path.read_bytes())
+        old=Path(corpus['files'][0]['source_path']);raw=catalog_path.parent/spec['ord_relative_path']
+        raw.parent.mkdir(parents=True);shutil.copyfile(old,raw)
+        catalog['files'][0]['path']=spec['ord_relative_path'];catalog_path.write_text(json.dumps(catalog))
+        corpus['files'][0]['source_path']=str(raw);corpus['source_corpus']=catalog
+        corpus['source_manifest_sha256']=file_sha256(catalog_path);cp.write_text(json.dumps(corpus))
+        result=evaluate_controls(spec,analysis/'control_sources.sqlite',family_policy=native_mapping)
+        result.update(source_independence_passed=True,source_key_overlap_with_frozen_mechet_pool=[])
+        (analysis/'policy_control_results.json').write_text(json.dumps(result))
+        shutil.copyfile(spec_path,analysis/'policy_control_spec.json')
+        (analysis/'policy_control_manifest.json').write_text(json.dumps({
+            'complete':True,'all_controls_passed':True,'family_policy':native_mapping,
+            'control_spec_sha256':file_sha256(spec_path),'source_catalogue_sha256':file_sha256(catalog_path),
+            'source_file_sha256':file_sha256(raw),
+            'prediction_freeze_manifest_sha256':file_sha256(freeze/'prediction_freeze_manifest.json'),
+            'family_implementation_sha256':file_sha256(repo/'src/mechet/analysis/literature_stereo_family.py'),
+            'producer_sha256':file_sha256(repo/'src/mechet/analysis/literature_policy_controls.py'),
+            'output_files':{n:{'sha256':file_sha256(analysis/n)} for n in ('control_sources.sqlite','policy_control_results.json')}}))
+        with gzip.open(freeze/'unique_reaction_queries.jsonl.gz','rt') as f:queries=[json.loads(l) for l in f]
+        with gzip.open(program_root/'program_reaction_links.jsonl.gz','rt') as f:programs=[json.loads(l) for l in f]
+        contexts=prepare_contexts(queries,programs,actor_sha256='b'*64)
+        with gzip.open(analysis/'retrieval_query_contexts.jsonl.gz','wt') as f:
+            for c in contexts.values():f.write(json.dumps(c)+'\n')
+        cov=analysis/'evidence_coverage.json';coverage=json.loads(cov.read_bytes())
+        coverage.update(family_policy=native_mapping,retrieval_context_statuses=dict(Counter(c['status'] for c in contexts.values())))
+        cov.write_text(json.dumps(coverage))
     seal_analysis(arguments,program_root)
     if native_mapping:
         from mechet.analysis.literature_sources import file_sha256
         p=arguments[0]/'analysis_manifest.json';m=json.loads(p.read_bytes())
         m['native_mapping_enrichment_manifest_sha256']=file_sha256(arguments[0]/'mapping_enrichment_manifest.json')
+        if native_mapping=='full_stereo_local_v2':
+            m['family_policy']=native_mapping
+            m['policy_control_manifest_sha256']=file_sha256(arguments[0]/'policy_control_manifest.json')
         p.write_text(json.dumps(m))
     run=importlib.import_module('scripts.render_nmi_literature_population_figures').render_population_figures
     result=run(*arguments,program_join_root=program_root)
@@ -231,6 +269,9 @@ def test_population_delivery_exports_actual_unresolved_case_without_inventing_su
     assert '0 local primitive' in captions
     if native_mapping:
         assert result['native_mapping_enrichment_manifest_sha256']==m['native_mapping_enrichment_manifest_sha256']
+    if native_mapping=='full_stereo_local_v2':
+        assert result['family_policy']==native_mapping
+        assert result['policy_control_manifest_sha256']==m['policy_control_manifest_sha256']
 
 
 def test_population_delivery_rejects_resealed_but_invented_native_family(tmp_path):

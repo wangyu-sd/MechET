@@ -44,12 +44,14 @@ def variant_smiles(text, variant):
     return Chem.MolToSmiles(molecule,canonical=True,isomericSmiles=True)
 
 
-def evaluate_controls(spec,index_path):
+def evaluate_controls(spec,index_path,*,family_policy='legacy_v1'):
     """Execute every predeclared source/variant against a real local index."""
     index_path=Path(index_path)
     if index_path.exists():raise FileExistsError('independent control index already exists')
     if spec['radius']!=1 or spec['primary_search_cap']!=5:
         raise ValueError('controls validate the unchanged radius1/cap5 policy only')
+    if family_policy not in {'legacy_v1','full_stereo_local_v2'}:
+        raise ValueError('unsupported versioned retrieval family policy')
     sources=spec['sources'];variants=spec['variants']
     if (not sources or not variants or len({r['id'] for r in sources})!=len(sources) or
         len({r['id'] for r in variants})!=len(variants)):
@@ -66,7 +68,12 @@ def evaluate_controls(spec,index_path):
             for variant in variants:
                 reaction=make_reaction(variant_smiles(source['mapped_product'],variant['id']),
                     [variant_smiles(source['mapped_precursors'],variant['id'])],radius=1)
-                hits=index.query(reaction,cap=5)
+                audit=None
+                if family_policy=='legacy_v1':hits=index.query(reaction,cap=5)
+                else:
+                    from .literature_stereo_family import family_context,query_sources
+                    context=family_context(reaction['precursors_raw'][0],reaction['product_raw'])
+                    hits,audit=query_sources(index,reaction,context,cap=5)
                 own=[h for h in hits if h['source_id']==source['id']]
                 observed=own[0]['match_type'] if own else 'unresolved'
                 # A changed reactive environment must not leak through another
@@ -78,18 +85,20 @@ def evaluate_controls(spec,index_path):
                     'query_precursors':reaction['precursors_raw'],'query_family_key':reaction['reaction_family_key'],
                     'expected_retrieval':variant['expected_retrieval'],'observed_retrieval':observed,
                     'hits':[{'source_id':h['source_id'],'match_type':h['match_type']} for h in hits],
-                    'passed':passed,'machine_only_tier':assess(reaction,hits)['tier']}
+                    'passed':passed,'machine_only_tier':assess(reaction,hits)['tier'],
+                    'family_lookup_audit':audit}
                 results.append(result)
     finally:index.close()
     passed=sum(r['passed'] for r in results)
     return {'schema':'lgrv_independent_structure_policy_results_v1','total':len(results),
+        'family_policy':family_policy,
         'passed':passed,'failed':len(results)-passed,'all_passed':passed==len(results),
         'controls':results,'chemical_success_rate_established':False,
         'new_model_inference':False,'mechet_evidence_grade_supplied':False,
         'scope':'source-anchored structural retrieval controls; hypothetical variants are not performed reactions'}
 
 
-def run_controls(spec_path,source_manifest,codec_file,codec_sha,freeze_root,output_root):
+def run_controls(spec_path,source_manifest,codec_file,codec_sha,freeze_root,output_root,*,family_policy='legacy_v1'):
     """Bind every source, original frozen query and resulting control artifact."""
     import importlib.util
     from google.protobuf.json_format import MessageToDict
@@ -134,7 +143,7 @@ def run_controls(spec_path,source_manifest,codec_file,codec_sha,freeze_root,outp
         pool={r['reaction_key'] for r in map(json.loads,f)}
     overlap=sorted(source_keys&pool)
     output_root.mkdir(parents=True,exist_ok=False)
-    result=evaluate_controls(spec,output_root/'control_sources.sqlite')
+    result=evaluate_controls(spec,output_root/'control_sources.sqlite',family_policy=family_policy)
     result.update(source_key_overlap_with_frozen_mechet_pool=overlap,
         source_independence_passed=not overlap,source_rows_reconciled=actual,
         source_file_total_rows=source_count,policy_tuned_on_mechet_outcomes=False,
@@ -143,11 +152,13 @@ def run_controls(spec_path,source_manifest,codec_file,codec_sha,freeze_root,outp
     result['all_passed']=result['all_passed'] and not overlap
     output=output_root/'policy_control_results.json';output.write_text(json.dumps(result,indent=2)+'\n')
     manifest={'schema':'lgrv_independent_structure_policy_manifest_v1','complete':True,
+        'family_policy':family_policy,
         'all_controls_passed':result['all_passed'],'control_spec_sha256':file_sha256(spec_path),
         'source_catalogue_sha256':file_sha256(source_manifest),'source_file_sha256':file_sha256(source_path),
         'source_file_path':str(source_path.resolve()),'codec_sha256':codec_sha,
         'prediction_freeze_manifest_sha256':freeze_sha,'new_model_inference':False,
         'producer_sha256':file_sha256(Path(__file__)),
+        'family_implementation_sha256':file_sha256(Path(__file__).with_name('literature_stereo_family.py')) if family_policy=='full_stereo_local_v2' else None,
         'output_files':{p.name:{'sha256':file_sha256(p)} for p in output_root.iterdir() if p.is_file()}}
     (output_root/'policy_control_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     return result,manifest
@@ -158,7 +169,8 @@ if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
     for name in ('control-spec','source-manifest','codec-file','prediction-freeze-root','output-root'):
         p.add_argument('--'+name,type=Path,required=True)
-    p.add_argument('--codec-sha256',required=True);a=p.parse_args()
-    result,_=run_controls(a.control_spec,a.source_manifest,a.codec_file,a.codec_sha256,a.prediction_freeze_root,a.output_root)
+    p.add_argument('--codec-sha256',required=True)
+    p.add_argument('--family-policy',choices=('legacy_v1','full_stereo_local_v2'),default='legacy_v1');a=p.parse_args()
+    result,_=run_controls(a.control_spec,a.source_manifest,a.codec_file,a.codec_sha256,a.prediction_freeze_root,a.output_root,family_policy=a.family_policy)
     print(json.dumps({'phase':'independent_structure_controls_complete','total':result['total'],
         'passed':result['passed'],'failed':result['failed'],'source_independence':result['source_independence_passed']}),flush=True)

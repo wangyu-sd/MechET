@@ -14,7 +14,7 @@ from mechet.analysis.literature_population_figures import prepare_panels,render_
 from mechet.analysis.literature_programs import composition_metrics
 from mechet.analysis.literature_mapping import load_query_view
 from mechet.analysis.literature_evidence import assess
-from mechet.analysis.literature_reaction_keys import make_reaction
+from mechet.analysis.literature_reaction_keys import make_reaction,stable_hash
 from mechet.analysis.literature_route_metrics import aggregate_routes,source_supported
 from mechet.analysis.literature_sources import file_sha256
 
@@ -66,7 +66,8 @@ def authenticate_analysis(root,freeze_path,corpus_path,config_path):
 
 
 def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,exposure_path,
-                              primary_registries,style_path,config_path,output_root,*,program_join_root=None):
+                              primary_registries,style_path,config_path,output_root,*,program_join_root=None,
+                              retrieval_context_workers=1):
     import yaml
     from scripts.render_nmi_literature_figures import load_selected_case
     from scripts.render_nmi_tree_figures import export
@@ -118,6 +119,30 @@ def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,ex
     elif any((analysis_root/name).exists() for name in
              ('mapping_enrichment_manifest.json','unique_reaction_queries_enriched.jsonl.gz')):
         raise ValueError('unbound native query-view artifacts may not be silently ignored')
+    family_policy=delivery.get('family_policy','legacy_v1');control_sha=None
+    if family_policy=='full_stereo_local_v2':
+        from mechet.analysis.literature_retrieval_contexts import prepare_contexts,check_policy_controls
+        required={'retrieval_query_contexts.jsonl.gz','policy_control_manifest.json','policy_control_results.json',
+                  'policy_control_spec.json','control_sources.sqlite'}
+        if not mapping_sha or not required<=delivery['output_files'].keys():
+            raise ValueError('full-stereo publication inputs are missing or unbound')
+        gate=check_policy_controls(analysis_root,analysis_root/'policy_control_spec.json',
+            freeze_sha256=file_sha256(fpath),source_catalogue=corpus['source_manifest'],queries=queries)
+        control_sha=gate['manifest_sha256']
+        if control_sha!=delivery.get('policy_control_manifest_sha256'):
+            raise ValueError('publication independent-policy controls differ')
+        actual=prepare_contexts(queries,rows(Path(program_join_root)/'program_reaction_links.jsonl.gz'),
+            actor_sha256=freeze['actor_sha256'],workers=retrieval_context_workers)
+        stored_rows=list(rows(analysis_root/'retrieval_query_contexts.jsonl.gz'))
+        stored={r['reaction_key']:r for r in stored_rows}
+        if (len(stored)!=len(stored_rows) or stable_hash(stored)!=stable_hash(actual) or
+            Counter(c['status'] for c in actual.values())!=Counter(coverage.get('retrieval_context_statuses',{})) or
+            coverage.get('family_policy')!=family_policy):
+            raise ValueError('publication retrieval contexts differ from all authenticated native programs')
+        queries=[{**q,'stereo_family_context':actual[q['reaction_key']]} for q in queries]
+        mapping_inputs.extend(analysis_root/name for name in sorted(required))
+    elif family_policy!='legacy_v1':
+        raise ValueError('unknown publication family policy')
     if (len(evidence_rows)!=len(evidence) or set(evidence)!={r['reaction_key'] for r in queries} or
         coverage['unique_reaction_queries']!=len(queries) or
         Counter(r['tier'] for r in evidence_rows)!=Counter(metrics['literature_tiers']) or
@@ -204,12 +229,14 @@ def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,ex
     producer=[Path(__file__),ROOT/'src/mechet/analysis/literature_population_figures.py',
               ROOT/'scripts/render_nmi_literature_figures.py',ROOT/'scripts/render_nmi_tree_figures.py',
               ROOT/'src/mechet/analysis/literature_figures.py',ROOT/'src/mechet/analysis/figure_qa.py',
-              ROOT/'src/mechet/analysis/literature_mapping.py']
+              ROOT/'src/mechet/analysis/literature_mapping.py',ROOT/'src/mechet/analysis/literature_evidence.py',
+              ROOT/'src/mechet/analysis/literature_retrieval_contexts.py',ROOT/'src/mechet/analysis/literature_stereo_family.py']
     manifest={'schema':'lgrv_population_figure_manifest_v1','figures':figures,
         'actor_sha256':freeze['actor_sha256'],'original_route_target_denominator':460,
         'unique_reaction_queries':len(queries),'matched_compute_claim':False,'ranking_primary':False,
         'reference_C0_C1_C2':'Unknown','new_model_inference':False,
         'native_mapping_enrichment_manifest_sha256':mapping_sha,
+        'family_policy':family_policy,'policy_control_manifest_sha256':control_sha,
         'source_files':[{'path':str(p.resolve()),'sha256':file_sha256(p)} for p in inputs],
         'producer_files':{str(p.relative_to(ROOT)):file_sha256(p) for p in producer},
         'panel_source_data_sha256':file_sha256(panel_path),'visual_inspection_status':'pending',
@@ -251,10 +278,11 @@ def main():
                  'actor-exposure-manifest','style','retrieval-config','output-root','program-join-root']:
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--primary-source-registry',type=Path,action='append',default=[])
+    parser.add_argument('--retrieval-context-workers',type=int,default=1)
     a=parser.parse_args()
     render_population_figures(a.analysis_root,a.prediction_freeze_root,a.route_assets_manifest,a.case_spec,
         a.actor_exposure_manifest,a.primary_source_registry,a.style,a.retrieval_config,a.output_root,
-        program_join_root=a.program_join_root)
+        program_join_root=a.program_join_root,retrieval_context_workers=a.retrieval_context_workers)
 
 
 if __name__=='__main__':main()

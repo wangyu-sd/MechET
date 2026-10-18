@@ -49,6 +49,18 @@ def test_policy_control_runner_refuses_to_overwrite_existing_index(tmp_path):
     assert path.read_bytes()==b'original'
 
 
+def test_versioned_full_stereo_reader_repairs_the_frozen_failed_control_without_changing_labels(tmp_path):
+    import json
+    from pathlib import Path
+    p=Path(__file__).parents[1]/'configs/analysis/lgrv_independent_retrieval_controls_20261018.json'
+    spec=json.loads(p.read_bytes())
+    result=implementation().evaluate_controls(spec,tmp_path/'legacy.sqlite',family_policy='full_stereo_local_v2')
+    assert result['total']==12 and result['passed']==12 and result['failed']==0
+    assert result['all_passed'] is True
+    assert result['family_policy']=='full_stereo_local_v2'
+    assert all(r['machine_only_tier']=='C' for r in result['controls'])
+
+
 @pytest.mark.parametrize('mutation',['none','source_structure','source_checksum','source_overlap'])
 def test_policy_orchestration_binds_actual_source_structures_bytes_and_independence(tmp_path,mutation):
     import gzip,json
