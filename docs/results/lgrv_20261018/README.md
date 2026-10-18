@@ -6,7 +6,50 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v15 source review:** two further source-review batches cover all10
+**Current v16 source review:** 12 further source/query comparisons across five
+patents add two query-scoped analogues; ten remain unresolved with explicit
+applicability or preparation/formulation limits. The full 18,210-query,
+six-condition analysis now has **47 Tier A, 12 Tier B, and 18,151 unresolved**.
+All 57 prior support rows and all original query/context/candidate sequences
+remain unchanged; all 21 sealed outputs and current producer/registry hashes
+are verified. These 59 supported generated reactions are not 59 independently
+performed experiments or a population chemical-accuracy estimate.
+
+[Complete v16 tables and all 59 cases](analysis_tables_primary_v16_20261019/README.md),
+[whole coverage](coverage_review_v16_20261019/README.md),
+[all 108 work states](primary_review_states_v16_20261019/README.md), and
+[six-condition summary](POPULATION_RESULTS_PRIMARY_V16_20261019.json)
+retain every method. R1 counts are unchanged: MCTS supports 27 reactions across
+25 targets in all terminal contexts; Greedies each support 7 across 6. On
+stock-closed routes, MCTS retains 11 targets with an exact-supported step and
+one with every essential step supported. The 31k frozen proxy now has **26
+MCTS targets with A/B support (22 exact + 4 analogue)**, versus 18/17 Greedy
+targets; all 3,120 IDs and 10 total MCTS attempts are preserved. Comparisons
+remain descriptive under unequal work, not causal search gains.
+
+Source reviews cover [US8536165](grouped_primary_review_batch4_20261019/README.md),
+[US6326359](grouped_primary_review_batch5_20261019/README.md),
+[US6960598](grouped_primary_review_batch6_20261019/README.md), and
+[US7465795/US5068340](source_preparation_limits_20261019/README.md).
+The work-state inventory distinguishes 33 unresolved original pointers,
+40 cached/preparation-pending queries, 28 checked applicability limits,
+5 checked preparation/formulation limits, and 2 stereo limits. All 77
+referenced documents are available, not 77 verified reactions. The full-data
+regression removes only the two newly supported queries from the unresolved
+inventory and updates ten pending-to-checked state fields; all other fields
+and unreviewed rows are unchanged. Fresh full CPU
+gate: **1,279 passed / 14 skipped**, one existing warning, 196.87s. No new
+model/GPU/Taiji task or main/paper merge; broader source review and final
+whole-goal audit remain open.
+
+The [v16 Figure 2/3 and three extended panels](population_figures_primary_v16_20261019/README.md)
+match these full tables. All five actual PNGs were opened and inspected;
+all 15 exports retain editable vectors, embedded fonts, and source hashes.
+R2 seen/unseen supported reaction sets remain 22/9 with overlap; the work
+numerator remains 27 R1 MCTS reactions, not 59 pooled supports. No earlier
+figure is overwritten or relabelled as the new result.
+
+**Historical v15 source review:** two further source-review batches cover all10
 assigned query/source pairs:3 compatible analogues,7 unresolved comparisons.
 Full18,210-query/six-condition counts are **47 TierA,10 query-scoped TierB,
 18,153 unresolved**. These57 supported generated reactions are not57

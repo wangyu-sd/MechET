@@ -1,0 +1,28 @@
+{
+  "schema": "lgrv_source_preparation_limits_spec_v1",
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "source_id": "US7465795B2:table2:dimethylpyrazolyl-cinnoline:precursor-evidence-limit",
+      "source_url": "https://patents.google.com/patent/US7465795B2/en",
+      "document_sha256": "510f8091c992e1b671dc286ab274b5536f3d7d5c23888c4d65e24884d9a52949",
+      "witnesses": [
+        {"text": "The compounds in Table 2 can also be made", "locator": "Normalizedtext478292ff,immediately beforeTable2;conditionalpreparation wording,not an individual isolated example."},
+        {"text": "E 4-amino-8-(1,3-dimethyl-1H-pyrazol-5-yl)-N-propylcinnoline-3-carboxamide E", "locator": "Table2around478989;the matching namedproduct is assignedSynthesisMethodE."},
+        {"text": "Method E: To a stirred solution of 8-trimethylstannyl-cinnoline derivative", "locator": "FullMethodEat527833ff,andduplicateearlierdescription310130ff;usesorganotin-cinnoline plus aryl/heteroarylBr,not the indexedBpin pluscinnolineBr."}
+      ],
+      "indexed_candidate_product": "CCCNC(=O)c1nnc2c(-c3cc(C)nn3C)cccc2c1N",
+      "indexed_candidate_precursors": ["CCCNC(=O)c1nnc2c(Br)cccc2c1N", "Cn1nc(C)cc1B1OC(C)(C)C(C)(C)O1"],
+      "expected_candidate_reaction_key": "8aa4e90f66512b744348e72ad2d3c97a435fdc5a7833f07778d2910f1be33edc",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "source_review": "The independently namedcandidateproduct matches theTable2product,andtheSuzuki-formcandidategraphmatches theoriginalcappedsourcekey. However,thetable says thesecompounds can also bemade andassignsMethodE. ThecompleteMethodE uses8-trimethylstannylcinnoline,aryl/heteroarylBr,Pd(PPh3)4,anhydrousDMF,nitrogen,150C4-16h,workupandchromatography. ActualExample23 performsMethodE for adifferentfluoropyridyl product,45mg37.7%,not thisdimethylpyrazolylcandidate. No individualmatchingBpin/cinnolineBr preparation,yield orcharacterization is established here. This is a source-side route/precursor-evidence limit,not proof the indexedSuzuki pairing or anyMechETquery is impossible.",
+      "query_reviews": [
+        {"query_reaction_key": "b7d97f34cfcb5915c5d533db1971185982675c4c5012c67af2a0983d55570e1d", "review_limitations": "Thequery uses apyridazinylBpin plusphenolic/aminopyrazolylarylBr andunprotectedtetramethylpiperidineNH. Even before assessing these substrate differences,theoriginalcappedcandidate'sBpin/cinnolineBr preparation is not confirmed byTable2/MethodE. RetainC,no experimentalfailure orcounterfactualsideproduct is asserted."},
+        {"query_reaction_key": "d92af723336a24dfd8b8c6d47c35c4f03258dcf9d9072b6c9bd98a680f485438", "review_limitations": "Queryhas freebromoaniline andpyrazinoneBpin carrying aprimarymesylate. Neither a sharedSuzuki-type localedit nor the samefinalproduct as ahandle-swappedcandidate establishes theoriginalsourcecandidate'sperformedprecursor combination. RetainC,notD."},
+        {"query_reaction_key": "fd7c91d3b013efd93f24688b77d2d3988f66f7deac61848ee020a77e4030ca44", "review_limitations": "Querycouples aheteroarylBpin/nicotinamide to bromoaniline with a tertiarydipropylamine. The patent's namedproduct andorganotinMethodE do not establish the indexedBpin-sourcepair or thisdifferentquery. RetainC without treating unknownsource provenance as chemicalinvalidity."}
+      ]
+    }
+  ]
+}

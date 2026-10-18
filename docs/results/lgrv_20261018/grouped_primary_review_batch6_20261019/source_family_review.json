@@ -1,0 +1,75 @@
+{
+  "schema": "lgrv_query_scoped_grouped_primary_review_v1",
+  "complete": true,
+  "sources": [
+    {
+      "source_id": "US6960598B2:example34b:naphthyridine-aryl-coupling",
+      "patent_id": "US6960598B2",
+      "source_url": "https://patents.google.com/patent/US6960598B2/en",
+      "document_sha256": "debb46935f91f49dbcc377d36ce2ef501df7b3858d9b0614e5055ecee60733fb",
+      "checked_passage": "5-(4-fluoro-3-methoxyphenyl)-2-trifluoromethyl[1,8]naphthyridine (1.06 g, 83%).",
+      "locator": "Example34(b)at291277ff,couples5-chloro2-CF3[1,8]naphthyridineandthe34(a)arylBpin. FullreferencedExample3(g)at205600ff directlyread. Do notsubstitutethe34(a)boronate-preparationconditions.",
+      "source_product": "n1c(C(F)(F)F)ccc2c(-c3ccc(F)c(OC)c3)ccnc21",
+      "source_precursors": [
+        "n1c(C(F)(F)F)ccc2c(Cl)ccnc21",
+        "B1(c2ccc(F)c(OC)c2)OC(C)(C)C(C)(C)O1"
+      ],
+      "expected_exact_reaction_key": "281560692b8cbef4ce99a1ca1f37e647be0b229d0aa10f2a32ccce69d690b773",
+      "source_conditions": "Example34(b):heteroarylchloride923mg4.0mmol,arylBpin1.30g5.2mmol,product1.06g83%,1HNMR/MS323. Referenced3(g):aqueousNa2CO3/DME,Pd(PPh3)4,threefreeze-thawdegassingcycles,nitrogen80C24h,water/DCMworkup,dryMgSO4,silicachromatography.3(g)'sownsubstratemasses,178mg50%andMS412 are not34(b)measurements.34(a)'sPd(dppf)/B2pin2borylation at90Covernight is aseparateprecedingreaction,notthiscoupling.",
+      "reported_isolated_yield_percent": 83,
+      "structural_reconciliation": "IndependentnaphthyridineN-firstsourcegraphretainstheCF3-substitutedfuseddiazine,activatedchloro/newarylsite,andthearylBpinparaF/metaOMe pattern. Bothnamedsubstrates/productmatchoriginalcappedcandidate28156069,withnosilenthalideorboronatepartnerreplacement.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9097c8c074349f48c45cd10e34e5cae0f73961dbf5e084622067c502d379599b.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9097c8c074349f48c45cd10e34e5cae0f73961dbf5e084622067c502d379599b.html",
+      "raw_document_sha256": "e7e0d8f6ec6d8825b650c6a14fd2461806f40ffcd35732b4c5892fe8650ee39f",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9097c8c074349f48c45cd10e34e5cae0f73961dbf5e084622067c502d379599b.txt",
+      "checked_passage_sha256": "d361f6446cb5b3f5a4441e80fda73796902fecc1c8eb935910eb9991142c9c75",
+      "normalized_passage_offset": 291553,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+    }
+  ],
+  "reviews": [
+    {
+      "query_reaction_key": "8328cec42ef44e59c75f6d4aad68c70cc3821e930132c4de5619da60bb7164df",
+      "expected_tier": "C",
+      "analogue_compatibility_checked": false,
+      "substrate_differences": "Querycouples anN-substitutedindolebenzenoidchloride/arylF bearingpiperidinyl-oxadiazole topara-methylsulfonylphenylBpin,notactivatedCF3naphthyridinechloride.",
+      "functional_group_compatibility": "Theperformedsource'selectron-poorazaarylC-Cl activationwithPd(PPh3)4 doesnotestablish oxidativeaddition/coupling atthisdifferentbenzenoidindolechloride. MatchingformalC-Cl/Bpinlocaleditalone doesnotresolve thisimportantactivationdifference.",
+      "stereo_compatibility_checked": true,
+      "review_limitations": "RetainC,notaproofallligand/catalystsystems fail for thequery. No actualunchangedreactant orsideproduct wasmeasuredhere.",
+      "source_id": "US6960598B2:example34b:naphthyridine-aryl-coupling",
+      "source_reaction_key": "281560692b8cbef4ce99a1ca1f37e647be0b229d0aa10f2a32ccce69d690b773",
+      "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-58e479e6743547e685173321f82cf824:mapped_identifier",
+      "assessed_tier": "C",
+      "physical_mechanism_verified": false
+    },
+    {
+      "query_reaction_key": "ccd4342dd2595424e32de21454558f7851f6a4a755b45767d2860b812a91f78b",
+      "expected_tier": "C",
+      "analogue_compatibility_checked": false,
+      "substrate_differences": "QueryusesN-sulfonylazaindolechlorideandaheteroarylBpin thatitselfretains achloropyridyl site andaminocyclohexylBoc substituent. SourcehasonlyoneactivatedheteroarylchlorideandasimplerarylBpin.",
+      "functional_group_compatibility": "TheazaindoleelectrophileandsecondpotentiallyreactiveheteroarylCl/boronatepartner introduceunresolvedactivation/chemoselectivity questions underthesourceconditions. Anexactfamily-levelsymboliceditdoesnotestablishwhichchloridewillengage orboronatebehavior.",
+      "stereo_compatibility_checked": true,
+      "review_limitations": "KeepbothchloridesandBoc/N-sulfonylgroups explicit;do notneutralizeorignorethemtoforceidentity. Unknownapplicabilityisnotdocumentedchemicalcontradiction.",
+      "source_id": "US6960598B2:example34b:naphthyridine-aryl-coupling",
+      "source_reaction_key": "281560692b8cbef4ce99a1ca1f37e647be0b229d0aa10f2a32ccce69d690b773",
+      "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-58e479e6743547e685173321f82cf824:mapped_identifier",
+      "assessed_tier": "C",
+      "physical_mechanism_verified": false
+    }
+  ],
+  "unique_reaction_queries": 18210,
+  "scientific_judgement_supplied_by": "explicit assistant original-source/query review, not this compiler",
+  "independent_policy_calibration": false,
+  "review_spec_sha256": "cc967442a939a0a0d5c6185b54e2cd6f0190c8e6cd159f23df05c0d70d72a449",
+  "producer_sha256": "1fa8d0590e23781a5215b24137e04298f15328ffec97556fe5246a873d6b91c7",
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "new_model_inference": false
+}

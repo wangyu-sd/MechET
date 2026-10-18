@@ -1,0 +1,46 @@
+{
+  "schema": "lgrv_explicit_grouped_primary_review_spec_v1",
+  "scope": "Both original source/query pairs for US6960598B2 Example34(b). Actual83%heteroarylchloridecoupling is documented,butthisdoesnot automaticallyestablish the queries' lessactivated orcompetingchloridecontexts. BothremainC,not chemicalfailures.",
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "preparation": {
+        "source_id": "US6960598B2:example34b:naphthyridine-aryl-coupling",
+        "patent_id": "US6960598B2",
+        "source_url": "https://patents.google.com/patent/US6960598B2/en",
+        "document_sha256": "debb46935f91f49dbcc377d36ce2ef501df7b3858d9b0614e5055ecee60733fb",
+        "checked_passage": "5-(4-fluoro-3-methoxyphenyl)-2-trifluoromethyl[1,8]naphthyridine (1.06 g, 83%).",
+        "locator": "Example34(b)at291277ff,couples5-chloro2-CF3[1,8]naphthyridineandthe34(a)arylBpin. FullreferencedExample3(g)at205600ff directlyread. Do notsubstitutethe34(a)boronate-preparationconditions.",
+        "source_product": "n1c(C(F)(F)F)ccc2c(-c3ccc(F)c(OC)c3)ccnc21",
+        "source_precursors": ["n1c(C(F)(F)F)ccc2c(Cl)ccnc21", "B1(c2ccc(F)c(OC)c2)OC(C)(C)C(C)(C)O1"],
+        "expected_exact_reaction_key": "281560692b8cbef4ce99a1ca1f37e647be0b229d0aa10f2a32ccce69d690b773",
+        "source_conditions": "Example34(b):heteroarylchloride923mg4.0mmol,arylBpin1.30g5.2mmol,product1.06g83%,1HNMR/MS323. Referenced3(g):aqueousNa2CO3/DME,Pd(PPh3)4,threefreeze-thawdegassingcycles,nitrogen80C24h,water/DCMworkup,dryMgSO4,silicachromatography.3(g)'sownsubstratemasses,178mg50%andMS412 are not34(b)measurements.34(a)'sPd(dppf)/B2pin2borylation at90Covernight is aseparateprecedingreaction,notthiscoupling.",
+        "reported_isolated_yield_percent": 83,
+        "structural_reconciliation": "IndependentnaphthyridineN-firstsourcegraphretainstheCF3-substitutedfuseddiazine,activatedchloro/newarylsite,andthearylBpinparaF/metaOMe pattern. Bothnamedsubstrates/productmatchoriginalcappedcandidate28156069,withnosilenthalideorboronatepartnerreplacement.",
+        "performed_example": true,
+        "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [
+        {
+          "query_reaction_key": "8328cec42ef44e59c75f6d4aad68c70cc3821e930132c4de5619da60bb7164df",
+          "expected_tier": "C", "analogue_compatibility_checked": false,
+          "substrate_differences": "Querycouples anN-substitutedindolebenzenoidchloride/arylF bearingpiperidinyl-oxadiazole topara-methylsulfonylphenylBpin,notactivatedCF3naphthyridinechloride.",
+          "functional_group_compatibility": "Theperformedsource'selectron-poorazaarylC-Cl activationwithPd(PPh3)4 doesnotestablish oxidativeaddition/coupling atthisdifferentbenzenoidindolechloride. MatchingformalC-Cl/Bpinlocaleditalone doesnotresolve thisimportantactivationdifference.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "RetainC,notaproofallligand/catalystsystems fail for thequery. No actualunchangedreactant orsideproduct wasmeasuredhere."
+        },
+        {
+          "query_reaction_key": "ccd4342dd2595424e32de21454558f7851f6a4a755b45767d2860b812a91f78b",
+          "expected_tier": "C", "analogue_compatibility_checked": false,
+          "substrate_differences": "QueryusesN-sulfonylazaindolechlorideandaheteroarylBpin thatitselfretains achloropyridyl site andaminocyclohexylBoc substituent. SourcehasonlyoneactivatedheteroarylchlorideandasimplerarylBpin.",
+          "functional_group_compatibility": "TheazaindoleelectrophileandsecondpotentiallyreactiveheteroarylCl/boronatepartner introduceunresolvedactivation/chemoselectivity questions underthesourceconditions. Anexactfamily-levelsymboliceditdoesnotestablishwhichchloridewillengage orboronatebehavior.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "KeepbothchloridesandBoc/N-sulfonylgroups explicit;do notneutralizeorignorethemtoforceidentity. Unknownapplicabilityisnotdocumentedchemicalcontradiction."
+        }
+      ]
+    }
+  ]
+}

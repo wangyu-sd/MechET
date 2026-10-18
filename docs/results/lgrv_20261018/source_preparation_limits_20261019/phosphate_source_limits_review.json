@@ -1,0 +1,76 @@
+{
+  "schema": "lgrv_source_preparation_limits_v1",
+  "complete": true,
+  "sources": [
+    {
+      "source_id": "US5068340:example3:pyridinio-phosphate:precursor-form-limit",
+      "source_url": "https://patents.google.com/patent/US5068340/en",
+      "document_sha256": "2356723321b792af3232cf3417f164f195d0880df787de0e354dec897936b6b9",
+      "witnesses": [
+        {
+          "text": "EXAMPLE 3 (2RS)-3-Octadecyloxy-2-(3-isoxazolyloxy)propyl 2-pyridinioethyl phosphate (inner salt)",
+          "locator": "Example3at281543ff;actualpyridinium-phosphateinner-saltproductisolated,not an aminopyridinium query.",
+          "offset": 281541,
+          "sha256": "9023411bcb453be21587aef5056611f21ace4138a746544e9dd7aeb2a303daf6"
+        },
+        {
+          "text": "hydrochloric acid. The mixture was then extracted twice with diethyl ether",
+          "locator": "ReferencedExample1(a)at277507ff,acidicworkupat278233ff(appliedbyExample2firstparttoExample3'scrudephosphatesubstrate);pH1explicitlyread inthissameprocedure,not an identified isolatedphosphateanion salt.",
+          "offset": 278296,
+          "sha256": "e80451d885737f012043e07928cfe361e72744abd7526a01f26728c42229f541"
+        }
+      ],
+      "indexed_candidate_product": "O=P([O-])(OCC[n+]1ccccc1)OCC(Oc1ccon1)COCCCCCCCCCCCCCCCCCC",
+      "indexed_candidate_precursors": [
+        "O=P([O-])(OCCBr)OCC(Oc1ccon1)COCCCCCCCCCCCCCCCCCC",
+        "n1ccccc1"
+      ],
+      "expected_candidate_reaction_key": "ff51455d8257dd34a926e83b72be22bf7027ae1c2caa8ba4a514c4dea5418466",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "actual_named_product_prepared": true,
+      "indexed_precursor_charge_form_reconciled": false,
+      "source_review": "Example3directlyprepares the namedpyridinium-phosphateinner salt:0.663gcrude2-bromoethylphosphate in4.5mLpyridine,60C11h;evaporate,chloroformreflux1h,methanolworkup,silicachromatography,0.305gisolatedpowder,mp49-52C,NMRand elemental analysis. No percentyield iscalculated fromthecrudesubstrate. Example2'sfirstpartrefers to1(a),whosephosphorylationworkupacidifies topH1. The indexedcandidate insteadexplicitlyencodes a phosphateanionprecursor without a counterion. The sourceestablishes netpyridinium formation,butnotthatexact isolatedionicprecursorform. Pyridinecan deprotonate theacid in situ;thatpossibility doesnotjustify silentlyneutralizing theconservativecandidateidentity. Thislimit isnot a claimthatthesourceproductwasunpreparedor thatquaternization cannotoccur.",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3959a4a521fa9d5a8b39bf157fc8d073a24b0a46f00c557a49246a1841966703.json",
+      "source_receipt_sha256": "d7024c2255da6834cdfd28178a276428759ad5693f01e051a32eb996bd09b41d",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3959a4a521fa9d5a8b39bf157fc8d073a24b0a46f00c557a49246a1841966703.html",
+      "raw_document_sha256": "bfe4284b78404e367da449fa6a806799a3691ca2d6d2bfcdfe39f8662571adc7",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3959a4a521fa9d5a8b39bf157fc8d073a24b0a46f00c557a49246a1841966703.txt",
+      "candidate_experimentally_established": false,
+      "source_human_reviewed": false
+    }
+  ],
+  "reviews": [
+    {
+      "query_reaction_key": "4a856b11fd09fd4a1a7e2040cc795d666fd7659663b34bffb29b186602223d67",
+      "review_limitations": "Queryuses4-(methylamino)pyridine and2-bromoethylamide on aheterocyclic scaffold,ratherthanplainpyridine andlipidphosphate. Source'sneatpyridineconditions andinner-saltendpoint donotestablish ringN versus exocyclicsecondaryaminoN alkylation or thequery'sexternalcounterion context. RetainC,nopredictedsideproduct isassertedobserved.",
+      "source_id": "US5068340:example3:pyridinio-phosphate:precursor-form-limit",
+      "source_candidate_reaction_key": "ff51455d8257dd34a926e83b72be22bf7027ae1c2caa8ba4a514c4dea5418466",
+      "original_candidate_source_ids": [
+        "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-fd9427a2a092432e820ff0338305220b:mapped_identifier"
+      ],
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false
+    },
+    {
+      "query_reaction_key": "61fa6a5a99d1837433da616b4c5b3309c831c493313da62b2cea6da66329dfac",
+      "review_limitations": "Queryadditionallyusesunprotected2-bromoethylamine,withpossibleintramolecular/intermolecularaminoreactivityabsent fromthesource. Boththereactiveprecursorform andthismultinitrogen chemoselectivityremainunresolved. KeepC;do notconvertthesource'sphosphateanion intoa missingquerycounterion orlabelthequerychemicallywrong.",
+      "source_id": "US5068340:example3:pyridinio-phosphate:precursor-form-limit",
+      "source_candidate_reaction_key": "ff51455d8257dd34a926e83b72be22bf7027ae1c2caa8ba4a514c4dea5418466",
+      "original_candidate_source_ids": [
+        "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-fd9427a2a092432e820ff0338305220b:mapped_identifier"
+      ],
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false
+    }
+  ],
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "review_spec_sha256": "4faf2d3e7aebcbcd7e53e6d88eea2f02c7e2b19883f732e069a0cb59c79075ad",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "producer_sha256": "946dac76daca093deae423092e641d574dd336fe20a8a1a553a697a168dd3d81",
+  "evidence_grades_changed": false,
+  "scientific_judgement_supplied_by": "explicit assistant source review, not this binder",
+  "new_model_inference": false,
+  "independent_policy_calibration": false
+}

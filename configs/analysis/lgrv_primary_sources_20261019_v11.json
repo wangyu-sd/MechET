@@ -1,0 +1,54 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "Only explicitly reviewed query-scoped analogues passing original capped-candidate/full-stereo guards.",
+  "records": [
+    {
+      "source_id": "US8536165B2:intermediate34:fluorophenylpyridine-coupling:query:b7e0a2ccd2d542e23202de9c9323ce577285a7a5addac75efe5aa32afff01e34",
+      "patent_id": "US8536165B2",
+      "source_url": "https://patents.google.com/patent/US8536165B2/en",
+      "document_sha256": "6704b5c5bc05b55fb9df30eba28ecfbfad04d913334f817097aa0a35e072b1ee",
+      "checked_passage": "Intermediate 34 5-Bromo-2-(2-fluorophenyl)pyridine Obtained (0.534 g, yield 50%)",
+      "locator": "Intermediate34 at210405ff,explicit2,5-dibromopyridine/2-fluorophenylboronicacid preparation byIntermediate27. Full27 at206764ff directlyread,includingmajor/minorregioisomers;its43%yield is not34's50%.",
+      "source_product": "[c:2]1(-[c:11]2[c:10]([F:9])[cH:15][cH:14][cH:13][cH:12]2)[n:3][cH:4][c:5]([Br:8])[cH:6][cH:7]1",
+      "source_precursors": [
+        "[Br:1][c:2]1[n:3][cH:4][c:5]([Br:8])[cH:6][cH:7]1.[F:9][c:10]1[c:11]([B:16]([OH:17])[OH:18])[cH:12][cH:13][cH:14][cH:15]1"
+      ],
+      "expected_exact_reaction_key": "acec624f490f3c961334c99157a6cb7989f7e9b41a323e263591e1e9ca7bc9bd",
+      "source_conditions": "Intermediate34 reports0.534g50%,MS252(M+H),using2,5-dibromopyridine and2-fluorophenylboronicacid by27. Method27:PdCl2(dppf).DCM/Cs2CO3,dioxane-water4:1,argon100C14h,evaporate,aqueousEtOAcworkup,silicachromatography.27'smethoxyphenylsubstrate43%major/0.039gminor andloadings are not34-specific measurements.34printsboronicacid4.22mmol/2.42g,internally inconsistent withitsnamedmolecularweight;this is flagged,not silentlycorrected. Adjacent35retains anisopropoxy substituent underthesamemethod,not a measuredyield for anyquery.",
+      "reported_isolated_yield_percent": 50,
+      "structural_reconciliation": "IndependentpyridineN-firsttranscription placescouplingatC2,retainedBratC5,andFonorthoCof thephenylboronicacid. Bothnamedsubstrates/productreconcileexactlytotheoriginalcappedcandidateacec624f. Noqueryscaffold substitutes for a sourcestructure.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/35187cef5e5061c08c44b191ce998154dce69690ccf17100ac0f8c6a3f09b940.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/35187cef5e5061c08c44b191ce998154dce69690ccf17100ac0f8c6a3f09b940.html",
+      "raw_document_sha256": "3078a93882727ebb01d3de44ba44214143c7191159829c844b9a42f42091a4ba",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/35187cef5e5061c08c44b191ce998154dce69690ccf17100ac0f8c6a3f09b940.txt",
+      "checked_passage_sha256": "ab75323a45a446cd1536ae9af7b60d936bc82324fa8bb5cdb25a66352a394a5d",
+      "normalized_passage_offset": 210405,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture",
+      "analogue_compatibility_checked": true,
+      "substrate_differences": "Querycouplesaminobromopyrazine toanortho-fluoroarylboronicacid bearingdifluorobenzyloxy andcyclobutyl substituents;ratherthan2,5-dibromopyridine/2-fluorophenylboronicacid.",
+      "functional_group_compatibility": "Bothpreserve the originaladmissible azaarylC-Br/arylboronicacidC-Cconstruction andortho-arylF. Ether,arylF andcyclobutane arecompatible spectatorclasses undernonhydrogenativePd(dppf)/carbonateSuzukiconditions;adjacent35also demonstratesremotealkoxyaryl tolerance. Thequery'sexocyclicaminopyrazine changescoordination/electronics butintroducesnoobligatory bondcleavageornewredoxstep. It hasonlyoneBr,so source27'stwo-bromideregiospecificity isnot assigned as aqueryselectivity measurement.",
+      "stereo_compatibility_checked": true,
+      "review_limitations": "Compatibleanalogue only;queryconversion,aminecoordination,etherstability andyield are notmeasured. No newstereocenter orconfiguredstereochemistry is inferred. The source'sprintedmass anomaly is retained.",
+      "analogue_query_reaction_key": "b7e0a2ccd2d542e23202de9c9323ce577285a7a5addac75efe5aa32afff01e34",
+      "independently_transcribed_source_product": "n1c(-c2ccccc2F)ccc(Br)c1",
+      "independently_transcribed_source_precursors": [
+        "n1c(Br)ccc(Br)c1",
+        "B(O)(O)c1ccccc1F"
+      ],
+      "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-1711f067bf374be9805125310cadfab5:mapped_identifier",
+      "mapping_basis": "original indexed correspondence, not experimentally observed electron mapping"
+    }
+  ],
+  "review_spec_sha256": "53f5291275adc058a6824702d57796a86e720e5296076a28675efa0bfe72ec4a",
+  "producer_sha256": "1fa8d0590e23781a5215b24137e04298f15328ffec97556fe5246a873d6b91c7",
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "new_model_inference": false
+}

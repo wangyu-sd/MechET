@@ -1,0 +1,258 @@
+{
+  "unique_reactions": 18210,
+  "complexity": {
+    "changed_bonds": {
+      "0": {
+        "reactions": 365,
+        "indexed_candidates": 0,
+        "source_supported": 0
+      },
+      "1-3": {
+        "reactions": 9991,
+        "indexed_candidates": 60,
+        "source_supported": 35
+      },
+      "4-6": {
+        "reactions": 3944,
+        "indexed_candidates": 61,
+        "source_supported": 10
+      },
+      "7+": {
+        "reactions": 3809,
+        "indexed_candidates": 43,
+        "source_supported": 13
+      },
+      "Unknown": {
+        "reactions": 101,
+        "indexed_candidates": 1,
+        "source_supported": 1
+      }
+    },
+    "product_heavy_atoms": {
+      "1-15": {
+        "reactions": 3633,
+        "indexed_candidates": 17,
+        "source_supported": 10
+      },
+      "16-30": {
+        "reactions": 10280,
+        "indexed_candidates": 86,
+        "source_supported": 31
+      },
+      "31-45": {
+        "reactions": 4055,
+        "indexed_candidates": 51,
+        "source_supported": 15
+      },
+      "46+": {
+        "reactions": 242,
+        "indexed_candidates": 11,
+        "source_supported": 3
+      }
+    },
+    "ring_count_change": {
+      "decrease": {
+        "reactions": 902,
+        "indexed_candidates": 36,
+        "source_supported": 7
+      },
+      "unchanged": {
+        "reactions": 15348,
+        "indexed_candidates": 128,
+        "source_supported": 52
+      },
+      "increase": {
+        "reactions": 1960,
+        "indexed_candidates": 1,
+        "source_supported": 0
+      }
+    }
+  },
+  "paired": {
+    "r1_greedy_dynamic": {
+      "StockSolved@B": {
+        "denominator": 460,
+        "both": 37,
+        "method_only": 162,
+        "baseline_only": 1,
+        "neither": 260,
+        "difference": 0.35,
+        "interpretation": "recorded-run descriptive; unequal work is not a causal search gain",
+        "bootstrap_draws": 2000,
+        "seed": 17,
+        "difference_95ci": [
+          0.3065217391304348,
+          0.3934782608695652
+        ],
+        "method_pending_reports": 260,
+        "baseline_pending_reports": 0,
+        "pending_is_failure": false,
+        "full_population_outcome": "recorded positive discovery lower bound; neither includes unobserved targets",
+        "observed_both": {
+          "denominator": 200,
+          "both": 37,
+          "method_only": 162,
+          "baseline_only": 0,
+          "neither": 1,
+          "difference": 0.81,
+          "interpretation": "recorded-run descriptive; unequal work is not a causal search gain",
+          "bootstrap_draws": 2000,
+          "seed": 17,
+          "difference_95ci": [
+            0.755,
+            0.86
+          ]
+        }
+      },
+      "PrecedentCoveredSolved@B": {
+        "denominator": 460,
+        "both": 0,
+        "method_only": 1,
+        "baseline_only": 0,
+        "neither": 459,
+        "difference": 0.002173913043478261,
+        "interpretation": "recorded-run descriptive; unequal work is not a causal search gain",
+        "bootstrap_draws": 2000,
+        "seed": 17,
+        "difference_95ci": [
+          0.0,
+          0.006521739130434782
+        ],
+        "method_pending_reports": 260,
+        "baseline_pending_reports": 0,
+        "pending_is_failure": false,
+        "full_population_outcome": "recorded positive discovery lower bound; neither includes unobserved targets",
+        "observed_both": {
+          "denominator": 200,
+          "both": 0,
+          "method_only": 1,
+          "baseline_only": 0,
+          "neither": 199,
+          "difference": 0.005,
+          "interpretation": "recorded-run descriptive; unequal work is not a causal search gain",
+          "bootstrap_draws": 2000,
+          "seed": 17,
+          "difference_95ci": [
+            0.0,
+            0.015
+          ]
+        }
+      }
+    },
+    "r1_greedy_shared": {
+      "StockSolved@B": {
+        "denominator": 460,
+        "both": 35,
+        "method_only": 164,
+        "baseline_only": 1,
+        "neither": 260,
+        "difference": 0.35434782608695653,
+        "interpretation": "recorded-run descriptive; unequal work is not a causal search gain",
+        "bootstrap_draws": 2000,
+        "seed": 17,
+        "difference_95ci": [
+          0.3108695652173913,
+          0.3978260869565217
+        ],
+        "method_pending_reports": 260,
+        "baseline_pending_reports": 0,
+        "pending_is_failure": false,
+        "full_population_outcome": "recorded positive discovery lower bound; neither includes unobserved targets",
+        "observed_both": {
+          "denominator": 200,
+          "both": 35,
+          "method_only": 164,
+          "baseline_only": 0,
+          "neither": 1,
+          "difference": 0.82,
+          "interpretation": "recorded-run descriptive; unequal work is not a causal search gain",
+          "bootstrap_draws": 2000,
+          "seed": 17,
+          "difference_95ci": [
+            0.765,
+            0.87
+          ]
+        }
+      },
+      "PrecedentCoveredSolved@B": {
+        "denominator": 460,
+        "both": 0,
+        "method_only": 1,
+        "baseline_only": 0,
+        "neither": 459,
+        "difference": 0.002173913043478261,
+        "interpretation": "recorded-run descriptive; unequal work is not a causal search gain",
+        "bootstrap_draws": 2000,
+        "seed": 17,
+        "difference_95ci": [
+          0.0,
+          0.006521739130434782
+        ],
+        "method_pending_reports": 260,
+        "baseline_pending_reports": 0,
+        "pending_is_failure": false,
+        "full_population_outcome": "recorded positive discovery lower bound; neither includes unobserved targets",
+        "observed_both": {
+          "denominator": 200,
+          "both": 0,
+          "method_only": 1,
+          "baseline_only": 0,
+          "neither": 199,
+          "difference": 0.005,
+          "interpretation": "recorded-run descriptive; unequal work is not a causal search gain",
+          "bootstrap_draws": 2000,
+          "seed": 17,
+          "difference_95ci": [
+            0.0,
+            0.015
+          ]
+        }
+      }
+    }
+  },
+  "population": {
+    "r1_mcts_pr88": {
+      "denominator": 460,
+      "observed_reports": 200,
+      "pending_reports": 260,
+      "StockSolved@B": 199,
+      "AnyExactStepPrecedent@B": 11,
+      "AllStepExactPrecedentSolved@B": 1,
+      "PrecedentCoveredSolved@B": 1
+    },
+    "r1_greedy_dynamic": {
+      "denominator": 460,
+      "observed_reports": 460,
+      "pending_reports": 0,
+      "StockSolved@B": 38,
+      "AnyExactStepPrecedent@B": 0,
+      "AllStepExactPrecedentSolved@B": 0,
+      "PrecedentCoveredSolved@B": 0
+    },
+    "r1_greedy_shared": {
+      "denominator": 460,
+      "observed_reports": 460,
+      "pending_reports": 0,
+      "StockSolved@B": 36,
+      "AnyExactStepPrecedent@B": 0,
+      "AllStepExactPrecedentSolved@B": 0,
+      "PrecedentCoveredSolved@B": 0
+    }
+  },
+  "work": {
+    "actual_generated_output_tokens": 852951580,
+    "cache_return_tokens_excluded": 184560843,
+    "unique_scheduled_model_forward_calls": 8035879,
+    "cpu_executor_thread_seconds": 46502.31968607,
+    "supported_disconnections": 27,
+    "covered_targets": 1,
+    "supported_disconnections_per_million_generated_tokens": 0.031654786312723636,
+    "covered_targets_per_million_generated_tokens": 0.0011723994930638384,
+    "actual_gpu_active_seconds": null,
+    "scope": "all frozen shard work, including pending targets"
+  },
+  "complexity_unit": "distinct complete chemical reactions, not source hits or program occurrences",
+  "ring_count_definition": "RDKit ring-basis count, forward product minus structural precursors; not physical ring strain",
+  "matched_compute_claim": false,
+  "chemical_success_rate_established": false
+}

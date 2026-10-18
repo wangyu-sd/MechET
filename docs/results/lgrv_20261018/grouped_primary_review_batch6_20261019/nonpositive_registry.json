@@ -1,0 +1,10 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "Only explicitly reviewed query-scoped analogues passing original capped-candidate/full-stereo guards.",
+  "records": [],
+  "review_spec_sha256": "cc967442a939a0a0d5c6185b54e2cd6f0190c8e6cd159f23df05c0d70d72a449",
+  "producer_sha256": "1fa8d0590e23781a5215b24137e04298f15328ffec97556fe5246a873d6b91c7",
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "new_model_inference": false
+}

@@ -1,0 +1,54 @@
+{
+  "schema": "lgrv_explicit_grouped_primary_review_spec_v1",
+  "scope": "All three original query/source pairs assigned to US8536165B2 Intermediate34,individually reviewed. One compatible analogue andtwo unresolved substrate pairs;not a newretrieval policy or queryexperiment.",
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "preparation": {
+        "source_id": "US8536165B2:intermediate34:fluorophenylpyridine-coupling",
+        "patent_id": "US8536165B2",
+        "source_url": "https://patents.google.com/patent/US8536165B2/en",
+        "document_sha256": "6704b5c5bc05b55fb9df30eba28ecfbfad04d913334f817097aa0a35e072b1ee",
+        "checked_passage": "Intermediate 34 5-Bromo-2-(2-fluorophenyl)pyridine Obtained (0.534 g, yield 50%)",
+        "locator": "Intermediate34 at210405ff,explicit2,5-dibromopyridine/2-fluorophenylboronicacid preparation byIntermediate27. Full27 at206764ff directlyread,includingmajor/minorregioisomers;its43%yield is not34's50%.",
+        "source_product": "n1c(-c2ccccc2F)ccc(Br)c1",
+        "source_precursors": ["n1c(Br)ccc(Br)c1", "B(O)(O)c1ccccc1F"],
+        "expected_exact_reaction_key": "acec624f490f3c961334c99157a6cb7989f7e9b41a323e263591e1e9ca7bc9bd",
+        "source_conditions": "Intermediate34 reports0.534g50%,MS252(M+H),using2,5-dibromopyridine and2-fluorophenylboronicacid by27. Method27:PdCl2(dppf).DCM/Cs2CO3,dioxane-water4:1,argon100C14h,evaporate,aqueousEtOAcworkup,silicachromatography.27'smethoxyphenylsubstrate43%major/0.039gminor andloadings are not34-specific measurements.34printsboronicacid4.22mmol/2.42g,internally inconsistent withitsnamedmolecularweight;this is flagged,not silentlycorrected. Adjacent35retains anisopropoxy substituent underthesamemethod,not a measuredyield for anyquery.",
+        "reported_isolated_yield_percent": 50,
+        "structural_reconciliation": "IndependentpyridineN-firsttranscription placescouplingatC2,retainedBratC5,andFonorthoCof thephenylboronicacid. Bothnamedsubstrates/productreconcileexactlytotheoriginalcappedcandidateacec624f. Noqueryscaffold substitutes for a sourcestructure.",
+        "performed_example": true,
+        "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [
+        {
+          "query_reaction_key": "b7e0a2ccd2d542e23202de9c9323ce577285a7a5addac75efe5aa32afff01e34",
+          "expected_tier": "B", "analogue_compatibility_checked": true,
+          "substrate_differences": "Querycouplesaminobromopyrazine toanortho-fluoroarylboronicacid bearingdifluorobenzyloxy andcyclobutyl substituents;ratherthan2,5-dibromopyridine/2-fluorophenylboronicacid.",
+          "functional_group_compatibility": "Bothpreserve the originaladmissible azaarylC-Br/arylboronicacidC-Cconstruction andortho-arylF. Ether,arylF andcyclobutane arecompatible spectatorclasses undernonhydrogenativePd(dppf)/carbonateSuzukiconditions;adjacent35also demonstratesremotealkoxyaryl tolerance. Thequery'sexocyclicaminopyrazine changescoordination/electronics butintroducesnoobligatory bondcleavageornewredoxstep. It hasonlyoneBr,so source27'stwo-bromideregiospecificity isnot assigned as aqueryselectivity measurement.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Compatibleanalogue only;queryconversion,aminecoordination,etherstability andyield are notmeasured. No newstereocenter orconfiguredstereochemistry is inferred. The source'sprintedmass anomaly is retained."
+        },
+        {
+          "query_reaction_key": "eb1b919add7aff8226d74c1c831c58a8811586d9df0cdb71c73783d3d408a4b1",
+          "expected_tier": "C", "analogue_compatibility_checked": false,
+          "substrate_differences": "Queryuses aminopyridazineBrandanortho-phenolicarylboronicacid carrying anaminopyrazole,withanunprotectedtetramethylpiperidineNH. SourcehasneithertheseN-Hgroupsnorphenol.",
+          "functional_group_compatibility": "Thecombinedphenolicboronate,multipleaminoNH andchangedazaheterocycle context isnotestablished bythissimplerpyridyl/fluorophenyl pairing underCs2CO3/aqueousdioxane100C14h. A matchinglocaledit doesnot resolvefullsubstrateapplicability.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "No claimofobservedBuchwaldcoupling,protodeboronation orchemicalfailure. RetainC;alternativeconditions maywork."
+        },
+        {
+          "query_reaction_key": "f58c29084c66bcbf62616c0c05e501e9e2f864198828b8054728739b5ee7c9e3",
+          "expected_tier": "C", "analogue_compatibility_checked": false,
+          "substrate_differences": "Queryhas the samephenolic/aminopyrazolylarylboronicacid as eb1b919a,butthepyridazine substituent isN-methylaminotetramethylpiperidine;thepiperidineNH remainsunprotected.",
+          "functional_group_compatibility": "Individuallyreviewed,not automaticallyinherited fromtheotherquery. Phenolicboronate andmultiplebasic/amino sitesremainbeyond theperformedsource's demonstratedcontext underthislong stronglybasiccoupling procedure.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Retainunresolved applicability,not a claimthe query is impossible. No NH/OH orcomponent is silentlyremoved."
+        }
+      ]
+    }
+  ]
+}
