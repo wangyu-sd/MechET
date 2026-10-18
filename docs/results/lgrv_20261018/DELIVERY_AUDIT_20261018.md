@@ -5,7 +5,23 @@ not legacy Top-K/reference ranking. This is a progress audit, **not a claim
 that the entire PR89 goal is complete**. No model/GPU/Taiji jobs were launched
 or changed in this delivery; paper and code main remain unmerged.
 
-**Current v14 (19October):**47TierA/7query-scopedTierB/18,156unresolved,
+**Current v15 (19October):**47TierA/10query-scopedTierB/18,153unresolved,
+all18,210queries/sixconditions/all21sealedhashes/originalquery-context-hit
+sequences verified. Two further batches reviewall10assignedpairs:3compatible
+analogues/7unresolved. All54priorsupportrowsunchanged. Whole57-case registry
+andanalysis/coverage distributionsretainallmethods. R1allterminal27reactions/
+25targets,Greedies7/6each;stockroute11anyexact/1allessentialunchanged. The31k
+proxy now24MCTSsupportedtargets(22exact2analogue),versus18/17Greedies,all3120/
+10totalattemptsretained. FreshCPUgate1269passed14skipped1existingwarning,
+420.55s. All110workstatesrecompiled:33pointer/52cachedpending/23applicability/
+2stereo. Fullactualregressionpreservesalloldfields/rows except3supported
+removalsand7pending→checkedupdates. All77referenceddocsavailable,not77verified
+reactions. Currentv15 Figure2/3 plus3extendedpanels exported,all5actualPNGs
+opened/inspected;R2seen/unseen22/9supportsets overlap,worknumerator27not57.
+NoGPU/model/Taiji/merge. Broaderoriginalprimaryreview/finalwhole-goalreview
+remain open.
+
+**Historical v14 (19October):**47TierA/7query-scopedTierB/18,156unresolved,
 all18,210queries/sixconditions/samequery-context-candidate sequences and21
 sealed hashes. Three performed preparations andall18 assigned pending pairs
 read:6compatibleanalogues/12unresolved. This is54supportedgeneratedreactions,
@@ -144,7 +160,7 @@ is required or claimed. The final whole CPU suite passed1,253/14skipped,
 one existing PEFT warning,182.18s. The subsequent conventional compatibility
 audit is linked below; it does not manufacture matched planner predictions.
 
-**Latest increment:** full v6 adds six directly checked primary preparations:
+**Historical v6 increment:** full v6 adds six directly checked primary preparations:
 15 supported net reactions/18,195 unresolved, under unchanged retrieval. The
 full missingness audit explains165 candidate queries/18,045 no-hits, retains all
 152 current candidate-review items, and traces106 of139 data-origin citations
@@ -158,26 +174,26 @@ one existing warning,194.15s. Existing figure exports remain labelled v5.
 | Requirement | Current authoritative evidence | Assessment |
 |---|---|---|
 | Freeze original populations before source retrieval | Original prediction-freeze manifest, SHA46832f6c…babb3c3; all18,210 queries,460 route IDs,3,120 single-reaction IDs per condition | Complete extraction/denominators; not460 completed MCTS searches |
-| Latest200 reports /199 nonzero stock-AND /260 pending, not old171 snapshot | Full v11 target tables and original frozen population; original two full460 Greedies | Preserved |
+| Latest200 reports /199 nonzero stock-AND /260 pending, not old171 snapshot | Full v15 target tables and original frozen population; original two full460 Greedies | Preserved |
 | Full3,120 MCTS source /10 total attempts, not top10 successes | Complete frozen query/program/target bindings;31k remains `rxn_prod_min` proxy diagnostic | Preserved; no corrected principal-product claim |
 | Source corpus, version, licensing, source-family dedup and cap |93/93 original ORD files,18GB index, source manifest, raw provenance and fixed cap5 | Complete available structured collection; source overlap unknown |
 | Conservative exact identity and usable local stereo | Immutable original index + versioned full-CIP/local-graph reader; complete native contexts and predeclared12 independent controls | Passed12/12 source-anchored structure controls; not universal analogue precision |
 | Retain failures and unresolved queries | Complete v4/v5 evidence and context tables;354 no-centre and101 conflicting families kept | Preserved; no missing-as-invalid classification |
 | Diagnose broad retrieval gap without changing chemistry grades | [Full lookup audit](lookup_bottlenecks_v8_20261019/README.md) plus [all4,338,961-representation product audit](product_recall_v10_20261019/README.md):5,398 no-hit queries have indexed products;12,647 lack exact product identity | Full query/source joins verified; same product is not reaction support. Product absence does not exclude analogues/unindexed sources; source-domain versus representation causes are not fully separated |
 | Real primary-source acquisition | All210 original references retained;66 direct patents plus104 recovered exact-candidate patent URLs,137 distinct pages in the union; all raw/text hashes verified | Available patent acquisition complete;33 non-patent candidates still lack a recovered patent pointer |
-| Performed, structurally reconciled examples |44 exact reactions with original/cache bytes, independent named structures, short witnesses/hashes and locators; all44 in v11 case registry |44 TierA checked;123 candidate queries remain unresolved, with complete work-state inventory; wider review remains |
-| Analogue applicability beyond local descriptor match | Three bound actual primary preparations with named/source structures, counterion/workup roles and query-specific unresolved differences | Directly inspected post-hoc scope cases; no automaticB/D and not independent policy controls |
+| Performed, structurally reconciled examples |47 exact reactions and10 query-scoped analogues with original/cache bytes, independent named structures, short witnesses/hashes and locators; all57 in v15 case registry |110 indexed-candidate queries remain unresolved; source support is not population chemical accuracy |
+| Analogue applicability beyond local descriptor match | Bound actual preparations,complete referenced methods andexplicit per-query substrate/condition/stereo differences;3 new compatible pairs and7 checked unresolved comparisons | Authored post-hoc applicability reviews; not experimental query outcomes,automatic family-wideB/D or independent policy controls |
 | Honest complete-route evidence and same-target baseline comparison | Full460 target outcomes, all-essential-edge AND joins, paired2x2/2000 bootstrap; separate common-observed subset | Computed; descriptive under unequal work/completion selection |
 | R2 actor-specific program composition and historical H2 distinction | Complete37,922 program join/current exposure; reference160 C0/C1/C2 Unknown | Current actor join complete; not strict H2 or chemical novelty |
 | Actual work, including pending targets, cache distinguished | All8 exact wave-prefix reaudit;852,951,580 new tokens;184,560,843 cached returns excluded | Verified; GPU-active seconds unknown |
-| Chemistry-led Figure2/3 and supported cases | Current v11 Figure2/3 and three extended panels; actual saved inverse FLOW/fork plates; all previous galleries plus new six-case v11 preparation plates | All five population and two new gallery previews inspected; original versions preserved; net precedent does not prove microscopic arrows |
-| Paired/complexity/work extended panels | Three new183mm vector/PDF/PNG panels with full data and manifest; all five population-figure exports rehashed | Complete current-evidence panels; additional composition/complexity splits can be extended |
+| Chemistry-led Figure2/3 and supported cases | Current v15 Figure2/3 and three extended panels; actual saved inverse FLOW/fork plates andhistorical source-linked galleries;complete57-case source registry | All five current actual PNGs inspected;original versions preserved;net precedent does not prove microscopic arrows |
+| Paired/complexity/work extended panels | Three current183mm vector/PDF/PNG panels with full source data,manifest andunchanged full populations | Current-evidence panels retain true work numerator27 R1 MCTS reactions,not57 pooled supports;GPU-active time unknown |
 | Missing independent-K control: prepare manifest/runner only | Full460/fixed200 plan rederived against real sources; rolling transport, authenticated CLI, durable raw I/O, native journal audit and cross-shard prefix collection tested | Complete preparation; no control predictions, model quality or speedup claim |
 | Missing conventional complete-reaction planner control | [Read-only compatibility audit](conventional_control_compatibility_20261019/README.md) of actual existing Syntheseus/proof-pool code, parser defaults, source hashes and unavailable optional package | Existing code located; current context/count/decoder/salt contracts not matched. Conditional unavailable-control state, not completed predictions or a retrospective surrogate |
 | Final whole-goal scientific/code audit and fresh whole-branch review | This audit identifies remaining requirements; earlier incremental reviews are retained | **Incomplete; do not mark the goal achieved** |
 
-Current software gate:1,253 passed/14 skipped/one existing PEFT warning,
-188.16s, CPU-only. The32 existing extended/population tests passed, including real-file
+Current software gate:1,269 passed/14 skipped/one existing PEFT warning,
+420.55s, CPU-only. The existing extended/population tests include real-file
 exports, rejected mismatched work receipts, unknown mappings and unchanged
 original target populations. These are software checks, not experimental
 model performance. GPU checks were not rerun on occupied unrelated hardware.

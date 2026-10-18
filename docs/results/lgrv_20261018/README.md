@@ -6,7 +6,37 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v14 source review:** three performed preparations were read once
+**Current v15 source review:** two further source-review batches cover all10
+assigned query/source pairs:3 compatible analogues,7 unresolved comparisons.
+Full18,210-query/six-condition counts are **47 TierA,10 query-scoped TierB,
+18,153 unresolved**. These57 supported generated reactions are not57
+independent experiments. All54 prior supports remain unchanged;only3C→B
+judgements are added,with original query/context/candidate sequences andall21
+sealed hashes checked. [Complete tables/all57 cases](analysis_tables_primary_v15_20261019/README.md),
+[whole coverage](coverage_review_v15_20261019/README.md),
+[all110 work states](primary_review_states_v15_20261019/README.md) and
+[six-condition summary](POPULATION_RESULTS_PRIMARY_V15_20261019.json) retain
+every method. The [US8618107 review](grouped_primary_review_batch2_20261019/README.md)
+and [US8569331 review](grouped_primary_review_batch3_20261019/README.md) bind
+original examples/methods,independent source graphs andeach query's limits.
+R1 all-terminal support is27 reactions across25 targets;Greedies each7/6.
+Stock-route any-exact11/all-essential1 remain unchanged. The31k frozen proxy
+is24 supported MCTS targets(22exact+2analogues),versus18/17 Greedies.
+Unequal-work comparisons are descriptive,not chemical accuracy or causal gains.
+Fresh full CPU gate:1,269passed/14skipped,one existing warning,420.55s.
+No model/GPU/Taiji task or merge;broader source review/final whole-goal audit
+remain open. The [current v15 Figure2/3 andthree extended panels](population_figures_primary_v15_20261019/README.md)
+are exported andall five actual PNGs were opened andinspected. Seen/unseen
+supported reaction sets22/9 overlap;the work numerator is27 R1 MCTS reactions,
+not57 pooled across all methods. Earlier figure versions remain unchanged.
+
+All110 work states are now recompiled andverified:33 original pointers
+unresolved,52 cached/preparation-pending,23 checked applicability limits,
+2 stereo-identity limits. All77 referenced documents are available,not77
+verified reactions. The full-data regression preserves every old row/field
+apart from exactly3 supported-query removals and7 unread→checked state changes.
+
+**Historical v14 source review:** three performed preparations were read once
 and their **18 source/query pairs reviewed individually**:6 new TierB
 compatibility inferences,12 unresolved applicability limits. Full18,210-query/
 six-condition counts are now **47 TierA,7 TierB,18,156 unresolved**. These54
