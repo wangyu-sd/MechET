@@ -6,6 +6,30 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (18 October, supersedes older processing notes)
 
+**Latest v5 update:** the full stereo-aware retrieval is complete over all18,210
+queries and six frozen conditions:165 candidate-hit reactions/210 source
+records. Sixty-six public patent pages have now been cached after repairing
+numeric leading-zero lookup addresses without changing source identities.
+Five further performed examples were individually checked and structurally
+reconciled, increasing checked exact net reactions **4→9**. See the
+[five-source review](PRIMARY_REVIEW_ADDITIONS_20261018.md),
+[complete v5 evidence/paired tables](analysis_tables_primary_v5_20261018/README.md),
+[full v4 retrieval audit](analysis_tables_stereo_v4_20261018/README.md) and
+[all-candidate acquisition receipts](primary_acquisition_20261018/README.md).
+R1 MCTS has5 targets with any exact step on a stock-closed route, versus2 in
+v3/v4; every-essential-step support remains1. None of these is a population
+chemical-accuracy or matched-compute gain claim. Older v3/v4 data below remain
+explicit historical stages, not current counts. No model jobs were added.
+
+The [current v5 Figure2/3 and three extended panels](population_figures_primary_v5_20261018/README.md)
+are exported and visually inspected, with complete paired, structural-complexity
+and actual-work data. The [additional five-source plates](additional_precedent_gallery_20261018/README.md)
+add two actual chemical-reaction pages. The earlier
+[v4 Figure2/3](population_figures_stereo_v4_20261018/README.md) remain preserved;
+do not relabel them with v5 source counts. Latest complete CPU software suite:
+**1,202 passed/14 skipped**, one existing PEFT warning,213.78s. The32 focused
+extended/population tests also passed. Software tests are not model results.
+
 - **Original corpus complete:**93/93 official files,2,428,291 source rows and
   4,338,961 indexed structure representations. The latter are not unique
   chemical reactions. [Completion/hash receipt](CORPUS_COMPLETE_20261018.json).
@@ -75,8 +99,8 @@ reverting to the old queries. Both rederive every row from the pinned native
 programs; self-consistently resealed invented mappings are rejected. The real
 complete18,210-query consumer audit passed. Existing v3 outputs are unchanged.
 Independent analogue-policy validation and full-population re-retrieval remain
-separate requirements; the current control failure below must be resolved
-before enriched-population retrieval is launched.
+separate requirements. The initial control failure below is preserved; the
+versioned repair and subsequent full-population run are described next.
 
 ```bash
 PYTHONPATH=src python -m mechet.analysis.literature_mapping \
@@ -114,10 +138,52 @@ download returned HTTP403, so no raw HTML cache/hash or automatic
 remain available. Procedure B reports98%ee, whereas the ORD row says99%; that
 disagreement is not transferred into any MechET yield or evidence claim.
 
-Next fix must make local serialization stable **without erasing genuine full
-stereochemistry**, and must preserve original source-index bytes/provenance.
-The failed control remains a gate, not an excuse to relabel the expected hit
-or launch the enriched full retrieval first.
+That failure required stable local serialization **without erasing genuine
+full stereochemistry**, while preserving original index bytes/provenance.
+The expected control label, radius and source cap were not retuned.
+
+### Versioned repair and full-population continuation
+
+`literature_stereo_family.py` supplies an explicit `full_stereo_local_v2`
+reader for the unchanged production index. Legacy stereo spellings are lookup
+aliases only when their parsed local graphs are canonically equivalent.
+Candidate analogues must then match a separately regenerated explicit-H local
+graph carrying full-graph CIP labels; opposite full enantiomers and E/Z remain
+different. Cut aromatic boundaries are treated as graph fragments rather than
+erroneously requiring a complete kekulizable ring. No exact identity,
+isotope/charge/component policy, model output or old source-index row changes.
+
+A first repair fixed procedure C but exposed the aromatic-boundary case B:
+its11/12 result is retained in
+[the failed boundary attempt](independent_policy_controls_stereo_v2_20261018/failed_aromatic_boundary/policy_control_results.json).
+The final repair passed **all12 unchanged independent controls**, with zero
+source-key overlap and no automatic evidence-grade promotion. See
+[complete passed inputs/outputs](independent_policy_controls_stereo_v2_20261018/passed/policy_control_results.json).
+These limited structure-policy controls do not establish universal analogue
+precision or chemical performance on the hypothetical query variants.
+
+The reader has a declared256-alias implementation-work ceiling (below SQLite's
+portable binding limit). Exceeding it retains the full reaction and exact
+search but explicitly marks the analogue context unresolved. All native
+programs for a reaction must agree on the corrected context; a representative
+is chosen by saved program ID, never by outcome. The source cap remains five.
+Both analysis and publication consumers rederive the complete context table
+and re-execute the independent controls; an editable pass flag is insufficient.
+
+The full CPU continuation `source_checked_20261018_v4` completed from
+immutable runtime tree `64ec0fbc5af599de43dd401727aba2e79d592279`, over the same
+18,210 queries, six conditions,93-file index and original primary registries.
+Native-context work uses eight CPU workers; no new model/GPU inference runs.
+Its21 sealed outputs were verified:165 reactions with indexed candidates,
+210 source records,4 checked exact reactions. The completed v5 reaggregation
+adds five separately checked preparations, for9 exact reactions, without
+changing retrieval, actor outputs or target populations. Existing v3/v4
+tables and figures remain preserved and must not be relabelled as v5 results.
+
+Final software gate for this increment: **1,187 passed/14 skipped**, one
+existing PEFT warning,144.51s;23 population tests and86 focused core tests also
+passed. These are software tests; the independently executed12-control source
+assay and the full18,210-query literature analysis have separate receipts.
 
 Software verification after integration: **1,165 passed/14 skipped**, one
 existing PEFT warning,136.74s. The100-test focused mapping/population/protocol

@@ -1,0 +1,201 @@
+{
+  "selection": "all five newly checked exact net transformations; not population validation",
+  "cases": [
+    {
+      "reaction_key": "2107b4614f148f6d0eca63556b7e2c74f44178d46dc2480472e5ed8310a3fd23",
+      "evidence": {
+        "reaction_key": "2107b4614f148f6d0eca63556b7e2c74f44178d46dc2480472e5ed8310a3fd23",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US4645771:example25:hydroxybenzoyl-chloride",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US4645771/en",
+        "locator": "Example 25, starting-material preparation: 4-hydroxybenzoic acid to the expressly named 4-hydroxybenzoyl chloride residue, before tetrahydropyridine addition.",
+        "document_sha256": "284f1fca77608ffc1951f89e6fec251affb7f3dc898b50cc4d57e6801fd9a330",
+        "raw_document_sha256": "68d64ba6ec95f50f501c3847c690463d7a90450a0f949c84cdea7ade8923cf02",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "source_id": "US4645771:example25:hydroxybenzoyl-chloride",
+      "source_url": "https://patents.google.com/patent/US4645771/en",
+      "locator": "Example 25, starting-material preparation: 4-hydroxybenzoic acid to the expressly named 4-hydroxybenzoyl chloride residue, before tetrahydropyridine addition.",
+      "source_conditions": "4-Hydroxybenzoic acid 11.04 g, thionyl chloride 80 mL and DMF 0.1 mL, reflux 2 h; evaporation and toluene coevaporation. Residue containing the named acid chloride was carried into the subsequent amidation.",
+      "source_document_sha256": "284f1fca77608ffc1951f89e6fec251affb7f3dc898b50cc4d57e6801fd9a330",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/bff3fc9e14ba20b382c96fab451bba2c390afb32b787250f7f3f2742e829d432.json",
+        "report_sha256": "14f910a8a524e224e1c6735387d6154eba4abc3b15c5c82b2f56b85045020eb0",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/manifest.json",
+        "manifest_sha256": "70d14cb03b3cb7f54e4fd2072efa5a33f2d4dca0d0a7d8180c493c676422438d",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+        "stock_sha256": "0a96cb8c5f2115d94e4c9a299b1085f76c9afbfa6ef5e89178d29b5cce434c59"
+      },
+      "raw_product": "O=C(Cl)c1ccc(O)cc1",
+      "structural_components": [
+        "O=C(O)c1ccc(O)cc1",
+        "O=S(Cl)Cl"
+      ]
+    },
+    {
+      "reaction_key": "54798b9360c12d12eeaa1e133468943fe9699fdd868e65b9cf2049a175e38f9d",
+      "evidence": {
+        "reaction_key": "54798b9360c12d12eeaa1e133468943fe9699fdd868e65b9cf2049a175e38f9d",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US8629137B2:intermediate39:step1",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US8629137B2/en",
+        "locator": "Intermediate 39, Step 1: 3,5-difluoro-benzoic acid chloride, before the distinct Step 2 Friedel-Crafts acylation.",
+        "document_sha256": "89803247f31b2f17c470a6bc9c0814dcf078aaed3aabc863e6858198f07e636f",
+        "raw_document_sha256": "5f9729234a8e7ef7fb98be0f185c3fe53aa9a0125e8f9433f680223366659449",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "source_id": "US8629137B2:intermediate39:step1",
+      "source_url": "https://patents.google.com/patent/US8629137B2/en",
+      "locator": "Intermediate 39, Step 1: 3,5-difluoro-benzoic acid chloride, before the distinct Step 2 Friedel-Crafts acylation.",
+      "source_conditions": "3,5-Difluorobenzoic acid (source reports 1.63 g, 10.00 mmol), thionyl chloride 20 mL, boiling 2 h; evaporate to dryness and coevaporate twice with toluene. Source reports 1.45 g, 82% of theoretical, as crude product used in Step 2.",
+      "source_document_sha256": "89803247f31b2f17c470a6bc9c0814dcf078aaed3aabc863e6858198f07e636f",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/cd2c1f01ab938548da2403a78598200f18e24589b6c78a75d25eaf12eb8b8b75.json",
+        "report_sha256": "9ccc68d4afc297143e13c432bf90bba0d1bd880d3e221ef33b4eca725ef1921d",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/manifest.json",
+        "manifest_sha256": "53a5aac8e2961302d82865b8da25e4ca07da575be247d955d6d5ec4d1d0b8fb8",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+        "stock_sha256": "0a96cb8c5f2115d94e4c9a299b1085f76c9afbfa6ef5e89178d29b5cce434c59"
+      },
+      "raw_product": "O=C(Cl)c1cc(F)cc(F)c1",
+      "structural_components": [
+        "O=C(O)c1cc(F)cc(F)c1",
+        "O=S(Cl)Cl"
+      ]
+    },
+    {
+      "reaction_key": "6b268cc82298b3899f59c70e0cfb196555fe2fe6b261a14fd61766241e26e1f2",
+      "evidence": {
+        "reaction_key": "6b268cc82298b3899f59c70e0cfb196555fe2fe6b261a14fd61766241e26e1f2",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US5750050:step1.3:cresyl-acetate",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US5750050/en",
+        "locator": "Step 1.3, Preparation of 2-methylphenyl acetate; distinguish the later Step 1.4 Fries rearrangement.",
+        "document_sha256": "8dbb3a75d8dca16c3c62ccb6b98c3fea101a736a2006c3614db58c5f5d58c155",
+        "raw_document_sha256": "59aae33a5222e5a76b09f13fb72e42d52adabc6876b420f28b21511d498f600d",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "source_id": "US5750050:step1.3:cresyl-acetate",
+      "source_url": "https://patents.google.com/patent/US5750050/en",
+      "locator": "Step 1.3, Preparation of 2-methylphenyl acetate; distinguish the later Step 1.4 Fries rearrangement.",
+      "source_conditions": "o-Cresol 21.6 g/0.2 mol in aqueous NaOH (12 g/0.3 mol, water 100 mL), ice 300 g; acetic anhydride 30.6 g/0.3 mol, shake 1 min. Ether extraction and reduced-pressure distillation give 25 g, 83.3%; boiling point 66 C/1 mmHg.",
+      "source_document_sha256": "8dbb3a75d8dca16c3c62ccb6b98c3fea101a736a2006c3614db58c5f5d58c155",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank03/evaluations/mech-uspto31k-full:test:20.json",
+        "report_sha256": "b6cd52f9f5200c713adc8e1f3a45b668cfb987735bdaa1e99ea9b28810a61598",
+        "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank03/trees/mech-uspto31k-full:test:20.json",
+        "target_tree_sha256": "1de91d316b09a54b8b3f6aabd8e6596d39a132538273ac93bcce9c92516c9f94",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank03/manifest.json",
+        "manifest_sha256": "e7ff0fcf6a2294d9df3941099925d9d3e0de8daa559fda87c8bd093b909f4491",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+      },
+      "raw_product": "CC(=O)Oc1ccccc1C",
+      "structural_components": [
+        "CC(=O)OC(C)=O",
+        "Cc1ccccc1O"
+      ]
+    },
+    {
+      "reaction_key": "0802de505ac0cadd131e8ba97f55f25888a1ad5bbdf4c4f78424f3430a43e882",
+      "evidence": {
+        "reaction_key": "0802de505ac0cadd131e8ba97f55f25888a1ad5bbdf4c4f78424f3430a43e882",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US8501746B2:example3.2:pyridone-N-arylation",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US8501746B2/en",
+        "locator": "Example 3.2, N-benzyl-2-(5-(benzyloxy)-2-oxopyridin-1(2H)-yl)-4-methylthiazole-5-carboxamide, explicitly following Example 3's coupling procedure.",
+        "document_sha256": "ece9afa2c1982240f0140bf9991f837db8734b6843ad51375ca9462318a2404e",
+        "raw_document_sha256": "8f8b465ff8d45777a73e84baab2512bd90016fed1a1d7b44a1b1b74181876e30",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "source_id": "US8501746B2:example3.2:pyridone-N-arylation",
+      "source_url": "https://patents.google.com/patent/US8501746B2/en",
+      "locator": "Example 3.2, N-benzyl-2-(5-(benzyloxy)-2-oxopyridin-1(2H)-yl)-4-methylthiazole-5-carboxamide, explicitly following Example 3's coupling procedure.",
+      "source_conditions": "Example 3.2 substitutes 5-(benzyloxy)pyridin-2(1H)-one into Example 3: CuI, 8-hydroxyquinoline, K2CO3, degassed DMSO, 75-80 C, 16 h; aqueous precipitation and chromatography. Individual Example 3.2 yield 32%, white solid, mp 166-167 C, 1H/13C NMR and MS m/z 432.2 (M+1). Example 3 reagent quantities are not assigned as Example 3.2 measurements.",
+      "source_document_sha256": "ece9afa2c1982240f0140bf9991f837db8734b6843ad51375ca9462318a2404e",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/evaluations/5eac7d3612eb454add018a5b3c047bfde0c643a27b80a2c03b847b5acdac252f.json",
+        "report_sha256": "e07bb6b3e213af76247a71dab05ccb2b7a79be854fcfb68172d96a8c8c66ca60",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/manifest.json",
+        "manifest_sha256": "ff92129a24892f3bd10e72d7f290bb1babbf82e4994f58c57c8f52dde182821f",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+        "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+      },
+      "raw_product": "Cc1nc(-n2cc(OCc3ccccc3)ccc2=O)sc1C(=O)NCc1ccccc1",
+      "structural_components": [
+        "Cc1nc(Br)sc1C(=O)NCc1ccccc1",
+        "O=c1ccc(OCc2ccccc2)c[nH]1"
+      ]
+    },
+    {
+      "reaction_key": "403250ecd5e4cc7967fe9ec5bda61e091b0bf5ed9e1f23d4a2f433ee0aaa3bdb",
+      "evidence": {
+        "reaction_key": "403250ecd5e4cc7967fe9ec5bda61e091b0bf5ed9e1f23d4a2f433ee0aaa3bdb",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US8344135B2:exampleD25i:cyanopropyl-benzoyl-chloride",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US8344135B2/en",
+        "locator": "Example D25(i), first paragraph, preparation of the acid chloride before addition to 4-methyl-3-nitroaniline.",
+        "document_sha256": "2f9b0f6a1df41094b3b36461a76e5d628e9b43eb146b6541cd709f321c9365ad",
+        "raw_document_sha256": "5b87a4a52c33d43fd254bb7292201d67b869d281cc8d012641627e7a5891dcc4",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "source_id": "US8344135B2:exampleD25i:cyanopropyl-benzoyl-chloride",
+      "source_url": "https://patents.google.com/patent/US8344135B2/en",
+      "locator": "Example D25(i), first paragraph, preparation of the acid chloride before addition to 4-methyl-3-nitroaniline.",
+      "source_conditions": "3-(1-Cyano-1-methylethyl)benzoic acid 9.87 g/52.2 mmol in toluene 150 mL, SOCl2 25.3 g/213 mmol, 120 C, 2 h; reduced-pressure concentration gives the named acid chloride as colorless oil, subsequently used in amidation.",
+      "source_document_sha256": "2f9b0f6a1df41094b3b36461a76e5d628e9b43eb146b6541cd709f321c9365ad",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/evaluations/611005e5473b7ccc784615d458f7eab6b4ec25e33f0530409cd3fea03ac2cf47.json",
+        "report_sha256": "85709a084fca6612b1e820e05ecc52d670a6e8efa58e2f809cf8d6539a94c191",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/manifest.json",
+        "manifest_sha256": "53a5aac8e2961302d82865b8da25e4ca07da575be247d955d6d5ec4d1d0b8fb8",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+        "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+      },
+      "raw_product": "CC(C)(C#N)c1cccc(C(=O)Cl)c1",
+      "structural_components": [
+        "CC(C)(C#N)c1cccc(C(=O)O)c1",
+        "O=S(Cl)Cl"
+      ]
+    }
+  ]
+}

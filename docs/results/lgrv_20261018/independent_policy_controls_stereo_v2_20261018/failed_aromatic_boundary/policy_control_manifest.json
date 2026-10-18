@@ -1,0 +1,23 @@
+{
+  "schema": "lgrv_independent_structure_policy_manifest_v1",
+  "complete": true,
+  "family_policy": "full_stereo_local_v2",
+  "all_controls_passed": false,
+  "control_spec_sha256": "bbb7a0efcbfd3f8aebcf8cc30e9530d773bb8d8300080f5e8626718165933b58",
+  "source_catalogue_sha256": "ca11d782a812f18d1ed205cc98e71d798b50d7190844a27cdb76d60fff3d4419",
+  "source_file_sha256": "7e44b014c9041d86e00bc4fb4b70b3c6b3b94c0e35634467ace02c330efcd1a4",
+  "source_file_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/ord_46980f8cb68aa43ed9707edec319d4eac5a2bfed/data/55/ord_dataset-5540e162c09f4c04905ddc8ba9c931c6.parquet",
+  "codec_sha256": "f33ac383b4c0517355188a6e2b4d77bc679dc9ea553b16d467043e478f4f16dd",
+  "prediction_freeze_manifest_sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+  "new_model_inference": false,
+  "producer_sha256": "afc0add76e5fb8aa7abac1756f4bb97e47a611315a09e51c16491064af0deb0a",
+  "family_implementation_sha256": "b5d8548b9d4ae3f7d2c59961051ec4a84338ffb8f22e6a68c47d14ba8b61f227",
+  "output_files": {
+    "control_sources.sqlite": {
+      "sha256": "d9a849f6c00aeee442572e14272440b65229307adc22aecd269b047066663f78"
+    },
+    "policy_control_results.json": {
+      "sha256": "9623b9d55470101891ce6fd946566fc2e01ddc48edf7b9d712d03018d91608a4"
+    }
+  }
+}

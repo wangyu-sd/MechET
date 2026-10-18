@@ -298,6 +298,31 @@ def test_population_delivery_rejects_resealed_but_invented_native_family(tmp_pat
     assert not arguments[-1].exists()
 
 
+def test_extended_delivery_exports_all_reactions_and_target_paired_tables(tmp_path):
+    arguments, program_root = population_files(tmp_path)
+    seal_analysis(arguments, program_root)
+    run = importlib.import_module('scripts.render_nmi_literature_population_figures').render_population_figures
+    result = run(*arguments, program_join_root=program_root, extended_panels=True)
+    assert set(result['figures']) == {'fig2_r1_literature_supported_routes',
+        'fig3_r2_supported_composition', 'extended_data_paired_route',
+        'extended_data_source_retrieval_coverage'}
+    extended = json.loads((arguments[-1]/'extended_panel_source_data.json').read_bytes())
+    assert extended['unique_reactions'] == 2
+    assert sum(r['reactions'] for r in extended['complexity']['changed_bonds'].values()) == 2
+    assert extended['paired']['r1_greedy_dynamic']['StockSolved@B']['denominator'] == 460
+    assert extended['work'] is None
+
+
+def test_extended_work_delivery_rejects_another_actor_or_freeze(tmp_path):
+    arguments, program_root = population_files(tmp_path)
+    seal_analysis(arguments, program_root)
+    work = tmp_path/'work.json';work.write_text(json.dumps({'actor_sha256': 'z'*64}))
+    run = importlib.import_module('scripts.render_nmi_literature_population_figures').render_population_figures
+    with pytest.raises(ValueError, match='actual work'):
+        run(*arguments, program_join_root=program_root, extended_panels=True, actual_work_report=work)
+    assert not arguments[-1].exists()
+
+
 @pytest.mark.parametrize('mutation',[
     'invent_route_support','invent_baseline_route','invent_observed_reports','exposure_mismatch',
     'duplicate_source_receipts','corpus_catalogue_hash','corpus_index_hash',

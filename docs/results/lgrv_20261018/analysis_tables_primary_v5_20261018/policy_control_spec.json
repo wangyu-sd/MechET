@@ -1,0 +1,73 @@
+{
+  "schema": "lgrv_independent_structure_policy_controls_v1",
+  "purpose": "Validate the existing radius-1 retrieval policy before the enriched MechET query population is searched; not a chemical-accuracy benchmark or a source of MechET evidence grades.",
+  "radius": 1,
+  "primary_search_cap": 5,
+  "policy_tuning_on_mechet_outcomes": false,
+  "source_selection": "All three experimentally performed transformations in the independently published Organic Syntheses procedure, not MechET model outputs.",
+  "primary_url": "https://www.orgsyn.org/demo.aspx?prep=v95p0080",
+  "primary_doi": "10.15227/orgsyn.095.0080",
+  "primary_read_status": "primary procedure inspected using web reader; direct HTML cache download returned HTTP 403, so no raw HTML checksum or automatic passage-checked evidence is claimed",
+  "ord_dataset_id": "ord_dataset-5540e162c09f4c04905ddc8ba9c931c6",
+  "ord_relative_path": "data/55/ord_dataset-5540e162c09f4c04905ddc8ba9c931c6.parquet",
+  "source_mapping_origin": "Explicit assistant-authored atom correspondence for independent retrieval controls only; must reconcile to each actual ORD structural reaction before use. These are not model/GT maps supplied at MechET inference.",
+  "training_source_overlap": "unknown",
+  "required_independence_check": "Every source reaction key must be absent from the frozen generated MechET query pool. Report overlaps; do not silently remove benchmark queries or tune controls.",
+  "variants": [
+    {
+      "id": "recorded_structures",
+      "expected_retrieval": "exact",
+      "description": "Unmodified source reaction; isotope, charge, stereo and precursor multiplicity are retained."
+    },
+    {
+      "id": "consistent_map_permutation",
+      "expected_retrieval": "exact",
+      "description": "Renumber all maps on both sides by the same offset."
+    },
+    {
+      "id": "remote_benzyl_fluoro",
+      "expected_retrieval": "local_edit_analogue_candidate",
+      "description": "A hypothetical query replaces the aryl H at map 7 with F on both sides, outside the radius-1 reacting environments. The source remains the actual performed reaction; the modified query is NOT claimed experimentally demonstrated."
+    },
+    {
+      "id": "reactive_environment_element_change",
+      "expected_retrieval": "unresolved",
+      "description": "A counterfactual query replaces mapped nitrogen 2 by phosphorus on both sides. This is a different reacting functional-group environment, not a claim that the hypothetical chemistry is impossible."
+    }
+  ],
+  "sources": [
+    {
+      "id": "orgsyn_v95p0080_A",
+      "ord_row": 0,
+      "ord_reaction_id": "ord-352807a1f4c14595afeef50c6c39ae38",
+      "primary_locator": "Procedure A, N,N-Dibenzyl-O-pivaloylhydroxylamine (1)",
+      "transformation": "O-pivaloylation of N,N-dibenzylhydroxylamine",
+      "mapped_precursors": "[OH:1][N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1.[C:17](=[O:18])([C:19]([CH3:20])([CH3:21])[CH3:22])[Cl:23]",
+      "mapped_product": "[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]"
+    },
+    {
+      "id": "orgsyn_v95p0080_B",
+      "ord_row": 1,
+      "ord_reaction_id": "ord-7b927700e3414788865b46a4d4b18c44",
+      "primary_locator": "Procedure B, (R)-N,N-Dibenzyl-1-phenylpropan-1-amine (2)",
+      "transformation": "Enantioselective copper-catalyzed hydroamination of trans-beta-methylstyrene",
+      "mapped_precursors": "[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22].[CH3:24]/[CH:25]=[CH:26]/[c:27]1[cH:28][cH:29][cH:30][cH:31][cH:32]1",
+      "mapped_product": "[CH3:24][CH2:25][C@@H:26]([N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[c:27]1[cH:28][cH:29][cH:30][cH:31][cH:32]1"
+    },
+    {
+      "id": "orgsyn_v95p0080_C",
+      "ord_row": 2,
+      "ord_reaction_id": "ord-e5c44ec1b5164f8ea077cf3b7ee0214a",
+      "primary_locator": "Procedure C, (R)-N,N-Dibenzyl-2,3,3-trimethylbutan-1-amine (3)",
+      "transformation": "Enantioselective copper-catalyzed hydroamination of 2,3,3-trimethyl-1-butene",
+      "mapped_precursors": "[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22].[CH2:24]=[C:25]([CH3:26])[C:27]([CH3:28])([CH3:29])[CH3:30]",
+      "mapped_product": "[CH3:26][C@@H:25]([CH2:24][N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:27]([CH3:28])([CH3:29])[CH3:30]"
+    }
+  ],
+  "reporting_limits": [
+    "Source-anchored structural-policy controls are not a wet-lab validation of counterfactual substrates.",
+    "Three recorded transformations from one publication do not establish universal analogue precision or reaction-class breadth.",
+    "No synthetic control becomes Tier A/B evidence for MechET.",
+    "This manifest freezes controls, not successful test results; source reconciliation, independence, and expected retrieval must be executed and reported before claims."
+  ]
+}

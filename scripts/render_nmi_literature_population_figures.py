@@ -67,7 +67,7 @@ def authenticate_analysis(root,freeze_path,corpus_path,config_path):
 
 def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,exposure_path,
                               primary_registries,style_path,config_path,output_root,*,program_join_root=None,
-                              retrieval_context_workers=1):
+                              retrieval_context_workers=1,extended_panels=False,actual_work_report=None):
     import yaml
     from scripts.render_nmi_literature_figures import load_selected_case
     from scripts.render_nmi_tree_figures import export
@@ -214,6 +214,27 @@ def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,ex
     data=prepare_panels(metrics,cohorts)
     style=yaml.safe_load(style_path.read_text())
     drawings=render_population(data,context['prepared'],style)
+    extended=None;audited_work=None;extended_inputs=[]
+    if actual_work_report is not None and not extended_panels:
+        raise ValueError('actual work report requires extended panels')
+    if extended_panels:
+        from mechet.analysis.literature_extended import prepare_extended,attach_work,render_extended
+        extended=prepare_extended(queries,evidence,metrics,cohorts)
+        if actual_work_report is not None:
+            from mechet.analysis.literature_work import audit_r1_snapshot
+            actual_work_report=Path(actual_work_report)
+            work=json.loads(actual_work_report.read_bytes())
+            if (work.get('prediction_freeze_manifest_sha256')!=file_sha256(fpath) or
+                work.get('actor_sha256')!=freeze['actor_sha256']):
+                raise ValueError('actual work receipt differs from current actor/freeze')
+            audited_work=audit_r1_snapshot(work['snapshot_path'],freeze_root)
+            if audited_work!=work:
+                raise ValueError('actual work receipt differs from re-executed full source-prefix audit')
+            supported_keys={p['reaction_key'] for p in programs[RUNS[0]]
+                            if source_supported(evidence[p['reaction_key']])}
+            extended=attach_work(extended,audited_work,supported_disconnections=len(supported_keys))
+            extended_inputs=[actual_work_report,Path(work['snapshot_path'])]
+        drawings.update(render_extended(extended,style))
     output_root.mkdir(parents=True,exist_ok=False)
     figures={}
     for name,svg in drawings.items():
@@ -223,14 +244,20 @@ def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,ex
         if not qa['machine_checks_passed']:
             raise ValueError('population vector-export QA failed: '+str(qa['problems']))
     panel_path=output_root/'panel_source_data.json';panel_path.write_text(json.dumps(data,indent=2)+'\n')
-    inputs=[*mapping_inputs,analysis_root/'analysis_manifest.json',corpus_path,Path(corpus['source_manifest']),fpath,
+    extended_files={}
+    for name,value in [('extended_panel_source_data.json',extended),('actual_work_reaudit.json',audited_work)]:
+        if value is not None:
+            path=output_root/name;path.write_text(json.dumps(value,indent=2)+'\n')
+            extended_files[name]={'sha256':file_sha256(path)}
+    inputs=[*mapping_inputs,*extended_inputs,analysis_root/'analysis_manifest.json',corpus_path,Path(corpus['source_manifest']),fpath,
             assets_path,target_path,coverage_path,metrics_path,link_path,program_path,
             analysis_root/'reaction_evidence.jsonl.gz',Path(case_spec),Path(exposure_path),style_path,config_path]
     producer=[Path(__file__),ROOT/'src/mechet/analysis/literature_population_figures.py',
               ROOT/'scripts/render_nmi_literature_figures.py',ROOT/'scripts/render_nmi_tree_figures.py',
               ROOT/'src/mechet/analysis/literature_figures.py',ROOT/'src/mechet/analysis/figure_qa.py',
               ROOT/'src/mechet/analysis/literature_mapping.py',ROOT/'src/mechet/analysis/literature_evidence.py',
-              ROOT/'src/mechet/analysis/literature_retrieval_contexts.py',ROOT/'src/mechet/analysis/literature_stereo_family.py']
+              ROOT/'src/mechet/analysis/literature_retrieval_contexts.py',ROOT/'src/mechet/analysis/literature_stereo_family.py',
+              ROOT/'src/mechet/analysis/literature_extended.py',ROOT/'src/mechet/analysis/literature_work.py']
     manifest={'schema':'lgrv_population_figure_manifest_v1','figures':figures,
         'actor_sha256':freeze['actor_sha256'],'original_route_target_denominator':460,
         'unique_reaction_queries':len(queries),'matched_compute_claim':False,'ranking_primary':False,
@@ -239,6 +266,7 @@ def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,ex
         'family_policy':family_policy,'policy_control_manifest_sha256':control_sha,
         'source_files':[{'path':str(p.resolve()),'sha256':file_sha256(p)} for p in inputs],
         'producer_files':{str(p.relative_to(ROOT)):file_sha256(p) for p in producer},
+        'extended_analysis_files':extended_files,
         'panel_source_data_sha256':file_sha256(panel_path),'visual_inspection_status':'pending',
         'remaining_primary_review':coverage['remaining_work']}
     (output_root/'figure_manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
@@ -266,7 +294,16 @@ def render_population_figures(analysis_root,freeze_root,assets_path,case_spec,ex
         '(c) Selected actual saved inverse FLOW actions from the fixed case program, with source–sink arrows compiled from their pre-action states. The full program and every import/finish remain in the linked case plates. These states are symbolic executor constructions, not experimentally observed intermediates. '
         f'The authenticated current actor exposure has {primitive_count:,} local primitive and {signature_count:,} ordinary whole signatures. Other historical censuses are not substituted here.',
         '# Source versions and unresolved coverage',
-        'All93 official ORD production files, including public Lowe/USPTO extracts, are indexed. An indexed structural candidate is not checked experimental precedent. Tier C remains unresolved, never automatically invalid. Source/training overlap remains unknown unless separately documented. Broader primary-source checking, analogue calibration and work-ledger attribution remain unfinished. These figures are an actual current-evidence draft, not a completed population chemical validation.']
+        'All93 official ORD production files, including public Lowe/USPTO extracts, are indexed. An indexed structural candidate is not checked experimental precedent. Tier C remains unresolved, never automatically invalid. Source/training overlap remains unknown unless separately documented. Broader primary-source checking and analogue calibration remain unfinished. These figures are an actual current-evidence draft, not a completed population chemical validation.']
+    if extended_panels:
+        captions.extend([
+            '# Extended Data | Paired recorded discoveries',
+            'Same-target 2x2 tables for stock-AND and every-essential-reaction A/B outcomes. Full460 counts are recorded-positive lower bounds; neither-recorded includes unobserved targets, not necessarily search failure. The separately shown common-observed subset is selected by completion. Confidence intervals use2000 target-paired bootstrap draws, seed17, and are descriptive under unequal work, not causal search gains.',
+            '# Extended Data | Source coverage and structural complexity',
+            'Every frozen unique complete reaction is retained, including unknown mappings. Strata describe mapped net changed bonds, product heavy atoms and forward product-minus-structural-precursor RDKit ring-basis count. Indexed source candidates, checked A/B evidence and denominators are distinct; no population chemical-success or physical mechanism claim.'])
+        if audited_work is not None:
+            captions.extend(['# Extended Data | Actual work attribution',
+                'All eight original frozen source-wave prefixes were reaudited against actor/freeze/stock witnesses, including work on pending targets. New output tokens exclude cached returns. CPU thread seconds are additive across executors; GPU-active time is unknown. Source-supported reactions and every-step-covered targets per million newly generated output tokens are evidence-discovery lower bounds, not chemical accuracy or matched-compute superiority.'])
     (output_root/'captions.md').write_text('\n\n'.join(captions)+'\n')
     print(json.dumps({'phase':'population_figures_exported','figures':len(figures),'targets':460,'output_root':str(output_root)}),flush=True)
     return manifest
@@ -279,10 +316,13 @@ def main():
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--primary-source-registry',type=Path,action='append',default=[])
     parser.add_argument('--retrieval-context-workers',type=int,default=1)
+    parser.add_argument('--extended-panels',action='store_true')
+    parser.add_argument('--actual-work-report',type=Path)
     a=parser.parse_args()
     render_population_figures(a.analysis_root,a.prediction_freeze_root,a.route_assets_manifest,a.case_spec,
         a.actor_exposure_manifest,a.primary_source_registry,a.style,a.retrieval_config,a.output_root,
-        program_join_root=a.program_join_root,retrieval_context_workers=a.retrieval_context_workers)
+        program_join_root=a.program_join_root,retrieval_context_workers=a.retrieval_context_workers,
+        extended_panels=a.extended_panels,actual_work_report=a.actual_work_report)
 
 
 if __name__=='__main__':main()

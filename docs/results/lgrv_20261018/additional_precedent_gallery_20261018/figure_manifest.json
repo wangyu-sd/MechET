@@ -1,0 +1,137 @@
+{
+  "schema": "lgrv_additional_primary_precedent_gallery_v1",
+  "figures": {
+    "extended_data_additional_precedents_1": {
+      "files": {
+        "svg": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/additional_precedent_gallery_20261018/figures/extended_data_additional_precedents_1.svg",
+          "sha256": "ad9260199b75ceefc1fae39a949cb8191d6cc3863885807ab26cde760b77bce4"
+        },
+        "pdf": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/additional_precedent_gallery_20261018/figures/extended_data_additional_precedents_1.pdf",
+          "sha256": "60ed348d586c49b5e0a5fa6a1613a989ba94798d7a2b26514001ba8cbc08fa8f"
+        },
+        "png": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/additional_precedent_gallery_20261018/figures/extended_data_additional_precedents_1.png",
+          "sha256": "6827ee101072d4fc2621d4bf6f2216e9d919e4c62915f4eed060d90b35d34766"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 217,
+          "editable_text_elements": 15
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/AVSUIE+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/BPGKJW+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    },
+    "extended_data_additional_precedents_2": {
+      "files": {
+        "svg": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/additional_precedent_gallery_20261018/figures/extended_data_additional_precedents_2.svg",
+          "sha256": "ccff6da1cae19d689cd195f31cbc11bfc7e36f22682de3ffa780d463e0e1ca3e"
+        },
+        "pdf": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/additional_precedent_gallery_20261018/figures/extended_data_additional_precedents_2.pdf",
+          "sha256": "044e3e088b101ea69234b08d6e5cab5f553831f7ac7cb2ef047c9fb7cb141eca"
+        },
+        "png": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/additional_precedent_gallery_20261018/figures/extended_data_additional_precedents_2.png",
+          "sha256": "df0a91d33be46edf691634f4ad790b8e744e8c4aa59545daeb7ffb7c48287b91"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 6,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 271,
+          "editable_text_elements": 12
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 94.19166666666666,
+          "fonts": [
+            {
+              "name": "/ZMODTT+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/LOTYKE+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1112,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    }
+  },
+  "source_analysis_manifest_sha256": "3663d802477f3fceda8808c1fddf603734ae63f155cda0560c7df68ef92ca6e4",
+  "source_query_table_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "primary_registries": [
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v4.json",
+      "sha256": "235de6c211db57eec22fbaa2467912436abd8325fcbde6c3fb9fc5777bc8471f"
+    }
+  ],
+  "case_registry_sha256": "9b0473557a00102f082771a88cba28b798db6b7566b90c86a744942405658531",
+  "producer_files": {
+    "src/mechet/analysis/literature_figures.py": "f6f296aa79dd99904bd28623e7c402c844eff749df178e7513e4cd2779036e98",
+    "src/mechet/analysis/literature_evidence.py": "b422c67d447213064f2308069609d2792748fdc7d9f89803020d19da4b31da57",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6"
+  },
+  "style_sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26",
+  "selection_reaction_keys_in_order": [
+    "2107b4614f148f6d0eca63556b7e2c74f44178d46dc2480472e5ed8310a3fd23",
+    "54798b9360c12d12eeaa1e133468943fe9699fdd868e65b9cf2049a175e38f9d",
+    "6b268cc82298b3899f59c70e0cfb196555fe2fe6b261a14fd61766241e26e1f2",
+    "0802de505ac0cadd131e8ba97f55f25888a1ad5bbdf4c4f78424f3430a43e882",
+    "403250ecd5e4cc7967fe9ec5bda61e091b0bf5ed9e1f23d4a2f433ee0aaa3bdb"
+  ],
+  "physical_mechanism_verified": false,
+  "new_model_inference": false,
+  "visual_inspection_status": "assistant_inspected_both_final_PNGs"
+}
