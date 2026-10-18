@@ -51,11 +51,15 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
   classified as chemical negatives.
 - Independent review reproduced a source-file partial-stereo exception and
   four correctness/recovery issues. All were corrected with regressions; the
-  entire failed source file is undergoing conversion with the corrected worker
+  entire failed source file completed conversion with the corrected worker
   while other original successful shard work is preserved. See
   [review and fixes](FOUNDATION_REVIEW.md). The combined source index is **not
   yet complete**; the old driver's16-file manifest is not the count of completed
   on-disk source shard receipts.
+- [The entire-file repair](source_file_repair.json) read70,725 source rows and
+  retained129,079 structured representations, including the formerly crashing
+  exact reaction. Sixteen invalid source representations are logged, not
+  treated as chemical negatives. This is source conversion, not a model test.
 - Prediction freeze v1 stopped on a serializer compatibility error: aggregate
   31k rows mix absolute resumed-tree pointers and relative new-tree pointers.
   The resolver now handles both and rejects ambiguous ownership, with a

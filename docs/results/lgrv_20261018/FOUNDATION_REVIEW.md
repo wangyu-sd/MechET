@@ -44,6 +44,6 @@ assistant-source-checked, not human-reviewed or a physically observed arrow path
 
 Operational note: initial v1 full-corpus workers continue retaining successful
 shards while their old driver waits after the known failed future. A separate
-repair processes the **entire failed source file** with the corrected code,
+repair completed the **entire failed source file** with the corrected code,
 without changing original source data, other active workers or any model job.
 Do not infer a complete combined index until its final manifest is verified.
