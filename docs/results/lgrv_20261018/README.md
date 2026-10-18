@@ -4,7 +4,37 @@ Status: **implementation and full-population processing in progress**. This is
 not a completed chemical-validation result. No GPU job, model inference,
 training, ranking evaluation, MCTS restart or paper merge was performed.
 
-## Latest verified progress (18 October, supersedes older processing notes)
+## Latest verified progress (19 October, supersedes older processing notes)
+
+**Current v8 source review:** nine additional performed preparations bring
+source-checked exact complete reactions **22→31**, using the same **18,210**
+frozen reaction queries, six conditions and retrieval policy. These nine are
+an increment, not the total number of supported reactions. All21 sealed output
+hashes were checked. Of165 queries with indexed candidates,29 now have checked
+support and136 remain unresolved; two further supported reactions have
+independently checked seed sources outside the indexed hits. All18,045 index
+no-hit records remain visible, including those two seeds. Retrieval coverage
+and incomplete source review are not population chemical accuracy.
+
+[Complete v8 tables and all31 cases](analysis_tables_primary_v8_20261019/README.md),
+[full coverage audit](coverage_review_v8_20261019/README.md),
+[all nine additional RDKit cases](additional_preparation_gallery_20261019_v8/README.md)
+and [six-condition scalar summary](POPULATION_RESULTS_PRIMARY_V8_20261019.json)
+retain every method. R1 MCTS has9 targets with an exact step on a stock-closed
+route, but only1 target with every essential step supported. The31k proxy
+diagnostic has11/13/12 source-supported targets for MCTS/Greedy I/II; the new
+sources benefit both Greedies too. These are different units and populations,
+not an assertion of MCTS chemical superiority or matched-compute improvement.
+
+The [existing conventional-planner compatibility audit](conventional_control_compatibility_20261019/README.md)
+records the real legacy Syntheseus/proof-pool entrypoints and their current
+context, count-cap, decoder and salt-semantics mismatches. No matched completed
+control is claimed. No model, GPU, training or Taiji task was run. Latest whole
+CPU gate: **1,253 passed/14 skipped**, one existing PEFT warning,170.06s.
+The original PR87 figure sets and all historical result versions are preserved.
+The [current v8 Figure2/3 and three extended panels](population_figures_primary_v8_20261019/README.md)
+are regenerated; all five actual previews were opened and inspected, with
+actual inverse FLOW arrows and current evidence/work counts retained.
 
 **Independent-control runtime:** the rolling batch scheduler, lazy pinned-vLLM
 transport, durable complete input/output journals and non-ranking episode-prefix
@@ -18,7 +48,7 @@ not evidence of a model-performance gain.
 Final whole-repository CPU verification after the formal CLI/collector:
 **1,253 passed/14 skipped**, one existing PEFT warning,182.18s.
 
-**Current v7 source review:** seven more performed preparations bring exact
+**Historical v7 source review:** seven more performed preparations bring exact
 source-supported complete reactions **15→22** under identical18,210-query
 retrieval. All21 sealed output hashes were checked. MCTS now has8 targets with
 an exact step on a stock-closed route; all-step coverage remains1 target.
@@ -30,7 +60,7 @@ and a [checked positional-isomer source discrepancy](primary_structure_review_20
 That discrepancy remains unresolved, not a claim of impossible model chemistry.
 Latest complete CPU suite: **1,229 passed/14 skipped**, one existing PEFT warning,
 164.11s. Older v5/v6 outputs below are retained as versioned evidence.
-The [current v7 Figure2/3 and three extended panels](population_figures_primary_v7_20261018/README.md)
+The [historical v7 Figure2/3 and three extended panels](population_figures_primary_v7_20261018/README.md)
 are regenerated, hash/geometry checked and visually inspected; they retain
 actual inverse FLOW arrows, full populations and recorded generation costs.
 

@@ -1,0 +1,40 @@
+{
+  "schema": "lgrv_conventional_control_compatibility_audit_v1",
+  "observed_at_date": "2026-10-19",
+  "environment": "/root/miniconda3/envs/meteor/bin/python",
+  "optional_syntheseus_found": false,
+  "legacy_actor_defaults": {
+    "model": "Qwen/Qwen3-0.6B",
+    "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "compact_history": true,
+    "max_context": 4096,
+    "max_new_tokens": 384,
+    "max_decisions": 40,
+    "max_imports": 32,
+    "no_4bit": false,
+    "matched_v2": true,
+    "value_weight": 0.0
+  },
+  "legacy_outer_defaults": {
+    "algorithm": "retro_star",
+    "num_results": 10,
+    "reaction_model_calls": 100,
+    "iterations": 1000,
+    "time_limit_s": 300.0,
+    "max_routes": 25
+  },
+  "source_files": {
+    "scripts/run_syntheseus_online.py": "84d0191f4d01cc1ca531f89b7f2a921cdf4fa90cc90df55f58187fe34035c3ab",
+    "scripts/run_syntheseus_search.py": "aba8c769b471b6f3a580e8a630f2a06b5107478e55268fcae742b3b94307ae62",
+    "src/mechet/online_syntheseus_adapter.py": "96b5e0a60bd2dbc7b764e181de1afa87f88df62db252cb05536be02b08949100",
+    "src/mechet/syntheseus_adapter.py": "7b3d93dbc935a3d4fd35b40aedc91a30268a7ef46be0ee101fa8e0f9de64f907"
+  },
+  "current_frozen_actor_context": 8192,
+  "current_frozen_actor_decision_or_import_count_cap": null,
+  "current_complete_reaction_control_ready": false,
+  "matching_prediction_outputs_available": false,
+  "model_loaded": false,
+  "planner_executed": false,
+  "new_model_inference": false,
+  "interpretation": "Existing legacy entrypoints are present, but their defaults/mandatory count caps do not match the current archived actor condition. Package absence here is not evidence about GPU availability. No missing-control outcome is fabricated."
+}
