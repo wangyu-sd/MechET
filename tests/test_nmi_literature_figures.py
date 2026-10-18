@@ -170,3 +170,25 @@ def test_contradiction_source_is_not_captioned_as_positive_reaction_precedent(tm
     assert manifest['precedent_covered'] is False
     assert 'documented contradiction' in text.lower()
     assert 'Exact/analogue net-transformation evidence: Tier D' not in text
+
+
+def test_net_precedent_gallery_draws_only_checked_frozen_generated_pairs(tmp_path):
+    import yaml
+    from pathlib import Path
+    from test_nmi_literature_protocol import primary
+    from mechet.analysis.literature_reaction_keys import make_reaction
+    reaction=make_reaction('CO',['CBr','[OH-]']);source=primary(tmp_path)
+    style=yaml.safe_load((Path(__file__).parents[1]/'configs/figures/mechet_nmi_tree_style_v1.yaml').read_text())
+    renderer=getattr(implementation(),'render_net_precedent_gallery',None)
+    assert renderer is not None,'source-checked complete-reaction gallery is missing'
+    svg,metadata=renderer([reaction],[source],style,reaction_keys=[reaction['reaction_key']])
+    root=ET.fromstring(svg);ns={'s':'http://www.w3.org/2000/svg'}
+    assert root.findall('.//s:path',ns) and not root.findall('.//s:image',ns)
+    text=' '.join(n.text or '' for n in root.iter())
+    assert 'Tier A' in text and source['source_id'] in text
+    assert 'selected cases' in text.lower()
+    assert metadata['reaction_keys']==[reaction['reaction_key']]
+    assert metadata['physical_mechanism_verified'] is False
+    source['document_sha256']='0'*64
+    with pytest.raises(ValueError):renderer([reaction],[source],style,reaction_keys=[reaction['reaction_key']])
+    with pytest.raises(ValueError):renderer([],[],style,reaction_keys=[reaction['reaction_key']])

@@ -17,6 +17,52 @@ def _pointer(value, pointer):
     return value
 
 
+def render_net_precedent_gallery(queries,primary_sources,style,*,reaction_keys):
+    """Selected actual complete reactions; never a population success estimate."""
+    from scripts.render_nmi_tree_figures import molecule_svg,embed,label,svg_document
+    by_key={r['reaction_key']:r for r in queries}
+    sources={s['source_id']:s for s in primary_sources}
+    if not reaction_keys or len(set(reaction_keys))!=len(reaction_keys):
+        raise ValueError('gallery requires distinct selected frozen reactions')
+    height=53+107*len(reaction_keys)
+    if height*25.4/72>style['format']['max_height_mm']:
+        raise ValueError('split gallery across pages, never silently omit selected cases')
+    width=style['format']['full_width_mm']*72/25.4
+    body=label(7,13,'Performed experimental precedent for generated complete reactions',size=7,weight='bold')
+    body+=label(7,25,'Selected cases; complete net chemistry, not experimentally established electron-arrow sequences.',size=6)
+    metadata={'reaction_keys':list(reaction_keys),'physical_mechanism_verified':False,
+              'selection':'explicit source-positive gallery, not population validation','cases':[]}
+    for i,key in enumerate(reaction_keys):
+        if key not in by_key:raise ValueError('gallery reaction absent from frozen generated pool')
+        reaction=by_key[key]
+        if make_reaction(reaction['product_raw'],reaction['structural_components'])['reaction_key']!=key:
+            raise ValueError('gallery reaction payload differs from frozen identity')
+        evidence=assess(reaction,[],primary_sources)
+        if not source_supported(evidence):raise ValueError('gallery case lacks checked performed reaction precedent')
+        source=sources[evidence['selected_source']];y=40+i*107
+        body+=label(7,y,f'{i+1}. Tier {evidence["tier"]} · {source["source_id"]}',size=6.5,weight='bold')
+        parts=reaction['structural_components'];left=width*.49;cell_width=left/len(parts)
+        for j,smiles in enumerate(parts):
+            drawing,_=molecule_svg(smiles,[],style,uid=f'gallery-{i}-r{j}',width=cell_width-9,height=61)
+            body+=embed(drawing,7+j*cell_width,y+6,cell_width-9,61)
+            if j<len(parts)-1:body+=label((j+1)*cell_width-1,y+38,'+',size=7)
+        x=width*.51
+        body+=f'<path d="M{x} {y+36} h24 l-4 -3 m4 3 l-4 3" stroke="{style["palette"]["ink"]}" fill="none"/>'
+        drawing,_=molecule_svg(reaction['product_raw'],[],style,uid=f'gallery-{i}-p',width=width*.41,height=61)
+        body+=embed(drawing,width*.58,y+6,width*.41,61)
+        conditions=source.get('source_conditions','Source conditions unavailable.')
+        for j,line in enumerate(textwrap.wrap(conditions,120)):
+            if j>=4:raise ValueError('source conditions require separate larger case plate')
+            body+=label(7,y+78+j*7,line,size=5.5)
+        metadata['cases'].append({'reaction_key':key,'evidence':evidence,
+            'source_id':source['source_id'],'source_url':source['source_url'],'locator':source['locator'],
+            'source_conditions':conditions,'source_document_sha256':source['document_sha256'],
+            'generated_occurrence_source':reaction.get('source'),
+            'raw_product':reaction['product_raw'],'structural_components':parts})
+    body+=label(7,height-6,'Source/training overlap unknown; an experimentally documented transformation is not a tested whole route.',size=6)
+    return svg_document(body,style,height_pt=height),metadata
+
+
 def prepare_case(route, occurrences, programs, tree, primary_sources):
     """Resolve selected native actions and recompute both reaction and evidence.
 

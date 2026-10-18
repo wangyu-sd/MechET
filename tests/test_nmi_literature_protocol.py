@@ -417,6 +417,11 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
         '--route-assets-manifest',str(assets),'--output-root',str(output),'--retrieval-config',str(config),
         '--prediction-freeze-root',str(freeze),'--program-join-root',str(program_root)],capture_output=True,text=True)
     assert completed.returncode == 0,completed.stderr
+    delivery=json.loads((output/'analysis_manifest.json').read_text())
+    assert delivery['complete'] is True
+    assert delivery['prediction_freeze_manifest_sha256']==sources.file_sha256(freeze/'prediction_freeze_manifest.json')
+    for name in ['metrics.json','evidence_coverage.json','reaction_evidence.jsonl.gz','literature_hits.jsonl.gz']:
+        assert delivery['output_files'][name]['sha256']==sources.file_sha256(output/name)
     metrics = json.loads((output/'metrics.json').read_text())
     assert metrics['literature_tiers'] == {'C':1}
     assert metrics['runs']['r1_mcts_pr88']['denominator'] == 2
@@ -456,6 +461,47 @@ def test_literature_cli_evaluates_every_fixture_target_without_promoting_index_h
     assert coverage['source_checked_reactions']==1
     assert coverage['source_supported_reactions']==0
     assert 'authenticated full R2 join' in coverage['remaining_work']
+
+
+def test_checked_in_retrieval_config_authenticates_original_snapshot_actor():
+    import json
+    import pathlib
+    import yaml
+    root=pathlib.Path(__file__).resolve().parents[1]
+    config=yaml.safe_load((root/'configs/analysis/nmi_r1_r2_matched_baselines_20261017.yaml').read_text())
+    snapshot=json.loads((root/config['source_progress_snapshot']).read_text())
+    assert config['actor']['weight_sha256']==snapshot['mech31k']['actor_sha256']
+
+
+def test_frozen_readonly_index_preserves_literal_path_and_never_writes(tmp_path):
+    import sqlite3
+    keys=module('literature_reaction_keys');sources=module('literature_sources')
+    cls=module('literature_index').ReactionIndex
+    path=tmp_path/'literal?#index.sqlite'
+    writable=cls(path)
+    writable.add({'source_id':'fixture-source','product':'CO','precursors':['CBr','[OH-]'],'license':'fixture'})
+    writable.close();before=sources.file_sha256(path)
+    frozen=module('literature_frozen_index').FrozenReactionIndex
+    reader=frozen(path,index_sha256=before)
+    hits=reader.query(keys.make_reaction('CO',['CBr','[OH-]']))
+    assert [h['source_id'] for h in hits]==['fixture-source']
+    with pytest.raises(sqlite3.OperationalError):
+        reader.add({'source_id':'forbidden','product':'CN','precursors':['CCl','N'],'license':'fixture'})
+    reader.close()
+    assert sources.file_sha256(path)==before
+    with pytest.raises(ValueError):frozen(tmp_path/'must-not-create.sqlite',index_sha256=before)
+    assert not (tmp_path/'must-not-create.sqlite').exists()
+    with pytest.raises(ValueError):frozen(path,index_sha256='0'*64)
+
+
+def test_frozen_index_rejects_mutation_during_readonly_analysis(tmp_path):
+    import os
+    cls=module('literature_index').ReactionIndex
+    path=tmp_path/'index.sqlite';writer=cls(path);writer.close()
+    frozen=module('literature_frozen_index').FrozenReactionIndex
+    reader=frozen(path,index_sha256=module('literature_sources').file_sha256(path))
+    stat=path.stat();os.utime(path,ns=(stat.st_atime_ns,stat.st_mtime_ns+1000000))
+    with pytest.raises(ValueError):reader.close()
 
 
 def test_aggregate_tree_path_resolution_handles_resumed_absolute_and_new_relative(tmp_path):

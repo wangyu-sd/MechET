@@ -54,7 +54,7 @@ Report exact numerators, denominators, label-defined stock closure and paired ta
 
 **First** inspect native MCTS visited-node/event order, temporal route witnesses, cache charging, and existing greedy/independent sampling traces. A target summary with only final aggregate cost cannot be transformed into a fictional `Solved@budget` anytime curve.
 
-Compare at the same frozen Stage-II Qwen3-0.6B adapter (actual weight SHA `40204c7a059d16976fc4b24b315c3bdde515071757e9de75`):
+Compare at the same frozen Stage-II Qwen3-0.6B adapter (actual weight SHA `40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75`):
 - **A Greedy K1**: existing frozen full-route greedy runs, with proper model ancestry and input matching.
 - **B Independent complete-electron-trajectory sampling** (true independently seeded paths; *not* alternative visits from a shared MCTS). If existing independent-K outputs do not exist, prepare a deterministic *ready-to-run* full-declared-target cohort runner/manifest under the same Qwen observation/tool/executor contract and predeclared budgets, but **DO NOT submit new GPU inference without a separate explicit authorization**. All currently accessible real output comparisons and literature-source evaluations must finish first.
 - **C Conventional complete-reaction candidate planning** (existing Syntheseus/Retro* or best-first adapter, when runnable): same actor-generated reaction edges/complete candidate work, same outer AND-route condition and gold-independent rank; isolate *search between complete reactions* from *search within electron-flow transformations*. Do not mislabel a missing planner as a completed baseline.

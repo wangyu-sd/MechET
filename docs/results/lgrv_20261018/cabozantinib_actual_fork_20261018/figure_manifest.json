@@ -1,0 +1,234 @@
+{
+  "schema": "lgrv_actual_source_linked_fork_case_v1",
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "selected_route_key": "afb473abe8f362dc20e6dffa50647baa80c44b4304e19299a893841138f18b9c",
+  "selected_reaction_key": "c08ce91f53318293c4af8fe8fc0f610fcfee43895186af539053ed8fadca581b",
+  "selected_program_record_id": "c49020ce06068cd39246c156c4e405781b2e6a1810637e6afaaeff86a316e5ee",
+  "selected_parent_context": "e959b28924b31ee3dd6780b75c182764b89be757915e1e911489f73c886af20a",
+  "selected_program_prefix_sha256": "e190b1fc86855bcd06e2f05dddac92f4d4290fd88db09d23382fc9c9dcc6f709",
+  "selected_route_branch_attempt": "783bdf3a44e77ebb75008c35705fa7985b248084eccc29f0b9c95f2690958ff9:reaction1:E16",
+  "selected_branch_has_performed_net_precedent": true,
+  "other_branch_source_support": "unresolved; not inferred from the supported branch",
+  "source_report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/8b4ee51d6807d371a02cee3c8680b290a7b3236ab6e7dea93c928cdf2a3280fc.json",
+  "source_report_sha256": "0c3efa3a1ca7868127016f727b09ca0aed622479a8526b085374f4c93f6cb525",
+  "native_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/trees/8b4ee51d6807d371a02cee3c8680b290a7b3236ab6e7dea93c928cdf2a3280fc.json",
+  "native_tree_sha256": "c8c4098d123efe6ead4502daf4275bdfeccf1a1e4343d22195a1a93d9d5d107b",
+  "source_pointer_selection": "Exact saved native acid-chloride parent context after first IMPORT; two accepted FLOW alternatives with distinct canonical chemical successors. One child exactly matches the first two actions of the fixed source-supported terminal program.",
+  "attempts": [
+    {
+      "attempt_id": "783bdf3a44e77ebb75008c35705fa7985b248084eccc29f0b9c95f2690958ff9:reaction1:E16",
+      "source_pointer": "/reaction_trees/O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1/edges/16",
+      "parent_node_id": "783bdf3a44e77ebb75008c35705fa7985b248084eccc29f0b9c95f2690958ff9:reaction1:e959b28924b31ee3dd6780b75c182764b89be757915e1e911489f73c886af20a",
+      "child_node_id": "783bdf3a44e77ebb75008c35705fa7985b248084eccc29f0b9c95f2690958ff9:reaction1:6cf47c6914f88039f96a3dc1f29d0612ad9526618254e03b537ff8c07731277b",
+      "before": {
+        "backend": "RDKit_MolDraw2DSVG",
+        "rdkit_version": "2026.03.4",
+        "state_sha256": "b25440b9cf2f8c039118dd6f65214c22f24d0da349b340b706c284e6e21ebb4d",
+        "source_maps": [
+          [
+            17,
+            18
+          ],
+          [
+            1
+          ]
+        ],
+        "sink_maps": [
+          [
+            18
+          ],
+          [
+            1,
+            17
+          ]
+        ],
+        "electron_arrow_count": 2,
+        "changed_atom_maps": [
+          1,
+          17,
+          18
+        ],
+        "element_colors": "RDKit_default",
+        "stereochemistry_preserved": true,
+        "arrow_geometry": [
+          {
+            "end_anchor_atom": null,
+            "sink_bond_present": null,
+            "start_xy": [
+              113.30122919239145,
+              40.35456485744798
+            ],
+            "end_xy": [
+              98.54017106402743,
+              40.35456485744798
+            ]
+          },
+          {
+            "end_anchor_atom": 17,
+            "sink_bond_present": false,
+            "start_xy": [
+              34.41055434575384,
+              130.606935142552
+            ],
+            "end_xy": [
+              128.06228732075544,
+              40.35456485744798
+            ]
+          }
+        ]
+      },
+      "after": {
+        "backend": "RDKit_MolDraw2DSVG",
+        "rdkit_version": "2026.03.4",
+        "state_sha256": "4b64b1f5de65d140e7abf0883b0002000abc9d93786595871fab5d63391de00f",
+        "source_maps": [],
+        "sink_maps": [],
+        "electron_arrow_count": 0,
+        "changed_atom_maps": [],
+        "element_colors": "RDKit_default",
+        "stereochemistry_preserved": true,
+        "arrow_geometry": []
+      }
+    },
+    {
+      "attempt_id": "783bdf3a44e77ebb75008c35705fa7985b248084eccc29f0b9c95f2690958ff9:reaction1:E17",
+      "source_pointer": "/reaction_trees/O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1/edges/17",
+      "parent_node_id": "783bdf3a44e77ebb75008c35705fa7985b248084eccc29f0b9c95f2690958ff9:reaction1:e959b28924b31ee3dd6780b75c182764b89be757915e1e911489f73c886af20a",
+      "child_node_id": "783bdf3a44e77ebb75008c35705fa7985b248084eccc29f0b9c95f2690958ff9:reaction1:27a7b7ff2bcfb09d5b741ccb6855e8ee17806f0e00bc10fa677c4d577227594e",
+      "before": {
+        "backend": "RDKit_MolDraw2DSVG",
+        "rdkit_version": "2026.03.4",
+        "state_sha256": "b25440b9cf2f8c039118dd6f65214c22f24d0da349b340b706c284e6e21ebb4d",
+        "source_maps": [
+          [
+            8,
+            9
+          ],
+          [
+            17,
+            18
+          ]
+        ],
+        "sink_maps": [
+          [
+            9,
+            17
+          ],
+          [
+            18
+          ]
+        ],
+        "electron_arrow_count": 2,
+        "changed_atom_maps": [
+          8,
+          9,
+          17,
+          18
+        ],
+        "element_colors": "RDKit_default",
+        "stereochemistry_preserved": true,
+        "arrow_geometry": [
+          {
+            "end_anchor_atom": 17,
+            "sink_bond_present": false,
+            "start_xy": [
+              142.67092172445513,
+              119.33803292283766
+            ],
+            "end_xy": [
+              126.256417081149,
+              40.49872519174938
+            ]
+          },
+          {
+            "end_anchor_atom": null,
+            "sink_bond_present": null,
+            "start_xy": [
+              111.3412443405116,
+              40.49872519174938
+            ],
+            "end_xy": [
+              96.4260715998742,
+              40.49872519174938
+            ]
+          }
+        ]
+      },
+      "after": {
+        "backend": "RDKit_MolDraw2DSVG",
+        "rdkit_version": "2026.03.4",
+        "state_sha256": "63b9876d4446d3136238dfeeb4592081263c4a58baa32471231455c293d06e40",
+        "source_maps": [],
+        "sink_maps": [],
+        "electron_arrow_count": 0,
+        "changed_atom_maps": [],
+        "element_colors": "RDKit_default",
+        "stereochemistry_preserved": true,
+        "arrow_geometry": []
+      }
+    }
+  ],
+  "files": {
+    "svg": {
+      "path": "docs/results/lgrv_20261018/cabozantinib_actual_fork_20261018/figures/extended_data_actual_fork.svg",
+      "sha256": "a0cb3e40abc6e4a0e6dde708cf0f93afe07ac20d8692f828709218ed5ec64896"
+    },
+    "pdf": {
+      "path": "docs/results/lgrv_20261018/cabozantinib_actual_fork_20261018/figures/extended_data_actual_fork.pdf",
+      "sha256": "48e630636a9e065c400a9d5bac8f1990da87ea798d64b86d1f8d481aec3b7773"
+    },
+    "png": {
+      "path": "docs/results/lgrv_20261018/cabozantinib_actual_fork_20261018/figures/extended_data_actual_fork.png",
+      "sha256": "80f381f5cacb24876377e83b24aced064ce02a2ddf551c8700124f75ae2d7a48"
+    }
+  },
+  "qa": {
+    "machine_checks_passed": true,
+    "problems": [],
+    "svg": {
+      "ids": 4,
+      "duplicate_ids": 0,
+      "unresolved_references": [],
+      "raster_images": 0,
+      "vector_paths": 208,
+      "editable_text_elements": 8
+    },
+    "pdf": {
+      "pages": 1,
+      "width_mm": 182.99999983055554,
+      "height_mm": 159.8083333333333,
+      "fonts": [
+        {
+          "name": "/PLKGGV+Arial-BoldMT",
+          "subtype": "/TrueType",
+          "embedded": true
+        },
+        {
+          "name": "/PWDLPT+ArialMT",
+          "subtype": "/TrueType",
+          "embedded": true
+        }
+      ],
+      "all_fonts_embedded": true
+    },
+    "png": {
+      "width_px": 2161,
+      "height_px": 1887,
+      "effective_dpi": 299.9420767804564
+    },
+    "visual_inspection_status": "not_established_by_machine_checks",
+    "chemistry_correctness_status": "requires_source_and_drawing_review"
+  },
+  "visual_inspection_status": "assistant_inspected_final_PNG",
+  "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+  "prediction_freeze_manifest_sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+  "actor_exposure_manifest_sha256": "60bc0cc49cfb8a65e4ca9e98c2ac8f1e4ba42a65325046e5c4e3405370bbef4f",
+  "renderer_runtime_tree": "7956ee67cc27eded4a9cc402ef4c4e4ff14331d8",
+  "producer_files": {
+    "src/mechet/analysis/tree_records.py": "28f09ebdd8b61a608afb3e1115642eb85ec99fd45c6e9fc2ad642375103cafe4",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_figures.py": "b6d5ec9488be51b858d048958196b7695f66674d5d6c265d01c5c7cc2814477c",
+    "scripts/render_nmi_literature_figures.py": "e25ed715bc0ca2f8130f5e1d4bb9680a590c7ae911c4375a9fb707315025febf"
+  }
+}

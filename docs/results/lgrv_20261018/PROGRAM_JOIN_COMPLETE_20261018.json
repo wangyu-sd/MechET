@@ -1,0 +1,60 @@
+{
+  "schema": "lgrv_complete_saved_program_join_receipt_v1",
+  "complete": true,
+  "program_join_manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/program_join_pr88_20261018_v3/program_join_manifest.json",
+  "program_join_manifest_sha256": "392713dfcf4e9d599f239b464075253aacc48d12790023cd7b219c0485d3018b",
+  "prediction_freeze_manifest_sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+  "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+  "actor_exposure_manifest_sha256": "60bc0cc49cfb8a65e4ca9e98c2ac8f1e4ba42a65325046e5c4e3405370bbef4f",
+  "producer_runtime_commit": "ee384deacec8fa33c19936b3e89bad458dfea4fe",
+  "counts": {
+    "source_reports": 10480,
+    "native_trees_read": 8520,
+    "complete_prefix_reports_reused_after_raw_revalidation": 940,
+    "program_records": 37922,
+    "seen_ordinary": 21106,
+    "unseen_ordinary": 16789,
+    "unavailable": 27,
+    "reports_without_eligible_reactions": 1960,
+    "unmatched_frozen_reaction_occurrences": 0,
+    "saved_endpoint_and_available_continuity_bindings_valid": 37922
+  },
+  "unavailable_reason_audit": {
+    "zero_FLOW_no_ordered_signature": 27,
+    "compiler_support_error": 0,
+    "saved_state_binding_error": 0,
+    "by_run": {
+      "mech31k_greedy_dynamic": 1,
+      "mech31k_greedy_shared": 1,
+      "mech31k_mcts_pr88": 25
+    },
+    "interpretation": "Accepted saved paths with imports/finish but no FLOW have no ordered electron-program signature. Retained as unavailable, not silently unseen or execution failures."
+  },
+  "runs": {
+    "r1_mcts_pr88": {"original_targets":460,"observed_reports":200,"targets_with_programs":199,"program_records":11480,"seen":5192,"unseen":6288,"unique_unseen_program_signatures":3890,"unseen_group_distinct_reactions":4952},
+    "r1_greedy_dynamic": {"original_targets":460,"observed_reports":460,"targets_with_programs":380,"program_records":1341,"seen":863,"unseen":478,"unique_unseen_program_signatures":249,"unseen_group_distinct_reactions":467},
+    "r1_greedy_shared": {"original_targets":460,"observed_reports":460,"targets_with_programs":376,"program_records":1364,"seen":866,"unseen":498,"unique_unseen_program_signatures":253,"unseen_group_distinct_reactions":475},
+    "mech31k_greedy_dynamic": {"original_targets":3120,"observed_reports":3120,"targets_with_programs":2294,"program_records":2294,"seen":1802,"unseen":491,"unavailable":1,"unique_unseen_program_signatures":238,"unseen_group_distinct_reactions":460},
+    "mech31k_greedy_shared": {"original_targets":3120,"observed_reports":3120,"targets_with_programs":2249,"program_records":2249,"seen":1815,"unseen":433,"unavailable":1,"unique_unseen_program_signatures":211,"unseen_group_distinct_reactions":421},
+    "mech31k_mcts_pr88": {"original_targets":3120,"observed_reports":3120,"targets_with_programs":3022,"program_records":19194,"seen":10568,"unseen":8601,"unavailable":25,"unique_unseen_program_signatures":4182,"unseen_group_distinct_reactions":5106}
+  },
+  "output_hashes": {
+    "composition_census.json": "2a354a13085c7b28c6ba261d844c4933beaac6b6996dcd240d341a63b6581b5f",
+    "native_tree_sources.jsonl.gz": "f796b22da50cb4213721905352dddf213eea807a1b9c6472e4610a112a8df706",
+    "observed_work.json": "f6a09b208e4372ce7817d24c118718e64b64557071cefdfa8cbf1f96a7bb262e",
+    "program_join_unavailable.jsonl.gz": "e8a63e393ef9ef8c91280baac0b3fd8a12b06f485a1c6f44665aa5ac8991acf2",
+    "program_reaction_links.jsonl.gz": "44bb5a7d1fc74ed47c2bc17b5f78f0f9c1602b22b87472e4af4c286cc0ee1270"
+  },
+  "scope": {
+    "every_fixed_available_report_processed": true,
+    "new_model_inference": false,
+    "native_source_state_binding_not_independent_executor_replay": true,
+    "program_novelty_not_chemical_novelty": true,
+    "matched_compute_claim": false,
+    "R1_260_missing_reports_remain_pending": true,
+    "R2_160_reference_C0_C1_C2": "Unknown",
+    "historical_H2_result_claim": false,
+    "chemical_source_support_supplied_by_separate_join": true,
+    "whole_PR89_goal_completed": false
+  }
+}

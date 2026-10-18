@@ -26,12 +26,9 @@ def _rows(path):
         yield from (json.loads(line) for line in handle)
 
 
-def render_selected_case(spec_path,freeze_root,exposure_path,primary_registry_paths,style_path,output_root):
-    import yaml
-    from rdkit import rdBase
-    from scripts.render_nmi_tree_figures import export
-    spec_path,freeze_root,exposure_path,style_path,output_root=map(Path,
-        (spec_path,freeze_root,exposure_path,style_path,output_root))
+def load_selected_case(spec_path,freeze_root,exposure_path,primary_registry_paths):
+    """Authenticate source files and prepare chemistry, without writing figures."""
+    spec_path,freeze_root,exposure_path=map(Path,(spec_path,freeze_root,exposure_path))
     spec=json.loads(spec_path.read_bytes());freeze_path=freeze_root/'prediction_freeze_manifest.json'
     for path,expected in [(freeze_path,spec['prediction_freeze_manifest_sha256']),
                           (exposure_path,spec['actor_exposure_manifest_sha256'])]:
@@ -78,6 +75,19 @@ def render_selected_case(spec_path,freeze_root,exposure_path,primary_registry_pa
         raise ValueError('missing or duplicate selected native programs')
     registry=load_primary_registries(primary_registry_paths)
     prepared=prepare_case(route,occurrences,selected,tree,registry['records'])
+    return {'spec':spec,'freeze':freeze,'freeze_path':freeze_path,'source':source,
+            'native_path':native_path,'prepared':prepared,'registry':registry}
+
+
+def render_selected_case(spec_path,freeze_root,exposure_path,primary_registry_paths,style_path,output_root):
+    import yaml
+    from rdkit import rdBase
+    from scripts.render_nmi_tree_figures import export
+    spec_path,freeze_root,exposure_path,style_path,output_root=map(Path,
+        (spec_path,freeze_root,exposure_path,style_path,output_root))
+    context=load_selected_case(spec_path,freeze_root,exposure_path,primary_registry_paths)
+    spec,freeze,freeze_path,source,native_path,prepared,registry=(context[k] for k in
+        ['spec','freeze','freeze_path','source','native_path','prepared','registry'])
     style=yaml.safe_load(style_path.read_text())
     main,details,metadata=render_case(prepared,style,title=spec['title'])
     # No output directory before all file, chemical and action bindings pass.
@@ -130,7 +140,7 @@ def render_selected_case(spec_path,freeze_root,exposure_path,primary_registry_pa
               ROOT/'src/mechet/analysis/literature_evidence.py',ROOT/'src/mechet/analysis/literature_programs.py',
               ROOT/'src/mechet/natural_language_electron_flow.py',ROOT/'src/mechet/analysis/figure_qa.py']
     manifest={'schema':'lgrv_source_bound_case_figures_v1','case_id':spec['target_id'],
-        'route_key':route['route_key'],'actor_sha256':freeze['actor_sha256'],
+        'route_key':prepared['route_key'],'actor_sha256':freeze['actor_sha256'],
         'rdkit_version':rdBase.rdkitVersion,'figures':figures,
         'source_files':[{'path':str(p.resolve()),'sha256':file_sha256(p)} for p in paths],
         'producer_files':{str(p.relative_to(ROOT)):file_sha256(p) for p in producer},

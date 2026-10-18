@@ -1,0 +1,22 @@
+{
+  "schema": "lgrv_original_corpus_completion_receipt_v1",
+  "complete": true,
+  "source_corpus_manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/derived/literature/ord_lgrv_full_20261018_v1/source_corpus_manifest.json",
+  "source_corpus_manifest_sha256": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd",
+  "original_catalogue_sha256": "ca11d782a812f18d1ed205cc98e71d798b50d7190844a27cdb76d60fff3d4419",
+  "completed_original_files": 93,
+  "original_source_reaction_rows": 2428291,
+  "indexed_structure_representations": 4338961,
+  "index_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/derived/literature/ord_lgrv_full_20261018_v1/reactions.sqlite",
+  "index_sha256": "ee997c8732df797e27a7d5c2bd58cdd18a4472566818f9d8870092ba4f0de16b",
+  "official_git_revision": "704870642e5c93a141e6666436bc14a9b5f880ed",
+  "official_mirror_revision": "46980f8cb68aa43ed9707edec319d4eac5a2bfed",
+  "data_license": "CC-BY-SA-4.0",
+  "schema_code_license": "Apache-2.0",
+  "producer_runtime_commit": "d220809917f9cbd243d561e7a31336a33c105736",
+  "original_and_repaired_shards_preserved": true,
+  "conversion_failures_retained_in_hashed_per_source_ledgers": true,
+  "index_count_is_unique_chemical_reactions": false,
+  "index_hits_are_checked_experimental_precedents": false,
+  "new_model_inference": false
+}

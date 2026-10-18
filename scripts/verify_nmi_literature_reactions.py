@@ -13,7 +13,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'src'))
 from mechet.analysis.literature_evidence import assess,load_primary_registries
-from mechet.analysis.literature_index import ReactionIndex
+from mechet.analysis.literature_frozen_index import FrozenReactionIndex
 from mechet.analysis.literature_reaction_keys import make_reaction
 from mechet.analysis.literature_route_metrics import aggregate_routes,disconnection_counts,paired_observed_targets,source_supported
 from mechet.analysis.literature_sources import file_sha256
@@ -70,8 +70,9 @@ def main():
         for row in rows(args.program_join_root/'program_reaction_links.jsonl.gz'):
             programs[row['run_id']].append(row)
     corpus = json.loads((args.source_reaction_index.parent/'source_corpus_manifest.json').read_bytes())
-    if corpus.get('complete') is not True or file_sha256(args.source_reaction_index)!=corpus['index_sha256']:
+    if corpus.get('complete') is not True:
         raise ValueError('source index incomplete or checksum differs')
+    source_index=FrozenReactionIndex(args.source_reaction_index,index_sha256=corpus['index_sha256'])
     registry = load_primary_registries(args.primary_source_registry)
     primary = defaultdict(list)
     for record in registry['records']:
@@ -84,7 +85,6 @@ def main():
     output = args.output_root;output.mkdir(parents=True,exist_ok=False)
     save(output/'source_corpus_manifest.json',corpus);save(output/'prediction_freeze_manifest.json',freeze)
     evidence = {};tiers=Counter();retrieval=Counter()
-    source_index = ReactionIndex(args.source_reaction_index,readonly=True)
     with gzip.open(output/'literature_hits.jsonl.gz','wt') as hits_file, gzip.open(output/'reaction_evidence.jsonl.gz','wt') as evidence_file:
         for number,reaction in enumerate(rows(args.prediction_freeze_root/'unique_reaction_queries.jsonl.gz'),1):
             key = reaction['reaction_key']
@@ -201,6 +201,20 @@ def main():
                   [] if program_manifest and program_manifest['unmatched_occurrence_count']==0 else ['authenticated full R2 join'])}
     save(output/'metrics.json',metrics);save(output/'evidence_coverage.json',coverage)
     save(output/'progress.json',{'phase':'structured_retrieval_complete_primary_coverage_explicit',**coverage})
+    # Written last: consumers must never treat partial or subsequently edited
+    # evidence tables as a completed population analysis.
+    producer=[Path(__file__),*sorted((ROOT/'src/mechet/analysis').glob('literature_*.py')),
+              ROOT/'src/mechet/analysis/mechanism_consistency.py']
+    save(output/'analysis_manifest.json',{
+        'schema':'lgrv_analysis_manifest_v1','complete':True,
+        'actor_sha256':freeze['actor_sha256'],
+        'prediction_freeze_manifest_sha256':file_sha256(args.prediction_freeze_root/'prediction_freeze_manifest.json'),
+        'source_corpus_manifest_sha256':file_sha256(args.source_reaction_index.parent/'source_corpus_manifest.json'),
+        'retrieval_config_sha256':file_sha256(args.retrieval_config),
+        'primary_registry_manifests':registry['source_manifests'],
+        'program_join_manifest_sha256':metrics['r2_program_join_manifest_sha256'],
+        'producer_files':{str(p.relative_to(ROOT)):file_sha256(p) for p in producer},
+        'output_files':{p.name:{'sha256':file_sha256(p)} for p in sorted(output.iterdir()) if p.is_file()}})
     print(json.dumps({'phase':'retrieval_complete','unique_reactions':len(evidence),'tiers':dict(tiers)}),flush=True)
 
 

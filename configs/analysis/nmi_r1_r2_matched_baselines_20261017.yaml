@@ -32,7 +32,7 @@ output:
     - extended_data_source_retrieval_coverage
 actor:
   name: Qwen3-0.6B Stage-II compact-history full tool policy
-  weight_sha256: "40204c7a059d16976fc4b24b315c3bdde515071757e9de75"
+  weight_sha256: "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75"
   immutable_prompt_executor_tokenizer_and_base_revision: true
   protocol_action_families: [IMPORT, FLOW, FINISH]
   authenticate_stale_manifest_before_new_evaluation: true

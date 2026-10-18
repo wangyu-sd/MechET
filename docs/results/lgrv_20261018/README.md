@@ -4,6 +4,47 @@ Status: **implementation and full-population processing in progress**. This is
 not a completed chemical-validation result. No GPU job, model inference,
 training, ranking evaluation, MCTS restart or paper merge was performed.
 
+## Latest verified progress (18 October, supersedes older processing notes)
+
+- **Original corpus complete:**93/93 official files,2,428,291 source rows and
+  4,338,961 indexed structure representations. The latter are not unique
+  chemical reactions. [Completion/hash receipt](CORPUS_COMPLETE_20261018.json).
+- **Saved program join complete:**10,480 reports,37,922 program records and
+  zero unmatched frozen reaction occurrences. All available native state
+  bindings passed. The27 unavailable signatures contain no FLOW operation,
+  not compiler/executor failures. [Full join receipt](PROGRAM_JOIN_COMPLETE_20261018.json).
+- **Full structural retrieval complete:**all18,210 frozen unique reaction
+  queries across six conditions,71 with indexed candidates/114 source records.
+  Three-registry analysis `source_checked_20261018_v3` is complete and sealed
+  with14 output hashes. Four reactions have checked exact experimental
+  precedent;18,206 remain unresolved. This is source-review coverage, not a
+  chemical correctness rate. [Complete evidence and paired tables](analysis_tables_20261018/README.md).
+- **Broader source checks:**two additional performed patent examples have now
+  been cached and structurally reconciled: phenoxyaniline acetylation
+  ([US8188116B2](https://patents.google.com/patent/US8188116B2/en),Example11)
+  and quinoline-phenol benzylation
+  ([US7576215B2](https://patents.google.com/patent/US7576215B2/en),Example489).
+  All six conditions have been reaggregated with the added registry in the
+  separate v3 output. No source/query was replaced. [Population summary](POPULATION_RESULTS_20261018.json).
+- **Actual generation work:**all eight exact PR88 wave prefixes now bind the
+  frozen stock-route witnesses.852,951,580 newly generated output tokens and
+  184,560,843 separate cache-return tokens;8,035,879 unique scheduled model
+  calls. This includes unfinished-target work, not only200 saved reports.
+  [Measured work and source-prefix hashes](R1_ACTUAL_GENERATION_WORK_20261018.json).
+- **Software gate:**1,135 passed/14 skipped in the post-fix CPU-only whole
+  suite,155.93s, with one existing PEFT warning. Its10 targeted work tests
+  also passed. [Review/fixes](POPULATION_FIGURE_REVIEW.md).
+  GPU checks were not rerun because unrelated work occupied the GPU.
+
+The final [population Figure2/3](population_figures_20261018/README.md),
+[four-reaction Figure4 gallery](reaction_precedent_gallery_20261018/README.md)
+and [actual accepted electron-flow fork](cabozantinib_actual_fork_20261018/README.md)
+are exported and visually inspected as SVG/PDF/PNG. They show the current
+evidence, not completed population chemical validation. Broader primary
+checking, independently calibrated analogue coverage, missing matched controls,
+complexity/paired extended panels and the final whole-goal audit remain
+required. The PR89 goal is **not complete**.
+
 ## Completed
 
 - Read the updated PR89 LGRV-v1 specification. Its complete-reaction evidence
@@ -29,7 +70,7 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
   passage. This remains **one source-checked complete reaction**, not evidence
   for all symbolic FLOW actions or the full route. Source conditions differ
   from the actor's auxiliary mixture; the adjacent acid-chloride preparation
-  is not silently promoted to supported chemistry.
+  was later independently checked against WO2018104954A1, as documented below.
 - Complete the full frozen prediction extraction: **26,330 reaction occurrence
   records**, **18,210 distinct complete reaction queries**, **474 saved AND-stock
   routes**, and **10,740 target/run rows** across six conditions. Counts are not
@@ -45,7 +86,8 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
   MCTS targets and both complete3120-target Greedies. It never copies reference
   precursors into retrieval queries. No additional report from the growing R1
   run is silently included.
-- Source indexing streams the entire downloaded corpus using16 CPU processes.
+- Source indexing streamed the entire downloaded corpus with original and
+  corrected repair workers; all93 completed shards are now assembled.
   Binary source data and generated SQLite shards remain outside Git. Source
   conversion failures are retained in per-file failure ledgers; they are not
   classified as chemical negatives.
@@ -53,9 +95,9 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
   four correctness/recovery issues. All were corrected with regressions; the
   entire failed source file completed conversion with the corrected worker
   while other original successful shard work is preserved. See
-  [review and fixes](FOUNDATION_REVIEW.md). The combined source index is **not
-  yet complete**; the old driver's16-file manifest is not the count of completed
-  on-disk source shard receipts.
+  [review and fixes](FOUNDATION_REVIEW.md). The combined source index is now
+  complete; the old driver's16-file manifest is historical, not the count of
+  completed on-disk source shard receipts.
 - [The entire-file repair](source_file_repair.json) read70,725 source rows and
   retained129,079 structured representations, including the formerly crashing
   exact reaction. Sixteen invalid source representations are logged, not
@@ -75,12 +117,14 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Not yet delivered
 
-Full source retrieval, broader primary-document checks beyond the two checked
-Cabozantinib reactions, complete R2 program-exposure joins, validated analogue
-retrieval settings, all-work efficiency comparisons and the final population
-Figure2/3 and wider Figure4 gallery remain unfinished. The supported two-edge
-case and its complete action plates are now exported below. No population
-Tier-A/B rate is claimed here.
+Broader primary-document checks beyond the four checked reactions, validated
+analogue retrieval settings, all-condition measured-work comparisons, missing
+control preparation, extended panels and the final whole-goal audit remain
+unfinished. Current Figure2/3, the four-reaction Figure4 gallery and the
+supported two-edge case are exported. The18,206 unresolved reactions are not
+chemical negatives. Native-program mapping may provide additional defensible
+analogue keys; current `mapping_unknown` counts are not complete analogue
+coverage.
 The goal and original scope remain active; unit tests do not replace results.
 
 ## Follow-up: actual program joins and a complete source-backed case
@@ -97,7 +141,7 @@ All fixed200 R1 reports have been associated: **7,996/7,996 reaction occurrence
 records**, **11,480 terminal programs**, including **6,288 training-unseen
 ordinary program occurrences /3,890 distinct unseen v1 signatures**. This
 is not a chemical correctness rate. The combined six-condition annotation
-and post-review action-state binding audit remain in progress. These are
+and post-review action-state binding audit are now complete. These are
 archival v1 linkage/signature counts. See [the exact R1 snapshot](R1_PROGRAM_JOIN_SNAPSHOT.json)
 for exposure scope, overlap limitations and immutable source-prefix hashes.
 
@@ -149,7 +193,7 @@ Parquet row counts, preserves legacy producer provenance through explicit
 opt-in, and refuses partial-corpus substitution. Finalization is resumable;
 donor/source path and inode aliases are rejected. [Review](FIGURE_COLLECTION_REVIEW.md).
 
-For the existing repaired collection, after all93 source receipts are complete:
+For reproducibility, the completed93-source assembly used:
 
 ```bash
 python scripts/assemble_nmi_literature_index.py \
@@ -163,8 +207,8 @@ python scripts/assemble_nmi_literature_index.py \
 ```
 
 Use that completed full index, not a23-file repair-batch index, for the final
-evidence CLI. The source conversion, full program join and all scientific
-deliverables remain subject to actual completion checks.
+evidence CLI. Source conversion and the full program join are now complete;
+scientific evidence coverage and publication delivery remain separate gates.
 
 ## Exact source versions
 
@@ -191,7 +235,7 @@ source artifacts. Local analysis variables below do not replace system paths.
 ```bash
 DATA_ROOT=/aaa/fionafyang/buddy1/whaleywang/MechET
 ORD_ROOT=$DATA_ROOT/data/raw/literature/ord_46980f8cb68aa43ed9707edec319d4eac5a2bfed
-INDEX_ROOT=$DATA_ROOT/data/derived/literature/ord_lgrv_46980f8_v1
+INDEX_ROOT=$DATA_ROOT/data/derived/literature/ord_lgrv_full_20261018_v1
 FREEZE_ROOT=$DATA_ROOT/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2
 
 python scripts/download_nmi_literature_sources.py \
@@ -210,7 +254,7 @@ python scripts/build_nmi_literature_index.py \
   --codec-file /tmp/mechet_lgrv_reaction_pb2.py \
   --codec-sha256 f33ac383b4c0517355188a6e2b4d77bc679dc9ea553b16d467043e478f4f16dd \
   --codec-source-revision 51b3a4968835f0090268cab9c0be034b48ac62d4 \
-  --output-root "$INDEX_ROOT" --workers 16
+  --output-root "$DATA_ROOT/data/derived/literature/ord_lgrv_fresh_rebuild" --workers 16
 
 # To resume the existing pre-v1.1 successful shards after the old workers exit,
 # add --allow-compatible-v1-shards. Source/codec/database/failure-ledger hashes
@@ -248,8 +292,15 @@ python scripts/verify_nmi_literature_reactions.py \
   --retrieval-config configs/analysis/nmi_r1_r2_matched_baselines_20261017.yaml \
   --primary-source-registry configs/analysis/lgrv_primary_source_seed_20261018.json \
   --primary-source-registry configs/analysis/lgrv_primary_sources_20261018_v2.json \
+  --primary-source-registry configs/analysis/lgrv_primary_sources_20261018_v3.json \
   --program-join-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/program_join_pr88_20261018_v3" \
-  --output-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/source_checked_20261018_v1"
+  --output-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/new_full_analysis"
+
+# Actual generation-wave cost at the same immutable PR88 snapshot; no GPU run.
+PYTHONPATH=src python -m mechet.analysis.literature_work \
+  --progress-snapshot docs/results/progress_20261017/snapshot.json \
+  --prediction-freeze-root "$FREEZE_ROOT" \
+  --output "$DATA_ROOT/outputs/paper/nmi_literature_evidence/new_snapshot_work.json"
 ```
 
 The primary seed registry references the captured document path on Ceph. On a

@@ -1,0 +1,169 @@
+{
+  "reaction_keys": [
+    "4e8b1ad7a25f05c2ebdc7642de03c9990617588c2546b5b4f6af78e77387a4e0",
+    "c08ce91f53318293c4af8fe8fc0f610fcfee43895186af539053ed8fadca581b",
+    "326d15b0877b04fa6c7e4610ebad9d48d0a08d2e3b5fb5132a325c34e99da006",
+    "0c49f181fc24ed1861eddd8e023b7e9c584089b02b6b312417572948d00df813"
+  ],
+  "physical_mechanism_verified": false,
+  "selection": "explicit source-positive gallery, not population validation",
+  "cases": [
+    {
+      "reaction_key": "4e8b1ad7a25f05c2ebdc7642de03c9990617588c2546b5b4f6af78e77387a4e0",
+      "evidence": {
+        "reaction_key": "4e8b1ad7a25f05c2ebdc7642de03c9990617588c2546b5b4f6af78e77387a4e0",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US20160022662A1:cabozantinib-free-base:acid-chloride-coupling",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US20160022662A1/en",
+        "locator": "Description, Preparation of cyclopropane-1,1-dicarboxylic acid [4-(6,7-dimethoxy-quinoline-4-yloxy)-phenyl]-amide(4-fluoro-phenyl)-amide; paragraph beginning The solution from the previous step containing; normalized-text offset130922",
+        "document_sha256": "e21482a424093f3679400b0645e960be423b515f90f5c3831d1471a50b436511",
+        "raw_document_sha256": "d3e4ed6172d4727ebcf9228b3fd1291d629693112ea02587bb2f4d7087b0c7ff",
+        "conditions_match": false
+      },
+      "source_id": "US20160022662A1:cabozantinib-free-base:acid-chloride-coupling",
+      "source_url": "https://patents.google.com/patent/US20160022662A1/en",
+      "locator": "Description, Preparation of cyclopropane-1,1-dicarboxylic acid [4-(6,7-dimethoxy-quinoline-4-yloxy)-phenyl]-amide(4-fluoro-phenyl)-amide; paragraph beginning The solution from the previous step containing; normalized-text offset130922",
+      "source_conditions": "K2CO3; THF/water; addition not exceeding30C; reported completion approximately20min; precipitation at20-25C approximately10h",
+      "source_document_sha256": "e21482a424093f3679400b0645e960be423b515f90f5c3831d1471a50b436511",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/8b4ee51d6807d371a02cee3c8680b290a7b3236ab6e7dea93c928cdf2a3280fc.json",
+        "report_sha256": "0c3efa3a1ca7868127016f727b09ca0aed622479a8526b085374f4c93f6cb525",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/manifest.json",
+        "manifest_sha256": "848ec6f0c1e82a48565069dd593950e77bb7445e651cb63467e133b05a298949",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+        "stock_sha256": "d2b40f5eaffc6d21d1db347f2f2685c0fb06c89fa76ba9c293beb84c624e73d2"
+      },
+      "raw_product": "COc1cc2nccc(Oc3ccc(NC(=O)C4(C(=O)Nc5ccc(F)cc5)CC4)cc3)c2cc1OC",
+      "structural_components": [
+        "COc1cc2nccc(Oc3ccc(N)cc3)c2cc1OC",
+        "O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1"
+      ]
+    },
+    {
+      "reaction_key": "c08ce91f53318293c4af8fe8fc0f610fcfee43895186af539053ed8fadca581b",
+      "evidence": {
+        "reaction_key": "c08ce91f53318293c4af8fe8fc0f610fcfee43895186af539053ed8fadca581b",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "WO2018104954A1:example1:acid-to-acid-chloride",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/WO2018104954A1/en",
+        "locator": "Description preferred embodiment step(a), formula2 to formula3, normalized offset~51600; Examples, Example1 opening paragraph, normalized offset83477. Formed acid chloride is used in situ in the subsequent coupling, not separately isolated.",
+        "document_sha256": "00e77f7011c4029a1834e4cc6713ff04f1f47406313bceb68c706b5a9c32d32d",
+        "raw_document_sha256": "d92932b6983d7a6a6de1fd6555d52dd969dcc3d19e4d72e6907dfd8907facf6f",
+        "conditions_match": false
+      },
+      "source_id": "WO2018104954A1:example1:acid-to-acid-chloride",
+      "source_url": "https://patents.google.com/patent/WO2018104954A1/en",
+      "locator": "Description preferred embodiment step(a), formula2 to formula3, normalized offset~51600; Examples, Example1 opening paragraph, normalized offset83477. Formed acid chloride is used in situ in the subsequent coupling, not separately isolated.",
+      "source_conditions": "Example1: acid112.9g, thionyl chloride180.4g, THF600mL,25-30C,5h; then used in situ for coupling. No acid-chloride isolated yield or independent characterization is given.",
+      "source_document_sha256": "00e77f7011c4029a1834e4cc6713ff04f1f47406313bceb68c706b5a9c32d32d",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/8b4ee51d6807d371a02cee3c8680b290a7b3236ab6e7dea93c928cdf2a3280fc.json",
+        "report_sha256": "0c3efa3a1ca7868127016f727b09ca0aed622479a8526b085374f4c93f6cb525",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/manifest.json",
+        "manifest_sha256": "848ec6f0c1e82a48565069dd593950e77bb7445e651cb63467e133b05a298949",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+        "stock_sha256": "d2b40f5eaffc6d21d1db347f2f2685c0fb06c89fa76ba9c293beb84c624e73d2"
+      },
+      "raw_product": "O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1",
+      "structural_components": [
+        "O=C(O)C1(C(=O)Nc2ccc(F)cc2)CC1",
+        "O=S(Cl)Cl"
+      ]
+    },
+    {
+      "reaction_key": "326d15b0877b04fa6c7e4610ebad9d48d0a08d2e3b5fb5132a325c34e99da006",
+      "evidence": {
+        "reaction_key": "326d15b0877b04fa6c7e4610ebad9d48d0a08d2e3b5fb5132a325c34e99da006",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US8188116B2:example11:phenoxyaniline-acetylation",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US8188116B2/en",
+        "locator": "Example 11, N-(5-fluoro-2-phenoxyphenyl)acetamide 4, performed acetylation and isolated-product paragraph. Same preparation also appears earlier in the description.",
+        "document_sha256": "d9c65db5e61968bbf3dc7e7602553c1030c3fa35c0cec256d80f3d0aeb560938",
+        "raw_document_sha256": "55e3073e48a7ba839f7f0f5304accdc8609f14ff34e534b52f1636172fb40761",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "source_id": "US8188116B2:example11:phenoxyaniline-acetylation",
+      "source_url": "https://patents.google.com/patent/US8188116B2/en",
+      "locator": "Example 11, N-(5-fluoro-2-phenoxyphenyl)acetamide 4, performed acetylation and isolated-product paragraph. Same preparation also appears earlier in the description.",
+      "source_conditions": "Pyridine 15 mL; aniline 5.14 g/25 mmol; acetyl chloride 2.3 mL/33 mmol added at 0 C, then reflux 1 h. Chromatography gives 5.6 g, 90%; product NMR and GC-MS are reported.",
+      "source_document_sha256": "d9c65db5e61968bbf3dc7e7602553c1030c3fa35c0cec256d80f3d0aeb560938",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/evaluations/feec3c58630ba88d6f8dd4bfc5397f46e2b306999dff55177cbe1f8bd78ea482.json",
+        "report_sha256": "0fb92ca33aa3c19afaa6e785a654e43a4aa66a822c19c51101755dc193d7e100",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/manifest.json",
+        "manifest_sha256": "9a8b69e89186f41adefadefff3b20ec7b9d6638093a4261e7dfc46e388209598",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+        "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+      },
+      "raw_product": "CC(=O)Nc1cc(F)ccc1Oc1ccccc1",
+      "structural_components": [
+        "CC(=O)Cl",
+        "Nc1cc(F)ccc1Oc1ccccc1"
+      ]
+    },
+    {
+      "reaction_key": "0c49f181fc24ed1861eddd8e023b7e9c584089b02b6b312417572948d00df813",
+      "evidence": {
+        "reaction_key": "0c49f181fc24ed1861eddd8e023b7e9c584089b02b6b312417572948d00df813",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US7576215B2:example489:quinoline-phenol-benzylation",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US7576215B2/en",
+        "locator": "Example 489, named para-tert-butylbenzyl ether product and performed preparation sentence, referring to the procedure of Example 478.",
+        "document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+        "raw_document_sha256": "72e5c10ca5dacaaf5338481c9d3bd37b5b20decd8a4375dec226bd43c8464443",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "source_id": "US7576215B2:example489:quinoline-phenol-benzylation",
+      "source_url": "https://patents.google.com/patent/US7576215B2/en",
+      "locator": "Example 489, named para-tert-butylbenzyl ether product and performed preparation sentence, referring to the procedure of Example 478.",
+      "source_conditions": "Example 489 explicitly refers to Example 478: cesium carbonate (source notation CsCO3) in DMF, 60 C for 14 h, then reversed-phase HPLC. The 33% yield belongs to Example 478's nitrobenzyl analogue and is NOT assigned to Example 489.",
+      "source_document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+      "generated_occurrence_source": {
+        "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/evaluations/mech-uspto31k-full:test:19608.json",
+        "report_sha256": "a8adaf933248789082a48a9a6baa1ca2f9784cdf5d01471e29fd51ea96a95375",
+        "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/trees/mech-uspto31k-full:test:19608.json",
+        "target_tree_sha256": "dfb82db7dbf8d39fd463c174634d97ce587be43bd41672cb54496205dcef1da0",
+        "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/manifest.json",
+        "manifest_sha256": "cf6d4b0892402731fe93d86d9658bfe9ce1197f98508875e385eebbd9dbc98ec",
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+      },
+      "raw_product": "CC(C)(C)c1ccc(COc2cccc(-c3c(C(=O)c4ccccc4)cnc4c(C(F)(F)F)cccc34)c2)cc1",
+      "structural_components": [
+        "CC(C)(C)c1ccc(CBr)cc1",
+        "O=C(c1ccccc1)c1cnc2c(C(F)(F)F)cccc2c1-c1cccc(O)c1"
+      ]
+    }
+  ]
+}
