@@ -5,7 +5,27 @@ not legacy Top-K/reference ranking. This is a progress audit, **not a claim
 that the entire PR89 goal is complete**. No model/GPU/Taiji jobs were launched
 or changed in this delivery; paper and code main remain unmerged.
 
-**Current v13 (19October):**47TierA/1query-scopedTierB/18,162unresolved,
+**Current v14 (19October):**47TierA/7query-scopedTierB/18,156unresolved,
+all18,210queries/sixconditions/samequery-context-candidate sequences and21
+sealed hashes. Three performed preparations andall18 assigned pending pairs
+read:6compatibleanalogues/12unresolved. This is54supportedgeneratedreactions,
+not54independentexperiments orvalidatedqueryoutcomes. Complete54-case paired
+memberships/17wholeanalysis+3coveragefiles/113-query states retained;states
+33pointer/62cachedpending/16applicability/2stereo. All77remainingreferenced
+documents available,not77verifiedreactions. Old48supports unchanged. R1
+allterminal25reactions23targets;stockroute11/1unchanged;31kproxy23/18/17
+unchanged. New3source-vs-queryplates coverall6Bpairs,allactualPNGspreviews
+opened and9exportsQAchecked. Newcompiler8testsRED->GREEN;full1,269passed/
+14skipped/1existingwarning258.93s;fresh delivery rerun1,269passed/14skipped/
+1existingwarning244.74s. NoGPU/model/Taiji/merge. Broaderoriginal
+primaryreview andfinalwhole-goalreview remain open.
+
+Currentv14 populationFigure2/3 and3extendedpanels are regenerated fromthe same
+analysis. All5actualPNGpreviews opened/inspected;15exports retain source/
+producer hashes andvector/font/size/DPI QA. R2seen/unseen supportedreaction
+sets20/9overlap;R1workpanelnumerator25,not54pooled. Historicalfiguresunchanged.
+
+**Historical v13 (19October):**47TierA/1query-scopedTierB/18,162unresolved,
 same18,210queries/sixconditions/all21hashes/query-context-hit sequences.
 Recovered original A23,not the earlier nonmatching A26;one exact source
 added,no policy relaxation. Complete48-case paired memberships/17whole

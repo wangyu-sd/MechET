@@ -6,7 +6,37 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v13 source review:** directly inspecting A23 beyond the previously
+**Current v14 source review:** three performed preparations were read once
+and their **18 source/query pairs reviewed individually**:6 new TierB
+compatibility inferences,12 unresolved applicability limits. Full18,210-query/
+six-condition counts are now **47 TierA,7 TierB,18,156 unresolved**. These54
+supported generated reactions are not54 independent performed experiments.
+[Complete tables/all54 cases](analysis_tables_primary_v14_20261019/README.md),
+[whole coverage](coverage_review_v14_20261019/README.md),
+[all113 work states](primary_review_states_v14_20261019/README.md) and
+[six-condition summary](POPULATION_RESULTS_PRIMARY_V14_20261019.json)
+retain all methods. All21 sealed hashes andcomplete original query/context/
+candidate sequences are verified;old48 support rows are unchanged.
+
+The [18-pair review and tested compiler](grouped_primary_review_20261019/README.md)
+bind actual source structures,methods andeach query's differences,not a
+family-wide compatibility flag. [Three inspected RDKit plates](analogue_source_query_gallery_20261019_v14/README.md)
+show every new supported pair,with performed source rows separate from
+unmeasured generated analogues. R1 all-terminal support is25 reactions across
+23 targets;Greedies each retain7/6. Stock-route any-exact11/all-essential1 and
+31k proxy23/18/17 remain unchanged. Unequal-work comparisons are descriptive,
+not causal search superiority orchemical accuracy. Fresh delivery CPU gate:
+1,269passed/14skipped,one existing warning,244.74s. No model/GPU/Taiji task or merge.
+Wider source review andthe final whole-goal audit remain open.
+
+The [v14 Figure2/3 and three extended panels](population_figures_primary_v14_20261019/README.md)
+now use the same current analysis. All five actual PNGs were opened and
+inspected;15 exports retain editable vectors,embedded fonts and source hashes.
+Seen/unseen MCTS programs have20/9 supported reaction sets,with overlap;
+the work panel uses25 R1 MCTS reactions,not54 pooled across all methods.
+All earlier figure versions remain unchanged.
+
+**Historical v13 source review:** directly inspecting A23 beyond the previously
 checked nonmatching A26 recovers one further exact preparation. The unchanged
 18,210-query/six-condition analysis now has **47 TierA,1 query-scoped TierB,
 18,162 unresolved**. [Complete tables/all48 cases](analysis_tables_primary_v13_20261019/README.md),
