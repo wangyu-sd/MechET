@@ -69,7 +69,7 @@ def _environment(graph, key, radius):
     return Chem.MolFragmentToSmiles(mol, atomsToUse=sorted(selected), canonical=True, isomericSmiles=True)
 
 
-def mapped_center(precursors, product, *, radius=1):
+def _mapped_center(precursors, product, *, radius=1):
     before, after = _mapped_graph(precursors), _mapped_graph(product)
     unknown = {'mapping_status':'mapping_unknown', 'reaction_family_key':None,
                'changed_bond_count':None, 'center_radius':radius}
@@ -97,6 +97,19 @@ def mapped_center(precursors, product, *, radius=1):
             stable_hash({'radius':radius, 'bonds':sorted(edits,key=str), 'charges':sorted(charges,key=str)}),
             'changed_bond_count':len(edits), 'center_radius':radius,
             'family_key_scope':'local_edit_retrieval_candidate_not_chemical_equivalence'}
+
+
+def mapped_center(precursors, product, *, radius=1):
+    try:
+        return _mapped_center(precursors,product,radius=radius)
+    except RuntimeError as error:
+        # Full exact identity has already succeeded. A boundary stereobond can
+        # be unserializable in RDKit's *partial* neighbourhood. Do not remove
+        # stereo, invent a family or discard the intact complete reaction.
+        return {'mapping_status':'mapping_unknown','reaction_family_key':None,
+                'changed_bond_count':None,'center_radius':radius,
+                'family_error':'local_stereochemical_fragment_serialization_failed',
+                'family_error_details':str(error)[:500]}
 
 
 def make_reaction(product, precursors, *, auxiliary=(), mapped_product=None, mapped_precursors=None, radius=1):

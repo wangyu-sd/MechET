@@ -209,6 +209,17 @@ def iter_ord_messages(path, decoder, *, batch_size=1024):
             row_index += 1
 
 
+def normalize_primary_text(payload, encoding='utf-8'):
+    class ExtractText(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True);self.parts=[]
+        def handle_data(self,value):
+            if value.strip():
+                self.parts.append(value)
+    extractor=ExtractText();extractor.feed(payload.decode(encoding,errors='replace'))
+    return ' '.join(' '.join(extractor.parts).split())
+
+
 def snapshot_primary_document(url, output_root):
     """Cache primary bytes once and hash normalized text; never publish full text.
 
@@ -228,19 +239,13 @@ def snapshot_primary_document(url, output_root):
         encoding = response.headers.get_content_charset() or 'utf-8'
     if len(payload)>32*1024*1024:
         raise ValueError('primary document exceeds safe memory buffer; use a streaming source adapter')
-    class ExtractText(HTMLParser):
-        def __init__(self):
-            super().__init__(convert_charrefs=True);self.parts=[]
-        def handle_data(self,value):
-            if value.strip():
-                self.parts.append(value)
-    extractor = ExtractText();extractor.feed(payload.decode(encoding,errors='replace'))
-    text = ' '.join(' '.join(extractor.parts).split())
+    text = normalize_primary_text(payload,encoding)
     raw_path = root/(key+'.html');text_path = root/(key+'.txt')
     raw_path.write_bytes(payload);text_path.write_text(text,encoding='utf-8')
     record = {'source_url':url,'retrieved_at':datetime.now(timezone.utc).isoformat(),
               'raw_document_path':str(raw_path.resolve()),'raw_document_sha256':file_sha256(raw_path),
               'document_path':str(text_path.resolve()),'document_sha256':file_sha256(text_path),
+              'source_encoding':encoding,
               'text_normalization':'html_data_join_unicode_whitespace_v1',
               'source_passage_checked':False,'redistribute_full_document':False}
     temporary = receipt_path.with_suffix('.tmp');temporary.write_text(json.dumps(record,indent=2)+'\n')

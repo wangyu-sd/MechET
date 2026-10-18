@@ -35,7 +35,7 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
   routes**, and **10,740 target/run rows** across six conditions. Counts are not
   literature support or chemistry correctness. Exact per-condition denominators
   and full artifact hashes are in [the freeze summary](prediction_freeze_summary.json).
-- Software checks: **41 LGRV tests passed**; fresh full repository run **1,045
+- Software checks: **52 LGRV tests passed**; fresh full repository run **1,056
   passed /13 skipped**, with one pre-existing PEFT vocabulary-config warning.
 
 ## Processing
@@ -49,12 +49,25 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
   Binary source data and generated SQLite shards remain outside Git. Source
   conversion failures are retained in per-file failure ledgers; they are not
   classified as chemical negatives.
+- Independent review reproduced a source-file partial-stereo exception and
+  four correctness/recovery issues. All were corrected with regressions; the
+  entire failed source file is undergoing conversion with the corrected worker
+  while other original successful shard work is preserved. See
+  [review and fixes](FOUNDATION_REVIEW.md). The combined source index is **not
+  yet complete**; the old driver's16-file manifest is not the count of completed
+  on-disk source shard receipts.
 - Prediction freeze v1 stopped on a serializer compatibility error: aggregate
   31k rows mix absolute resumed-tree pointers and relative new-tree pointers.
   The resolver now handles both and rejects ambiguous ownership, with a
   regression test. v1 is an **incomplete diagnostic**, preserved read-only;
   v2 is the completed replacement. Cached immutable shard contracts avoid repeated Ceph
   manifest reads. No model output or original source report was changed.
+- All-route post-build audit checked474 routes in273 original reports: every
+  edge belongs to its own target/method report. The rechecked
+  [existing seed binding](seed_source_binding.json) occurs once in this frozen
+  MCTS pool and not in either full archived Greedy pool. This is a descriptive
+  source-backed disconnection example, not a matched-work population advantage
+  or a newly discovered literature source.
 
 ## Not yet delivered
 
@@ -109,6 +122,10 @@ python scripts/build_nmi_literature_index.py \
   --codec-sha256 f33ac383b4c0517355188a6e2b4d77bc679dc9ea553b16d467043e478f4f16dd \
   --codec-source-revision 51b3a4968835f0090268cab9c0be034b48ac62d4 \
   --output-root "$INDEX_ROOT" --workers 16
+
+# To resume the existing pre-v1.1 successful shards after the old workers exit,
+# add --allow-compatible-v1-shards. Source/codec/database/failure-ledger hashes
+# remain required; implementation migration is never silent.
 
 python scripts/freeze_nmi_literature_predictions.py \
   --repository-data-root "$DATA_ROOT" \

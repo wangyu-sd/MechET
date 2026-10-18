@@ -9,6 +9,8 @@
       "patent_family_status": "single-source seed; no independent-source multiplicity claim",
       "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ee61a49926e2c16f504b5b1ed803d4322b9356b8e3ade9038aaddaf14cdf0b52.txt",
       "document_sha256": "e21482a424093f3679400b0645e960be423b515f90f5c3831d1471a50b436511",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ee61a49926e2c16f504b5b1ed803d4322b9356b8e3ade9038aaddaf14cdf0b52.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ee61a49926e2c16f504b5b1ed803d4322b9356b8e3ade9038aaddaf14cdf0b52.html",
       "raw_document_sha256": "d3e4ed6172d4727ebcf9228b3fd1291d629693112ea02587bb2f4d7087b0c7ff",
       "locator": "Description, Preparation of cyclopropane-1,1-dicarboxylic acid [4-(6,7-dimethoxy-quinoline-4-yloxy)-phenyl]-amide(4-fluoro-phenyl)-amide; paragraph beginning The solution from the previous step containing; normalized-text offset130922",
       "checked_passage": "When the reaction was complete (in approximately 20 minutes), water (653 L) was added.",

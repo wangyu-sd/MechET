@@ -21,13 +21,52 @@ sys.path.insert(0,str(ROOT/'src'))
 from mechet.analysis.literature_sources import file_sha256,iter_ord_messages,ord_records
 from mechet.analysis.literature_index import ReactionIndex
 
+IMPLEMENTATION_ID='lgrv_index_v1_1'
+
+
+def implementation_identity():
+    from rdkit import rdBase
+    from mechet.analysis.literature_reaction_keys import stable_hash
+    paths=[Path(__file__).resolve(),ROOT/'src/mechet/analysis/literature_reaction_keys.py',
+           ROOT/'src/mechet/analysis/literature_sources.py',ROOT/'src/mechet/analysis/literature_index.py']
+    return {'id':IMPLEMENTATION_ID,'producer_sha256':stable_hash({str(p.relative_to(ROOT)):file_sha256(p) for p in paths}),
+            'rdkit_version':rdBase.rdkitVersion,
+            'normalization':'rdkit_map_free_isomeric_component_multiset_no_standardizer_v1'}
+
 
 def save(path,value):
     temp = Path(str(path)+'.tmp'); temp.write_text(json.dumps(value,indent=2)+'\n');os.replace(temp,path)
 
 
+def merge_shards(receipts, output_root):
+    output_root=Path(output_root)
+    building=output_root/'reactions.building.sqlite'
+    final=output_root/'reactions.sqlite'
+    if final.exists():
+        raise FileExistsError('final index already exists; validate its completed manifest')
+    combined=ReactionIndex(building)
+    combined.connection.execute('CREATE TABLE IF NOT EXISTS merged_shards(path TEXT PRIMARY KEY,sha256 TEXT NOT NULL)')
+    combined.commit()
+    for receipt in receipts:
+        if file_sha256(receipt['index_path'])!=receipt['index_sha256']:
+            raise ValueError('source shard changed before merge')
+        merged=combined.connection.execute('SELECT sha256 FROM merged_shards WHERE path=?',(receipt['index_path'],)).fetchone()
+        if merged:
+            if merged[0]!=receipt['index_sha256']:
+                raise ValueError('resumed merge shard identity differs')
+            continue
+        combined.connection.execute('ATTACH DATABASE ? AS shard',(receipt['index_path'],))
+        with combined.connection:
+            combined.connection.execute('INSERT INTO reactions SELECT * FROM shard.reactions')
+            combined.connection.execute('INSERT INTO merged_shards VALUES (?,?)',(receipt['index_path'],receipt['index_sha256']))
+        combined.connection.execute('DETACH DATABASE shard')
+    count=combined.count();combined.close()
+    os.replace(building,final)
+    return {'index_path':str(final.resolve()),'record_count':count,'index_sha256':file_sha256(final)}
+
+
 def index_file(task):
-    source_root,entry,codec_path,codec_sha,output = task
+    source_root,entry,codec_path,codec_sha,output,implementation,allow_v1 = task
     from google.protobuf.json_format import MessageToDict
     from rdkit import rdBase
     if file_sha256(codec_path) != codec_sha:
@@ -46,6 +85,13 @@ def index_file(task):
         receipt = json.loads(receipt_path.read_bytes())
         if receipt['source_sha256']!=entry['sha256'] or receipt['codec_sha256']!=codec_sha or file_sha256(database)!=receipt['index_sha256']:
             raise ValueError('resumed source index identity differs')
+        if file_sha256(receipt['failure_ledger'])!=receipt['failure_sha256']:
+            raise ValueError('resumed conversion failure ledger checksum differs')
+        if receipt.get('implementation')!=implementation:
+            if not (allow_v1 and 'implementation' not in receipt):
+                raise ValueError('source index implementation identity differs; use a new output')
+            receipt={**receipt,'compatible_legacy_v1_reuse':True,
+                     'legacy_reuse_basis':'same exact normalization/source/codec; reader dedup corrected; failed family serializations were not completed shards'}
         return receipt
     index = ReactionIndex(database)
     failures = Counter(); source_rows = 0
@@ -79,6 +125,7 @@ def index_file(task):
                'source_rows':source_rows,'indexed_structure_records':count,'failures':dict(failures),
                'index_path':str(database),'index_sha256':file_sha256(database),
                'failure_ledger':str(failure_path),'failure_sha256':file_sha256(failure_path),
+               'implementation':implementation,
                'complete':True,'performed_source_verification':False}
     save(receipt_path,receipt)
     return receipt
@@ -92,6 +139,8 @@ def main():
     parser.add_argument('--codec-source-revision',required=True)
     parser.add_argument('--output-root',type=Path,required=True)
     parser.add_argument('--workers',type=int,default=16)
+    parser.add_argument('--allow-compatible-v1-shards',action='store_true',
+                        help='Explicitly adopt checked pre-v1.1 successful shards; exact keys unchanged, provenance retained')
     args = parser.parse_args()
     source = json.loads(args.source_manifest.read_bytes())
     if source.get('download_complete') is not True:
@@ -104,34 +153,54 @@ def main():
                 'codec_source':'https://github.com/open-reaction-database/ord-schema',
                 'codec_license':'Apache-2.0','data_license':'CC-BY-SA-4.0',
                 'verification_scope':'structured retrieval candidates, not checked original performed patent/paper examples',
-                'files':[]}
+                'implementation_id':IMPLEMENTATION_ID,'implementation':implementation_identity(),
+                'compatible_v1_adoption_requested':args.allow_compatible_v1_shards,'files':[],'failed_sources':[]}
     path = args.output_root/'source_corpus_manifest.json'
     if path.exists():
         old = json.loads(path.read_bytes())
         if old['source_manifest_sha256']!=manifest['source_manifest_sha256'] or old['codec_sha256']!=args.codec_sha256:
             raise ValueError('output already belongs to a different corpus or codec')
+        if old.get('complete') is True:
+            if old.get('implementation_id')!=IMPLEMENTATION_ID or old.get('implementation')!=manifest['implementation']:
+                raise ValueError('completed index belongs to a different implementation; preserve and migrate explicitly')
+            if file_sha256(args.output_root/'reactions.sqlite')!=old['index_sha256']:
+                raise ValueError('completed index checksum differs')
+            print(json.dumps({'phase':'index_already_complete'}),flush=True)
+            return
+    combined_path=args.output_root/'reactions.sqlite'
+    if combined_path.exists():
+        if not args.allow_compatible_v1_shards:
+            raise ValueError('legacy partial combined index requires explicit adoption; no files changed')
+        preserved=args.output_root/('reactions.legacy-partial-'+file_sha256(combined_path)+'.sqlite')
+        if preserved.exists():
+            raise FileExistsError('preserved partial index already exists')
+        os.replace(combined_path,preserved)
+        manifest['preserved_legacy_partial_index']=str(preserved)
     save(path,manifest)
-    tasks = [(str(args.source_manifest.parent.resolve()),entry,str(args.codec_file.resolve()),args.codec_sha256,str(shards.resolve()))
+    tasks = [(str(args.source_manifest.parent.resolve()),entry,str(args.codec_file.resolve()),args.codec_sha256,str(shards.resolve()),
+              manifest['implementation'],args.allow_compatible_v1_shards)
              for entry in source['files']]
     with ProcessPoolExecutor(max_workers=args.workers,mp_context=multiprocessing.get_context('spawn')) as pool:
-        for receipt in as_completed([pool.submit(index_file,task) for task in tasks]):
-            manifest['files'].append(receipt.result());manifest['files'].sort(key=lambda item:item['source_path'])
+        submitted={pool.submit(index_file,task):task[1] for task in tasks}
+        for future in as_completed(submitted):
+            try:
+                receipt=future.result()
+            except Exception as error:
+                failure={'source':submitted[future]['path'],'error':type(error).__name__+':'+str(error)[:2000]}
+                manifest['failed_sources'].append(failure)
+                save(path,manifest)
+                print(json.dumps({'phase':'source_index_failed',**failure}),flush=True)
+                continue
+            manifest['files'].append(receipt);manifest['files'].sort(key=lambda item:item['source_path'])
             save(path,manifest)
             print(json.dumps({'phase':'index_ord','files_done':len(manifest['files']),'files_total':len(tasks),
                               'source_rows':sum(x['source_rows'] for x in manifest['files']),
                               'structure_records':sum(x['indexed_structure_records'] for x in manifest['files'])}),flush=True)
-    combined_path = args.output_root/'reactions.sqlite'
-    if combined_path.exists():
-        raise FileExistsError('combined index exists; preserve it and use its completed manifest')
-    combined = ReactionIndex(combined_path)
-    for receipt in manifest['files']:
-        combined.connection.execute('ATTACH DATABASE ? AS shard',(receipt['index_path'],))
-        combined.connection.execute('INSERT INTO reactions SELECT * FROM shard.reactions')
-        combined.commit();combined.connection.execute('DETACH DATABASE shard')
-    manifest.update({'complete':True,'index_path':str(combined_path.resolve()),'record_count':combined.count(),
-                     'source_reaction_rows':sum(x['source_rows'] for x in manifest['files']),
-                     'index_sha256':file_sha256(combined_path)})
-    combined.close();save(path,manifest)
+    if manifest['failed_sources']:
+        raise RuntimeError('source files failed; successful shards retained, see failed_sources in manifest')
+    merged=merge_shards(manifest['files'],args.output_root)
+    manifest.update({'complete':True,**merged,'source_reaction_rows':sum(x['source_rows'] for x in manifest['files'])})
+    save(path,manifest)
     print(json.dumps({'phase':'index_complete','record_count':manifest['record_count']}),flush=True)
 
 

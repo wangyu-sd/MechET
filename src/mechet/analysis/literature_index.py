@@ -7,6 +7,15 @@ import sqlite3
 from .literature_reaction_keys import make_reaction
 
 
+def source_family(record):
+    identity = record.get('patent_family') or record.get('patent_id') or record.get('doi')
+    if identity:
+        return identity
+    if record.get('dataset_id') and record.get('ord_reaction_id'):
+        return f'ORD:{record["dataset_id"]}:{record["ord_reaction_id"]}'
+    return record['source_id']
+
+
 class ReactionIndex:
     def __init__(self, path, *, readonly=False):
         self.connection = sqlite3.connect('file:'+str(path)+'?mode=ro', uri=True) if readonly else sqlite3.connect(path)
@@ -23,7 +32,7 @@ class ReactionIndex:
         if not record.get('source_id') or not record.get('license'):
             raise ValueError('source ID and license required')
         reaction = make_reaction(record['product'], record['precursors'], auxiliary=record.get('agents', []))
-        family = record.get('patent_family') or record.get('patent_id') or record.get('doi') or record['source_id']
+        family = source_family(record)
         payload = {**record, 'reaction_key':reaction['reaction_key'],
                    'reaction_family_key':reaction['reaction_family_key']}
         old = self.connection.execute('SELECT record FROM reactions WHERE source_id=?', (record['source_id'],)).fetchone()
@@ -42,16 +51,22 @@ class ReactionIndex:
         if include_analogues and reaction.get('reaction_family_key'):
             analogous = self.connection.execute('SELECT source_family,record FROM reactions WHERE family_key=? AND reaction_key!=? ORDER BY source_id',
                 (reaction['reaction_family_key'],reaction['reaction_key'])).fetchall()
-        result, families = [], set()
+        result, families = [], {}
         for match, candidates in [('exact',exact),('local_edit_analogue_candidate',analogous)]:
-            for family, payload in candidates:
+            for _, payload in candidates:
+                record = json.loads(payload)
+                # Derive from preserved provenance even for v1 disk indices;
+                # representation aliases must never consume independent slots.
+                family = source_family(record)
                 if family in families:
+                    families[family]['source_representation_ids'].append(record['source_id'])
                     continue
-                families.add(family)
-                result.append({**json.loads(payload), 'match_type':match, 'source_family_key':family,
-                               'retrieval_status':'indexed_candidate', 'verification_status':'machine_structural_match'})
-                if len(result) == cap:
-                    return result
+                if len(result)>=cap:
+                    continue
+                selected={**record,'match_type':match,'source_family_key':family,
+                          'source_representation_ids':[record['source_id']],
+                          'retrieval_status':'indexed_candidate','verification_status':'machine_structural_match'}
+                families[family]=selected;result.append(selected)
         return result
 
     def count(self):

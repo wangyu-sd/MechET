@@ -96,3 +96,12 @@ def route_reactions(report, *, run_id, source):
         if details.get('program'):
             reaction['electron_program_source_pointer'] = program_pointer
         yield reaction
+
+
+def route_reaction_keys(route, generated_reactions):
+    available = {reaction['reaction_key'] for reaction in generated_reactions}
+    keys = sorted({make_reaction(edge['product'],edge['precursors'])['reaction_key']
+                   for edge in route['complete_reaction_edges']})
+    if not set(keys) <= available:
+        raise ValueError('route uses a reaction absent from the current report generated graph')
+    return keys

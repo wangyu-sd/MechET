@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 from .literature_reaction_keys import make_reaction
@@ -9,13 +10,28 @@ from .literature_reaction_keys import make_reaction
 
 def _passage_checked(source):
     text = source.get('checked_passage', '')
-    document = source.get('document_text')
-    if document is None and source.get('document_path'):
-        try:
-            document = Path(source['document_path']).read_text()
-        except (OSError,UnicodeError):
+    try:
+        receipt_path=Path(source['source_receipt_path'])
+        receipt=json.loads(receipt_path.read_bytes())
+        if receipt_path.name!=hashlib.sha256(source['source_url'].encode()).hexdigest()+'.json':
             return False
-    if not document or hashlib.sha256(document.encode()).hexdigest() != source.get('document_sha256'):
+        for key in ['source_url','raw_document_path','raw_document_sha256','document_path','document_sha256']:
+            if not source.get(key) or source[key]!=receipt.get(key):
+                return False
+        raw=Path(receipt['raw_document_path']).read_bytes()
+        document=Path(receipt['document_path']).read_text()
+        if hashlib.sha256(raw).hexdigest()!=receipt['raw_document_sha256']:
+            return False
+        if hashlib.sha256(document.encode()).hexdigest()!=receipt['document_sha256']:
+            return False
+        from .literature_sources import normalize_primary_text
+        if receipt.get('text_normalization')!='html_data_join_unicode_whitespace_v1':
+            return False
+        if normalize_primary_text(raw,receipt.get('source_encoding','utf-8'))!=document:
+            return False
+        if source.get('document_text',document)!=document:
+            return False
+    except (OSError,UnicodeError,KeyError,ValueError,TypeError,LookupError):
         return False
     return bool(source.get('source_url') and source.get('locator') and source.get('document_sha256')
                 and len(source['document_sha256']) == 64 and source.get('checker')
@@ -52,6 +68,7 @@ def assess(reaction, hits, primary_sources=()):
                 'reason':'exact_performed_structural_reaction' if tier=='A' else 'checked_experimental_analogue',
                 'source_url':source['source_url'], 'locator':source['locator'],
                 'document_sha256':source['document_sha256'],
+                'raw_document_sha256':source['raw_document_sha256'],
                 'conditions_match':source.get('conditions_match','unknown')}
     # A contradiction needs an explicit checked claim about THIS reaction, not
     # missing retrieval, another endpoint, or an unrelated hazardous reagent.

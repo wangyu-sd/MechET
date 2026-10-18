@@ -17,7 +17,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT),str(ROOT/'src')]
-from mechet.analysis.literature_predictions import frozen_reports, route_reactions, single_reactions, resolve_tree_artifact
+from mechet.analysis.literature_predictions import frozen_reports, route_reactions, single_reactions, resolve_tree_artifact, route_reaction_keys
 from mechet.analysis.literature_reaction_keys import canonical_components, make_reaction, stable_hash
 from mechet.analysis.literature_sources import file_sha256
 from mechet.analysis.tree_records import load_frozen_stocks, assert_stock_identity
@@ -144,9 +144,7 @@ def main():
                         checked = verify_reported_route({**report,**route},stocks[report['cohort']])
                         if checked['stock_solved'] is not True:
                             raise ValueError('recorded AND route fails frozen stock: '+sid)
-                        keys = sorted({make_reaction(e['product'],e['precursors'])['reaction_key'] for e in route['complete_reaction_edges']})
-                        if any(key not in distinct for key in keys):
-                            raise ValueError('route uses reaction absent from generated reaction graph')
+                        keys = route_reaction_keys(route,records)
                         line('frozen_routes',{'run_id':run,'target_id':sid,'cohort':report['cohort'],
                              'route_key':stable_hash(keys),'source_route_key':route.get('route_key'),
                              'reaction_keys':keys,'stock_leaves':route['stock_leaves'],'stock_verified':True,

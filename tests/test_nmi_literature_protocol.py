@@ -78,9 +78,13 @@ def test_index_matches_both_sides_and_deduplicates_known_patent_family(tmp_path)
     index.close()
 
 
-def primary(**changes):
+def primary(tmp_path, **changes):
     payload = b'Example 1. The isolated product was obtained from the stated substrates.'
-    return {'source_id':'test-source', 'source_url':'https://example.org/patent/1',
+    raw_path = tmp_path/'primary.html';raw_path.write_bytes(payload)
+    cache = tmp_path/'primary_cache'
+    receipt = module('literature_sources').snapshot_primary_document(raw_path.as_uri(),cache)
+    return {**receipt,'source_receipt_path':str(cache/(hashlib.sha256(raw_path.as_uri().encode()).hexdigest()+'.json')),
+            'source_id':'test-source',
             'source_product':'CO', 'source_precursors':['CBr','[OH-]'],
             'document_sha256':hashlib.sha256(payload).hexdigest(),
             'checked_passage_sha256':hashlib.sha256(payload).hexdigest(),
@@ -104,16 +108,16 @@ def test_exact_machine_hit_without_primary_passage_is_not_verified_a():
                                     {'locator':''}, {'checked_passage':''},
                                     {'source_precursors':['CI','[OH-]']},
                                     {'checked_passage_sha256':'0'*64}])
-def test_claims_missing_passage_or_wrong_structures_never_earn_a(changes):
+def test_claims_missing_passage_or_wrong_structures_never_earn_a(changes,tmp_path):
     reaction = module('literature_reaction_keys').make_reaction('CO', ['CBr','[OH-]'])
-    result = module('literature_evidence').assess(reaction, [], [primary(**changes)])
+    result = module('literature_evidence').assess(reaction, [], [primary(tmp_path,**changes)])
     assert result['tier'] == 'C'
     assert result['supported'] is False
 
 
-def test_source_checked_exact_reaction_is_a_not_physical_arrow_proof():
+def test_source_checked_exact_reaction_is_a_not_physical_arrow_proof(tmp_path):
     reaction = module('literature_reaction_keys').make_reaction('CO', ['CBr','[OH-]'])
-    result = module('literature_evidence').assess(reaction, [], [primary()])
+    result = module('literature_evidence').assess(reaction, [], [primary(tmp_path)])
     assert result['tier'] == 'A'
     assert result['verification_status'] == 'source_passage_checked'
     assert result['supported'] is True
@@ -127,9 +131,9 @@ def test_no_hit_is_unresolved_not_contradiction():
     assert result['retrieval_status'] == 'unresolved'
 
 
-def test_stereo_unspecified_source_cannot_verify_stereospecific_product():
+def test_stereo_unspecified_source_cannot_verify_stereospecific_product(tmp_path):
     reaction = module('literature_reaction_keys').make_reaction('C[C@H](O)F', ['CC(Br)F','[OH-]'])
-    result = module('literature_evidence').assess(reaction, [], [primary(
+    result = module('literature_evidence').assess(reaction, [], [primary(tmp_path,
         source_product='CC(O)F', source_precursors=['CC(Br)F','[OH-]'])])
     assert result['tier'] == 'C'
 
@@ -290,10 +294,10 @@ def test_ord_missing_structural_reactant_smiles_is_not_silently_removed():
         sources.ord_records(raw,dataset={'dataset_id':'d','file_sha256':'f'*64},row_index=0)
 
 
-def test_passage_hash_alone_without_matching_original_document_cannot_verify_a():
+def test_passage_hash_alone_without_matching_original_document_cannot_verify_a(tmp_path):
     reaction = module('literature_reaction_keys').make_reaction('CO',['CBr','[OH-]'])
     for changes in [{'document_text':''},{'document_text':'unrelated document'}, {'document_sha256':'0'*64}]:
-        result = module('literature_evidence').assess(reaction,[],[primary(**changes)])
+        result = module('literature_evidence').assess(reaction,[],[primary(tmp_path,**changes)])
         assert result['tier'] == 'C'
 
 
@@ -403,3 +407,129 @@ def test_primary_document_cache_binds_source_bytes_and_normalized_text(tmp_path)
     original.write_text('changed remote source')
     cached = sources.snapshot_primary_document(original.as_uri(),tmp_path/'cache')
     assert cached == result
+
+
+def test_real_ord_partial_stereo_failure_preserves_exact_reaction():
+    keys = module('literature_reaction_keys')
+    product = r'[Br-:20].[OH:23][CH2:21][CH2:22][N+:18]1[CH:17]=[CH:16][N:15]([CH3:19])[C:14]=1/[CH:13]=[N:12]\[N:11]=[C:3]1\[S:4][C:5]2[CH:10]=[CH:9][CH:8]=[CH:7][C:6]=2[N:2]\1[CH3:1]'
+    precursor = r'[CH3:1][N:2]1[C:6]2[CH:7]=[CH:8][CH:9]=[CH:10][C:5]=2[S:4]/[C:3]/1=[N:11]/[N:12]=[CH:13][C:14]1[N:15]([CH3:19])[CH:16]=[CH:17][N:18]=1.[Br:20][CH:21]([OH:23])[CH3:22]'
+    result = keys.make_reaction(product,[precursor])
+    assert len(result['reaction_key']) == 64
+    assert len(result['product_components']) == 2
+    assert result['reaction_family_key'] is None
+    assert result['mapping_status'] == 'mapping_unknown'
+    assert result['family_error'] == 'local_stereochemical_fragment_serialization_failed'
+
+
+def test_ord_alternate_representations_do_not_consume_independent_source_slots(tmp_path):
+    index = module('literature_index').ReactionIndex(tmp_path/'i.sqlite')
+    for suffix in ['outcome0:roles','mapped_identifier']:
+        index.add({'source_id':'ORD:d:r:'+suffix,'source_corpus':'Open Reaction Database',
+                   'dataset_id':'d','ord_reaction_id':'r','license':'CC-BY-SA-4.0',
+                   'product':'CO','precursors':['CBr','[OH-]']})
+    hits = index.query(module('literature_reaction_keys').make_reaction('CO',['CBr','[OH-]']))
+    assert len(hits) == 1
+    assert hits[0]['source_family_key'] == 'ORD:d:r'
+    assert set(hits[0]['source_representation_ids']) == {'ORD:d:r:outcome0:roles','ORD:d:r:mapped_identifier'}
+    index.close()
+
+
+def test_route_edges_cannot_be_borrowed_from_another_target_or_method():
+    predictions = module('literature_predictions')
+    keys = module('literature_reaction_keys')
+    recorded = keys.make_reaction('CO',['CBr','[OH-]'])
+    route = {'complete_reaction_edges':[{'product':'CBr','precursors':['C','BrBr']}]}
+    with pytest.raises(ValueError,match='current report'):
+        predictions.route_reaction_keys(route,[recorded])
+
+
+def test_completed_index_rerun_preserves_manifest_and_database(tmp_path):
+    import json,pathlib,subprocess,sys,importlib.util
+    sources=module('literature_sources')
+    source=tmp_path/'source.json';source.write_text(json.dumps({'download_complete':True,'files':[]}))
+    codec=tmp_path/'codec.py';codec.write_text('# fixture codec never loaded for completed output\n')
+    root=tmp_path/'index';root.mkdir()
+    index=module('literature_index').ReactionIndex(root/'reactions.sqlite');index.close()
+    script=pathlib.Path(__file__).resolve().parents[1]/'scripts/build_nmi_literature_index.py'
+    spec=importlib.util.spec_from_file_location('lgrv_cache_identity_unit',script)
+    builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+    manifest={'complete':True,'source_manifest_sha256':sources.file_sha256(source),
+              'codec_sha256':sources.file_sha256(codec),'implementation_id':'lgrv_index_v1_1',
+              'implementation':builder.implementation_identity(),
+              'index_sha256':sources.file_sha256(root/'reactions.sqlite'),'files':[]}
+    path=root/'source_corpus_manifest.json';path.write_text(json.dumps(manifest));original=path.read_bytes()
+    command=[sys.executable,str(script),'--source-manifest',str(source),'--codec-file',str(codec),
+        '--codec-sha256',sources.file_sha256(codec),'--codec-source-revision','fixture',
+        '--output-root',str(root),'--workers','1']
+    result=subprocess.run(command,capture_output=True,text=True)
+    assert result.returncode == 0,result.stderr
+    assert path.read_bytes() == original
+    assert sources.file_sha256(root/'reactions.sqlite') == manifest['index_sha256']
+    manifest.pop('implementation');path.write_text(json.dumps(manifest));missing_identity=path.read_bytes()
+    rejected=subprocess.run(command,capture_output=True,text=True)
+    assert rejected.returncode != 0
+    assert path.read_bytes() == missing_identity
+
+
+@pytest.mark.parametrize('changes',[{'raw_document_path':'/nonexistent/primary-document'},
+                                  {'raw_document_sha256':'0'*64}, {'source_receipt_path':''},
+                                  {'source_url':'https://example.org/unrelated-source'}])
+def test_original_byte_receipt_and_url_are_required_for_verified_source(tmp_path,changes):
+    reaction=module('literature_reaction_keys').make_reaction('CO',['CBr','[OH-]'])
+    result=module('literature_evidence').assess(reaction,[],[primary(tmp_path,**changes)])
+    assert result['tier'] == 'C'
+
+
+def test_partial_index_merge_resumes_without_duplicating_committed_shard(tmp_path):
+    import importlib.util,pathlib
+    script=pathlib.Path(__file__).resolve().parents[1]/'scripts/build_nmi_literature_index.py'
+    spec=importlib.util.spec_from_file_location('lgrv_builder_unit',script)
+    builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+    idx=module('literature_index');sources=module('literature_sources')
+    shard=tmp_path/'shard.sqlite';source=idx.ReactionIndex(shard)
+    source.add({'source_id':'s','product':'CO','precursors':['CBr','[OH-]'],'license':'CC-BY-SA-4.0'});source.close()
+    root=tmp_path/'merged';root.mkdir()
+    partial=idx.ReactionIndex(root/'reactions.building.sqlite')
+    partial.connection.execute('ATTACH DATABASE ? AS source',(str(shard),))
+    partial.connection.execute('INSERT INTO reactions SELECT * FROM source.reactions');partial.commit()
+    partial.connection.execute('DETACH DATABASE source')
+    partial.connection.execute('CREATE TABLE merged_shards(path TEXT PRIMARY KEY,sha256 TEXT NOT NULL)')
+    partial.connection.execute('INSERT INTO merged_shards VALUES (?,?)',(str(shard),sources.file_sha256(shard)));partial.close()
+    result=builder.merge_shards([{'index_path':str(shard),'index_sha256':sources.file_sha256(shard)}],root)
+    assert result['record_count'] == 1
+    assert (root/'reactions.sqlite').exists()
+    assert not (root/'reactions.building.sqlite').exists()
+    assert result['index_sha256'] == sources.file_sha256(root/'reactions.sqlite')
+
+
+def test_index_worker_failure_is_saved_as_failure_not_silent_completion(tmp_path):
+    import json,pathlib,subprocess,sys
+    pa=pytest.importorskip('pyarrow');pq=pytest.importorskip('pyarrow.parquet')
+    source=tmp_path/'bad_codec_input.parquet'
+    schema=pa.schema([('reaction_id',pa.string()),('reaction',pa.binary())],metadata={b'ord.dataset_id':b'fixture'})
+    pq.write_table(pa.Table.from_pylist([{'reaction_id':'r','reaction':b'fixture'}],schema=schema),source)
+    sha=module('literature_sources').file_sha256
+    source_manifest=tmp_path/'source.json'
+    source_manifest.write_text(json.dumps({'download_complete':True,'files':[{'path':source.name,'sha256':sha(source)}]}))
+    codec=tmp_path/'codec.py';codec.write_text('# Deliberately invalid unit-test codec: no Reaction class.\n')
+    script=pathlib.Path(__file__).resolve().parents[1]/'scripts/build_nmi_literature_index.py'
+    root=tmp_path/'output'
+    completed=subprocess.run([sys.executable,str(script),'--source-manifest',str(source_manifest),
+        '--codec-file',str(codec),'--codec-sha256',sha(codec),'--codec-source-revision','fixture',
+        '--output-root',str(root),'--workers','1'],capture_output=True,text=True)
+    assert completed.returncode != 0
+    manifest=json.loads((root/'source_corpus_manifest.json').read_text())
+    assert manifest['complete'] is False
+    assert manifest['failed_sources'][0]['source'] == source.name
+    assert 'AttributeError' in manifest['failed_sources'][0]['error']
+    assert 'source_index_failed' in completed.stdout
+    assert not (root/'reactions.sqlite').exists()
+
+
+def test_source_index_identity_also_works_for_relative_runpy_entrypoint(monkeypatch):
+    import pathlib,runpy
+    monkeypatch.chdir(pathlib.Path(__file__).resolve().parents[1])
+    builder=runpy.run_path('scripts/build_nmi_literature_index.py')
+    identity=builder['implementation_identity']()
+    assert identity['id'] == 'lgrv_index_v1_1'
+    assert len(identity['producer_sha256']) == 64
