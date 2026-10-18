@@ -1,0 +1,93 @@
+{
+  "schema": "lgrv_full_frozen_population_summary_v2",
+  "analysis_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v6",
+  "analysis_manifest_sha256": "e633a40221482671c180d66d864bb36db4a5d42809c10602e00bd942b08aaa41",
+  "all_frozen_reaction_queries_processed": true,
+  "unique_reaction_queries": 18210,
+  "tier_counts": {
+    "C": 18195,
+    "A": 15
+  },
+  "indexed_candidate_queries": 165,
+  "retrieved_source_records": 210,
+  "runs": {
+    "r1_mcts_pr88": {
+      "denominator": 460,
+      "observed_reports": 200,
+      "pending_reports": 260,
+      "distinct_supported_reactions_all_terminal_contexts": 10,
+      "targets_with_supported_reaction_all_terminal_contexts": 9,
+      "stock_route_counts": {
+        "StockSolved@B": 199,
+        "AnyExactStepPrecedent@B": 7,
+        "AllStepExactPrecedentSolved@B": 1,
+        "PrecedentCoveredSolved@B": 1
+      }
+    },
+    "r1_greedy_dynamic": {
+      "denominator": 460,
+      "observed_reports": 460,
+      "pending_reports": 0,
+      "distinct_supported_reactions_all_terminal_contexts": 2,
+      "targets_with_supported_reaction_all_terminal_contexts": 2,
+      "stock_route_counts": {
+        "StockSolved@B": 38,
+        "AnyExactStepPrecedent@B": 0,
+        "AllStepExactPrecedentSolved@B": 0,
+        "PrecedentCoveredSolved@B": 0
+      }
+    },
+    "r1_greedy_shared": {
+      "denominator": 460,
+      "observed_reports": 460,
+      "pending_reports": 0,
+      "distinct_supported_reactions_all_terminal_contexts": 3,
+      "targets_with_supported_reaction_all_terminal_contexts": 3,
+      "stock_route_counts": {
+        "StockSolved@B": 36,
+        "AnyExactStepPrecedent@B": 0,
+        "AllStepExactPrecedentSolved@B": 0,
+        "PrecedentCoveredSolved@B": 0
+      }
+    },
+    "mech31k_greedy_dynamic": {
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0,
+      "distinct_supported_reactions_all_terminal_contexts": 3,
+      "targets_with_supported_reaction_all_terminal_contexts": 3,
+      "AnySourceSupportedReaction": 3,
+      "ExactSourceSupported": 3,
+      "attempt_budget": "one_greedy_episode",
+      "source_protocol": "frozen rxn_prod_min proxy DIAGNOSTIC; not stock-route planning"
+    },
+    "mech31k_greedy_shared": {
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0,
+      "distinct_supported_reactions_all_terminal_contexts": 2,
+      "targets_with_supported_reaction_all_terminal_contexts": 2,
+      "AnySourceSupportedReaction": 2,
+      "ExactSourceSupported": 2,
+      "attempt_budget": "one_greedy_episode",
+      "source_protocol": "frozen rxn_prod_min proxy DIAGNOSTIC; not stock-route planning"
+    },
+    "mech31k_mcts_pr88": {
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0,
+      "distinct_supported_reactions_all_terminal_contexts": 4,
+      "targets_with_supported_reaction_all_terminal_contexts": 4,
+      "AnySourceSupportedReaction": 4,
+      "ExactSourceSupported": 4,
+      "attempt_budget": 10,
+      "source_protocol": "frozen rxn_prod_min proxy DIAGNOSTIC; not stock-route planning"
+    }
+  },
+  "new_model_inference": false,
+  "ranking_is_primary": false,
+  "matched_compute_claim": false,
+  "population_chemical_accuracy_established": false,
+  "physical_mechanism_verified": false,
+  "all_required_PR89_deliverables_complete": false
+}

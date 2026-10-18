@@ -6,6 +6,24 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (18 October, supersedes older processing notes)
 
+**Coverage follow-up / v6:** full source review now confirms **15** exact
+performed reactions after six additional primary preparations; the same
+18,210 queries,165 candidate-hit reactions and210 hits are unchanged.
+[Complete v6 tables and all15 source cases](analysis_tables_primary_v6_20261018/README.md)
+retain every condition, not only MCTS. R1 MCTS now has7 targets with an exact
+step on a stock-closed route and1 target with an all-step source-covered route. Broader source
+review also found that139 non-patent references cite one data-origin method
+paper; exact-candidate traceback recovers106 patent-linked records and104
+public patent URLs. All104 were acquired/verified,71 new to the prior cache.
+[Full missingness audit and raw traceback](coverage_traceback_20261018/README.md).
+This is improved evidence coverage, not a chemical accuracy estimate.
+
+The [independent-route controller and full460/fixed200 manifest](independent_control_preparation_20261018/README.md)
+are prepared and tested, but actor transport/CLI and actual control predictions
+remain missing. No new GPU/model job was launched. Current whole CPU gate:
+**1,222 passed/14 skipped**, one existing PEFT warning,194.15s. Existing v5
+figures below retain their original v5 counts; they are not v6 exports.
+
 **Latest v5 update:** the full stereo-aware retrieval is complete over all18,210
 queries and six frozen conditions:165 candidate-hit reactions/210 source
 records. Sixty-six public patent pages have now been cached after repairing

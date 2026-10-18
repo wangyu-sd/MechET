@@ -1,0 +1,42 @@
+{
+  "schema": "lgrv_full_coverage_audit_distribution_v1",
+  "files": {
+    "coverage_audit_manifest.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/coverage_traceback_20261018_v1/coverage_audit_manifest.json",
+      "sha256": "3a643fb92d33ecee5fce1d7879cf0a6bd10ba550f44eff8ade498e1d1727f292",
+      "encoding": "unchanged original bytes"
+    },
+    "query_coverage_audit.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/coverage_traceback_20261018_v1/query_coverage_audit.jsonl.gz",
+      "sha256": "b1b2069f985b2d562efd04dd22d7b707a30449c591bdca942806756a5819dfdb",
+      "encoding": "unchanged original bytes"
+    },
+    "primary_review_queue.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/coverage_traceback_20261018_v1/primary_review_queue.jsonl.gz",
+      "sha256": "45b65da5368942da0fe105cc20e969239550a570e14851ae26591e178dc8ce5b",
+      "encoding": "unchanged original bytes"
+    },
+    "candidate_patent_traceback.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/coverage_traceback_20261018_v1/candidate_patent_traceback.jsonl.gz",
+      "sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+      "encoding": "unchanged original bytes"
+    },
+    "queue_manifest.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/primary_traceback_queue_20261018_v1/queue_manifest.json",
+      "sha256": "618f99ca3af1c08cfd47baf8a77b7ac8486ed3b28fbc473d60e89a75b60c1fb6",
+      "encoding": "unchanged original bytes"
+    },
+    "patent_traceback_acquisition_references.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/primary_traceback_queue_20261018_v1/patent_traceback_acquisition_references.jsonl.gz",
+      "sha256": "3223b003735c0105c28ca64b8e1bdec6f5426edc61491f57aa12fcf267916a8f",
+      "encoding": "unchanged original bytes"
+    },
+    "traceback_acquisition_manifest.json.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/primary_candidate_acquisition_20261018_v3/acquisition_manifest.json",
+      "source_sha256": "c0b32748f3158752e713afcd1873f828032b5ac6a975dc8c442bd51ca845e315",
+      "sha256": "1ee635e43c0f27c49fc545c14596e74d99f698ce0df8783d8253c5e53a840711",
+      "encoding": "lossless gzip of complete original manifest"
+    }
+  },
+  "full_documents_redistributed": false
+}
