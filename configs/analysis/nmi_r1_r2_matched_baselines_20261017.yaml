@@ -72,7 +72,7 @@ r1:
       saved_target_reports: 460
       nonzero_stock_and_closures: 36
     - id: independent_full_trace_sampling
-      status: "find_existing_else_run_comparable_full_target_cohort"
+      status: "find_existing_else_prepare_for_explicit_authorization_no_automatic_GPU_launch"
       require_true_independent_policy_episodes: true
     - id: complete_reaction_candidate_planner
       status: "reuse_existing_Syntheseus_Retrostar_or_compatible_best_first"
