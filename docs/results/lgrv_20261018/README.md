@@ -75,10 +75,12 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Not yet delivered
 
-Full source retrieval, new primary-document checks beyond the seed, complete
-R2 program-exposure joins, validated analogue retrieval settings, all-work
-efficiency comparisons, chemical case selection and the final Figure2/3/4
-exports remain unfinished. No population Tier-A/B rate is claimed here.
+Full source retrieval, broader primary-document checks beyond the two checked
+Cabozantinib reactions, complete R2 program-exposure joins, validated analogue
+retrieval settings, all-work efficiency comparisons and the final population
+Figure2/3 and wider Figure4 gallery remain unfinished. The supported two-edge
+case and its complete action plates are now exported below. No population
+Tier-A/B rate is claimed here.
 The goal and original scope remain active; unit tests do not replace results.
 
 ## Follow-up: actual program joins and a complete source-backed case
@@ -121,6 +123,48 @@ elapsed seconds are **not** represented as global GPU time.
 The final reviewed feature set has **75 focused tests passed**; the fresh
 whole suite has **1,079 passed /13 skipped**, with one existing PEFT warning.
 No new model experiment was performed.
+
+Latest figure/collection increment: **1,102 passed /13 skipped** in the fresh
+whole repository run (117.07s), with the same existing PEFT warning. All four
+review issues were reproduced and fixed; the23 figure/collection tests pass.
+The earlier counts above identify prior implementation gates, not new model
+results or the final scientific evaluation.
+
+## Source-bound chemical figures and full-catalogue assembly
+
+[The actual Cabozantinib figure set](cabozantinib_figures_20261018/README.md)
+contains five SVG/PDF/PNG plates: both complete source-checked reactions and
+all15 saved inverse actions, including18 real electron-pair moves. Molecular
+drawings use RDKit's element colours; arrows come from exact saved current-state
+addresses. Every figure is183mm wide, at most164.05mm high, with embedded PDF
+fonts, editable SVG text and approximately300dpi PNG previews. Final PNG hashes
+equal all five actually viewed originals. The source checks do not establish
+the physical microscopic mechanism or a matched-work population advantage.
+
+The new `scripts/assemble_nmi_literature_index.py` combines completed immutable
+source shards across the original root and repair roots without overwriting
+old live partial databases/journals. It requires every file from the **original
+93-file catalogue**, verifies raw/index/failure-ledger hashes and original
+Parquet row counts, preserves legacy producer provenance through explicit
+opt-in, and refuses partial-corpus substitution. Finalization is resumable;
+donor/source path and inode aliases are rejected. [Review](FIGURE_COLLECTION_REVIEW.md).
+
+For the existing repaired collection, after all93 source receipts are complete:
+
+```bash
+python scripts/assemble_nmi_literature_index.py \
+  --source-manifest "$ORD_ROOT/source_corpus_manifest.json" \
+  --donor-root "$DATA_ROOT/data/derived/literature/ord_lgrv_46980f8_v1" \
+  --donor-root "$DATA_ROOT/data/derived/literature/ord_lgrv_46980f8_repair_20261018" \
+  --donor-root "$DATA_ROOT/data/derived/literature/ord_lgrv_remaining_repair_20261018_v1" \
+  --codec-sha256 f33ac383b4c0517355188a6e2b4d77bc679dc9ea553b16d467043e478f4f16dd \
+  --allow-compatible-v1-shards --workers 8 \
+  --output-root "$DATA_ROOT/data/derived/literature/ord_lgrv_full_20261018_v1"
+```
+
+Use that completed full index, not a23-file repair-batch index, for the final
+evidence CLI. The source conversion, full program join and all scientific
+deliverables remain subject to actual completion checks.
 
 ## Exact source versions
 

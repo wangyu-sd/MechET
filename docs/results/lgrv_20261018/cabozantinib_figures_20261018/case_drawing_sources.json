@@ -1,0 +1,969 @@
+{
+  "route_key": "afb473abe8f362dc20e6dffa50647baa80c44b4304e19299a893841138f18b9c",
+  "target_id": "ursa_drugs100:Cabozantinib S-malate",
+  "precedent_covered": true,
+  "steps": [
+    {
+      "reaction_key": "4e8b1ad7a25f05c2ebdc7642de03c9990617588c2546b5b4f6af78e77387a4e0",
+      "program": {
+        "program_complete": true,
+        "ordinary_source_sink_program": true,
+        "complete_signature": "1e125a450aabb039f8c73c8a69b40d44090e5ba3854fa7f67f47e11282903e44",
+        "complete_signature_training_count": 7551,
+        "events": [
+          {
+            "action_index": 1,
+            "primitive_signatures": [
+              "{\"electrons\":2,\"sink_atoms\":[[7,1,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[0,0,0],[7,1,0]],\"source_bond_order\":0,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[0,0,0],[7,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[7,0,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}"
+            ],
+            "training_reaction_frequencies": [
+              68953,
+              97047
+            ]
+          },
+          {
+            "action_index": 3,
+            "primitive_signatures": [
+              "{\"electrons\":2,\"sink_atoms\":[[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[6,0,0],[8,0,0]],\"source_bond_order\":2,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[17,-1,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[17,-1,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}"
+            ],
+            "training_reaction_frequencies": [
+              101896,
+              36287
+            ]
+          },
+          {
+            "action_index": 5,
+            "primitive_signatures": [
+              "{\"electrons\":2,\"sink_atoms\":[[7,1,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[6,0,0],[7,1,0]],\"source_bond_order\":1,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[8,-1,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,-1,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}"
+            ],
+            "training_reaction_frequencies": [
+              98503,
+              92944
+            ]
+          }
+        ],
+        "minimum_primitive_training_frequency": 36287,
+        "all_primitives_seen_at_least_five": true,
+        "basis": "source_to_sink_execution_moves_v1",
+        "limitations": [
+          "imports omitted from whole-program signature",
+          "coupled-move ordering can affect signatures",
+          "v1 atom descriptors inherit historical explicit-H handling"
+        ],
+        "route_C1_claim": false,
+        "independent_chemical_precedent": false,
+        "program_record_id": "ef95080c435b0197438f736786cded868274938f8c43ad99b7478c46b6435cb9",
+        "run_id": "r1_mcts_pr88",
+        "target_id": "ursa_drugs100:Cabozantinib S-malate",
+        "cohort": "ursa_drugs100",
+        "reaction_key": "4e8b1ad7a25f05c2ebdc7642de03c9990617588c2546b5b4f6af78e77387a4e0",
+        "reaction_product": "COc1cc2nccc(Oc3ccc(NC(=O)C4(C(=O)Nc5ccc(F)cc5)CC4)cc3)c2cc1OC",
+        "occurrence_ids": [
+          "00ecf503d62042e493af6bcbd3900895272c1549873a6f0ffbb107e91b547fbf"
+        ],
+        "native_context_id": "6a2845991e229030021f798fa1196e713c2ea8dcd7aefde39920b987a7d4d6b0",
+        "program_source_pointer": "/reaction_trees/COc1cc2nccc(Oc3ccc(NC(=O)C4(C(=O)Nc5ccc(F)cc5)CC4)cc3)c2cc1OC/contexts/42/actions",
+        "program_payload_sha256": "6116b12e33f803301dfb46846c59c88481cc78fb620d6eead20f906cede216e8",
+        "exposure_class": "seen_ordinary",
+        "program_state_binding": {
+          "valid": true,
+          "continuity_checks": 6,
+          "basis": "map-preserving endpoints plus available map-free public result continuity; not independent executor replay"
+        },
+        "whole_program_unseen": false,
+        "actor_exposure_authenticated": true,
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "signature_scope": "actual actor exposure; historical v1 ignores import identities",
+        "mapped_product": "[CH3:1][O:2][c:3]1[cH:4][c:5]2[n:6][cH:7][cH:8][c:9]([O:10][c:11]3[cH:12][cH:13][c:14]([NH:15][C:16](=[O:17])[C:18]4([C:19](=[O:20])[NH:21][c:22]5[cH:23][cH:24][c:25]([F:26])[cH:27][cH:28]5)[CH2:29][CH2:30]4)[cH:31][cH:32]3)[c:33]2[cH:34][c:35]1[O:36][CH3:37]",
+        "mapped_structural_precursors": "[C:16](=[O:17])([C:18]1([C:19](=[O:20])[NH:21][c:22]2[cH:23][cH:24][c:25]([F:26])[cH:27][cH:28]2)[CH2:29][CH2:30]1)[Cl:46].[CH3:1][O:2][c:3]1[cH:4][c:5]2[n:6][cH:7][cH:8][c:9]([O:10][c:11]3[cH:12][cH:13][c:14]([NH:15][H:38])[cH:31][cH:32]3)[c:33]2[cH:34][c:35]1[O:36][CH3:37]",
+        "mapping_status": "mapped_center_available",
+        "reaction_family_key": "d67e909d94247c8c01c07635f77edd09cee4325ba04ad5f98d1db9ef228970e2",
+        "complexity": {
+          "flow_events": 3,
+          "source_sink_move_count": 6,
+          "coupled_flow_events": 3,
+          "action_count": 7,
+          "basis": "native product-to-structural-precursor graph difference; imports can change atom inventory",
+          "physical_elementary_mechanism_established": false,
+          "changed_bond_count": 3,
+          "changed_atom_count": 4,
+          "cycle_rank_delta": 0,
+          "net_charge_delta": 0,
+          "atom_inventory_preserved": false,
+          "delta_status": "available"
+        }
+      },
+      "evidence": {
+        "reaction_key": "4e8b1ad7a25f05c2ebdc7642de03c9990617588c2546b5b4f6af78e77387a4e0",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "US20160022662A1:cabozantinib-free-base:acid-chloride-coupling",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/US20160022662A1/en",
+        "locator": "Description, Preparation of cyclopropane-1,1-dicarboxylic acid [4-(6,7-dimethoxy-quinoline-4-yloxy)-phenyl]-amide(4-fluoro-phenyl)-amide; paragraph beginning The solution from the previous step containing; normalized-text offset130922",
+        "document_sha256": "e21482a424093f3679400b0645e960be423b515f90f5c3831d1471a50b436511",
+        "raw_document_sha256": "d3e4ed6172d4727ebcf9228b3fd1291d629693112ea02587bb2f4d7087b0c7ff",
+        "conditions_match": false
+      },
+      "action_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "action_drawings": [
+        {
+          "action_index": 0,
+          "kind": "import_fragments",
+          "page_index": 0,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "81a4d9ac677ddc9f7ca9298a47bf2cbc3cdd05714288840fc897713f68d9ce35",
+              "source_maps": [],
+              "sink_maps": [],
+              "electron_arrow_count": 0,
+              "changed_atom_maps": [],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": []
+            }
+          ]
+        },
+        {
+          "action_index": 1,
+          "kind": "apply_electron_flow",
+          "page_index": 0,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "2ff2038bbfc352f16a7ba95522acc7925ab90303d4c99a8d491c98b7a61d50f2",
+              "source_maps": [
+                [
+                  38,
+                  39
+                ],
+                [
+                  15
+                ]
+              ],
+              "sink_maps": [
+                [
+                  39
+                ],
+                [
+                  15,
+                  38
+                ]
+              ],
+              "electron_arrow_count": 2,
+              "changed_atom_maps": [
+                15,
+                38,
+                39
+              ],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": [
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": null,
+                  "start_xy": [
+                    129.53286377580469,
+                    25.086030889871743
+                  ],
+                  "end_xy": [
+                    126.83614763523815,
+                    20.590687259914496
+                  ]
+                },
+                {
+                  "end_anchor_atom": 38,
+                  "sink_bond_present": false,
+                  "start_xy": [
+                    149.0696516410646,
+                    76.80301386727311
+                  ],
+                  "end_xy": [
+                    132.22957991637122,
+                    29.58137451982899
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action_index": 2,
+          "kind": "import_fragments",
+          "page_index": 0,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "21c8d33686776387b6a57d02c12edc885afa97a58e90478063570cdaceda8054",
+              "source_maps": [],
+              "sink_maps": [],
+              "electron_arrow_count": 0,
+              "changed_atom_maps": [],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": []
+            }
+          ]
+        },
+        {
+          "action_index": 3,
+          "kind": "apply_electron_flow",
+          "page_index": 0,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "eb90aac7c66590591bf6ca378f8f6d3e48e25601e635b5521019d580b5104207",
+              "source_maps": [
+                [
+                  16,
+                  17
+                ],
+                [
+                  46
+                ]
+              ],
+              "sink_maps": [
+                [
+                  17
+                ],
+                [
+                  16,
+                  46
+                ]
+              ],
+              "electron_arrow_count": 2,
+              "changed_atom_maps": [
+                16,
+                17,
+                46
+              ],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": [
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": null,
+                  "start_xy": [
+                    144.786681693776,
+                    80.90705107633607
+                  ],
+                  "end_xy": [
+                    144.19557314405637,
+                    75.83058776322402
+                  ]
+                },
+                {
+                  "end_anchor_atom": 16,
+                  "sink_bond_present": false,
+                  "start_xy": [
+                    125.37749610195131,
+                    9.886055670069325
+                  ],
+                  "end_xy": [
+                    145.3777902434956,
+                    85.98351438944813
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action_index": 4,
+          "kind": "import_fragments",
+          "page_index": 0,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "a910e51b8ef4ac4d666448ee01498b8eb2f2be869d162bd731b186354d9d154f",
+              "source_maps": [],
+              "sink_maps": [],
+              "electron_arrow_count": 0,
+              "changed_atom_maps": [],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": []
+            }
+          ]
+        },
+        {
+          "action_index": 5,
+          "kind": "apply_electron_flow",
+          "page_index": 0,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "d687cc1928beeaefef7e21aa7b21d3af306cfdb631f43fc166a012b2e29e37a5",
+              "source_maps": [
+                [
+                  15,
+                  16
+                ],
+                [
+                  17
+                ]
+              ],
+              "sink_maps": [
+                [
+                  15
+                ],
+                [
+                  16,
+                  17
+                ]
+              ],
+              "electron_arrow_count": 2,
+              "changed_atom_maps": [
+                15,
+                16,
+                17
+              ],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": [
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": null,
+                  "start_xy": [
+                    148.32011054373052,
+                    92.41808242370979
+                  ],
+                  "end_xy": [
+                    144.96017823327605,
+                    94.54756845761264
+                  ]
+                },
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": true,
+                  "start_xy": [
+                    150.4210707863793,
+                    79.56873176889798
+                  ],
+                  "end_xy": [
+                    149.55055682028214,
+                    86.92866407935246
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action_index": 6,
+          "kind": "finish_trace",
+          "page_index": 1,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "d0ff666194471d3b957aff1956d75788b654ce65180ef35ddf71b22537b63633",
+              "source_maps": [],
+              "sink_maps": [],
+              "electron_arrow_count": 0,
+              "changed_atom_maps": [],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "reaction_key": "c08ce91f53318293c4af8fe8fc0f610fcfee43895186af539053ed8fadca581b",
+      "program": {
+        "program_complete": true,
+        "ordinary_source_sink_program": true,
+        "complete_signature": "f5dfdc1888cfce2ff484c99248c66ae999660b7210f9842fa322ce2690d4d3a2",
+        "complete_signature_training_count": 0,
+        "events": [
+          {
+            "action_index": 1,
+            "primitive_signatures": [
+              "{\"electrons\":2,\"sink_atoms\":[[17,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[0,0,0],[17,0,0]],\"source_bond_order\":0,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[0,0,0],[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,0,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}"
+            ],
+            "training_reaction_frequencies": [
+              10473,
+              63412
+            ]
+          },
+          {
+            "action_index": 3,
+            "primitive_signatures": [
+              "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,0,0],[16,0,0]],\"source_bond_order\":2,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[8,1,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[6,0,0],[8,1,0]],\"source_bond_order\":2,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[16,0,0],[17,-1,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[17,-1,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}"
+            ],
+            "training_reaction_frequencies": [
+              5545,
+              9414,
+              17995
+            ]
+          },
+          {
+            "action_index": 4,
+            "primitive_signatures": [
+              "{\"electrons\":2,\"sink_atoms\":[[17,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[6,0,0],[17,0,0]],\"source_bond_order\":1,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[8,0,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,0,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}"
+            ],
+            "training_reaction_frequencies": [
+              9012,
+              30694
+            ]
+          },
+          {
+            "action_index": 5,
+            "primitive_signatures": [
+              "{\"electrons\":2,\"sink_atoms\":[[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[8,0,0],[16,0,0]],\"source_bond_order\":2,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[16,0,0],[17,-1,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[17,-1,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}"
+            ],
+            "training_reaction_frequencies": [
+              17940,
+              17995
+            ]
+          },
+          {
+            "action_index": 6,
+            "primitive_signatures": [
+              "{\"electrons\":2,\"sink_atoms\":[[8,1,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[6,0,0],[8,1,0]],\"source_bond_order\":2,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[8,0,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,0,0],[16,0,0]],\"source_bond_order\":1,\"source_kind\":\"BOND\"}",
+              "{\"electrons\":2,\"sink_atoms\":[[8,-1,0],[16,0,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,-1,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}"
+            ],
+            "training_reaction_frequencies": [
+              9414,
+              4677,
+              17938
+            ]
+          }
+        ],
+        "minimum_primitive_training_frequency": 4677,
+        "all_primitives_seen_at_least_five": true,
+        "basis": "source_to_sink_execution_moves_v1",
+        "limitations": [
+          "imports omitted from whole-program signature",
+          "coupled-move ordering can affect signatures",
+          "v1 atom descriptors inherit historical explicit-H handling"
+        ],
+        "route_C1_claim": false,
+        "independent_chemical_precedent": false,
+        "program_record_id": "c49020ce06068cd39246c156c4e405781b2e6a1810637e6afaaeff86a316e5ee",
+        "run_id": "r1_mcts_pr88",
+        "target_id": "ursa_drugs100:Cabozantinib S-malate",
+        "cohort": "ursa_drugs100",
+        "reaction_key": "c08ce91f53318293c4af8fe8fc0f610fcfee43895186af539053ed8fadca581b",
+        "reaction_product": "O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1",
+        "occurrence_ids": [
+          "8bb46517b06ef0c574cb05f2472473e18fbf7e209af89e9d2bbd4194988a4d3e"
+        ],
+        "native_context_id": "392f16fee202ec1833a5774c46b8e0b4d5702f716ed1f9821b3f0bc2df623ab2",
+        "program_source_pointer": "/reaction_trees/O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1/contexts/37/actions",
+        "program_payload_sha256": "06dc38a03c668bed77e4e0912bc542dfddcf86870b99b293cc5616f8424e7a10",
+        "exposure_class": "unseen_ordinary",
+        "program_state_binding": {
+          "valid": true,
+          "continuity_checks": 7,
+          "basis": "map-preserving endpoints plus available map-free public result continuity; not independent executor replay"
+        },
+        "whole_program_unseen": true,
+        "actor_exposure_authenticated": true,
+        "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+        "signature_scope": "actual actor exposure; historical v1 ignores import identities",
+        "mapped_product": "[O:1]=[C:2]([Cl:3])[C:4]1([C:5](=[O:6])[NH:7][c:8]2[cH:9][cH:10][c:11]([F:12])[cH:13][cH:14]2)[CH2:15][CH2:16]1",
+        "mapped_structural_precursors": "[Cl:3][S:20]([Cl:18])=[O:19].[O:1]([C:2]([C:4]1([C:5](=[O:6])[NH:7][c:8]2[cH:9][cH:10][c:11]([F:12])[cH:13][cH:14]2)[CH2:15][CH2:16]1)=[O:21])[H:17]",
+        "mapping_status": "mapped_center_available",
+        "reaction_family_key": "dc8e8b883caf7089ae0ea537702c3f2458f569270d4408aeae78244152aba55f",
+        "complexity": {
+          "flow_events": 5,
+          "source_sink_move_count": 12,
+          "coupled_flow_events": 5,
+          "action_count": 8,
+          "basis": "native product-to-structural-precursor graph difference; imports can change atom inventory",
+          "physical_elementary_mechanism_established": false,
+          "changed_bond_count": 7,
+          "changed_atom_count": 8,
+          "cycle_rank_delta": 0,
+          "net_charge_delta": 0,
+          "atom_inventory_preserved": false,
+          "delta_status": "available"
+        }
+      },
+      "evidence": {
+        "reaction_key": "c08ce91f53318293c4af8fe8fc0f610fcfee43895186af539053ed8fadca581b",
+        "tier": "A",
+        "supported": true,
+        "retrieval_status": "experimental_example_checked",
+        "verification_status": "source_passage_checked",
+        "source_candidates": [],
+        "selected_source": "WO2018104954A1:example1:acid-to-acid-chloride",
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "reason": "exact_performed_structural_reaction",
+        "source_url": "https://patents.google.com/patent/WO2018104954A1/en",
+        "locator": "Description preferred embodiment step(a), formula2 to formula3, normalized offset~51600; Examples, Example1 opening paragraph, normalized offset83477. Formed acid chloride is used in situ in the subsequent coupling, not separately isolated.",
+        "document_sha256": "00e77f7011c4029a1834e4cc6713ff04f1f47406313bceb68c706b5a9c32d32d",
+        "raw_document_sha256": "d92932b6983d7a6a6de1fd6555d52dd969dcc3d19e4d72e6907dfd8907facf6f",
+        "conditions_match": false
+      },
+      "action_indices": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "action_drawings": [
+        {
+          "action_index": 0,
+          "kind": "import_fragments",
+          "page_index": 2,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "389befe683a380a0d3b32fac6565c08b7843ac360506438783b3aff6bce3fe07",
+              "source_maps": [],
+              "sink_maps": [],
+              "electron_arrow_count": 0,
+              "changed_atom_maps": [],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": []
+            }
+          ]
+        },
+        {
+          "action_index": 1,
+          "kind": "apply_electron_flow",
+          "page_index": 2,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "b25440b9cf2f8c039118dd6f65214c22f24d0da349b340b706c284e6e21ebb4d",
+              "source_maps": [
+                [
+                  17,
+                  18
+                ],
+                [
+                  1
+                ]
+              ],
+              "sink_maps": [
+                [
+                  18
+                ],
+                [
+                  1,
+                  17
+                ]
+              ],
+              "electron_arrow_count": 2,
+              "changed_atom_maps": [
+                1,
+                17,
+                18
+              ],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": [
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": null,
+                  "start_xy": [
+                    113.05482190786205,
+                    17.133524807475595
+                  ],
+                  "end_xy": [
+                    100.38577516894432,
+                    17.133524807475595
+                  ]
+                },
+                {
+                  "end_anchor_atom": 17,
+                  "sink_bond_present": false,
+                  "start_xy": [
+                    45.77010531833721,
+                    94.0279751925244
+                  ],
+                  "end_xy": [
+                    125.72386864677976,
+                    17.133524807475595
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action_index": 2,
+          "kind": "import_fragments",
+          "page_index": 2,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "03e3599ee2a136674f35625517eabd631a1f7877b5a0f53167af3140d58b8a56",
+              "source_maps": [],
+              "sink_maps": [],
+              "electron_arrow_count": 0,
+              "changed_atom_maps": [],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": []
+            }
+          ]
+        },
+        {
+          "action_index": 3,
+          "kind": "apply_electron_flow",
+          "page_index": 2,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "ee81d9c76b063ebdc10255299bb4a9448401a391df7587675908dce675ccd7bd",
+              "source_maps": [
+                [
+                  20,
+                  21
+                ],
+                [
+                  1,
+                  2
+                ],
+                [
+                  18
+                ]
+              ],
+              "sink_maps": [
+                [
+                  2,
+                  21
+                ],
+                [
+                  1
+                ],
+                [
+                  18,
+                  20
+                ]
+              ],
+              "electron_arrow_count": 3,
+              "changed_atom_maps": [
+                1,
+                2,
+                18,
+                20,
+                21
+              ],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": [
+                {
+                  "end_anchor_atom": 2,
+                  "sink_bond_present": false,
+                  "start_xy": [
+                    121.84203592626554,
+                    30.452688539984706
+                  ],
+                  "end_xy": [
+                    85.11444437976414,
+                    78.49692506746302
+                  ]
+                },
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": null,
+                  "start_xy": [
+                    77.39702211661015,
+                    81.62293945994041
+                  ],
+                  "end_xy": [
+                    69.67959985345615,
+                    84.7489538524178
+                  ]
+                },
+                {
+                  "end_anchor_atom": 20,
+                  "sink_bond_present": false,
+                  "start_xy": [
+                    117.63107695554947,
+                    11.187441829504394
+                  ],
+                  "end_xy": [
+                    114.63107695554947,
+                    26.289439437126433
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action_index": 4,
+          "kind": "apply_electron_flow",
+          "page_index": 2,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "9614e94ac518ad9b36c4aab27d36bd572105276be48924fa2259f9c743f9f65a",
+              "source_maps": [
+                [
+                  2,
+                  3
+                ],
+                [
+                  1
+                ]
+              ],
+              "sink_maps": [
+                [
+                  3
+                ],
+                [
+                  1,
+                  2
+                ]
+              ],
+              "electron_arrow_count": 2,
+              "changed_atom_maps": [
+                1,
+                2,
+                3
+              ],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": [
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": null,
+                  "start_xy": [
+                    99.75741812670628,
+                    62.638616874189665
+                  ],
+                  "end_xy": [
+                    110.97015066481075,
+                    65.46944882758014
+                  ]
+                },
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": true,
+                  "start_xy": [
+                    85.88302168182085,
+                    78.2332499970081
+                  ],
+                  "end_xy": [
+                    85.71385363521134,
+                    71.02051745890364
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action_index": 5,
+          "kind": "apply_electron_flow",
+          "page_index": 2,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "2d18abf756128f1e7fa8505eab01c05345fd2814331e20cc3ed5dd5eb2f21714",
+              "source_maps": [
+                [
+                  19,
+                  20
+                ],
+                [
+                  3
+                ]
+              ],
+              "sink_maps": [
+                [
+                  19
+                ],
+                [
+                  3,
+                  20
+                ]
+              ],
+              "electron_arrow_count": 2,
+              "changed_atom_maps": [
+                3,
+                19,
+                20
+              ],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": [
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": null,
+                  "start_xy": [
+                    99.22117704706466,
+                    94.03885365738128
+                  ],
+                  "end_xy": [
+                    105.12034887888316,
+                    100.08798304856518
+                  ]
+                },
+                {
+                  "end_anchor_atom": 20,
+                  "sink_bond_present": false,
+                  "start_xy": [
+                    115.9628249439149,
+                    11.240389402101345
+                  ],
+                  "end_xy": [
+                    93.32200521524615,
+                    87.98972426619738
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action_index": 6,
+          "kind": "apply_electron_flow",
+          "page_index": 3,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "6d1785d295cb1d121969ce8f30a2103992e3969b3ab0ab31655e69b3ef807b53",
+              "source_maps": [
+                [
+                  1,
+                  2
+                ],
+                [
+                  20,
+                  21
+                ],
+                [
+                  19
+                ]
+              ],
+              "sink_maps": [
+                [
+                  1
+                ],
+                [
+                  2,
+                  21
+                ],
+                [
+                  19,
+                  20
+                ]
+              ],
+              "electron_arrow_count": 3,
+              "changed_atom_maps": [
+                1,
+                2,
+                19,
+                20,
+                21
+              ],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": [
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": null,
+                  "start_xy": [
+                    72.3487380220471,
+                    51.08164255849273
+                  ],
+                  "end_xy": [
+                    62.99668564779765,
+                    53.129865034867684
+                  ]
+                },
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": true,
+                  "start_xy": [
+                    91.69825467485025,
+                    72.3066536447981
+                  ],
+                  "end_xy": [
+                    88.15062928056427,
+                    56.1084237775529
+                  ]
+                },
+                {
+                  "end_anchor_atom": null,
+                  "sink_bond_present": true,
+                  "start_xy": [
+                    85.991614204905,
+                    95.67633216022837
+                  ],
+                  "end_xy": [
+                    85.89382769488675,
+                    90.55310598841828
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "action_index": 7,
+          "kind": "finish_trace",
+          "page_index": 3,
+          "molecules": [
+            {
+              "backend": "RDKit_MolDraw2DSVG",
+              "rdkit_version": "2026.03.4",
+              "state_sha256": "89e79d5e5e1cbd5b32dc31640a1ca83c31e16f882fd90e4eedea32e1e24dfd5e",
+              "source_maps": [],
+              "sink_maps": [],
+              "electron_arrow_count": 0,
+              "changed_atom_maps": [],
+              "element_colors": "RDKit_default",
+              "stereochemistry_preserved": true,
+              "arrow_geometry": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "physical_mechanism_verified": false,
+  "net_chemistry_orientation": "forward"
+}
