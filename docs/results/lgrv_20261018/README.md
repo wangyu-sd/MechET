@@ -36,6 +36,16 @@ The [current v8 Figure2/3 and three extended panels](population_figures_primary_
 are regenerated; all five actual previews were opened and inspected, with
 actual inverse FLOW arrows and current evidence/work counts retained.
 
+**Full lookup-stage diagnosis:** of18,045 no-index-hit queries,17,553 have no
+exact or current local-family lookup candidate,454 lack an available center,
+and38 have raw family candidates rejected by full-context compatibility.
+The [complete SQL audit and reproduction recipe](lookup_bottlenecks_v8_20261019/README.md)
+retain all18,210 query rows. Therefore the dominant observed gap is at candidate
+retrieval, not a later primary-source grade threshold; neither relaxing the
+38 checks nor declaring no-hit chemistry invalid resolves that coverage gap.
+The audit does not yet separate source-domain versus representation/lookup
+recall causes, and changes no evidence grade or model output.
+
 **Independent-control runtime:** the rolling batch scheduler, lazy pinned-vLLM
 transport, durable complete input/output journals and non-ranking episode-prefix
 aggregation are now implemented and covered by26 focused CPU software tests.
