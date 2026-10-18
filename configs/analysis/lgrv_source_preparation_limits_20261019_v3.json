@@ -1,0 +1,65 @@
+{
+  "schema": "lgrv_source_preparation_limits_spec_v1",
+  "scope": "Three original candidate/source comparisons for two generated queries: conditional acetate preparation and two apparent double-bond-stereochemistry-only transformations. These are source-evidence limits,not chemical failures orpositive registry entries.",
+  "frozen_analysis_manifest_sha256": "d8ec39c2f93f0c91b8d8d19f5332a2f759169caa3b0adf86c732d66299ddcf78",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "source_id": "US7745646B2:example61:indexed-acetate-preparation-limit",
+      "source_url": "https://patents.google.com/patent/US7745646B2/en",
+      "document_sha256": "b757e971ae4370379e1c2154e6c4251329d6e1486637822c67586d1e40140b63",
+      "witnesses": [
+        {"text": "EXAMPLE 61 5-(4-(3,5-Dichloropyridin-4-ylamino)-7-methoxy-2-oxo-2H-chromen-8-yloxy)pentyl acetate", "locator": "Example61 around264480ff;fulltitle,conditionalpotassiumacetate route,individualNMR/MS480.9 directlyread."},
+        {"text": "The title compound can be prepared from potassium acetate and 8-(5-bromopentyloxy)", "locator": "Example61 conditionalpreparation sentence;referenced52 at258327ff directlyread(DMSO10h,actualmethylpiperazine ratherthan acetate)."}
+      ],
+      "indexed_candidate_product": "O=c1cc(Nc2c(Cl)cncc2Cl)c2ccc(OC)c(OCCCCCOC(C)=O)c2o1",
+      "indexed_candidate_precursors": ["O=c1cc(Nc2c(Cl)cncc2Cl)c2ccc(OC)c(OCCCCCBr)c2o1", "CC(=O)[O-]", "[K+]"],
+      "expected_candidate_reaction_key": "caffbe49d70322be0b0bc3596f007fa50d2cc2a462fe18586b20d487468f86b3",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "actual_named_product_characterization_reported": true,
+      "source_review": "Example61 provides individualproductNMR/MS480.9 butphrases the indexedKOAc route conditionally as can be prepared. Full52 is an actualmethylpiperazine substitution inDMSO10h withaqueousK2CO3/EtOAc/HPLCworkup;61doesnot separatelyreport anisolatedmass,yield orperformedKOAcoperation. Productcharacterization isnotdenied;literal preparationexecution remainsuncertain. The nearbyisolatedduringpurificationExample58sentencebelongs to59'sN-methylatedmethylester,not61;it mustnotbeassignedtotheacetate. Independentlytranscribedcoumarin/pentylacetategraphs matchonly theoriginalindexedcandidate,not proofitsrecipewasperformed.",
+      "query_reviews": [{
+        "query_reaction_key": "2d0c314cf314dc6b96911970e57d47797a2e5f08e45e93aa6a41a69f079c7899",
+        "review_limitations": "Queryis anintramolecularhemiketal-alkoxide/bromoethylclosure toacyclicacetal,notintermolecularacetate substitution of aterminalbromopentylcoumarin. Neitherconditional61 noractual52 establishes thismolecularity,nucleophileclass orcyclicacetalconstruction. RetainCwithoutclaimingthequeryfails ordenyingthecharacterizedsourceproduct."
+      }]
+    },
+    {
+      "source_id": "US6858642B1:examples5-6:caffeic-acid-stereo-only-record-limit",
+      "source_url": "https://patents.google.com/patent/US6858642B1/en",
+      "document_sha256": "d98d47ecc9964f87a9098254f957e27ec86bd1d3ed6e5a27ff2fd99b7415211f",
+      "witnesses": [
+        {"text": "EXAMPLE 5 Caffeic Acid 5-Methoxytryptamide", "locator": "Example5 around63695-64810 completeacidchloride/amidepreparationread;sourceproductisanamide,notcaffeicacid."},
+        {"text": "TABLE 1 Scavenging activity on DPPH radicals", "locator": "Table1 around65800ff comparescaffeicacidanditsamideasassaycompounds,notacaffeicacidisomerizationexperiment."}
+      ],
+      "indexed_candidate_product": "O=C(O)/C=C/c1ccc(O)c(O)c1",
+      "indexed_candidate_precursors": ["O=C(O)C=Cc1ccc(O)c(O)c1"],
+      "expected_candidate_reaction_key": "e40b89a997ebab8d9605ac92159f7328847b81c8195d302d7e590e05f95d25b7",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "source_review": "Allcaffeic-acidmentionswerelocated. ActualExample5makes5-methoxytryptamide from3,4-dihydroxycinnamicacid viaSOCl2activation andaminecoupling,about60%whitecrystalswithNMR;6makesanesteranalogously. Caffeicacidappears as startingmaterial/assaycomparison. These passagesdonotestablish theindexedone-componentunspecifiedalkene-to-Ecaffeicacidreaction. Independentlyspecifiedcandidategraphs differonlyinthedoublebondstereolabel;the source'samide/estertransformationcannotbe relabelled asthatreaction.",
+      "query_reviews": [{
+        "query_reaction_key": "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+        "review_limitations": "GeneratedqueryonlyassignsEgeometry toanalkenenitrilenaphthylsulfurcation precursorwithunspecifiedgeometry. Sourcecaffeicacidamide/assaymentions arenotperformedprecedent forthisstereoselection,norforitschargedS/Cl/Osetting. RetainC;unspecifiedinputdoesnotmeanobservedZsubstrate,andnoisomerizationorchemicalfailureisinferred."
+      }]
+    },
+    {
+      "source_id": "US7094801B2:examples81-88:salt-formation-not-E-generation",
+      "source_url": "https://patents.google.com/patent/US7094801B2/en",
+      "document_sha256": "575d2e059eead6dee164a43492a98bf459cfd631b8492891593fd96d8dee9719",
+      "witnesses": [
+        {"text": "Example 88 4-{3E-[4-Methoxy-2-(2-morpholin-4-yl-ethoxy)-5-thiophen-2-yl-phenyl]-acryloyl}-benzenesulfonamide, hydrochloride", "locator": "Complete88 at709575-710553:saltformationfromEx81/THF/3NHCl,darkRT30min,0.054g78%,NMR/elementalanalysis."},
+        {"text": "Example 81 4-{3E-[4-Methoxy-2-(2-morpholin-4-yl-ethoxy)-5-thiophen-2-yl-phenyl]-acryloyl}-benzenesulfonamide", "locator": "Complete81 at702647-704035:parentalreadyidentifiedas3E;its82%formationisnotan88isomerizationyield."}
+      ],
+      "indexed_candidate_product": "NS(=O)(=O)c1ccc(C(=O)/C=C/c2cc(-c3cccs3)c(OC)cc2OCCN2CCOCC2)cc1.Cl",
+      "indexed_candidate_precursors": ["NS(=O)(=O)c1ccc(C(=O)C=Cc2cc(-c3cccs3)c(OC)cc2OCCN2CCOCC2)cc1", "Cl"],
+      "expected_candidate_reaction_key": "1443ec152632a23fe9b70b980b3776458ff9f82a21c8c2bea371d452602ad192",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "actual_named_product_prepared": true,
+      "source_review": "Actual88isHClsaltformation ofthealready3Eparent81,with0.054g78%andproductNMR/elementalanalysis. The indexedrecordinsteadhasunspecifiedalkenegeometry ontheparentandEonlyontheproduct,andencodesthesaltasneutralparentplusCl. ThatrepresentationdoesnotproveEgeometrywasnewlycreatedin88. The independentlytranscribedindexedcandidatekeyretainsitsliteralneutralcomponents,notasilentlyrepairedionicstructure.81'sprintedprecursornamerepetitionisnotreconstructed;onlyitsactual3Etitle/parentrelationisused. Thisdoesnotdenythehydrochloridewasprepared.",
+      "query_reviews": [{
+        "query_reaction_key": "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+        "review_limitations": "Thissecondoriginalcandidateisalsonotaperformedunspecified-to-EisomerizationprecedentforthenitrilenaphthylSquery. HClsaltformationandtransferofapre-existing3Elabeldonotestablishquerygeometryselection. RetainC;nosaltprotonation,stereotagorquerystabilityisrepairedorclaimedexperimentallywrong."
+      }]
+    }
+  ]
+}

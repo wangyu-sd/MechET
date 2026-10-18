@@ -6,6 +6,27 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
+**Further source work, awaiting pooled refresh:** 19 additional source/query
+comparisons cover 18 of the 40 v16 cached-but-unread queries. Their 13 primary
+preparations/findings are physically authenticated: eight new query-scoped
+analogue judgements and ten still-unresolved queries (one has two reviewed
+source candidates). The remaining cached/unread queue is 22. See the
+[complete follow-up receipt](SOURCE_REVIEW_FOLLOWUP_20261019.json),
+[six coupling preparations](grouped_primary_review_batch7_20261019/README.md),
+[four substitution preparations](grouped_primary_review_batch8_20261019/README.md),
+and [three preparation/stereolabel limits](source_preparation_limits_batch2_20261019/README.md).
+The receipt preserves all original40 pending IDs and every pair, not a model
+test subset. These new reviews have **not** been incorporated into a new full
+analysis; the published v16 counts and figures below remain unchanged.
+
+The new limit-reader version also handles the already documented zero-padded
+US patent lookup alias, retaining original IDs/URLs and publication kinds.
+Actual old-reader failure → corrected reader is covered by eight new software
+regressions; the 18 old/new limit tests pass together. No old sealed reader,
+source result, chemical candidate, source cap, or model prediction is rewritten.
+Fresh whole CPU suite after this repair: **1,287 passed / 14 skipped**, one
+existing PEFT warning, 195.04s. These are software checks, not model results.
+
 **Current v16 source review:** 12 further source/query comparisons across five
 patents add two query-scoped analogues; ten remain unresolved with explicit
 applicability or preparation/formulation limits. The full 18,210-query,

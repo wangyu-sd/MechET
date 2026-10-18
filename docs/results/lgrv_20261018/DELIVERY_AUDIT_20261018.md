@@ -5,6 +5,28 @@ not legacy Top-K/reference ranking. This is a progress audit, **not a claim
 that the entire PR89 goal is complete**. No model/GPU/Taiji jobs were launched
 or changed in this delivery; paper and code main remain unmerged.
 
+**Source-review follow-up, not yet pooled:** the
+[authenticated receipt](SOURCE_REVIEW_FOLLOWUP_20261019.json) covers 19 new
+source/query pairs, 18 of v16's 40 cached-pending queries, and 13 original
+preparations/findings. Eight new compatible analogue judgements and ten
+unresolved queries are recorded separately from the unchanged full v16 result.
+Twenty-two cached queries remain unread. Every review is recompiled against
+the sealed full 18,210-query inputs and original capped source candidates;
+the receipt preserves all 40 original pending IDs and both candidates for the
+stereolabel-only query. No 67-support pooled result is asserted from arithmetic
+alone: a new whole analysis/route/paired/figure refresh is still required.
+
+The old limit binder rejected zero-padded US patent IDs despite the existing
+acquisition module's validated lookup normalization. The separately versioned
+reader now records both raw and lookup identifiers; it does not infer a
+publication kind/family or admit a new chemical candidate. Eight real-file
+regressions reproduce the old failure and retain all negative identity/source/
+chemistry guards; all 18 old/new limit tests pass. Earlier recipes and outputs
+are byte-preserved, not relabelled as regenerated.
+Fresh full CPU verification after the versioned lookup repair: **1,287 passed,
+14 skipped**, one existing PEFT warning, 195.04s. No chemistry grade is inferred
+from that software result.
+
 **Current v16 (19 October):** 47 Tier A / 12 query-scoped Tier B / 18,151
 unresolved across all 18,210 queries and six conditions. All 21 sealed outputs,
 current producers/registries, and unchanged query/context/candidate sequences
@@ -213,6 +235,7 @@ one existing warning,194.15s. Existing figure exports remain labelled v5.
 | Real primary-source acquisition | All210 original references retained;66 direct patents plus104 recovered exact-candidate patent URLs,137 distinct pages in the union; all raw/text hashes verified | Available patent acquisition complete;33 non-patent candidates still lack a recovered patent pointer |
 | Performed, structurally reconciled examples |47 exact reactions and12 query-scoped analogues with original/cache bytes, independent named structures, short witnesses/hashes and locators; all59 in v16 case registry |108 indexed-candidate queries remain unresolved; source support is not population chemical accuracy |
 | Analogue applicability beyond local descriptor match | Bound actual preparations,complete referenced methods andexplicit per-query substrate/condition/stereo differences;2 new compatible pairs and10 checked unresolved comparisons | Authored post-hoc reviews, including5 preparation/formulation limits; not experimental query outcomes,automatic family-wideB/D or independent policy controls |
+| Additional original-source work beyond full v16 | Authenticated follow-up receipt:19 source/query pairs,18 queries,13 preparations/findings,8 further compatible analogue judgements and10 unresolved queries | Pending next pooled analysis;22 of the original40 cached-pending queries remain unread. No new population support total or model experiment claimed |
 | Honest complete-route evidence and same-target baseline comparison | Full460 target outcomes, all-essential-edge AND joins, paired2x2/2000 bootstrap; separate common-observed subset | Computed; descriptive under unequal work/completion selection |
 | R2 actor-specific program composition and historical H2 distinction | Complete37,922 program join/current exposure; reference160 C0/C1/C2 Unknown | Current actor join complete; not strict H2 or chemical novelty |
 | Actual work, including pending targets, cache distinguished | All8 exact wave-prefix reaudit;852,951,580 new tokens;184,560,843 cached returns excluded | Verified; GPU-active seconds unknown |
@@ -222,8 +245,8 @@ one existing warning,194.15s. Existing figure exports remain labelled v5.
 | Missing conventional complete-reaction planner control | [Read-only compatibility audit](conventional_control_compatibility_20261019/README.md) of actual existing Syntheseus/proof-pool code, parser defaults, source hashes and unavailable optional package | Existing code located; current context/count/decoder/salt contracts not matched. Conditional unavailable-control state, not completed predictions or a retrospective surrogate |
 | Final whole-goal scientific/code audit and fresh whole-branch review | This audit identifies remaining requirements; earlier incremental reviews are retained | **Incomplete; do not mark the goal achieved** |
 
-Current software gate:1,279 passed/14 skipped/one existing PEFT warning,
-196.87s, CPU-only. The existing extended/population tests include real-file
+Current software gate:1,287 passed/14 skipped/one existing PEFT warning,
+195.04s, CPU-only. The existing extended/population tests include real-file
 exports, rejected mismatched work receipts, unknown mappings and unchanged
 original target populations. These are software checks, not experimental
 model performance. GPU checks were not rerun on occupied unrelated hardware.

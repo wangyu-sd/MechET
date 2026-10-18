@@ -1,0 +1,269 @@
+{
+  "schema": "lgrv_authenticated_source_review_followup_v1",
+  "complete_source_batch": true,
+  "pooled_analysis_updated": false,
+  "current_complete_population": {
+    "analysis_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v16",
+    "manifest_sha256": "d8ec39c2f93f0c91b8d8d19f5332a2f759169caa3b0adf86c732d66299ddcf78",
+    "unique_reaction_queries": 18210,
+    "tier_counts": {
+      "C": 18151,
+      "A": 47,
+      "B": 12
+    },
+    "supports": 59
+  },
+  "original_cached_pending_queries": [
+    "0a8f6ac261d5c538f1475a3d3204870c928077ffaf3acb48eeacdde001b22b2c",
+    "0c20de81ee40ea059fdea05f6c6e24c76fd1c45076839e2a3299309875360db2",
+    "1939a7529cdc238385358b16caba90285eac2869f1bd9c67712a19fb3158e0ff",
+    "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+    "1dfb0b3a2a613f6d70b69ec7a02a2e200a5e7d8e43abfdf70ab5862a10cebbaf",
+    "24861b7342d2ac718d8827706c0ea3ebe69fd525c2e2561532b69dfc215f62e6",
+    "2a2ef3431a492abb8191cd1d9dc2de97c58a8d694fd91d74d79226f91374471e",
+    "2d0c314cf314dc6b96911970e57d47797a2e5f08e45e93aa6a41a69f079c7899",
+    "2ed4f31f824aaf428a7621677f903b23477a9c87dc928bbd1637c2938ff27084",
+    "2f1b82852f79014bf7b9bb2e7773474cb3a8c7268126bd6e34516f940579db4b",
+    "3b48f556510784fa87bfd7e1d641d455a0b0c7abc3637686d627bbd6ef3294aa",
+    "407c4b0a0abc57fc1b108c6621dd66618e35f10e963e10d60be3ccb2dca807f0",
+    "41cf1f1e44fe8c7069ada0bb7e59b758e6b8ceed548f239e43e9ddeef9832ee6",
+    "41df626e106b888fbca87b75516d370485dc4cf2a6ed158c35f8a37ba43aa036",
+    "490a5dd10fc9115f9666c0d36f4bc0fe1a307eb15101737ffa94e60e21c4a844",
+    "4d2197205f643ff0803d4936df97566031c06c9fc17dc210f4422495150b5df1",
+    "5a1139aee4b366114c8c641b3da3ac52461fb019cb1c1177fba7473befc53a69",
+    "6cdaf1882b8d5ccd1373568fbd9aa920d8656b3c222b06711f5cf5b7b1ebff05",
+    "7984b2c5c3697f1f03973ad4c402b9a67733c585ea9dbbb68a4366d7076db04a",
+    "7aa9918857fdccc2b4e6232303915966cad01355f1d207bc6f1caf71d4fd6f66",
+    "858d128af4569596d4cbaa35c38337ece8473aeaf1d3234f3501de2083628c52",
+    "883846141b7c3bcacc7bdf45b63289467a340f3341e16031606c62af1349afe4",
+    "89d410c96b162c25788c765a9ca02bd76dd1deaf22b7504ef7e0154f97b39c59",
+    "89d605387bdbda61600d238af1c86bfbc78a7cfa1f692652a6984c413b64dbbd",
+    "8d0697ac656f317fa00eb06c6136677002c7057373f35949e67f88e59f5419e7",
+    "8d0dcece07c92381400b49414e0bed4993968f90978837bdcf3d1f73a9e27088",
+    "9c8e6454a2deb218f2fafa6827634ba406ab18627c13b7a8ae99b4ac319b28fc",
+    "9ea7a8badfa0ecfc730677937287aba60317fdace01ce8f186b9f482ca5a063a",
+    "a1dbd0effe332e8061bb8c80114788e76ed6edb3d40cd73044d8dd9090ba9cb4",
+    "af78102edaa762106dca44328a93e99f4c3998268507e60bd040418896a165eb",
+    "baf99c43f63fb0dbe6d7625d47239ce68a491a0a3c97c160f548fa7166bc5e30",
+    "bd8f53e54200d505137f9b93140db2e54d425a50dd23a68042f825f5d614a116",
+    "c162f16903b80469c2edc42ca6047350767f687224df68d9f60f8d628cc9f831",
+    "dcb87f9a424f207a27c738e9a63e6cb05850be9895b2f5a2ba23b002f4b2d7e4",
+    "de7daf1470766dca196477a45f4c5e964a8e4199bf9c1b14282b6a1d22bb43c7",
+    "f87f6d56abba4f441bc1c2f8ba7f929e8f7f34b1c74cb332cdcb0580e808fb85",
+    "fa3e76a4c1db88a03304910c033880f57c58828f54b8af6b4f3a48b9556e9059",
+    "fbacae61732010cd65b076783845981792caa887dec5eb5b3ad1f4d35c759b64",
+    "fece5401ed3edd4ccf7c4a445969c9d7377cac7c4e35dd5ce025073d29b33b3a",
+    "ffa8ac7af60af9583ecbd5b82060def7644a917fcd00d631026e4d9094d857de"
+  ],
+  "source_preparations_or_findings": 13,
+  "reviewed_source_query_pairs": 19,
+  "reviewed_unique_queries": 18,
+  "proposed_tier_counts_by_source_query_pair": {
+    "B": 8,
+    "C": 11
+  },
+  "new_analogue_review_queries": [
+    "2a2ef3431a492abb8191cd1d9dc2de97c58a8d694fd91d74d79226f91374471e",
+    "3b48f556510784fa87bfd7e1d641d455a0b0c7abc3637686d627bbd6ef3294aa",
+    "407c4b0a0abc57fc1b108c6621dd66618e35f10e963e10d60be3ccb2dca807f0",
+    "41df626e106b888fbca87b75516d370485dc4cf2a6ed158c35f8a37ba43aa036",
+    "7aa9918857fdccc2b4e6232303915966cad01355f1d207bc6f1caf71d4fd6f66",
+    "8d0dcece07c92381400b49414e0bed4993968f90978837bdcf3d1f73a9e27088",
+    "9c8e6454a2deb218f2fafa6827634ba406ab18627c13b7a8ae99b4ac319b28fc",
+    "af78102edaa762106dca44328a93e99f4c3998268507e60bd040418896a165eb"
+  ],
+  "new_unresolved_review_queries": [
+    "1939a7529cdc238385358b16caba90285eac2869f1bd9c67712a19fb3158e0ff",
+    "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+    "24861b7342d2ac718d8827706c0ea3ebe69fd525c2e2561532b69dfc215f62e6",
+    "2d0c314cf314dc6b96911970e57d47797a2e5f08e45e93aa6a41a69f079c7899",
+    "2f1b82852f79014bf7b9bb2e7773474cb3a8c7268126bd6e34516f940579db4b",
+    "858d128af4569596d4cbaa35c38337ece8473aeaf1d3234f3501de2083628c52",
+    "883846141b7c3bcacc7bdf45b63289467a340f3341e16031606c62af1349afe4",
+    "a1dbd0effe332e8061bb8c80114788e76ed6edb3d40cd73044d8dd9090ba9cb4",
+    "dcb87f9a424f207a27c738e9a63e6cb05850be9895b2f5a2ba23b002f4b2d7e4",
+    "ffa8ac7af60af9583ecbd5b82060def7644a917fcd00d631026e4d9094d857de"
+  ],
+  "remaining_unreviewed_cached_queries": [
+    "0a8f6ac261d5c538f1475a3d3204870c928077ffaf3acb48eeacdde001b22b2c",
+    "0c20de81ee40ea059fdea05f6c6e24c76fd1c45076839e2a3299309875360db2",
+    "1dfb0b3a2a613f6d70b69ec7a02a2e200a5e7d8e43abfdf70ab5862a10cebbaf",
+    "2ed4f31f824aaf428a7621677f903b23477a9c87dc928bbd1637c2938ff27084",
+    "41cf1f1e44fe8c7069ada0bb7e59b758e6b8ceed548f239e43e9ddeef9832ee6",
+    "490a5dd10fc9115f9666c0d36f4bc0fe1a307eb15101737ffa94e60e21c4a844",
+    "4d2197205f643ff0803d4936df97566031c06c9fc17dc210f4422495150b5df1",
+    "5a1139aee4b366114c8c641b3da3ac52461fb019cb1c1177fba7473befc53a69",
+    "6cdaf1882b8d5ccd1373568fbd9aa920d8656b3c222b06711f5cf5b7b1ebff05",
+    "7984b2c5c3697f1f03973ad4c402b9a67733c585ea9dbbb68a4366d7076db04a",
+    "89d410c96b162c25788c765a9ca02bd76dd1deaf22b7504ef7e0154f97b39c59",
+    "89d605387bdbda61600d238af1c86bfbc78a7cfa1f692652a6984c413b64dbbd",
+    "8d0697ac656f317fa00eb06c6136677002c7057373f35949e67f88e59f5419e7",
+    "9ea7a8badfa0ecfc730677937287aba60317fdace01ce8f186b9f482ca5a063a",
+    "baf99c43f63fb0dbe6d7625d47239ce68a491a0a3c97c160f548fa7166bc5e30",
+    "bd8f53e54200d505137f9b93140db2e54d425a50dd23a68042f825f5d614a116",
+    "c162f16903b80469c2edc42ca6047350767f687224df68d9f60f8d628cc9f831",
+    "de7daf1470766dca196477a45f4c5e964a8e4199bf9c1b14282b6a1d22bb43c7",
+    "f87f6d56abba4f441bc1c2f8ba7f929e8f7f34b1c74cb332cdcb0580e808fb85",
+    "fa3e76a4c1db88a03304910c033880f57c58828f54b8af6b4f3a48b9556e9059",
+    "fbacae61732010cd65b076783845981792caa887dec5eb5b3ad1f4d35c759b64",
+    "fece5401ed3edd4ccf7c4a445969c9d7377cac7c4e35dd5ce025073d29b33b3a"
+  ],
+  "source_query_reviews": [
+    {
+      "source_id": "US8471005B2:example1043:pyrrolotriazinyl-imidazole-coupling",
+      "query_reaction_key": "1939a7529cdc238385358b16caba90285eac2869f1bd9c67712a19fb3158e0ff",
+      "proposed_tier": "C",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US6858642B1:examples5-6:caffeic-acid-stereo-only-record-limit",
+      "query_reaction_key": "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+      "proposed_tier": "C",
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "source_audit_path": "docs/results/lgrv_20261018/source_preparation_limits_batch2_20261019/source_limits_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7094801B2:examples81-88:salt-formation-not-E-generation",
+      "query_reaction_key": "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+      "proposed_tier": "C",
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "source_audit_path": "docs/results/lgrv_20261018/source_preparation_limits_batch2_20261019/source_limits_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US4363805:example41:phenoxybromooctane-preparation",
+      "query_reaction_key": "24861b7342d2ac718d8827706c0ea3ebe69fd525c2e2561532b69dfc215f62e6",
+      "proposed_tier": "C",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch8_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7632851B2:example2:benzothiadiazole-aryl-coupling",
+      "query_reaction_key": "2a2ef3431a492abb8191cd1d9dc2de97c58a8d694fd91d74d79226f91374471e",
+      "proposed_tier": "B",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7745646B2:example61:indexed-acetate-preparation-limit",
+      "query_reaction_key": "2d0c314cf314dc6b96911970e57d47797a2e5f08e45e93aa6a41a69f079c7899",
+      "proposed_tier": "C",
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "source_audit_path": "docs/results/lgrv_20261018/source_preparation_limits_batch2_20261019/source_limits_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US8614226B2:example23:phenylpyridyl-naphthyridine-coupling",
+      "query_reaction_key": "2f1b82852f79014bf7b9bb2e7773474cb3a8c7268126bd6e34516f940579db4b",
+      "proposed_tier": "C",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7465815B2:example213:dimethylaminopyridyl-benzofuran-coupling",
+      "query_reaction_key": "3b48f556510784fa87bfd7e1d641d455a0b0c7abc3637686d627bbd6ef3294aa",
+      "proposed_tier": "B",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US6579884B1:example1.56:chloromethyl-methylthiolate-substitution",
+      "query_reaction_key": "407c4b0a0abc57fc1b108c6621dd66618e35f10e963e10d60be3ccb2dca807f0",
+      "proposed_tier": "B",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch8_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7951824B2:example139:iodopyridine-bipyridyl-coupling",
+      "query_reaction_key": "41df626e106b888fbca87b75516d370485dc4cf2a6ed158c35f8a37ba43aa036",
+      "proposed_tier": "B",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7632851B2:example2:benzothiadiazole-aryl-coupling",
+      "query_reaction_key": "7aa9918857fdccc2b4e6232303915966cad01355f1d207bc6f1caf71d4fd6f66",
+      "proposed_tier": "B",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7601736B2:example16:methoxy-dimethylnicotinonitrile",
+      "query_reaction_key": "858d128af4569596d4cbaa35c38337ece8473aeaf1d3234f3501de2083628c52",
+      "proposed_tier": "C",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch8_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US8471005B2:example1043:pyrrolotriazinyl-imidazole-coupling",
+      "query_reaction_key": "883846141b7c3bcacc7bdf45b63289467a340f3341e16031606c62af1349afe4",
+      "proposed_tier": "C",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7951824B2:example139:iodopyridine-bipyridyl-coupling",
+      "query_reaction_key": "8d0dcece07c92381400b49414e0bed4993968f90978837bdcf3d1f73a9e27088",
+      "proposed_tier": "B",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US4401598:example8:azidomethylphenylsilane-substitution",
+      "query_reaction_key": "9c8e6454a2deb218f2fafa6827634ba406ab18627c13b7a8ae99b4ac319b28fc",
+      "proposed_tier": "B",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch8_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US8614226B2:example23:phenylpyridyl-naphthyridine-coupling",
+      "query_reaction_key": "a1dbd0effe332e8061bb8c80114788e76ed6edb3d40cd73044d8dd9090ba9cb4",
+      "proposed_tier": "C",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US7465815B2:example213:dimethylaminopyridyl-benzofuran-coupling",
+      "query_reaction_key": "af78102edaa762106dca44328a93e99f4c3998268507e60bd040418896a165eb",
+      "proposed_tier": "B",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US8440652B2:example6.12:bipyridyl-carboxamide-coupling",
+      "query_reaction_key": "dcb87f9a424f207a27c738e9a63e6cb05850be9895b2f5a2ba23b002f4b2d7e4",
+      "proposed_tier": "C",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    },
+    {
+      "source_id": "US8440652B2:example6.12:bipyridyl-carboxamide-coupling",
+      "query_reaction_key": "ffa8ac7af60af9583ecbd5b82060def7644a917fcd00d631026e4d9094d857de",
+      "proposed_tier": "C",
+      "source_audit_path": "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json",
+      "pooled_analysis_updated": false
+    }
+  ],
+  "source_files": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v16/analysis_manifest.json": "d8ec39c2f93f0c91b8d8d19f5332a2f759169caa3b0adf86c732d66299ddcf78",
+    "docs/results/lgrv_20261018/primary_review_states_v16_20261019/primary_review_states.jsonl.gz": "6dee9895db31d2ce91dda9ec4f960b2dbe08dbe14877a1d198a615f554845b6a",
+    "docs/results/lgrv_20261018/grouped_primary_review_20261019/compile_reviews.py": "1fa8d0590e23781a5215b24137e04298f15328ffec97556fe5246a873d6b91c7",
+    "docs/results/lgrv_20261018/coverage_traceback_20261018/candidate_patent_traceback.jsonl.gz": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+    "configs/analysis/lgrv_grouped_primary_reviews_20261019_v7.json": "b78e3e0acaee6a6a9f2ead716a2aaa91eaf90c324ce85d59d059c2c809ca90b2",
+    "docs/results/lgrv_20261018/grouped_primary_review_batch7_20261019/source_family_review.json": "7c0c43e00e09d7dd4f767a3902ae63857b2a3933a9fb52ac2477a7a021d977a0",
+    "configs/analysis/lgrv_primary_sources_20261019_v13.json": "57b0de4d048f91a88652972519920edd94c73e960b785ff752e71382d6298105",
+    "configs/analysis/lgrv_grouped_primary_reviews_20261019_v8.json": "ba0c4dd87a54a93e96993239c2020b62e7e95a428c8c5161cc1708e726ed5351",
+    "docs/results/lgrv_20261018/grouped_primary_review_batch8_20261019/source_family_review.json": "582b6c94f435c1b796ed5d9237fabcf26a0435fb7373d71a6fa91a6884531d9d",
+    "configs/analysis/lgrv_primary_sources_20261019_v14.json": "119edf121ae77d2e5698f01e681df17b8fe8ed2a20db3aadea2fbb947a27bcbc",
+    "docs/results/lgrv_20261018/source_preparation_limits_batch2_20261019/bind_limits.py": "c0547cc0ea531cb6a0e44e4dc6cfe904d186df9791ee571f7a07b7cad54520e3",
+    "configs/analysis/lgrv_source_preparation_limits_20261019_v3.json": "597e9382c6c482f794ce1bb4d7cd436076333dcc3ffa04888f9fcf016022e78e",
+    "docs/results/lgrv_20261018/source_preparation_limits_batch2_20261019/source_limits_review.json": "8ef056ccc3f49db2e6936534f50ef057906a478e333e42120ed8782197abf542"
+  },
+  "independent_policy_calibration": false,
+  "new_model_inference": false,
+  "chemical_failure_labels_emitted": false,
+  "raw_documents_redistributed": false,
+  "full_PR89_goal_complete": false
+}
