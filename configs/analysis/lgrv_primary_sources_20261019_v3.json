@@ -1,0 +1,70 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "Two further performed quinoline O-alkylations, independently read with the referenced Example478 procedure. Named source structures use an independently transcribed N-first quinoline traversal; source MS and absent individual yields are retained.",
+  "review_spec_sha256": "83a6b203750f7f6a55867e56e84673d7ce5d98ae08118c33106530d887c5fac6",
+  "producer_sha256": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6",
+  "records": [
+    {
+      "source_id": "US7576215B2:example500:quinoline-phenol-cyclohexylmethylation",
+      "patent_id": "US7576215B2",
+      "source_url": "https://patents.google.com/patent/US7576215B2/en",
+      "document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+      "checked_passage": "EXAMPLE 500 [4-[3-(CYCLOHEXYLMETHOXY)PHENYL]-8-(TRIFLUOROMETHYL)QUINOLIN-3-YL](PHENYL)-METHANONE",
+      "locator": "Example500 around normalized offset362530, explicitly following Example478 at355689. Not the claim-list repetition or Example499's methylpentyl ether.",
+      "source_product": "n1cc(C(=O)c2ccccc2)c(-c2cccc(OCC3CCCCC3)c2)c2cccc(C(F)(F)F)c21",
+      "source_precursors": [
+        "n1cc(C(=O)c2ccccc2)c(-c2cccc(O)c2)c2cccc(C(F)(F)F)c21",
+        "BrCC1CCCCC1"
+      ],
+      "expected_exact_reaction_key": "376f6fccdd199ffe49b26ec2252065217f4b926399019ba5afcbf95c9f0e8d3c",
+      "source_conditions": "Example500 names the hydroxyphenyl benzoylquinoline and bromomethylcyclohexane, following Example478: cesium carbonate (source notation CsCO3), DMF,60 C14 h, reverse-phase HPLC. MS(ES)m/z490.3 is reported for Example500. Example478's batch amounts and33% yield are not assigned to Example500.",
+      "reported_isolated_yield_percent": null,
+      "structural_reconciliation": "Quinoline C3 retains benzoyl, C4 retains the meta-substituted phenyl and C8 retains CF3. Phenolic O becomes O-CH2-cyclohexyl; the linker is one methylene, not direct O-cyclohexyl or O-cyclopentyl. N-first fused-ring traversal is independently transcribed from these named positions.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.html",
+      "raw_document_sha256": "72e5c10ca5dacaaf5338481c9d3bd37b5b20decd8a4375dec226bd43c8464443",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.txt",
+      "checked_passage_sha256": "3815c14c15b021f6353205233cc5a9c890ae9e3dab4f8208382ca2f78652f5e2",
+      "normalized_passage_offset": 362541,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+    },
+    {
+      "source_id": "US7576215B2:example525:bisaryl-quinoline-benzyl-ether",
+      "patent_id": "US7576215B2",
+      "source_url": "https://patents.google.com/patent/US7576215B2/en",
+      "document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+      "checked_passage": "EXAMPLE 525 METHYL-4-[(4-{3-[3-BENZYL-8-(TRIFLUOROMETHYL)QUINOLIN-4-YL]PHENOXY}PHENOXY) METHYL]BENZOATE",
+      "locator": "Example525 around normalized offset373620, following Example478. Not Example526's subsequent ester hydrolysis, nor Example527's two-carbon-shorter methyl acetate ether.",
+      "source_product": "n1cc(Cc2ccccc2)c(-c2cccc(Oc3ccc(OCc4ccc(C(=O)OC)cc4)cc3)c2)c2cccc(C(F)(F)F)c21",
+      "source_precursors": [
+        "n1cc(Cc2ccccc2)c(-c2cccc(Oc3ccc(O)cc3)c2)c2cccc(C(F)(F)F)c21",
+        "BrCc1ccc(C(=O)OC)cc1"
+      ],
+      "expected_exact_reaction_key": "41ff53a115018b11cb3e79c3523e9cf1065c147c32e4512d98ff71d4f2110573",
+      "source_conditions": "Example525: bisaryl phenol0.1 g/0.0002 mole and methyl4-(bromomethyl)benzoate0.057 g/0.00024 mole, following Example478's cesium carbonate/DMF,60 C14 h/reverse-phase HPLC procedure. MS(ESI)[M+H]+620.0. No individual isolated yield stated; Example478's33% and Example526's hydrolysis conditions are not transferred.",
+      "reported_isolated_yield_percent": null,
+      "structural_reconciliation": "Quinoline has C3-benzyl (not benzoyl), C8-CF3 and C4-meta-phenyl-O-para-phenol. The terminal phenolic OH is alkylated by para-methoxycarbonylbenzyl bromide, retaining the methyl ester and both aryl-ether linkages. Source N-first structure matches the named para/meta relationships without rearranging phenyl order or hydrolyzing the ester.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.html",
+      "raw_document_sha256": "72e5c10ca5dacaaf5338481c9d3bd37b5b20decd8a4375dec226bd43c8464443",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.txt",
+      "checked_passage_sha256": "13532d688c790372a4d730779b19fac6f414e1bfffe371a4b8010c35d67824c9",
+      "normalized_passage_offset": 373659,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+    }
+  ]
+}

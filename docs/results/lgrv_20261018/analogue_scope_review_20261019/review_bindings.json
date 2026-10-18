@@ -1,0 +1,64 @@
+{
+  "schema": "lgrv_source_checked_analogue_scope_bindings_v1",
+  "source_analysis_manifest_sha256": "de55dacfa7e87fc8dbf138267c4be16574993c1562dc247ca2a3ec953af11f46",
+  "review_spec_sha256": "bd5bd49229efe58aea18d275afaa576ed31e834deb83a27552b48adc66737f36",
+  "bound_primary_source_review_sha256": "5ce49bede9f9deb9630f2940c4f67a4243f9a468cef24484feae05f033526831",
+  "source_files": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v9/retrieval_query_contexts.jsonl.gz": "7ff2992928dbfa7063bdb0022dd01ce81bb1ab8bc9e359e51898bf4759f63823",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v9/literature_hits.jsonl.gz": "0cbe589fabf2fd215af750e7c1adcac5b527dc426f668696fcfa456ada457e7a",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v9/reaction_evidence.jsonl.gz": "bbe45e75777160d54490d24ae679a959619a47788937f59b5452ebac93586123"
+  },
+  "cases": [
+    {
+      "query_reaction_key": "46b4a995c9c55d7d0210dbcd24a0b82bff444fef6809b71de76c418e708f5be7",
+      "source_id": "US8158647B2:azaindole-methylthio:analogue-scope-review",
+      "indexed_candidate_source_id": "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-65c1945d07454c038a3d8b43a960a2b8:mapped_identifier",
+      "indexed_candidate_reaction_key": "ee8b007cf03ff52e36c007446702c304045aaf16b1ee09485ac852df3d1d8783",
+      "named_source_structural_reaction_key": "0790a8220147f4f0ba07f3f382e32fe3e74d925092f197895d546d0441ab8b41",
+      "frozen_full_stereo_local_family_key": "624982d74ee384f57e34d32eea6bfb0e74a11205fed34da834b7bcabc18c50e4",
+      "source_family_matches_query": true,
+      "named_source_product_matches_indexed_product": true,
+      "named_source_essential_precursor_multiplicity_matches": true,
+      "explicit_extracted_other_components": {
+        "O": 1,
+        "[Na+]": 1
+      },
+      "unchanged_population_tier": "C",
+      "applicability": "unresolved; no B or D override"
+    },
+    {
+      "query_reaction_key": "4a5d8db31b2b288335034f3f525af6f1ca318f61ca0a6ef4ccad1d6fba047bd5",
+      "source_id": "US8093253B2:example53step1:thiolate-analogue-scope-review",
+      "indexed_candidate_source_id": "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-58cc85ed5b0941698d6ccfdcac2d58b5:mapped_identifier",
+      "indexed_candidate_reaction_key": "d47fc9d0fe62dfe60d9b74235f14d8e5ba6fd14cecfb3783c388bdd9063311bc",
+      "named_source_structural_reaction_key": "5f5be667b9126f6917284c32b5d2c4eaa3775050aab5b086fee8d2a21cf2725c",
+      "frozen_full_stereo_local_family_key": "ca926355e248ddc20c5fc0ad54eed9eba4672af165f8f0d34f1aee8c9b8e9abe",
+      "source_family_matches_query": true,
+      "named_source_product_matches_indexed_product": true,
+      "named_source_essential_precursor_multiplicity_matches": true,
+      "explicit_extracted_other_components": {
+        "[Na+]": 1
+      },
+      "unchanged_population_tier": "C",
+      "applicability": "unresolved; no B or D override"
+    },
+    {
+      "query_reaction_key": "7971b569787a071a8e95fef62dc57a5e1dcece8081e7777891a87ae1cfed12d5",
+      "source_id": "US3947488:example11:thallous-phenoxide-scope-review",
+      "indexed_candidate_source_id": "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-7a10fa03778b43ff828f9669a2ee3a5e:mapped_identifier",
+      "indexed_candidate_reaction_key": "b16fc83ba8935befc0256eb23515be0af56874525ea635151b71a0988c6277b2",
+      "named_source_structural_reaction_key": "b16fc83ba8935befc0256eb23515be0af56874525ea635151b71a0988c6277b2",
+      "frozen_full_stereo_local_family_key": "059a95327041a16539537f62f57727a6fbef117dfadc22acbc0ba3c232aa1332",
+      "source_family_matches_query": true,
+      "named_source_product_matches_indexed_product": true,
+      "named_source_essential_precursor_multiplicity_matches": true,
+      "explicit_extracted_other_components": {},
+      "unchanged_population_tier": "C",
+      "applicability": "unresolved; no B or D override"
+    }
+  ],
+  "all_review_cases_included": true,
+  "independent_policy_calibration": false,
+  "evidence_grades_changed": false,
+  "new_model_inference": false
+}

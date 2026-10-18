@@ -6,7 +6,33 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v8 source review:** nine additional performed preparations bring
+**Current v9 source review:** five further performed preparations bring exact
+source-supported complete reactions **31→36**, with unchanged18,210 queries,
+six conditions, corpus, local/stereo rules and cap5. All21 sealed output hashes
+and full original query/context/hit sequences are checked. There are34 indexed
+supports plus2 independently checked seeds;131 indexed-candidate queries
+remain unresolved. No TierB/D is inferred from a local edit alone.
+
+[Complete v9 tables and all36 cases](analysis_tables_primary_v9_20261019/README.md),
+[whole review queue](coverage_review_v9_20261019/README.md),
+[five additional RDKit reactions](additional_preparation_gallery_20261019_v9/README.md)
+and [six-condition scalar summary](POPULATION_RESULTS_PRIMARY_V9_20261019.json)
+retain every method. R1 MCTS now has10 targets with an exact-supported step
+on a stock-closed route, still1 with every essential step supported;16 supported
+reactions/15 targets appear across all its terminal contexts. Greedy I/II each
+have5 supported reactions in all terminal contexts. The31k proxy diagnostic
+has15/16/15 supported targets for MCTS/Greedy I/II, not a MCTS superiority claim.
+
+[Three source-checked analogue scope reviews](analogue_scope_review_20261019/README.md)
+explain why real local matches alone do not establish tolerance for different
+ring activation, free amines or ionic/metal-salt context. Their originalC grades
+remain unresolved, not negative chemistry; these post-hoc cases are not
+independent policy controls. Latest full CPU gate:1,253 passed/14 skipped,
+one existing PEFT warning,193.94s. No model/GPU/Taiji job ran. Population
+Figure2/3 and extended panels remain explicitly at the versionedv8 stage below;
+they have not been relabelled with v9 counts. The new five-case gallery isv9.
+
+**Historical v8 source review:** nine additional performed preparations bring
 source-checked exact complete reactions **22→31**, using the same **18,210**
 frozen reaction queries, six conditions and retrieval policy. These nine are
 an increment, not the total number of supported reactions. All21 sealed output
@@ -32,7 +58,7 @@ context, count-cap, decoder and salt-semantics mismatches. No matched completed
 control is claimed. No model, GPU, training or Taiji task was run. Latest whole
 CPU gate: **1,253 passed/14 skipped**, one existing PEFT warning,170.06s.
 The original PR87 figure sets and all historical result versions are preserved.
-The [current v8 Figure2/3 and three extended panels](population_figures_primary_v8_20261019/README.md)
+The [versioned v8 Figure2/3 and three extended panels](population_figures_primary_v8_20261019/README.md)
 are regenerated; all five actual previews were opened and inspected, with
 actual inverse FLOW arrows and current evidence/work counts retained.
 

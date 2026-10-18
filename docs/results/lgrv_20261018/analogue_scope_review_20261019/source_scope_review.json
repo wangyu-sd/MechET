@@ -1,0 +1,122 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "Post-hoc inspection of three actual indexed analogue candidates, not independent policy calibration or experimentally demonstrated negative chemistry. The performed source reaction is checked; applicability to the generated substrate remains unresolved and no TierB/D is assigned.",
+  "review_spec_sha256": "bd5bd49229efe58aea18d275afaa576ed31e834deb83a27552b48adc66737f36",
+  "producer_sha256": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6",
+  "records": [
+    {
+      "source_id": "US8158647B2:azaindole-methylthio:analogue-scope-review",
+      "patent_id": "US8158647B2",
+      "source_url": "https://patents.google.com/patent/US8158647B2/en",
+      "document_sha256": "01a1821a762839a7847f62f4c85301cd6bf6b9b4cff2738a808b2f2bae40fca6",
+      "checked_passage": "Synthesis of 5-Bromo-4-methylsulfanyl-1H-pyrrolo[2,3-b]pyridine",
+      "locator": "Named preparation around normalized offset678382, not the later iodination or substituted-compound activity table.",
+      "source_product": "n1cc(Br)c(SC)c2cc[nH]c21",
+      "source_precursors": [
+        "n1cc(Br)c(Cl)c2cc[nH]c21",
+        "C[S-]"
+      ],
+      "source_counterions": [
+        "[Na+]"
+      ],
+      "source_conditions": "5-Bromo-4-chloro azaindole500 mg/2.16 mmol and sodium thiomethoxide151 mg/2.16 mmol in DMF5 mL,80 C15 h; add75 mg/1.08 mmol thiomethoxide and heat2 h more. Water50 mL precipitates524 mg, reported>99%, with NMR/MS. Water is workup and sodium is the explicitly reported thiolate counterion, not an extra covalent substrate.",
+      "expected_exact_reaction_key": "0790a8220147f4f0ba07f3f382e32fe3e74d925092f197895d546d0441ab8b41",
+      "structural_reconciliation": "Independently transcribed N-first pyrrolo[2,3-b]pyridine with C5-Br and C4-Cl changing to C4-SMe, retaining ring NH. Primary named product agrees with the indexed candidate's covalent structure; its extracted Na/water components are retained separately as known roles rather than silently treated as covalent substrates.",
+      "query_reaction_key": "46b4a995c9c55d7d0210dbcd24a0b82bff444fef6809b71de76c418e708f5be7",
+      "indexed_candidate_reaction_key": "ee8b007cf03ff52e36c007446702c304045aaf16b1ee09485ac852df3d1d8783",
+      "analogue_compatibility_checked": false,
+      "unresolved_applicability": "The generated reaction substitutes at indole C3 and retains a chloro/hydroxyethyl-substituted benzofused ring. The performed candidate instead substitutes C4 of an azaindole with an additional six-membered-ring nitrogen. The local radius1 edit match does not establish equivalent electronic activation or reaction behavior across these different ring positions. No source experiment on the generated indole is supplied; this is not proof that its transformation is impossible.",
+      "decision": "retain_C_unresolved_not_D; performed source is real but strong-analogue applicability is not established",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7f1cbe9b194593a34846c2eedd79128b1faeaa153fb3204ac949a843ee8bdfd6.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7f1cbe9b194593a34846c2eedd79128b1faeaa153fb3204ac949a843ee8bdfd6.html",
+      "raw_document_sha256": "03ee1dfb5ebb481f799c67037f73e0713af58c4305d423db73ba410e2c04509b",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7f1cbe9b194593a34846c2eedd79128b1faeaa153fb3204ac949a843ee8bdfd6.txt",
+      "checked_passage_sha256": "9899cc9366ef4e5df7bf93426d28b2b100d72efb99db070bf96ea1d3aeb6c121",
+      "normalized_passage_offset": 678359,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+    },
+    {
+      "source_id": "US8093253B2:example53step1:thiolate-analogue-scope-review",
+      "patent_id": "US8093253B2",
+      "source_url": "https://patents.google.com/patent/US8093253B2/en",
+      "document_sha256": "ac052a4ef725225612ff9b01e610be6a88439900d8fa90402e6debbc8119f68a",
+      "checked_passage": "Step 1: Preparation of 1-bromo-3-methoxy-5-propylsulfanyl-benzene",
+      "locator": "Example53 step1 around normalized offset242189, referencing the actual thiolate substitution in Example47 step2 around230000; not later oxidation to a sulfone.",
+      "source_product": "COc1cc(Br)cc(SCCC)c1",
+      "source_precursors": [
+        "COc1cc(Br)cc(Br)c1",
+        "CCC[S-]"
+      ],
+      "source_counterions": [
+        "[Na+]"
+      ],
+      "source_conditions": "Example53 step1:3,5-dibromoanisole5.3 g/19.93 mmol and sodium1-propanethiolate2.47 g/23.92 mmol, following Example47 step2's DMF105 C2 h and aqueous/extraction/chromatography workup. Isolated2.01 g,39%, light yellow oil, HRMS. No copper/palladium catalyst is introduced into the source recipe by inference.",
+      "expected_exact_reaction_key": "5f5be667b9126f6917284c32b5d2c4eaa3775050aab5b086fee8d2a21cf2725c",
+      "structural_reconciliation": "The source substitutes one of the two symmetry-equivalent bromides of3,5-dibromoanisole with n-propylthio and retains OMe and the other bromide. Sodium is the reported thiolate counterion. Product and essential covalent substrates were transcribed independently from the source names.",
+      "query_reaction_key": "4a5d8db31b2b288335034f3f525af6f1ca318f61ca0a6ef4ccad1d6fba047bd5",
+      "indexed_candidate_reaction_key": "d47fc9d0fe62dfe60d9b74235f14d8e5ba6fd14cecfb3783c388bdd9063311bc",
+      "analogue_compatibility_checked": false,
+      "unresolved_applicability": "The query uses4-bromochlorobenzene and aminoethylthiolate rather than dibromoanisole and n-propylthiolate. A free primary amine, different aryl substitution and unspecified counterion/condition compatibility are not tested by this specific preparation. The paper/patent demonstrates a real aryl-thioether formation but not selectivity or tolerance for the generated aminoethyl substrate. Retain unknown rather than declare a competing N-arylation experimentally observed.",
+      "decision": "retain_C_unresolved_not_D; actual source experiment does not establish the generated substrate's compatibility",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/474d93525ce1e1e37b9ab0f13b7fe2ba8349e2f88656853acd87fde76706b66c.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/474d93525ce1e1e37b9ab0f13b7fe2ba8349e2f88656853acd87fde76706b66c.html",
+      "raw_document_sha256": "bcdc27070978ae6551df90d5598614e067d00eb07ec0ef368796cbf9b8b7971a",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/474d93525ce1e1e37b9ab0f13b7fe2ba8349e2f88656853acd87fde76706b66c.txt",
+      "checked_passage_sha256": "6315b8e6583c6f8524c4bbddb1d51a5bbd3d81af5b5b001d1e1e25d8b26763f5",
+      "normalized_passage_offset": 242146,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+    },
+    {
+      "source_id": "US3947488:example11:thallous-phenoxide-scope-review",
+      "patent_id": "US3947488",
+      "source_url": "https://patents.google.com/patent/US3947488/en",
+      "document_sha256": "053aac38d42cb7e27d2ff7d6e523e4b7aa66af2597bc464c7ca1d17a7c012d59",
+      "checked_passage": "give phenyl acetate, 2.27 g., 98%, b.p. 110\u00b0/58 mm.",
+      "locator": "Example11, thallous phenoxide formation and subsequent acetyl chloride O-acylation, around normalized offset107000; not the separate beta-dicarbonyl O-acylation claims.",
+      "source_product": "CC(=O)Oc1ccccc1",
+      "source_precursors": [
+        "CC(=O)Cl",
+        "[O-]c1ccccc1"
+      ],
+      "source_counterions": [
+        "[Tl+]"
+      ],
+      "source_conditions": "Thallous phenoxide5 g/0.017 mole in anhydrous ether15 mL, freshly distilled acetyl chloride1.33 g/0.017 mole in ether3 mL added over5 min, room temperature1 h. Filter precipitated thallous chloride, evaporate and distill phenyl acetate2.27 g,98%, bp110 C/58 mm. This is the actual organothallium salt procedure, not a generic metal-free phenoxide experiment.",
+      "expected_exact_reaction_key": "b16fc83ba8935befc0256eb23515be0af56874525ea635151b71a0988c6277b2",
+      "structural_reconciliation": "The source phenoxide O is acetylated; acetyl chloride contributes the acyl group and Tl(I) is an explicit counterion yielding TlCl. The indexed computational structure omits that counterion, which is restored only as a separately reported source condition here, not silently added to the generated reaction.",
+      "query_reaction_key": "7971b569787a071a8e95fef62dc57a5e1dcece8081e7777891a87ae1cfed12d5",
+      "indexed_candidate_reaction_key": "b16fc83ba8935befc0256eb23515be0af56874525ea635151b71a0988c6277b2",
+      "analogue_compatibility_checked": false,
+      "unresolved_applicability": "The generated precursor is a substituted dihydroquinoline phenoxide with a protonated ring nitrogen, an ester and aryl I/Cl groups. The original experiment uses simple thallous phenoxide and cannot establish this ionic/protonation context or the generated substrate's full functional-group tolerance. It is real O-acylation precedent, but those compatibility questions remain open. No failed forward experiment or direct contradiction is claimed.",
+      "decision": "retain_C_unresolved_not_D; counterion and generated substrate context remain unverified",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2d15cd2dad2ea1496197d5407dc232a545481709212037f864b1f2837df6ae95.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2d15cd2dad2ea1496197d5407dc232a545481709212037f864b1f2837df6ae95.html",
+      "raw_document_sha256": "ee0e25b2941bd30598c40eaa4db48794208bad0b4a39694cb8d045e47af7aa32",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2d15cd2dad2ea1496197d5407dc232a545481709212037f864b1f2837df6ae95.txt",
+      "checked_passage_sha256": "97b1694e32f267e39436a4aacaad161bc24e14879d1ed20ac5d6bf6723ba506e",
+      "normalized_passage_offset": 107651,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+    }
+  ]
+}
