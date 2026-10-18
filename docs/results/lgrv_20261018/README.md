@@ -29,6 +29,16 @@ are regenerated and all five actual previews inspected; all15 export hashes,
 source hashes and vector/font/geometry checks passed. Earlier exports retain
 their original versioned counts. Wider source review and final audit remain open.
 
+**Further full-index recall diagnosis:** all4,338,961 source representations
+were product-canonicalized under the same conservative identity. Among18,045
+original no-hit queries,5,398 have a product represented in the index but no
+retained reaction/local-context match;12,647 lack an exact product identity.
+This distinguishes a product-level coverage gap from a same-product reaction
+matching gap without declaring either chemically wrong. The [whole audit and
+reproduction recipe](product_recall_v10_20261019/README.md) retain all18,210
+query rows and every8,371 matching representation. Same product does not
+verify precursor chemistry; no grade or retrieval policy changed.
+
 **Historical v9 source review:** five further performed preparations bring exact
 source-supported complete reactions **31→36**, with unchanged18,210 queries,
 six conditions, corpus, local/stereo rules and cap5. All21 sealed output hashes

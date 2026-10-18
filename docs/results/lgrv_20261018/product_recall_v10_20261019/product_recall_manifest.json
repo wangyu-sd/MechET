@@ -1,0 +1,33 @@
+{
+  "schema": "lgrv_frozen_product_identity_recall_audit_v1",
+  "complete": true,
+  "unique_reaction_queries": 18210,
+  "unique_query_products": 6675,
+  "scanned_source_representation_rows": 4338961,
+  "invalid_source_products": [],
+  "query_state_counts": {
+    "product_absent_under_conservative_identity": 12713,
+    "product_present_no_reaction_hit": 5398,
+    "product_present_reaction_hit": 99
+  },
+  "source_files": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/analysis_manifest.json": "59adfab1ffd1e9e6554d66f7e85307efa89e3a96a29173e31739cd11f0ac10dd",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/source_corpus_manifest.json": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/unique_reaction_queries_enriched.jsonl.gz": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/literature_hits.jsonl.gz": "4afa2b3b284dd8dc2e8cb10269e3be681171d0aed454d82be349b22887baa35e",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/data/derived/literature/ord_lgrv_full_20261018_v1/reactions.sqlite": "ee997c8732df797e27a7d5c2bd58cdd18a4472566818f9d8870092ba4f0de16b"
+  },
+  "producer_sha256": "92e2e84d1c74a7be0074e89fa767e3f7ae46a30614424fdada4767bb3c7ff8cb",
+  "output_files": {
+    "product_matching_source_rows.jsonl.gz": {
+      "sha256": "a2f0c12f3a88ec578b348e855cfdd29fdfcfd853ad45f3eb6e6e80f7b0a9353a"
+    },
+    "product_recall_queries.jsonl.gz": {
+      "sha256": "0480e842335050eea305a1b9626b0c59d90244426651ffd1c3949071c16b36c0"
+    }
+  },
+  "interpretation": "Product identity diagnoses corpus/lookup coverage only. Same product does not verify reactants, conditions or chemistry; no product hit does not exclude analogues or unindexed literature.",
+  "new_model_inference": false,
+  "evidence_grades_changed": false,
+  "retrieval_policy_changed": false
+}
