@@ -45,6 +45,40 @@ checking, independently calibrated analogue coverage, missing matched controls,
 complexity/paired extended panels and the final whole-goal audit remain
 required. The PR89 goal is **not complete**.
 
+## Native-map retrieval coverage follow-up
+
+The original query freeze marked17,128 reactions `mapping_unknown`, although
+the completed native-program join preserves their actual atom correspondences.
+`mechet.analysis.literature_mapping` now authenticates both complete input
+manifests, recomputes every saved family's radius-1 key from the actual mapped
+product/structural precursors, and requires agreement across all native programs
+for each exact chemical identity. No reference mapping or new mapper is used.
+
+Full execution over18,210 queries/37,922 programs resolved17,048 formerly
+unknown queries. The separate derived view has18,109 available mappings and101
+conflicting families retained as unknown. It preserves all original reaction
+keys, raw structures, source pointers and environmental components. Archived
+single-reaction `auxiliary_components` can be a recorded full-mixture remainder
+even when `auxiliary_raw` is empty; this format is preserved, not silently
+reconstructed.13 mapping tests and the fresh whole CPU suite passed:
+**1,148 passed/14 skipped**, one existing PEFT warning,157.09s.
+
+Output: `$DATA_ROOT/outputs/paper/nmi_literature_evidence/native_mapping_full_20261018_v1`.
+The [manifest](native_mapping_full_20261018/mapping_enrichment_manifest.json)
+and [complete18,210-query mapping view](native_mapping_full_20261018/unique_reaction_queries_enriched.jsonl.gz)
+are byte-identical Git copies, not a sampled showcase or selected success set.
+This is a prepared retrieval view, **not** a rerun of the evidence analysis;
+the four checked source reactions and the published v3 tables are unchanged.
+Independent analogue calibration, integration into the evidence/figure
+consumers, and full-population re-retrieval remain required.
+
+```bash
+PYTHONPATH=src python -m mechet.analysis.literature_mapping \
+  --prediction-freeze-root "$FREEZE_ROOT" \
+  --program-join-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/program_join_pr88_20261018_v3" \
+  --output-root "$DATA_ROOT/outputs/paper/nmi_literature_evidence/new_native_mapping_view"
+```
+
 ## Completed
 
 - Read the updated PR89 LGRV-v1 specification. Its complete-reaction evidence
