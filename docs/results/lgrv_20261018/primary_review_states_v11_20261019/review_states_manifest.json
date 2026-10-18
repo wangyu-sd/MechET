@@ -1,0 +1,35 @@
+{
+  "schema": "lgrv_unresolved_primary_review_states_v1",
+  "complete": true,
+  "unresolved_indexed_queries": 123,
+  "review_state_counts": {
+    "original_preparation_pointer_unresolved": 33,
+    "cached_primary_documents_preparation_review_pending": 85,
+    "checked_performed_candidate_applicability_unresolved": 3,
+    "checked_performed_candidate_stereo_identity_unresolved": 1,
+    "checked_one_source_structure_mismatch_other_candidates_pending": 1
+  },
+  "unique_referenced_primary_documents": 82,
+  "unique_available_primary_documents": 82,
+  "source_files": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/analysis_manifest.json": "11e49dd8695ca3b1ed3cdf46e7dbad449f3b299fc8aa35591467cbb7999d8056",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/reaction_evidence.jsonl.gz": "fcde03238078bc97146b185d0f18cdafe340e2e8e3b007d2aee8211af86cd2d3",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/literature_hits.jsonl.gz": "593e0711f27d1ae6d43ca2a27031540ede3cdac0541ff785c3576baf67ecd358",
+    "docs/results/lgrv_20261018/coverage_traceback_20261018/candidate_patent_traceback.jsonl.gz": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+    "docs/results/lgrv_20261018/analogue_scope_review_20261019/source_scope_review.json": "5ce49bede9f9deb9630f2940c4f67a4243f9a468cef24484feae05f033526831",
+    "docs/results/lgrv_20261018/primary_structure_review_20261018/source_mismatch_review.json": "feb56c50830f400e146cd4bdff914ed639d83ed539c8631c892243a02164d612",
+    "docs/results/lgrv_20261018/primary_stereo_review_20261019/source_stereo_review.json": "5815a46b1892e4d7a5a516db4b729c9b1e8af3a0a587c201fe46d5b0232458b4",
+    "docs/results/lgrv_20261018/primary_stereo_review_20261019/review_spec.json": "199bb58cd2c998febb5ba383991a8be8e4c4fee17b9c95fe927e1ca974b15bfe",
+    "docs/results/lgrv_20261018/primary_stereo_review_20261019/bind_review.py": "78a8c5786ef59b63a9ae5ce1b61ccb2e7f73e80a53c15514220d40fde9d9e56e"
+  },
+  "producer_sha256": "6594fa3c59a97353e8800d3df0c088714559513733c667bb06313f139bfff826",
+  "output_files": {
+    "primary_review_states.jsonl.gz": {
+      "sha256": "34ee4f57e1cdb3646aa487499125349ae42188be6d3ff815bbcd0f820fba815a"
+    }
+  },
+  "new_model_inference": false,
+  "evidence_grades_changed": false,
+  "independent_policy_calibration": false,
+  "interpretation": "Review progress, document availability and chemical support are distinct. C does not mean invalid; a cached primary is not a checked experiment."
+}

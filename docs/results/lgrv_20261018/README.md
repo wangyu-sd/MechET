@@ -6,7 +6,30 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v10 source review:** two further performed preparations bring exact
+**Current v11 source review:** six further performed preparations bring exact
+source-supported complete reactions **38→44** under the unchanged18,210-query,
+six-condition corpus/stereo/local/cap5 policy. All21 sealed hashes and entire
+original query/context/hit sequences are checked. All44 cases, exact paired
+run/target memberships and [complete current tables](analysis_tables_primary_v11_20261019/README.md)
+are distributed. R1 MCTS now has11 targets with an exact-supported step on a
+stock-closed route and1 with every essential step supported. The31k proxy
+diagnostic supports21/18/17 targets for MCTS/Greedy I/II; comparisons remain
+descriptive under unequal work, not chemical accuracy or causal superiority.
+
+The [six new RDKit cases](additional_preparation_gallery_20261019_v11/README.md)
+have two inspected plates. A [new source stereo review](primary_stereo_review_20261019/README.md)
+retains the original(3RS,4SR) constraint rather than forcing an exact grade.
+The [whole123-query work-state inventory](primary_review_states_v11_20261019/README.md)
+distinguishes85 cached/preparation-pending,33 missing original pointers,
+3 applicability-unresolved,1 stereo-identity-unresolved and1 partial isomer
+review. NoC is called invalid. Fresh full CPU gate:1,253 passed/14 skipped,
+one existing warning,188.16s. No model/GPU job ran. The [current v11 Figure2/3
+and three extended panels](population_figures_primary_v11_20261019/README.md)
+are regenerated and all five actual previews inspected. Earlier exports
+retain their original versioned counts. Wider primary review and final
+whole-goal audit remain open.
+
+**Historical v10 source review:** two further performed preparations bring exact
 source-supported complete reactions **36→38**, with unchanged18,210 queries,
 six conditions, corpus, local/stereo rules and cap5. All21 sealed output hashes
 and full original query/context/hit sequences are checked. There are36 indexed

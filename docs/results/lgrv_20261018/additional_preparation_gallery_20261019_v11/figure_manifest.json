@@ -1,0 +1,395 @@
+{
+  "schema": "lgrv_checked_preparation_gallery_v1",
+  "source_query_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/unique_reaction_queries_enriched.jsonl.gz",
+  "source_query_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "primary_registry_manifests": [
+    {
+      "path": "configs/analysis/lgrv_primary_sources_20261019_v5.json",
+      "sha256": "a5070a8c7b052187b4e6e35b059f1092895f49f3eb9d18dc6193f06673b726a7"
+    }
+  ],
+  "figures": {
+    "extended_data_primary_preparations_v11_1": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v11/figures/extended_data_primary_preparations_v11_1.svg",
+          "sha256": "771f0a2930eefbe7e729f40d436cd7c2709e7840f2992573f979d7559281c6ac"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v11/figures/extended_data_primary_preparations_v11_1.pdf",
+          "sha256": "26e37777877ba16b097acd6019705a1be6b0a4d3b468a489d43b4ef22bd1c628"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v11/figures/extended_data_primary_preparations_v11_1.png",
+          "sha256": "ad588e7e3a9b8ba6a65a4009a6606f9a658acae10f27fc39ddafcedbc1c29408"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 521,
+          "editable_text_elements": 14
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/TXXLSZ+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/PLMMEU+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "3570567cc4e3beb21366718983c5fba096ef28ff5067fd52a56c8508273d2f4b",
+          "7718f84d2b744f25445f5831109ce4dba0f84bf84330c13e1f98dca2e3e241f4",
+          "52849220f349f3c18bca3f0ffc683d198e4d769a5f5f357748706a1f3ef7e9ff"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "3570567cc4e3beb21366718983c5fba096ef28ff5067fd52a56c8508273d2f4b",
+            "evidence": {
+              "reaction_key": "3570567cc4e3beb21366718983c5fba096ef28ff5067fd52a56c8508273d2f4b",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7728150B2:example19:indol7yl-ethanesulfonamide",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7728150B2/en",
+              "locator": "Example19 at normalized offset226542, explicitly following Example15 at225160, not the N-methylindole of Example5 or benzenesulfonamide of Example18.",
+              "document_sha256": "7b78702222bc0ea6f341a0159514ef649b25a31f4eba2013e1b0c07a2550546f",
+              "raw_document_sha256": "43445fed5fc5a9002c7ed3d0e92ab48dfee0bcf2a9c09a379421db1a7e0f9059",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7728150B2:example19:indol7yl-ethanesulfonamide",
+            "source_url": "https://patents.google.com/patent/US7728150B2/en",
+            "locator": "Example19 at normalized offset226542, explicitly following Example15 at225160, not the N-methylindole of Example5 or benzenesulfonamide of Example18.",
+            "source_conditions": "Pyridine, room temperature, nitrogen, overnight (Example15 method). Example19:35%,0.18g; LC-MS387.1(M+H). No enantiomer-purity claim.",
+            "source_document_sha256": "7b78702222bc0ea6f341a0159514ef649b25a31f4eba2013e1b0c07a2550546f",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_dynamic_routes_20261013/greedy/rank07/evaluations/32487313632ed7104def4aedbe1ff670edff540295aa136581f48ff956246bdc.json",
+              "report_sha256": "80ba553202f735670c6f65d1940076294f670482bcecbef05b716dd1535683a1",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_dynamic_routes_20261013/greedy/rank07/manifest.json",
+              "manifest_sha256": "2a512c9621da91730d6762eb0928236de31cd6c3ca4c72a99853387cebc826c0",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a",
+              "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+            },
+            "raw_product": "CCC1(c2c[nH]c3c(NS(=O)(=O)CC)cccc23)CCc2cc(F)ccc21",
+            "structural_components": [
+              "CCC1(c2c[nH]c3c(N)cccc23)CCc2cc(F)ccc21",
+              "CCS(=O)(=O)Cl"
+            ],
+            "source_conditions_full": "The named indol7amine and ethanesulfonyl chloride follow Example15's pyridine/room-temperature/nitrogen overnight procedure and acid wash/chromatography. Example19 reports0.18 g,35%,LC-MS387.1(M+H). Example15's methyl chloroformate, substrate quantities and36% yield are not transferred. Enantiomer purity is not specified."
+          },
+          {
+            "reaction_key": "7718f84d2b744f25445f5831109ce4dba0f84bf84330c13e1f98dca2e3e241f4",
+            "evidence": {
+              "reaction_key": "7718f84d2b744f25445f5831109ce4dba0f84bf84330c13e1f98dca2e3e241f4",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US4518597:example374:trimethyl-benzoxazinone-phenol-alkylation",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US4518597/en",
+              "locator": "Example374 at359773 and its explicitly referenced Example4 method at243976. Not Example302's differently positioned methyl or thiophenol-displacement route.",
+              "document_sha256": "0e1999eae886a064273433379f732a918c12c5537390f7771f497db4f6687c7a",
+              "raw_document_sha256": "1acb791db5a1e4273fdb978dbe7b4fb4d01ba86f0d4c009987ac3b4d11831964",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US4518597:example374:trimethyl-benzoxazinone-phenol-alkylation",
+            "source_url": "https://patents.google.com/patent/US4518597/en",
+            "locator": "Example374 at359773 and its explicitly referenced Example4 method at243976. Not Example302's differently positioned methyl or thiophenol-displacement route.",
+            "source_conditions": "K2CO3/DMSO,40 C,3h (Example4 method). Example374:51.9%; mp114-115 C. Four-carbon linker; carbamate NH retained.",
+            "source_document_sha256": "0e1999eae886a064273433379f732a918c12c5537390f7771f497db4f6687c7a",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/evaluation.json",
+              "report_sha256": "4e35ee13609669dfeaecb8e7e03a4164b942c0bf7f68a085802e9ca1c436bff4",
+              "report_row_index": 1536,
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/rank03/manifest.json",
+              "manifest_sha256": "d89baa9209cd073e0b0c322436960dd327a744b5d89d72dd9fc8d0bbedd1f453",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "337cba2fb0a445a747cce0d2f4713769d17f7324"
+            },
+            "raw_product": "Cc1ccc(SCCCCOc2cc3c(cc2C)NC(=O)OC3(C)C)cc1",
+            "structural_components": [
+              "Cc1cc2c(cc1O)C(C)(C)OC(=O)N2",
+              "Cc1ccc(SCCCCCl)cc1"
+            ],
+            "source_conditions_full": "Example374 explicitly uses6-hydroxy-4,4,7-trimethylbenzoxazinone and4-(para-methylphenylmercapto)butyl chloride, analogously to Example4:K2CO3/DMSO,40 C,3 h, aqueous workup/extraction/recrystallization. Its own reported yield is51.9% and mp114-115 C. Example4 quantities, substrate identities and43% yield are not transferred."
+          },
+          {
+            "reaction_key": "52849220f349f3c18bca3f0ffc683d198e4d769a5f5f357748706a1f3ef7e9ff",
+            "evidence": {
+              "reaction_key": "52849220f349f3c18bca3f0ffc683d198e4d769a5f5f357748706a1f3ef7e9ff",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7498460B2:example68:bisester-piperidine-phenol-alkylation",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7498460B2/en",
+              "locator": "Example68 at379581, with Example22 method at344947. Not Example69's ester hydrolysis or Example60's aminocyclohexane scaffold.",
+              "document_sha256": "3630a971840cae3083e187b0027e5cec4312e6c571c0b8896e692a2a47805e3e",
+              "raw_document_sha256": "e72038d2172b765af812b0eb4df1dd617906ea43f034e863be49b238ec8a6c19",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7498460B2:example68:bisester-piperidine-phenol-alkylation",
+            "source_url": "https://patents.google.com/patent/US7498460B2/en",
+            "locator": "Example68 at379581, with Example22 method at344947. Not Example69's ester hydrolysis or Example60's aminocyclohexane scaffold.",
+            "source_conditions": "Cs2CO3/anhydrous DMF,about50-60 C,3h (Example22 method). Example68:LC-MS623; NMR/HPLC reported. Individual yield unstated; both methyl esters retained.",
+            "source_document_sha256": "3630a971840cae3083e187b0027e5cec4312e6c571c0b8896e692a2a47805e3e",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/evaluation.json",
+              "report_sha256": "4e35ee13609669dfeaecb8e7e03a4164b942c0bf7f68a085802e9ca1c436bff4",
+              "report_row_index": 1863,
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/rank04/manifest.json",
+              "manifest_sha256": "52b618b4adc0464c9ca49edc33f5f9fa54b85f2e93049af340ae4043ece66f04",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "337cba2fb0a445a747cce0d2f4713769d17f7324"
+            },
+            "raw_product": "COC(=O)c1ccc(OCCOc2ccc(OCc3ccc(-c4ccccc4)cc3)cc2)c(C(=O)N2CCC(C(=O)OC)CC2)c1",
+            "structural_components": [
+              "BrCCOc1ccc(OCc2ccc(-c3ccccc3)cc2)cc1",
+              "COC(=O)c1ccc(O)c(C(=O)N2CCC(C(=O)OC)CC2)c1"
+            ],
+            "source_conditions_full": "Example68 names both structural substrates and refers to Example22:Cs2CO3/anhydrousDMF,about50-60 C,3 h, workup and isolation. Individual HPLCmethod5 rt5.02min,1H NMR and LC-MSmethod9 rt2.79min,m/z623(source labels EI+) are reported. No individual mass or percentage yield is stated; Example22 quantities and26 g mass are not borrowed."
+          }
+        ]
+      }
+    },
+    "extended_data_primary_preparations_v11_2": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v11/figures/extended_data_primary_preparations_v11_2.svg",
+          "sha256": "0bc606de9c15353a392a04530b87bc482cb7f384d8cbc69b79886d6440b79981"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v11/figures/extended_data_primary_preparations_v11_2.pdf",
+          "sha256": "6b8bb0e694fddbb6e63ce2c24d02016e3a8d7b318c47316c8ec77aaa63203e30"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v11/figures/extended_data_primary_preparations_v11_2.png",
+          "sha256": "0de0033235a049508fc13f469fc55eafd4614e2a7e1d6e5a4bba04b1ad17b547"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 551,
+          "editable_text_elements": 15
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/SAUODL+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/THMFXQ+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "d8c73c8d06daad1b61793a7ba01df0c514f109d2d2aa36a76c1886059307fd71",
+          "920cb288f608ed8bf858eb65fdb4f8b40e244d3f03e2165dd7dcc606d58fd9c8",
+          "7baa00214ec7be922b5632f27277d4a6a47eaa11b07127735ee9c5927de7c5f0"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "d8c73c8d06daad1b61793a7ba01df0c514f109d2d2aa36a76c1886059307fd71",
+            "evidence": {
+              "reaction_key": "d8c73c8d06daad1b61793a7ba01df0c514f109d2d2aa36a76c1886059307fd71",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US6703392B2:example263:isoquinoline-7O-allylation",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US6703392B2/en",
+              "locator": "Example263 at346504 within C.2 Alkylation of Phenols with Alkylbromides, whose complete general procedure starts343057; precursor Example251 at341305.",
+              "document_sha256": "fde2cf730d63d0a150a3c85e71e2b16c3585203fad6ef16df1f950d4b299adb3",
+              "raw_document_sha256": "c135e5e779414e0a4b4a2125e4774ac5f950196260f6b20deda3370bb9b3a629",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US6703392B2:example263:isoquinoline-7O-allylation",
+            "source_url": "https://patents.google.com/patent/US6703392B2/en",
+            "locator": "Example263 at346504 within C.2 Alkylation of Phenols with Alkylbromides, whose complete general procedure starts343057; precursor Example251 at341305.",
+            "source_conditions": "K2CO3/DMF,100 C90min twice, two allyl-bromide portions; then Et3N/THF,14h (C.2). Example263:LC-MS517(M+H); individual yield unstated.",
+            "source_document_sha256": "fde2cf730d63d0a150a3c85e71e2b16c3585203fad6ef16df1f950d4b299adb3",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/evaluation.json",
+              "report_sha256": "4e35ee13609669dfeaecb8e7e03a4164b942c0bf7f68a085802e9ca1c436bff4",
+              "report_row_index": 1924,
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/rank04/manifest.json",
+              "manifest_sha256": "52b618b4adc0464c9ca49edc33f5f9fa54b85f2e93049af340ae4043ece66f04",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "337cba2fb0a445a747cce0d2f4713769d17f7324"
+            },
+            "raw_product": "C=CCOc1cc2c(cc1OC)CCN(CC(=O)NCc1ccccc1)C2Cc1ccc(OC)c(OC)c1",
+            "structural_components": [
+              "C=CCBr",
+              "COc1cc2c(cc1O)C(Cc1ccc(OC)c(OC)c1)N(CC(=O)NCc1ccccc1)CC2"
+            ],
+            "source_conditions_full": "C.2 procedure:phenol0.10mmol in DMF250uL withK2CO3 70mg; alkyl bromide0.15mmol in DMF150uL,100 C90min,then a second equal portion and100 C90min. After cooling, triethylamine/THF is added and mixture shaken14h; aqueous/EtOAc workup. Example263 specifically uses allyl bromide and reports LC-MSrt3.9min,517(M+H). No individual isolated yield or purity is given;14h treatment temperature is not independently specified."
+          },
+          {
+            "reaction_key": "920cb288f608ed8bf858eb65fdb4f8b40e244d3f03e2165dd7dcc606d58fd9c8",
+            "evidence": {
+              "reaction_key": "920cb288f608ed8bf858eb65fdb4f8b40e244d3f03e2165dd7dcc606d58fd9c8",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US8722883B2:example62:pyrimidinyl-piperazine-sulfamide-coupling",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US8722883B2/en",
+              "locator": "Example62 around339441, structural substrates/individual product data, explicitly following Example1 stepiv at the end of207070-211464. Related US7838675/US8410123 publications are not counted as independent chemistry.",
+              "document_sha256": "90e3bbb1ca6dcfb37d44d7fa8356f46cf56c98e5860d7f9546155c84db30650d",
+              "raw_document_sha256": "fcb163fddad058ede6ae3615e191b0cd4649f3fa1ae9b467dac444973361c907",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US8722883B2:example62:pyrimidinyl-piperazine-sulfamide-coupling",
+            "source_url": "https://patents.google.com/patent/US8722883B2/en",
+            "locator": "Example62 around339441, structural substrates/individual product data, explicitly following Example1 stepiv at the end of207070-211464. Related US7838675/US8410123 publications are not counted as independent chemistry.",
+            "source_conditions": "Pd2(dba)3/XPHOS/Cs2CO3,dioxane,microwave100 C,10min (Example1iv method). Example62:0.37g; APCI524(M+H). Net coupling, not proof of each electron arrow.",
+            "source_document_sha256": "90e3bbb1ca6dcfb37d44d7fa8356f46cf56c98e5860d7f9546155c84db30650d",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/evaluations/17d99ab488f6eb076ae60b68c2be929b9fd47c847ab27a4916bad03e4dad227e.json",
+              "report_sha256": "8bc694be1da4584a4b479ceb8212e4623e1832b17ae5901c3954cafbc228e272",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/manifest.json",
+              "manifest_sha256": "70d14cb03b3cb7f54e4fd2072efa5a33f2d4dca0d0a7d8180c493c676422438d",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+              "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+            },
+            "raw_product": "CCS(=O)(=O)N1CCN(S(=O)(=O)Nc2cc(OC)nc(SCc3cccc(F)c3F)n2)CC1",
+            "structural_components": [
+              "CCS(=O)(=O)N1CCN(S(N)(=O)=O)CC1",
+              "COc1cc(Cl)nc(SCc2cccc(F)c2F)n1"
+            ],
+            "source_conditions_full": "Example62 uses4-ethanesulfonylpiperazine1-sulfonamide0.31g and4-chloro-2-(2,3-difluorobenzylthio)-6-methoxypyrimidine0.25g; Example1iv method usesPd2(dba)3/XPHOS/Cs2CO3 in anhydrous dioxane, microwave100 C300W/open vessel cooling10min. Example62 own isolated mass0.37g,APCI524(M+H),1H NMR are reported. No percentage yield or transferred catalyst loading is asserted. Its step-i sulfamide synthesis100 C24h is not the coupling condition."
+          },
+          {
+            "reaction_key": "7baa00214ec7be922b5632f27277d4a6a47eaa11b07127735ee9c5927de7c5f0",
+            "evidence": {
+              "reaction_key": "7baa00214ec7be922b5632f27277d4a6a47eaa11b07127735ee9c5927de7c5f0",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US5045541:example9:fluoro-cinnolinone-phenol-alkylation",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US5045541/en",
+              "locator": "Synthetic Example9 at71436 refers to synthetic Example1 at61443, not Reference Example1 at58802 or pharmaceutical formulation Example1 at87031.",
+              "document_sha256": "b4af862bc6c8acb74407a837e7df2f2290cdeaf22afda49ee6ec92365980574d",
+              "raw_document_sha256": "e778046c1c4acc5f8721740e6e436db3244d30843a2f1090d9b0d50187dc2d85",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US5045541:example9:fluoro-cinnolinone-phenol-alkylation",
+            "source_url": "https://patents.google.com/patent/US5045541/en",
+            "locator": "Synthetic Example9 at71436 refers to synthetic Example1 at61443, not Reference Example1 at58802 or pharmaceutical formulation Example1 at87031.",
+            "source_conditions": "KOH/ethanol,reflux11h (synthetic Example1 method). Example9 names unsalted product,mp118-120 C; individual yield unstated. No salt/purity assignment beyond source name.",
+            "source_document_sha256": "b4af862bc6c8acb74407a837e7df2f2290cdeaf22afda49ee6ec92365980574d",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/evaluations/mech-uspto31k-full:test:5237.json",
+              "report_sha256": "8d7c82282abb7e9260a23387d3e9849c463216d0d4898271d342ba5cafadfa0e",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/trees/mech-uspto31k-full:test:5237.json",
+              "target_tree_sha256": "1759a04ce34f4f375e8fdc1cc1bec051438abb294bfc2f28c2094743acd2c21e",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/manifest.json",
+              "manifest_sha256": "cf6d4b0892402731fe93d86d9658bfe9ce1197f98508875e385eebbd9dbc98ec",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "CN(C)CCCOc1ccc(N2N=C3c4cc(F)ccc4CCC3CC2=O)cc1",
+            "structural_components": [
+              "CN(C)CCCCl",
+              "O=C1CC2CCc3ccc(F)cc3C2=NN1c1ccc(O)cc1"
+            ],
+            "source_conditions_full": "Example9 names the9-fluoro para-phenol and3-dimethylaminopropyl chloride, referencing synthetic Example1's KOH/ethanol reflux11h and workup/chromatography. Example9 names the unsalted product and mp118-120 C; it gives no individual amount or percentage yield. Example1's9-methyl/piperidine sidechain quantities,2.9g maleate product and salt-specific melting point are not transferred. Final salt/purity is not independently analytically established beyond Example9's unsalted name."
+          }
+        ]
+      }
+    }
+  },
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "visual_inspection_status": "assistant_opened_both_actual_pngs; all six structures, ring positions, linker lengths, retained functional groups, source-condition labels and clipping inspected; machine QA remains separate",
+  "selection": "all six newly checked exact preparations, not population chemical accuracy",
+  "style_path": "configs/figures/mechet_nmi_tree_style_v1.yaml",
+  "style_sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26",
+  "producer_files": {
+    "src/mechet/analysis/literature_figures.py": "f6f296aa79dd99904bd28623e7c402c844eff749df178e7513e4cd2779036e98",
+    "src/mechet/analysis/literature_evidence.py": "b422c67d447213064f2308069609d2792748fdc7d9f89803020d19da4b31da57",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_checked_registry.py": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "schema": "lgrv_checked_stereo_identity_limit_bound_v1",
+  "query_reaction_key": "7e087bef3f2af7734f7f2c559c3ddfe1fe3fa87e8a18fdbb278ffd65bc1a9aa3",
+  "source_constitution_only_product": "O1CC(OC)C(OC)(c2cccc(OCc3ccc4ccccc4c3)c2)CC1",
+  "source_constitution_only_precursors": [
+    "O1CC(O)C(OC)(c2cccc(OCc3ccc4ccccc4c3)c2)CC1",
+    "CI"
+  ],
+  "source_relative_stereochemistry": "(3RS,4SR), explicitly retained for both alcohol and dimethoxy product",
+  "source_stereochemical_structure_transcription": "not encoded as an arbitrary single absolute enantiomer; the constitution-only fields are NOT a complete stereo-resolved source graph",
+  "checked_passage": "EXAMPLE 11 Using the procedure described in Example 1, (3RS,4SR)-3-hydroxy-4-methoxy-4-[3-(naphth-2-ylmethoxy)phenyl]tetrahydropyran",
+  "performed_preparation_observation": "The original Example11 paragraphs report methyl iodide O-methylation,90% yield and mp131-133 C. They explicitly retain the(3RS,4SR) relative stereochemical pair; the query/index exact key does not encode that constraint. No stereochemical erasure or arbitrary enantiomer assignment is made to produce a positive exact match.",
+  "general_method_scope": "Example11 refers to Example1; this record checks the performed Example11 paragraphs and stereo-qualified structures, not a complete independent conditions audit or every internal electron operation.",
+  "query_evidence_tier_retained": "C",
+  "generated_reaction_proven_wrong": false,
+  "full_stereospecific_identity_verified": false,
+  "scope": "A constitution-level exact index key is not sufficient to certify an exact stereospecific performed reaction. This is evidence-identity uncertainty, not a documented chemical contradiction or a new independent calibration example.",
+  "source_documents": [
+    {
+      "source_url": "https://patents.google.com/patent/US5098930/en",
+      "document_sha256": "cd6b44caae0d47bd67a9699f105ebd52584e5f2aa49859cad77ec7f4d0099cec"
+    },
+    {
+      "source_url": "https://patents.google.com/patent/US5403859/en",
+      "document_sha256": "6f57772b75d386400c4b1857a949804d03ab00ef556396d4c2faae35970caa4b"
+    },
+    {
+      "source_url": "https://patents.google.com/patent/US5234950/en",
+      "document_sha256": "01f9a6582327b24831bc0c7db1dc31747d9c40f1e06f8b9e6b3e55aad1d035a2"
+    }
+  ],
+  "reviewer": "assistant_primary_source_review_20261019",
+  "source_human_reviewed": false,
+  "independent_policy_calibration": false,
+  "new_model_inference": false,
+  "source_bindings": [
+    {
+      "source_url": "https://patents.google.com/patent/US5098930/en",
+      "document_sha256": "cd6b44caae0d47bd67a9699f105ebd52584e5f2aa49859cad77ec7f4d0099cec",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7f8e079ad9899466387d163171831f757f0d2da6d48dba9e65b7a63d94217901.json",
+      "source_receipt_sha256": "62e5a9285ea93f1fcd3d1563a8ea18d551af8cc43f1b9814de986039fcfc33f0",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7f8e079ad9899466387d163171831f757f0d2da6d48dba9e65b7a63d94217901.html",
+      "raw_document_sha256": "3e8f886672a01679647a4737e0d92d5bd57ba5ea88df7088519f5e44e01bf9c0",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7f8e079ad9899466387d163171831f757f0d2da6d48dba9e65b7a63d94217901.txt",
+      "normalized_passage_offset": 160208,
+      "checked_passage_sha256": "bedc7311382809c418e3cbec63f5a90ff6c20114dfdaa9f74423c43087721fd5",
+      "source_paragraph_checked": true,
+      "full_stereospecific_identity_verified": false
+    },
+    {
+      "source_url": "https://patents.google.com/patent/US5403859/en",
+      "document_sha256": "6f57772b75d386400c4b1857a949804d03ab00ef556396d4c2faae35970caa4b",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/bf08c4146afefd67a88c85528fde1b911c71cd487e1624212b5569280411db06.json",
+      "source_receipt_sha256": "8a4b3a7c15d0b9091b3dffa82eae584f5ccd9b5f8bad2f3cba4b201d6e87a00b",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/bf08c4146afefd67a88c85528fde1b911c71cd487e1624212b5569280411db06.html",
+      "raw_document_sha256": "379e6c2463b459667d9a375d3477be92db2c407c5ccc089fe6dff3363dca6e0f",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/bf08c4146afefd67a88c85528fde1b911c71cd487e1624212b5569280411db06.txt",
+      "normalized_passage_offset": 159551,
+      "checked_passage_sha256": "bedc7311382809c418e3cbec63f5a90ff6c20114dfdaa9f74423c43087721fd5",
+      "source_paragraph_checked": true,
+      "full_stereospecific_identity_verified": false
+    },
+    {
+      "source_url": "https://patents.google.com/patent/US5234950/en",
+      "document_sha256": "01f9a6582327b24831bc0c7db1dc31747d9c40f1e06f8b9e6b3e55aad1d035a2",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/b65bdce8974503853c7551d33907c27ad0b0e9866b7c40200dfb4bb697270ee4.json",
+      "source_receipt_sha256": "bf364866db07004b80283c4bd5e5a14ab85bf44613a6b09fff966631ff544d2e",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/b65bdce8974503853c7551d33907c27ad0b0e9866b7c40200dfb4bb697270ee4.html",
+      "raw_document_sha256": "821d191853b1243d02733b5bb7efcb25389bc4eff28bf8f62b53ead4e55a060e",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/b65bdce8974503853c7551d33907c27ad0b0e9866b7c40200dfb4bb697270ee4.txt",
+      "normalized_passage_offset": 154320,
+      "checked_passage_sha256": "bedc7311382809c418e3cbec63f5a90ff6c20114dfdaa9f74423c43087721fd5",
+      "source_paragraph_checked": true,
+      "full_stereospecific_identity_verified": false
+    }
+  ],
+  "query_reaction_smiles": "CI.COC1(c2cccc(OCc3ccc4ccccc4c3)c2)CCOCC1O>>COC1COCCC1(OC)c1cccc(OCc2ccc3ccccc3c2)c1",
+  "source_query_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/unique_reaction_queries_enriched.jsonl.gz",
+  "source_query_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "review_spec_sha256": "199bb58cd2c998febb5ba383991a8be8e4c4fee17b9c95fe927e1ca974b15bfe",
+  "producer_sha256": "78a8c5786ef59b63a9ae5ce1b61ccb2e7f73e80a53c15514220d40fde9d9e56e",
+  "evidence_grades_changed": false
+}

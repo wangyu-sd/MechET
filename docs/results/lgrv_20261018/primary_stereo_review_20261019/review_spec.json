@@ -1,0 +1,24 @@
+{
+  "schema": "lgrv_checked_stereo_identity_limit_spec_v1",
+  "query_reaction_key": "7e087bef3f2af7734f7f2c559c3ddfe1fe3fa87e8a18fdbb278ffd65bc1a9aa3",
+  "source_constitution_only_product": "O1CC(OC)C(OC)(c2cccc(OCc3ccc4ccccc4c3)c2)CC1",
+  "source_constitution_only_precursors": ["O1CC(O)C(OC)(c2cccc(OCc3ccc4ccccc4c3)c2)CC1", "CI"],
+  "source_relative_stereochemistry": "(3RS,4SR), explicitly retained for both alcohol and dimethoxy product",
+  "source_stereochemical_structure_transcription": "not encoded as an arbitrary single absolute enantiomer; the constitution-only fields are NOT a complete stereo-resolved source graph",
+  "checked_passage": "EXAMPLE 11 Using the procedure described in Example 1, (3RS,4SR)-3-hydroxy-4-methoxy-4-[3-(naphth-2-ylmethoxy)phenyl]tetrahydropyran",
+  "performed_preparation_observation": "The original Example11 paragraphs report methyl iodide O-methylation,90% yield and mp131-133 C. They explicitly retain the(3RS,4SR) relative stereochemical pair; the query/index exact key does not encode that constraint. No stereochemical erasure or arbitrary enantiomer assignment is made to produce a positive exact match.",
+  "general_method_scope": "Example11 refers to Example1; this record checks the performed Example11 paragraphs and stereo-qualified structures, not a complete independent conditions audit or every internal electron operation.",
+  "query_evidence_tier_retained": "C",
+  "generated_reaction_proven_wrong": false,
+  "full_stereospecific_identity_verified": false,
+  "scope": "A constitution-level exact index key is not sufficient to certify an exact stereospecific performed reaction. This is evidence-identity uncertainty, not a documented chemical contradiction or a new independent calibration example.",
+  "source_documents": [
+    {"source_url": "https://patents.google.com/patent/US5098930/en", "document_sha256": "cd6b44caae0d47bd67a9699f105ebd52584e5f2aa49859cad77ec7f4d0099cec"},
+    {"source_url": "https://patents.google.com/patent/US5403859/en", "document_sha256": "6f57772b75d386400c4b1857a949804d03ab00ef556396d4c2faae35970caa4b"},
+    {"source_url": "https://patents.google.com/patent/US5234950/en", "document_sha256": "01f9a6582327b24831bc0c7db1dc31747d9c40f1e06f8b9e6b3e55aad1d035a2"}
+  ],
+  "reviewer": "assistant_primary_source_review_20261019",
+  "source_human_reviewed": false,
+  "independent_policy_calibration": false,
+  "new_model_inference": false
+}
