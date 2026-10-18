@@ -6,6 +6,22 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (18 October, supersedes older processing notes)
 
+**Current v7 source review:** seven more performed preparations bring exact
+source-supported complete reactions **15→22** under identical18,210-query
+retrieval. All21 sealed output hashes were checked. MCTS now has8 targets with
+an exact step on a stock-closed route; all-step coverage remains1 target.
+The31k proxy diagnostic has7/5/4 source-supported targets for MCTS/Greedy I/II.
+The same registry is applied to every condition, with no new model inference.
+See [complete v7 tables](analysis_tables_primary_v7_20261018/README.md),
+[all seven new RDKit cases](additional_selectivity_gallery_20261018_v7/README.md)
+and a [checked positional-isomer source discrepancy](primary_structure_review_20261018/README.md).
+That discrepancy remains unresolved, not a claim of impossible model chemistry.
+Latest complete CPU suite: **1,229 passed/14 skipped**, one existing PEFT warning,
+164.11s. Older v5/v6 outputs below are retained as versioned evidence.
+The [current v7 Figure2/3 and three extended panels](population_figures_primary_v7_20261018/README.md)
+are regenerated, hash/geometry checked and visually inspected; they retain
+actual inverse FLOW arrows, full populations and recorded generation costs.
+
 **Coverage follow-up / v6:** full source review now confirms **15** exact
 performed reactions after six additional primary preparations; the same
 18,210 queries,165 candidate-hit reactions and210 hits are unchanged.

@@ -1,0 +1,8 @@
+{
+  "schema": "lgrv_primary_structure_review_distribution_v1",
+  "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/primary_source_mismatch_review_20261018_v1/source_mismatch_review.json",
+  "source_sha256": "feb56c50830f400e146cd4bdff914ed639d83ed539c8631c892243a02164d612",
+  "stored_sha256": "feb56c50830f400e146cd4bdff914ed639d83ed539c8631c892243a02164d612",
+  "source_patent_fulltext_in_git": false,
+  "new_model_inference": false
+}
