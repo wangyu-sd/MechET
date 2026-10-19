@@ -13,7 +13,8 @@ from .literature_sources import file_sha256
 
 
 class FrozenReactionIndex(ReactionIndex):
-    def __init__(self,path,*,index_sha256):
+    def __init__(self,path,*,index_sha256,family_resolver=None):
+        self.family_resolver=family_resolver
         self.path=Path(path).resolve()
         if not self.path.is_file():raise ValueError('completed frozen source index missing')
         self.identity=self._identity()

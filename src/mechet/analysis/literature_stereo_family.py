@@ -137,7 +137,7 @@ def query_sources(index,reaction,context,*,cap=5):
                                    (reaction['reaction_key'],))
     result=[];families={}
     def accept(record,match):
-        family=source_family(record)
+        family=index.source_family(record)
         if family in families:
             families[family]['source_representation_ids'].append(record['source_id']);return
         selected={**record,'match_type':match,'source_family_key':family,

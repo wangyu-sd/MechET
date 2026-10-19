@@ -17,7 +17,8 @@ def source_family(record):
 
 
 class ReactionIndex:
-    def __init__(self, path, *, readonly=False):
+    def __init__(self, path, *, readonly=False, family_resolver=None):
+        self.family_resolver = family_resolver
         self.connection = sqlite3.connect('file:'+str(path)+'?mode=ro', uri=True) if readonly else sqlite3.connect(path)
         if not readonly:
             self.connection.executescript('''
@@ -57,7 +58,7 @@ class ReactionIndex:
                 record = json.loads(payload)
                 # Derive from preserved provenance even for v1 disk indices;
                 # representation aliases must never consume independent slots.
-                family = source_family(record)
+                family = self.source_family(record)
                 if family in families:
                     families[family]['source_representation_ids'].append(record['source_id'])
                     continue
@@ -68,6 +69,10 @@ class ReactionIndex:
                           'retrieval_status':'indexed_candidate','verification_status':'machine_structural_match'}
                 families[family]=selected;result.append(selected)
         return result
+
+    def source_family(self, record):
+        resolver = getattr(self, 'family_resolver', None)
+        return resolver.resolve(record) if resolver is not None else source_family(record)
 
     def count(self):
         return self.connection.execute('SELECT count(*) FROM reactions').fetchone()[0]

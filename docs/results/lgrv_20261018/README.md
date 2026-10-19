@@ -748,7 +748,13 @@ format: [ORD data](https://github.com/open-reaction-database/ord-data),
 [schema](https://docs.open-reaction-database.org/en/stable/schema.html).
 No gated or subscription corpus was accessed.
 
-## Reproduce
+## Historical reproduction commands
+
+The block below records the early three-registry analysis and corpus build;
+it does not reproduce the current result. Use the
+[complete current invocation](REPRODUCE_CURRENT_V18_20261019.md) for all22
+registries, native mapping/full-stereo controls and authenticated patent-family
+deduplication. Current v18 output verification is in progress; v17 is preserved.
 
 Run from the PR89 checkout with RDKit, PyArrow, protobuf, PyYAML and pytest.
 Set `DATA_ROOT` to the shared operational repository containing the frozen

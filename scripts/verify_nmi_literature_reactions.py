@@ -39,6 +39,7 @@ def main():
                  'output-root','retrieval-config','prediction-freeze-root']:
         parser.add_argument('--'+name,type=Path,required=True)
     parser.add_argument('--primary-source-registry',type=Path,action='append',default=[])
+    parser.add_argument('--patent-family-registry',type=Path)
     parser.add_argument('--program-join-root',type=Path)
     parser.add_argument('--native-mapping-view',type=Path)
     parser.add_argument('--family-policy',choices=('legacy_v1','full_stereo_local_v2'),default='legacy_v1')
@@ -100,7 +101,12 @@ def main():
             'programs':sum(map(len,programs.values())),'cpu_workers':args.retrieval_context_workers}),flush=True)
         contexts=prepare_contexts(query_rows,(p for group in programs.values() for p in group),
             actor_sha256=freeze['actor_sha256'],workers=args.retrieval_context_workers)
-    source_index=FrozenReactionIndex(args.source_reaction_index,index_sha256=corpus['index_sha256'])
+    family_resolver=None
+    if args.patent_family_registry:
+        from mechet.analysis.literature_patent_families import load_family_registry
+        family_resolver=load_family_registry(args.patent_family_registry)
+    source_index=FrozenReactionIndex(args.source_reaction_index,index_sha256=corpus['index_sha256'],
+                                    family_resolver=family_resolver)
     registry = load_primary_registries(args.primary_source_registry)
     primary = defaultdict(list)
     for record in registry['records']:
@@ -112,6 +118,8 @@ def main():
             primary[record['contradicted_reaction_key']].append(record)
     output = args.output_root;output.mkdir(parents=True,exist_ok=False)
     save(output/'source_corpus_manifest.json',corpus);save(output/'prediction_freeze_manifest.json',freeze)
+    if family_resolver:
+        save(output/'patent_family_overlay.json',family_resolver.manifest)
     if native_mapping:
         for name in ('mapping_enrichment_manifest.json','unique_reaction_queries_enriched.jsonl.gz'):
             shutil.copyfile(args.native_mapping_view/name,output/name)
@@ -238,6 +246,7 @@ def main():
             # No full copyrighted text or accumulated long excerpts in export.
             handle.write(json.dumps({k:v for k,v in record.items() if k not in {'document_text','checked_passage'}})+'\n')
     coverage={'unique_reaction_queries':len(evidence),'tier_counts':dict(tiers),**retrieval,
+              'patent_family_overlay':family_resolver.manifest if family_resolver else None,
               'family_policy':args.family_policy,'retrieval_context_statuses':dict(family_statuses) if family_statuses is not None else None,
               'stereo_lookup_work':dict(lookup_audits),'independent_policy_controls':policy_gate,
               'source_checked_reactions':sum(r.get('verification_status') in {'source_passage_checked','source_human_reviewed'} for r in evidence.values()),
@@ -263,6 +272,7 @@ def main():
         'program_join_manifest_sha256':metrics['r2_program_join_manifest_sha256'],
         'native_mapping_enrichment_manifest_sha256':file_sha256(args.native_mapping_view/'mapping_enrichment_manifest.json') if native_mapping else None,
         'family_policy':args.family_policy,
+        'patent_family_registry_sha256':file_sha256(args.patent_family_registry) if args.patent_family_registry else None,
         'policy_control_manifest_sha256':policy_gate['manifest_sha256'] if policy_gate else None,
         'producer_files':{str(p.relative_to(ROOT)):file_sha256(p) for p in producer},
         'output_files':{p.name:{'sha256':file_sha256(p)} for p in sorted(output.iterdir()) if p.is_file()}})
