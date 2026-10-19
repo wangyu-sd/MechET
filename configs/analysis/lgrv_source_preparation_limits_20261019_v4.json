@@ -1,0 +1,67 @@
+{
+  "schema": "lgrv_source_preparation_limits_spec_v1",
+  "scope": "Final two cached-query source-side checks: an indexed O-ethylation versus actual C-ethylation, and a sodium-phenolate precursor set versus an actual potassium-base preparation. Three original source/query pairs; no positive or chemical-failure labels.",
+  "frozen_analysis_manifest_sha256": "d8ec39c2f93f0c91b8d8d19f5332a2f759169caa3b0adf86c732d66299ddcf78",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "source_id": "US8188280B2:production12-1:C-ethylation-not-carboxylate-O-ethylation",
+      "source_url": "https://patents.google.com/patent/US8188280B2/en",
+      "document_sha256": "ca23cb2b38b5e3aa39a609ba1450a17e8171b630c5c26333324903ec323cdb17",
+      "witnesses": [{
+        "text": "Production Example 12 Synthesis of N-[(3-Ethylpiperidin-3-yl)methyl]-4-isopropoxybenzamide Hydrochloride",
+        "locator": "Production12(1)261062-261387 namesalreadyethylester plusEtI,formingC3ethyl. Full11(1)259150-260266:LDA/THF/N2/-78CthroughRT/alkyliodide/workup/chromatography read;notcarboxylateO-alkylation."
+      }],
+      "indexed_candidate_product": "O=C(OCC)C1(CC)CCCN(C(=O)OC(C)(C)C)C1",
+      "indexed_candidate_precursors": ["[O-]C(=O)C1(CC)CCCN(C(=O)OC(C)(C)C)C1", "ICC"],
+      "expected_candidate_reaction_key": "8f03a7208561bb997fa9de186633598282d74c9626042863fc3434cf5f978150",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "actual_named_product_prepared": true,
+      "source_review": "Production12(1) makes the named1-tertbutyl3-ethyl3-ethylpiperidine1,3dicarboxylate from ALREADY ethylester1-tertbutyl3-ethylpiperidine1,3dicarboxylate andEtI by11(1)'s LDAenolate/C-alkylation sequence. Theproduct'sC3ethyl isnew;thecarboxylateethylester wasalready present. The indexedrecord instead starts froman alreadyC3ethyl substitutedCARBOXYLATE plusEtI andmakes anO-ethyl bond. Independentcandidategraphs retainthat literalindexreaction withoutsilentlysubstitutingtheactualenolate. Productpreparationisnotdenied,butthecitedoperationdoesnotestablishtheindexedprecursors/netO-ethylation.11(1)'s698mg66%methylproductisnot12'syield.",
+      "query_reviews": [{
+        "query_reaction_key": "9ea7a8badfa0ecfc730677937287aba60317fdace01ce8f186b9f482ca5a063a",
+        "review_limitations": "QueryO-ethylatesaheteroarylcarboxylate whileretainingaformalpyrazolium[N+]/[nH]state. AnLDA/C-alkylationofapiperidineesterisnotperformedprecedentforthisO-alkylationoritsheteroarylation-sitechoice. RetainC,notaclaimthequeryorcarboxylateethylationcannotwork."
+      }]
+    },
+    {
+      "source_id": "US8367698B2:production12-1:same-C-ethylation-source-limit",
+      "source_url": "https://patents.google.com/patent/US8367698B2/en",
+      "document_sha256": "c9d81dc30faee7499f6791c4d13457017d007dc53fadaf973ac9039373ca7b67",
+      "witnesses": [{
+        "text": "Production Example 12 Synthesis of N-[(3-Ethylpiperidin-3-yl)methyl]-4-isopropoxybenzamide Hydrochloride",
+        "locator": "Relatedoriginalpublication,completeProduction12(1)260610-261050 and11(1)258700-259970 read. Samealreadyethylester/EtI/LDA C-alkylation,notanindependentO-ethylationexperiment."
+      }],
+      "indexed_candidate_product": "O=C(OCC)C1(CC)CCCN(C(=O)OC(C)(C)C)C1",
+      "indexed_candidate_precursors": ["[O-]C(=O)C1(CC)CCCN(C(=O)OC(C)(C)C)C1", "ICC"],
+      "expected_candidate_reaction_key": "8f03a7208561bb997fa9de186633598282d74c9626042863fc3434cf5f978150",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "actual_named_product_prepared": true,
+      "source_review": "Thissecondoriginalpointeralsonames1-tertbutyl3-ethylpiperidine1,3dicarboxylate asthestartingester forEtI/LDA C3ethylation,with12referringtofull11(1). Itdoesnotshowethylationofan alreadyC3ethylcarboxylateanion. Sameproductconnectivityaloneisnotenoughtovalidateadifferentprecursorset/netbondchange. Thetwofamilydocumentsarenotcountedastwoperformedqueryexperiments.",
+      "query_reviews": [{
+        "query_reaction_key": "9ea7a8badfa0ecfc730677937287aba60317fdace01ce8f186b9f482ca5a063a",
+        "review_limitations": "RetainsameCfortheheteroarylcarboxylateO-ethylationquery;secondsourcecorroboratestheC-alkylationreading,notextracoverageorameasurednegativequeryoutcome."
+      }]
+    },
+    {
+      "source_id": "US7608731B2:example1-intermediate21:claimed-Na-versus-worked-K-limit",
+      "source_url": "https://patents.google.com/patent/US7608731B2/en",
+      "document_sha256": "8a8d4d03791f954e3f0505a4532b9d5c08a3cc89e02472e1bbd88d7a28bc8dbd",
+      "witnesses": [
+        {"text": "potassium tert-butoxide (1.35 L, 1.0 M in THF, 1.35 mol)", "locator": "ActualExample1/intermediate21 at93926-95672,fullphenol/KOtBu/trifluoronitrobenzene/temperature/isolation488g88%procedure read."},
+        {"text": "(21; 488 g, 88% theory).", "locator": "Specificperformedamideether21isolationat95618ff;subsequentPOCl3nitrileformationisanotherstep.GeneralNa-phenolateproseat81431-82400alsoinspected."
+        }
+      ],
+      "indexed_candidate_product": "O=N(=O)c1ccc(F)c(F)c1Oc1cc(C(=O)NC(C)(C)C)cc(C(=O)NC(C)(C)C)c1",
+      "indexed_candidate_precursors": ["[O-]c1cc(C(=O)NC(C)(C)C)cc(C(=O)NC(C)(C)C)c1", "O=[N+]([O-])c1ccc(F)c(F)c1F", "[Na+]"],
+      "expected_candidate_reaction_key": "c9d857983c5bfcea58fed62f811460dbd52d8f5fe0f7260bcf1c220a483a3326",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "actual_named_product_prepared": true,
+      "source_review": "Thegeneralprocessproseexplicitlymentionssodium3,5bis-tertbutylcarbamoylphenolate,buttheactualworked21preparationusesneutralphenol360g/KOtBu1.35mol/THF/trifluoronitrobenzene,-30C1hthenwarming20h,andisolates488g88%. Actualsodiumbaseexamples103685and115974usehydroxyindoleorcyanochlorophenol,notthisbisamide. ThespecificindexNa+phenolateprecursorsarethereforenotestablishedasaperformedrecipebytheseclaims/nearbyNaexamples. TheetherproductitselfanditsactualK-basepreparationarenotdenied. SourcecounterionisnotquietlychangedtoNa,andthefrozenindexrecordisnotrepaired. Nitrochargeintheindependentlyspecifiedproductmustremain[N+]/[O-].",
+      "query_reviews": [{
+        "query_reaction_key": "0a8f6ac261d5c538f1475a3d3204870c928077ffaf3acb48eeacdde001b22b2c",
+        "review_limitations": "QueryelectrophilehasdifluoroarylCH2NH3+/ClbutNONITROactivatorandusescyanophenoxide. Thesource'snitroactivatedSNArdoesnotestablishdisplacementonthisdifferentammoniumsubstrateorretentionofitsprotonationstate. RetainCregardlessoftheNa/Ksourceformulationlimit;thisisnotdocumentedfailedSNArandnoquerynitrogroupisinserted."
+      }]
+    }
+  ]
+}

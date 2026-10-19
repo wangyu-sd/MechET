@@ -5,16 +5,18 @@ not legacy Top-K/reference ranking. This is a progress audit, **not a claim
 that the entire PR89 goal is complete**. No model/GPU/Taiji jobs were launched
 or changed in this delivery; paper and code main remain unmerged.
 
-**Source-review follow-up, not yet pooled:** the
-[authenticated receipt](SOURCE_REVIEW_FOLLOWUP_20261019.json) covers 19 new
-source/query pairs, 18 of v16's 40 cached-pending queries, and 13 original
-preparations/findings. Eight new compatible analogue judgements and ten
-unresolved queries are recorded separately from the unchanged full v16 result.
-Twenty-two cached queries remain unread. Every review is recompiled against
-the sealed full 18,210-query inputs and original capped source candidates;
-the receipt preserves all 40 original pending IDs and both candidates for the
-stereolabel-only query. No 67-support pooled result is asserted from arithmetic
-alone: a new whole analysis/route/paired/figure refresh is still required.
+**Original cached-query queue completed, not yet pooled:** the
+[completion receipt](SOURCE_REVIEW_COMPLETION_20261019.json) covers all40
+original cached-pending IDs,42 source/query pairs and36 preparations/findings.
+Fourteen compatible-analogue judgements and26 unresolved query findings are
+recorded separately from the unchanged full v16 result. Zero cached queries
+remain unread. All new reviews authenticate against the sealed18,210-query
+inputs and original capped candidates; every pair and all earlier source
+work remain preserved. The final23 pairs include actual O-versus-C-ethylation
+and source-counterion formulation limits, not invented chemical failures.
+No73-support pooled result is asserted from arithmetic: whole v17 analysis
+is running with the byte-identical temporary index transport and all22
+positive registries; route/paired/case/figure refresh still requires verification.
 
 The old limit binder rejected zero-padded US patent IDs despite the existing
 acquisition module's validated lookup normalization. The separately versioned

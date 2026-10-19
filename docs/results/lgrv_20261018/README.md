@@ -6,18 +6,26 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Further source work, awaiting pooled refresh:** 19 additional source/query
-comparisons cover 18 of the 40 v16 cached-but-unread queries. Their 13 primary
-preparations/findings are physically authenticated: eight new query-scoped
-analogue judgements and ten still-unresolved queries (one has two reviewed
-source candidates). The remaining cached/unread queue is 22. See the
-[complete follow-up receipt](SOURCE_REVIEW_FOLLOWUP_20261019.json),
+**Cached-source review completed, awaiting pooled refresh:** all40 original
+v16 cached-but-unread queries now have original-source findings. Across42
+source/query comparisons and36 preparations/findings,14 queries have new
+compatible-analogue judgements and26 retain specific unresolved limits. No
+cached query remains unread. This is completion of that review queue, not of
+the whole PR89 scope or of unresolved preparation pointers. See the
+[complete queue receipt](SOURCE_REVIEW_COMPLETION_20261019.json),
+[earlier18-query follow-up](SOURCE_REVIEW_FOLLOWUP_20261019.json),
 [six coupling preparations](grouped_primary_review_batch7_20261019/README.md),
 [four substitution preparations](grouped_primary_review_batch8_20261019/README.md),
-and [three preparation/stereolabel limits](source_preparation_limits_batch2_20261019/README.md).
-The receipt preserves all original40 pending IDs and every pair, not a model
-test subset. These new reviews have **not** been incorporated into a new full
-analysis; the published v16 counts and figures below remain unchanged.
+[seven further couplings](grouped_primary_review_batch9_20261019/README.md),
+[thirteen additional preparations](grouped_primary_review_batch10_20261019/README.md),
+[earlier preparation/stereolabel limits](source_preparation_limits_batch2_20261019/README.md),
+and [O/C-ethylation and source-formulation limits](source_preparation_limits_batch3_20261019/README.md).
+Every original pending ID and pair is retained, not a model test subset.
+These reviews have **not** yet been incorporated into a completed new full
+analysis; published v16 counts and figures below remain unchanged. The full
+v17 run is in progress with identical frozen index bytes/local transport,
+unchanged18210 queries/sixconditions and22 authenticated positive registries.
+Do not report73 pooled supports from arithmetic before that run is verified.
 
 The new limit-reader version also handles the already documented zero-padded
 US patent lookup alias, retaining original IDs/URLs and publication kinds.
