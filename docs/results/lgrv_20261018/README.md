@@ -1,12 +1,39 @@
 # PR89 literature evidence execution
 
-Status: **implementation and full-population processing in progress**. This is
-not a completed chemical-validation result. No GPU job, model inference,
+Status: **specified implementation and full-population source analysis verified**;
+final PR publication is checked separately. This is not universal chemical
+validation. No GPU job, model inference,
 training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Current v17 full-population result:** all18,210 queries and six conditions
+**Current v18 bibliographic correction:** all18,210 reactions/six conditions
+were recomputed after the independent review found publication-level rather
+than patent-family deduplication. The authenticated137-page/103-family overlay
+is applied before cap5 in both retrieval paths. Exactly nine candidate lists
+change:210 retained hits become198; all165 indexed-query IDs,all73 grades and
+selected sources,and all route/composition/paired results are unchanged.
+Every retained patent has resolved source-page family metadata. This corrects
+source-budget accounting,not model predictions or chemical accuracy.
+
+See [complete current tables and all73 cases](analysis_tables_primary_v18_20261019/README.md),
+[full coverage](coverage_review_v18_20261019/README.md),
+[94 unresolved-query work states](primary_review_states_v18_20261019/README.md),
+[family before/after audit](family_dedup_review_v18_20261019/README.md),
+[current reproduction](REPRODUCE_CURRENT_V18_20261019.md),and
+[independent review/dispositions](FINAL_REVIEW_V17_20261019.md).
+All22 sealed outputs bind manifest
+`f35ab780a02025555bb92a9a7e8b08f8089e62338d2dae8121ef654cf53b84e3`.
+Fresh whole CPU suite:1,296 passed/14 skipped/one existing PEFT warning,
+185.14s; unchanged predeclared structure controls12/12 passed against the new
+reader. All five current figures were actually inspected,all15 exports passed
+machine QA,and the whole-delivery gate passed all22 sealed outputs,73 cases,
+94 states and849 preserved earlier result files. See the
+[scope-to-evidence acceptance map](ACCEPTANCE_V18_20261019.md) and
+[machine verification receipt](verification_v18_20261019/whole_delivery_gate.json).
+No new model/GPU/Taiji job or main/paper merge.
+
+**Historical v17 full-population result (before family correction):** all18,210 queries and six conditions
 now have **47 exact precedents,26 query-scoped analogues,18,137 unresolved**.
 All21 outputs,current producer hashes and22 positive registries are verified.
 Every old59 support row and every original query/context/candidate sequence
@@ -754,7 +781,8 @@ The block below records the early three-registry analysis and corpus build;
 it does not reproduce the current result. Use the
 [complete current invocation](REPRODUCE_CURRENT_V18_20261019.md) for all22
 registries, native mapping/full-stereo controls and authenticated patent-family
-deduplication. Current v18 output verification is in progress; v17 is preserved.
+deduplication. Current v18 output verification passed the complete delivery
+gate; v17 is preserved.
 
 Run from the PR89 checkout with RDKit, PyArrow, protobuf, PyYAML and pytest.
 Set `DATA_ROOT` to the shared operational repository containing the frozen

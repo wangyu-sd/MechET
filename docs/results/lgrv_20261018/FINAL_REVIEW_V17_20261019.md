@@ -50,8 +50,11 @@ Root disposition: **Important accepted**. One fix pass adds a source-authenticat
 immutable bibliographic overlay before both retrieval paths enforce the cap;
 publication/representation identities and all original data remain intact.
 Nine real-file regression cases failed first for the missing overlay; the
-focused overlay/stereo/protocol gate subsequently passed83 tests. Whole
-population and full-suite acceptance are recorded separately after completion.
+focused overlay/stereo/protocol gate subsequently passed83 tests. The fresh
+whole suite passed1,296 tests/14 skipped/one existing warning. The completed
+[whole-population correction](family_dedup_review_v18_20261019/whole_population_audit.json)
+and [full-delivery gate](verification_v18_20261019/whole_delivery_gate.json)
+verify all18,210 reactions and preserve every grade/selected source.
 
 ## Reproduction command mismatch
 

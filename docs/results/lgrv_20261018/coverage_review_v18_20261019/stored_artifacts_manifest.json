@@ -1,0 +1,18 @@
+{
+  "schema": "lgrv_whole_coverage_audit_distribution_v1",
+  "files": {
+    "coverage_audit_manifest.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/coverage_review_20261019_v18/coverage_audit_manifest.json",
+      "sha256": "02e427afee26c1cc1aceab0a1156c81790c21d06371ed6c0891ab871e52eb072"
+    },
+    "primary_review_queue.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/coverage_review_20261019_v18/primary_review_queue.jsonl.gz",
+      "sha256": "6fbe3dcbd1391c2801d5dd9fdfae73fbe7c7bee633a07b533f4526372728abdf"
+    },
+    "query_coverage_audit.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/coverage_review_20261019_v18/query_coverage_audit.jsonl.gz",
+      "sha256": "e79236d86dd69cb34d8aede055cfe2918fd2f6935ec5f5d7076140ffadf313d0"
+    }
+  },
+  "no_subset": true
+}
