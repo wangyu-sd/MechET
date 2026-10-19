@@ -1,0 +1,9 @@
+{
+  "schema": "lgrv_derived_case_registry_v1",
+  "source_analysis_manifest_sha256": "59adfab1ffd1e9e6554d66f7e85307efa89e3a96a29173e31739cd11f0ac10dd",
+  "reaction_count": 38,
+  "all_supported_reactions_included": true,
+  "case_registry_sha256": "3950290118e012181557061248d2361a13999210da55e4480e70a987b18b3a13",
+  "basis": "all supported complete reactions and all observed exact run/target memberships; no method postselection",
+  "new_model_inference": false
+}

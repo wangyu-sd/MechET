@@ -1,0 +1,83 @@
+{
+  "schema": "lgrv_analysis_manifest_v1",
+  "complete": true,
+  "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+  "prediction_freeze_manifest_sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+  "source_corpus_manifest_sha256": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd",
+  "retrieval_config_sha256": "43d4d2e4ef6aca79db7b8151901e926f75a7c022185c53501ef90dfdb8db16b5",
+  "primary_registry_manifests": [
+    {
+      "path": "/tmp/mechet-lgrv-fast-runtime.Umbl2f/configs/analysis/lgrv_primary_source_seed_20261018.json",
+      "sha256": "662029270bc5648545983b4315f1eccb84dec4c5e97a1a4afce8992b5e039bcc"
+    },
+    {
+      "path": "/tmp/mechet-lgrv-fast-runtime.Umbl2f/configs/analysis/lgrv_primary_sources_20261018_v2.json",
+      "sha256": "4cdbc9d61eec31992408f278a5cd81f2b6ef2cb5821992361586fd39a0dd0050"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v3.json",
+      "sha256": "75babca7abd5d2c3b1f0a83891fb1fd53746f12f213255407c0da9068977156c"
+    }
+  ],
+  "program_join_manifest_sha256": "392713dfcf4e9d599f239b464075253aacc48d12790023cd7b219c0485d3018b",
+  "producer_files": {
+    "scripts/verify_nmi_literature_reactions.py": "fb897c4ba6939ac19df574dbbf7ffb6260f941fda2e0971e10abcd3435dbf5e8",
+    "src/mechet/analysis/literature_comparison.py": "ba23de1d57153c0694d70b1640609d4c633bd71d8bfaebc9bfdb1af0389151fc",
+    "src/mechet/analysis/literature_evidence.py": "93370391ec017edd2cd93310e014765a4bde2eafb42e4167f5679b909b4afc17",
+    "src/mechet/analysis/literature_figures.py": "b6d5ec9488be51b858d048958196b7695f66674d5d6c265d01c5c7cc2814477c",
+    "src/mechet/analysis/literature_frozen_index.py": "f9f313e57f7aac1454d91b492552944cc4a18ce33d2e42f58a9505bd2c4edac6",
+    "src/mechet/analysis/literature_index.py": "d9759094ab4ccabbbd6c203cfc96798c030a456cab834c69579537b66be16e13",
+    "src/mechet/analysis/literature_population_figures.py": "78bbe24910e128a24c66a6c89b841c116e8dd55a3ac9e8d834601e411f54b791",
+    "src/mechet/analysis/literature_predictions.py": "483c306db6c2634bb694c0d169694ff85a02019528a5c64d55e08f8637b4ce60",
+    "src/mechet/analysis/literature_programs.py": "76ac50041b6b73c51a0a473b9826326a1091ca609810480b4b38376ea15fc0e9",
+    "src/mechet/analysis/literature_reaction_keys.py": "6d33c77b300bdd84425587e9d023d06f71362d09e2b67e4a2baf9d7ad0ce6e36",
+    "src/mechet/analysis/literature_route_metrics.py": "e4705d69f47b87a4fe45d55def57656f038dcca5c8283344966b019d278c632d",
+    "src/mechet/analysis/literature_sources.py": "e81a5e3c283a77bf942d60439742cb402844ad5a141fc5f487199c1fc31ce9a8",
+    "src/mechet/analysis/literature_work.py": "69fcba4e26202679cc6831e0473e0c68ff075df8b23d3273b8a2d76fdd4726fd",
+    "src/mechet/analysis/mechanism_consistency.py": "faf340480333958f26356f51ead14d27ec4b8f02f63f93baf5d65f0a044a43a4"
+  },
+  "output_files": {
+    "baseline_comparison.csv": {
+      "sha256": "e656b87b535af55f30b44f3c68cb942f5c5d91bc4153da2067b00c9735af333f"
+    },
+    "evidence_coverage.json": {
+      "sha256": "d8ece3094e6f811ad62163235c6131cc08512f34a7a11cf067ce58df022770d4"
+    },
+    "generated_reaction_steps.jsonl.gz": {
+      "sha256": "e93accb02c6e43533279735e6f927d8166099772420181c5c5911583411f3b5b"
+    },
+    "literature_hits.jsonl.gz": {
+      "sha256": "35a387d0b96db63ad1455931171d35905e25651f3b994bacfc424a927f293776"
+    },
+    "mechanism_consistency.jsonl.gz": {
+      "sha256": "a8d9a9da9b7238575ce8506cff7cc634b931b1a22c9642e462eeb8838b27b7d6"
+    },
+    "metrics.json": {
+      "sha256": "4d8b9a5086cf64d28f12c93e8a7bd96003e405fa8c2323ef4501923efb61e092"
+    },
+    "observed_work.json": {
+      "sha256": "f6a09b208e4372ce7817d24c118718e64b64557071cefdfa8cbf1f96a7bb262e"
+    },
+    "prediction_freeze_manifest.json": {
+      "sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3"
+    },
+    "program_reaction_links.jsonl.gz": {
+      "sha256": "44bb5a7d1fc74ed47c2bc17b5f78f0f9c1602b22b87472e4af4c286cc0ee1270"
+    },
+    "progress.json": {
+      "sha256": "80168a46efccff0357efdd994b0fce0e26e9247a2c72ec8dc6d1291273f62792"
+    },
+    "reaction_evidence.jsonl.gz": {
+      "sha256": "a8844a0fe0d061aa5799c686c99dcacde40360af95909288c4eb2b9e1909c564"
+    },
+    "route_evidence.jsonl.gz": {
+      "sha256": "a5620cd991a0da860689dd05021dd24ce67d43916cf9f04b43bee1def119e272"
+    },
+    "source_corpus_manifest.json": {
+      "sha256": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd"
+    },
+    "source_passages.jsonl.gz": {
+      "sha256": "3df89af7b6b3e66713d9ac1cf79e00795af5f445ac018ed5f9a9ef36819ef4d9"
+    }
+  }
+}

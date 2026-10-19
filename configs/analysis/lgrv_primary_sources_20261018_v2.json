@@ -1,0 +1,43 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "Additional source-checked in-situ acid-chloride formation; combine with the unchanged existing seed registry. Not population validation.",
+  "records": [
+    {
+      "source_id": "WO2018104954A1:example1:acid-to-acid-chloride",
+      "source_url": "https://patents.google.com/patent/WO2018104954A1/en",
+      "patent_id": "WO2018104954A1",
+      "patent_family_status": "one publication; family independence not asserted",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ebba23d0c331b9aabf4fcc721d64e56be8c6ddbf6eb630099cc4c583c96b0f1d.txt",
+      "document_sha256": "00e77f7011c4029a1834e4cc6713ff04f1f47406313bceb68c706b5a9c32d32d",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ebba23d0c331b9aabf4fcc721d64e56be8c6ddbf6eb630099cc4c583c96b0f1d.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ebba23d0c331b9aabf4fcc721d64e56be8c6ddbf6eb630099cc4c583c96b0f1d.html",
+      "raw_document_sha256": "d92932b6983d7a6a6de1fd6555d52dd969dcc3d19e4d72e6907dfd8907facf6f",
+      "locator": "Description preferred embodiment step(a), formula2 to formula3, normalized offset~51600; Examples, Example1 opening paragraph, normalized offset83477. Formed acid chloride is used in situ in the subsequent coupling, not separately isolated.",
+      "checked_passage": "stirred for 5 hours at the same temperature.",
+      "checked_passage_sha256": "0dcc8564f159b10b15bafc884932879daecbfb0c446550f691cd85e518955da7",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261018",
+      "source_human_reviewed": false,
+      "source_product": "O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1",
+      "source_precursors": [
+        "O=C(O)C1(C(=O)Nc2ccc(F)cc2)CC1",
+        "O=S(Cl)Cl"
+      ],
+      "structural_reconciliation": "Preferred embodiment explicitly assigns named 1-((4-fluorophenyl)carbamoyl)cyclopropanecarboxylic acid (formula2) plus thionyl chloride to the corresponding carbonyl chloride (formula3). Example1 carries out that same first operation, then transfers the mixture to aniline for coupling. Constitutional SMILES transcribed from named compounds, not benchmark GT; no analogue substitution or map relaxation.",
+      "source_conditions": "Example1: acid112.9g, thionyl chloride180.4g, THF600mL,25-30C,5h; then used in situ for coupling. No acid-chloride isolated yield or independent characterization is given.",
+      "experimental_product_status": "explicitly identified in-situ synthetic intermediate; not isolated or independently characterized in Example1",
+      "reported_isolated_product": null,
+      "conditions_match": false,
+      "training_source_overlap": "unknown",
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "scope_limit": "Performed net acid-to-acid-chloride preparation only. Does not establish the model's arrow order or microscopic intermediates, and is not separate isolated-product analytical validation.",
+      "primary_documents_inspected_for_this_reaction": [
+        "https://patents.google.com/patent/WO2018104954A1/en",
+        "https://patents.google.com/patent/US10273211B2/en"
+      ],
+      "other_document_disposition": "US10273211B2 describes related activations and hydroxylated metabolites; not used to confirm this exact acid-chloride reaction."
+    }
+  ]
+}

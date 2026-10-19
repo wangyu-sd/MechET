@@ -1,0 +1,16 @@
+{
+  "schema": "lgrv_frozen_case_selection_v1",
+  "title": "Cabozantinib free base: source-checked net reactions and inverse electronic construction",
+  "run_id": "r1_mcts_pr88",
+  "target_id": "ursa_drugs100:Cabozantinib S-malate",
+  "target_label_qualification": "Frozen input and generated endpoint are the free base; no malate formation is inferred.",
+  "route_key": "afb473abe8f362dc20e6dffa50647baa80c44b4304e19299a893841138f18b9c",
+  "prediction_freeze_manifest_sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+  "native_tree_sha256": "c8c4098d123efe6ead4502daf4275bdfeccf1a1e4343d22195a1a93d9d5d107b",
+  "actor_exposure_manifest_sha256": "60bc0cc49cfb8a65e4ca9e98c2ac8f1e4ba42a65325046e5c4e3405370bbef4f",
+  "program_record_ids": [
+    "ef95080c435b0197438f736786cded868274938f8c43ad99b7478c46b6435cb9",
+    "c49020ce06068cd39246c156c4e405781b2e6a1810637e6afaaeff86a316e5ee"
+  ],
+  "selection_scope": "Existing two-edge all-essential-step precedent-covered case; not selected by reference endpoint rank or a matched-work causal rescue claim."
+}

@@ -1,0 +1,13 @@
+{
+  "verified": true,
+  "queries": 18210,
+  "supported": 73,
+  "conditions": 6,
+  "sealed_outputs": 22,
+  "case_registry_rows": 73,
+  "review_states": 94,
+  "family_dedup_audit_sha256": "1dc92258e8a6420331c0de4b41406e2fc78c08644890eaea76d81e4f8182e5a9",
+  "figure_exports": 15,
+  "prior_result_files_unchanged": 849,
+  "protected_notes_and_operational_HEAD_unchanged": true
+}

@@ -1,0 +1,8 @@
+{
+  "schema": "lgrv_report_local_route_membership_audit_v1",
+  "prediction_freeze_manifest_sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+  "source_reports_checked": 273,
+  "stock_routes_checked": 474,
+  "all_edges_present_in_their_own_generated_report": true,
+  "cross_target_or_method_borrowing": false
+}

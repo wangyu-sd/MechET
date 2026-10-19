@@ -1,0 +1,210 @@
+# Frozen experiment and evidence contract for the follow-up to PR #87.
+# The values below describe EXISTING saved runs and desired analysis interfaces;
+# they are NOT predictions or claimed full matched-budget experiment outputs.
+schema: nmi_literature_first_matched_baselines_v2
+protocol: docs/goals/MECHET_LITERATURE_GROUNDED_REACTION_ROUTE_PROTOCOL_20261018.md
+main_outcome: literature_evidence_for_complete_synthetic_reaction_steps_and_stock_routes
+historical_reference_endpoint_ranking_is_primary: false
+date: "2026-10-18"
+source_pr: 87
+latest_progress_pr: 88
+source_progress_snapshot: docs/results/progress_20261017/snapshot.json
+paper_pr: 29
+input:
+  observed_analysis_root: outputs/paper/nmi_tree_evidence/observed_20261016_v1
+  route_assets_manifest: data/route_benchmarks/frozen_r1_r2_20261013/manifest.json
+  frozen_actor_exposure_manifest: outputs/analysis/r1_r2_actual_sft_mechanism_index_20261014/manifest.json
+  reference_doc: docs/analysis/NMI_TREE_EVIDENCE_20261016.md
+  source_checksums_required: true
+  do_not_modify_originals: true
+output:
+  root: outputs/paper/nmi_literature_evidence
+  separate_run_slug: true
+  retain_all_target_outcomes: true
+  figures_in_git_only_when_bounded: true
+  pairwise_ci_bootstrap_draws: 2000
+  publication_style: configs/figures/mechet_nmi_tree_style_v1.yaml
+  figures:
+    - fig2_r1_literature_supported_routes
+    - fig3_r2_supported_composition
+    - extended_data_paired_route
+    - extended_data_disconnection_evidence
+    - extended_data_source_retrieval_coverage
+actor:
+  name: Qwen3-0.6B Stage-II compact-history full tool policy
+  weight_sha256: "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75"
+  immutable_prompt_executor_tokenizer_and_base_revision: true
+  protocol_action_families: [IMPORT, FLOW, FINISH]
+  authenticate_stale_manifest_before_new_evaluation: true
+r1:
+  full_declared_target_denominator: 460
+  datasets:
+    paroutes_derived_n5_100: 100
+    retrocast_mkt_cnv160: 160
+    ursa_drugs100: 100
+    ursa_expert100: 100
+  target_key:
+    - cohort
+    - stable_target_id
+    - product
+    - frozen_stock_sha256
+  observed_main:
+    run_id: r1_r2_frozen_06b_shared_mcts_20261014_07
+    snapshot_pr: 88
+    snapshot_captured_at: "2026-10-17T23:09:25+08:00"
+    saved_target_reports: 200
+    recorded_nonzero_stock_and_closures: 199
+    already_in_stock_zero_step: 1
+    unfinished_target_reports: 260
+  historical_pr87_snapshot:
+    saved_target_reports: 171
+    recorded_nonzero_stock_and_closures: 170
+    flow_fork_contexts: 14040
+    multiple_route_target_lower_bound: 71
+    not_current_full_run: true
+  baselines:
+    - id: greedy_dynamic_20261013
+      run_id: "r1_r2_frozen_06b_dynamic_routes_20261013:greedy"
+      saved_target_reports: 460
+      nonzero_stock_and_closures: 38
+    - id: greedy_shared_20261014_05
+      run_id: "r1_r2_frozen_06b_shared_routes_20261014_05:greedy"
+      saved_target_reports: 460
+      nonzero_stock_and_closures: 36
+    - id: independent_full_trace_sampling
+      status: "find_existing_else_prepare_for_explicit_authorization_no_automatic_GPU_launch"
+      require_true_independent_policy_episodes: true
+    - id: complete_reaction_candidate_planner
+      status: "reuse_existing_Syntheseus_Retrostar_or_compatible_best_first"
+      fair_same_frozen_actor_and_stock: true
+  primary_statistics:
+    - paired_both_mcts_only_greedy_only_neither
+    - nonzero_stock_connected_Solved_at_B
+    - distinct_complete_routes_by_canonical_reaction_graph
+    - mcts_only_new_disconnection
+    - fork_to_new_chemical_successor_to_new_terminal
+    - verified_stock_and_route_rescue
+    - useful_new_disconnections_per_generated_token
+    - budgets_and_cost_to_first_solved_if_chronological_witness_exists
+    - any_TierA_exact_step_on_complete_stock_route
+    - every_essential_step_TierA_complete_route
+    - every_essential_step_TierA_or_source_checked_TierB_route
+    - route_step_literature_evidence_coverage
+    - MCTS_only_literature_supported_new_disconnections
+    - target_paired_literature_supported_Solved_at_B
+  disclosure:
+    current_mcts_reports_incomplete: true
+    already_in_stock_is_not_newly_generated_route: true
+    unmatched_existing_work_not_claimed_equal_budget: true
+    retrocast_paroutes_overlap_not_independent: true
+r2:
+  same_route_targets_as_r1:
+    cohort: retrocast_mkt_cnv160
+    full_denominator: 160
+    reference_depth_bins: [2, 3, 4, 5]
+    targets_each_depth: 40
+    verified_reference_C0_C1_C2: "currently_unknown"
+  historical_strict_flower:
+    train: 257167
+    local_primitive_signatures: 604
+    ordered_whole_signatures: 6553
+  current_actor_exposure:
+    ordinary_local_primitive_signatures: 603
+    ordinary_ordered_whole_signatures: 6491
+    nonordinary_signatures_recorded_separately: 1377
+  recorded_mcts:
+    snapshot_pr: 87
+    snapshot_targets: 171
+    terminal_contexts: 7082
+    seen_ordinary_program_contexts: 3392
+    unseen_ordinary_program_contexts: 3672
+    unavailable_or_nonordinary_contexts: 18
+  primary_statistics:
+    - exposure_checked_unseen_programs_distinct_terminal_reactions_targets
+    - unseen_program_to_new_precursor_to_new_disconnection_to_stock_closed_route
+    - matched_actor_greedy_vs_mcts_signature_novelty
+    - reacting_atom_changed_bonds_ring_and_multi_flow_complexity
+    - route_depth_strata_with_original_denominators
+    - unseen_program_to_source_supported_complete_reaction
+    - unseen_program_to_A_or_B_supported_disconnection_on_stock_connected_route
+    - source_checked_program_novelty_MCTS_vs_greedy
+  historical_h2:
+    train: 223863
+    valid: 6200
+    test: 27104
+    requires_separately_authenticated_H2_only_trained_models: true
+    conditions: [Direct, Open-Flow, Closed-Loop, Closed-Edit]
+    no_full_data_stageII_as_strict_H2: true
+mech_uspto31k:
+  frozen_test_target_denominator: 3120
+  latest_progress_pr: 88
+  latest_run_path: outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/evaluation.json
+  complete_target_reports: 3120
+  total_complete_trajectory_attempt_budget_each: 10
+  targets_with_any_terminal_precursor: 3022
+  main_outcomes:
+    - AnySourceSupportedReaction_at_10Attempts
+    - ExactExperimentalStepPrecedent_at_10Attempts
+    - DistinctSourceSupportedDisconnections_per_target
+    - complete_reaction_source_evidence_coverage
+    - same_target_chemistry_comparison_with_greedy
+  archived_greedy:
+    - mech_uspto31k_full_dynamic_electron_tree_20261013
+    - mech_uspto31k_full_shared_electron_tree_20261014_05
+  older_pr87_snapshot:
+    reports: 1711
+    legacy_evaluator: rxn_prod_min_proxy_DIAGNOSTIC
+    legacy_proxy_top1: 32
+    legacy_proxy_top5: 72
+    legacy_proxy_pool: 79
+    retained_only_for_historical_reproducibility: true
+  no_NLL_ranking_or_reference_endpoint_as_main_metric: true
+
+literature:
+  protocol: LGRV-v1
+  chemistry_step_unit: finalized_structural_precursors_to_product_reaction_edge
+  internal_FLOW_step_unit: symbolic_executed_operation_not_an_experimental_reaction
+  corpus_sources:
+    ord:
+      schema_docs: https://docs.open-reaction-database.org/en/stable/schema.html
+      data_repo: https://github.com/Open-Reaction-Database/ord-data
+    lowe_uspto:
+      source: https://figshare.com/articles/dataset/Chemical_reactions_from_US_patents_1976-Sep2016_/5104873
+    primary_sources:
+      - original_patent_preparative_example
+      - journal_experimental_section_or_SI
+  primary_source_passage_locator_required_for_verified_A_B: true
+  patent_claim_without_performed_example_not_verified: true
+  exact_match_requires_precursor_product_stereo_compatibility: true
+  analog_match_requires_reaction_center_context_and_source_performed_example: true
+  mechanism_support_is_separate_from_net_reaction_precedent: true
+  tiers:
+    A: same_essential_structural_substrates_and_product_in_performed_source
+    B: experimentally_performed_chemically_compatible_analogue
+    C: unresolved_or_no_primary_source
+    D: documented_direct_chemical_conflict_only
+  verification_status:
+    - indexed_candidate
+    - machine_structural_match
+    - source_passage_checked
+    - source_human_reviewed
+    - unresolved
+  source_family_deduplication: true
+  frozen_queries_and_corpus_version: true
+  primary_search_cap_per_unique_reaction: 5
+  no_GT_reference_precursor_for_evidence_lookup: true
+  same_literature_retrieval_rules_for_mcts_and_greedy: true
+  chemistry_assessment_does_not_assert_inferred_mechanistic_intermediates: true
+
+validation:
+  exact_cohort_and_source_hash_join: true
+  check_stock_and_mapped_precursor_stereo: true
+  count_missing_and_unfinished_without_false_zero_scores: true
+  no_GT_in_generation_or_literature_retrieval: true
+  never_fabricate_budget_prefixes: true
+  same_criterion_for_case_and_baseline_chemistry_sources: true
+  all_stock_route_edges_evidence_required_for_precedent_covered_route: true
+  no_literature_hit_is_unresolved_not_chemically_incorrect: true
+  do_not_count_same_reaction_duplicated_patent_family_as_multiple_sources: true
+  original_16_work_packages_retained: true
+  no_RSI_no_new_actor_training: true

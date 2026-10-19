@@ -1,0 +1,109 @@
+{
+  "schema": "lgrv_bounded_raw_analysis_distribution_v1",
+  "complete_original_analysis_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11",
+  "analysis_manifest_sha256": "11e49dd8695ca3b1ed3cdf46e7dbad449f3b299fc8aa35591467cbb7999d8056",
+  "files": {
+    "analysis_manifest.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/analysis_manifest.json",
+      "source_sha256": "11e49dd8695ca3b1ed3cdf46e7dbad449f3b299fc8aa35591467cbb7999d8056",
+      "stored_sha256": "11e49dd8695ca3b1ed3cdf46e7dbad449f3b299fc8aa35591467cbb7999d8056",
+      "encoding": "unchanged original file"
+    },
+    "baseline_comparison.csv": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/baseline_comparison.csv",
+      "source_sha256": "b3b732710d7f950c8f9f089a5aa952e95f8a360bc39f96c82f16f3386b498fb5",
+      "stored_sha256": "b3b732710d7f950c8f9f089a5aa952e95f8a360bc39f96c82f16f3386b498fb5",
+      "encoding": "unchanged original file"
+    },
+    "control_sources.sqlite": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/control_sources.sqlite",
+      "source_sha256": "d9a849f6c00aeee442572e14272440b65229307adc22aecd269b047066663f78",
+      "stored_sha256": "d9a849f6c00aeee442572e14272440b65229307adc22aecd269b047066663f78",
+      "encoding": "unchanged original file"
+    },
+    "evidence_coverage.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/evidence_coverage.json",
+      "source_sha256": "c0fc04338381625ef8a719860b411a6736ac51b38b010fe44ed99eb2c4a5e630",
+      "stored_sha256": "c0fc04338381625ef8a719860b411a6736ac51b38b010fe44ed99eb2c4a5e630",
+      "encoding": "unchanged original file"
+    },
+    "literature_hits.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/literature_hits.jsonl.gz",
+      "source_sha256": "593e0711f27d1ae6d43ca2a27031540ede3cdac0541ff785c3576baf67ecd358",
+      "stored_sha256": "593e0711f27d1ae6d43ca2a27031540ede3cdac0541ff785c3576baf67ecd358",
+      "encoding": "unchanged original file"
+    },
+    "mapping_enrichment_manifest.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/mapping_enrichment_manifest.json",
+      "source_sha256": "72d2ddeb0cb117ec86b608c4c8878434250d579ff2424519ee8b4a70eab14e33",
+      "stored_sha256": "72d2ddeb0cb117ec86b608c4c8878434250d579ff2424519ee8b4a70eab14e33",
+      "encoding": "unchanged original file"
+    },
+    "mechanism_consistency.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/mechanism_consistency.jsonl.gz",
+      "source_sha256": "61435dcde997747353c78487cc77559d9f53e703be7d54398b6697e7d3572132",
+      "stored_sha256": "61435dcde997747353c78487cc77559d9f53e703be7d54398b6697e7d3572132",
+      "encoding": "unchanged original file"
+    },
+    "metrics.json.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/metrics.json",
+      "source_sha256": "5aed47092bc1653bf5a118148a9f0717921af22991ce3b8b3fe21fd2e30c209f",
+      "stored_sha256": "c1f5ca73e1d733e083eba2288f253fdd99cc37bb4e7491713e6573af87ed5ea0",
+      "encoding": "gzip of original complete JSON bytes"
+    },
+    "policy_control_manifest.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/policy_control_manifest.json",
+      "source_sha256": "0b0cd9ecc0f3b3e5a858c3dc89626213e429f9b08591ace6447a3207a8598198",
+      "stored_sha256": "0b0cd9ecc0f3b3e5a858c3dc89626213e429f9b08591ace6447a3207a8598198",
+      "encoding": "unchanged original file"
+    },
+    "policy_control_results.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/policy_control_results.json",
+      "source_sha256": "787d3a2a460a4ca1e0d8f9577c4eda7a0c4d482196c124d97b0b10c64d8cbffc",
+      "stored_sha256": "787d3a2a460a4ca1e0d8f9577c4eda7a0c4d482196c124d97b0b10c64d8cbffc",
+      "encoding": "unchanged original file"
+    },
+    "policy_control_spec.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/policy_control_spec.json",
+      "source_sha256": "bbb7a0efcbfd3f8aebcf8cc30e9530d773bb8d8300080f5e8626718165933b58",
+      "stored_sha256": "bbb7a0efcbfd3f8aebcf8cc30e9530d773bb8d8300080f5e8626718165933b58",
+      "encoding": "unchanged original file"
+    },
+    "progress.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/progress.json",
+      "source_sha256": "4596e9d405de9f8c48b27990d941c59c7645c5b6c9b32863ef388f4a9220c4a3",
+      "stored_sha256": "4596e9d405de9f8c48b27990d941c59c7645c5b6c9b32863ef388f4a9220c4a3",
+      "encoding": "unchanged original file"
+    },
+    "reaction_evidence.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/reaction_evidence.jsonl.gz",
+      "source_sha256": "fcde03238078bc97146b185d0f18cdafe340e2e8e3b007d2aee8211af86cd2d3",
+      "stored_sha256": "fcde03238078bc97146b185d0f18cdafe340e2e8e3b007d2aee8211af86cd2d3",
+      "encoding": "unchanged original file"
+    },
+    "retrieval_query_contexts.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/retrieval_query_contexts.jsonl.gz",
+      "source_sha256": "d41c4e645458aa7433db9ae8c554d3b518f71b36d9e27a03f163629e6df169fd",
+      "stored_sha256": "d41c4e645458aa7433db9ae8c554d3b518f71b36d9e27a03f163629e6df169fd",
+      "encoding": "unchanged original file"
+    },
+    "route_evidence.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/route_evidence.jsonl.gz",
+      "source_sha256": "2a954dd645e5c9b3d42749df0fbbe07659f4a7d60a6e7561fe87baaccaad1c66",
+      "stored_sha256": "2a954dd645e5c9b3d42749df0fbbe07659f4a7d60a6e7561fe87baaccaad1c66",
+      "encoding": "unchanged original file"
+    },
+    "source_corpus_manifest.json": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/source_corpus_manifest.json",
+      "source_sha256": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd",
+      "stored_sha256": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd",
+      "encoding": "unchanged original file"
+    },
+    "source_passages.jsonl.gz": {
+      "source_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v11/source_passages.jsonl.gz",
+      "source_sha256": "152a2486df1318a91698a8f8344f4ed339d4f0176d16589c27925dc2e9a09d75",
+      "stored_sha256": "152a2486df1318a91698a8f8344f4ed339d4f0176d16589c27925dc2e9a09d75",
+      "encoding": "unchanged original file"
+    }
+  }
+}

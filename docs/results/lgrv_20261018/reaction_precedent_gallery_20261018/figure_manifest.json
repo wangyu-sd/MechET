@@ -1,0 +1,84 @@
+{
+  "schema": "lgrv_generated_net_precedent_gallery_v1",
+  "new_model_inference": false,
+  "figures": {
+    "svg": {
+      "path": "docs/results/lgrv_20261018/reaction_precedent_gallery_20261018/figures/fig4_r3_structural_precedent_cases.svg",
+      "sha256": "b1c9578e98d6a5f3cc2c7a3715905acdf4a944e4bd75969a5750c888b9fcbb47"
+    },
+    "pdf": {
+      "path": "docs/results/lgrv_20261018/reaction_precedent_gallery_20261018/figures/fig4_r3_structural_precedent_cases.pdf",
+      "sha256": "d641ef9cd488902c973d3a5eac7310b93cc71449cbb15a7abb3a115deb181396"
+    },
+    "png": {
+      "path": "docs/results/lgrv_20261018/reaction_precedent_gallery_20261018/figures/fig4_r3_structural_precedent_cases.png",
+      "sha256": "fc60c9b44e95c23c09351f9e18be3da5aa7d1d9d71959b8a46885cf2e9092ad8"
+    }
+  },
+  "qa": {
+    "machine_checks_passed": true,
+    "problems": [],
+    "svg": {
+      "ids": 12,
+      "duplicate_ids": 0,
+      "unresolved_references": [],
+      "raster_images": 0,
+      "vector_paths": 609,
+      "editable_text_elements": 19
+    },
+    "pdf": {
+      "pages": 1,
+      "width_mm": 182.99999983055554,
+      "height_mm": 169.6861111111111,
+      "fonts": [
+        {
+          "name": "/UMHNUM+Arial-BoldMT",
+          "subtype": "/TrueType",
+          "embedded": true
+        },
+        {
+          "name": "/BSXCSO+ArialMT",
+          "subtype": "/TrueType",
+          "embedded": true
+        }
+      ],
+      "all_fonts_embedded": true
+    },
+    "png": {
+      "width_px": 2161,
+      "height_px": 2004,
+      "effective_dpi": 299.9420767804564
+    },
+    "visual_inspection_status": "not_established_by_machine_checks",
+    "chemistry_correctness_status": "requires_source_and_drawing_review"
+  },
+  "prediction_freeze_manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/prediction_freeze_manifest.json",
+  "prediction_freeze_manifest_sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+  "query_table_sha256": "10cc10d41e6d7c1d28558f6ecd3620d05829553e0af393f993f1fc86239e4b31",
+  "primary_registry_manifests": [
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_source_seed_20261018.json",
+      "sha256": "662029270bc5648545983b4315f1eccb84dec4c5e97a1a4afce8992b5e039bcc"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v2.json",
+      "sha256": "4cdbc9d61eec31992408f278a5cd81f2b6ef2cb5821992361586fd39a0dd0050"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v3.json",
+      "sha256": "75babca7abd5d2c3b1f0a83891fb1fd53746f12f213255407c0da9068977156c"
+    }
+  ],
+  "case_registry_sha256": "a5035d7e747018a16ad21aecd1894a8ec1e62bd579b0b0658a64761318f59d9b",
+  "style_sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26",
+  "producer_files": {
+    "src/mechet/analysis/literature_figures.py": "f6f296aa79dd99904bd28623e7c402c844eff749df178e7513e4cd2779036e98",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_evidence.py": "93370391ec017edd2cd93310e014765a4bde2eafb42e4167f5679b909b4afc17",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6"
+  },
+  "selected_case_count": 4,
+  "selection_is_population_accuracy_estimate": false,
+  "physical_mechanism_verified": false,
+  "visual_inspection_status": "assistant_inspected_final_PNG"
+}

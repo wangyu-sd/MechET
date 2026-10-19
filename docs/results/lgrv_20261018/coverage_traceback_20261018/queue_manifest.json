@@ -1,0 +1,9 @@
+{
+  "schema": "lgrv_alternate_patent_acquisition_queue_v1",
+  "references": 176,
+  "unique_public_patent_urls": 104,
+  "source_audit_manifest_sha256": "3a643fb92d33ecee5fce1d7879cf0a6bd10ba550f44eff8ade498e1d1727f292",
+  "output_sha256": "3223b003735c0105c28ca64b8e1bdec6f5426edc61491f57aa12fcf267916a8f",
+  "new_chemical_candidates": false,
+  "new_evidence_grades": false
+}

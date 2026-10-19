@@ -1,0 +1,54 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "Only explicitly reviewed query-scoped analogues passing original capped-candidate/full-stereo guards.",
+  "records": [
+    {
+      "source_id": "US6326359B1:preparation42:methylsulfanyl-purine:query:b665e628c0e948cbf04bbe12412d98a2ca96000dd70368135847176ec2a5914f",
+      "patent_id": "US6326359B1",
+      "source_url": "https://patents.google.com/patent/US6326359B1/en",
+      "document_sha256": "128dbbed3ebe5e55d9318a190ded8bf08b3114ffb6f41964978ca52616627e82",
+      "checked_passage": "Preparation 42 2-(Methylsulfanyl)-N-phenethyl-9-tetrahydro-2H-pyran-2-yl-9H-purin-6-amine",
+      "locator": "Preparation42at286568ff,couplespreparation41withsodiumthiomethoxide,16.7gwhite solid/1HNMR. ReferencedfullPreparation7at246727ff directlyread;not subsequentOxoneoxidation43.",
+      "source_product": "[c:2]1([S:27][CH3:26])[n:3][c:4]([NH:17][CH2:18][CH2:19][c:20]2[cH:21][cH:22][cH:23][cH:24][cH:25]2)[c:5]2[n:6][cH:7][n:8]([CH:11]3[O:12][CH2:13][CH2:14][CH2:15][CH2:16]3)[c:9]2[n:10]1",
+      "source_precursors": [
+        "[CH3:26][S-:27].[Cl:1][c:2]1[n:3][c:4]([NH:17][CH2:18][CH2:19][c:20]2[cH:21][cH:22][cH:23][cH:24][cH:25]2)[c:5]2[n:6][cH:7][n:8]([CH:11]3[O:12][CH2:13][CH2:14][CH2:15][CH2:16]3)[c:9]2[n:10]1.[Na+:28]"
+      ],
+      "expected_exact_reaction_key": "0663ec3d9a9c326ab1ea9167350e8d692d3f08d590c82fa4d51dee36503d06d0",
+      "source_conditions": "Preparation42uses2-chloropurine41(17.5g49mmol)andsodiumthiomethoxide(7.2g75mmol),16.7gwhite solid,NMR,no explicitpercentyield. Referenced7usesdryDMF/nitrogen100C1.5h,roomtemperature72h,100C2h,thenwater/etherworkup,dryMgSO4,evaporation/repeatedetherandpentane solventremoval.7'sdifferentdiphenylethylsubstrateloadings and48.9gmass are not42-specific. Sodium isretained in the sourceprecursorgraph;noNa+ isaddedto aquery thatdoesnotnameit.",
+      "reported_isolated_yield_percent": null,
+      "structural_reconciliation": "IndependentTHP-oxygen-firstgraph retainsN9THP,2-Cl->SMe,6-NHCH2CH2phenyl andthepurinefusedring. ActualNaSMeisrepresented asNa+/thiolate,notneutralMeSH. Allnamedsourcegraphs matchoriginalcandidate0663ec3d;noquerystereo,counterionorprotectionis silentlyrewritten.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9f985a62adfe1653e2f737e2e26caca33de595f42065aae18aad6564e56dc384.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9f985a62adfe1653e2f737e2e26caca33de595f42065aae18aad6564e56dc384.html",
+      "raw_document_sha256": "1a1e897134628d931cb4b7a63c602833c1ce2482cf4fe22c7f24a52830ef4ec0",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9f985a62adfe1653e2f737e2e26caca33de595f42065aae18aad6564e56dc384.txt",
+      "checked_passage_sha256": "3d0dfe40b26c8a64223dea2dfb59ef35c9270505cc4cee2e64a64201b68b2944",
+      "normalized_passage_offset": 286568,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture",
+      "analogue_compatibility_checked": true,
+      "substrate_differences": "Queryuses2-chloro4-(N-indolyl)pyrimidine witharemotebenzylalcohol,versusN9THP/6phenethylaminopurine;querynamesmethanethiolatebutnotitscounterion.",
+      "functional_group_compatibility": "Preserved originaladmissibleN-flankedheteroarylC-Cl/MeS-anionSNArconstruction. Bothcenters areactivatedbetweenringnitrogens. BenzylalcoholandN-substitutedindole arecompatible spectatorclassesinthe nonoxidativebasicdryDMFthiolateconditionclass;noacidicdeprotectionorhydrogenationisrequired. Thechangedheterocycle/electronics andunspecifiedquerycounterion canaffectkinetics/solubility,which arenotmeasuredbythissource. The source'sNa+isnot transferred intoqueryinput orendpoint.",
+      "stereo_compatibility_checked": true,
+      "review_limitations": "Compatible reaction-typeanalogue,notanexactexperimentalformulationorendpointverification. Salt/counterion identity remainsdifferent/unspecified;no neutralizationorcomponentdeletion is used toforceidentity.",
+      "analogue_query_reaction_key": "b665e628c0e948cbf04bbe12412d98a2ca96000dd70368135847176ec2a5914f",
+      "independently_transcribed_source_product": "O1CCCCC1n1cnc2c(NCCc3ccccc3)nc(SC)nc21",
+      "independently_transcribed_source_precursors": [
+        "O1CCCCC1n1cnc2c(NCCc3ccccc3)nc(Cl)nc21",
+        "[Na+].C[S-]"
+      ],
+      "original_candidate_source_id": "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-775d41f2e99a49e285c9a95d479d7542:mapped_identifier",
+      "mapping_basis": "original indexed correspondence, not experimentally observed electron mapping"
+    }
+  ],
+  "review_spec_sha256": "7bc6ae8e356a25e0398c30d2e8f4f8f5ce80db79ece65207b97618175c8fceb7",
+  "producer_sha256": "1fa8d0590e23781a5215b24137e04298f15328ffec97556fe5246a873d6b91c7",
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "new_model_inference": false
+}

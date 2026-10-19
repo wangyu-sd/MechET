@@ -1,0 +1,570 @@
+{
+  "schema": "lgrv_checked_preparation_gallery_v1",
+  "source_query_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v7/unique_reaction_queries_enriched.jsonl.gz",
+  "source_query_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "primary_registry_sha256": "6b1e677bb22903941c54e3fe1f7c62398b42f017a8640cc4de7821d76baae74c",
+  "figures": {
+    "extended_data_primary_preparations_1": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_1.svg",
+          "sha256": "593e27d5ba5d05ea7e6588ca511d8ab6172fe32bb99a0377eb4d8a2573a21736"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_1.pdf",
+          "sha256": "55c0341cde2e84c20e9978a88d6333ecd9982451e838d2e50af9e7f90365c65d"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_1.png",
+          "sha256": "a3e16196179aea7d660e482dd2a90300b306b55b6a20ed1c2fb5c33eb5663cc0"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 262,
+          "editable_text_elements": 17
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/NMGCYX+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/OKTLIG+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "5c23b4a404168e9d34fc873892fd615c238b9a00f0057f5bb685e08f38d68509",
+          "7e7f5d4402a3abc7a50baf0506f107edd86f7a98fc980aba26b8e9a195e1145a",
+          "b2f736b204a1c19ce3414c6a44a598058b4379b216a49a61406a434dea94ddff"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "5c23b4a404168e9d34fc873892fd615c238b9a00f0057f5bb685e08f38d68509",
+            "evidence": {
+              "reaction_key": "5c23b4a404168e9d34fc873892fd615c238b9a00f0057f5bb685e08f38d68509",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7244726B2:description15:quinolin5-bromoethyl-ether",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7244726B2/en",
+              "locator": "Description 15 (D15), explicitly referring to Description 13; not fluorinated D17 or a later piperazine substitution.",
+              "document_sha256": "0b6c2179d06f02253f524ef233e2173e587f513197c9eb81ed939cf53e94d193",
+              "raw_document_sha256": "b6d6dd2f7e90b7796b18b99b015c0ebc7a0aa1e1d9cf7e38e901e34af0a6da4b",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7244726B2:description15:quinolin5-bromoethyl-ether",
+            "source_url": "https://patents.google.com/patent/US7244726B2/en",
+            "locator": "Description 15 (D15), explicitly referring to Description 13; not fluorinated D17 or a later piperazine substitution.",
+            "source_conditions": "D15: 5-hydroxy-2-methylquinoline and 1,2-dibromoethane, following D13 potassium carbonate/methyl ethyl ketone, 85 C, 24 h, ether/water workup. Reported 91% and MS 266 (MH+); D13 starting amounts and isolated mass are not transferred to D15.",
+            "source_document_sha256": "0b6c2179d06f02253f524ef233e2173e587f513197c9eb81ed939cf53e94d193",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/04684bb9d7ed9aaae82b316a9ea2a5aeb96ca0782936bf9fbafd4ab8ed016d37.json",
+              "report_sha256": "49367683b95051f363d225473a65f5f5bcfd9b5189591d9818d20ecfa06f1bea",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/manifest.json",
+              "manifest_sha256": "848ec6f0c1e82a48565069dd593950e77bb7445e651cb63467e133b05a298949",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+              "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+            },
+            "raw_product": "Cc1ccc2c(OCCBr)cccc2n1",
+            "structural_components": [
+              "BrCCBr",
+              "Cc1ccc2c(O)cccc2n1"
+            ]
+          },
+          {
+            "reaction_key": "7e7f5d4402a3abc7a50baf0506f107edd86f7a98fc980aba26b8e9a195e1145a",
+            "evidence": {
+              "reaction_key": "7e7f5d4402a3abc7a50baf0506f107edd86f7a98fc980aba26b8e9a195e1145a",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US4223033:example11:pyridine-N-oxidation",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US4223033/en",
+              "locator": "Example 11, oxidation of 6-benzoyl-2-methylpyridine before the following acetic anhydride rearrangement.",
+              "document_sha256": "6769791cdcccc16c5a81aade45f2f437ac3671c2507817f59941563ac6e78932",
+              "raw_document_sha256": "80fd471eae869c0522506777fabc260d78d4135fa69cc966a4b2e2af38db6dda",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US4223033:example11:pyridine-N-oxidation",
+            "source_url": "https://patents.google.com/patent/US4223033/en",
+            "locator": "Example 11, oxidation of 6-benzoyl-2-methylpyridine before the following acetic anhydride rearrangement.",
+            "source_conditions": "Pyridine substrate (source reports 3.9 g/21 mmol) in chloroform added over 1 h to mCPBA (4.2 g/21 mmol) in chloroform; below 25 C overnight. Bisulfite/bicarbonate washing and hexane/ethyl acetate workup give the named N-oxide. No isolated yield stated; mass/mmol are retained as printed.",
+            "source_document_sha256": "6769791cdcccc16c5a81aade45f2f437ac3671c2507817f59941563ac6e78932",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank05/evaluations/mech-uspto31k-full:test:1685.json",
+              "report_sha256": "480bcd87d25db5118ec3dc31d4dea7f55053b507756f6439399e9eacfe5d2d88",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank05/trees/mech-uspto31k-full:test:1685.json",
+              "target_tree_sha256": "003d5ad75c4dab87c654378d0a3aa83dad18ee84e5d7acd29b9b1c82d95461e1",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank05/manifest.json",
+              "manifest_sha256": "4b0eea0769e9d4aa91bafb0dafd58cfdf32fd04721978132973b0dba30f48523",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "Cc1cccc(C(=O)c2ccccc2)[n+]1[O-]",
+            "structural_components": [
+              "Cc1cccc(C(=O)c2ccccc2)n1",
+              "O=C(OO)c1cccc(Cl)c1"
+            ]
+          },
+          {
+            "reaction_key": "b2f736b204a1c19ce3414c6a44a598058b4379b216a49a61406a434dea94ddff",
+            "evidence": {
+              "reaction_key": "b2f736b204a1c19ce3414c6a44a598058b4379b216a49a61406a434dea94ddff",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US4226792:preparation:4-methoxysalicylaldehyde",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US4226792/en",
+              "locator": "Preparation of 4-methoxy salicylaldehyde (source heading OCR SALICYLAIDEHYDE), not a generic substituted salicylaldehyde claim.",
+              "document_sha256": "e22f437ffc6ea67dc8c4b7ba50c69b04f7d6760b1699209a0dd7f25925dd84b3",
+              "raw_document_sha256": "6d1765be988c22b27191366600d48f3b2383240e06a8a05b2bf23a13fe2bcbe7",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US4226792:preparation:4-methoxysalicylaldehyde",
+            "source_url": "https://patents.google.com/patent/US4226792/en",
+            "locator": "Preparation of 4-methoxy salicylaldehyde (source heading OCR SALICYLAIDEHYDE), not a generic substituted salicylaldehyde claim.",
+            "source_conditions": "Beta-resorcyl aldehyde 13.8 g, sodium methoxide corresponding to 2.3 g sodium and methyl iodide 14.2 g; reflux in methanol 4 h. Methanol removed, dilute HCl added, separated red liquid dried and steam-distilled. No mass or percentage yield given.",
+            "source_document_sha256": "e22f437ffc6ea67dc8c4b7ba50c69b04f7d6760b1699209a0dd7f25925dd84b3",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank04/evaluations/mech-uspto31k-full:test:27004.json",
+              "report_sha256": "9e6167c756f8e41b47a3acbf663c047caf803463c92f1adc2243a473112dccba",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank04/trees/mech-uspto31k-full:test:27004.json",
+              "target_tree_sha256": "e2c7b4f25f652d28e4b95e878f88c41d057671099c7aadc76a5bdb7a51cfd6ee",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank04/manifest.json",
+              "manifest_sha256": "62ff4f65db0944b6a06167a79c8811d7ef855e3222ba5813475f95ac92837d02",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "COc1ccc(C=O)c(O)c1",
+            "structural_components": [
+              "CI",
+              "O=Cc1ccc(O)cc1O"
+            ]
+          }
+        ]
+      }
+    },
+    "extended_data_primary_preparations_2": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_2.svg",
+          "sha256": "f903ca59c214bb247bb4bc941494b98f70e40937fddda43431f5d6f4c3b01ed8"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_2.pdf",
+          "sha256": "b9e1733a2441e41b879b5e0a74f317d142342324e4d33fd17684fa232c338666"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_2.png",
+          "sha256": "ed24db2424565029a71fc1ff4dcc965ee099ca68b642d7e0da51e8d9bfa7e1c7"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 405,
+          "editable_text_elements": 18
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/YUNBAV+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/AQIUYJ+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "c8e86d879e7811f72244d52d169bed528df425ff19290df420373fe782b0aa3a",
+          "ed3a1764128570bb13bfb9cfa196be9af650f4583dc5ef7386665d3334e42e87",
+          "efdd9153a0825682e4baa4d94c3ea08b62ac4b95fc98dc95ed1323bbda9c0579"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "c8e86d879e7811f72244d52d169bed528df425ff19290df420373fe782b0aa3a",
+            "evidence": {
+              "reaction_key": "c8e86d879e7811f72244d52d169bed528df425ff19290df420373fe782b0aa3a",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7112680B2:example5:pyrimidinyl-benzimidazole-hydrazone",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7112680B2/en",
+              "locator": "Example 5, compound 1b-6; not the pyrazinyl/benzoxazole product of Example 6.",
+              "document_sha256": "7fcbcdf48342d65f2975c3e2c3a6a1f14875353f2c5629d09f8413222aac20dd",
+              "raw_document_sha256": "868f83e92d854d40e71a946862bf94c1145ad72db360c9e33ef9b44b5c6765f0",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7112680B2:example5:pyrimidinyl-benzimidazole-hydrazone",
+            "source_url": "https://patents.google.com/patent/US7112680B2/en",
+            "locator": "Example 5, compound 1b-6; not the pyrazinyl/benzoxazole product of Example 6.",
+            "source_conditions": "4-Acetylpyrimidine 0.412 g and 2-hydrazinobenzimidazole 0.50 g, each 3.37 mmol, in methanol 15 mL with five drops acetic acid; reflux to TLC completion, cool overnight near 5 C, filter/recrystallize. 0.65 g, 76%; elemental analysis/NMR reported. No E/Z assignment imposed.",
+            "source_document_sha256": "7fcbcdf48342d65f2975c3e2c3a6a1f14875353f2c5629d09f8413222aac20dd",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank04/evaluations/mech-uspto31k-full:test:7841.json",
+              "report_sha256": "188df54d5464771fcbd45693b8e298b286e9bb1cd9b285e51771659f41974b8d",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank04/trees/mech-uspto31k-full:test:7841.json",
+              "target_tree_sha256": "c2c2bda0fdc104b5ac98ca9838f2d0ecb968be2c420a9431f50584253088143a",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank04/manifest.json",
+              "manifest_sha256": "62ff4f65db0944b6a06167a79c8811d7ef855e3222ba5813475f95ac92837d02",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "CC(=NNc1nc2ccccc2[nH]1)c1ccncn1",
+            "structural_components": [
+              "CC(=O)c1ccncn1",
+              "NNc1nc2ccccc2[nH]1"
+            ]
+          },
+          {
+            "reaction_key": "ed3a1764128570bb13bfb9cfa196be9af650f4583dc5ef7386665d3334e42e87",
+            "evidence": {
+              "reaction_key": "ed3a1764128570bb13bfb9cfa196be9af650f4583dc5ef7386665d3334e42e87",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7112680B2:example4:cyclohexyl-benzothiazole-hydrazone",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7112680B2/en",
+              "locator": "Example 4, compound 1a-27; not the explicitly E/Z-labelled cyclopropyl benzimidazole of Example 3.",
+              "document_sha256": "7fcbcdf48342d65f2975c3e2c3a6a1f14875353f2c5629d09f8413222aac20dd",
+              "raw_document_sha256": "868f83e92d854d40e71a946862bf94c1145ad72db360c9e33ef9b44b5c6765f0",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7112680B2:example4:cyclohexyl-benzothiazole-hydrazone",
+            "source_url": "https://patents.google.com/patent/US7112680B2/en",
+            "locator": "Example 4, compound 1a-27; not the explicitly E/Z-labelled cyclopropyl benzimidazole of Example 3.",
+            "source_conditions": "Cyclohexyl(2-pyridyl)ketone 0.77 g/4.05 mmol and 2-hydrazinobenzothiazole 0.60 g/4.02 mmol, methanol 15 mL, five drops acetic acid; reflux 15 h, cool overnight near 5 C, filter and ethanol/water recrystallization. 1.09 g, 80%, elemental analysis/NMR; geometry not specified.",
+            "source_document_sha256": "7fcbcdf48342d65f2975c3e2c3a6a1f14875353f2c5629d09f8413222aac20dd",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/evaluations/mech-uspto31k-full:test:17660.json",
+              "report_sha256": "f29520f63780bd3ebf3564f6ad4a5de1282778b5bd6eda8f30f61cd95c5c7528",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/trees/mech-uspto31k-full:test:17660.json",
+              "target_tree_sha256": "845bc5e8beb2b3a2ff6d999a8dac9aab108c517c6b2dce6f7afc41c5586167d1",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/manifest.json",
+              "manifest_sha256": "d93b8703abff32ceac975f7cf9afee9163f12e7fb658e91bd7f7ba54ab1a6459",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "c1ccc(C(=NNc2nc3ccccc3s2)C2CCCCC2)nc1",
+            "structural_components": [
+              "NNc1nc2ccccc2s1",
+              "O=C(c1ccccn1)C1CCCCC1"
+            ]
+          },
+          {
+            "reaction_key": "efdd9153a0825682e4baa4d94c3ea08b62ac4b95fc98dc95ed1323bbda9c0579",
+            "evidence": {
+              "reaction_key": "efdd9153a0825682e4baa4d94c3ea08b62ac4b95fc98dc95ed1323bbda9c0579",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US4046914:example4:ethoxyhexadecyl-tosylate",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US4046914/en",
+              "locator": "Example 4, isolated tosylate intermediate before glycerol ether formation; not the methoxy intermediate of Example 3.",
+              "document_sha256": "84fc05a5a98cbe29f6d2d7aadf21473b42aaf762cd8537a433bbb6dd9b94f6be",
+              "raw_document_sha256": "7ad92ca7042bd366156f45268e0dd2d0585a5574f6fbe8cbbdca763c9134d7d8",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US4046914:example4:ethoxyhexadecyl-tosylate",
+            "source_url": "https://patents.google.com/patent/US4046914/en",
+            "locator": "Example 4, isolated tosylate intermediate before glycerol ether formation; not the methoxy intermediate of Example 3.",
+            "source_conditions": "2-Ethoxyhexadecan-1-ol 1.72 g and tosyl chloride 1.5 g in pyridine 2.3 mL, room temperature overnight. 2.47 g crude product with only minor TLC impurities; no isolated percentage yield inferred from crude mass or later glycerol products.",
+            "source_document_sha256": "84fc05a5a98cbe29f6d2d7aadf21473b42aaf762cd8537a433bbb6dd9b94f6be",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/evaluations/mech-uspto31k-full:test:7481.json",
+              "report_sha256": "591e3823f5950447ede618d495e5b022aa12eec030567a35ba8a8a92419cf5e9",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/trees/mech-uspto31k-full:test:7481.json",
+              "target_tree_sha256": "f52578843cb19f156028e95175bf6868311d942c144b91953ebf223603c819f4",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/manifest.json",
+              "manifest_sha256": "cf6d4b0892402731fe93d86d9658bfe9ce1197f98508875e385eebbd9dbc98ec",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "CCCCCCCCCCCCCCC(COS(=O)(=O)c1ccc(C)cc1)OCC",
+            "structural_components": [
+              "CCCCCCCCCCCCCCC(CO)OCC",
+              "Cc1ccc(S(=O)(=O)Cl)cc1"
+            ]
+          }
+        ]
+      }
+    },
+    "extended_data_primary_preparations_3": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_3.svg",
+          "sha256": "9f6f8052d7a2888dabedf685dc9322a7a37504e16bb8501538dbcfa5e7df27b0"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_3.pdf",
+          "sha256": "83124b033c5f183663441cd1173ef703c34d5d4e8af711de9f88db2061a49300"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v8/figures/extended_data_primary_preparations_3.png",
+          "sha256": "21f9642974d5322289a3a0c7f91c3ab7afa7d6e1a5b2d061764015415b07f6f0"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 325,
+          "editable_text_elements": 17
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/FWOWQL+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/SMRLLX+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "e8d30b9feb8f2a1a1417c6b005319bb1f71621ebb1912a6561aff37ea9358963",
+          "7ac8f5454926950201a2a80b89579464516dceaa160039b42401864e349b38ba",
+          "aedb4b7bf19c8553a4e76c26dd6458d602b8aee0d31606f7c644b5c2c5bbb507"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "e8d30b9feb8f2a1a1417c6b005319bb1f71621ebb1912a6561aff37ea9358963",
+            "evidence": {
+              "reaction_key": "e8d30b9feb8f2a1a1417c6b005319bb1f71621ebb1912a6561aff37ea9358963",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US5639915:reference8:2-methylcyclopentyl-tosylate",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US5639915/en",
+              "locator": "Reference Example 8, 2-methylcyclopentyl p-toluenesulfonate; not 3-methylcyclopentyl Reference 7 or cyclohexyl Reference 9.",
+              "document_sha256": "9500b09e43a1733e1e9b5630d4c55468f3855ed93b357435c198b6c30f7526d4",
+              "raw_document_sha256": "cb02a9b75355aa3c7fdde6dc96586b7d06482b4c62f7a24b564aeff65c12ed4a",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US5639915:reference8:2-methylcyclopentyl-tosylate",
+            "source_url": "https://patents.google.com/patent/US5639915/en",
+            "locator": "Reference Example 8, 2-methylcyclopentyl p-toluenesulfonate; not 3-methylcyclopentyl Reference 7 or cyclohexyl Reference 9.",
+            "source_conditions": "Alcohol 0.210 mol, tosyl chloride 48.3 g/0.252 mol, pyridine 170 mL added under ice cooling; stir 10 h while warming to room temperature. Ice-water/ether workup and acid/brine washes. 92.8%, clear oil, NMR; source mass OCR is retained in the witness, not silently repaired.",
+            "source_document_sha256": "9500b09e43a1733e1e9b5630d4c55468f3855ed93b357435c198b6c30f7526d4",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/evaluations/mech-uspto31k-full:test:5560.json",
+              "report_sha256": "99e931018dc64d713c632376872075259ae57c4db90e9bc02f5b4d481ba5e52a",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/trees/mech-uspto31k-full:test:5560.json",
+              "target_tree_sha256": "d46cf74d6eefb4ff835ffc4ffbcf7005797fe805c5becabe161bce1999365106",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank07/manifest.json",
+              "manifest_sha256": "cf6d4b0892402731fe93d86d9658bfe9ce1197f98508875e385eebbd9dbc98ec",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "Cc1ccc(S(=O)(=O)OC2CCCC2C)cc1",
+            "structural_components": [
+              "CC1CCCC1O",
+              "Cc1ccc(S(=O)(=O)Cl)cc1"
+            ]
+          },
+          {
+            "reaction_key": "7ac8f5454926950201a2a80b89579464516dceaa160039b42401864e349b38ba",
+            "evidence": {
+              "reaction_key": "7ac8f5454926950201a2a80b89579464516dceaa160039b42401864e349b38ba",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US9309240B2:example43-step3:pyrazolopyridine-N-oxide",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US9309240B2/en",
+              "locator": "Example 43, Step 3: 2-(2,6-dichloro-4-fluorophenyl)-7-fluoro-2H-pyrazolo[4,3-c]pyridine-5-oxide; before POBr3 in Step 4.",
+              "document_sha256": "8cd965594535222489fc63eb0ca311f530839f0101318066bb4c17fd5c17aaa6",
+              "raw_document_sha256": "3e5884586bc3a8b0550977c853216bfcdb0713a15cf633d244057d420b431438",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US9309240B2:example43-step3:pyrazolopyridine-N-oxide",
+            "source_url": "https://patents.google.com/patent/US9309240B2/en",
+            "locator": "Example 43, Step 3: 2-(2,6-dichloro-4-fluorophenyl)-7-fluoro-2H-pyrazolo[4,3-c]pyridine-5-oxide; before POBr3 in Step 4.",
+            "source_conditions": "Heteroarene 3.37 g/11.2 mmol in DCM 50 mL under nitrogen; mCPBA 2.9 g/16.8 mmol, 0 C 2 h then room temperature 5 h. Thiosulfate/bicarbonate/brine workup, ether trituration; off-white solid 2.98 g, 84%, LCMS 316 (MH+).",
+            "source_document_sha256": "8cd965594535222489fc63eb0ca311f530839f0101318066bb4c17fd5c17aaa6",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank03/evaluations/mech-uspto31k-full:test:1760.json",
+              "report_sha256": "c614f95962032ee571ed77c0ab3257e37643d97d6ada0731e41fb4fdac21ee5d",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank03/trees/mech-uspto31k-full:test:1760.json",
+              "target_tree_sha256": "1d3c16656a3c2b24377b27b817d2a00626b7dd584b6c92459cd3dd1e11193a73",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank03/manifest.json",
+              "manifest_sha256": "e7ff0fcf6a2294d9df3941099925d9d3e0de8daa559fda87c8bd093b909f4491",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "[O-][n+]1cc(F)c2nn(-c3c(Cl)cc(F)cc3Cl)cc2c1",
+            "structural_components": [
+              "Fc1cc(Cl)c(-n2cc3cncc(F)c3n2)c(Cl)c1",
+              "O=C(OO)c1cccc(Cl)c1"
+            ]
+          },
+          {
+            "reaction_key": "aedb4b7bf19c8553a4e76c26dd6458d602b8aee0d31606f7c644b5c2c5bbb507",
+            "evidence": {
+              "reaction_key": "aedb4b7bf19c8553a4e76c26dd6458d602b8aee0d31606f7c644b5c2c5bbb507",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US4138579:example7:bromovanillic-propargyl-ester",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US4138579/en",
+              "locator": "Example 7 with explicitly referenced Example 5 procedure; not the subsequent phenolic geranylation of Example 4.",
+              "document_sha256": "207c11d33869634cbb3ff4241e9892d5d32a97dfca35b1fa08f81adc863ebe8f",
+              "raw_document_sha256": "8bfa36b2268b2e2dd85fa3d0dcd7b9d9eb50bf0455a97eb2d6f321cf57048f52",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US4138579:example7:bromovanillic-propargyl-ester",
+            "source_url": "https://patents.google.com/patent/US4138579/en",
+            "locator": "Example 7 with explicitly referenced Example 5 procedure; not the subsequent phenolic geranylation of Example 4.",
+            "source_conditions": "5-Bromovanillic acid plus propargyl bromide, following Example 5 NaH/THF and hexamethylphosphoric triamide, reflux 2 h, aqueous/ether workup and chromatography. Product mp 121-122 C; no yield or substrate-specific amounts stated. Example 5 hydroquinone stoichiometry is not transferred.",
+            "source_document_sha256": "207c11d33869634cbb3ff4241e9892d5d32a97dfca35b1fa08f81adc863ebe8f",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank00/evaluations/mech-uspto31k-full:test:6587.json",
+              "report_sha256": "a314a4ea8884bbf9537f4ebedd5bde39fd394c236e79aff7d21cf6b588146aab",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank00/trees/mech-uspto31k-full:test:6587.json",
+              "target_tree_sha256": "67a1f1ec23cdbf0dac107ffdb15a2adc524a0d6ab0f2e12d15b44d54e75a8528",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank00/manifest.json",
+              "manifest_sha256": "e93b98abc3b68c24530e87832fa9287d0cc5190d68be5e0b6cc7c6788ddc08dd",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "C#CCOC(=O)c1cc(Br)c(O)c(OC)c1",
+            "structural_components": [
+              "C#CCBr",
+              "COc1cc(C(=O)O)cc(Br)c1O"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "physical_mechanism_verified": false,
+  "new_model_inference": false,
+  "visual_inspection_status": "assistant_opened_all_three_actual_pngs; molecular structures, charges, source labels, conditions and clipping inspected",
+  "recipe": "render_net_precedent_gallery over all nine source records in review order, three per page; no source-positive model-performance claim",
+  "producer_files": {
+    "src/mechet/analysis/literature_figures.py": "f6f296aa79dd99904bd28623e7c402c844eff749df178e7513e4cd2779036e98",
+    "src/mechet/analysis/literature_evidence.py": "b422c67d447213064f2308069609d2792748fdc7d9f89803020d19da4b31da57",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_checked_registry.py": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6"
+  }
+}

@@ -1,0 +1,360 @@
+{
+  "schema": "lgrv_checked_preparation_gallery_v1",
+  "source_query_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v8/unique_reaction_queries_enriched.jsonl.gz",
+  "source_query_sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+  "primary_registry_manifests": [
+    {
+      "path": "configs/analysis/lgrv_primary_sources_20261019_v2.json",
+      "sha256": "7dd46cea40806c8086341f5971c8b1dc55cf65ea1292135ae5be2ed9ae8a3bbf"
+    },
+    {
+      "path": "configs/analysis/lgrv_primary_sources_20261019_v3.json",
+      "sha256": "5bc7291fb1347c52833e05260244b518071f43b27214094b5883038648998816"
+    }
+  ],
+  "figures": {
+    "extended_data_primary_preparations_v9_1": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v9/figures/extended_data_primary_preparations_v9_1.svg",
+          "sha256": "3f62925900192f9ffd767ebd1d13632202e4ad63f23d526611a6eecb70c4a2a0"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v9/figures/extended_data_primary_preparations_v9_1.pdf",
+          "sha256": "3ca8c15f27c34c6fcbd7b95b06453831d391e9d2291fe9c213cbbfa91c6821df"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v9/figures/extended_data_primary_preparations_v9_1.png",
+          "sha256": "cb07a99775bbb80094addabee69cd0dc707ccf889be5b883fe843aad9ab98d91"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 404,
+          "editable_text_elements": 16
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/BDIYXM+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/ZERJHS+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "a37e5b202b32538c603280e51a86f8739ca4e261ded7edc40aa7721a5b7ef6b3",
+          "d222a9ab7414f74a5479fda1b557b69909b784da8610a0b7ced4a570f079444c",
+          "db5298ebbda78b25cffecad22202228002c322fc493cf2a3c0fdf5199bd7f8ea"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "a37e5b202b32538c603280e51a86f8739ca4e261ded7edc40aa7721a5b7ef6b3",
+            "evidence": {
+              "reaction_key": "a37e5b202b32538c603280e51a86f8739ca4e261ded7edc40aa7721a5b7ef6b3",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7834039B2:generalF:3-chloroisonicotinoyl-chloride",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7834039B2/en",
+              "locator": "Exemplification of General Procedure F, second acid-chloride preparation, normalized offset about536232. Heading mistakenly repeats 3-methyl-isonicotinoyl Chloride; actual substrate and resulting product explicitly name 3-chloro.",
+              "document_sha256": "49e3d10c0434081c69e2c473765297c9587d92c972c84ccbaa77c3574f8649ce",
+              "raw_document_sha256": "82f26599224fdeb9bf678f7ccf1c47e95915e46b52f471572877e86a576f41e4",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7834039B2:generalF:3-chloroisonicotinoyl-chloride",
+            "source_url": "https://patents.google.com/patent/US7834039B2/en",
+            "locator": "Exemplification of General Procedure F, second acid-chloride preparation, normalized offset about536232. Heading mistakenly repeats 3-methyl-isonicotinoyl Chloride; actual substrate and resulting product explicitly name 3-chloro.",
+            "source_conditions": "US7834039B2, General F: 3-chloroisonicotinic acid + SOCl2, room temperature20 h; concentrate/high vacuum1 h. Named acid-chloride residue, no isolated yield or independent characterization. Repeated methyl heading conflicts with explicit chloro body; body chemistry retained.",
+            "source_document_sha256": "49e3d10c0434081c69e2c473765297c9587d92c972c84ccbaa77c3574f8649ce",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/52af19882e4fa18af763f5cbc7ad9cc508cd1dfc22e9a0599642b8df6da47653.json",
+              "report_sha256": "c0657af5161ae5bece3cd1fdd880dd79e234f20090b65ae846b5650fbfb5edc2",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/manifest.json",
+              "manifest_sha256": "848ec6f0c1e82a48565069dd593950e77bb7445e651cb63467e133b05a298949",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "e4cb617e8538edadf7b645e0c0c6cda2f8017e51",
+              "stock_sha256": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd"
+            },
+            "raw_product": "O=C(Cl)c1ccncc1Cl",
+            "structural_components": [
+              "O=C(O)c1ccncc1Cl",
+              "O=S(Cl)Cl"
+            ],
+            "source_conditions_full": "3-Chloroisonicotinic acid 413 mg/2.62 mmol and thionyl chloride 5 mL/68.5 mmol, room temperature about20 h. Concentrated under reduced pressure and high vacuum1 h to give the acid chloride. No substrate-specific isolated yield or independent acid-chloride characterization is stated; generic DCM/3-equivalent conditions are not substituted for this actual example."
+          },
+          {
+            "reaction_key": "d222a9ab7414f74a5479fda1b557b69909b784da8610a0b7ced4a570f079444c",
+            "evidence": {
+              "reaction_key": "d222a9ab7414f74a5479fda1b557b69909b784da8610a0b7ced4a570f079444c",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7279470B2:example193:p-benzoylphenyl-carbamate",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7279470B2/en",
+              "locator": "Example193, General Procedure14; actual preparation around normalized offset753832 and full procedure at602569, not the earlier compound-claim list.",
+              "document_sha256": "e71156c81038e2cf7a3d5bdaceaa0a474612ddb8f37bb7f12a4d8b70a8b2c744",
+              "raw_document_sha256": "8f944feb6f5b395d60cd7e113452ffb313f168e752ff6db18c864c10ccce55a0",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7279470B2:example193:p-benzoylphenyl-carbamate",
+            "source_url": "https://patents.google.com/patent/US7279470B2/en",
+            "locator": "Example193, General Procedure14; actual preparation around normalized offset753832 and full procedure at602569, not the earlier compound-claim list.",
+            "source_conditions": "US7279470B2, Example193/General14: hydroxybenzophenone + N-methyl-N-phenylcarbamoyl chloride; DABCO/THF, room temperature16 h, preparative HPLC. 36%, colorless oil; HPLC-MS332.2 and NMR. Benzophenone carbonyl retained.",
+            "source_document_sha256": "e71156c81038e2cf7a3d5bdaceaa0a474612ddb8f37bb7f12a4d8b70a8b2c744",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/evaluation.json",
+              "report_sha256": "4e35ee13609669dfeaecb8e7e03a4164b942c0bf7f68a085802e9ca1c436bff4",
+              "report_row_index": 1542,
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/rank03/manifest.json",
+              "manifest_sha256": "d89baa9209cd073e0b0c322436960dd327a744b5d89d72dd9fc8d0bbedd1f453",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "337cba2fb0a445a747cce0d2f4713769d17f7324"
+            },
+            "raw_product": "CN(C(=O)Oc1ccc(C(=O)c2ccccc2)cc1)c1ccccc1",
+            "structural_components": [
+              "CN(C(=O)Cl)c1ccccc1",
+              "O=C(c1ccccc1)c1ccc(O)cc1"
+            ],
+            "source_conditions_full": "Example193 explicitly uses (4-hydroxyphenyl)phenylmethanone and N-methyl-N-phenylcarbamoyl chloride under General Procedure14: THF, DABCO, room temperature16 h; AcOH to pH3-5, filtration, evaporation and preparative HPLC. Example193 gives36%, colorless oil; HPLC-MS m/z332.2(M+1) and proton NMR. General14's1 mmol phenol/2 mmol DABCO/2 mmol chloride are procedure values, not asserted measured Example193 batch amounts."
+          },
+          {
+            "reaction_key": "db5298ebbda78b25cffecad22202228002c322fc493cf2a3c0fdf5199bd7f8ea",
+            "evidence": {
+              "reaction_key": "db5298ebbda78b25cffecad22202228002c322fc493cf2a3c0fdf5199bd7f8ea",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US5650428:example72:serinamide-primary-mesylate",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US5650428/en",
+              "locator": "Example72, methoxycarbonylbutyl serinamide mesylation around normalized offset165770, explicitly following Example65 at158654. Not Example73's one-carbon-longer pentyl chain or Example65's stereopure arylamide.",
+              "document_sha256": "e85a8c0987841bf63de4ce18343fce75a1f29d04f88375e66ffe3d5e65e27018",
+              "raw_document_sha256": "7b5909624a9f99e942aea66de253b38dfd4ac6b40c982865fdc90583a6ac1cde",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US5650428:example72:serinamide-primary-mesylate",
+            "source_url": "https://patents.google.com/patent/US5650428/en",
+            "locator": "Example72, methoxycarbonylbutyl serinamide mesylation around normalized offset165770, explicitly following Example65 at158654. Not Example73's one-carbon-longer pentyl chain or Example65's stereopure arylamide.",
+            "source_conditions": "US5650428, Example72/65: racemic serinamide507 mg + MsCl, pyridine, room temperature2 h;409.7 mg, mp95-97 C, NMR/MS471. Primary CH2OH mesylated; sulfonamide/amide/ester retained. No percentage yield inferred.",
+            "source_document_sha256": "e85a8c0987841bf63de4ce18343fce75a1f29d04f88375e66ffe3d5e65e27018",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank02/evaluations/mech-uspto31k-full:test:23637.json",
+              "report_sha256": "49148746294198874aa006a5ae5e705283bf4de19fe9274543d6bb88d95dcbb9",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank02/trees/mech-uspto31k-full:test:23637.json",
+              "target_tree_sha256": "932e96fc45adf68cd610fc0b63dd285a31f81321d51d47f7b29a7826bf7f0891",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank02/manifest.json",
+              "manifest_sha256": "8ddc7ebcdc9e884b9f262541d67ea025273dd958c2ef201b994de5fad31ed080",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "COC(=O)CCCCNC(=O)C(COS(C)(=O)=O)NS(=O)(=O)c1ccc(Cl)cc1",
+            "structural_components": [
+              "COC(=O)CCCCNC(=O)C(CO)NS(=O)(=O)c1ccc(Cl)cc1",
+              "CS(=O)(=O)Cl"
+            ],
+            "source_conditions_full": "Example72 reacts racemic hydroxy serinamide507 mg with mesyl chloride, following Example65's pyridine, room temperature2 h and saline/EtOAc/HCl workup. Product409.7 mg, mp95-97 C, IR, proton/carbon NMR and FAB-MS471(MH+). No percentage yield inferred; Example65's96 uL reagent/2.5 mL pyridine and its stereopure substrate amounts are not assigned to Example72."
+          }
+        ]
+      }
+    },
+    "extended_data_primary_preparations_v9_2": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v9/figures/extended_data_primary_preparations_v9_2.svg",
+          "sha256": "3c956aff71b2f1e64a64125affebb8d0fa06dda7d4b0068cec8b6f0ff9b689a4"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v9/figures/extended_data_primary_preparations_v9_2.pdf",
+          "sha256": "9ddb5eb8a93142913ef5bdf79557c0c34081d705e2230841e989a2b811ae5732"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/additional_preparation_gallery_20261019_v9/figures/extended_data_primary_preparations_v9_2.png",
+          "sha256": "64dbb01ca3d7cc55b2beba87b980d97af10152a7951917cebf2b78930c9151a4"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 6,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 420,
+          "editable_text_elements": 11
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 94.19166666666666,
+          "fonts": [
+            {
+              "name": "/USLZTL+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/NJPKXA+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1112,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "cases": {
+        "reaction_keys": [
+          "376f6fccdd199ffe49b26ec2252065217f4b926399019ba5afcbf95c9f0e8d3c",
+          "41ff53a115018b11cb3e79c3523e9cf1065c147c32e4512d98ff71d4f2110573"
+        ],
+        "physical_mechanism_verified": false,
+        "selection": "explicit source-positive gallery, not population validation",
+        "cases": [
+          {
+            "reaction_key": "376f6fccdd199ffe49b26ec2252065217f4b926399019ba5afcbf95c9f0e8d3c",
+            "evidence": {
+              "reaction_key": "376f6fccdd199ffe49b26ec2252065217f4b926399019ba5afcbf95c9f0e8d3c",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7576215B2:example500:quinoline-phenol-cyclohexylmethylation",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7576215B2/en",
+              "locator": "Example500 around normalized offset362530, explicitly following Example478 at355689. Not the claim-list repetition or Example499's methylpentyl ether.",
+              "document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+              "raw_document_sha256": "72e5c10ca5dacaaf5338481c9d3bd37b5b20decd8a4375dec226bd43c8464443",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7576215B2:example500:quinoline-phenol-cyclohexylmethylation",
+            "source_url": "https://patents.google.com/patent/US7576215B2/en",
+            "locator": "Example500 around normalized offset362530, explicitly following Example478 at355689. Not the claim-list repetition or Example499's methylpentyl ether.",
+            "source_conditions": "US7576215B2, Example500/478: hydroxyphenyl benzoylquinoline + bromomethylcyclohexane; cesium carbonate/DMF,60 C14 h, reverse-phase HPLC. MS490.3; no individual yield. Quinoline C3-benzoyl/C8-CF3 and one-methylene O-linker retained.",
+            "source_document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/evaluations/mech-uspto31k-full:test:30069.json",
+              "report_sha256": "7b3a0c6afe730bd59ca38f919d027f1e3878ea03c0fabc930bc2617465eaf88d",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/trees/mech-uspto31k-full:test:30069.json",
+              "target_tree_sha256": "844d19171d58032f141d09b84784f2d177536cc80ab893ede694d4ff7fb56441",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/manifest.json",
+              "manifest_sha256": "d93b8703abff32ceac975f7cf9afee9163f12e7fb658e91bd7f7ba54ab1a6459",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "O=C(c1ccccc1)c1cnc2c(C(F)(F)F)cccc2c1-c1cccc(OCC2CCCCC2)c1",
+            "structural_components": [
+              "BrCC1CCCCC1",
+              "O=C(c1ccccc1)c1cnc2c(C(F)(F)F)cccc2c1-c1cccc(O)c1"
+            ],
+            "source_conditions_full": "Example500 names the hydroxyphenyl benzoylquinoline and bromomethylcyclohexane, following Example478: cesium carbonate (source notation CsCO3), DMF,60 C14 h, reverse-phase HPLC. MS(ES)m/z490.3 is reported for Example500. Example478's batch amounts and33% yield are not assigned to Example500."
+          },
+          {
+            "reaction_key": "41ff53a115018b11cb3e79c3523e9cf1065c147c32e4512d98ff71d4f2110573",
+            "evidence": {
+              "reaction_key": "41ff53a115018b11cb3e79c3523e9cf1065c147c32e4512d98ff71d4f2110573",
+              "tier": "A",
+              "supported": true,
+              "retrieval_status": "experimental_example_checked",
+              "verification_status": "source_passage_checked",
+              "source_candidates": [],
+              "selected_source": "US7576215B2:example525:bisaryl-quinoline-benzyl-ether",
+              "physical_mechanism_verified": false,
+              "training_source_overlap": "unknown",
+              "reason": "exact_performed_structural_reaction",
+              "source_url": "https://patents.google.com/patent/US7576215B2/en",
+              "locator": "Example525 around normalized offset373620, following Example478. Not Example526's subsequent ester hydrolysis, nor Example527's two-carbon-shorter methyl acetate ether.",
+              "document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+              "raw_document_sha256": "72e5c10ca5dacaaf5338481c9d3bd37b5b20decd8a4375dec226bd43c8464443",
+              "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+            },
+            "source_id": "US7576215B2:example525:bisaryl-quinoline-benzyl-ether",
+            "source_url": "https://patents.google.com/patent/US7576215B2/en",
+            "locator": "Example525 around normalized offset373620, following Example478. Not Example526's subsequent ester hydrolysis, nor Example527's two-carbon-shorter methyl acetate ether.",
+            "source_conditions": "US7576215B2, Example525/478: bisaryl phenol0.1 g + methyl4-(bromomethyl)benzoate0.057 g; cesium carbonate/DMF,60 C14 h, reverse-phase HPLC. MS620.0; no individual yield. Methyl ester retained; subsequent Example526 hydrolysis excluded.",
+            "source_document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+            "generated_occurrence_source": {
+              "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/evaluations/mech-uspto31k-full:test:3664.json",
+              "report_sha256": "a62d3053304011fe54fbf0175e8b241daed77018a36c6eebc50e1ee08b25de58",
+              "target_tree_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/trees/mech-uspto31k-full:test:3664.json",
+              "target_tree_sha256": "6a0c37f5f5b2ac035e00f9bc695e852f8f6d57542dc7be6211db14b74b11d9a6",
+              "manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_dynamic_electron_tree_20261013/greedy/rank01/manifest.json",
+              "manifest_sha256": "d93b8703abff32ceac975f7cf9afee9163f12e7fb658e91bd7f7ba54ab1a6459",
+              "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+              "executor_code_sha": "5121e5cb1d52f624ac9f437666aaca7ac477730a"
+            },
+            "raw_product": "COC(=O)c1ccc(COc2ccc(Oc3cccc(-c4c(Cc5ccccc5)cnc5c(C(F)(F)F)cccc45)c3)cc2)cc1",
+            "structural_components": [
+              "COC(=O)c1ccc(CBr)cc1",
+              "Oc1ccc(Oc2cccc(-c3c(Cc4ccccc4)cnc4c(C(F)(F)F)cccc34)c2)cc1"
+            ],
+            "source_conditions_full": "Example525: bisaryl phenol0.1 g/0.0002 mole and methyl4-(bromomethyl)benzoate0.057 g/0.00024 mole, following Example478's cesium carbonate/DMF,60 C14 h/reverse-phase HPLC procedure. MS(ESI)[M+H]+620.0. No individual isolated yield stated; Example478's33% and Example526's hydrolysis conditions are not transferred."
+          }
+        ]
+      }
+    }
+  },
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "visual_inspection_status": "assistant_opened_both_actual_pngs; all five structures, reactive groups, source labels, conditions and clipping inspected; separate machine QA is retained",
+  "selection": "all five new source-positive cases, not population chemical accuracy; full conditions retained separately",
+  "style_path": "configs/figures/mechet_nmi_tree_style_v1.yaml",
+  "style_sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26",
+  "producer_files": {
+    "src/mechet/analysis/literature_figures.py": "f6f296aa79dd99904bd28623e7c402c844eff749df178e7513e4cd2779036e98",
+    "src/mechet/analysis/literature_evidence.py": "b422c67d447213064f2308069609d2792748fdc7d9f89803020d19da4b31da57",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_checked_registry.py": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6"
+  }
+}

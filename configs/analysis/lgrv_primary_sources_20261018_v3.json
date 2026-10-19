@@ -1,0 +1,72 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "Additional performed patent examples found through the same frozen structure-retrieval pool. Reassess every condition; not a population success rate.",
+  "records": [
+    {
+      "patent_id": "US8188116B2",
+      "source_url": "https://patents.google.com/patent/US8188116B2/en",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/36c56550038c005069a83c2ccf894d70eef1cb5c8a4df52b1758e1fd24e806db.json",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/36c56550038c005069a83c2ccf894d70eef1cb5c8a4df52b1758e1fd24e806db.txt",
+      "document_sha256": "d9c65db5e61968bbf3dc7e7602553c1030c3fa35c0cec256d80f3d0aeb560938",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/36c56550038c005069a83c2ccf894d70eef1cb5c8a4df52b1758e1fd24e806db.html",
+      "raw_document_sha256": "55e3073e48a7ba839f7f0f5304accdc8609f14ff34e534b52f1636172fb40761",
+      "checked_passage": "as white solid (5.6 g, 90%)",
+      "checked_passage_sha256": "17f2ca48ddb5cb7a0660fe5f3b87491de32ffd1b6226e9c557d72563105e76b0",
+      "normalized_passage_last_offset": 153456,
+      "source_id": "US8188116B2:example11:phenoxyaniline-acetylation",
+      "locator": "Example 11, N-(5-fluoro-2-phenoxyphenyl)acetamide 4, performed acetylation and isolated-product paragraph. Same preparation also appears earlier in the description.",
+      "source_product": "CC(=O)Nc1cc(F)ccc1Oc1ccccc1",
+      "source_precursors": [
+        "Nc1cc(F)ccc1Oc1ccccc1",
+        "CC(=O)Cl"
+      ],
+      "source_conditions": "Pyridine 15 mL; aniline 5.14 g/25 mmol; acetyl chloride 2.3 mL/33 mmol added at 0 C, then reflux 1 h. Chromatography gives 5.6 g, 90%; product NMR and GC-MS are reported.",
+      "reported_isolated_yield_percent": 90,
+      "experimental_product_status": "isolated white solid; 1H NMR and GC-MS characterization",
+      "structural_reconciliation": "Independently transcribed the named 5-fluoro-2-phenoxyaniline and its N-acetyl product: fluorine is meta to the aniline nitrogen and phenoxy is ortho; phenoxy phenyl and N-acetyl connectivity retained. RDKit exact multi-substrate key equals frozen generated reaction 326d15b0877b04fa6c7e4610ebad9d48d0a08d2e3b5fb5132a325c34e99da006.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261018",
+      "source_human_reviewed": false,
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture",
+      "training_source_overlap": "unknown",
+      "patent_family_status": "one publication; independent patent-family membership not asserted",
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "scope_limit": "Only the complete named net reaction has performed primary-source precedent. Symbolic electron arrows and any other route steps are not experimentally established by this source."
+    },
+    {
+      "patent_id": "US7576215B2",
+      "source_url": "https://patents.google.com/patent/US7576215B2/en",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.json",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.txt",
+      "document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.html",
+      "raw_document_sha256": "72e5c10ca5dacaaf5338481c9d3bd37b5b20decd8a4375dec226bd43c8464443",
+      "checked_passage": "following the procedure of Example 478: MS (ESI) m/z 540.",
+      "checked_passage_sha256": "8cc8504729150d09427f3f821d2763936fac51af31da6c69be478f47ce604dbb",
+      "normalized_passage_last_offset": 359494,
+      "source_id": "US7576215B2:example489:quinoline-phenol-benzylation",
+      "locator": "Example 489, named para-tert-butylbenzyl ether product and performed preparation sentence, referring to the procedure of Example 478.",
+      "source_product": "O=C(c1ccccc1)c1cnc2c(C(F)(F)F)cccc2c1-c1cccc(OCc2ccc(C(C)(C)C)cc2)c1",
+      "source_precursors": [
+        "O=C(c1ccccc1)c1cnc2c(C(F)(F)F)cccc2c1-c1cccc(O)c1",
+        "BrCc1ccc(C(C)(C)C)cc1"
+      ],
+      "source_conditions": "Example 489 explicitly refers to Example 478: cesium carbonate (source notation CsCO3) in DMF, 60 C for 14 h, then reversed-phase HPLC. The 33% yield belongs to Example 478's nitrobenzyl analogue and is NOT assigned to Example 489.",
+      "reported_isolated_yield_percent": null,
+      "experimental_product_status": "performed named-product preparation with ESI-MS m/z 540; no individual yield stated",
+      "structural_reconciliation": "Independently transcribed the named 3-hydroxyphenyl substituent at quinoline C4, benzoyl at C3 and CF3 at C8, plus para-tert-butylbenzyl bromide. Product is O-benzylated at that phenol; no quinoline-N or carbon alkylation substituted. RDKit exact key equals frozen generated reaction 0c49f181fc24ed1861eddd8e023b7e9c584089b02b6b312417572948d00df813.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261018",
+      "source_human_reviewed": false,
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture",
+      "training_source_overlap": "unknown",
+      "patent_family_status": "one publication; independent patent-family membership not asserted",
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "scope_limit": "Only the complete named net reaction has performed primary-source precedent. Symbolic electron arrows and any other route steps are not experimentally established by this source."
+    }
+  ]
+}

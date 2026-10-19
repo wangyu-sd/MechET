@@ -1,0 +1,32 @@
+{
+  "schema": "lgrv_full_lookup_bottleneck_audit_v1",
+  "complete": true,
+  "unique_reaction_queries": 18210,
+  "lookup_stage_counts": {
+    "no_hit_no_exact_or_legacy_family_candidate": 17553,
+    "no_hit_reaction_center_unavailable": 454,
+    "no_hit_legacy_candidates_full_context_rejected": 38,
+    "retained_indexed_candidate": 165
+  },
+  "index_rows_are_representation_records_not_unique_reactions": true,
+  "source_index_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/derived/literature/ord_lgrv_full_20261018_v1/reactions.sqlite",
+  "source_index_sha256": "ee997c8732df797e27a7d5c2bd58cdd18a4472566818f9d8870092ba4f0de16b",
+  "source_analysis_manifest_sha256": "a1b11d5c6c44e009e79ac92c28003bb44bb711f835ffb99715dc09b5e515b497",
+  "producer_sha256": "31870648ac297e08dbc80a3d387c59f9c485fab8e9b1a7fbdcdaf438202421bf",
+  "source_files": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v8/source_corpus_manifest.json": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v8/unique_reaction_queries_enriched.jsonl.gz": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v8/retrieval_query_contexts.jsonl.gz": "8eedb7a2ad67e42635b227095707fa7f0720dc1d2442a99a948f229fe980bb79",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v8/literature_hits.jsonl.gz": "270bb1352bce9898334f484e78982682b0d319103c9831dda67dd7cbf682cb5a"
+  },
+  "new_model_inference": false,
+  "new_retrieval_policy": false,
+  "evidence_grades_changed": false,
+  "chemical_validity_established": false,
+  "interpretation": "Lookup-stage missingness only. No-index-key match is not absent literature; rejected legacy candidates are not automatically compatible chemistry.",
+  "output_files": {
+    "query_lookup_bottlenecks.jsonl.gz": {
+      "sha256": "157a59d94ce2476dfdf45a111a67f2e6a8d31745d5658a4e9058b50a41a8f71a"
+    }
+  }
+}

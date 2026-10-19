@@ -1,0 +1,46 @@
+{
+  "schema": "lgrv_explicit_grouped_primary_review_spec_v1",
+  "scope": "Two independently reviewed original query/source pairs for US6326359B1 Preparation42. Source sodium counterion andlong dryDMF procedure are retained;querycounterions are not invented. One compatibleSNAranalogue andone unresolvedimine-containingpair.",
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "preparation": {
+        "source_id": "US6326359B1:preparation42:methylsulfanyl-purine",
+        "patent_id": "US6326359B1",
+        "source_url": "https://patents.google.com/patent/US6326359B1/en",
+        "document_sha256": "128dbbed3ebe5e55d9318a190ded8bf08b3114ffb6f41964978ca52616627e82",
+        "checked_passage": "Preparation 42 2-(Methylsulfanyl)-N-phenethyl-9-tetrahydro-2H-pyran-2-yl-9H-purin-6-amine",
+        "locator": "Preparation42at286568ff,couplespreparation41withsodiumthiomethoxide,16.7gwhite solid/1HNMR. ReferencedfullPreparation7at246727ff directlyread;not subsequentOxoneoxidation43.",
+        "source_product": "O1CCCCC1n1cnc2c(NCCc3ccccc3)nc(SC)nc21",
+        "source_precursors": ["O1CCCCC1n1cnc2c(NCCc3ccccc3)nc(Cl)nc21", "[Na+].C[S-]"],
+        "expected_exact_reaction_key": "0663ec3d9a9c326ab1ea9167350e8d692d3f08d590c82fa4d51dee36503d06d0",
+        "source_conditions": "Preparation42uses2-chloropurine41(17.5g49mmol)andsodiumthiomethoxide(7.2g75mmol),16.7gwhite solid,NMR,no explicitpercentyield. Referenced7usesdryDMF/nitrogen100C1.5h,roomtemperature72h,100C2h,thenwater/etherworkup,dryMgSO4,evaporation/repeatedetherandpentane solventremoval.7'sdifferentdiphenylethylsubstrateloadings and48.9gmass are not42-specific. Sodium isretained in the sourceprecursorgraph;noNa+ isaddedto aquery thatdoesnotnameit.",
+        "reported_isolated_yield_percent": null,
+        "structural_reconciliation": "IndependentTHP-oxygen-firstgraph retainsN9THP,2-Cl->SMe,6-NHCH2CH2phenyl andthepurinefusedring. ActualNaSMeisrepresented asNa+/thiolate,notneutralMeSH. Allnamedsourcegraphs matchoriginalcandidate0663ec3d;noquerystereo,counterionorprotectionis silentlyrewritten.",
+        "performed_example": true,
+        "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [
+        {
+          "query_reaction_key": "b665e628c0e948cbf04bbe12412d98a2ca96000dd70368135847176ec2a5914f",
+          "expected_tier": "B", "analogue_compatibility_checked": true,
+          "substrate_differences": "Queryuses2-chloro4-(N-indolyl)pyrimidine witharemotebenzylalcohol,versusN9THP/6phenethylaminopurine;querynamesmethanethiolatebutnotitscounterion.",
+          "functional_group_compatibility": "Preserved originaladmissibleN-flankedheteroarylC-Cl/MeS-anionSNArconstruction. Bothcenters areactivatedbetweenringnitrogens. BenzylalcoholandN-substitutedindole arecompatible spectatorclassesinthe nonoxidativebasicdryDMFthiolateconditionclass;noacidicdeprotectionorhydrogenationisrequired. Thechangedheterocycle/electronics andunspecifiedquerycounterion canaffectkinetics/solubility,which arenotmeasuredbythissource. The source'sNa+isnot transferred intoqueryinput orendpoint.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Compatible reaction-typeanalogue,notanexactexperimentalformulationorendpointverification. Salt/counterion identity remainsdifferent/unspecified;no neutralizationorcomponentdeletion is used toforceidentity."
+        },
+        {
+          "query_reaction_key": "dc8937cf9fb2e2120c7229fd8201382ad681d0b5deda13544d4766b1ac870df5",
+          "expected_tier": "C", "analogue_compatibility_checked": false,
+          "substrate_differences": "Queryhasapyrimidine2-Clcenter withcyclopentylamino andbenzylimine substituents,andcounterion-unspecifiedmethanethiolate;sourcepurinehas noimine.",
+          "functional_group_compatibility": "Theperformedsource doesnotresolve thiolateadditionversusSNAr oriminebehavior duringthelonghot/roomtemperaturebasicprocedure andaqueousworkup. MatchingN-flankedC-Clalone isinsufficientforthisquerypair.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Noactualimineaddition,hydrolysisorchemicalfailure is asserted. RetainC,notD;differentconditionscouldbeappropriate."
+        }
+      ]
+    }
+  ]
+}

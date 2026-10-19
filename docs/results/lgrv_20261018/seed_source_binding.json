@@ -1,0 +1,32 @@
+{
+  "schema": "lgrv_existing_seed_reaction_binding_v1",
+  "new_literature_discovery": false,
+  "scope": "One existing source rechecked against every frozen generated reaction; not a population validation rate",
+  "reaction_key": "4e8b1ad7a25f05c2ebdc7642de03c9990617588c2546b5b4f6af78e77387a4e0",
+  "source_registry_sha256": "662029270bc5648545983b4315f1eccb84dec4c5e97a1a4afce8992b5e039bcc",
+  "tier": "A",
+  "verification_status": "source_passage_checked",
+  "source_id": "US20160022662A1:cabozantinib-free-base:acid-chloride-coupling",
+  "source_url": "https://patents.google.com/patent/US20160022662A1/en",
+  "document_sha256": "e21482a424093f3679400b0645e960be423b515f90f5c3831d1471a50b436511",
+  "raw_document_sha256": "d3e4ed6172d4727ebcf9228b3fd1291d629693112ea02587bb2f4d7087b0c7ff",
+  "occurrence_count": 1,
+  "per_run_occurrences": {"r1_mcts_pr88": 1},
+  "occurrences": [
+    {
+      "run_id": "r1_mcts_pr88",
+      "target_id": "ursa_drugs100:Cabozantinib S-malate",
+      "occurrence_id": "00ecf503d62042e493af6bcbd3900895272c1549873a6f0ffbb107e91b547fbf",
+      "report_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/8b4ee51d6807d371a02cee3c8680b290a7b3236ab6e7dea93c928cdf2a3280fc.json",
+      "report_sha256": "0c3efa3a1ca7868127016f727b09ca0aed622479a8526b085374f4c93f6cb525",
+      "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+      "source_pointer": "/generated_reaction_graph/0",
+      "electron_program_source_pointer": "/complete_reaction_edges/0/program"
+    }
+  ],
+  "comparison_scope": "Both complete460-target archived Greedy reaction pools contained no occurrence of this exact complete reaction; recorded work differs, so this is descriptive, not a matched-compute causal gain",
+  "conditions_match": false,
+  "whole_route_supported": false,
+  "physical_mechanism_verified": false,
+  "training_source_overlap": "unknown"
+}

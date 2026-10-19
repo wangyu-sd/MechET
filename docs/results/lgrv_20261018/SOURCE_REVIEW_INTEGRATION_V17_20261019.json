@@ -1,0 +1,113 @@
+{
+  "schema": "lgrv_full_population_source_review_integration_v1",
+  "complete": true,
+  "source_review_commit": "baf56837a99b270b8072b1a8dd95ddf9553e72ff",
+  "before_analysis_manifest_sha256": "d8ec39c2f93f0c91b8d8d19f5332a2f759169caa3b0adf86c732d66299ddcf78",
+  "after_analysis_manifest_sha256": "554f51408f658b7e54e9b3530e0256449c3f2949794ccc6d0dcece0f1759fa0c",
+  "source_queue_receipt_sha256": "0cf2e86f062ff44f0b96f3f9300b6aad2d9549dccdc8122d36c93c184d59d972",
+  "review_state_manifest_sha256": "37f2452b381b6ce4b86a9071a71f15a3fadaa5c8cf522ce459cff362e2582a8b",
+  "full_population_summary_sha256": "d5f6248865785613a0b5ea6fbf5512c689a9ec0ab28aa58637fd9bac885e2d9b",
+  "unique_reaction_queries": 18210,
+  "recorded_conditions": 6,
+  "previous_supports": 59,
+  "current_supports": 73,
+  "exact_precedents": 47,
+  "query_scoped_analogues": 26,
+  "unresolved": 18137,
+  "all_previous_supported_evidence_rows_unchanged": true,
+  "changed_queries": [
+    {
+      "reaction_key": "0c20de81ee40ea059fdea05f6c6e24c76fd1c45076839e2a3299309875360db2",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7319099B2:example4.12a:methoxy-pyrazinyl-piperazine:query:0c20de81ee40ea059fdea05f6c6e24c76fd1c45076839e2a3299309875360db2"
+    },
+    {
+      "reaction_key": "2a2ef3431a492abb8191cd1d9dc2de97c58a8d694fd91d74d79226f91374471e",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7632851B2:example2:benzothiadiazole-aryl-coupling:query:2a2ef3431a492abb8191cd1d9dc2de97c58a8d694fd91d74d79226f91374471e"
+    },
+    {
+      "reaction_key": "3b48f556510784fa87bfd7e1d641d455a0b0c7abc3637686d627bbd6ef3294aa",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7465815B2:example213:dimethylaminopyridyl-benzofuran-coupling:query:3b48f556510784fa87bfd7e1d641d455a0b0c7abc3637686d627bbd6ef3294aa"
+    },
+    {
+      "reaction_key": "407c4b0a0abc57fc1b108c6621dd66618e35f10e963e10d60be3ccb2dca807f0",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US6579884B1:example1.56:chloromethyl-methylthiolate-substitution:query:407c4b0a0abc57fc1b108c6621dd66618e35f10e963e10d60be3ccb2dca807f0"
+    },
+    {
+      "reaction_key": "41df626e106b888fbca87b75516d370485dc4cf2a6ed158c35f8a37ba43aa036",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7951824B2:example139:iodopyridine-bipyridyl-coupling:query:41df626e106b888fbca87b75516d370485dc4cf2a6ed158c35f8a37ba43aa036"
+    },
+    {
+      "reaction_key": "6cdaf1882b8d5ccd1373568fbd9aa920d8656b3c222b06711f5cf5b7b1ebff05",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7939531B2:example16:thienyl-pyrrolopyrazine-coupling:query:6cdaf1882b8d5ccd1373568fbd9aa920d8656b3c222b06711f5cf5b7b1ebff05"
+    },
+    {
+      "reaction_key": "7984b2c5c3697f1f03973ad4c402b9a67733c585ea9dbbb68a4366d7076db04a",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7482345B2:example23:biphenyl-pyridopyridazinone:query:7984b2c5c3697f1f03973ad4c402b9a67733c585ea9dbbb68a4366d7076db04a"
+    },
+    {
+      "reaction_key": "7aa9918857fdccc2b4e6232303915966cad01355f1d207bc6f1caf71d4fd6f66",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7632851B2:example2:benzothiadiazole-aryl-coupling:query:7aa9918857fdccc2b4e6232303915966cad01355f1d207bc6f1caf71d4fd6f66"
+    },
+    {
+      "reaction_key": "89d605387bdbda61600d238af1c86bfbc78a7cfa1f692652a6984c413b64dbbd",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US8546392B2:preparation58-compound66:hydroxy-naphthyl-Bpin-coupling:query:89d605387bdbda61600d238af1c86bfbc78a7cfa1f692652a6984c413b64dbbd"
+    },
+    {
+      "reaction_key": "8d0dcece07c92381400b49414e0bed4993968f90978837bdcf3d1f73a9e27088",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7951824B2:example139:iodopyridine-bipyridyl-coupling:query:8d0dcece07c92381400b49414e0bed4993968f90978837bdcf3d1f73a9e27088"
+    },
+    {
+      "reaction_key": "9c8e6454a2deb218f2fafa6827634ba406ab18627c13b7a8ae99b4ac319b28fc",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US4401598:example8:azidomethylphenylsilane-substitution:query:9c8e6454a2deb218f2fafa6827634ba406ab18627c13b7a8ae99b4ac319b28fc"
+    },
+    {
+      "reaction_key": "af78102edaa762106dca44328a93e99f4c3998268507e60bd040418896a165eb",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7465815B2:example213:dimethylaminopyridyl-benzofuran-coupling:query:af78102edaa762106dca44328a93e99f4c3998268507e60bd040418896a165eb"
+    },
+    {
+      "reaction_key": "bd8f53e54200d505137f9b93140db2e54d425a50dd23a68042f825f5d614a116",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7326732B2:compound87:chlorophenyl-furan-tetrazole-amide:query:bd8f53e54200d505137f9b93140db2e54d425a50dd23a68042f825f5d614a116"
+    },
+    {
+      "reaction_key": "de7daf1470766dca196477a45f4c5e964a8e4199bf9c1b14282b6a1d22bb43c7",
+      "before_tier": "C",
+      "after_tier": "B",
+      "selected_source": "US7705023B2:example48g:indolyl-bromopyrimidine:query:de7daf1470766dca196477a45f4c5e964a8e4199bf9c1b14282b6a1d22bb43c7"
+    }
+  ],
+  "query_context_hit_sequences_unchanged": true,
+  "all21_analysis_output_hashes_checked": true,
+  "primary_registries": 22,
+  "new_model_inference": false,
+  "retrieval_policy_changed": false,
+  "source_index_transport_only": true,
+  "index_sha256": "ee997c8732df797e27a7d5c2bd58cdd18a4472566818f9d8870092ba4f0de16b",
+  "all_required_PR89_deliverables_complete": false,
+  "interpretation": "Full reanalysis integrates14 authenticated query-scoped analogue findings. Increase in evidence coverage,not new model performance or measured experimental outcomes for thosequerysubstrates. Prior source-queue receipt preserves its pre-integration state;thisreceipt links it to the completed full pool."
+}

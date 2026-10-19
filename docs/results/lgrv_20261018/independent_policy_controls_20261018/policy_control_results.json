@@ -1,0 +1,265 @@
+{
+  "schema": "lgrv_independent_structure_policy_results_v1",
+  "total": 12,
+  "passed": 11,
+  "failed": 1,
+  "all_passed": false,
+  "controls": [
+    {
+      "source_id": "orgsyn_v95p0080_A",
+      "variant": "recorded_structures",
+      "query_reaction_key": "d6f8416f303f10d3c1d2f36dd2e366ea1254a96c01f6271965377a2ecae94f8d",
+      "query_product": "[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]",
+      "query_precursors": [
+        "[C:17](=[O:18])([C:19]([CH3:20])([CH3:21])[CH3:22])[Cl:23].[OH:1][N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1"
+      ],
+      "query_family_key": "418f26147255e0c576a461797195db1fd0cefb537fef863643305a5b85ce2d42",
+      "expected_retrieval": "exact",
+      "observed_retrieval": "exact",
+      "hits": [
+        {
+          "source_id": "orgsyn_v95p0080_A",
+          "match_type": "exact"
+        }
+      ],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_A",
+      "variant": "consistent_map_permutation",
+      "query_reaction_key": "d6f8416f303f10d3c1d2f36dd2e366ea1254a96c01f6271965377a2ecae94f8d",
+      "query_product": "[O:1001]([N:1002]([CH2:1003][c:1004]1[cH:1005][cH:1006][cH:1007][cH:1008][cH:1009]1)[CH2:1010][c:1011]1[cH:1012][cH:1013][cH:1014][cH:1015][cH:1016]1)[C:1017](=[O:1018])[C:1019]([CH3:1020])([CH3:1021])[CH3:1022]",
+      "query_precursors": [
+        "[C:1017](=[O:1018])([C:1019]([CH3:1020])([CH3:1021])[CH3:1022])[Cl:1023].[OH:1001][N:1002]([CH2:1003][c:1004]1[cH:1005][cH:1006][cH:1007][cH:1008][cH:1009]1)[CH2:1010][c:1011]1[cH:1012][cH:1013][cH:1014][cH:1015][cH:1016]1"
+      ],
+      "query_family_key": "418f26147255e0c576a461797195db1fd0cefb537fef863643305a5b85ce2d42",
+      "expected_retrieval": "exact",
+      "observed_retrieval": "exact",
+      "hits": [
+        {
+          "source_id": "orgsyn_v95p0080_A",
+          "match_type": "exact"
+        }
+      ],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_A",
+      "variant": "remote_benzyl_fluoro",
+      "query_reaction_key": "58c3113188cb12b17629e91eecd8095cde4ba7b17f0984fb936a1d9d35564a90",
+      "query_product": "[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][c:7]([F:10000])[cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]",
+      "query_precursors": [
+        "[C:17](=[O:18])([C:19]([CH3:20])([CH3:21])[CH3:22])[Cl:23].[OH:1][N:2]([CH2:3][c:4]1[cH:5][cH:6][c:7]([F:10000])[cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1"
+      ],
+      "query_family_key": "418f26147255e0c576a461797195db1fd0cefb537fef863643305a5b85ce2d42",
+      "expected_retrieval": "local_edit_analogue_candidate",
+      "observed_retrieval": "local_edit_analogue_candidate",
+      "hits": [
+        {
+          "source_id": "orgsyn_v95p0080_A",
+          "match_type": "local_edit_analogue_candidate"
+        }
+      ],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_A",
+      "variant": "reactive_environment_element_change",
+      "query_reaction_key": "9f8a3dfdb28968dc05ad7a25df26c644685defd31ed6c3fd79ca15ff426159e4",
+      "query_product": "[O:1]([P:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]",
+      "query_precursors": [
+        "[C:17](=[O:18])([C:19]([CH3:20])([CH3:21])[CH3:22])[Cl:23].[OH:1][P:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1"
+      ],
+      "query_family_key": "3b2e3d648be91f4bfb14674018015012cbd6549a3798dabcbf39fd8b8392a27c",
+      "expected_retrieval": "unresolved",
+      "observed_retrieval": "unresolved",
+      "hits": [],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_B",
+      "variant": "recorded_structures",
+      "query_reaction_key": "33064e4cd2a49209e2604d449ee2e14f127577aef5c2a98eda4a4504a04c09f2",
+      "query_product": "[N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)([CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C@H:26]([CH2:25][CH3:24])[c:27]1[cH:28][cH:29][cH:30][cH:31][cH:32]1",
+      "query_precursors": [
+        "[CH3:24]/[CH:25]=[CH:26]/[c:27]1[cH:28][cH:29][cH:30][cH:31][cH:32]1.[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]"
+      ],
+      "query_family_key": "ff8dd95d17e2a2e8f30dddaa90b4452db8ec99da04e33478e1f67df3d0066b74",
+      "expected_retrieval": "exact",
+      "observed_retrieval": "exact",
+      "hits": [
+        {
+          "source_id": "orgsyn_v95p0080_B",
+          "match_type": "exact"
+        }
+      ],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_B",
+      "variant": "consistent_map_permutation",
+      "query_reaction_key": "33064e4cd2a49209e2604d449ee2e14f127577aef5c2a98eda4a4504a04c09f2",
+      "query_product": "[N:1002]([CH2:1003][c:1004]1[cH:1005][cH:1006][cH:1007][cH:1008][cH:1009]1)([CH2:1010][c:1011]1[cH:1012][cH:1013][cH:1014][cH:1015][cH:1016]1)[C@H:1026]([CH2:1025][CH3:1024])[c:1027]1[cH:1028][cH:1029][cH:1030][cH:1031][cH:1032]1",
+      "query_precursors": [
+        "[CH3:1024]/[CH:1025]=[CH:1026]/[c:1027]1[cH:1028][cH:1029][cH:1030][cH:1031][cH:1032]1.[O:1001]([N:1002]([CH2:1003][c:1004]1[cH:1005][cH:1006][cH:1007][cH:1008][cH:1009]1)[CH2:1010][c:1011]1[cH:1012][cH:1013][cH:1014][cH:1015][cH:1016]1)[C:1017](=[O:1018])[C:1019]([CH3:1020])([CH3:1021])[CH3:1022]"
+      ],
+      "query_family_key": "ff8dd95d17e2a2e8f30dddaa90b4452db8ec99da04e33478e1f67df3d0066b74",
+      "expected_retrieval": "exact",
+      "observed_retrieval": "exact",
+      "hits": [
+        {
+          "source_id": "orgsyn_v95p0080_B",
+          "match_type": "exact"
+        }
+      ],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_B",
+      "variant": "remote_benzyl_fluoro",
+      "query_reaction_key": "bc01931e4970e79e3a5502b6252d9a494c2a0f6a9d002032f424f07e4213c939",
+      "query_product": "[N:2]([CH2:3][c:4]1[cH:5][cH:6][c:7]([F:10000])[cH:8][cH:9]1)([CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C@H:26]([CH2:25][CH3:24])[c:27]1[cH:28][cH:29][cH:30][cH:31][cH:32]1",
+      "query_precursors": [
+        "[CH3:24]/[CH:25]=[CH:26]/[c:27]1[cH:28][cH:29][cH:30][cH:31][cH:32]1.[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][c:7]([F:10000])[cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]"
+      ],
+      "query_family_key": "ff8dd95d17e2a2e8f30dddaa90b4452db8ec99da04e33478e1f67df3d0066b74",
+      "expected_retrieval": "local_edit_analogue_candidate",
+      "observed_retrieval": "local_edit_analogue_candidate",
+      "hits": [
+        {
+          "source_id": "orgsyn_v95p0080_B",
+          "match_type": "local_edit_analogue_candidate"
+        }
+      ],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_B",
+      "variant": "reactive_environment_element_change",
+      "query_reaction_key": "a35fcbf677b2032c22776d996f728043c316a967af4f5fd6a8c84876b01a65cf",
+      "query_product": "[P:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)([CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C@H:26]([CH2:25][CH3:24])[c:27]1[cH:28][cH:29][cH:30][cH:31][cH:32]1",
+      "query_precursors": [
+        "[CH3:24]/[CH:25]=[CH:26]/[c:27]1[cH:28][cH:29][cH:30][cH:31][cH:32]1.[O:1]([P:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]"
+      ],
+      "query_family_key": "710dc2382a74b80d4318aee2c42bf802280d64462ef5fe92a411d6ba26ece5ed",
+      "expected_retrieval": "unresolved",
+      "observed_retrieval": "unresolved",
+      "hits": [],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_C",
+      "variant": "recorded_structures",
+      "query_reaction_key": "9331247e471940d51d13de8bf48ebe0464c4045d8993e70ab907dff961357b58",
+      "query_product": "[N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)([CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[CH2:24][C@H:25]([CH3:26])[C:27]([CH3:28])([CH3:29])[CH3:30]",
+      "query_precursors": [
+        "[CH2:24]=[C:25]([CH3:26])[C:27]([CH3:28])([CH3:29])[CH3:30].[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]"
+      ],
+      "query_family_key": "b490438a5699a99a1c41898221e87e10e18acbe767c3692809b892dbb38983d5",
+      "expected_retrieval": "exact",
+      "observed_retrieval": "exact",
+      "hits": [
+        {
+          "source_id": "orgsyn_v95p0080_C",
+          "match_type": "exact"
+        }
+      ],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_C",
+      "variant": "consistent_map_permutation",
+      "query_reaction_key": "9331247e471940d51d13de8bf48ebe0464c4045d8993e70ab907dff961357b58",
+      "query_product": "[N:1002]([CH2:1003][c:1004]1[cH:1005][cH:1006][cH:1007][cH:1008][cH:1009]1)([CH2:1010][c:1011]1[cH:1012][cH:1013][cH:1014][cH:1015][cH:1016]1)[CH2:1024][C@H:1025]([CH3:1026])[C:1027]([CH3:1028])([CH3:1029])[CH3:1030]",
+      "query_precursors": [
+        "[CH2:1024]=[C:1025]([CH3:1026])[C:1027]([CH3:1028])([CH3:1029])[CH3:1030].[O:1001]([N:1002]([CH2:1003][c:1004]1[cH:1005][cH:1006][cH:1007][cH:1008][cH:1009]1)[CH2:1010][c:1011]1[cH:1012][cH:1013][cH:1014][cH:1015][cH:1016]1)[C:1017](=[O:1018])[C:1019]([CH3:1020])([CH3:1021])[CH3:1022]"
+      ],
+      "query_family_key": "b490438a5699a99a1c41898221e87e10e18acbe767c3692809b892dbb38983d5",
+      "expected_retrieval": "exact",
+      "observed_retrieval": "exact",
+      "hits": [
+        {
+          "source_id": "orgsyn_v95p0080_C",
+          "match_type": "exact"
+        }
+      ],
+      "passed": true,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_C",
+      "variant": "remote_benzyl_fluoro",
+      "query_reaction_key": "182beef79db96c32a8ac7e732334ed97214d6aad74e46fbefa80caf720248444",
+      "query_product": "[N:2]([CH2:3][c:4]1[cH:5][cH:6][c:7]([F:10000])[cH:8][cH:9]1)([CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[CH2:24][C@H:25]([CH3:26])[C:27]([CH3:28])([CH3:29])[CH3:30]",
+      "query_precursors": [
+        "[CH2:24]=[C:25]([CH3:26])[C:27]([CH3:28])([CH3:29])[CH3:30].[O:1]([N:2]([CH2:3][c:4]1[cH:5][cH:6][c:7]([F:10000])[cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]"
+      ],
+      "query_family_key": "b490438a5699a99a1c41898221e87e10e18acbe767c3692809b892dbb38983d5",
+      "expected_retrieval": "local_edit_analogue_candidate",
+      "observed_retrieval": "unresolved",
+      "hits": [],
+      "passed": false,
+      "machine_only_tier": "C"
+    },
+    {
+      "source_id": "orgsyn_v95p0080_C",
+      "variant": "reactive_environment_element_change",
+      "query_reaction_key": "0c748dd8252cb0011607b98e582331ae95ca0853e008cebcf12ebd7e5002dbb8",
+      "query_product": "[P:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)([CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[CH2:24][C@H:25]([CH3:26])[C:27]([CH3:28])([CH3:29])[CH3:30]",
+      "query_precursors": [
+        "[CH2:24]=[C:25]([CH3:26])[C:27]([CH3:28])([CH3:29])[CH3:30].[O:1]([P:2]([CH2:3][c:4]1[cH:5][cH:6][cH:7][cH:8][cH:9]1)[CH2:10][c:11]1[cH:12][cH:13][cH:14][cH:15][cH:16]1)[C:17](=[O:18])[C:19]([CH3:20])([CH3:21])[CH3:22]"
+      ],
+      "query_family_key": "4c3a4af3d1ce0ecee781d2d07a0b8fcf31487faec71805dea80fc3acc5ca6288",
+      "expected_retrieval": "unresolved",
+      "observed_retrieval": "unresolved",
+      "hits": [],
+      "passed": true,
+      "machine_only_tier": "C"
+    }
+  ],
+  "chemical_success_rate_established": false,
+  "new_model_inference": false,
+  "mechet_evidence_grade_supplied": false,
+  "scope": "source-anchored structural retrieval controls; hypothetical variants are not performed reactions",
+  "source_key_overlap_with_frozen_mechet_pool": [],
+  "source_independence_passed": true,
+  "source_rows_reconciled": {
+    "orgsyn_v95p0080_A": {
+      "source_id": "ORD:ord_dataset-5540e162c09f4c04905ddc8ba9c931c6:ord-352807a1f4c14595afeef50c6c39ae38:outcome0:roles",
+      "ord_row": 0,
+      "ord_reaction_id": "ord-352807a1f4c14595afeef50c6c39ae38",
+      "reaction_key": "d6f8416f303f10d3c1d2f36dd2e366ea1254a96c01f6271965377a2ecae94f8d",
+      "primary_locator": "Procedure A, N,N-Dibenzyl-O-pivaloylhydroxylamine (1)",
+      "primary_url": "https://www.orgsyn.org/demo.aspx?prep=v95p0080"
+    },
+    "orgsyn_v95p0080_B": {
+      "source_id": "ORD:ord_dataset-5540e162c09f4c04905ddc8ba9c931c6:ord-7b927700e3414788865b46a4d4b18c44:outcome0:roles",
+      "ord_row": 1,
+      "ord_reaction_id": "ord-7b927700e3414788865b46a4d4b18c44",
+      "reaction_key": "33064e4cd2a49209e2604d449ee2e14f127577aef5c2a98eda4a4504a04c09f2",
+      "primary_locator": "Procedure B, (R)-N,N-Dibenzyl-1-phenylpropan-1-amine (2)",
+      "primary_url": "https://www.orgsyn.org/demo.aspx?prep=v95p0080"
+    },
+    "orgsyn_v95p0080_C": {
+      "source_id": "ORD:ord_dataset-5540e162c09f4c04905ddc8ba9c931c6:ord-e5c44ec1b5164f8ea077cf3b7ee0214a:outcome0:roles",
+      "ord_row": 2,
+      "ord_reaction_id": "ord-e5c44ec1b5164f8ea077cf3b7ee0214a",
+      "reaction_key": "9331247e471940d51d13de8bf48ebe0464c4045d8993e70ab907dff961357b58",
+      "primary_locator": "Procedure C, (R)-N,N-Dibenzyl-2,3,3-trimethylbutan-1-amine (3)",
+      "primary_url": "https://www.orgsyn.org/demo.aspx?prep=v95p0080"
+    }
+  },
+  "source_file_total_rows": 3,
+  "policy_tuned_on_mechet_outcomes": false,
+  "primary_read_status": "primary procedure inspected using web reader; direct HTML cache download returned HTTP 403, so no raw HTML checksum or automatic passage-checked evidence is claimed",
+  "universal_analogue_precision_established": false
+}

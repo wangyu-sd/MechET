@@ -1,0 +1,330 @@
+{
+  "schema": "lgrv_source_bound_case_figures_v1",
+  "case_id": "ursa_drugs100:Cabozantinib S-malate",
+  "route_key": "afb473abe8f362dc20e6dffa50647baa80c44b4304e19299a893841138f18b9c",
+  "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+  "rdkit_version": "2026.03.4",
+  "figures": [
+    {
+      "id": "case_net_reactions",
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_net_reactions.svg",
+          "sha256": "b187af1df15fcc85fd4d5659b2ccfa412e772bb4d6704becf0dbaf7e009df8ca"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_net_reactions.pdf",
+          "sha256": "efbedd2e42789c55acfc86d6fc7ede6dc5e54c0b4ca5f2e8e5eb0491e67876fc"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_net_reactions.png",
+          "sha256": "21470da2661eee9d4ff258aacbd20fe3f6391e3c4c17841dae1c629ce5ad425d"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 6,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 313,
+          "editable_text_elements": 12
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 122.41388888888888,
+          "fonts": [
+            {
+              "name": "/XSMDDT+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/WDICEQ+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1446,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    },
+    {
+      "id": "case_inverse_program_01",
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_01.svg",
+          "sha256": "fb0a029df1f80528ef6d1e32fb8202e1e6e7023da77274c05f4a82589bfd8609"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_01.pdf",
+          "sha256": "c15a28a45dd7da686ea7018a672557e6a129f52fc95b3deae7ce77661c059fc8"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_01.png",
+          "sha256": "7c30ba423a02d4cd77048725e69d6ec637ae7295248362ef4d850eeed6d048ed"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 6,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 395,
+          "editable_text_elements": 11
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 164.04166666666666,
+          "fonts": [
+            {
+              "name": "/VAAEHX+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/MABYMO+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1937,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    },
+    {
+      "id": "case_inverse_program_02",
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_02.svg",
+          "sha256": "daf9bdff70864e33fbdac504d6569954131132dab23b93527ac0b615a6fc3fed"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_02.pdf",
+          "sha256": "67f2740d33d35a90213a211ba6b7ce29e685ba06dc762fd8bcea8246e0f74f48"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_02.png",
+          "sha256": "fe4d257a3d0d1df766b2ab1fdb61dcd236c1be4acbafa47f847d725a37596bb5"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 1,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 103,
+          "editable_text_elements": 3
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 64.55833333333334,
+          "fonts": [
+            {
+              "name": "/EYCOLL+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/NGDJFT+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 762,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    },
+    {
+      "id": "case_inverse_program_03",
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_03.svg",
+          "sha256": "4bdc490e13306745922f794676479e191d762d88d84dc84c74622c2140b6bd65"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_03.pdf",
+          "sha256": "0281385a7b3f523d9b720d41c0cec18da0acf2f495c468d0cbf0ccdb8d729ef1"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_03.png",
+          "sha256": "28f2437d69270296bf66abfcf75e9634e29c62c884e8a841450de4a4f245c586"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 6,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 258,
+          "editable_text_elements": 10
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 164.04166666666666,
+          "fonts": [
+            {
+              "name": "/ASIOVU+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/MABYMO+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1937,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    },
+    {
+      "id": "case_inverse_program_04",
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_04.svg",
+          "sha256": "bafbada8a83604b09ea6e3c3160bd7208b677672d0b65feeb02e996ecab3b47d"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_04.pdf",
+          "sha256": "cc8144646dc5e5769e4114fb8db73c335b4f60e9325a77beae6b436e9ac10165"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/cabozantinib_figures_20261018/figures/case_inverse_program_04.png",
+          "sha256": "d85a0d6d85df6a7ef6e7b67761701541e0b0228b0fb78ba40e3da13fac43d2ca"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 2,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 124,
+          "editable_text_elements": 4
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 64.55833333333334,
+          "fonts": [
+            {
+              "name": "/QULVSU+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/VSAQEO+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 762,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    }
+  ],
+  "source_files": [
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/figures/lgrv_cabozantinib_case_20261018.json",
+      "sha256": "2d58ae9bdf6ae5c5541145341ceef793bcbacdffd85f211f8bbfb4fdf35cafb1"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/prediction_freeze_manifest.json",
+      "sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/analysis/r1_r2_actual_sft_mechanism_index_20261014/manifest.json",
+      "sha256": "60bc0cc49cfb8a65e4ca9e98c2ac8f1e4ba42a65325046e5c4e3405370bbef4f"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/figures/mechet_nmi_tree_style_v1.yaml",
+      "sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/evaluations/8b4ee51d6807d371a02cee3c8680b290a7b3236ab6e7dea93c928cdf2a3280fc.json",
+      "sha256": "0c3efa3a1ca7868127016f727b09ca0aed622479a8526b085374f4c93f6cb525"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/trees/8b4ee51d6807d371a02cee3c8680b290a7b3236ab6e7dea93c928cdf2a3280fc.json",
+      "sha256": "c8c4098d123efe6ead4502daf4275bdfeccf1a1e4343d22195a1a93d9d5d107b"
+    }
+  ],
+  "producer_files": {
+    "scripts/render_nmi_literature_figures.py": "3fa0140d63c17aab4f17b263baa7b66d3974d9acf7e602943a6032610f13a5a4",
+    "src/mechet/analysis/literature_figures.py": "b6d5ec9488be51b858d048958196b7695f66674d5d6c265d01c5c7cc2814477c",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_evidence.py": "93370391ec017edd2cd93310e014765a4bde2eafb42e4167f5679b909b4afc17",
+    "src/mechet/analysis/literature_programs.py": "76ac50041b6b73c51a0a473b9826326a1091ca609810480b4b38376ea15fc0e9",
+    "src/mechet/natural_language_electron_flow.py": "238b5b8abef15f4f410d0ca6128b0ba7e41fe7b4ec1a81ca14e430e2c8f4de26",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6"
+  },
+  "primary_registries": [
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_source_seed_20261018.json",
+      "sha256": "662029270bc5648545983b4315f1eccb84dec4c5e97a1a4afce8992b5e039bcc"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v2.json",
+      "sha256": "4cdbc9d61eec31992408f278a5cd81f2b6ef2cb5821992361586fd39a0dd0050"
+    }
+  ],
+  "case_drawing_sources_sha256": "896b09cd2477c30d9b7c18ab02721090c2cf4138d95e701e36fbb688913fa865",
+  "precedent_covered": true,
+  "physical_mechanism_verified": false,
+  "population_figure_completion": false,
+  "visual_inspection_status": "pending",
+  "new_model_inference": false
+}

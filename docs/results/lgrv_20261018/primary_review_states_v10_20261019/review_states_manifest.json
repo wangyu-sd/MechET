@@ -1,0 +1,31 @@
+{
+  "schema": "lgrv_unresolved_primary_review_states_v1",
+  "complete": true,
+  "unresolved_indexed_queries": 129,
+  "review_state_counts": {
+    "original_preparation_pointer_unresolved": 33,
+    "cached_primary_documents_preparation_review_pending": 92,
+    "checked_performed_candidate_applicability_unresolved": 3,
+    "checked_one_source_structure_mismatch_other_candidates_pending": 1
+  },
+  "unique_referenced_primary_documents": 90,
+  "unique_available_primary_documents": 90,
+  "source_files": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/analysis_manifest.json": "59adfab1ffd1e9e6554d66f7e85307efa89e3a96a29173e31739cd11f0ac10dd",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/reaction_evidence.jsonl.gz": "bb17973034e399e9ec2631553351f01a1f94661f19eeee2b347958c2bf24a1fb",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v10/literature_hits.jsonl.gz": "4afa2b3b284dd8dc2e8cb10269e3be681171d0aed454d82be349b22887baa35e",
+    "docs/results/lgrv_20261018/coverage_traceback_20261018/candidate_patent_traceback.jsonl.gz": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+    "docs/results/lgrv_20261018/analogue_scope_review_20261019/source_scope_review.json": "5ce49bede9f9deb9630f2940c4f67a4243f9a468cef24484feae05f033526831",
+    "docs/results/lgrv_20261018/primary_structure_review_20261018/source_mismatch_review.json": "feb56c50830f400e146cd4bdff914ed639d83ed539c8631c892243a02164d612"
+  },
+  "producer_sha256": "0f7916ec576bfcc150dffe51a478ec260a704084c64d3c8b54fcefbd50484707",
+  "output_files": {
+    "primary_review_states.jsonl.gz": {
+      "sha256": "c8d43a063b7883bc220232f0743d8f1138813d39543c0397bdf095a839c6305e"
+    }
+  },
+  "new_model_inference": false,
+  "evidence_grades_changed": false,
+  "independent_policy_calibration": false,
+  "interpretation": "Review progress, document availability and chemical support are distinct. C does not mean invalid; a cached primary is not a checked experiment."
+}

@@ -1,0 +1,553 @@
+{
+  "schema": "lgrv_patent_family_sources_v1",
+  "receipts": [
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/06503f69f6fe1acd56fbbae1b765eccbbbeb90e7b88d85e3c8c6ec463dbae4c2.json",
+      "sha256": "2a813c6d3356e3e8f0c6f6154d5034b029f30d07f6fbd5ebf12804f0a681cda2"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/07dcc98c1df32f2173032fef4cf40a97c0606483c452e523fd235540168d4b7d.json",
+      "sha256": "74506e8172dc71d1c6af2ec2c49bd3cf8ab1517371fd9ef7de14110a83af6b1f"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/07de054d1f17260f5c37dff54b48236990ef1335b21f952334a191d1ec0dd52d.json",
+      "sha256": "0462226fbc2a1f9237ba4ca4db650f72e5ee337fea0cf3a9a7c8b41aeb534364"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/09c0f6be37d6ded23837dff6a260c457409b5cffddd7ec2ae6ba0f5f4f49d5c0.json",
+      "sha256": "3a694277fa6ca88ce082b763f640ea595cde37c55e4e3eb91deb525306006871"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/0f948f5bd2d7e5b69fea84badf9d30bb180e7458945afe7d242ce88ef952560b.json",
+      "sha256": "4c180ccdf0e3b690f9d9565de706473ae0c6f9297848ed60417224659463ac3d"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/10d95d44cbe28de1098a38c2b31b7054b447e6ff048d552e45dc6e92f71c5ffd.json",
+      "sha256": "1243dd81de6d4b77bf7103394af1534a312669adc5a92c910154fc04c6744100"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/1267c618cb54ad6ae997e48e83b2e049d910cc538dba27cfab4d55caa5032e46.json",
+      "sha256": "5201e4c89ace07e0dac293c786e64a5d70f67333054bacdf8e13ec88a26e0043"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/12837ead19d7fbe15840d412d9ce26f16ca3be4ba2afef633ac836ad3bac26a1.json",
+      "sha256": "7147bdfeba9f51336811da5f8143b9534c33af8114082753bc19b227618e7ec9"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/147facc913dafb3cf4a7a10aed681065d55381281d5dd8d9bef2d67c30b52e1e.json",
+      "sha256": "484543c2f1c586c7028746b15e0d6bf776b0fcf6c60224c9ff4b93f6402da845"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/148681d93a34d5a3ad5d636b6e3bab1fd65e7d6989df7547605d2d81bbed9da6.json",
+      "sha256": "0facb1e67f03c8214640ef9bb21460895142c02c51567c9755834b7a28a8a3b2"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/1581d195aca1cab89ce9a0d0ef48cb95255a6cc180fbf20de021d95de710af8a.json",
+      "sha256": "4612475ee86cb5bd077ffdef905c2bfcb510411f72f10aae7bb808577792ae42"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/161262c96229c1f7355e376ec8874057632c792dafd5cf346e5a3944f6389575.json",
+      "sha256": "ba425c2463fab63ae59a7d4aa8dfd1cdf2dcba4b37456721a072e31aafe07078"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/1852c526e57aa01a91805ffafbf75793ac828f72c2a8cdb94d7473c263cae67f.json",
+      "sha256": "c0c4ab371d1f4b772281674ad2f38dc9bd1b8d894fe0b0173638d2ee82d93916"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/18e1b3b3fe9184fc4bbb0855fdadce661a489cf128e00d67e4d7d1c62f38445b.json",
+      "sha256": "09a594ca3f253ac0fd86a15106659e312110f34dc10bff29ab9bb27138ab6204"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/19fe39d441c8b107712eb5e731eecd9b6f8410000b163dce30ba7e1339039ec5.json",
+      "sha256": "34a7e6867a58efdc77f417114cb7d970e8c90405f2b977dc7d5f4847c533c986"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/1a688189dfee5f633ba81de9590ad84f80336c384aa088bb10f07f1c9c54fa45.json",
+      "sha256": "47564265c21743d6e967a7057022354a2e9102dd9455d8568b48752f1e0195ee"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/1a6e7d19d569fedea13e9c4024eb573ee7c13416af487806dddafee53ca98e4c.json",
+      "sha256": "700510e38e3b29f47a1ed422f62929dce8a8a4f8c94ad7dabbf5e049306c94ca"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/1ca172a3d2577b0fa632abd7556b9f496181e9cabcfa8720f79456b0c5b1ad1b.json",
+      "sha256": "41ba13cb59cafbd200bedadef73338c915bc31a85fbcdaec6a4f57db715ef02a"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/1cc59ff551a73115dc23835caf15b2fd3e86c8646da182c106380dabd51a9030.json",
+      "sha256": "d889f61bc3b261ff44ca7ce0f34e034422558700d2598c7c92234e91b74faca7"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/209fc445264189049d1259f4c4ba3d5571c1ec2ab80ec58706759c48a05eaa09.json",
+      "sha256": "2849d9bdb2b0557f35bf25d3790a64daca3fb0013393c482ced5bc69c67bf97e"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/230073774c92e7a62e1cdeea87e215f4603d31671d6553fc569d404db6ab3393.json",
+      "sha256": "bf3522780bd203b082c7c2115b726d57203dd26c2884ff396aa95af017e16c7b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/24d5099a1f769f3bb2f09dab255519e69641077b6a2f2ff091e65c5406bb6052.json",
+      "sha256": "7649e5cbd44e078b61cf2829432f6032cda561a5a1bf7c908bc12f05874045b3"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/25730f82754ad4bec32acb5dca607a3f94925fc30efd0add6b2beecd4fdea238.json",
+      "sha256": "abb7b10100d8e27206ee5cbf1472543088a53a411011b3746d6d763ccf85c71a"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/270fbc296a9c826164c7e89eba57ae7325a794a4613154d5d55f8a5cd0d80699.json",
+      "sha256": "ae5be825b284311fc6567150bfe200b6c97bc07155c046e5c5e17a53ab075b19"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/272e4c7f98a1be49ac6188d71327d6d1f67225eb43e13b123e7fc81184242467.json",
+      "sha256": "454827bf6c8297118c489017262c94133a33764a1c4ac519906c8f6a85eac372"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2a8316127325f50bee83ba8e310527740a255c607b931bff1c8ba4b53dd0b6ff.json",
+      "sha256": "2f1c744f7c5855d6a9d6ac08a7373bd7a1c3e5f10346bfe0bf3e0d52bb0e7795"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2beb7109c167ba400652cb798c19bafeb3d672d58d83d8129d481e3ff341a218.json",
+      "sha256": "a002200fc88a12a7325656ebebb3c316a9b856c0bdc0be8085a9a33ee7f311d1"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2d15cd2dad2ea1496197d5407dc232a545481709212037f864b1f2837df6ae95.json",
+      "sha256": "f5a286c8a363c4154583f35f0698a423b3ae623a64bc9c0edcbe434b2f5f7390"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2e5e1ffd6c9314591eec7a237216d1b72402ce1187450b9a0052791cd100fd46.json",
+      "sha256": "1a2662e9b597a5f022c905cef1c19a068a910ddf312288d58d011fc7faf2415d"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2ea9a6e130e1921a0933e8a158a187de9b3cc15f055c9dfd64c1854998f59ba7.json",
+      "sha256": "441059dca3ffcda97b15cafbe413b1be60d0e106b7c1fd9aea9e6130a2136a95"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/2ec4a8647da13a5407dd25ad5e12fcef093fcdbfa24b27f599c864bc8825645f.json",
+      "sha256": "4a123e74cdb5b3c9013cc8695785786613238dd5bf516dd7497b24b025f1a5e8"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/33483037d3a4a4aba5ecd42b825b3ad4223b16b0e30d693989628172eba68d30.json",
+      "sha256": "1c606f9b14d858d33cc7d72d77f36a04bc23be5ee2fe197f0f5d0002982ed02c"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/33fb8ebe9a9d612665fa9b4238e3caf5ce5dc9094f232cd447fe810e4bc1db46.json",
+      "sha256": "3931abf952d0e0f0860c3c1e7c8fcaae76b0cdadd2d03311ce662971c7624103"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/34f7fd9db751ae56c7484e33574e6e7a432bbcfeace86c5970083836f45f5f30.json",
+      "sha256": "f1c533eddbe362129a61f6df4af988178b0015fb4fe1670705b9b85b4cc43ca6"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/35187cef5e5061c08c44b191ce998154dce69690ccf17100ac0f8c6a3f09b940.json",
+      "sha256": "e769a43bd106496d7e69e0d58ae98e37612682a7d1ab9c7138f8690a70bb75ed"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3589e7f5445f9d46c23ddb9583ad98c9293657f0c3643bc6ab2b9e3fee23d8fe.json",
+      "sha256": "35a0b762a82d89dc39f17f7f561a33b8699faba2bf3a47392e59a945a6d412cd"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3620f00928ab246ac2d7e531a18726a4fb0db8136dcb5fd8318ae1bf41ceb023.json",
+      "sha256": "edfad56f4611f2f08742a95d8266ac1aeaa0e4cb84bb41fb1bb6bd845e919544"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/36c56550038c005069a83c2ccf894d70eef1cb5c8a4df52b1758e1fd24e806db.json",
+      "sha256": "de561832f6f088b02aee540273ddd3760b24cbf770db534595245dc6dc29ce3b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/37b821ccb31dfa230565ced586f8540b3a69ebda2844d5a629ccca7a9fb9ec0f.json",
+      "sha256": "660d1a449597f8e17738e444b9755d5a3e41cccfaa10268a9f6647d298f0fb98"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3959a4a521fa9d5a8b39bf157fc8d073a24b0a46f00c557a49246a1841966703.json",
+      "sha256": "d7024c2255da6834cdfd28178a276428759ad5693f01e051a32eb996bd09b41d"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3ab59809c95ffd7edafa3d1a2120bde66ed8e37c0db9039cb89d87c5f3d6edf1.json",
+      "sha256": "0cf253d05a2b773f77991b94cdf3e725d65fa8b35ac98799d42242423720cfb6"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3b38c63304464543abbd18dcfa264f1ef9f5b221a2fb58b5528d8041a8b3df12.json",
+      "sha256": "399a331c6f12606093900c492e995b040b03113514fe8dfd06351791ef11fd00"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3bf2941d0291fcc45f8ef6460fd7a5ec9814eb6d053b819641459bf2e92cfd30.json",
+      "sha256": "8abbeef8d02dd0f13ae4ae4ef50081255bb360e4a63479b1047bd070ff0075ae"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3dc6590b5edf7ed767b70f4630c3ddc98e021ed7cc0e4146762856dbe9078c14.json",
+      "sha256": "28946c1465c7c17ee6ad32583ddb21c8090d49805949cdf8e78e294fbf685f50"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3eac241471751ff9cf0d103d935346b6664e6b9062431cce31cc3e7b53f99354.json",
+      "sha256": "84da32a23c97194b379af96e15f163cceeb0991f7c46072effb490f226e6e261"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/419e4ab1acf847437c597a81f0adbd7b0c10ce7348910d1eff47179c57552428.json",
+      "sha256": "bb6fc77f3015d8a9863b6e9284899edfe9aafb275b18ed02c4f01a7f3b027abb"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/431115cd0006f1c205dde49d20fdc4c8aaa32f856e19c2519fc77e4ed32d9496.json",
+      "sha256": "343bc29739c7b1c56b56796f1fa2da4ee79176342edd3582c5bdf8eaf2135b35"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/43cb8bf04aab297f52d7f15289cc058d9039ff0f4921e9ca1c9c821918af2385.json",
+      "sha256": "f2b3a5f07da4c683affe5e14b21f035220c7ec8fb260603f6c7538a9f566632c"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/474d93525ce1e1e37b9ab0f13b7fe2ba8349e2f88656853acd87fde76706b66c.json",
+      "sha256": "a415b591576a98936e824d29e14144a95f4ff5fe61c33696d99e93c6bbd70d03"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/4be49df31ad21eb4e5b6e06b42473358b5513d09e345db7097c48f06d4a204b3.json",
+      "sha256": "89450d0bca418e6c65c26d9060408622bca6cab02431c63884d65f1d2d10461f"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/4c4174f4b1f84f9cebca3a9a36edf0318ee75c6fdcadd31cc8f41d19fb980399.json",
+      "sha256": "704862674d2cf8eee30ffafda862348d8044962b6cebc53b76ad3f9c07884db3"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/4ef6633c08882d109a0ab6c7eee41d1f2447b359659b7bd3c151f8b5f51f5cc8.json",
+      "sha256": "ae25978fd1518d263f5649536473f7dd5b3d17b7764112f600486af372514166"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/4fd61aeeebaefd13238beadf0ad3131a4c657ef698eea98a9ec954bef672db8c.json",
+      "sha256": "a441d0ee49efb9c199af0ab227a481e6fcb968eecd03701055d59ec5485a3e22"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/537a354a81e2929d6bb5c6bb92b828b14b186d99cfb7939858f4e05aabc5dfcb.json",
+      "sha256": "f5d664ad6fbbec21f7a33f93c9fa811f8c5f345d4ef68c18c17d0b3c9308f05d"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/59d1dbcfb2a84b5fc4a72e000454dcdd4b2808efe8aabc3b40e932e242c216d1.json",
+      "sha256": "95a775280df7ee581960c65fef1c9dbde8b48cd0afae0bf3beaa7ac563b59cdb"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/5a866ac8f4f1a5c99c27ea38b1968c2d7ef3a645f7752f9333ab6a5e6d2d1b12.json",
+      "sha256": "dbe3370ec68525cee00073f914bfc9234180fa8cfb472a603ef325986e2558f5"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/5d2c3125ecd919aca23e96b4715d5d1924e827face1fdbb4670119efea2e3efd.json",
+      "sha256": "cb64146418e49d9143fc9a562782f2c6ab9c7db92e866a0e02055dd33f9cf2bc"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/5d3c6902b250a520e7adb66f23003431a140d3b28aea69efc2b5f8a5e1b176ab.json",
+      "sha256": "4d1850d1e109012540e0064a2dcac578b483de6a2523d79ee30e054887a00726"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/6352dbb410d474f85724242df74faa83544a3ff18689c1f42fb4bb90f585180a.json",
+      "sha256": "154f3db25328301174dc72324c7aec2fe7ad9442e17002db5d8c393baf172af5"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/6451535296dfb757403fb37b250e1a0b9cfa0cf089e764b73b4d76d453b55138.json",
+      "sha256": "f17a506e7bd4a6f5ecadd7aaa89b032cbfad1f248d24242770c5ae19dccdb6eb"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/69f1de934c3d1c500f12fa557c6c7c909965756f096b06adeab5c3085414dcd9.json",
+      "sha256": "f60a2675de4adfcc7dbe4a2c78d35839120d2288ab40422a8e31cdfc612413a8"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/6c83298d7c16db4eb489cbcdb1c264cfa803cba28706c95d5792735187ed6654.json",
+      "sha256": "730da269be0184cadb3d2af84f76c0cbfc0f9bb97f616dee7addbad89668983c"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/72dfadab8b12caea61bb2d748caa11ca5dcdc23d266e6f8b843d0f9925e04fa7.json",
+      "sha256": "eb9f828e841fab4778e5f9b8116dfd036ece307a5617a738eaa954cf35123369"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/74d602b2e45e39da97f92de265c49382fd50cc4d4988bb56b3ce07cfe35785c9.json",
+      "sha256": "ec74ba0b430074ad5688be9afc70fd45552c53fe9f54068bba53dd650eef3446"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/75f51eee0a38054867a94284bbdc3fda97788e261955c46fd9ee36a56a567d0e.json",
+      "sha256": "1b7b58e914b02896737255f1c68d9fc666f65083039b45aea5e29fd5a121b57b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/767fec256c7094296649aec50a9a5ce70e9cce214953cbd0790ca74a5c05ff9a.json",
+      "sha256": "20fc6d0589de6600591b0e7d7cd43a3da8c7c86b849ea98b2667336ff41373e3"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/77d0d8c930a07b87d5440e1e729babfbabdf20c71b701f2a872d36630f969563.json",
+      "sha256": "4022c0a524e73aa0a3082bc25a23ad851be2158a388b0a3cedcb587bf6dbca2c"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/77debf2d3cdfc83f17b44e84b1a377a64a1ad044559da032aa9dc5625a2b61c1.json",
+      "sha256": "1e3a3a739f330813374360aa63cfaf8d8783591ebad238539fd1905446fd26b8"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/787fc5a64e7499bd45666cf0d0dc2713d141cea5d1cb934adc7d6e062ca959a8.json",
+      "sha256": "26b7390d04018df704b9e00b94f211fa107daf8ebf0ca3dd4b552d1ba8c11382"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7933bb3bb00c412f8429aaf2abd77cec26f57c9733414d5baa04850bce803779.json",
+      "sha256": "20a20f16f2c641a1c1c6a3538f0bf7f22b8fc7f08c6ea389fdd003dfd88af54b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7b0cf0491dd75bbbf70479cc90eabdc85455aaf4b4d7fb679331235b3e04ed68.json",
+      "sha256": "06e199a614b31b06839eae1b6f0132ed4ae3f18f2fe39e3641003104633aa47a"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7b5ab44294f9e7e8cdce5d056adb46a46137ef18d30b8f0c0fc87818d83a44dc.json",
+      "sha256": "7d73cea0f93bd886227048ac99f56ba9af710dec3e14f9924f9e27b5dd931d0e"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7e473ba9922a6a3ea07b5c5a4f42cad7e10825fa29176ccf920a437641cc40cb.json",
+      "sha256": "9b11d8e2fea77d199605b8945c8f2a12f04d5dd817435b3f40f0e2a7aa5b9031"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7f1cbe9b194593a34846c2eedd79128b1faeaa153fb3204ac949a843ee8bdfd6.json",
+      "sha256": "ef5b1b6f3547f5c3ae9b73c79d33e2923f7f70d99e35966bf409883022ab4ec0"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7f8e079ad9899466387d163171831f757f0d2da6d48dba9e65b7a63d94217901.json",
+      "sha256": "62e5a9285ea93f1fcd3d1563a8ea18d551af8cc43f1b9814de986039fcfc33f0"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/81fd8d488fbc9a20acd0a51e045f8c92857f5bc98b95492d7717f1d6d92cce8c.json",
+      "sha256": "b80736ac410e0229829383e858124d749b86a7edcd7956bfedd69ea7962dc6d4"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/84adcb0c7b515badb09982758597dc3c74d4b4386c2120da956d1556925e9e18.json",
+      "sha256": "63bc6640597792662dd040f93a71a869ff0732dbed8d43e5cd8cb8fc94a78566"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/85de0333ec0939fc311f0a7935c3404f9d6cf361234d0fffcc55742c2b22dac5.json",
+      "sha256": "3e41c63f49ffb8859abda68fdca0352cc968941b2c89b880db7dd6c244874a3d"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/8830f47a8f0e62f166c957f62ed49026302693ebc53980e629f97388fb211874.json",
+      "sha256": "4502a9b4cdc83b64a21b371645326e3e3f826f982387c3d1bd735e83de014815"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/89e4e6f54ca822967f1379128a6821d60c0d22f83c14d3f81fffcdf9548e57b9.json",
+      "sha256": "2cc0af058a38326e0c04eb8d3e32ea433601d92596627407f1b80005841f26d8"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/89effb12ac06baf2541d6726ade90914e73e5dfb4a57ec6cb1b4be5dae01d923.json",
+      "sha256": "0844840890952dfc9080bd14860f0f282b4597a92552304e6ab1c18c44924812"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/8b8bf3370c324ed6b17496a48f7b667afa436badeee74d8aa4e27875194cd3eb.json",
+      "sha256": "bda777b3813b56b1e01e971cb302e241b6234be448a43e07682ebbcc8a5594d5"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/8e7c0fea7c0fb6c7e34604231f4a6b1de4b84eba07da8142a2255f94eb61d40d.json",
+      "sha256": "b72417219910e22f29e5de6f657c2eddf07bccf98b511ee0ad3b67880e768ad0"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9097c8c074349f48c45cd10e34e5cae0f73961dbf5e084622067c502d379599b.json",
+      "sha256": "02c9b94645d287347a18d1012e0fd720a0f80fcfdc471b615219d0936610295b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9148e5801bb894352eb0e90343bb4883c5ec1b4ac700d3c2f4b358a9cbd3d947.json",
+      "sha256": "7217bad9e125409de1cd0bf60f38738c1f5184f2f53b514628921337cb06f943"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/938c4469fd74e46635cc93bfb9c580a0dae5e2c41ea845117e2bb6f8d65a6d76.json",
+      "sha256": "39aa9238b908846d14cad79c3961336994952eb69831a4120bd601ab1b3c9b53"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/99206e101b4dd15a0bface0ec7d617e5bd55718e7a00b147ec5c35ff1ea332d7.json",
+      "sha256": "ac5c1ae05bad741f153af3902abcbbc817a11cd40e8fb676e5a0c75687d51475"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/99f9d27f25085575c6435525a74cd3ca2acd3f399d668f13f5c0f78ecd8f6357.json",
+      "sha256": "cb1036bcdd3bf30cfe1d7b63d94289970b2ea848f27b3910f2fe7f4152bd5010"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9c0697db884fb8e46b0f332190f490adbabc2abd9b06269ab439118dd8746c25.json",
+      "sha256": "c45c3f914ad4faf1a92ba618c1465d9a7d5bf9ec3328419a82158556361b3815"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9c61206cb8b7766e98f201046540d158fbf32289d9a3f472f7ee8797f338b421.json",
+      "sha256": "c6ff26b17993d84aae80bdef239bc35a979f9f37c683ee8aa025e14be5ca3af2"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9e00a8d16d6f2316b7c4e507c2e70d8373f4d441b4831df34e72c8299ae30ee6.json",
+      "sha256": "a7abfad73e76d8d52981fb040057c63cb1a30a6ed73df5e02e4f49603bd64b1f"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9f3bad76f0f4642e09b4b1d631745f19e06cf1af2e9c60301d479fb2682a3176.json",
+      "sha256": "9192270f1027e878ee76e852f00437ca1be89b754b98d3c14ed58acbb173e783"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/9f985a62adfe1653e2f737e2e26caca33de595f42065aae18aad6564e56dc384.json",
+      "sha256": "89fc9ac9ed9f7e5516f926d83263731fc38009d36468c59ba23132bc67c9a3b3"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/a27dcbd0cecfade2915c7918c579db1cb6e025ae6998430dfe18a32798d3ddf9.json",
+      "sha256": "39ab646367cb1cdbce3cf59e562c9ec53a4c09a648514a0d2feea7c0f81d38ff"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/a4c434d41640cccf3b9e8e58c6b5e2600527b5c8bad0503558ab705fdddd084b.json",
+      "sha256": "7fe19ba4212c4fe2d84e1ac3ac7214a939fb6879a79ef19a69c1a11420d61305"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/a4c557e43797ed7da6e3882d9a6dd1fe8a95062aa322c9268d91990fc38de353.json",
+      "sha256": "c4f977280d2a9dd4359c803906a1ef79cb2a72f1a40998c4ee84a3dadece1743"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/a5e58d330ef90c0c70d22bcaee8624a65436ee729b0e300d1605c814f2afafd5.json",
+      "sha256": "ea92f3c29a4209cc6434b3d60452a232871c55fcf09e18aae90677b7f57eb171"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/a6e727ee607c0d7ca62e4c36ec7779652a768d774a0ebff00166e39f7794ec0c.json",
+      "sha256": "7e3ecb5d4af11239221c4ac9e73473a7c71a410b6907e8a65d0f97df2669a471"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/a7af4cf7029ee4e7bfaefbcd36c0cc7a2ebce04bcbe1ac87a1042c04bdc902d3.json",
+      "sha256": "e734e616691d1f078033d27088898b69ab36b28bea8dcccc44242f38ba91cf32"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/a7d887c069eae11ff8bd9fa07f0dcaced709dfdb1fd836269f97a571fc8a3c95.json",
+      "sha256": "855bf7e57252cf85ba11fae1fcae5c1295236f45b24758e6a1de47b3c37e708b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/a8a2e218468104b4415cbb74ea7d6ffbaf8645f81454f54542e2f0ae5f56fa23.json",
+      "sha256": "b28318cb6eef829812148e636a49283288ad58146ad426469ff8b3e0e007bd3b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/afd0827f184d11f37a695e03490dbe1c435c05bb2c79484edea5a82404bf90c9.json",
+      "sha256": "d771046a5d2bfb46abaa6a37602a96d92ee3b2b972e80954df1971c64df7e342"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/b13819f78180ac3e51f4d8b1ce5c48b4abd90c566f209e5df4ff836d3db331bf.json",
+      "sha256": "38ae953569f077e7fbfeb6b58f1749927e4e9c64ef3f314d827701e0eff02c1a"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/b40a8f03d3ce68add05c4c605a9ea51a92256cb032a98bdacb4dd9da7fcb511a.json",
+      "sha256": "78f607524f1527aaa40f025bc1732c168a08b7baa6c54a9bdec9101ae71b7462"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/b5adf54a63c6d2d633a0931109b1f8e77fe1b4145a83efcfce545dc8c7f39181.json",
+      "sha256": "7ece324f7ea234755dd9981f1de50310958e596b9c893cdb22fcbe25a1465b7b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/b65bdce8974503853c7551d33907c27ad0b0e9866b7c40200dfb4bb697270ee4.json",
+      "sha256": "bf364866db07004b80283c4bd5e5a14ab85bf44613a6b09fff966631ff544d2e"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/b68a6d352794bd90f8df56eda8bd7811b9e486c415d28156940e8d4f13026575.json",
+      "sha256": "d77d5806c0551c11a5ab68f12ff00b64de05eaaf56fe1a4fd4fc97be5355fb7d"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/bbe2c25c0395a44f7e8c4b8420afd9d694e19a427dcca9665df6ce9c40d43a79.json",
+      "sha256": "e0b90ca8184fb6aa69206975b812f2a8cf820c1b9b9f2bb82b6736b39c087d12"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/bc67c20affde0fd486f0b019d81ec18e81c60bbce38c657435a581a19ca26e07.json",
+      "sha256": "74d2aafd725772f47ed13f53616c8a249ef7376fb69ae5becb4300bb84fdd723"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/bd6be055df1aff566b1e77efd86573cd5b47c2435a4d61d26f4d62716f1de931.json",
+      "sha256": "04629261c8d4112a3e965cdf2a4281590f56fa6f6e9f2155ed4a8dd190c080a4"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/bf08c4146afefd67a88c85528fde1b911c71cd487e1624212b5569280411db06.json",
+      "sha256": "8a4b3a7c15d0b9091b3dffa82eae584f5ccd9b5f8bad2f3cba4b201d6e87a00b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/cc7cfb689fbf5e7acd6e70fa081534c4fc976cfac27eca49d1f37e73666fe7e0.json",
+      "sha256": "47f8efae1ebb5b8134961a94cb5082ef20df9873f6e206f5b6ef6ec43465ff90"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/d11ef357f9ccf6c065055e99bd9646258d6d3a800d3a747f3bf7235125262a47.json",
+      "sha256": "14b112b0660e19927914c1bb514bd70114c6f16a77cf67efe9b4a68ab8ac7d09"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/d15da52c567dac399679569743e45ff8198b3f857b6648ea61d68be9670c1afb.json",
+      "sha256": "e76e7e27f0d2d493c024678acf0c3392b0b0adcceeaf3a12f94d3407e62054e9"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/d296917c8f1c81c6c1687d3e08ccd734e82d7cba7edd1695304d42076a1ac8d0.json",
+      "sha256": "a3529fce4ca8bdc90e84cc1472c39333c146c0c6c33da4739f5165300c85aeda"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/d44a1443fe836027647ba0aedfc6452a05b3f79f0b4dae0c767c6946ae8aeb2b.json",
+      "sha256": "2e2cfc9dc7865476639fd98e821c39c1b10e96d3fee52683fdf82511c6d12167"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/d52e1bdd41e6506dfdbe602d97b5e725accd982923085fcd0190827e95b525bd.json",
+      "sha256": "44346a7f650787ce17893f364b754672a99cb289932fb979181422a37289ae48"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/d961f25fb505208dfb18f72ff2e05b589adb4386b53a2068f8e28cf97c14fd63.json",
+      "sha256": "1943fe7a2d9acb1db2a3d95e82c053bb7fea17f4233e5dd71c14b43d99340fb0"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/da4f5ec2f63bb982659b7d630f0deab73ada201393f8ef0e833b3a4b5f58204a.json",
+      "sha256": "33cd62314516faa75aba10c24ea694895b7f1c30ac3c8b679fac9dd0f5ee61c5"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/db35bc29a7fb2d4c987bb2c4fa8ced66605726533a7a758803f25eae68c32b74.json",
+      "sha256": "654e2d219f765f849d9d473be9d4f534e5330fb648a52deb3542ea427950be54"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/df98938f89cf89b6abb213796739d10e4746a31fc240cff5b182e52efbe46b0b.json",
+      "sha256": "cce49c11d1996c0eec4e5060e4a2d3c46dbe45076df5ae18bec53719561b8463"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/e8dd416c0b5b5c1bc0952105387c5c6e7dc6c7015a9a3536735db4a7dc3e48e3.json",
+      "sha256": "3b7bd50313131ec8915a4f846b0add1fdccfbfd8d12f2b248b2af80788f50010"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/e9264892d6a75261906ec378657c008ac7a0f446724969bd4f4bfddf67bce4f2.json",
+      "sha256": "33893fae7e85c399b68601e90a686f5789b6b66ed7e5a59853c849a8c899e596"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/eab24f3a6601e928052375ca6f8a50b83a67067ae3a1160e89214d3c30bee901.json",
+      "sha256": "c49695d6c2933fbfc754de65d607f60a3c96d30e8d44b42f8ea7d76e3ca75d02"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/eaee12c75a3b398c3c9df7524630caec594cf107facf84f547736cbfd2695f27.json",
+      "sha256": "d9eec7c5bcae9c27cd74ffae2a1d48547c56601def3022eb0102d849adb3dacf"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/eb4f4896c17c89b91d53054e3e1f89cfd3175009811f85be70005e1ab9a7f657.json",
+      "sha256": "f0782e5f4698c5fcdfe372f09b2225f3bf1f08504afca67623c448b0cf76e691"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/eb5d12d90fcccb1aa83112d6398a1cd163ad25c1a83bb8f442c314429f55d906.json",
+      "sha256": "0bf93f1fa7decc9f4a31eed9274a8e577b43d9c2ebc23415b37c7c6d68062c52"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/ef1174646df08605c3fce3e4e80dcf52879fa02d7a72c680f1e06993901175c0.json",
+      "sha256": "b73b25dbaddad130516621506d29701870d0bf2855e3c33fa50b1a43b9472cb6"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/f10873ed7a5f0dbda36cc0099a9fc31dc65f625ed2c4a14310be256b42fcf2a2.json",
+      "sha256": "b64f31abb930b57057362fff51433d6fe8786acdac10f96d1b9de5df84a3fb70"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/f46bcb6e32c12a0e99b5b4843aa2e8f340e02fa6a64e38b9156727456e4359e8.json",
+      "sha256": "108a2c6aaeb7ef241b865bbe5fbdbfc844290c8c4cda46381d4be40435f18660"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/f4accda3261e86d3fc156d4598dbf51d51af28820cd1eb42bf658049a48271fe.json",
+      "sha256": "59a4ceda364bc41603a8c421c2636ff0806293e6a98ebb325c83c2be266647ae"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/f4bc9ba8937d3bf19c2dafd81e3e255ca1b5021fc913ab54c39afc7efe98b7dc.json",
+      "sha256": "cb1d692ea17a0dced5ae4f5e66b96ed98c7f8a5827bb2d9ba5fe0506945e9ce8"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/f663169dcf23f4ecd4eecab15f91e106667cea5b2e2a44e06180a3176236b096.json",
+      "sha256": "dd344d7f04872b78359773067a6bced7e062548a831b136b4d6db83d8058cbd7"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/f8ce337477dc924e1d5b51e2f1ee14b95b752b4b03a5f574cee2df57b6ada95e.json",
+      "sha256": "b39f0f5448c28159dd08152f5f5fd0b1d24111a15075f026f9dfd04207d1f67f"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/fbaa1b1ad330fba54756664214d6975570d9d75e2056ffc4f09fa4c7cff14289.json",
+      "sha256": "1933d965d0db20366be2ae67e772102eb60c4b570d9e1c61d7a72f1b4df6b330"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/fdef6d5a2fbc182ead8935b7e98ffe92f5c80dec9db8d0d9ba3903416e14a9cf.json",
+      "sha256": "9e66556affc73ee226a96ccfb20a6c670744447b875f512003501cb1e85fd844"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/fec189dc8d88a2c65dec5920760c1937f8b291f86cb066216a5272cd9c0cd034.json",
+      "sha256": "c34983c2300ecd039168ec0adac1429797bcced645eee4a5f9d1d4c436e8822a"
+    }
+  ]
+}

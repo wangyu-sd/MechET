@@ -1,0 +1,112 @@
+{
+  "schema": "lgrv_explicit_grouped_primary_review_spec_v1",
+  "scope": "Four additional original capped source/query comparisons: two compatible benzylic substitutions and two unresolved phenoxide/methoxide applicability cases. Actual named preparations and referenced methods read; no retrieval-policy change or query experiment.",
+  "frozen_analysis_manifest_sha256": "d8ec39c2f93f0c91b8d8d19f5332a2f759169caa3b0adf86c732d66299ddcf78",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "preparation": {
+        "source_id": "US6579884B1:example1.56:chloromethyl-methylthiolate-substitution",
+        "patent_id": "US6579884B1",
+        "source_url": "https://patents.google.com/patent/US6579884B1/en",
+        "document_sha256": "7da2e560cf59abc876b69e2f8260c9856cd059df6ca246e74860ac289bbb4a20",
+        "checked_passage": "Example 1.56 Synthesis of 8-(2,6-dimethylbenzylamino)-3-methyl-2-methylsulfanylmethyl-imidazo[1,2-a]pyridine",
+        "locator": "Example1.56 around143000-144000,complete substitution/workup/crystallization/NMR directly read;50mg24% belongs to this example,not the adjacent methanolysis1.57.",
+        "source_product": "n1c(CSC)c(C)n2cccc(NCc3c(C)cccc3C)c12",
+        "source_precursors": ["n1c(CCl)c(C)n2cccc(NCc3c(C)cccc3C)c12", "C[S-]", "[Na+]"],
+        "expected_exact_reaction_key": "930b91fcf29b1b6e2d8e387fb7361cc58b6e91ec24bbf8937e2a929abbff5d8c",
+        "source_conditions": "Example1.56:chloromethyl imidazopyridine0.2g0.64mmol plus sodium methanethiolate0.1g1.3mmol inMeCN10mL,RT4h;evaporate,DCM/waterworkup,Na2SO4,silicaEt2O:petroleumether1:2 andcrystallization gives0.05g24% withNMR. No catalyst,heat oradjacent1.57methanolysis condition is invented.",
+        "reported_isolated_yield_percent": 24,
+        "structural_reconciliation": "Independent imidazopyridine-N-first graphs retain8-(2,6-dimethylbenzylamino),3-methyl and2-CH2Cl/CH2SMe positions. Sodium andthiolate are retained as supplied components. Exact named source identity matches original930b91fc.",
+        "performed_example": true, "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "407c4b0a0abc57fc1b108c6621dd66618e35f10e963e10d60be3ccb2dca807f0",
+        "expected_tier": "B", "analogue_compatibility_checked": true,
+        "substrate_differences": "Query uses3-bromobenzylchloride plusmethanethiolate,not the substituted heteroarylCH2Cl/sodiumthiolate pair. The query does not specify a counterion.",
+        "functional_group_compatibility": "Both retain a primary benzylic/heterobenzylicC-Cl displacement bymethanethiolate toCH2SMe. The unactivated arylBr is not the benzylic electrophile anddoes not require a Pd-catalysed orSNAr step under the source'sRTMeCN substitution. This supports a compatible netSN2 analogue,not an experimental yield for the query.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "No sourceNa+ is inserted into the frozenquery. Solubility/counterion effects,conversion andyield remain unmeasured;source24% is not transferred. No newconfigured centre is introduced."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US4401598:example8:azidomethylphenylsilane-substitution",
+        "patent_id": "US4401598",
+        "source_url": "https://patents.google.com/patent/US4401598/en",
+        "document_sha256": "e9cf7bf42417f2a0024a43a95f57c12bda173dbe58f75f83494eb07c968fb230",
+        "checked_passage": "EXAMPLE 8 Production of p-Azidomethylphenyl-trimethoxysilane",
+        "locator": "Example8 around36470-37200;completebenzylchloride/NaN3 substitution,reported89 weight percent,bp/IR/elementalanalysis read. Referenced catalyst1(a) at29837ff read;otherCl-PTES substrate/solvent variants are not8-specific conditions.",
+        "source_product": "[N-]=[N+]=NCc1ccc([Si](OC)(OC)OC)cc1",
+        "source_precursors": ["ClCc1ccc([Si](OC)(OC)OC)cc1", "[Na+]", "[N-]=[N+]=[N-]"],
+        "expected_exact_reaction_key": "9a2c913e9518a1c2afa607f121277543631b08af368cb945ee6d28449523a6d6",
+        "source_conditions": "Example8 heats p-chloromethylphenyltrimethoxysilane/NaN3 with5mol%the1(a)tris(C8-C10alkyl)methylammoniumchloride catalyst at150C3h,then saltseparation/reducedpressuredistillation. Reports89 WEIGHT percent,bp94-96C0.3mbar,azideIR2095cm-1 andelementalanalysis. The printedweightpercent is not recast as a molar isolatedyield. No MeCN solvent is borrowed from Example1(b) or9;1(a) defines the catalyst,not a change of substrate to3-chloropropylsilane.",
+        "structural_reconciliation": "Independent azide-first graphs retainparaarylSi(OMe)3 andbenzylicCH2Cl/CH2N3,not an arylC-N substitution orpropylsilane. Namedsourcegraphs retain the explicit sodiumazide salt andmatch original9a2c913e.",
+        "performed_example": true, "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "9c8e6454a2deb218f2fafa6827634ba406ab18627c13b7a8ae99b4ac319b28fc",
+        "expected_tier": "B", "analogue_compatibility_checked": true,
+        "substrate_differences": "Query uses a chloro/cyano-substituted benzylchloride andcounterion-unspecified azide instead ofparaSi(OMe)3benzylchloride/sodiumazide.",
+        "functional_group_compatibility": "The same primarybenzylicC-Cl/azide substitution andazide charge pattern are retained. Nitrile andunactivated arylchloride are compatible spectatorclasses for the intended benzylic displacement,rather than evidence of an arylSNAr event. The alkoxysilane-to-nitrile/arylCl substitution changes electronics andhandling butintroduces no requirednewbondchange in the proposednetreaction.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "Analogue inference only;source150C/89weightpercent is not a prescribed ormeasured query condition/yield. Counterion remains unspecified;no sodium,proton orstereo tag is inserted. Actualsideproducts/thermalstability remain unmeasured."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US4363805:example41:phenoxybromooctane-preparation",
+        "patent_id": "US4363805",
+        "source_url": "https://patents.google.com/patent/US4363805/en",
+        "document_sha256": "96eded4c05381cc22be12f6f471f83163a5f9dd0776c7e81adb11fddb9ce5062",
+        "checked_passage": "8-phenoxy-1-bromooctane (b.p. 11 =196°-202°; yield 75%)",
+        "locator": "Example41 around171600ff explicitlyisolates8-phenoxy-1-bromooctane75%;fullreferenced38(a)167200-169450 read. The lateraminoiditol reaction/hydrochloride62% is a differentstep.",
+        "source_product": "c1ccccc1OCCCCCCCCBr",
+        "source_precursors": ["c1ccccc1[O-]", "[Na+]", "BrCCCCCCCCBr"],
+        "expected_exact_reaction_key": "aa7034161765822ee1bc2029c7a22055488feb3dc7ec3bd60404f7a38a2449e8",
+        "source_conditions": "Example41 reports phenolate/1,8-dibromooctane to8-phenoxy-1-bromooctane75%,bp196-202C atprintedsubscript11. Ref38(a):sodium/phenol inanhydrousEtOH,reflux5min,cool40-50C,addexcessdibromide,reflux5h,filterNaBr,concentrate,CHCl3/aqueousNaOHworkup andvacuumfractionation.38(a)'spentylamounts/boilingfraction are notoctylmeasurements.41'ssubsequentiditolaminecoupling62% is not the75%etherstep.",
+        "reported_isolated_yield_percent": 75,
+        "structural_reconciliation": "Independent phenoxy-first transcription explicitlycounts eightmethyleneunits betweenterminalO/Br andretains sodiumphenolate plus1,8-dibromooctane. The precursorphenolate may be formedinsitu bythe referencedNa/phenoloperation;its suppliedionic identity is not silentlyneutralized. Graphs match originalaa703416.",
+        "performed_example": true, "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "24861b7342d2ac718d8827706c0ea3ebe69fd525c2e2561532b69dfc215f62e6",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Queryphenoxide is attached to a fusedNH-lactam scaffold anduses1,3-dibromopropane,not sodiumphenolate/1,8-dibromooctane.",
+        "functional_group_compatibility": "The source establishes primaryO-alkylation witharetainedterminalBr,but not the query'sadditional lactamNH andshorttether'spossible competing N-alkylation/intramolecularsecondaryclosure under the referencedrefluxconditions. A basiclocalSN2match does notsettle the combined selectivity for thissubstrate.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "RetainC,not anobservedN-alkylation orclaimO-alkylation cannotwork. NoNH is protected orremoved to force compatibility,andno75%yield is assigned to thequery."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7601736B2:example16:methoxy-dimethylnicotinonitrile",
+        "patent_id": "US7601736B2",
+        "source_url": "https://patents.google.com/patent/US7601736B2/en",
+        "document_sha256": "355ec28744e1f82ff7bb3ff4ffd2676d9ef7df86545c04fdbfa90040eab6d9d3",
+        "checked_passage": "Example 16 Synthesis of 2-methoxy-4,6-dimethyl-nicotinonitrile",
+        "locator": "Example16 normalized103665-104510,completeNaOMe/2-chloropyridine substitution/workup/2.41g99%/NMR read.69'sphenylsubstrate/95%NaOMe formulation and83% are not16 data.",
+        "source_product": "n1c(OC)c(C#N)c(C)cc1C",
+        "source_precursors": ["n1c(Cl)c(C#N)c(C)cc1C", "C[O-]", "[Na+]"],
+        "expected_exact_reaction_key": "47d90cdef2a8a56c40ed37332cc1401290eb36c381ecfa45deae6d39fbf648c7",
+        "source_conditions": "Example16:2-chloro-4,6-dimethylnicotinonitrile inanhydrousMeOH,NaOMe added0C,stir10h underN2;reactionholdtemperature notrestated. Concentrate,NH4Clneutralization,DCMextraction,Na2SO4 andsilica20%EtOAc/hexanes gives2.41g99%/NMR. PrintedNaOMe4.27g75.03mmol isretained,notreconstructed as verifiedpurity;69's95%formulation is notsilentlyassignedto16.",
+        "reported_isolated_yield_percent": 99,
+        "structural_reconciliation": "Independent pyridine-N-first graphs placeCl/OMeatC2,CNatC3,andmethylsatC4/C6;NaOMe retainsbothions. Namedsource16 graphsmatchoriginal47d90cde,not69's6-phenylordichloro82substrates.",
+        "performed_example": true, "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "858d128af4569596d4cbaa35c38337ece8473aeaf1d3234f3501de2083628c52",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Queryuses a morpholino/dichloropyridine with explicitly protonatednitro-like [N+](=O)O group;sourceuses neutralcyano/dimethylpyridine andsodiummethoxide.",
+        "functional_group_compatibility": "The source doesnotestablish retention of thisspecificcharged/protonatednitroform orselective substitution ofone ofthequery'stwoClsites underbasicNaOMe conditions. Silentnitro-neutralization orprotonremoval would change thefrozenreaction;localSNAr similarity doesnotresolve that chemical-state mismatch.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "Retainunresolvedapplicability,not a documentedfailedreaction oravalence-onlynegative. Noquerycharge,counterion,Clsite orproton isrepaired beforegrading."
+      }]
+    }
+  ]
+}

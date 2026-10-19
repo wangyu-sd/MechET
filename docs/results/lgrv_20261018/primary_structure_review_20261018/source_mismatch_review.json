@@ -1,0 +1,105 @@
+{
+  "schema": "lgrv_indexed_candidate_primary_review_v1",
+  "query_reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+  "query_reaction_smiles": "Clc1ccnc(Cl)c1.Nc1ccc(O)cc1F>>Nc1ccc(Oc2ccnc(Cl)c2)cc1F",
+  "indexed_candidate": {
+    "query_reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+    "agents": [],
+    "conditions": {
+      "conditions_are_dynamic": true,
+      "details": "See reaction.notes.procedure_details."
+    },
+    "dataset_id": "ord_dataset-90d3da23f90d8b8e992251ddce471e0a",
+    "doi": "10.6084/m9.figshare.5104873.v1",
+    "input_roles": [
+      {
+        "component_index": 0,
+        "input_name": "m1",
+        "role": "REACTANT",
+        "smiles": "ClC1=NC=CC(=C1)Cl"
+      },
+      {
+        "component_index": 0,
+        "input_name": "m2",
+        "role": "REACTANT",
+        "smiles": "FC=1C=C(C=CC1N)O"
+      }
+    ],
+    "is_mined": true,
+    "license": "CC-BY-SA-4.0",
+    "mapped_identifier_raw": "[Cl:1][C:2]1[CH:7]=[C:6](Cl)[CH:5]=[CH:4][N:3]=1.[F:9][C:10]1[CH:11]=[C:12]([OH:17])[CH:13]=[CH:14][C:15]=1[NH2:16]>>[Cl:1][C:2]1[CH:7]=[C:6]([O:17][C:12]2[CH:13]=[CH:14][C:15]([NH2:16])=[C:10]([F:9])[CH:11]=2)[CH:5]=[CH:4][N:3]=1",
+    "missing_declared_reactant_smiles": [],
+    "ord_reaction_id": "ord-94b87c3d47b0418082d8670f0ccf3bd1",
+    "outcome_index": null,
+    "patent_family": null,
+    "patent_family_status": "unresolved",
+    "patent_id": "US07790756B2",
+    "performed_example_verified": false,
+    "precursors": [
+      "[Cl:1][C:2]1[CH:7]=[C:6](Cl)[CH:5]=[CH:4][N:3]=1.[F:9][C:10]1[CH:11]=[C:12]([OH:17])[CH:13]=[CH:14][C:15]=1[NH2:16]"
+    ],
+    "procedure_available": true,
+    "procedure_sha256": "0c949f8c54be2f08e9a0500e4917244f166b3cb4c808a3976d3f29a3fbda133c",
+    "product": "[Cl:1][C:2]1[CH:7]=[C:6]([O:17][C:12]2[CH:13]=[CH:14][C:15]([NH2:16])=[C:10]([F:9])[CH:11]=2)[CH:5]=[CH:4][N:3]=1",
+    "reaction_family_key": null,
+    "reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+    "role_basis": "ORD_extracted_reaction_identifier_not_primary_verified",
+    "source_corpus": "Open Reaction Database",
+    "source_id": "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-94b87c3d47b0418082d8670f0ccf3bd1:mapped_identifier",
+    "source_locator": {
+      "dataset_file_sha256": "0647732372f4b0f2078bc4e75be532a3ea63c83c30ee958dfc36b05522dda957",
+      "dataset_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/ord_46980f8cb68aa43ed9707edec319d4eac5a2bfed/data/90/ord_dataset-90d3da23f90d8b8e992251ddce471e0a.parquet",
+      "parquet_row": 61383,
+      "reaction_id": "ord-94b87c3d47b0418082d8670f0ccf3bd1"
+    },
+    "source_url": "https://patents.google.com/patent/US07790756B2/en",
+    "training_source_overlap": "unknown",
+    "verification_status": "machine_structural_match",
+    "match_type": "exact",
+    "source_family_key": "US07790756B2",
+    "source_representation_ids": [
+      "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-94b87c3d47b0418082d8670f0ccf3bd1:mapped_identifier",
+      "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-94b87c3d47b0418082d8670f0ccf3bd1:outcome0:roles"
+    ],
+    "retrieval_status": "indexed_candidate",
+    "family_compatibility_policy": "full_stereo_local_v2",
+    "representation_inventory": "encountered before distinct-source cap"
+  },
+  "checked_named_source": {
+    "source_id": "US7790756B2:exampleA26:positional-isomer-review",
+    "source_url": "https://patents.google.com/patent/US7790756B2/en",
+    "document_sha256": "dc4e102abbe33296853c6cb61fc76289ecbb4486751adea87f330fef6ece418a",
+    "checked_passage": "4-(2-chloropyridin-4-yloxy)-3-fluoro-phenylamine (3.2 g, 67% yield)",
+    "locator": "Example A26, first named O-arylation product, before amination of the remaining pyridyl chloride.",
+    "source_product": "Nc1cc(F)c(Oc2ccnc(Cl)c2)cc1",
+    "source_precursors": [
+      "Oc1c(F)cc(N)cc1",
+      "Clc1ccnc(Cl)c1"
+    ],
+    "expected_exact_reaction_key": "49ff55f738fd74c6c77fd9dcec0d3532f19033fce2f2beae3d8ee8be5793addb",
+    "structural_reconciliation": "Source names 2-fluoro-4-aminophenol and the aniline 3-fluoro product, whereas the retrieved extracted record and model reaction have the fluorine adjacent to the aniline NH2. This is a positional isomer, not an atom-map numbering difference.",
+    "performed_example": true,
+    "passage_checked": true,
+    "checker": "assistant_primary_source_review_20261018",
+    "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/24d5099a1f769f3bb2f09dab255519e69641077b6a2f2ff091e65c5406bb6052.json",
+    "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/24d5099a1f769f3bb2f09dab255519e69641077b6a2f2ff091e65c5406bb6052.html",
+    "raw_document_sha256": "29a85ea40be547c15bf77d041507b84473387d1106fee80b06810c074aa69e60",
+    "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/24d5099a1f769f3bb2f09dab255519e69641077b6a2f2ff091e65c5406bb6052.txt",
+    "checked_passage_sha256": "4a34477ea3da02174979b49ef5f47fb5cfb0e73829f8bc03a6c9060d5f823ee6",
+    "normalized_passage_offset": 328015,
+    "source_human_reviewed": false,
+    "whole_route_supported": false,
+    "physical_mechanism_verified": false,
+    "training_source_overlap": "unknown",
+    "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+  },
+  "checked_named_source_reaction_key": "49ff55f738fd74c6c77fd9dcec0d3532f19033fce2f2beae3d8ee8be5793addb",
+  "checked_named_source_reaction_smiles": "Clc1ccnc(Cl)c1.Nc1ccc(O)c(F)c1>>Nc1ccc(Oc2ccnc(Cl)c2)c(F)c1",
+  "assessment_for_this_source": "does_not_support_exact_generated_reaction",
+  "review_class": "source_named_fluorine_positional_isomer_differs_from_indexed_structures",
+  "query_evidence_tier_retained": "C",
+  "generated_reaction_proven_wrong": false,
+  "other_source_candidates_not_ruled_out": true,
+  "scope": "This inspected patent preparation is not an exact witness. No TierD chemical contradiction or entire-patent absence claim.",
+  "input_analysis_manifest_sha256": "e633a40221482671c180d66d864bb36db4a5d42809c10602e00bd942b08aaa41"
+}

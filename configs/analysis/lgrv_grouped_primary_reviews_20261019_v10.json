@@ -1,0 +1,325 @@
+{
+  "schema": "lgrv_explicit_grouped_primary_review_spec_v1",
+  "scope": "Thirteen additional named coupling/substitution preparations from the remaining cached-query queue. Four explicitly reviewed compatible analogues; nine unresolved substrate/state/selectivity transfers. Original candidates, full stereo, source cap and full18210 population unchanged.",
+  "frozen_analysis_manifest_sha256": "d8ec39c2f93f0c91b8d8d19f5332a2f759169caa3b0adf86c732d66299ddcf78",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "preparation": {
+        "source_id": "US8030334B2:example200a:indolyl-pyridyl-phthalimide",
+        "patent_id": "US8030334B2",
+        "source_url": "https://patents.google.com/patent/US8030334B2/en",
+        "document_sha256": "5c0aa94de2c33e762beed19bfd4fc06cf7e1067422c8f446005f880ef7c7a8a4",
+        "checked_passage": "Example 200 (a) 2-[5-(1-Methyl-1H-indol-2-yl)-pyridin-3-ylmethyl]-isoindole-1,3-dione",
+        "locator": "200a674295-674711,actual solid/MS368.09 and named precursors;full referenced100574715-575744 read.186c is a6-chloroindole analogue,not200a.",
+        "source_product": "n1cc(CN2C(=O)c3ccccc3C2=O)cc(-c2cc3ccccc3n2C)c1",
+        "source_precursors": ["n1cc(CN2C(=O)c3ccccc3C2=O)cc(Br)c1", "n1(C)c(B(O)O)cc2ccccc21"],
+        "expected_exact_reaction_key": "51d1cad5db1ff11d9c69e42fb3c29dd47f03acab3a77a6353eb2464e0026d867",
+        "source_conditions": "200a bromopyridylmethylphthalimide186b/N-methylindole2boronicacid by100,solid/MS368.09,no yield.100:s-Phos/K3PO4/toluene,degass30min,addPd2dba3,N2,85C3h,cool/EtOAc/silicaplug/flash.100'sdifferent aminopyridyl product is not200a's isolatedmass oryield.",
+        "structural_reconciliation": "Independent pyridine-N-first graphs retain3/5substitution,phthalimide linked throughCH2 andN-methylindoleC2donor;exact51d1cad5 indexedcandidate.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "8d0697ac656f317fa00eb06c6136677002c7057373f35949e67f88e59f5419e7",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Query couples a brominatedN-isopropylpyrazole with an aminophenoxypyridylboronic acid adjacent to pyridineN;source uses bromopyridine electrophile andN-methylindole2boronic acid.",
+        "functional_group_compatibility": "The heteroarylC-C motif is shared,butthe electrophile/donor ring roles change andthequery now requires a2-pyridylboronicacid donor. Its protodeboronation/coordination competition is not established by source200a'sindolyl donor. The freeaniline is not itself declared incompatible.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "Specificdonor/activation applicability remainsC,not a measured reactionfailure. Do not swap which ring bearsB/Br or transfer100'sconditions as a demonstrated queryrecipe."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7642264B2:example253:aminopyrimidyl-thiophene",
+        "patent_id": "US7642264B2",
+        "source_url": "https://patents.google.com/patent/US7642264B2/en",
+        "document_sha256": "b11d43b5ad7e5488978cde7ad422267ef48efc4138640e92819b3447cf6d7f17",
+        "checked_passage": "EXAMPLE 253 5-{5-[6-Methyl-4-(4-trifluoromethyl-phenyl)-pyridin-2-yl]-thiophen-2-yl}-pyrimidin-2-ylamine",
+        "locator": "253545164-545657 complete precursors/yellow45mg21%/MS413.2/mp>250C;GeneralVI213218-214269 fullyread.",
+        "source_product": "n1cc(-c2ccc(-c3cc(-c4ccc(C(F)(F)F)cc4)cc(C)n3)s2)cnc1N",
+        "source_precursors": ["n1cc(B2OC(C)(C)C(C)(C)O2)cnc1N", "s1c(-c2cc(-c3ccc(C(F)(F)F)cc3)cc(C)n2)ccc1Br"],
+        "expected_exact_reaction_key": "53c6c5f91daea65c00dd4d0c0376481f7659be97ce6e611a671e37f79a01aaec",
+        "source_conditions": "253:bromothienylpyridineE86+2-amino5-pyrimidylBpin,GeneralVI,yellow45mg21%,MS413.2,mp>250C. VI:Pd(PPh3)4/1MaqNa2CO3,DME OR dioxane,reflux~18h,cool/icewater/EtOAc/brine/MgSO4/silica/crystallization. Generic solvent andloading ranges remain ranges;not a uniquely measured253 solvent.",
+        "reported_isolated_yield_percent": 21,
+        "structural_reconciliation": "Independent aminopyrimidine-N-first graphs retain2-amino5-Bpin donor and5-bromothiophene attached to6-methyl4-CF3phenylPYRIDINE,not similarly namedpyrimidine analogues;exact53c6c5f9.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "fbacae61732010cd65b076783845981792caa887dec5eb5b3ad1f4d35c759b64",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Query couplesparaFphenylBpin at a bromothiophene while retaining a separate benzoylarylBr andarylCl. Source hasone thiopheneBr andan aminopyrimidylBpin donor.",
+        "functional_group_compatibility": "Actual thienylBr/Bpin coupling is established,butsource253 doesnot resolve thequery'scompetition between twoC-Br electrophiles. A sharedthiophene handle is not evidence of exclusive sitechoice onthebenzoyl substrate.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "Unresolved selectivity,not a prediction that theotherBr necessarilyreacts. No halide deletion,21%yield transfer or symbolic-arrow validation."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7705023B2:example48g:indolyl-bromopyrimidine",
+        "patent_id": "US7705023B2",
+        "source_url": "https://patents.google.com/patent/US7705023B2/en",
+        "document_sha256": "d79025e389b4922387fb68228e1cb56d1a7718f2a51e1b5ac1725d9b1b3f72d2",
+        "checked_passage": "(g) 5-(5-Bromopyrimidin-2-yl)-1-(4-cyclopentoxyphenyl)-1H-indole-2-carboxylic acid ethyl ester",
+        "locator": "48g211342-211696 explicitly states prepared from48dBpin/48f2,5-dibromopyrimidine by8b;full8b162001-162623 read.48h hydrolysis is a different product;no g-specific yield or spectrum printed.",
+        "source_product": "n1(-c2ccc(OC3CCCC3)cc2)c(C(=O)OCC)cc2cc(-c3ncc(Br)cn3)ccc21",
+        "source_precursors": ["n1(-c2ccc(OC3CCCC3)cc2)c(C(=O)OCC)cc2cc(B3OC(C)(C)C(C)(C)O3)ccc21", "n1cc(Br)cnc1Br"],
+        "expected_exact_reaction_key": "5b6ba7f7f4dab37b7107a0cb5a8161d1ef5ef4e1a09f709882ca772587c779a0",
+        "source_conditions": "48g explicitly reports preparation oftheethylester by8b from2,5-dibromopyrimidine/48dindolylBpin;individual g yield/spectrum unstated.8b:Pd(PPh3)4/2MNa2CO3/EtOH/toluene80C2h,additionalPd(PPh3)4 then16h,EtOAc/brine/MgSO4/chromatography.8b's247mg77% is not48g'syield;48h'sacid data are notester measurements.",
+        "structural_reconciliation": "Independent indole-N-first graphs retainN-para-cyclopentoxyphenyl,ethyl2-carboxylate,C5donor andpyrimidine2-coupling/5-Brretention;exact5b6ba7f7. Source48g is an explicitpast-tense namedpreparation,not a conditionalclaim or borrowed48h yield.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "de7daf1470766dca196477a45f4c5e964a8e4199bf9c1b14282b6a1d22bb43c7",
+        "expected_tier": "B", "analogue_compatibility_checked": true,
+        "substrate_differences": "Query uses a4-(configuredmethylmorpholinyl)-2-bromopyrimidine andpara-methoxycarbonylaminophenylBpin,not2,5-dibromopyrimidine andindolylBpin. The existingmorpholine stereocentre is remote from thecoupling bond.",
+        "functional_group_compatibility": "Both form aryl-pyrimidineC2 bonds from activatedC2-Br/Bpin. Query hasoneBr andretainedcarbamate/tertiarymorpholine spectator classes;theamino substituent canalterrates butdoesnot require a different bond-forming mechanism or generate a competinghalide site. The source actually retains asecondBr,whereasquery doesnotrequire thatselectivity. Compatible scopednetSuzuki analogue.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "Queryinput/output configuredmorpholine centre is preserved,not created or assigned by theachiral source. No g-specificyield is invented;conversion,rate andstereochemicalintegrity remain unmeasuredquery outcomes."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US6417202B1:example51:fluorophenyl-pyrrole",
+        "patent_id": "US6417202B1",
+        "source_url": "https://patents.google.com/patent/US6417202B1/en",
+        "document_sha256": "6ba140599bd3b5e007ea0a94d6b655ab38d6cf95bbbd0bae7666855580023d5e",
+        "checked_passage": "Example 51 3-Acetyl-2-(4-fluorophenyl)4-methyl-5-(4-pyridyl)-1H-pyrrole",
+        "locator": "51160544-161276 actualBr/paraFboronic substitution,mp202-203/NMR/IR/MS294/elementalanalysis;46step3full155144-156479 read.",
+        "source_product": "[nH]1c(-c2ccc(F)cc2)c(C(C)=O)c(C)c1-c1ccncc1",
+        "source_precursors": ["[nH]1c(Br)c(C(C)=O)c(C)c1-c1ccncc1", "B(O)(O)c1ccc(F)cc1"],
+        "expected_exact_reaction_key": "5df7957fd7fc797174807e61c4483a80f354bb8d55246d4368b2b696e7b8d155",
+        "source_conditions": "51 bromopyrrole/4-Fphenylboronicacid via46step3,mp202-203C/IR/NMR/MS294/elementalanalysis,no%yield.46step3:PdCl2(PPh3)2/DME/saturatedaqNaHCO3,N2,reflux12h,EtOAc/water,HCl extraction,10%KOHtopH8,DCM/MgSO4/silica.46's42mg30% belongs toitsdifferentphenyl/pyridylproduct,not51.",
+        "structural_reconciliation": "Independent pyrrole-NH-first graphs retainacetyl/methyl/pyrid4yl pattern,C2Br andparaFphenylboronic acid;exact5df7957f. Reversedpyrrole naming in46doesnot change51's explicitly namedgraphs.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "1dfb0b3a2a613f6d70b69ec7a02a2e200a5e7d8e43abfdf70ab5862a10cebbaf",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Query has bromopyrazole/phenylboronicacid andan explicit[NH2+]benzamide ontheheterocycle,not neutralacetylpyrrole/paraFdonor.",
+        "functional_group_compatibility": "Source establishes unprotectedNH heteroarylBr coupling,butthequery's protonatedamide state is not shown retained throughcarbonate/KOH acid-base workup. The extra ringN is also a changed substrate,not evidence that neutralizing theamide is permitted.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "C retains supplied-state uncertainty,not a documentedunsuccessful coupling. No proton,charge orheterocyclicN is removed to obtain a positivegrade."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7482345B2:example23:biphenyl-pyridopyridazinone",
+        "patent_id": "US7482345B2",
+        "source_url": "https://patents.google.com/patent/US7482345B2/en",
+        "document_sha256": "78fd0027ecfc1cfd6b50be50905477b0e74f1ea98b5490e16fe90ebe7b6910fa",
+        "checked_passage": "EXAMPLE-23 2-biphenyl-2-yl-5-(2,6-difluorophenyl)-6H-pyrido[1,2-b]pyridazin-6-one",
+        "locator": "23131464-132501 complete named chloride/biphenylboronic recipe,isolation/NMR/MS411.1;printed mass/mmol inconsistencies retained rather than silentlycorrected.",
+        "source_product": "n1c(-c2ccccc2-c2ccccc2)ccc2c(-c3c(F)cccc3F)c(=O)ccn12",
+        "source_precursors": ["n1c(Cl)ccc2c(-c3c(F)cccc3F)c(=O)ccn12", "B(O)(O)c1ccccc1-c1ccccc1"],
+        "expected_exact_reaction_key": "661452e8c858a5b91f999e128035cddb81d87b2dd2e037f34051190dd73e521e",
+        "source_conditions": "23 chloro-pyridopyridazinone+biphenyl2boronicacid,'Tetrakis',N2purge,toluene/EtOH/2MNa2CO3,90C1h,concentrate/H2O-EtOAc/HCl/brine/MgSO4/silica,givesNMR/MS411.1,no isolatedyield. Printedsubstrate50g0.17mmol andTetrakis19.6g0.017mmol are inconsistent;not repaired to claimedvalidatedcatalystloadings.",
+        "structural_reconciliation": "Independent diazine-N-first graphs retainfusedpyridopyridazinone,C2Cl and5(2,6difluorophenyl),withortho-biphenylboronicacid donor;exact661452e8.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "7984b2c5c3697f1f03973ad4c402b9a67733c585ea9dbbb68a4366d7076db04a",
+        "expected_tier": "B", "analogue_compatibility_checked": true,
+        "substrate_differences": "Query uses an amino-substitutedchloropyridazine andphenolicarylboronicacid bearingaminopyrazole,witha secondarypiperidineNH;source is afusedpyridopyridazinonechloride/biphenyl2boronicacid.",
+        "functional_group_compatibility": "Both couple arylboronic acid at a diazineC-Cl electrophile. Query preserves a singlechloride handle;phenol,NH/amine andaminopyrazole are carbonate-compatible spectatorclasses anddo notrequire an additionalbondchange. Aza/amine coordination canaffectrate butisnot alone evidence of incompatibility. This supplies a scopednetSuzuki analogue,not measuredvalidation ofthecombinedsubstrate or exactsource recipe.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "No yield,validatedPd loading oroptimizedcycle is transferred;sourceprinteduniterrorsremainvisible. Query hasno newly specifiedstereochemistry;sideproducts and conversionremainunmeasured."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7326732B2:compound87:chlorophenyl-furan-tetrazole-amide",
+        "patent_id": "US7326732B2",
+        "source_url": "https://patents.google.com/patent/US7326732B2/en",
+        "document_sha256": "d9ecc7d422cd4ed89b0317065645d58f7fe0edaf482355e44dcc8c6fee902583",
+        "checked_passage": "δ 4.20 (s, 2H), 6.92 (d, 1H), 7.12 (d, 1H),",
+        "locator": "Compound87(i)322839-323817 complete84Br/paraClboronic coupling,11mg10%,NMR/MS380/382;fullCommonMethods A-to-J242482ff read,fifthreactionisMethodE referencedby87. Schemeonly212420 is not substituted forworkedMethodE.",
+        "source_product": "[nH]1nnnc1Cc1cccc(NC(=O)c2ccc(-c3ccc(Cl)cc3)o2)c1",
+        "source_precursors": ["[nH]1nnnc1Cc1cccc(NC(=O)c2ccc(Br)o2)c1", "B(O)(O)c1ccc(Cl)cc1"],
+        "expected_exact_reaction_key": "768bcfa7548dbb8d2376c7f03d80436506d9311435d6e96bbfce7afb4e299683",
+        "source_conditions": "87:84bromofuranamide+4chlorophenylboronicacidbyMethodE,sodiumbicarbonateextraction,pH1HCl/EtOAc/MgSO4,MeCNtrituration/prepHPLC,11mg10%,NMR/MS380/382. MethodE:Pd(PPh3)4/Cs2CO3/toluene-MeOH,microwave120C30min150W250psi,LCMScheck/reheatifneeded,celite/EtOAc/water/Na2SO4/chromatography.87'sspecific acid-baseworkup isretained;schematicdppf alternative isnotassigned.",
+        "reported_isolated_yield_percent": 10,
+        "structural_reconciliation": "Independent tetrazole-NH-firstgraphs retainmetaCH2tetrazole-anilide,furanC2carbonyl/C5Br andparaClphenylboronicacid;exact768bcfa7.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "bd8f53e54200d505137f9b93140db2e54d425a50dd23a68042f825f5d614a116",
+        "expected_tier": "B", "analogue_compatibility_checked": true,
+        "substrate_differences": "Query couples a brominated2-aminooxazole derivative withpara-pyrrolidinylphenylboronicacid andretains asecondarytetralinol. Source is a bromofuranamide/freeNHtetrazole plusparaClphenylboronicacid.",
+        "functional_group_compatibility": "The same5-memberedO-heteroarylC-Br/arylboronic netcoupling isretained withouta secondhalide. Oxazole introduces anadditionalringN andamine/alcohol electronics,butthose carbonate-compatible spectatorclasses do notrequire different connectivity or compulsoryprotection. Source demonstrates heteroarylBr coupling in a substratewithNHamide/freeNHtetrazole functionality. Compatible analogue only;coordination canchangeyield.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "Tetralinol stereochemistry is unspecifiedin thequery andnotassigned. Source10% doesnotpredictqueryyield orprove no sideproducts;theunprotected amine/alcohol are notsilentlyprotected."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7223788B2:example308:thioanisyl-tetrahydropyridine",
+        "patent_id": "US7223788B2",
+        "source_url": "https://patents.google.com/patent/US7223788B2/en",
+        "document_sha256": "5bb43c7405fcbcec8f85c9c2fcf723a5350734b304c82370792eca46eed076d6",
+        "checked_passage": "Example 308 4-(3-Methylsulfanylphenyl)-3,6-dihydro-2H-pyridine-1-carboxylic acid [4-(3-dimethylaminopyrrolidin-1-yl)phenyl]amide",
+        "locator": "308635184-635771 namedalkenylBpin/3-bromothioanisole/productformula/MS437 read;fullO-a in292626798-627280 read. No isolatedpercentage suppliedfor308.",
+        "source_product": "N1(C(=O)Nc2ccc(N3CCC(N(C)C)C3)cc2)CCC(c2cccc(SC)c2)=CC1",
+        "source_precursors": ["N1(C(=O)Nc2ccc(N3CCC(N(C)C)C3)cc2)CCC(B2OC(C)(C)C(C)(C)O2)=CC1", "Brc1cccc(SC)c1"],
+        "expected_exact_reaction_key": "7e590099d4d24ec5399d17fda228312c11e70fadcd2111df886d95113a717f4d",
+        "source_conditions": "308 alkenylBpin+3-bromothioanisolebyO-a,productMW436.62/MS437,noyield. O-a292:toluene,'POPD'15mg/2MaqCs2CO3,microwave150C10min,concentrate/prepHPLC. CatalystcodePOPD is retained asprinted,not guessed as anotherPdcomplex;292'sdifferentchloropyridine/arylboronic substrates are notrelabelled as308.",
+        "structural_reconciliation": "Independent tetrahydropyridine-N-firstgraphs retainN-urea,alkene position,arylmetaSMe anddimethylaminopyrrolidine,matchingoriginal7e590099.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "baf99c43f63fb0dbe6d7625d47239ce68a491a0a3c97c160f548fa7166bc5e30",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Queryhas a freeNHtetrahydropyridinylBpin and anelectronrichbromoaryl-N-methylazaheterocycle;sourceBpin hasN-urea protection.",
+        "functional_group_compatibility": "308 establishesalkenylBpin/arylBr coupling,butdoesnotestablish stability/selectivity oftheunprotectedNHalkenylBpin underO-a conditions. Generaltertiaryamine tolerance in308 is notthe same as preserving a freeNHunsaturatedcyclicboronate.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "RetainC,not a demonstrateddecomposition or blanketban on freeamineSuzuki substrates. NoN-protectinggroup is added to thequery,anduncertainPOPDidentity isnotfabricated."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US8247576B2:example88B:pyrazolyl-diarylpiperidine-acid",
+        "patent_id": "US8247576B2",
+        "source_url": "https://patents.google.com/patent/US8247576B2/en",
+        "document_sha256": "19917457313605bc86319fe66690f28423e74325d3d96c1adb5450cd4bd4e66e",
+        "checked_passage": "88B. 4-(4-Carboxy-phenyl)-4-[4-(1H-pyrazol-4-yl)-phenyl]-piperidine-1-carboxylic acid tert-butyl ester",
+        "locator": "88B454001-454426 namedchlorophenyl/pyrazoleBpin preparation/MH448 read;fullreferenced1at361783-363031 read.88Acarboxylation and88CBocdeprotection aredifferentsteps.",
+        "source_product": "O=C(O)c1ccc(C2(c3ccc(-c4cn[nH]c4)cc3)CCN(C(=O)OC(C)(C)C)CC2)cc1",
+        "source_precursors": ["O=C(O)c1ccc(C2(c3ccc(Cl)cc3)CCN(C(=O)OC(C)(C)C)CC2)cc1", "B1(OC(C)(C)C(C)(C)O1)c1cn[nH]c1"],
+        "expected_exact_reaction_key": "b7d09a84a292d657aadcf45feff203175a4ca33d9aa31bf3713ab47ac7c26f42",
+        "source_conditions": "88B88Achloroarylacid+NHpyrazol4ylBpinby1,LCMSMH448,noyield.1:bis(tri-t-butylphosphine)Pd0/N2,toluene/EtOH/aqK2CO3,microwave135C15min50W,EtOAc/2NNaOH/brine/MgSO4/silicaDCM-MeOH-AcOH-H2O.1's14mg9% belongs to a differentamino diarylethane,not88B.",
+        "structural_reconciliation": "Independent carboxyl-O-firstgraphs retainquatdiarylpiperidine,N-Boc,paraacid andparaCl/pyrazol4yl;exactb7d09a84,not88Cdeprotectedpiperidine.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "5a1139aee4b366114c8c641b3da3ac52461fb019cb1c1177fba7473befc53a69",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Queryjoins a benzenoidchloroindole carrying a freeprimaryamine andalkylBr tether withN-THPpyrazolylBpin. Sourcehas a singlearylCl,N-Bocpiperidine andfreeNHpyrazole donor.",
+        "functional_group_compatibility": "ArylCl/pyrazolylBpin precedent alone doesnotsettlethequery'sretention oftheprimaryamine/alkylBr pair underbasicheatedconditions,whereintramolecularamine alkylation is anunresolvedcompetingconnectivity. Theindolechlorideactivation alsodiffers;no observedsideproduct is assumed.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "C is anapplicabilitygap,not proof of cyclization orcouplingfailure. NoalkylBr deletion,amineprotection orsource9%yield transfer."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US8378104B2:example236D:indazolyl-aminofuropyridine",
+        "patent_id": "US8378104B2",
+        "source_url": "https://patents.google.com/patent/US8378104B2/en",
+        "document_sha256": "60020287b8877c0438e94886f1078b12ddcb811326a479395add9cdc8a058305",
+        "checked_passage": "The title compound was prepared in 65% yield from 1-{4-[4-(7-amino-2-chlorofuro[2,3-c]pyridin-4-yl)-1H-pyrazol-1-yl]piperidin-1-yl}ethanone",
+        "locator": "236D453592-454624 namedchloroaminofuro[2,3-c]pyridine/THPindazoleBpin,65%/NMR/MS551.19;fullreferenced87375143-376042 read. FollowingEheading's[2,3-d] spelling discrepancy is not imported intoD'snamedgraphs.",
+        "source_product": "n1(C2CCCCO2)nc(C#N)c2cc(-c3cc4c(-c5cnn(C6CCN(C(C)=O)CC6)c5)cnc(N)c4o3)ccc21",
+        "source_precursors": ["n1c(N)c2oc(Cl)cc2c(-c2cnn(C3CCN(C(C)=O)CC3)c2)c1", "n1(C2CCCCO2)nc(C#N)c2cc(B3OC(C)(C)C(C)(C)O3)ccc21"],
+        "expected_exact_reaction_key": "bb7d19ff55a679f2bec71c59afdf6b60e9332dbae26fa681012de440d7c4bd24",
+        "source_conditions": "236D explicitly65%fromnamedchloride/THPindazoleBpin byprocedureanalogousto87,NMR/MS551.19.87:Pd(PPh3)4/1MaqNa2CO3/1,4dioxane,microwave120C60min,concentrate/MDP.87'sBoc-cleavage/TFA-saltproduct and6%yield are notassertedforTHP-protected236D;itsindividualDcharacterizationcontrols.",
+        "reported_isolated_yield_percent": 65,
+        "structural_reconciliation": "Independent indazole-N-firstgraphs retainTHP,Nitrile,C5Bpin andaminofuro[2,3-c]pyridine bearingN-acetylpiperidylpyrazole;exactbb7d19ff. SourceD'sstructure is retaineddespite adjacentEtitle'sinconsistentfusionlabel.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "41cf1f1e44fe8c7069ada0bb7e59b758e6b8ceed548f239e43e9ddeef9832ee6",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Queryhas2-chlorochromen4one andunprotected2-methylbenzimidazolylBpin;sourcehas2-chloroaminofuropyridine andN-THPindazoleBpin.",
+        "functional_group_compatibility": "Sourceestablishes C-Cl/Bpin coupling butthequery changes anazaheteroarylC-Cl into avinylicchromenoneC-Cl electrophile,witha differentunprotectedazole donor. Theworkedsource doesnotsettlethisactivation/hydrolysis-versus-couplingcontext. Thisisnotjustloss of a spectatorNprotectinggroup.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "RetainC,not observedchromenonehydrolysis or aclaimbenzimidazole cannotcouple. No sourceTHPgroup oractivatingringN is inserted into thequery."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7005432B2:example57:methoxynaphthyl-pyridazine",
+        "patent_id": "US7005432B2",
+        "source_url": "https://patents.google.com/patent/US7005432B2/en",
+        "document_sha256": "7b5ab23895b69994ad8b095207b3f0084b69e8f0cabbc3196158c2df932d22fb",
+        "checked_passage": "EXAMPLE 57 5-(1-Methoxy-naphthalen-2-yl)-3-(2-methyl-imidazol-1-yl-methyl)-pyridazine",
+        "locator": "5764423-64720 namedmethoxynaphthylBpin/chloropyridazine,MS331.4;fullgeneral1andexplicit2-67scope48162-49110 read.57'stitle is freebase,not47/48hydrochlorides.",
+        "source_product": "n1nc(Cn2ccnc2C)cc(-c2ccc3ccccc3c2OC)c1",
+        "source_precursors": ["n1nc(Cn2ccnc2C)cc(Cl)c1", "B1(OC(C)(C)C(C)(C)O1)c1ccc2ccccc2c1OC"],
+        "expected_exact_reaction_key": "bea0cff4636556510d7e01fcbbdeda62bd726e272aa1115a4556aa068eea1603",
+        "source_conditions": "57preparedfrom1-methoxynaphthyl2Bpin/5-chloro3(imidazolylmethyl)pyridazine,MS331.4,noyield. General1scopeexplicitlycovers2-67:Pd(PPh3)4/K2CO3/degasseddioxane,reflux44h,DCM/silica.1thenformsHClsalt;57'sownneutraltitle lacksHCl andnoHClcomponentisaddedtoitsindependentlynamedgraphs.1's77%isnot57yield.",
+        "structural_reconciliation": "Independent pyridazine-N-firstgraphs retaindiazine3CH2imidazole/5aryl andnaphthalene1OMe/2Bpin;exactbea0cff4.57not47's2methoxy1naphthylisomerorotherexplicitHClsalt titles.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "4d2197205f643ff0803d4936df97566031c06c9fc17dc210f4422495150b5df1",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Query couples substitutedpyridylBpin bearingCH2OH/polycyclicaminolactam with a chlorinatedN-methylpyridone/aminopyrazole;sourcecouplesnaphthylBpin withchloropyridazine.",
+        "functional_group_compatibility": "Changedchloropyridone activation andcoordinatingheteroaryl donor are notestablished bytheelectronpoor chloropyridazine/naphthylpair. SharedC-Cl/Bpin chemistryalone doesnotsettlethisspecificcombinedcontext,even thoughalcohol/aminearenotuniversallyincompatible.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "C meansunresolvedtransfer,not an observedreactionfailure. No pyridonecarbonyl orhydroxymethyl is deleted;noHClsalt orsourceyield isinvented."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7745477B2:example3f:propyl-aryl-amide",
+        "patent_id": "US7745477B2",
+        "source_url": "https://patents.google.com/patent/US7745477B2/en",
+        "document_sha256": "4ea873e103573e49146753b92d02e93297d903c0a8174339b1a2f386b9b189ef",
+        "checked_passage": "EXAMPLE 3-f N-(4-tert-butyl-benzyl)-3-chloro-N-[2-(3-fluoro-5-trifluoromethyl-phenyl)-ethyl]-5-propyl-benzamide",
+        "locator": "3f162916-163261 namesB177/n-propylboronic/MH534.3;full3160736-161611 read.3ehasnoF,3isethyl;neitheris3f.",
+        "source_product": "O=C(N(CCc1cc(F)cc(C(F)(F)F)c1)Cc1ccc(C(C)(C)C)cc1)c1cc(Cl)cc(CCC)c1",
+        "source_precursors": ["O=C(N(CCc1cc(F)cc(C(F)(F)F)c1)Cc1ccc(C(C)(C)C)cc1)c1cc(Cl)cc(Br)c1", "B(O)(O)CCC"],
+        "expected_exact_reaction_key": "c9fcbb7fddbc2efc793ac2bffbaf08c67d3b5cba9a5b1188379e40d6a1122a91",
+        "source_conditions": "3fB177arylBr+n-propylboronicacid analogousto3,MS534.3,noyield.3:Pd(OAc)2/PCy3/K3PO4/toluene-water100C3.5hN2,cool/water/EtOAc/brine/MgSO4/flash.3printedmass/mmol inconsistenciesnotcorrectedintovalidatedloadings;its192mgethylproductisnot3f'samount.",
+        "structural_reconciliation": "Independent amide-O-firstgraphs retain3/5arylBr/Cl,para-tertbutylbenzyl and3F5CF3phenethyl,N-propylC-Ccoupling,exactc9fcbb7f.3e'smissingFand3'sethyldonorarenotused.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "89d410c96b162c25788c765a9ca02bd76dd1deaf22b7504ef7e0154f97b39c59",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Querycouples3-hydroxypropylboronicacid atoneofanarylBr pair andretainsanotherarylBr pluspyrimidineCl andmultipleNHlinkages. SourcehasoneBr/oneCl andunfunctionalizedn-propylboronicacid.",
+        "functional_group_compatibility": "ActualalkylSuzukiprecedentdoesnotresolvequeryBr-vs-Br selection orcombinedaminoheterocycle/hydroxyalkyldonorcontext. SourceoneBr/Clselectivitycannotbeextendedasmeasuredselectionbetweentwo differentarylBrsites.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "No observedregioisomer orfailedcoupling asserted. QueryretainedBr/Cl/OH remainunchanged;no192mgorconversion istransferred."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US5929097:example273:vinyl-anthranilate-Stille",
+        "patent_id": "US5929097",
+        "source_url": "https://patents.google.com/patent/US5929097/en",
+        "document_sha256": "e410a5999d5bc3a402968505eff91702152fd4d92d8fc64b01071f9b8b4fd9db",
+        "checked_passage": "EXAMPLE 273 2-(4-Methoxy-benzenesulfonylamino)-3-methyl-5-vinyl-benzoic acid methyl ester",
+        "locator": "273198076-198485 actual10bromide/vinyltributyltin,500mg82%/MS362;full139142152-142768 read.264hasN-methylsulfonamide,274isreducedethylproduct.",
+        "source_product": "N(S(=O)(=O)c1ccc(OC)cc1)c1c(C)cc(C=C)cc1C(=O)OC",
+        "source_precursors": ["N(S(=O)(=O)c1ccc(OC)cc1)c1c(C)cc(Br)cc1C(=O)OC", "[Sn](CCCC)(CCCC)(CCCC)C=C"],
+        "expected_exact_reaction_key": "d5d492d49d9bc039b091d6eb7d9e442c0f9e071701772f764918ba43d4a46726",
+        "source_conditions": "273:10bromide700mg1.69mmol+vinyltributyltin0.73mL2.5mmol by139,white500mg82%,MS362.139:degassedtoluene/Pd(PPh3)4,reflux16h,celite/concentrate/silicaEtOAc-hexane.139's2.5g83%thienylproductisnot273'syield. No patentkind isguessed onto theoriginalUS5929097URL.",
+        "reported_isolated_yield_percent": 82,
+        "structural_reconciliation": "Independent sulfonamide-N-firstandtin-firstgraphs retainN-Hsulfonamide,3Me/5vinyl,methylester andvinyltributyltin;exactd5d492d4. Tinbracketnotationdoesnotimplyradicals;ordinary-valentinputreproducesexactcomponents.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "fece5401ed3edd4ccf7c4a445969c9d7377cac7c4e35dd5ce025073d29b33b3a",
+        "expected_tier": "C", "analogue_compatibility_checked": false,
+        "substrate_differences": "Queryvinylates anarylBr in amultidentatebis-diphenylphosphine/freeamine ligandscaffold;sourceissulfonamidoanthranilatebromide.",
+        "functional_group_compatibility": "SamevinylStillebondchangeisreal,butthequery'smultiplefreephosphines/aminewouldalsoactasPdligands. ThebasicPd(PPh3)4exampledoesnotestablishthatcomplexation/catalysiscontextorunchangedligandscaffold. ThisisnotageneralstatementthatphosphinesmakeStilleimpossible.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "RetainCforthespecificcoordinationcontext;noobservedpoisoning,sideproductorphosphineoxidationclaimed. No ligandgroupsareremovedtosatisfyevidence."
+      }]
+    },
+    {
+      "preparation": {
+        "source_id": "US7319099B2:example4.12a:methoxy-pyrazinyl-piperazine",
+        "patent_id": "US7319099B2",
+        "source_url": "https://patents.google.com/patent/US7319099B2/en",
+        "document_sha256": "1f34014710c2a132b870e10eb0e783c2ce33f74db6bb80ad54e00aa740d93de0",
+        "checked_passage": "(a) 6′-Methoxy-2,3,5,6-tetrahydro-[1,2′]bipyrazinyl-4-carboxylic acid tert-butyl ester",
+        "locator": "4.12a216820-217492 completechloropyrazine/NaOMe70Covernight/chromatography/colorlessfoam/MS295.3;4.12bdeprotectionand4.13triazineareseparate.",
+        "source_product": "n1c(OC)cncc1N1CCN(C(=O)OC(C)(C)C)CC1",
+        "source_precursors": ["n1c(Cl)cncc1N1CCN(C(=O)OC(C)(C)C)CC1", "[Na+]", "[O-]C"],
+        "expected_exact_reaction_key": "f25a4da9e58e703b63ea17e1f592ffee8f9f2452c8470f5bfb086ed8ff03ff25",
+        "source_conditions": "4.12a:chloropyrazinylN-Bocpiperazine1mmol inNaOMe(freshfromNa1mmol/MeOH10mL),70Covernight,concentrate/silicaDCM-MeOH99:1,colorlessfoam/MS295.3,no%yield.4.12bTFAdeprotectionand4.13'sRT1htriazine substitutionarenotassignedto4.12a.",
+        "structural_reconciliation": "Independent diazine-N-firstgraphs retainpyrazineCl/OMe,piperazineN-Boc andbothsodium/methoxideions;exactf25a4da9. Sourcepyrazineisnotadjacent4.13triazine.",
+        "performed_example": true, "passage_checked": true, "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [{
+        "query_reaction_key": "0c20de81ee40ea059fdea05f6c6e24c76fd1c45076839e2a3299309875360db2",
+        "expected_tier": "B", "analogue_compatibility_checked": true,
+        "substrate_differences": "Queryusesmethoxidewith4,6-dichloro2-(difluorobenzylthio)pyrimidine,notsodiummethoxide/chloropyrazinylN-Bocpiperazine. Querycounterion isunspecified;sourceNa+isnotinserted.",
+        "functional_group_compatibility": "BothreplaceelectronpoorazaarylC-ClbyOMe. Query4/6Clsitesarestructurallysymmetryequivalentbeforemonosubstitution;choosingeitherdoesnotintroduceanunresolvedregioisomer. Thebenzylthio/arylFgroupsarecompatibleSNArspectatorclassesfortheproposedchloridedisplacement;sourceestablishesmethoxideSNAronanalreadyamino-substituteddiazine. SpecificC-Sretentionremainsananalogueinference,notameasuredqueryresult.",
+        "stereo_compatibility_checked": true,
+        "review_limitations": "No secondsubstitution,Na+,debenzylationorqueryyieldisinferred. Equivalent4/6numberingsaretreatedasthesamegraph,notdifferentselectivitytargets. Source295.3MSand70Ccyclearenotquerymeasurements."
+      }]
+    }
+  ]
+}

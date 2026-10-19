@@ -1,0 +1,19 @@
+{
+  "schema": "lgrv_source_file_repair_summary_v1",
+  "scope": "Entire previously failing ORD source file, not a model experiment or whole-corpus completion",
+  "source_file": "data/0c/ord_dataset-0c0a93e5eb286a8fa697b1fdd8231f85.parquet",
+  "source_sha256": "22299d4b5c8236fbdefb4fa33eeb9ca1e5d906a8b4545b186fe218b24060852f",
+  "complete": true,
+  "source_rows": 70725,
+  "indexed_structure_records": 129079,
+  "invalid_representation_records_logged": 16,
+  "exact_record_previously_crashing_retained": true,
+  "ord_reaction_id": "ord-bbd8fc960495476d8ef6e1a1b41ce03d",
+  "reaction_key": "83019cf8c98a98064f58d57f0e39f8c8d2fba8330916b0e1593cc317e62fbfca",
+  "reaction_family_key": null,
+  "index_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/derived/literature/ord_lgrv_46980f8_repair_20261018/ord_dataset-0c0a93e5eb286a8fa697b1fdd8231f85.sqlite",
+  "index_sha256": "1d91b839edfcf1a93febe98d8666995f4b8c135bd0d28eabe5920e015d4fcb6d",
+  "failure_ledger_sha256": "018bc08f84f002703a41b7e484c7cecce5a4bbc8678e90ad8afc06926a482b34",
+  "whole_corpus_complete": false,
+  "primary_experimental_evidence_verified": false
+}

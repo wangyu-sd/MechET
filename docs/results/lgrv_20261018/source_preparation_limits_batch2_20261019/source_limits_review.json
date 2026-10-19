@@ -1,0 +1,179 @@
+{
+  "schema": "lgrv_source_preparation_limits_v2",
+  "complete": true,
+  "sources": [
+    {
+      "source_id": "US7745646B2:example61:indexed-acetate-preparation-limit",
+      "source_url": "https://patents.google.com/patent/US7745646B2/en",
+      "document_sha256": "b757e971ae4370379e1c2154e6c4251329d6e1486637822c67586d1e40140b63",
+      "witnesses": [
+        {
+          "text": "EXAMPLE 61 5-(4-(3,5-Dichloropyridin-4-ylamino)-7-methoxy-2-oxo-2H-chromen-8-yloxy)pentyl acetate",
+          "locator": "Example61 around264480ff;fulltitle,conditionalpotassiumacetate route,individualNMR/MS480.9 directlyread.",
+          "offset": 264507,
+          "sha256": "b026d75aa462bc2785e029462091522044d3f075dec5bb49bb448a510718fa3c"
+        },
+        {
+          "text": "The title compound can be prepared from potassium acetate and 8-(5-bromopentyloxy)",
+          "locator": "Example61 conditionalpreparation sentence;referenced52 at258327ff directlyread(DMSO10h,actualmethylpiperazine ratherthan acetate).",
+          "offset": 264605,
+          "sha256": "abdf056db1df895bd4a622a250c27b908c05ab3527e5603d1ade61d189dfeba2"
+        }
+      ],
+      "indexed_candidate_product": "O=c1cc(Nc2c(Cl)cncc2Cl)c2ccc(OC)c(OCCCCCOC(C)=O)c2o1",
+      "indexed_candidate_precursors": [
+        "O=c1cc(Nc2c(Cl)cncc2Cl)c2ccc(OC)c(OCCCCCBr)c2o1",
+        "CC(=O)[O-]",
+        "[K+]"
+      ],
+      "expected_candidate_reaction_key": "caffbe49d70322be0b0bc3596f007fa50d2cc2a462fe18586b20d487468f86b3",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "actual_named_product_characterization_reported": true,
+      "source_review": "Example61 provides individualproductNMR/MS480.9 butphrases the indexedKOAc route conditionally as can be prepared. Full52 is an actualmethylpiperazine substitution inDMSO10h withaqueousK2CO3/EtOAc/HPLCworkup;61doesnot separatelyreport anisolatedmass,yield orperformedKOAcoperation. Productcharacterization isnotdenied;literal preparationexecution remainsuncertain. The nearbyisolatedduringpurificationExample58sentencebelongs to59'sN-methylatedmethylester,not61;it mustnotbeassignedtotheacetate. Independentlytranscribedcoumarin/pentylacetategraphs matchonly theoriginalindexedcandidate,not proofitsrecipewasperformed.",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7e473ba9922a6a3ea07b5c5a4f42cad7e10825fa29176ccf920a437641cc40cb.json",
+      "source_receipt_sha256": "9b11d8e2fea77d199605b8945c8f2a12f04d5dd817435b3f40f0e2a7aa5b9031",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7e473ba9922a6a3ea07b5c5a4f42cad7e10825fa29176ccf920a437641cc40cb.html",
+      "raw_document_sha256": "46915cd56756ed23c9fc5820c8fd800da1919e4661092fa7fb1f4cc39d2ee02a",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7e473ba9922a6a3ea07b5c5a4f42cad7e10825fa29176ccf920a437641cc40cb.txt",
+      "candidate_experimentally_established": false,
+      "source_human_reviewed": false
+    },
+    {
+      "source_id": "US6858642B1:examples5-6:caffeic-acid-stereo-only-record-limit",
+      "source_url": "https://patents.google.com/patent/US6858642B1/en",
+      "document_sha256": "d98d47ecc9964f87a9098254f957e27ec86bd1d3ed6e5a27ff2fd99b7415211f",
+      "witnesses": [
+        {
+          "text": "EXAMPLE 5 Caffeic Acid 5-Methoxytryptamide",
+          "locator": "Example5 around63695-64810 completeacidchloride/amidepreparationread;sourceproductisanamide,notcaffeicacid.",
+          "offset": 63696,
+          "sha256": "c9b923687fb43b16f37d1f27ad124d5a278acf2ebe23d4db1d3c41fad650197a"
+        },
+        {
+          "text": "TABLE 1 Scavenging activity on DPPH radicals",
+          "locator": "Table1 around65800ff comparescaffeicacidanditsamideasassaycompounds,notacaffeicacidisomerizationexperiment.",
+          "offset": 65878,
+          "sha256": "432b0a93d6fdbb9eedcfabe467f6d2a9b81dcb67d6ea20899e479dd4140a5638"
+        }
+      ],
+      "indexed_candidate_product": "O=C(O)/C=C/c1ccc(O)c(O)c1",
+      "indexed_candidate_precursors": [
+        "O=C(O)C=Cc1ccc(O)c(O)c1"
+      ],
+      "expected_candidate_reaction_key": "e40b89a997ebab8d9605ac92159f7328847b81c8195d302d7e590e05f95d25b7",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "source_review": "Allcaffeic-acidmentionswerelocated. ActualExample5makes5-methoxytryptamide from3,4-dihydroxycinnamicacid viaSOCl2activation andaminecoupling,about60%whitecrystalswithNMR;6makesanesteranalogously. Caffeicacidappears as startingmaterial/assaycomparison. These passagesdonotestablish theindexedone-componentunspecifiedalkene-to-Ecaffeicacidreaction. Independentlyspecifiedcandidategraphs differonlyinthedoublebondstereolabel;the source'samide/estertransformationcannotbe relabelled asthatreaction.",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/8830f47a8f0e62f166c957f62ed49026302693ebc53980e629f97388fb211874.json",
+      "source_receipt_sha256": "4502a9b4cdc83b64a21b371645326e3e3f826f982387c3d1bd735e83de014815",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/8830f47a8f0e62f166c957f62ed49026302693ebc53980e629f97388fb211874.html",
+      "raw_document_sha256": "23f36092e1d55423480edb80bc9416c873f93d3d83db1a4e47b75a57adb54464",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/8830f47a8f0e62f166c957f62ed49026302693ebc53980e629f97388fb211874.txt",
+      "candidate_experimentally_established": false,
+      "source_human_reviewed": false
+    },
+    {
+      "source_id": "US7094801B2:examples81-88:salt-formation-not-E-generation",
+      "source_url": "https://patents.google.com/patent/US7094801B2/en",
+      "document_sha256": "575d2e059eead6dee164a43492a98bf459cfd631b8492891593fd96d8dee9719",
+      "witnesses": [
+        {
+          "text": "Example 88 4-{3E-[4-Methoxy-2-(2-morpholin-4-yl-ethoxy)-5-thiophen-2-yl-phenyl]-acryloyl}-benzenesulfonamide, hydrochloride",
+          "locator": "Complete88 at709575-710553:saltformationfromEx81/THF/3NHCl,darkRT30min,0.054g78%,NMR/elementalanalysis.",
+          "offset": 709575,
+          "sha256": "958956ef13aba58817dc7fdefb1402c5d63aa2b4ade7dafa613866fab9550940"
+        },
+        {
+          "text": "Example 81 4-{3E-[4-Methoxy-2-(2-morpholin-4-yl-ethoxy)-5-thiophen-2-yl-phenyl]-acryloyl}-benzenesulfonamide",
+          "locator": "Complete81 at702647-704035:parentalreadyidentifiedas3E;its82%formationisnotan88isomerizationyield.",
+          "offset": 702647,
+          "sha256": "da84de96803055c2bee1bbe4cff956fa2a4272d3973b69986a2eaee7798a7024"
+        }
+      ],
+      "indexed_candidate_product": "NS(=O)(=O)c1ccc(C(=O)/C=C/c2cc(-c3cccs3)c(OC)cc2OCCN2CCOCC2)cc1.Cl",
+      "indexed_candidate_precursors": [
+        "NS(=O)(=O)c1ccc(C(=O)C=Cc2cc(-c3cccs3)c(OC)cc2OCCN2CCOCC2)cc1",
+        "Cl"
+      ],
+      "expected_candidate_reaction_key": "1443ec152632a23fe9b70b980b3776458ff9f82a21c8c2bea371d452602ad192",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "actual_named_product_prepared": true,
+      "source_review": "Actual88isHClsaltformation ofthealready3Eparent81,with0.054g78%andproductNMR/elementalanalysis. The indexedrecordinsteadhasunspecifiedalkenegeometry ontheparentandEonlyontheproduct,andencodesthesaltasneutralparentplusCl. ThatrepresentationdoesnotproveEgeometrywasnewlycreatedin88. The independentlytranscribedindexedcandidatekeyretainsitsliteralneutralcomponents,notasilentlyrepairedionicstructure.81'sprintedprecursornamerepetitionisnotreconstructed;onlyitsactual3Etitle/parentrelationisused. Thisdoesnotdenythehydrochloridewasprepared.",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/6c83298d7c16db4eb489cbcdb1c264cfa803cba28706c95d5792735187ed6654.json",
+      "source_receipt_sha256": "730da269be0184cadb3d2af84f76c0cbfc0f9bb97f616dee7addbad89668983c",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/6c83298d7c16db4eb489cbcdb1c264cfa803cba28706c95d5792735187ed6654.html",
+      "raw_document_sha256": "80429ce0538ae4ec696902006f60fcccdbf23066072c0a606cbf8601b28acf69",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/6c83298d7c16db4eb489cbcdb1c264cfa803cba28706c95d5792735187ed6654.txt",
+      "candidate_experimentally_established": false,
+      "source_human_reviewed": false
+    }
+  ],
+  "reviews": [
+    {
+      "query_reaction_key": "2d0c314cf314dc6b96911970e57d47797a2e5f08e45e93aa6a41a69f079c7899",
+      "review_limitations": "Queryis anintramolecularhemiketal-alkoxide/bromoethylclosure toacyclicacetal,notintermolecularacetate substitution of aterminalbromopentylcoumarin. Neitherconditional61 noractual52 establishes thismolecularity,nucleophileclass orcyclicacetalconstruction. RetainCwithoutclaimingthequeryfails ordenyingthecharacterizedsourceproduct.",
+      "source_id": "US7745646B2:example61:indexed-acetate-preparation-limit",
+      "source_candidate_reaction_key": "caffbe49d70322be0b0bc3596f007fa50d2cc2a462fe18586b20d487468f86b3",
+      "original_candidate_source_ids": [
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-50e39cec057b47259a6c1e193a72dc90:mapped_identifier"
+      ],
+      "direct_patent_lookup_bindings": [],
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false
+    },
+    {
+      "query_reaction_key": "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+      "review_limitations": "GeneratedqueryonlyassignsEgeometry toanalkenenitrilenaphthylsulfurcation precursorwithunspecifiedgeometry. Sourcecaffeicacidamide/assaymentions arenotperformedprecedent forthisstereoselection,norforitschargedS/Cl/Osetting. RetainC;unspecifiedinputdoesnotmeanobservedZsubstrate,andnoisomerizationorchemicalfailureisinferred.",
+      "source_id": "US6858642B1:examples5-6:caffeic-acid-stereo-only-record-limit",
+      "source_candidate_reaction_key": "e40b89a997ebab8d9605ac92159f7328847b81c8195d302d7e590e05f95d25b7",
+      "original_candidate_source_ids": [
+        "ORD:ord_dataset-9477c7f5dc176dcc5657fe7df9476027:ord-ba6c13dc6def41ceab68579859c21fc9:mapped_identifier"
+      ],
+      "direct_patent_lookup_bindings": [
+        {
+          "original_candidate_source_id": "ORD:ord_dataset-9477c7f5dc176dcc5657fe7df9476027:ord-ba6c13dc6def41ceab68579859c21fc9:mapped_identifier",
+          "original_patent_id": "US06858642B1",
+          "original_source_url": "https://patents.google.com/patent/US06858642B1/en",
+          "lookup_patent_id": "US6858642B1",
+          "lookup_url": "https://patents.google.com/patent/US6858642B1/en",
+          "publication_kind_inferred": false,
+          "patent_family_inferred": false
+        }
+      ],
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false
+    },
+    {
+      "query_reaction_key": "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+      "review_limitations": "Thissecondoriginalcandidateisalsonotaperformedunspecified-to-EisomerizationprecedentforthenitrilenaphthylSquery. HClsaltformationandtransferofapre-existing3Elabeldonotestablishquerygeometryselection. RetainC;nosaltprotonation,stereotagorquerystabilityisrepairedorclaimedexperimentallywrong.",
+      "source_id": "US7094801B2:examples81-88:salt-formation-not-E-generation",
+      "source_candidate_reaction_key": "1443ec152632a23fe9b70b980b3776458ff9f82a21c8c2bea371d452602ad192",
+      "original_candidate_source_ids": [
+        "ORD:ord_dataset-92c79d38c8cb08545d77306934156875:ord-b854c4cccb7741fb8036de2735ec3c46:mapped_identifier"
+      ],
+      "direct_patent_lookup_bindings": [
+        {
+          "original_candidate_source_id": "ORD:ord_dataset-92c79d38c8cb08545d77306934156875:ord-b854c4cccb7741fb8036de2735ec3c46:mapped_identifier",
+          "original_patent_id": "US07094801B2",
+          "original_source_url": "https://patents.google.com/patent/US07094801B2/en",
+          "lookup_patent_id": "US7094801B2",
+          "lookup_url": "https://patents.google.com/patent/US7094801B2/en",
+          "publication_kind_inferred": false,
+          "patent_family_inferred": false
+        }
+      ],
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false
+    }
+  ],
+  "frozen_analysis_manifest_sha256": "d8ec39c2f93f0c91b8d8d19f5332a2f759169caa3b0adf86c732d66299ddcf78",
+  "review_spec_sha256": "597e9382c6c482f794ce1bb4d7cd436076333dcc3ffa04888f9fcf016022e78e",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "producer_sha256": "c0547cc0ea531cb6a0e44e4dc6cfe904d186df9791ee571f7a07b7cad54520e3",
+  "evidence_grades_changed": false,
+  "scientific_judgement_supplied_by": "explicit assistant source review, not this binder",
+  "new_model_inference": false,
+  "independent_policy_calibration": false
+}

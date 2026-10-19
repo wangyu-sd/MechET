@@ -1,0 +1,47 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "Performed source335f is independently reconciled to the original capped analogue candidate,but the query's several substrate differences and an unresolved148h method cross-reference do not justify automatic TierB. This is an explicit checked-but-unresolved review,not negative chemistry or independent policy calibration.",
+  "review_spec_sha256": "9942176a11801390fd06a37dc6ca584fc900da06613498ab862cd8750f3aa6d4",
+  "producer_sha256": "25a633795fc05f9b4e0d7d912575ab5478b3bc8b29190c731adebb2f26e7f8a6",
+  "records": [
+    {
+      "source_id": "US8618107B2:example335f:query6569547b-applicability-unresolved",
+      "patent_id": "US8618107B2",
+      "source_url": "https://patents.google.com/patent/US8618107B2/en",
+      "document_sha256": "acefaef050d4840ad27ca346bdf9dc2b078e97b8a43bd1daeee81c3d510c7125",
+      "checked_passage": "335f as a yellow solid (100 mg, 51%). LCMS: [M+H] + 680",
+      "locator": "Example335f at1127450-1128250,after335a-e and before hydrolysis to335. Whole Example148 at672958-675870 contains148a/148b;335f cites Examples148h,not an unambiguously identified procedure in this source snapshot.",
+      "source_product": "Cn1cc(-c2c(COC(C)=O)c(N3CCn4c(cc5c4CCCC5)C3=O)cc(F)c2)cc(Nc2ccc(N3CC4CN(C)CC4C3)cn2)c1=O",
+      "source_precursors": [
+        "CC1(C)OB(c2c(COC(C)=O)c(N3CCn4c(cc5c4CCCC5)C3=O)cc(F)c2)OC1(C)C",
+        "Cn1cc(Br)cc(Nc2ccc(N3CC4CN(C)CC4C3)cn2)c1=O"
+      ],
+      "expected_exact_reaction_key": "061fb909dddbfefb35c9e6df6d3d99df58c9a975d852e0fdbb6695415fff2d3d",
+      "structural_reconciliation": "Independent N-methylpyridone-first source transcription matches the original candidate exactly:5-aryl3-aminopyridyl2-pyridone,arylorthoCH2OAc/otherorthoN-lactam/metaF,and fused5-methylhexahydropyrrolopyrrole on the aminopyridyl ring. This is isolated acetyl-protected335f,not deprotected alcohol335. No query structure is substituted for the source substrate.",
+      "source_conditions": "335f uses boronate210d142mg0.29mmol and bromide335e119mg0.29mmol; isolated yellow solid100mg51%,LCMS680(M+H). Reference is Examples148h. Actual148b reports Pd(dppf)Cl2/K3PO4.3H2O/NaOAc inMeCN110 C2h for a different substrate,but its conditions are NOT silently assigned to335f because the148h pointer is unresolved. Subsequent LiOH hydrolysis to335 is a different reaction.",
+      "reported_isolated_yield_percent": 51,
+      "analogue_query_reaction_key": "6569547b41b6ec6dcfc8c34e440c807c7d39b96cdbe9ab68b7e17a78d9576842",
+      "analogue_compatibility_checked": false,
+      "substrate_differences": "Query replaces the boronate-bearing fluoro-substituted phenyl/lactam scaffold with a pyridyl/tert-butylfluorophthalazinone environment,has freeCH2OH rather thanCH2OAc,and replaces the remote fused diamine with oxetanyl piperazine. The pyridone bromide coupling center is conserved,but multiple electronic/coordination/protection changes remain.",
+      "functional_group_compatibility": "The source proves a related Suzuki-type product was isolated,not that this exact heteroaryl boronate/free alcohol/other diazine scaffold will tolerate the same conditions. The ambiguous general-method pointer additionally prevents assigning a specific condition class confidently. RetainC until a stronger source/applicability reconciliation;do not label query chemically wrong.",
+      "stereo_compatibility_checked": false,
+      "query_evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false,
+      "independent_policy_calibration": false,
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/787fc5a64e7499bd45666cf0d0dc2713d141cea5d1cb934adc7d6e062ca959a8.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/787fc5a64e7499bd45666cf0d0dc2713d141cea5d1cb934adc7d6e062ca959a8.html",
+      "raw_document_sha256": "d4759b8038c2de50c604b5943622aac67f690b3386c6c68e807d44ef437840bb",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/787fc5a64e7499bd45666cf0d0dc2713d141cea5d1cb934adc7d6e062ca959a8.txt",
+      "checked_passage_sha256": "0abd22fc75c3b46d474bfe1b6721495a115d6b0be3ee86b2a4bf13cba6b1d018",
+      "normalized_passage_offset": 1128036,
+      "source_human_reviewed": false,
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "training_source_overlap": "unknown",
+      "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+    }
+  ]
+}

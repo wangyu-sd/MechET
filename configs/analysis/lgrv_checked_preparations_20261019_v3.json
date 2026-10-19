@@ -1,0 +1,39 @@
+{
+  "scope": "Two further performed quinoline O-alkylations, independently read with the referenced Example478 procedure. Named source structures use an independently transcribed N-first quinoline traversal; source MS and absent individual yields are retained.",
+  "records": [
+    {
+      "source_id": "US7576215B2:example500:quinoline-phenol-cyclohexylmethylation",
+      "patent_id": "US7576215B2",
+      "source_url": "https://patents.google.com/patent/US7576215B2/en",
+      "document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+      "checked_passage": "EXAMPLE 500 [4-[3-(CYCLOHEXYLMETHOXY)PHENYL]-8-(TRIFLUOROMETHYL)QUINOLIN-3-YL](PHENYL)-METHANONE",
+      "locator": "Example500 around normalized offset362530, explicitly following Example478 at355689. Not the claim-list repetition or Example499's methylpentyl ether.",
+      "source_product": "n1cc(C(=O)c2ccccc2)c(-c2cccc(OCC3CCCCC3)c2)c2cccc(C(F)(F)F)c21",
+      "source_precursors": ["n1cc(C(=O)c2ccccc2)c(-c2cccc(O)c2)c2cccc(C(F)(F)F)c21", "BrCC1CCCCC1"],
+      "expected_exact_reaction_key": "376f6fccdd199ffe49b26ec2252065217f4b926399019ba5afcbf95c9f0e8d3c",
+      "source_conditions": "Example500 names the hydroxyphenyl benzoylquinoline and bromomethylcyclohexane, following Example478: cesium carbonate (source notation CsCO3), DMF,60 C14 h, reverse-phase HPLC. MS(ES)m/z490.3 is reported for Example500. Example478's batch amounts and33% yield are not assigned to Example500.",
+      "reported_isolated_yield_percent": null,
+      "structural_reconciliation": "Quinoline C3 retains benzoyl, C4 retains the meta-substituted phenyl and C8 retains CF3. Phenolic O becomes O-CH2-cyclohexyl; the linker is one methylene, not direct O-cyclohexyl or O-cyclopentyl. N-first fused-ring traversal is independently transcribed from these named positions.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019"
+    },
+    {
+      "source_id": "US7576215B2:example525:bisaryl-quinoline-benzyl-ether",
+      "patent_id": "US7576215B2",
+      "source_url": "https://patents.google.com/patent/US7576215B2/en",
+      "document_sha256": "e5214ddbe3ba97adfbe8d23e4c70cd1467f08b99764bf39d0cbfcb641531466b",
+      "checked_passage": "EXAMPLE 525 METHYL-4-[(4-{3-[3-BENZYL-8-(TRIFLUOROMETHYL)QUINOLIN-4-YL]PHENOXY}PHENOXY) METHYL]BENZOATE",
+      "locator": "Example525 around normalized offset373620, following Example478. Not Example526's subsequent ester hydrolysis, nor Example527's two-carbon-shorter methyl acetate ether.",
+      "source_product": "n1cc(Cc2ccccc2)c(-c2cccc(Oc3ccc(OCc4ccc(C(=O)OC)cc4)cc3)c2)c2cccc(C(F)(F)F)c21",
+      "source_precursors": ["n1cc(Cc2ccccc2)c(-c2cccc(Oc3ccc(O)cc3)c2)c2cccc(C(F)(F)F)c21", "BrCc1ccc(C(=O)OC)cc1"],
+      "expected_exact_reaction_key": "41ff53a115018b11cb3e79c3523e9cf1065c147c32e4512d98ff71d4f2110573",
+      "source_conditions": "Example525: bisaryl phenol0.1 g/0.0002 mole and methyl4-(bromomethyl)benzoate0.057 g/0.00024 mole, following Example478's cesium carbonate/DMF,60 C14 h/reverse-phase HPLC procedure. MS(ESI)[M+H]+620.0. No individual isolated yield stated; Example478's33% and Example526's hydrolysis conditions are not transferred.",
+      "reported_isolated_yield_percent": null,
+      "structural_reconciliation": "Quinoline has C3-benzyl (not benzoyl), C8-CF3 and C4-meta-phenyl-O-para-phenol. The terminal phenolic OH is alkylated by para-methoxycarbonylbenzyl bromide, retaining the methyl ester and both aryl-ether linkages. Source N-first structure matches the named para/meta relationships without rearranging phenyl order or hydrolyzing the ester.",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261019"
+    }
+  ]
+}

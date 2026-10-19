@@ -1,0 +1,73 @@
+{
+  "schema": "lgrv_prediction_freeze_summary_v1",
+  "complete": true,
+  "full_manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/prediction_freeze_manifest.json",
+  "full_manifest_sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+  "full_manifest_bytes": 10148796,
+  "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+  "runs": {
+    "r1_mcts_pr88": {
+      "mode": "route",
+      "denominator": 460,
+      "observed_reports": 200,
+      "pending_reports": 260
+    },
+    "r1_greedy_dynamic": {
+      "mode": "route",
+      "denominator": 460,
+      "observed_reports": 460,
+      "pending_reports": 0
+    },
+    "r1_greedy_shared": {
+      "mode": "route",
+      "denominator": 460,
+      "observed_reports": 460,
+      "pending_reports": 0
+    },
+    "mech31k_greedy_dynamic": {
+      "mode": "single",
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0
+    },
+    "mech31k_greedy_shared": {
+      "mode": "single",
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0
+    },
+    "mech31k_mcts_pr88": {
+      "mode": "single",
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0
+    }
+  },
+  "counts": {
+    "generated_reaction_steps": 26330,
+    "frozen_routes": 474,
+    "target_population": 10740
+  },
+  "unique_reaction_queries": 18210,
+  "output_files": {
+    "generated_reaction_steps.jsonl.gz": {
+      "sha256": "e93accb02c6e43533279735e6f927d8166099772420181c5c5911583411f3b5b",
+      "bytes": 6699327
+    },
+    "frozen_routes.jsonl.gz": {
+      "sha256": "489caeba5a4afd2bc0725cb6ecfce7043018da130ea06d2634f1f178d6a4936a",
+      "bytes": 189596
+    },
+    "target_population.jsonl.gz": {
+      "sha256": "a83624da7c48106a574175ddb48dd33f362ed376e2eadf3a2ed94c8806473073",
+      "bytes": 184016
+    },
+    "unique_reaction_queries.jsonl.gz": {
+      "sha256": "10cc10d41e6d7c1d28558f6ecd3620d05829553e0af393f993f1fc86239e4b31",
+      "bytes": 7104353
+    }
+  },
+  "source_progress_pr": 88,
+  "source_progress_commit": "22e5a9798376787b6d4cf44eadbdb7bc6901ac17",
+  "not_a_chemical_support_rate": true
+}

@@ -1,0 +1,62 @@
+{
+  "schema": "lgrv_explicit_grouped_primary_review_spec_v1",
+  "scope": "Four individually reviewed original capped query/source pairs for US8569331B2 Example133. Source method is Example19 step1 only;its different substrate amounts,step2deprotection andcombined60%yield are not transferred. This is source/query applicability review,not policy calibration or an experiment on generated queries.",
+  "frozen_analysis_manifest_sha256": "eec2f667f5d09b8138e9905e2f8e452f66ad03ab58baa0b3a18d7591ab1a5a5c",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "expected_query_count": 18210,
+  "sources": [
+    {
+      "preparation": {
+        "source_id": "US8569331B2:example133:pyridyl-imidazobenzodiazepine-coupling",
+        "patent_id": "US8569331B2",
+        "source_url": "https://patents.google.com/patent/US8569331B2/en",
+        "document_sha256": "38920690e6ddea1e78699b2f654d1bc4eb8771e4e8c93bf745b07fd3e75fd8bb",
+        "checked_passage": "using 2-bromo-3-phenyl-9H-benzo[f]imidazo[1,2-d]pyrido[2,3-b][1,4]diazepine and pyridin-4-ylboronic acid.",
+        "locator": "Example133 at772010-772579 names the matching product andbothcoupling partners,with1HNMR/LCMS388. Explicitreference isstep1ofExample19;complete step1at582734-583571 directlyread,notstep2acidicBocdeprotection.",
+        "source_product": "N1c2ccccc2-c2nc(-c3ccncc3)c(-c3ccccc3)n2-c2cccnc21",
+        "source_precursors": ["N1c2ccccc2-c2nc(Br)c(-c3ccccc3)n2-c2cccnc21", "B(O)(O)c1ccncc1"],
+        "expected_exact_reaction_key": "deca1a7f1c9c5b83649e7d6f148143ceccb4dfe23ea1085df09c145fac0a151d",
+        "source_conditions": "Example133 uses itsnamedheteroarylBr and4-pyridylboronicacid accordingtoExample19step1:bis(di-tert-butyl(4-dimethylaminophenyl)phosphine)dichloropalladium(II),K3PO4,DMF/water6:1,microwave160 C1h;EtOAc/waterworkup,dryNa2SO4,concentrate,HPLC. Example133reportsNMRandLC/MS388(M+H),noindividualyieldormass. Example19'sdifferentBpin/Bocsubstrateamounts,subsequentHClstepand32mg60%combinedyieldarenotassignedto133.",
+        "reported_isolated_yield_percent": null,
+        "structural_reconciliation": "IndependentdiazepineNH-firstnamedgraphretainsimidazoleC2pyridin4yl/C3phenyl,fusedpyrido[2,3-b]NHbenzodiazepine,andtheoriginalBrsite. Named4-pyridylboronicacidretainsringNpara tothecouplingcarbon. Bothsourceprecursors/productreconcileexactlytooriginalcappedcandidatedeca1a7f,nottoanyquerymolecule.",
+        "performed_example": true,
+        "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019"
+      },
+      "query_reviews": [
+        {
+          "query_reaction_key": "0886414a122dad5e3c29da110a250981d9d62bb8c87ee22be8bbd2d149591810",
+          "expected_tier": "B", "analogue_compatibility_checked": true,
+          "substrate_differences": "Querycouples4-Br-2-acetamido-5-(para-methylsulfonylphenyl)thiazolewithpara-formylphenylboronicacid,ratherthanfusedimidazoleBrand4-pyridylboronicacid.",
+          "functional_group_compatibility": "Bothconstructaheteroaryl/arylC-CbondfromtheoriginaladmissiblelocalC-Br/boronicacidpair. Sulfone,acetamideandnon-enolizablearylaldehydearecompatible spectatorclassesunderbasicPdSuzukiconditions;noobligatoryhydrolysisorredoxstepisintroduced. Source133demonstratesheteroarylboronicacid/multipleazaNHcoordinationtolerance. Thiazolesulfurandaldehydemaychangecatalystbehaviororyield;thatquery-specificperformanceisnotobservedinthissource.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Compatibleanalogueonly,notexactexperimentalqueryvalidation. DifferentS-containingheterocycleand160Cfunctionalgroupretentionremainexplicitchemicalinferences;nomesylate,acidchlorideorconfiguredstereocenterisdropped."
+        },
+        {
+          "query_reaction_key": "768db4b6ecd4d5cdba5cde4c83c4ce0499e7ec64d4327f872be36963668f1ff3",
+          "expected_tier": "B", "analogue_compatibility_checked": true,
+          "substrate_differences": "QueryusesN-isopropylaminopyrazolopyrimidineBrandN-(difluorophenylacetyl)indolinylboronicacid;sourceusesNHbenzodiazepine-fusedimidazoleBrand4-pyridylboronicacid.",
+          "functional_group_compatibility": "Preservedlocalsp2C-Br/arylboronicacidcouplingwithazaheterocyclecoordination. Queryamide,arylF,N-isopropylgroupandindolinearecompatiblewiththephosphate/DMF-waterPdconditionclass. Theexocyclicamino/azaheterocyclesmayaltercoordinationandefficiency;source133supportstherelatedcouplingclass,notameasuredqueryyield. Noadditionalleavinggroupneedsactivationorremoval.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Differentheterocycleandfreeaminogroupareexplicit;thisisacompata­bilityjudgement,notanexperimentalC-NversusC-Cselectivitymeasurement. Noconfiguredstereocenterischanged."
+        },
+        {
+          "query_reaction_key": "b2af86ae1c2244e61572d8dd1038ec7b0fb54f1be31ec32b0188627f0c4c17e2",
+          "expected_tier": "C", "analogue_compatibility_checked": false,
+          "substrate_differences": "Queryusesanaminomethylcyclobutyl/aminofusedazaheterocycleBrandphenylquinolinylboronicacid,introducingbothfreealiphaticprimaryamineandexocyclicheteroarylamine.",
+          "functional_group_compatibility": "Source133hasaringNH/azanitr​ogenenvironment,butnotthequery'scombinedfreealiphaticamine/heteroarylamine/differentfusedringandquinolinylboronatepair. Example19step1keepsitsowncyclobutylamineBoc-protected. Thatproceduredoesnotresolvecoordination/competingaminoreactivityforthisunprotectedqueryunder160Cconditions.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Notaproofthatfreeaminescannotundergothiscoupling;retainCuntilamorecloselymatchedprecedent. Unspecifiedcyclobutylrelativeconfigurationisnotinvented."
+        },
+        {
+          "query_reaction_key": "cffe07284463439cf4a341b5e09719210964fe25d3817c5a3eb134f9a964d9e0",
+          "expected_tier": "C", "analogue_compatibility_checked": false,
+          "substrate_differences": "QueryhasSEM-protectedbromoimidazole/phenylboronicacidandatertiaryaminotetheredbicyclicalkene/tertiaryalcohol;sourcehasafusedNHimidazole/4-pyridylboronicacidwithoutthisunsaturatedbicycliccontext.",
+          "functional_group_compatibility": "TheperformedsourcedoesnotestablishthespecificimidazolecouplingversustetheredalkenechemistryorSEM/complexbicyclicalcoholretentionunder160CaqueousphosphatePdconditions. Aformallymatchinglocaleditalonecannotresolveallthespectatorandcompetitiondifferences.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Unresolvedapplicability,notobservedHeckreaction,SEMcleavageorchemicalfailure. NoDgrade."
+        }
+      ]
+    }
+  ]
+}

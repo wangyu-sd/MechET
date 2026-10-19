@@ -1,0 +1,32 @@
+{
+  "unique_reaction_queries": 18210,
+  "tier_counts": {
+    "C": 18206,
+    "A": 4
+  },
+  "unique_reactions_with_index_hit": 71,
+  "source_records_retrieved": 114,
+  "source_checked_reactions": 4,
+  "source_supported_reactions": 4,
+  "primary_registry_sha256": null,
+  "primary_registry_manifests": [
+    {
+      "path": "/tmp/mechet-lgrv-fast-runtime.Umbl2f/configs/analysis/lgrv_primary_source_seed_20261018.json",
+      "sha256": "662029270bc5648545983b4315f1eccb84dec4c5e97a1a4afce8992b5e039bcc"
+    },
+    {
+      "path": "/tmp/mechet-lgrv-fast-runtime.Umbl2f/configs/analysis/lgrv_primary_sources_20261018_v2.json",
+      "sha256": "4cdbc9d61eec31992408f278a5cd81f2b6ef2cb5821992361586fd39a0dd0050"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v3.json",
+      "sha256": "75babca7abd5d2c3b1f0a83891fb1fd53746f12f213255407c0da9068977156c"
+    }
+  ],
+  "unresolved_means": "no checked supporting primary source under frozen retrieval, not impossible chemistry",
+  "remaining_work": [
+    "additional primary document checks",
+    "analogue policy validation",
+    "publication figures"
+  ]
+}

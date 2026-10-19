@@ -1,0 +1,38 @@
+{
+  "schema": "lgrv_primary_source_registry_v1",
+  "scope": "One rechecked existing pilot source, not a population validation rate",
+  "records": [
+    {
+      "source_id": "US20160022662A1:cabozantinib-free-base:acid-chloride-coupling",
+      "source_url": "https://patents.google.com/patent/US20160022662A1/en",
+      "patent_id": "US20160022662A1",
+      "patent_family_status": "single-source seed; no independent-source multiplicity claim",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ee61a49926e2c16f504b5b1ed803d4322b9356b8e3ade9038aaddaf14cdf0b52.txt",
+      "document_sha256": "e21482a424093f3679400b0645e960be423b515f90f5c3831d1471a50b436511",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ee61a49926e2c16f504b5b1ed803d4322b9356b8e3ade9038aaddaf14cdf0b52.json",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_20261018/ee61a49926e2c16f504b5b1ed803d4322b9356b8e3ade9038aaddaf14cdf0b52.html",
+      "raw_document_sha256": "d3e4ed6172d4727ebcf9228b3fd1291d629693112ea02587bb2f4d7087b0c7ff",
+      "locator": "Description, Preparation of cyclopropane-1,1-dicarboxylic acid [4-(6,7-dimethoxy-quinoline-4-yloxy)-phenyl]-amide(4-fluoro-phenyl)-amide; paragraph beginning The solution from the previous step containing; normalized-text offset130922",
+      "checked_passage": "When the reaction was complete (in approximately 20 minutes), water (653 L) was added.",
+      "checked_passage_sha256": "b3d73ca2d060b74321f2fa34c81dd82fa54fd2c63cd2fa48b279f8b2aaa21870",
+      "performed_example": true,
+      "passage_checked": true,
+      "checker": "assistant_primary_source_review_20261018",
+      "source_human_reviewed": false,
+      "source_product": "COc1cc2nccc(Oc3ccc(NC(=O)C4(C(=O)Nc5ccc(F)cc5)CC4)cc3)c2cc1OC",
+      "source_precursors": [
+        "COc1cc2nccc(Oc3ccc(N)cc3)c2cc1OC",
+        "O=C(Cl)C1(C(=O)Nc2ccc(F)cc2)CC1"
+      ],
+      "structural_reconciliation": "The explicitly named acid chloride and quinolinyl-oxy aniline in the performed preparation yield the named free-base diamide. SMILES transcribed from those named constitutional structures and reconciled with the existing PR87 source record; no benchmark reference precursor used.",
+      "source_conditions": "K2CO3; THF/water; addition not exceeding30C; reported completion approximately20min; precipitation at20-25C approximately10h",
+      "reported_isolated_product": "41.0kg; 38.1kg calculated based on loss on drying; no percentage yield inferred",
+      "conditions_match": false,
+      "training_source_overlap": "unknown",
+      "whole_route_supported": false,
+      "physical_mechanism_verified": false,
+      "scope_limit": "Only the complete structural acid-chloride/aniline coupling. Not the generated auxiliary inventory, proton-transfer order, other route edges or malate formation.",
+      "neighboring_edge_note": "The patent prepares the acid chloride with oxalyl chloride; this source does not verify the generated thionyl-chloride neighboring edge."
+    }
+  ]
+}

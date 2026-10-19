@@ -1,0 +1,506 @@
+{
+  "schema": "lgrv_source_query_analogue_gallery_v1",
+  "figures": {
+    "source_query_pair_us7855213b2_1": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us7855213b2_1.svg",
+          "sha256": "492a09a0768aeea3803c041148dfaff8ab9c4b83b4231f28334fb6dc93f746ab"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us7855213b2_1.pdf",
+          "sha256": "adb93a1437eb79e26d7719d947cb27cd132507d4ff789d94fef22e7f471dee02"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us7855213b2_1.png",
+          "sha256": "b6fdf6500e2fc4a441149e1c09be0a168608a3dee19b59ec181b5054eb8918ba"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 601,
+          "editable_text_elements": 12
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/SBGELO+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/HUPQKK+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "source": {
+        "source_id": "US7855213B2:example85:isoindolamine-heterobiaryl-coupling",
+        "patent_id": "US7855213B2",
+        "source_url": "https://patents.google.com/patent/US7855213B2/en",
+        "document_sha256": "00d9fcfad008b762af5c375aa7ad3e2a6f9d996c8010ea9c0faa63cea5cf79a4",
+        "checked_passage": "Example 85 6-Fluoro-1-[3-(5-methoxypyridin-3-yl)phenyl]-1-pyridin-4-yl-1H-isoindol-3-amine",
+        "locator": "Example85 at331770-332351,explicitly using Example82 bromophenyl isoindolamine and5-methoxypyridin3ylboronic acid by Example78/Scheme14N. Complete coupling method at325611-326600 was directly inspected;not Example81's para-methoxyphenyl substrate.",
+        "source_product": "N1=C(N)c2ccc(F)cc2C1(c1ccncc1)c1cccc(-c2cncc(OC)c2)c1",
+        "source_precursors": [
+          "N1=C(N)c2ccc(F)cc2C1(c1ccncc1)c1cccc(Br)c1",
+          "B(O)(O)c1cncc(OC)c1"
+        ],
+        "expected_exact_reaction_key": "913df9383c51bc72d03562d06152a42cb148f2ddde7533174543c45e3b4e28db",
+        "source_conditions": "Example85 reports16%yield,1H NMR andESI411(M+H). Explicit Example78 method:Pd(dppf)Cl2.CH2Cl2/Cs2CO3,DME/water/ethanol6:3:1,microwave130 C,argon,15min;cool,filter,concentrate,preparativeHPLC. Example78's own pyrimidinyl substrate,masses,catalyst loading and13.4%yield are not transferred. Example85 has no reported enantiomeric assignment;source establishes the net coupling,not microscopic electron arrows.",
+        "reported_isolated_yield_percent": 16,
+        "structural_reconciliation": "Independent endocyclic-N-first isoindol3amine transcription retains iminoN/exocyclicNH2,fused6-F,quaternary1-pyridin4yl/3-substitutedphenyl,andthe new5-methoxypyridin3yl carbon-carbon bond. Both independently named source substrates/product reconcile exactly to the original candidate key;no query molecule is substituted for the source structure.",
+        "performed_example": true,
+        "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019",
+        "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7b5ab44294f9e7e8cdce5d056adb46a46137ef18d30b8f0c0fc87818d83a44dc.json",
+        "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7b5ab44294f9e7e8cdce5d056adb46a46137ef18d30b8f0c0fc87818d83a44dc.html",
+        "raw_document_sha256": "79a2d9481621cae21f346c6021ed621eac6099d43446245cd08a2546e017ae5a",
+        "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/7b5ab44294f9e7e8cdce5d056adb46a46137ef18d30b8f0c0fc87818d83a44dc.txt",
+        "checked_passage_sha256": "36525ba62ab9531afbb16dc6c644c7265fcc8b8ea700245c172b258cdb1eed21",
+        "normalized_passage_offset": 331770,
+        "source_human_reviewed": false,
+        "whole_route_supported": false,
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "query_pairs": [
+        {
+          "query_reaction_key": "6bee7c01a6c858fb8d44c34913d5d30270be2e834c06e4d8867d925cd98458c2",
+          "expected_tier": "B",
+          "analogue_compatibility_checked": true,
+          "substrate_differences": "Source bromophenyl-isoindolamine plus5-methoxy3-pyridylboronic acid is replaced by a benzenoid bromo-N-benzylbenzimidazole plus a3-alkoxyphenylboronic acid bearing secondary alcohol/tertiary tetrahydroisoquinoline.",
+          "functional_group_compatibility": "Same aryl-Br/arylboronic-acid Suzuki carbon-carbon construction and preserved full local reacting environment. Carbonate/aqueous alcoholic conditions do not demand cleavage of ether,N-benzyl or secondary alcohol;the source reaction already tolerates metal-binding pyridyl and unprotected amino/imine functionality. The query tertiary amine/alcohol can alter catalyst speciation and yield,but presents no identified obligatory destructive reaction under this condition class. This is a chemical compatibility inference,not measured query conversion.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "No stereocenter is created or inverted at the coupling site;query alcohol stereochemistry is unspecified. Specific rate,yield,side-products and auxiliary-mixture match are unknown.",
+          "source_id": "US7855213B2:example85:isoindolamine-heterobiaryl-coupling",
+          "source_reaction_key": "913df9383c51bc72d03562d06152a42cb148f2ddde7533174543c45e3b4e28db",
+          "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-08ab382d56c848da97cc6dd5e3d72aeb:mapped_identifier",
+          "assessed_tier": "B",
+          "physical_mechanism_verified": false,
+          "evidence": {
+            "reaction_key": "6bee7c01a6c858fb8d44c34913d5d30270be2e834c06e4d8867d925cd98458c2",
+            "tier": "B",
+            "supported": true,
+            "retrieval_status": "experimental_example_checked",
+            "verification_status": "source_passage_checked",
+            "source_candidates": [],
+            "selected_source": "US7855213B2:example85:isoindolamine-heterobiaryl-coupling:query:6bee7c01a6c858fb8d44c34913d5d30270be2e834c06e4d8867d925cd98458c2",
+            "physical_mechanism_verified": false,
+            "training_source_overlap": "unknown",
+            "reason": "checked_experimental_analogue",
+            "source_url": "https://patents.google.com/patent/US7855213B2/en",
+            "locator": "Example85 at331770-332351,explicitly using Example82 bromophenyl isoindolamine and5-methoxypyridin3ylboronic acid by Example78/Scheme14N. Complete coupling method at325611-326600 was directly inspected;not Example81's para-methoxyphenyl substrate.",
+            "document_sha256": "00d9fcfad008b762af5c375aa7ad3e2a6f9d996c8010ea9c0faa63cea5cf79a4",
+            "raw_document_sha256": "79a2d9481621cae21f346c6021ed621eac6099d43446245cd08a2546e017ae5a",
+            "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+          },
+          "raw_product": "OC(COc1cccc(-c2ccc3ncn(Cc4ccccc4)c3c2)c1)CN1CCc2ccccc2C1",
+          "structural_precursors": [
+            "Brc1ccc2ncn(Cc3ccccc3)c2c1",
+            "OB(O)c1cccc(OCC(O)CN2CCc3ccccc3C2)c1"
+          ]
+        },
+        {
+          "query_reaction_key": "a624a32dbebb9a78b5d849dfc2971b77ad7fec1df4f06861cd0bf8be003f04bf",
+          "expected_tier": "B",
+          "analogue_compatibility_checked": true,
+          "substrate_differences": "Query reverses which biaryl partner bears Br/B(OH)2 relative to query6bee7c:the boronic acid is N-benzylbenzimidazolyl and the bromide is3-alkoxyphenyl bearing secondary alcohol/tertiary tetrahydroisoquinoline. The performed source uses a pyridylboronic acid and an isoindolamine-substituted aryl bromide.",
+          "functional_group_compatibility": "This is separately reviewed as a different complete precursor set. Both partners retain the standard aryl-Br/arylboronic-acid handles and compatible local aromatic carbon environment. No acid-labile group is required to survive acidic deprotection;ether,N-benzyl,secondary alcohol and neutral tertiary amine are compatible spectators under the source's weakly basic aqueous/alcoholic coupling class. Nitrogen coordination or heteroaryl protodeboronation can affect efficiency but no mandatory conflicting functional reaction is identified. Source pyridyl/amino/imine tolerance supports this inference,not exact query success.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "No stereogenic coupling center;remote alcohol unspecified. Same final biaryl as6bee7c does not make the two reactions or their experimental validation identical.",
+          "source_id": "US7855213B2:example85:isoindolamine-heterobiaryl-coupling",
+          "source_reaction_key": "913df9383c51bc72d03562d06152a42cb148f2ddde7533174543c45e3b4e28db",
+          "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-08ab382d56c848da97cc6dd5e3d72aeb:mapped_identifier",
+          "assessed_tier": "B",
+          "physical_mechanism_verified": false,
+          "evidence": {
+            "reaction_key": "a624a32dbebb9a78b5d849dfc2971b77ad7fec1df4f06861cd0bf8be003f04bf",
+            "tier": "B",
+            "supported": true,
+            "retrieval_status": "experimental_example_checked",
+            "verification_status": "source_passage_checked",
+            "source_candidates": [],
+            "selected_source": "US7855213B2:example85:isoindolamine-heterobiaryl-coupling:query:a624a32dbebb9a78b5d849dfc2971b77ad7fec1df4f06861cd0bf8be003f04bf",
+            "physical_mechanism_verified": false,
+            "training_source_overlap": "unknown",
+            "reason": "checked_experimental_analogue",
+            "source_url": "https://patents.google.com/patent/US7855213B2/en",
+            "locator": "Example85 at331770-332351,explicitly using Example82 bromophenyl isoindolamine and5-methoxypyridin3ylboronic acid by Example78/Scheme14N. Complete coupling method at325611-326600 was directly inspected;not Example81's para-methoxyphenyl substrate.",
+            "document_sha256": "00d9fcfad008b762af5c375aa7ad3e2a6f9d996c8010ea9c0faa63cea5cf79a4",
+            "raw_document_sha256": "79a2d9481621cae21f346c6021ed621eac6099d43446245cd08a2546e017ae5a",
+            "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+          },
+          "raw_product": "OC(COc1cccc(-c2ccc3ncn(Cc4ccccc4)c3c2)c1)CN1CCc2ccccc2C1",
+          "structural_precursors": [
+            "OB(O)c1ccc2ncn(Cc3ccccc3)c2c1",
+            "OC(COc1cccc(Br)c1)CN1CCc2ccccc2C1"
+          ]
+        }
+      ]
+    },
+    "source_query_pair_us8247576b2_1": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us8247576b2_1.svg",
+          "sha256": "b9a1dbebcd9d572db00dc4017733e74894dc6255deb026ac352f0f2416ad0d70"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us8247576b2_1.pdf",
+          "sha256": "0f534fac80e95af2093b5445da1567f2746db4168cab672728a6ca5576dbc2f6"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us8247576b2_1.png",
+          "sha256": "8e100330c923dc33522dbb8e3cf5b64dbf65bd64dc9ae42752bd0f29556335c0"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 540,
+          "editable_text_elements": 12
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/BDDVST+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/DBXPBJ+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "source": {
+        "source_id": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki",
+        "patent_id": "US8247576B2",
+        "source_url": "https://patents.google.com/patent/US8247576B2/en",
+        "document_sha256": "19917457313605bc86319fe66690f28423e74325d3d96c1adb5450cd4bd4e66e",
+        "checked_passage": "Example 55 4-{4-[4-(4-Chloro-phenyl)-piperidin-4-yl]-phenyl}-1H-pyrazole-3-carbonitrile",
+        "locator": "Example55 at412991-413790,explicitly referencing the complete Example1 at361783-363190 with substituted coupling substrates. Not subsequent Example56's different propylamine or a claim-only compound list.",
+        "source_product": "[nH]1nc(C#N)c(-c2ccc(C3(c4ccc(Cl)cc4)CCNCC3)cc2)c1",
+        "source_precursors": [
+          "[nH]1nc(C#N)c(Br)c1",
+          "B1(c2ccc(C3(c4ccc(Cl)cc4)CCNCC3)cc2)OC(C)(C)C(C)(C)O1"
+        ],
+        "expected_exact_reaction_key": "940b7e6a10a57ac7c1f638ed867905ea9f882dc1813138c593b0d9bdf22abf85",
+        "source_conditions": "Example55 couples4-bromo1H-pyrazole3-carbonitrile and the named arylBpin/piperidine substrate by Example1:bis(tri-tert-butylphosphine)Pd(0),K2CO3,toluene/ethanol/water,nitrogen,sealed microwave135 C15min50W,aqueous/EtOAc workup andsilica chromatography. Source55 reportsLCMS363(M+H),1H NMR;individual yield/mass not stated. Example1's14mg9%yield,substrate amounts and1mol%loading are not transferred as55-specific measurements. ArylCl,freepyrazoleNH,piperidineN andnitrile remain in the named product.",
+        "reported_isolated_yield_percent": null,
+        "structural_reconciliation": "Independent pyrazole-NH-first traversal placesCN atC3,Br/newaryl atC4,NH atN1. The arylBpin is para to quaternary piperidineC4;that carbon also bears para-chlorophenyl,piperidineN remainsNH. Named source substrates/product reconcile exactly to the original candidate key,including its unprotected N-H groups.",
+        "performed_example": true,
+        "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019",
+        "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/0f948f5bd2d7e5b69fea84badf9d30bb180e7458945afe7d242ce88ef952560b.json",
+        "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/0f948f5bd2d7e5b69fea84badf9d30bb180e7458945afe7d242ce88ef952560b.html",
+        "raw_document_sha256": "323d42c2514299ab1bc08d9fcd05e84984115b92bfc616c10c23b4a3455721a4",
+        "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/0f948f5bd2d7e5b69fea84badf9d30bb180e7458945afe7d242ce88ef952560b.txt",
+        "checked_passage_sha256": "3a35dcd0f5131c1705cf90be20d9d87cdc0fda36a72ac3aa0e085898163a47d3",
+        "normalized_passage_offset": 412991,
+        "source_human_reviewed": false,
+        "whole_route_supported": false,
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "query_pairs": [
+        {
+          "query_reaction_key": "1975e420c2322a11daca65f8bada2e16614669bb757c77f8f9486a32d86a2028",
+          "expected_tier": "B",
+          "analogue_compatibility_checked": true,
+          "substrate_differences": "Query is a benzenoid bromo/fluoro N-substituted indole carrying piperidinyl oxadiazole,with para-methylsulfonylphenylBpin;source uses bromopyrazole nitrile and a diarylpiperidine arylBpin.",
+          "functional_group_compatibility": "Both use an aryl/heteroarylC-Br and arylBpin to construct a biaryl C-C bond with the same admissible local carbon environment. Sulfone,arylF,N-substituted indole,tertiary piperidine and the oxadiazole have no obligatory cleavage under weak carbonate/aqueous alcoholic Suzuki conditions. Source55 demonstrates unprotected basic nitrogen/nitrile tolerance;the query's remote heteroatoms can affect coordination and yield,which are not predicted by the precedent.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Different heterocycle/scaffold and boronate electronics remain explicit;no exact substrate conversion,yield or every-arrow mechanism claim. No new stereogenic bond is formed.",
+          "source_id": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki",
+          "source_reaction_key": "940b7e6a10a57ac7c1f638ed867905ea9f882dc1813138c593b0d9bdf22abf85",
+          "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-35e6120038044a13ae312dc243aa12c4:mapped_identifier",
+          "assessed_tier": "B",
+          "physical_mechanism_verified": false,
+          "evidence": {
+            "reaction_key": "1975e420c2322a11daca65f8bada2e16614669bb757c77f8f9486a32d86a2028",
+            "tier": "B",
+            "supported": true,
+            "retrieval_status": "experimental_example_checked",
+            "verification_status": "source_passage_checked",
+            "source_candidates": [],
+            "selected_source": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki:query:1975e420c2322a11daca65f8bada2e16614669bb757c77f8f9486a32d86a2028",
+            "physical_mechanism_verified": false,
+            "training_source_overlap": "unknown",
+            "reason": "checked_experimental_analogue",
+            "source_url": "https://patents.google.com/patent/US8247576B2/en",
+            "locator": "Example55 at412991-413790,explicitly referencing the complete Example1 at361783-363190 with substituted coupling substrates. Not subsequent Example56's different propylamine or a claim-only compound list.",
+            "document_sha256": "19917457313605bc86319fe66690f28423e74325d3d96c1adb5450cd4bd4e66e",
+            "raw_document_sha256": "323d42c2514299ab1bc08d9fcd05e84984115b92bfc616c10c23b4a3455721a4",
+            "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+          },
+          "raw_product": "CC(C)c1noc(N2CCC(n3ccc4cc(-c5ccc(S(C)(=O)=O)cc5)c(F)cc43)CC2)n1",
+          "structural_precursors": [
+            "CC(C)c1noc(N2CCC(n3ccc4cc(Br)c(F)cc43)CC2)n1",
+            "CC1(C)OB(c2ccc(S(C)(=O)=O)cc2)OC1(C)C"
+          ]
+        },
+        {
+          "query_reaction_key": "245e753a7b8b7c40792e707beef4cc987ed5a2867aec7b6138ec85feefecde81",
+          "expected_tier": "B",
+          "analogue_compatibility_checked": true,
+          "substrate_differences": "Query couples bromo/chloro1H-indole3-carbaldehyde to an arylBpin bearing N-Boc-pyrrolidine;source is bromopyrazole nitrile plus diarylpiperidine arylBpin.",
+          "functional_group_compatibility": "Source55 provides a performed unprotectedN-H heteroaryl bromide/arylBpin coupling while retaining an aryl chloride. QueryBoc carbamate andaldehyde are compatible spectator classes under weak carbonate,short microwave Suzuki conditions;freeindoleNH is analogous to the source's unprotected heteroarylNH. Preferential use of Br over nonactivated arylCl is consistent with the source transformation. Query-specific reduction,side-products orselectivity are not experimentally measured here.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "No claim of the same ring activation or guaranteed aldehyde/Boc survival;these are chemical compatibility judgements,not direct observations of the query. Remote stereochemistry unspecified.",
+          "source_id": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki",
+          "source_reaction_key": "940b7e6a10a57ac7c1f638ed867905ea9f882dc1813138c593b0d9bdf22abf85",
+          "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-35e6120038044a13ae312dc243aa12c4:mapped_identifier",
+          "assessed_tier": "B",
+          "physical_mechanism_verified": false,
+          "evidence": {
+            "reaction_key": "245e753a7b8b7c40792e707beef4cc987ed5a2867aec7b6138ec85feefecde81",
+            "tier": "B",
+            "supported": true,
+            "retrieval_status": "experimental_example_checked",
+            "verification_status": "source_passage_checked",
+            "source_candidates": [],
+            "selected_source": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki:query:245e753a7b8b7c40792e707beef4cc987ed5a2867aec7b6138ec85feefecde81",
+            "physical_mechanism_verified": false,
+            "training_source_overlap": "unknown",
+            "reason": "checked_experimental_analogue",
+            "source_url": "https://patents.google.com/patent/US8247576B2/en",
+            "locator": "Example55 at412991-413790,explicitly referencing the complete Example1 at361783-363190 with substituted coupling substrates. Not subsequent Example56's different propylamine or a claim-only compound list.",
+            "document_sha256": "19917457313605bc86319fe66690f28423e74325d3d96c1adb5450cd4bd4e66e",
+            "raw_document_sha256": "323d42c2514299ab1bc08d9fcd05e84984115b92bfc616c10c23b4a3455721a4",
+            "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+          },
+          "raw_product": "CC(C)(C)OC(=O)N1CCC(c2ccc(-c3cc4c(C=O)c[nH]c4cc3Cl)cc2)C1",
+          "structural_precursors": [
+            "CC(C)(C)OC(=O)N1CCC(c2ccc(B3OC(C)(C)C(C)(C)O3)cc2)C1",
+            "O=Cc1c[nH]c2cc(Cl)c(Br)cc12"
+          ]
+        }
+      ]
+    },
+    "source_query_pair_us8247576b2_2": {
+      "files": {
+        "svg": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us8247576b2_2.svg",
+          "sha256": "4131963775d677320a36390d2148a69186176932e94215b17ecb4b5a130cf318"
+        },
+        "pdf": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us8247576b2_2.pdf",
+          "sha256": "305ca9c975dfc65a1dadba22370a40962dc0e811234b34f7ff8fea386e4c2971"
+        },
+        "png": {
+          "path": "docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/figures/source_query_pair_us8247576b2_2.png",
+          "sha256": "400ff610b80ff4bb96f9b6ab04eb3c0512ae05a91872737b27fb8f7ba64ba7d6"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 9,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 500,
+          "editable_text_elements": 12
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 131.9388888888889,
+          "fonts": [
+            {
+              "name": "/ZUYTTG+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/DBXPBJ+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1558,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      },
+      "source": {
+        "source_id": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki",
+        "patent_id": "US8247576B2",
+        "source_url": "https://patents.google.com/patent/US8247576B2/en",
+        "document_sha256": "19917457313605bc86319fe66690f28423e74325d3d96c1adb5450cd4bd4e66e",
+        "checked_passage": "Example 55 4-{4-[4-(4-Chloro-phenyl)-piperidin-4-yl]-phenyl}-1H-pyrazole-3-carbonitrile",
+        "locator": "Example55 at412991-413790,explicitly referencing the complete Example1 at361783-363190 with substituted coupling substrates. Not subsequent Example56's different propylamine or a claim-only compound list.",
+        "source_product": "[nH]1nc(C#N)c(-c2ccc(C3(c4ccc(Cl)cc4)CCNCC3)cc2)c1",
+        "source_precursors": [
+          "[nH]1nc(C#N)c(Br)c1",
+          "B1(c2ccc(C3(c4ccc(Cl)cc4)CCNCC3)cc2)OC(C)(C)C(C)(C)O1"
+        ],
+        "expected_exact_reaction_key": "940b7e6a10a57ac7c1f638ed867905ea9f882dc1813138c593b0d9bdf22abf85",
+        "source_conditions": "Example55 couples4-bromo1H-pyrazole3-carbonitrile and the named arylBpin/piperidine substrate by Example1:bis(tri-tert-butylphosphine)Pd(0),K2CO3,toluene/ethanol/water,nitrogen,sealed microwave135 C15min50W,aqueous/EtOAc workup andsilica chromatography. Source55 reportsLCMS363(M+H),1H NMR;individual yield/mass not stated. Example1's14mg9%yield,substrate amounts and1mol%loading are not transferred as55-specific measurements. ArylCl,freepyrazoleNH,piperidineN andnitrile remain in the named product.",
+        "reported_isolated_yield_percent": null,
+        "structural_reconciliation": "Independent pyrazole-NH-first traversal placesCN atC3,Br/newaryl atC4,NH atN1. The arylBpin is para to quaternary piperidineC4;that carbon also bears para-chlorophenyl,piperidineN remainsNH. Named source substrates/product reconcile exactly to the original candidate key,including its unprotected N-H groups.",
+        "performed_example": true,
+        "passage_checked": true,
+        "checker": "assistant_primary_source_review_20261019",
+        "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/0f948f5bd2d7e5b69fea84badf9d30bb180e7458945afe7d242ce88ef952560b.json",
+        "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/0f948f5bd2d7e5b69fea84badf9d30bb180e7458945afe7d242ce88ef952560b.html",
+        "raw_document_sha256": "323d42c2514299ab1bc08d9fcd05e84984115b92bfc616c10c23b4a3455721a4",
+        "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/0f948f5bd2d7e5b69fea84badf9d30bb180e7458945afe7d242ce88ef952560b.txt",
+        "checked_passage_sha256": "3a35dcd0f5131c1705cf90be20d9d87cdc0fda36a72ac3aa0e085898163a47d3",
+        "normalized_passage_offset": 412991,
+        "source_human_reviewed": false,
+        "whole_route_supported": false,
+        "physical_mechanism_verified": false,
+        "training_source_overlap": "unknown",
+        "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+      },
+      "query_pairs": [
+        {
+          "query_reaction_key": "5b52e438fa1f7c2f6571043229c800de424da18fff0b48026735ba1f938bab44",
+          "expected_tier": "B",
+          "analogue_compatibility_checked": true,
+          "substrate_differences": "Same bromo/chloro1H-indole3-carbaldehyde electrophile as245e753a,but its arylBpin bears a quaternary hydroxymethylcyclobutyl substituent rather than source diarylpiperidine.",
+          "functional_group_compatibility": "Individually reviewed Suzuki pairing,not inherited from245e753a. The source demonstrates unprotected heteroarylNH andarylCl retention. The query primary alcohol andaldehyde can remain under the weakly basic aqueous/alcoholic Pd coupling class,and cyclobutane is not a leaving group or ring-opening requirement of this transformation. Substrate-dependent selectivity or carbonyl side chemistry remains unknown,not asserted absent.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Compatible analogue only;not a reported reaction of this exact indole/boronate pair. No specified stereocenter is changed.",
+          "source_id": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki",
+          "source_reaction_key": "940b7e6a10a57ac7c1f638ed867905ea9f882dc1813138c593b0d9bdf22abf85",
+          "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-35e6120038044a13ae312dc243aa12c4:mapped_identifier",
+          "assessed_tier": "B",
+          "physical_mechanism_verified": false,
+          "evidence": {
+            "reaction_key": "5b52e438fa1f7c2f6571043229c800de424da18fff0b48026735ba1f938bab44",
+            "tier": "B",
+            "supported": true,
+            "retrieval_status": "experimental_example_checked",
+            "verification_status": "source_passage_checked",
+            "source_candidates": [],
+            "selected_source": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki:query:5b52e438fa1f7c2f6571043229c800de424da18fff0b48026735ba1f938bab44",
+            "physical_mechanism_verified": false,
+            "training_source_overlap": "unknown",
+            "reason": "checked_experimental_analogue",
+            "source_url": "https://patents.google.com/patent/US8247576B2/en",
+            "locator": "Example55 at412991-413790,explicitly referencing the complete Example1 at361783-363190 with substituted coupling substrates. Not subsequent Example56's different propylamine or a claim-only compound list.",
+            "document_sha256": "19917457313605bc86319fe66690f28423e74325d3d96c1adb5450cd4bd4e66e",
+            "raw_document_sha256": "323d42c2514299ab1bc08d9fcd05e84984115b92bfc616c10c23b4a3455721a4",
+            "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+          },
+          "raw_product": "O=Cc1c[nH]c2cc(Cl)c(-c3ccc(C4(CO)CCC4)cc3)cc12",
+          "structural_precursors": [
+            "CC1(C)OB(c2ccc(C3(CO)CCC3)cc2)OC1(C)C",
+            "O=Cc1c[nH]c2cc(Cl)c(Br)cc12"
+          ]
+        },
+        {
+          "query_reaction_key": "d547dbe46b94cfd68fea3e7559708105210250b55d54bae916d888596860a12f",
+          "expected_tier": "B",
+          "analogue_compatibility_checked": true,
+          "substrate_differences": "Query couples phenylBpin to5-bromo2-oxo1H-pyrimidine bearing an exocyclic chiral aminoaryl sulfonamide;source couples arylBpin to unprotected bromopyrazole nitrile.",
+          "functional_group_compatibility": "Preserved heteroarylC-Br/arylBpin C-C construction and compatible full local reacting-carbon environment. Source55 tolerates freeheteroarylNH andbasic amine. The query pyrimidinone/lactam,tertiary sulfonamide andbenzylic amino stereocenter have no obligatory cleavage or enolization under weak carbonate coupling conditions;plain phenylBpin introduces no additional reactive leaving group. Ring electronics andnitrogen coordination may alter efficiency,which remains unknown.",
+          "stereo_compatibility_checked": true,
+          "review_limitations": "Existing remote configured amino carbon is retained;coupling is atsp2 carbon anddoes not create a stereocenter. This is not an experimental epimerization or yield measurement.",
+          "source_id": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki",
+          "source_reaction_key": "940b7e6a10a57ac7c1f638ed867905ea9f882dc1813138c593b0d9bdf22abf85",
+          "original_candidate_source_id": "ORD:ord_dataset-488402f6ec0d441ca2f7d6fabea7c220:ord-35e6120038044a13ae312dc243aa12c4:mapped_identifier",
+          "assessed_tier": "B",
+          "physical_mechanism_verified": false,
+          "evidence": {
+            "reaction_key": "d547dbe46b94cfd68fea3e7559708105210250b55d54bae916d888596860a12f",
+            "tier": "B",
+            "supported": true,
+            "retrieval_status": "experimental_example_checked",
+            "verification_status": "source_passage_checked",
+            "source_candidates": [],
+            "selected_source": "US8247576B2:example55:pyrazole-carbonitrile-Suzuki:query:d547dbe46b94cfd68fea3e7559708105210250b55d54bae916d888596860a12f",
+            "physical_mechanism_verified": false,
+            "training_source_overlap": "unknown",
+            "reason": "checked_experimental_analogue",
+            "source_url": "https://patents.google.com/patent/US8247576B2/en",
+            "locator": "Example55 at412991-413790,explicitly referencing the complete Example1 at361783-363190 with substituted coupling substrates. Not subsequent Example56's different propylamine or a claim-only compound list.",
+            "document_sha256": "19917457313605bc86319fe66690f28423e74325d3d96c1adb5450cd4bd4e66e",
+            "raw_document_sha256": "323d42c2514299ab1bc08d9fcd05e84984115b92bfc616c10c23b4a3455721a4",
+            "conditions_match": "not_assessed_against_actor_auxiliary_mixture"
+          },
+          "raw_product": "CCN(c1cccc([C@@H](C)Nc2nc(=O)c(-c3ccccc3)c[nH]2)c1)S(C)(=O)=O",
+          "structural_precursors": [
+            "CC1(C)OB(c2ccccc2)OC1(C)C",
+            "CCN(c1cccc([C@@H](C)Nc2nc(=O)c(Br)c[nH]2)c1)S(C)(=O)=O"
+          ]
+        }
+      ]
+    }
+  },
+  "all_new_supported_pairs_included": true,
+  "supported_query_pairs": [
+    "6bee7c01a6c858fb8d44c34913d5d30270be2e834c06e4d8867d925cd98458c2",
+    "a624a32dbebb9a78b5d849dfc2971b77ad7fec1df4f06861cd0bf8be003f04bf",
+    "1975e420c2322a11daca65f8bada2e16614669bb757c77f8f9486a32d86a2028",
+    "245e753a7b8b7c40792e707beef4cc987ed5a2867aec7b6138ec85feefecde81",
+    "5b52e438fa1f7c2f6571043229c800de424da18fff0b48026735ba1f938bab44",
+    "d547dbe46b94cfd68fea3e7559708105210250b55d54bae916d888596860a12f"
+  ],
+  "source_files": {
+    "docs/results/lgrv_20261018/grouped_primary_review_20261019/source_family_review.json": "8e88e05385d9f28a23c4d0332cd055556806191cf0af0edc5869eb2059a636f8",
+    "configs/analysis/lgrv_primary_sources_20261019_v8.json": "555b04a50a43303f33e64b8f86e5a1a31108bcd110e776f903b28bcb6772a5ae",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v13/unique_reaction_queries_enriched.jsonl.gz": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v13/retrieval_query_contexts.jsonl.gz": "8c26978396af0f5b770d931a60edd3ce2cb3bc122fbef75a7e2549e65d08c08b",
+    "configs/figures/mechet_nmi_tree_style_v1.yaml": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26"
+  },
+  "producer_files": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/analogue_source_query_gallery_20261019_v14/render_gallery.py": "8188afabcdaf864bf680ae5c2483bdc7d9bba3f95372c39e482dfb3064d512dd",
+    "src/mechet/analysis/literature_evidence.py": "5d7a54c6bf8d963e531e86a44cc1f0d59be1208dc5b2180ccd7cdc6018a292ab",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6"
+  },
+  "visual_inspection_status": "all three actual PNGs opened and inspected: performed-source versus inferred-query labels, coupling-handle placement, retained Cl/carbonyl/Boc/alcohol/stereo, legibility and clipping checked",
+  "new_model_inference": false,
+  "physical_mechanism_verified": false,
+  "population_result": "not computed by this renderer; see separately sealed full v14 analysis",
+  "interpretation": "Performed source and generated analogue queries are distinct; TierB is not exact experimental query validation."
+}

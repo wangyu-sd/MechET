@@ -1,0 +1,106 @@
+{
+  "schema": "lgrv_full_frozen_population_summary_v1",
+  "all_frozen_reaction_queries_processed": true,
+  "all_fixed_available_reports_analyzed": true,
+  "full_R1_460_search_completed": false,
+  "analysis_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v3",
+  "analysis_manifest_sha256": "04ae5908598dae09e32b7e7d0cd3fe455f812b38f6022132391ac48343c2cc07",
+  "coverage": {
+    "unique_reaction_queries": 18210,
+    "tier_counts": {
+      "C": 18206,
+      "A": 4
+    },
+    "unique_reactions_with_index_hit": 71,
+    "source_records_retrieved": 114,
+    "source_checked_reactions": 4,
+    "source_supported_reactions": 4,
+    "primary_registry_sha256": null,
+    "primary_registry_manifests": [
+      {
+        "path": "/tmp/mechet-lgrv-fast-runtime.Umbl2f/configs/analysis/lgrv_primary_source_seed_20261018.json",
+        "sha256": "662029270bc5648545983b4315f1eccb84dec4c5e97a1a4afce8992b5e039bcc"
+      },
+      {
+        "path": "/tmp/mechet-lgrv-fast-runtime.Umbl2f/configs/analysis/lgrv_primary_sources_20261018_v2.json",
+        "sha256": "4cdbc9d61eec31992408f278a5cd81f2b6ef2cb5821992361586fd39a0dd0050"
+      },
+      {
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_primary_sources_20261018_v3.json",
+        "sha256": "75babca7abd5d2c3b1f0a83891fb1fd53746f12f213255407c0da9068977156c"
+      }
+    ],
+    "unresolved_means": "no checked supporting primary source under frozen retrieval, not impossible chemistry",
+    "remaining_work": [
+      "additional primary document checks",
+      "analogue policy validation",
+      "missing matched control preparation and extended panels",
+      "whole-goal audit"
+    ]
+  },
+  "runs": {
+    "r1_mcts_pr88": {
+      "denominator": 460,
+      "observed_reports": 200,
+      "pending_reports": 260,
+      "counts": {
+        "StockSolved@B": 199,
+        "AnyExactStepPrecedent@B": 2,
+        "AllStepExactPrecedentSolved@B": 1,
+        "PrecedentCoveredSolved@B": 1
+      }
+    },
+    "r1_greedy_dynamic": {
+      "denominator": 460,
+      "observed_reports": 460,
+      "pending_reports": 0,
+      "counts": {
+        "StockSolved@B": 38,
+        "AnyExactStepPrecedent@B": 0,
+        "AllStepExactPrecedentSolved@B": 0,
+        "PrecedentCoveredSolved@B": 0
+      }
+    },
+    "r1_greedy_shared": {
+      "denominator": 460,
+      "observed_reports": 460,
+      "pending_reports": 0,
+      "counts": {
+        "StockSolved@B": 36,
+        "AnyExactStepPrecedent@B": 0,
+        "AllStepExactPrecedentSolved@B": 0,
+        "PrecedentCoveredSolved@B": 0
+      }
+    },
+    "mech31k_greedy_dynamic": {
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0,
+      "AnySourceSupportedReaction": 1,
+      "ExactSourceSupported": 1,
+      "source_protocol": "frozen rxn_prod_min proxy DIAGNOSTIC; not stock-route planning"
+    },
+    "mech31k_greedy_shared": {
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0,
+      "AnySourceSupportedReaction": 1,
+      "ExactSourceSupported": 1,
+      "source_protocol": "frozen rxn_prod_min proxy DIAGNOSTIC; not stock-route planning"
+    },
+    "mech31k_mcts_pr88": {
+      "denominator": 3120,
+      "observed_reports": 3120,
+      "pending_reports": 0,
+      "AnySourceSupportedReaction": 1,
+      "ExactSourceSupported": 1,
+      "source_protocol": "frozen rxn_prod_min proxy DIAGNOSTIC; not stock-route planning"
+    }
+  },
+  "reference_C0_C1_C2": "Unknown for all160",
+  "new_model_inference": false,
+  "matched_compute_claim": false,
+  "ranking_is_primary": false,
+  "unresolved_is_not_chemically_incorrect": true,
+  "all_required_PR89_deliverables_complete": false
+}

@@ -1,0 +1,273 @@
+{
+  "schema": "lgrv_whole_patent_family_correction_audit_v1",
+  "complete": true,
+  "queries": 18210,
+  "conditions": 6,
+  "indexed_queries": 165,
+  "old_candidate_hits": 210,
+  "current_candidate_hits": 198,
+  "changed_candidate_lists": [
+    {
+      "query_reaction_key": "13f3b21a75e3fe325f4d21e6a3ee4b2afd1c9dc1bd7ccebefecb63e70a4d9bcc",
+      "before_source_ids": [
+        "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-8249f85d245949ea83dad7ac219c83a6:mapped_identifier",
+        "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-87676b06b1734395b1b72dd46ebf0ea9:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-0aaf46dc33d140ff97314afc6b5c8b52:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-8249f85d245949ea83dad7ac219c83a6:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-0aaf46dc33d140ff97314afc6b5c8b52:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-8249f85d245949ea83dad7ac219c83a6:mapped_identifier",
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-8249f85d245949ea83dad7ac219c83a6:outcome0:roles",
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-87676b06b1734395b1b72dd46ebf0ea9:mapped_identifier",
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-87676b06b1734395b1b72dd46ebf0ea9:outcome0:roles"
+        ],
+        [
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-0aaf46dc33d140ff97314afc6b5c8b52:mapped_identifier",
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-0aaf46dc33d140ff97314afc6b5c8b52:outcome0:roles"
+        ]
+      ]
+    },
+    {
+      "query_reaction_key": "1aaee585f3d987c87ddb52d35faf584cdbf161a1edd56f40a9a2fee06751e7eb",
+      "before_source_ids": [
+        "ORD:ord_dataset-92c79d38c8cb08545d77306934156875:ord-b854c4cccb7741fb8036de2735ec3c46:mapped_identifier",
+        "ORD:ord_dataset-9477c7f5dc176dcc5657fe7df9476027:ord-ba6c13dc6def41ceab68579859c21fc9:mapped_identifier",
+        "ORD:ord_dataset-9711b36895ef05e2fb77f0b439c5f985:ord-7e644456323c46a888438124140edea3:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-92c79d38c8cb08545d77306934156875:ord-b854c4cccb7741fb8036de2735ec3c46:mapped_identifier",
+        "ORD:ord_dataset-9477c7f5dc176dcc5657fe7df9476027:ord-ba6c13dc6def41ceab68579859c21fc9:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-92c79d38c8cb08545d77306934156875:ord-b854c4cccb7741fb8036de2735ec3c46:mapped_identifier"
+        ],
+        [
+          "ORD:ord_dataset-9477c7f5dc176dcc5657fe7df9476027:ord-ba6c13dc6def41ceab68579859c21fc9:mapped_identifier",
+          "ORD:ord_dataset-9711b36895ef05e2fb77f0b439c5f985:ord-7e644456323c46a888438124140edea3:mapped_identifier"
+        ]
+      ]
+    },
+    {
+      "query_reaction_key": "49ab91c0db29dc3a13db8e447bdf0762b34cfb1d72253cef45c5512ce2805afa",
+      "before_source_ids": [
+        "ORD:ord_dataset-30596ddbc19b4f46fb58751d65eb1982:ord-56a32166a0934fe3a82d3212243edba7:mapped_identifier",
+        "ORD:ord_dataset-9477c7f5dc176dcc5657fe7df9476027:ord-50baf22541e9461b8dcfae9a3220fbc0:mapped_identifier",
+        "ORD:ord_dataset-9711b36895ef05e2fb77f0b439c5f985:ord-6eb9ad66e2e945869de8424b027efbf1:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-520758158a8a40d68a8cb71fb1bb95a6:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-30596ddbc19b4f46fb58751d65eb1982:ord-56a32166a0934fe3a82d3212243edba7:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-520758158a8a40d68a8cb71fb1bb95a6:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-30596ddbc19b4f46fb58751d65eb1982:ord-56a32166a0934fe3a82d3212243edba7:mapped_identifier",
+          "ORD:ord_dataset-30596ddbc19b4f46fb58751d65eb1982:ord-56a32166a0934fe3a82d3212243edba7:outcome0:roles",
+          "ORD:ord_dataset-9477c7f5dc176dcc5657fe7df9476027:ord-50baf22541e9461b8dcfae9a3220fbc0:mapped_identifier",
+          "ORD:ord_dataset-9477c7f5dc176dcc5657fe7df9476027:ord-50baf22541e9461b8dcfae9a3220fbc0:outcome0:roles",
+          "ORD:ord_dataset-9711b36895ef05e2fb77f0b439c5f985:ord-6eb9ad66e2e945869de8424b027efbf1:mapped_identifier",
+          "ORD:ord_dataset-9711b36895ef05e2fb77f0b439c5f985:ord-6eb9ad66e2e945869de8424b027efbf1:outcome0:roles"
+        ],
+        [
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-520758158a8a40d68a8cb71fb1bb95a6:mapped_identifier",
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-520758158a8a40d68a8cb71fb1bb95a6:outcome0:roles"
+        ]
+      ]
+    },
+    {
+      "query_reaction_key": "7e087bef3f2af7734f7f2c559c3ddfe1fe3fa87e8a18fdbb278ffd65bc1a9aa3",
+      "before_source_ids": [
+        "ORD:ord_dataset-4b5063eddeab92294a10ead7a637f15d:ord-694825ce56844d1594245ca32d644594:mapped_identifier",
+        "ORD:ord_dataset-5c7e67eda2a18cecb036e009e11c60be:ord-f951455fa15c4bbbb8a2f1261f269ba5:mapped_identifier",
+        "ORD:ord_dataset-e4994f55eb1de3d4e9f35f0c5160f213:ord-1ef5f7aca92b4858bb6043b1dca91f6a:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-99b66a47d4f643d2a9758278cd861f55:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-4b5063eddeab92294a10ead7a637f15d:ord-694825ce56844d1594245ca32d644594:mapped_identifier",
+        "ORD:ord_dataset-5c7e67eda2a18cecb036e009e11c60be:ord-f951455fa15c4bbbb8a2f1261f269ba5:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-99b66a47d4f643d2a9758278cd861f55:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-4b5063eddeab92294a10ead7a637f15d:ord-694825ce56844d1594245ca32d644594:mapped_identifier",
+          "ORD:ord_dataset-4b5063eddeab92294a10ead7a637f15d:ord-694825ce56844d1594245ca32d644594:outcome0:roles"
+        ],
+        [
+          "ORD:ord_dataset-5c7e67eda2a18cecb036e009e11c60be:ord-f951455fa15c4bbbb8a2f1261f269ba5:mapped_identifier",
+          "ORD:ord_dataset-5c7e67eda2a18cecb036e009e11c60be:ord-f951455fa15c4bbbb8a2f1261f269ba5:outcome0:roles",
+          "ORD:ord_dataset-e4994f55eb1de3d4e9f35f0c5160f213:ord-1ef5f7aca92b4858bb6043b1dca91f6a:mapped_identifier",
+          "ORD:ord_dataset-e4994f55eb1de3d4e9f35f0c5160f213:ord-1ef5f7aca92b4858bb6043b1dca91f6a:outcome0:roles"
+        ],
+        [
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-99b66a47d4f643d2a9758278cd861f55:mapped_identifier",
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-99b66a47d4f643d2a9758278cd861f55:outcome0:roles"
+        ]
+      ]
+    },
+    {
+      "query_reaction_key": "920cb288f608ed8bf858eb65fdb4f8b40e244d3f03e2165dd7dcc606d58fd9c8",
+      "before_source_ids": [
+        "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-9157844ada5c4104ab17e9a9197e41f8:mapped_identifier",
+        "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-3cf849160b8c4879970c69d7d3e29c4b:mapped_identifier",
+        "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-f3bc54437fad4ac595a84069bb40f270:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-8f2cfa26f785440183dfb5110ad0b346:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-9157844ada5c4104ab17e9a9197e41f8:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-8f2cfa26f785440183dfb5110ad0b346:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-9157844ada5c4104ab17e9a9197e41f8:mapped_identifier",
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-3cf849160b8c4879970c69d7d3e29c4b:mapped_identifier",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-f3bc54437fad4ac595a84069bb40f270:mapped_identifier"
+        ],
+        [
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-8f2cfa26f785440183dfb5110ad0b346:mapped_identifier",
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-8f2cfa26f785440183dfb5110ad0b346:outcome0:roles"
+        ]
+      ]
+    },
+    {
+      "query_reaction_key": "995f7608989fd72c921c3ace2d4c4223bc86153b17aa7cbac4fb56e03251e477",
+      "before_source_ids": [
+        "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-94b87c3d47b0418082d8670f0ccf3bd1:mapped_identifier",
+        "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-65068ac01c7a4d3eb5b235b20b34efee:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-d23af66c679745309d407faddcba5365:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-94b87c3d47b0418082d8670f0ccf3bd1:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-d23af66c679745309d407faddcba5365:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-94b87c3d47b0418082d8670f0ccf3bd1:mapped_identifier",
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-94b87c3d47b0418082d8670f0ccf3bd1:outcome0:roles",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-65068ac01c7a4d3eb5b235b20b34efee:mapped_identifier",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-65068ac01c7a4d3eb5b235b20b34efee:outcome0:roles"
+        ],
+        [
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-d23af66c679745309d407faddcba5365:mapped_identifier",
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-d23af66c679745309d407faddcba5365:outcome0:roles"
+        ]
+      ]
+    },
+    {
+      "query_reaction_key": "a37e5b202b32538c603280e51a86f8739ca4e261ded7edc40aa7721a5b7ef6b3",
+      "before_source_ids": [
+        "ORD:ord_dataset-5481550056a14935b76e031fb94b88be:ord-541d5835e41b46a5ba8530de5830da98:mapped_identifier",
+        "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-e99f5a143b374b318ac8629b9643d607:mapped_identifier",
+        "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-73e3262856934d68af628bd8ff87f400:mapped_identifier",
+        "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-869642c7a2c24ca7ad8c1dc100779a43:mapped_identifier",
+        "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-14a6c4808a094bc89f6a167e3904ff34:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-5481550056a14935b76e031fb94b88be:ord-541d5835e41b46a5ba8530de5830da98:mapped_identifier",
+        "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-e99f5a143b374b318ac8629b9643d607:mapped_identifier",
+        "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-73e3262856934d68af628bd8ff87f400:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-5481550056a14935b76e031fb94b88be:ord-541d5835e41b46a5ba8530de5830da98:mapped_identifier",
+          "ORD:ord_dataset-5481550056a14935b76e031fb94b88be:ord-541d5835e41b46a5ba8530de5830da98:outcome0:roles"
+        ],
+        [
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-e99f5a143b374b318ac8629b9643d607:mapped_identifier",
+          "ORD:ord_dataset-90d3da23f90d8b8e992251ddce471e0a:ord-e99f5a143b374b318ac8629b9643d607:outcome0:roles"
+        ],
+        [
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-73e3262856934d68af628bd8ff87f400:mapped_identifier",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-73e3262856934d68af628bd8ff87f400:outcome0:roles",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-797eec9a38d246959cd7c783423a2574:mapped_identifier",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-797eec9a38d246959cd7c783423a2574:outcome0:roles",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-869642c7a2c24ca7ad8c1dc100779a43:mapped_identifier",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-869642c7a2c24ca7ad8c1dc100779a43:outcome0:roles",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-a5eb00c6ff4f455db01be18007521586:mapped_identifier",
+          "ORD:ord_dataset-d68bd72dc7a8c7c3db14a93e4d8f0d30:ord-a5eb00c6ff4f455db01be18007521586:outcome0:roles",
+          "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-14a6c4808a094bc89f6a167e3904ff34:mapped_identifier",
+          "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-14a6c4808a094bc89f6a167e3904ff34:outcome0:roles",
+          "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-30f7e8f1fd514f6ab8fed2ace8f13035:mapped_identifier",
+          "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-30f7e8f1fd514f6ab8fed2ace8f13035:outcome0:roles",
+          "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-9b11c448b712489b8604d8fba1345dc7:mapped_identifier",
+          "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-9b11c448b712489b8604d8fba1345dc7:outcome0:roles",
+          "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-ae14303315534b4ca868d4a433e12783:mapped_identifier",
+          "ORD:ord_dataset-f89bba9745e12c2116a5b6be9b2873ad:ord-ae14303315534b4ca868d4a433e12783:outcome0:roles"
+        ]
+      ]
+    },
+    {
+      "query_reaction_key": "c29862cecfaae6d77324c1821b826118a237a7b63af4d6a71fe8adcee7136668",
+      "before_source_ids": [
+        "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-044b47c6e852492d97180bb972a58544:mapped_identifier",
+        "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-42f8d02b49f7472094e3a266985681ac:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-044b47c6e852492d97180bb972a58544:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-044b47c6e852492d97180bb972a58544:mapped_identifier",
+          "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-044b47c6e852492d97180bb972a58544:outcome0:roles",
+          "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-42f8d02b49f7472094e3a266985681ac:mapped_identifier",
+          "ORD:ord_dataset-3d996df040a270112aabe120c3727a51:ord-42f8d02b49f7472094e3a266985681ac:outcome0:roles"
+        ]
+      ]
+    },
+    {
+      "query_reaction_key": "d222a9ab7414f74a5479fda1b557b69909b784da8610a0b7ced4a570f079444c",
+      "before_source_ids": [
+        "ORD:ord_dataset-30596ddbc19b4f46fb58751d65eb1982:ord-4996e1462a6c4bfc98d57d68efa5f360:mapped_identifier",
+        "ORD:ord_dataset-92c79d38c8cb08545d77306934156875:ord-d8317196044f43b18e04410f96291a03:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-19961aaf69244490a31482285e92dc7c:mapped_identifier"
+      ],
+      "after_source_ids": [
+        "ORD:ord_dataset-30596ddbc19b4f46fb58751d65eb1982:ord-4996e1462a6c4bfc98d57d68efa5f360:mapped_identifier",
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-19961aaf69244490a31482285e92dc7c:mapped_identifier"
+      ],
+      "retained_representation_ids": [
+        [
+          "ORD:ord_dataset-30596ddbc19b4f46fb58751d65eb1982:ord-4996e1462a6c4bfc98d57d68efa5f360:mapped_identifier",
+          "ORD:ord_dataset-92c79d38c8cb08545d77306934156875:ord-d8317196044f43b18e04410f96291a03:mapped_identifier"
+        ],
+        [
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-19961aaf69244490a31482285e92dc7c:mapped_identifier",
+          "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-19961aaf69244490a31482285e92dc7c:outcome0:roles"
+        ]
+      ]
+    }
+  ],
+  "unchanged_scientific_outputs": [
+    "unique_reaction_queries_enriched.jsonl.gz",
+    "retrieval_query_contexts.jsonl.gz",
+    "generated_reaction_steps.jsonl.gz",
+    "program_reaction_links.jsonl.gz",
+    "route_evidence.jsonl.gz"
+  ],
+  "all_reaction_grades_and_selected_sources_unchanged": true,
+  "all_six_run_route_composition_paired_efficiency_results_unchanged": true,
+  "retained_patents_without_resolved_family": [],
+  "all_current_query_family_keys_distinct": true,
+  "previous_analysis_manifest_sha256": "554f51408f658b7e54e9b3530e0256449c3f2949794ccc6d0dcece0f1759fa0c",
+  "current_analysis_manifest_sha256": "f35ab780a02025555bb92a9a7e8b08f8089e62338d2dae8121ef654cf53b84e3",
+  "family_registry_sha256": "8cee1f6e637b03151936297c4d8d59b300a3b7759263f4c3a5c4f1ffc19bde53",
+  "family_overlay": {
+    "schema": "lgrv_patent_family_overlay_v1",
+    "registry_path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/analysis/lgrv_patent_family_sources_20261019_v1.json",
+    "registry_sha256": "8cee1f6e637b03151936297c4d8d59b300a3b7759263f4c3a5c4f1ffc19bde53",
+    "producer_sha256": "496bf958f15f420e6515fed3cf1b78d3377b21ca1d99f2d2179d07e2a1e26429",
+    "document_count": 137,
+    "family_count": 103,
+    "resolved_publications": 137,
+    "unresolved_documents": 0,
+    "unknown_family_policy": "publication_fallback_explicitly_unresolved",
+    "publication_kind_inferred": false,
+    "chemical_evidence_grades_changed": false
+  },
+  "producer_sha256": "69fc0ed9056efe300f1976ca7d29ac36a5dcfc2da1432dff510eb308907e605d",
+  "new_model_inference": false
+}

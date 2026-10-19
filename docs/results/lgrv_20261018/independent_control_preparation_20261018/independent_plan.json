@@ -1,0 +1,100 @@
+{
+  "schema": "independent_complete_route_prepared_v1",
+  "prepared_only": true,
+  "new_model_inference": false,
+  "full_target_denominator": 460,
+  "paired_observed_denominator": 200,
+  "episode_counts": [
+    1,
+    4,
+    10
+  ],
+  "seed": 17,
+  "actor_weight_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17/adapter_model.safetensors",
+  "actor_weight_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+  "original_adapter_manifest_sha_field": "7fb0b73f68ad88846c5de6568a60ce00cf009f2d574729f943faea10e29ba94c",
+  "original_adapter_manifest_sha_field_matches_weights": false,
+  "source_files": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/prediction_freeze_manifest.json": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/generated_reaction_steps.jsonl.gz": "e93accb02c6e43533279735e6f927d8166099772420181c5c5911583411f3b5b",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/frozen_routes.jsonl.gz": "489caeba5a4afd2bc0725cb6ecfce7043018da130ea06d2634f1f178d6a4936a",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/target_population.jsonl.gz": "a83624da7c48106a574175ddb48dd33f362ed376e2eadf3a2ed94c8806473073",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/unique_reaction_queries.jsonl.gz": "10cc10d41e6d7c1d28558f6ecd3620d05829553e0af393f993f1fc86239e4b31",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/frozen_r1_r2_20261013/manifest.json": "76abd4f3721d34a0d4b928aa928d5c0653108a953568873f09925d7df1135b62",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/frozen_r1_r2_20261013/all_targets.jsonl": "5e2778c6fa828f25d18d2c461ab17021b4ac1519a45bf8388f7f9eb1571ed3c5",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/frozen_r1_r2_20261013/stocks/ursa_bbs_v1.txt": "d2b40f5eaffc6d21d1db347f2f2685c0fb06c89fa76ba9c293beb84c624e73d2",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/frozen_r1_r2_20261013/stocks/buyables_publication.txt": "5a54e8c5a3d28bfd5ca09d0017c157ed357659797a09483de1b1a259b9b858cd",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/frozen_r1_r2_20261013/stocks/n5_publication.txt": "0a96cb8c5f2115d94e4c9a299b1085f76c9afbfa6ef5e89178d29b5cce434c59",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17/adapter_model.safetensors": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17/adapter_manifest.json": "691a25b1be9cd5a556125871297d68c27881c784ff35c828fad3bf5b0b0da372",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17/data_contract.json": "3a870c87d4de6276cc75faece10567986d8bd5491d3c8bb993d15a39ea37dad0",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17/adapter_config.json": "58927216a1cd20026a20ac7764919803de2d5d9d4bf6609d2f9bf405aa4f701f",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/manifest.json": "848ec6f0c1e82a48565069dd593950e77bb7445e651cb63467e133b05a298949",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/manifest.json": "a1108a2e239e1c54dc44e2c6fd3441ef0af43704316468f8a6238eeda0b69665",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/manifest.json": "53a5aac8e2961302d82865b8da25e4ca07da575be247d955d6d5ec4d1d0b8fb8",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/manifest.json": "ff92129a24892f3bd10e72d7f290bb1babbf82e4994f58c57c8f52dde182821f",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/manifest.json": "70d14cb03b3cb7f54e4fd2072efa5a33f2d4dca0d0a7d8180c493c676422438d",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/manifest.json": "525fdfb0fbd6fd6b3bbb757305ba9a529d2e27b675390aeb83d4c1aa3ae60651",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/manifest.json": "9a8b69e89186f41adefadefff3b20ec7b9d6638093a4261e7dfc46e388209598",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/manifest.json": "4b85c7c62bac8f13118b03e3dcb9a2c343938bb04fe1a0384844bfbd01be146a"
+  },
+  "original_actor_headers": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/manifest.json": {
+      "sha256": "848ec6f0c1e82a48565069dd593950e77bb7445e651cb63467e133b05a298949",
+      "rank": 0
+    },
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/manifest.json": {
+      "sha256": "a1108a2e239e1c54dc44e2c6fd3441ef0af43704316468f8a6238eeda0b69665",
+      "rank": 1
+    },
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/manifest.json": {
+      "sha256": "53a5aac8e2961302d82865b8da25e4ca07da575be247d955d6d5ec4d1d0b8fb8",
+      "rank": 2
+    },
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/manifest.json": {
+      "sha256": "ff92129a24892f3bd10e72d7f290bb1babbf82e4994f58c57c8f52dde182821f",
+      "rank": 3
+    },
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/manifest.json": {
+      "sha256": "70d14cb03b3cb7f54e4fd2072efa5a33f2d4dca0d0a7d8180c493c676422438d",
+      "rank": 4
+    },
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/manifest.json": {
+      "sha256": "525fdfb0fbd6fd6b3bbb757305ba9a529d2e27b675390aeb83d4c1aa3ae60651",
+      "rank": 5
+    },
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/manifest.json": {
+      "sha256": "9a8b69e89186f41adefadefff3b20ec7b9d6638093a4261e7dfc46e388209598",
+      "rank": 6
+    },
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/manifest.json": {
+      "sha256": "4b85c7c62bac8f13118b03e3dcb9a2c343938bb04fe1a0384844bfbd01be146a",
+      "rank": 7
+    }
+  },
+  "sampling": {
+    "n": 1,
+    "temperature": 1,
+    "top_p": 1,
+    "top_k": -1,
+    "max_model_len": 8192,
+    "initial_completion_budget": 384,
+    "truncation": "double_per_action_until_actual_context_room",
+    "penalties": "none"
+  },
+  "shared_frontier": false,
+  "shared_policy_samples": false,
+  "reference_visible_to_policy": false,
+  "stop_after_first_success": false,
+  "matched_compute_claim": false,
+  "model_execution_requires_separate_authorization": true,
+  "producer_sha256": "20b57669d5525aedad1c3ede201b312b2707744bec0b96d63a096565c47aa327",
+  "output_files": {
+    "paired_observed_target_ids.json": {
+      "sha256": "d5eee80304c7246fab2cc4991c992b4f505464d62446bca73c99372d9cce43a1"
+    },
+    "targets_product_only.jsonl": {
+      "sha256": "ae03b98ff3ea9e79f0a9e57e8db4193d6b34c2ab7a0a5ea65a55ae87346bced2"
+    }
+  }
+}

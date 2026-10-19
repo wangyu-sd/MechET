@@ -1,0 +1,38 @@
+{
+  "schema": "lgrv_method_citation_access_observation_v1",
+  "observed_date": "2026-10-19",
+  "doi": "10.1039/C8SC04228D",
+  "title_from_publisher_and_author_repository_metadata": "A graph-convolutional neural network model for the prediction of chemical reactivity",
+  "metadata_sources": [
+    "https://pubs.rsc.org/en/content/articlelanding/2019/sc/c8sc04228d",
+    "https://dspace.mit.edu/entities/publication/ada9c451-480c-4c61-866c-586f43489a41"
+  ],
+  "license_as_stated_in_accessible_metadata": "Creative Commons Attribution 3.0 Unported",
+  "full_text_payload_downloaded": false,
+  "full_text_or_supplementary_information_checked": false,
+  "access_observations": [
+    {
+      "url": "https://pubs.rsc.org/en/content/articlehtml/2019/sc/c8sc04228d",
+      "transport": "web reader",
+      "observed_result": "HTTP403; no bypass attempted"
+    },
+    {
+      "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6335848/",
+      "transport": "web reader",
+      "observed_result": "browser verification / reCAPTCHA page; challenge not followed"
+    },
+    {
+      "url": "https://dspace.mit.edu/bitstreams/d68be056-ad47-448e-8fa2-d2482e3c024c/download",
+      "transport": "explicitly linked public download, web reader",
+      "observed_result": "HTTP405"
+    },
+    {
+      "url": "https://dspace.mit.edu/bitstreams/d68be056-ad47-448e-8fa2-d2482e3c024c/download",
+      "transport": "ordinary unauthenticated urllib GET of the public link",
+      "observed_result": "HTTP429; stopped without retry, credentials, proxy or challenge bypass"
+    }
+  ],
+  "no_original_experiments_in_paper_claimed": false,
+  "chemical_evidence_grade_changed": false,
+  "scope": "Accessible bibliographic metadata is not an inspected preparation. An archived dataset/method DOI without a specific performed-example pointer remains unresolved; this observation does not prove absent precedent, invalid chemistry or that the full paper contains no experiments. Other already accessible primary documents continue to be reviewed."
+}

@@ -1,0 +1,27 @@
+{
+  "schema": "lgrv_assistant_figure_visual_review_v1",
+  "reviewer": "assistant_actual_png_inspection_20261018",
+  "figure_manifest_sha256": "fa6b34bb392e97151a29088b827c5ce69846888f75ff259d567ac139dcc63d1d",
+  "reviewed_preview_sha256": {
+    "case_net_reactions": "21470da2661eee9d4ff258aacbd20fe3f6391e3c4c17841dae1c629ce5ad425d",
+    "case_inverse_program_01": "7c30ba423a02d4cd77048725e69d6ec637ae7295248362ef4d850eeed6d048ed",
+    "case_inverse_program_02": "fe4d257a3d0d1df766b2ab1fdb61dcd236c1be4acbafa47f847d725a37596bb5",
+    "case_inverse_program_03": "28f2437d69270296bf66abfcf75e9634e29c62c884e8a841450de4a4f245c586",
+    "case_inverse_program_04": "d85a0d6d85df6a7ef6e7b67761701541e0b0228b0fb78ba40e3da13fac43d2ca"
+  },
+  "checks": {
+    "all_five_previews_opened": true,
+    "final_preview_hashes_equal_visually_inspected_v1": true,
+    "structures_visible": true,
+    "actual_electron_arrows_visible": true,
+    "no_observed_text_or_structure_clipping": true,
+    "all_15_recorded_actions_present": true,
+    "net_chemistry_and_inverse_symbolic_actions_separated": true
+  },
+  "limitations": [
+    "Assistant visual inspection, not independent human chemistry review",
+    "Small single-atom imports and terminal-only last pages intentionally retain the complete recorded sequence",
+    "Physical elementary mechanism and actor auxiliary-condition compatibility are not established by net-reaction precedent",
+    "Population Figures2/3 remain unfinished"
+  ]
+}

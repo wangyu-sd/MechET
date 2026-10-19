@@ -1,0 +1,92 @@
+{
+  "schema": "lgrv_source_preparation_limits_v1",
+  "complete": true,
+  "sources": [
+    {
+      "source_id": "US7465795B2:table2:dimethylpyrazolyl-cinnoline:precursor-evidence-limit",
+      "source_url": "https://patents.google.com/patent/US7465795B2/en",
+      "document_sha256": "510f8091c992e1b671dc286ab274b5536f3d7d5c23888c4d65e24884d9a52949",
+      "witnesses": [
+        {
+          "text": "The compounds in Table 2 can also be made",
+          "locator": "Normalizedtext478292ff,immediately beforeTable2;conditionalpreparation wording,not an individual isolated example.",
+          "offset": 478299,
+          "sha256": "ce601636815086221e46ec303178fffdd930ae2d730308f6c1c6c0fa32780c01"
+        },
+        {
+          "text": "E 4-amino-8-(1,3-dimethyl-1H-pyrazol-5-yl)-N-propylcinnoline-3-carboxamide E",
+          "locator": "Table2around478989;the matching namedproduct is assignedSynthesisMethodE.",
+          "offset": 478987,
+          "sha256": "970e810b4b4ef38fe127b63e17f499abdd4202f53b66bbe5a1c5dfe31d39f58d"
+        },
+        {
+          "text": "Method E: To a stirred solution of 8-trimethylstannyl-cinnoline derivative",
+          "locator": "FullMethodEat527833ff,andduplicateearlierdescription310130ff;usesorganotin-cinnoline plus aryl/heteroarylBr,not the indexedBpin pluscinnolineBr.",
+          "offset": 527833,
+          "sha256": "5a5d277e9ee0bb52626988854ab583170e648367664ed01a319e9c4372ef2cae"
+        }
+      ],
+      "indexed_candidate_product": "CCCNC(=O)c1nnc2c(-c3cc(C)nn3C)cccc2c1N",
+      "indexed_candidate_precursors": [
+        "CCCNC(=O)c1nnc2c(Br)cccc2c1N",
+        "Cn1nc(C)cc1B1OC(C)(C)C(C)(C)O1"
+      ],
+      "expected_candidate_reaction_key": "8aa4e90f66512b744348e72ad2d3c97a435fdc5a7833f07778d2910f1be33edc",
+      "source_preparation_status": "not_established_for_indexed_precursors",
+      "source_review": "The independently namedcandidateproduct matches theTable2product,andtheSuzuki-formcandidategraphmatches theoriginalcappedsourcekey. However,thetable says thesecompounds can also bemade andassignsMethodE. ThecompleteMethodE uses8-trimethylstannylcinnoline,aryl/heteroarylBr,Pd(PPh3)4,anhydrousDMF,nitrogen,150C4-16h,workupandchromatography. ActualExample23 performsMethodE for adifferentfluoropyridyl product,45mg37.7%,not thisdimethylpyrazolylcandidate. No individualmatchingBpin/cinnolineBr preparation,yield orcharacterization is established here. This is a source-side route/precursor-evidence limit,not proof the indexedSuzuki pairing or anyMechETquery is impossible.",
+      "source_receipt_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3b38c63304464543abbd18dcfa264f1ef9f5b221a2fb58b5528d8041a8b3df12.json",
+      "source_receipt_sha256": "399a331c6f12606093900c492e995b040b03113514fe8dfd06351791ef11fd00",
+      "raw_document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3b38c63304464543abbd18dcfa264f1ef9f5b221a2fb58b5528d8041a8b3df12.html",
+      "raw_document_sha256": "e6a562dbdc3aca7602dfe40cc44278bcce7c16b4c064d8fcb9755ff0c986bcfc",
+      "document_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/primary_documents_bulk_20261018_v2/3b38c63304464543abbd18dcfa264f1ef9f5b221a2fb58b5528d8041a8b3df12.txt",
+      "candidate_experimentally_established": false,
+      "source_human_reviewed": false
+    }
+  ],
+  "reviews": [
+    {
+      "query_reaction_key": "b7d97f34cfcb5915c5d533db1971185982675c4c5012c67af2a0983d55570e1d",
+      "review_limitations": "Thequery uses apyridazinylBpin plusphenolic/aminopyrazolylarylBr andunprotectedtetramethylpiperidineNH. Even before assessing these substrate differences,theoriginalcappedcandidate'sBpin/cinnolineBr preparation is not confirmed byTable2/MethodE. RetainC,no experimentalfailure orcounterfactualsideproduct is asserted.",
+      "source_id": "US7465795B2:table2:dimethylpyrazolyl-cinnoline:precursor-evidence-limit",
+      "source_candidate_reaction_key": "8aa4e90f66512b744348e72ad2d3c97a435fdc5a7833f07778d2910f1be33edc",
+      "original_candidate_source_ids": [
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-d85d3410874045fca3385cba9860fc83:mapped_identifier"
+      ],
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false
+    },
+    {
+      "query_reaction_key": "d92af723336a24dfd8b8c6d47c35c4f03258dcf9d9072b6c9bd98a680f485438",
+      "review_limitations": "Queryhas freebromoaniline andpyrazinoneBpin carrying aprimarymesylate. Neither a sharedSuzuki-type localedit nor the samefinalproduct as ahandle-swappedcandidate establishes theoriginalsourcecandidate'sperformedprecursor combination. RetainC,notD.",
+      "source_id": "US7465795B2:table2:dimethylpyrazolyl-cinnoline:precursor-evidence-limit",
+      "source_candidate_reaction_key": "8aa4e90f66512b744348e72ad2d3c97a435fdc5a7833f07778d2910f1be33edc",
+      "original_candidate_source_ids": [
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-d85d3410874045fca3385cba9860fc83:mapped_identifier"
+      ],
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false
+    },
+    {
+      "query_reaction_key": "fd7c91d3b013efd93f24688b77d2d3988f66f7deac61848ee020a77e4030ca44",
+      "review_limitations": "Querycouples aheteroarylBpin/nicotinamide to bromoaniline with a tertiarydipropylamine. The patent's namedproduct andorganotinMethodE do not establish the indexedBpin-sourcepair or thisdifferentquery. RetainC without treating unknownsource provenance as chemicalinvalidity.",
+      "source_id": "US7465795B2:table2:dimethylpyrazolyl-cinnoline:precursor-evidence-limit",
+      "source_candidate_reaction_key": "8aa4e90f66512b744348e72ad2d3c97a435fdc5a7833f07778d2910f1be33edc",
+      "original_candidate_source_ids": [
+        "ORD:ord_dataset-e7830cd6b11158b43994ccfb5ee9acb3:ord-d85d3410874045fca3385cba9860fc83:mapped_identifier"
+      ],
+      "review_state": "checked_candidate_preparation_evidence_unresolved",
+      "evidence_tier_retained": "C",
+      "generated_reaction_proven_wrong": false
+    }
+  ],
+  "frozen_analysis_manifest_sha256": "4861cd897c0ebd477a39d1056846b52d2269fba2650332cc0c9943c8ae51cb87",
+  "review_spec_sha256": "84c21b7e45bb56b6579e98eb016f0e8889f86031ab42bdf478501d56d89dc71e",
+  "traceback_sha256": "2c55fff6d49d7d06018900130ca36a8ab3da3b4a1bda7e92adfbf870f38700d2",
+  "producer_sha256": "946dac76daca093deae423092e641d574dd336fe20a8a1a553a697a168dd3d81",
+  "evidence_grades_changed": false,
+  "scientific_judgement_supplied_by": "explicit assistant source review, not this binder",
+  "new_model_inference": false,
+  "independent_policy_calibration": false
+}

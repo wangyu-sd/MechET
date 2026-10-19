@@ -1,0 +1,195 @@
+{
+  "schema": "lgrv_population_figure_manifest_v1",
+  "figures": {
+    "fig2_r1_literature_supported_routes": {
+      "files": {
+        "svg": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/population_figures_20261018/figures/fig2_r1_literature_supported_routes.svg",
+          "sha256": "4c9245b98dacc2669a4e4eb3985835f7ee65b847bf66f2b527f4530adc40cca8"
+        },
+        "pdf": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/population_figures_20261018/figures/fig2_r1_literature_supported_routes.pdf",
+          "sha256": "20701d6111d969ce6b1538cd62c3c74f671949994593392ca387ddf280715e33"
+        },
+        "png": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/population_figures_20261018/figures/fig2_r1_literature_supported_routes.png",
+          "sha256": "bf41100a596129bf21b4fe618d6eb44a897611b43a51ac1f8f675c8b02259539"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 6,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 337,
+          "editable_text_elements": 57
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 167.21666666666664,
+          "fonts": [
+            {
+              "name": "/JZKMIR+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/NQOZTU+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1975,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    },
+    "fig3_r2_supported_composition": {
+      "files": {
+        "svg": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/population_figures_20261018/figures/fig3_r2_supported_composition.svg",
+          "sha256": "56e1517a6c4cf631e61625e5ecbecd80a947dbb9f4f8b2521bdcc3b3e2125fbb"
+        },
+        "pdf": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/population_figures_20261018/figures/fig3_r2_supported_composition.pdf",
+          "sha256": "264b29c827fd9770f50df65e88fdecbece56f3017030af5da5db0cc8d3c3c301"
+        },
+        "png": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/docs/results/lgrv_20261018/population_figures_20261018/figures/fig3_r2_supported_composition.png",
+          "sha256": "1cdec2026e81076342961636e5d1fd96e0ebba27ba1631620f227cd38cbbaca9"
+        }
+      },
+      "qa": {
+        "machine_checks_passed": true,
+        "problems": [],
+        "svg": {
+          "ids": 2,
+          "duplicate_ids": 0,
+          "unresolved_references": [],
+          "raster_images": 0,
+          "vector_paths": 115,
+          "editable_text_elements": 46
+        },
+        "pdf": {
+          "pages": 1,
+          "width_mm": 182.99999983055554,
+          "height_mm": 160.1611111111111,
+          "fonts": [
+            {
+              "name": "/TNZJPI+Arial-BoldMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            },
+            {
+              "name": "/IUTAEC+ArialMT",
+              "subtype": "/TrueType",
+              "embedded": true
+            }
+          ],
+          "all_fonts_embedded": true
+        },
+        "png": {
+          "width_px": 2161,
+          "height_px": 1891,
+          "effective_dpi": 299.9420767804564
+        },
+        "visual_inspection_status": "not_established_by_machine_checks",
+        "chemistry_correctness_status": "requires_source_and_drawing_review"
+      }
+    }
+  },
+  "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+  "original_route_target_denominator": 460,
+  "unique_reaction_queries": 18210,
+  "matched_compute_claim": false,
+  "ranking_primary": false,
+  "reference_C0_C1_C2": "Unknown",
+  "new_model_inference": false,
+  "source_files": [
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v3/analysis_manifest.json",
+      "sha256": "04ae5908598dae09e32b7e7d0cd3fe455f812b38f6022132391ac48343c2cc07"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v3/source_corpus_manifest.json",
+      "sha256": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/raw/literature/ord_46980f8cb68aa43ed9707edec319d4eac5a2bfed/source_corpus_manifest.json",
+      "sha256": "ca11d782a812f18d1ed205cc98e71d798b50d7190844a27cdb76d60fff3d4419"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/frozen_pr88_20261018_v2/prediction_freeze_manifest.json",
+      "sha256": "46832f6ce51692621627c2e630dfe07fcd6de67c67d30d8e12ce52d8ebabb3c3"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/frozen_r1_r2_20261013/manifest.json",
+      "sha256": "76abd4f3721d34a0d4b928aa928d5c0653108a953568873f09925d7df1135b62"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/frozen_r1_r2_20261013/all_targets.jsonl",
+      "sha256": "5e2778c6fa828f25d18d2c461ab17021b4ac1519a45bf8388f7f9eb1571ed3c5"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v3/evidence_coverage.json",
+      "sha256": "d8ece3094e6f811ad62163235c6131cc08512f34a7a11cf067ce58df022770d4"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v3/metrics.json",
+      "sha256": "4d8b9a5086cf64d28f12c93e8a7bd96003e405fa8c2323ef4501923efb61e092"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v3/program_reaction_links.jsonl.gz",
+      "sha256": "44bb5a7d1fc74ed47c2bc17b5f78f0f9c1602b22b87472e4af4c286cc0ee1270"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/program_join_pr88_20261018_v3/program_join_manifest.json",
+      "sha256": "392713dfcf4e9d599f239b464075253aacc48d12790023cd7b219c0485d3018b"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261018_v3/reaction_evidence.jsonl.gz",
+      "sha256": "a8844a0fe0d061aa5799c686c99dcacde40360af95909288c4eb2b9e1909c564"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/figures/lgrv_cabozantinib_case_20261018.json",
+      "sha256": "2d58ae9bdf6ae5c5541145341ceef793bcbacdffd85f211f8bbfb4fdf35cafb1"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/analysis/r1_r2_actual_sft_mechanism_index_20261014/manifest.json",
+      "sha256": "60bc0cc49cfb8a65e4ca9e98c2ac8f1e4ba42a65325046e5c4e3405370bbef4f"
+    },
+    {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr83-greedy/configs/figures/mechet_nmi_tree_style_v1.yaml",
+      "sha256": "2b2f0ba9e3215aa4f7048159bd0a4aa9f1ee18c3c836cd40b1b5d282e1730f26"
+    },
+    {
+      "path": "/tmp/mechet-lgrv-fast-runtime.Umbl2f/configs/analysis/nmi_r1_r2_matched_baselines_20261017.yaml",
+      "sha256": "43d4d2e4ef6aca79db7b8151901e926f75a7c022185c53501ef90dfdb8db16b5"
+    }
+  ],
+  "producer_files": {
+    "scripts/render_nmi_literature_population_figures.py": "3223c9fdc09d67e49d4492054c040a95a74bf41f598d7663395851688b65ba07",
+    "src/mechet/analysis/literature_population_figures.py": "78bbe24910e128a24c66a6c89b841c116e8dd55a3ac9e8d834601e411f54b791",
+    "scripts/render_nmi_literature_figures.py": "e25ed715bc0ca2f8130f5e1d4bb9680a590c7ae911c4375a9fb707315025febf",
+    "scripts/render_nmi_tree_figures.py": "a8c82e55346e1bdf6c4dd5c0062486df2b2df91a438caefccab7ae96cd8847a3",
+    "src/mechet/analysis/literature_figures.py": "b6d5ec9488be51b858d048958196b7695f66674d5d6c265d01c5c7cc2814477c",
+    "src/mechet/analysis/figure_qa.py": "01105d2588b96648bcb0e729447dc4a17603aa99624d6e674bc4b200d08313a6"
+  },
+  "panel_source_data_sha256": "e9ca214b794df41a6cb549edab19733bc9555bb82cdb9666ca1d218f09cc5a69",
+  "visual_inspection_status": "assistant_inspected_both_final_PNGs",
+  "remaining_primary_review": [
+    "additional primary document checks",
+    "analogue policy validation",
+    "publication figures"
+  ]
+}

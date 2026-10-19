@@ -1,0 +1,9 @@
+{
+  "schema": "independent_plan_validation_v1",
+  "complete": true,
+  "plan_sha256": "49f0889eb3b630ee30184fdfe33050954ec5d0b6c3406c1cb2fcc461b8ed73d9",
+  "full_target_denominator": 460,
+  "paired_observed_denominator": 200,
+  "new_model_inference": false,
+  "shard_target_counts": [58, 58, 58, 58, 57, 57, 57, 57]
+}

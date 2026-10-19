@@ -1,0 +1,54 @@
+{
+  "unique_reaction_queries": 18210,
+  "tier_counts": {
+    "C": 18201,
+    "A": 9
+  },
+  "unique_reactions_with_index_hit": 165,
+  "source_records_retrieved": 210,
+  "family_policy": "full_stereo_local_v2",
+  "retrieval_context_statuses": {
+    "available": 17755,
+    "no_reaction_center": 354,
+    "conflicting_native_families": 101
+  },
+  "stereo_lookup_work": {
+    "legacy_family_lookups": 20005,
+    "incompatible_family_candidates": 30668,
+    "source_records_considered": 39767
+  },
+  "independent_policy_controls": {
+    "manifest_sha256": "0b0cd9ecc0f3b3e5a858c3dc89626213e429f9b08591ace6447a3207a8598198",
+    "spec_sha256": "bbb7a0efcbfd3f8aebcf8cc30e9530d773bb8d8300080f5e8626718165933b58",
+    "family_policy": "full_stereo_local_v2",
+    "control_count": 12,
+    "chemical_accuracy_established": false
+  },
+  "source_checked_reactions": 9,
+  "source_supported_reactions": 9,
+  "primary_registry_sha256": null,
+  "primary_registry_manifests": [
+    {
+      "path": "/tmp/mechet-lgrv-primary-runtime.tnIJlp/configs/analysis/lgrv_primary_source_seed_20261018.json",
+      "sha256": "662029270bc5648545983b4315f1eccb84dec4c5e97a1a4afce8992b5e039bcc"
+    },
+    {
+      "path": "/tmp/mechet-lgrv-primary-runtime.tnIJlp/configs/analysis/lgrv_primary_sources_20261018_v2.json",
+      "sha256": "4cdbc9d61eec31992408f278a5cd81f2b6ef2cb5821992361586fd39a0dd0050"
+    },
+    {
+      "path": "/tmp/mechet-lgrv-primary-runtime.tnIJlp/configs/analysis/lgrv_primary_sources_20261018_v3.json",
+      "sha256": "75babca7abd5d2c3b1f0a83891fb1fd53746f12f213255407c0da9068977156c"
+    },
+    {
+      "path": "/tmp/mechet-lgrv-primary-runtime.tnIJlp/configs/analysis/lgrv_primary_sources_20261018_v4.json",
+      "sha256": "235de6c211db57eec22fbaa2467912436abd8325fcbde6c3fb9fc5777bc8471f"
+    }
+  ],
+  "unresolved_means": "no checked supporting primary source under frozen retrieval, not impossible chemistry",
+  "remaining_work": [
+    "additional primary document checks",
+    "analogue policy validation",
+    "publication figures"
+  ]
+}
