@@ -6,12 +6,37 @@ training, ranking evaluation, MCTS restart or paper merge was performed.
 
 ## Latest verified progress (19 October, supersedes older processing notes)
 
-**Cached-source review completed, awaiting pooled refresh:** all40 original
-v16 cached-but-unread queries now have original-source findings. Across42
-source/query comparisons and36 preparations/findings,14 queries have new
-compatible-analogue judgements and26 retain specific unresolved limits. No
-cached query remains unread. This is completion of that review queue, not of
-the whole PR89 scope or of unresolved preparation pointers. See the
+**Current v17 full-population result:** all18,210 queries and six conditions
+now have **47 exact precedents,26 query-scoped analogues,18,137 unresolved**.
+All21 outputs,current producer hashes and22 positive registries are verified.
+Every old59 support row and every original query/context/candidate sequence
+is unchanged;exactly14 source-checked C-to-B changes account for the increase
+to73 supported generated reactions. This is not73 independent experiments,
+population chemical accuracy or a new model-performance improvement.
+
+R1 all-terminal MCTS now has35 supported reactions across28 targets; both
+Greedies retain7 across6. Stock-route any-exact11/all-essential1 and original
+460 targets/200 saved/260 pending/199 nonzero AND closures are unchanged.
+The31k frozen proxy has30 MCTS supported targets(22 exact),32 distinct
+supported reactions,versus18/17 Greedy targets;all3,120 IDs/10 total MCTS
+attempts remain. R2 seen/unseen support sets are28/11 and overlap;one recorded
+unseen-program witness remains on a precedent-covered route. These are not
+strict-H2 or reference C1/C2 claims. See the
+[complete v17 tables and all73 cases](analysis_tables_primary_v17_20261019/README.md),
+[full coverage](coverage_review_v17_20261019/README.md),
+[94-query review-state inventory](primary_review_states_v17_20261019/README.md),
+and [six-condition summary](POPULATION_RESULTS_PRIMARY_V17_20261019.json).
+The [v17 Figure2/3 and three extended panels](population_figures_primary_v17_20261019/README.md)
+are regenerated;all five actual PNGs were opened/inspected and all15 exports
+pass machine QA. Their work numerator is35 R1 MCTS reactions,not73 pooled
+supports. No old figure is relabelled as regenerated.
+
+**Original cached-source queue completed:** all40 original v16 cached-but-unread
+queries now have original-source findings. Across42 source/query comparisons
+and36 preparations/findings,14 queries have compatible-analogue support and26
+retain specific unresolved limits. No cached query remains unread. This is
+completion of that review queue,not of unresolved preparation pointers or the
+whole PR89 scope. The pre-integration
 [complete queue receipt](SOURCE_REVIEW_COMPLETION_20261019.json),
 [earlier18-query follow-up](SOURCE_REVIEW_FOLLOWUP_20261019.json),
 [six coupling preparations](grouped_primary_review_batch7_20261019/README.md),
@@ -20,12 +45,15 @@ the whole PR89 scope or of unresolved preparation pointers. See the
 [thirteen additional preparations](grouped_primary_review_batch10_20261019/README.md),
 [earlier preparation/stereolabel limits](source_preparation_limits_batch2_20261019/README.md),
 and [O/C-ethylation and source-formulation limits](source_preparation_limits_batch3_20261019/README.md).
-Every original pending ID and pair is retained, not a model test subset.
-These reviews have **not** yet been incorporated into a completed new full
-analysis; published v16 counts and figures below remain unchanged. The full
-v17 run is in progress with identical frozen index bytes/local transport,
-unchanged18210 queries/sixconditions and22 authenticated positive registries.
-Do not report73 pooled supports from arithmetic before that run is verified.
+retain every original pending ID and pair,not a model test subset. Their
+pre-integration metadata remains immutable;the completed v17 result above
+is separately recomputed and verified rather than inferred by arithmetic.
+All94 remaining indexed unresolved queries are accounted for:33 pointer
+limits,50 checked applicability,9 preparation/formulation and2 stereo limits.
+All61 referenced documents are available,not61 verified reactions. Full-data
+regression removes only14 supported queries,updates only26 checked states
+and preserves every other field/row. Fresh full CPU suite:1,287 passed,
+14 skipped,one existing PEFT warning,209.53s. No new model/GPU/Taiji job ran.
 
 The new limit-reader version also handles the already documented zero-padded
 US patent lookup alias, retaining original IDs/URLs and publication kinds.
@@ -35,7 +63,7 @@ source result, chemical candidate, source cap, or model prediction is rewritten.
 Fresh whole CPU suite after this repair: **1,287 passed / 14 skipped**, one
 existing PEFT warning, 195.04s. These are software checks, not model results.
 
-**Current v16 source review:** 12 further source/query comparisons across five
+**Historical v16 source review:** 12 further source/query comparisons across five
 patents add two query-scoped analogues; ten remain unresolved with explicit
 applicability or preparation/formulation limits. The full 18,210-query,
 six-condition analysis now has **47 Tier A, 12 Tier B, and 18,151 unresolved**.

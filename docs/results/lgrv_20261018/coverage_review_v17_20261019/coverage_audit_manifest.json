@@ -1,0 +1,76 @@
+{
+  "schema": "lgrv_coverage_missingness_audit_v1",
+  "unique_reaction_queries": 18210,
+  "stage_counts": {
+    "indexed_queries": 165,
+    "no_index_hit_queries": 18045,
+    "exact_candidate_queries": 49,
+    "analogue_candidate_queries": 116,
+    "source_supported_queries": 73,
+    "supported_with_index_hit": 71,
+    "supported_without_index_hit": 2,
+    "unresolved_with_candidates": 94
+  },
+  "context_statuses": {
+    "available": 17755,
+    "no_reaction_center": 354,
+    "conflicting_native_families": 101
+  },
+  "no_hit_context_statuses": {
+    "available": 17591,
+    "no_reaction_center": 354,
+    "conflicting_native_families": 100
+  },
+  "unique_nonpatent_urls": 1,
+  "nonpatent_reference_counts": {
+    "https://doi.org/10.1039/C8SC04228D": 139
+  },
+  "new_evidence_grades": false,
+  "new_model_inference": false,
+  "population_chemical_accuracy_established": false,
+  "interpretation": "Retrieval and primary-review coverage, not chemical success or failure rate.",
+  "patent_traceback": {
+    "nonpatent_candidate_records": 139,
+    "candidate_records_with_patent_pointers": 106,
+    "unique_recovered_patent_urls": 104,
+    "additional_experiment_support_claimed": false,
+    "source_index_sha256": "ee997c8732df797e27a7d5c2bd58cdd18a4472566818f9d8870092ba4f0de16b"
+  },
+  "analysis_manifest_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v17/analysis_manifest.json",
+  "analysis_manifest_sha256": "554f51408f658b7e54e9b3530e0256449c3f2949794ccc6d0dcece0f1759fa0c",
+  "input_files": {
+    "unique_reaction_queries_enriched.jsonl.gz": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v17/unique_reaction_queries_enriched.jsonl.gz",
+      "sha256": "b5f55a9c90c66b31ef3fda60961506fb5ad7f67351b192d49f6a8afac0bd0d3c"
+    },
+    "retrieval_query_contexts.jsonl.gz": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v17/retrieval_query_contexts.jsonl.gz",
+      "sha256": "b297a2622bf25a6d3cdd39217bc75b4d695ff320db9a5822985cc25eb6b4eebb"
+    },
+    "reaction_evidence.jsonl.gz": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v17/reaction_evidence.jsonl.gz",
+      "sha256": "53a10453984e548c12cd938ca0234df700f191884fdb3f427acfc3b97d36c5fa"
+    },
+    "literature_hits.jsonl.gz": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v17/literature_hits.jsonl.gz",
+      "sha256": "22b298a318d7d30f92022d79ed5f7f57b3fb0a5409442c77d164c81c9f764dc3"
+    },
+    "source_corpus_manifest.json": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/nmi_literature_evidence/source_checked_20261019_v17/source_corpus_manifest.json",
+      "sha256": "873fca70b33e1dba6b13a42029c0d2695bfcf3996190814def8ffa7514e5dcfd"
+    }
+  },
+  "producer_sha256": "bfdf9695557b654ffadf609286bc20e5d1ccccc2add779379018717f05a2a653",
+  "complete": true,
+  "output_files": {
+    "candidate_patent_traceback.jsonl.gz": {
+      "sha256": "150bd9aa7371db6053c05f3567282f0da70a83b6043469f24c0ee434ea880c18"
+    },
+    "primary_review_queue.jsonl.gz": {
+      "sha256": "5169e331bdf2891811f64bd39bd6ab139ad7eaf8a1d599bb921152d585ccdfc2"
+    },
+    "query_coverage_audit.jsonl.gz": {
+      "sha256": "beae5dad0908704bb8580c4cb6361e910bab2c946de10d074811ba914e75f8b4"
+    }
+  }
+}
