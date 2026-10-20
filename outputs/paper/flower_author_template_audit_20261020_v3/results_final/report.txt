@@ -1,0 +1,17 @@
+Full frozen population:189233 events; no model generation.
+Current author library: Reaction_templates
+Population | denominator | v2 single | v3 single | v3 single OR composed
+saved_model_event | 71868 | 57690 (80.272%) | 57974 (80.667%) | 58007 (80.713%)
+r1_mcts_pr88 | 27402 | 21122 (77.082%) | 21330 (77.841%) | 21343 (77.888%)
+r1_greedy_dynamic | 3722 | 3249 (87.292%) | 3250 (87.319%) | 3253 (87.399%)
+r1_greedy_shared | 3758 | 3275 (87.147%) | 3277 (87.201%) | 3280 (87.280%)
+mech31k_greedy_dynamic | 4634 | 4062 (87.656%) | 4062 (87.656%) | 4062 (87.656%)
+mech31k_greedy_shared | 4466 | 3966 (88.804%) | 3966 (88.804%) | 3968 (88.849%)
+mech31k_mcts_pr88 | 27886 | 22016 (78.950%) | 22089 (79.212%) | 22101 (79.255%)
+flower_strict_test_gt_event | 117365 | 113083 (96.352%) | 116802 (99.520%) | 116920 (99.621%)
+Remaining single-rule GT diagnostics:{"composition_only_not_single_rule": 118, "recorded_free_H_import_case_unresolved": 72, "closed_shell_transition_unresolved": 372, "radical_transition_unresolved": 1}
+Local author-transition compatibility only; NOT endpoint accuracy, chemical truth, reaction conditions or stage-sequence certification.
+Single-rule matches and multi-rule compositions are separate metrics; no old positive removed.
+Whole-repository pytest:2 existing collection failures:
+tests/test_mech_uspto31k_causal_import.py: missing mechet.a7_rescue
+tests/test_nl_history_beam.py: missing mechet.in_place_grounded_flow

@@ -1,0 +1,183 @@
+{
+  "status": "complete",
+  "events": 189233,
+  "coverage": {
+    "saved_model_event": {
+      "events": 71868,
+      "v2:Reaction_templates": 57690,
+      "single:Reaction_templates": 57974,
+      "single_or_composed:Reaction_templates": 58007,
+      "v2:Reaction_templates_20250216": 53578,
+      "single:Reaction_templates_20250216": 53862,
+      "single_or_composed:Reaction_templates_20250216": 53892,
+      "status:v2_both_versions_reused": 52898,
+      "status:no_additional_match": 18649,
+      "status:new_single_rule_replay": 284,
+      "status:new_composition_only": 37
+    },
+    "r1_mcts_pr88": {
+      "events": 27402,
+      "v2:Reaction_templates": 21122,
+      "single:Reaction_templates": 21330,
+      "single_or_composed:Reaction_templates": 21343,
+      "v2:Reaction_templates_20250216": 19448,
+      "single:Reaction_templates_20250216": 19656,
+      "single_or_composed:Reaction_templates_20250216": 19669,
+      "status:v2_both_versions_reused": 19185,
+      "status:no_additional_match": 7994,
+      "status:new_single_rule_replay": 208,
+      "status:new_composition_only": 15
+    },
+    "r1_greedy_dynamic": {
+      "events": 3722,
+      "v2:Reaction_templates": 3249,
+      "single:Reaction_templates": 3250,
+      "single_or_composed:Reaction_templates": 3253,
+      "v2:Reaction_templates_20250216": 2938,
+      "single:Reaction_templates_20250216": 2939,
+      "single_or_composed:Reaction_templates_20250216": 2941,
+      "status:v2_both_versions_reused": 2919,
+      "status:no_additional_match": 799,
+      "status:new_single_rule_replay": 1,
+      "status:new_composition_only": 3
+    },
+    "r1_greedy_shared": {
+      "events": 3758,
+      "v2:Reaction_templates": 3275,
+      "single:Reaction_templates": 3277,
+      "single_or_composed:Reaction_templates": 3280,
+      "v2:Reaction_templates_20250216": 2952,
+      "single:Reaction_templates_20250216": 2954,
+      "single_or_composed:Reaction_templates_20250216": 2957,
+      "status:v2_both_versions_reused": 2933,
+      "status:no_additional_match": 820,
+      "status:new_single_rule_replay": 2,
+      "status:new_composition_only": 3
+    },
+    "mech31k_greedy_dynamic": {
+      "events": 4634,
+      "v2:Reaction_templates": 4062,
+      "single:Reaction_templates": 4062,
+      "single_or_composed:Reaction_templates": 4062,
+      "v2:Reaction_templates_20250216": 3867,
+      "single:Reaction_templates_20250216": 3867,
+      "single_or_composed:Reaction_templates_20250216": 3867,
+      "status:v2_both_versions_reused": 3837,
+      "status:no_additional_match": 797
+    },
+    "mech31k_greedy_shared": {
+      "events": 4466,
+      "v2:Reaction_templates": 3966,
+      "single:Reaction_templates": 3966,
+      "single_or_composed:Reaction_templates": 3968,
+      "v2:Reaction_templates_20250216": 3761,
+      "single:Reaction_templates_20250216": 3761,
+      "single_or_composed:Reaction_templates_20250216": 3761,
+      "status:v2_both_versions_reused": 3728,
+      "status:no_additional_match": 736,
+      "status:new_composition_only": 2
+    },
+    "mech31k_mcts_pr88": {
+      "events": 27886,
+      "v2:Reaction_templates": 22016,
+      "single:Reaction_templates": 22089,
+      "single_or_composed:Reaction_templates": 22101,
+      "v2:Reaction_templates_20250216": 20612,
+      "single:Reaction_templates_20250216": 20685,
+      "single_or_composed:Reaction_templates_20250216": 20697,
+      "status:v2_both_versions_reused": 20296,
+      "status:no_additional_match": 7503,
+      "status:new_composition_only": 14,
+      "status:new_single_rule_replay": 73
+    },
+    "flower_strict_test_gt_event": {
+      "events": 117365,
+      "v2:Reaction_templates": 113083,
+      "single:Reaction_templates": 116802,
+      "single_or_composed:Reaction_templates": 116920,
+      "v2:Reaction_templates_20250216": 99308,
+      "single:Reaction_templates_20250216": 103027,
+      "single_or_composed:Reaction_templates_20250216": 103230,
+      "status:v2_both_versions_reused": 99307,
+      "status:no_additional_match": 14132,
+      "status:new_single_rule_replay": 3719,
+      "status:new_composition_only": 207
+    }
+  },
+  "program_paths": {
+    "r1_mcts_pr88": {
+      "programs": 11480,
+      "single:Reaction_templates": 6871,
+      "single_or_composed:Reaction_templates": 6879,
+      "single:Reaction_templates_20250216": 5991,
+      "single_or_composed:Reaction_templates_20250216": 5997
+    },
+    "r1_greedy_dynamic": {
+      "programs": 1341,
+      "single:Reaction_templates": 1024,
+      "single_or_composed:Reaction_templates": 1026,
+      "single:Reaction_templates_20250216": 932,
+      "single_or_composed:Reaction_templates_20250216": 933
+    },
+    "r1_greedy_shared": {
+      "programs": 1364,
+      "single:Reaction_templates": 1039,
+      "single_or_composed:Reaction_templates": 1043,
+      "single:Reaction_templates_20250216": 944,
+      "single_or_composed:Reaction_templates_20250216": 948
+    },
+    "mech31k_greedy_dynamic": {
+      "programs": 2294,
+      "single:Reaction_templates": 1973,
+      "single_or_composed:Reaction_templates": 1973,
+      "single:Reaction_templates_20250216": 1895,
+      "single_or_composed:Reaction_templates_20250216": 1895
+    },
+    "mech31k_greedy_shared": {
+      "programs": 2249,
+      "single:Reaction_templates": 1966,
+      "single_or_composed:Reaction_templates": 1967,
+      "single:Reaction_templates_20250216": 1897,
+      "single_or_composed:Reaction_templates_20250216": 1897
+    },
+    "mech31k_mcts_pr88": {
+      "programs": 19194,
+      "single:Reaction_templates": 12827,
+      "single_or_composed:Reaction_templates": 12840,
+      "single:Reaction_templates_20250216": 11171,
+      "single_or_composed:Reaction_templates_20250216": 11175
+    }
+  },
+  "new_fixed_binding_witnesses_verified": 4775,
+  "processing_errors": 0,
+  "inconclusive_guard_events": 0,
+  "elapsed_seconds": 454.7254377156496,
+  "interpretation": "Author local-transition compatibility, not endpoint accuracy or chemical feasibility. Composition is not single-rule matching.",
+  "gt_reaction_paths": {
+    "Reaction_templates": {
+      "reactions": 28967,
+      "single_template_each_event": 28530,
+      "single_or_composed_each_event": 28645
+    },
+    "Reaction_templates_20250216": {
+      "reactions": 28967,
+      "single_template_each_event": 21910,
+      "single_or_composed_each_event": 22061
+    }
+  },
+  "current_gt_single_unmatched": 563,
+  "current_gt_single_unmatched_diagnostics": {
+    "composition_only_not_single_rule": 118,
+    "recorded_free_H_import_case_unresolved": 72,
+    "closed_shell_transition_unresolved": 372,
+    "radical_transition_unresolved": 1
+  },
+  "diagnostic_example_ids": {
+    "composition_only_not_single_rule": "gt:textbook-tool-sft:flower_mech_proof_test_123:1",
+    "recorded_free_H_import_case_unresolved": "gt:textbook-tool-sft:flower_mech_proof_test_134:2",
+    "closed_shell_transition_unresolved": "gt:textbook-tool-sft:flower_mech_proof_test_301:0",
+    "radical_transition_unresolved": "gt:textbook-tool-sft:flower_mech_proof_test_21336:0"
+  },
+  "diagnostic_note": "Observable categories, not proof that GT or chemistry is wrong.",
+  "rdkit_version": "2026.03.4"
+}

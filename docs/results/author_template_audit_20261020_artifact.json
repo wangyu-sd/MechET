@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "release_tag": "analysis-author-template-audit-20261020-v3",
+  "release_url": "https://github.com/wangyu-sd/MechET/releases/tag/analysis-author-template-audit-20261020-v3",
+  "asset": "mechet-author-template-audit-20261020-v3.tar.gz",
+  "sha256": "c7aa7784010a272b7fd861cfebf7a9fdab60ff1c1a900a0c2a7854ae6b5031ec",
+  "bytes": 181818855,
+  "archive_members": 113,
+  "event_population": 189233,
+  "raw_complete_events_included": true,
+  "native_case_trees_included": 4,
+  "native_tree_hashes_verified": true,
+  "model_weights_included": false,
+  "model": "Qwen/Qwen3-0.6B",
+  "adapter": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17",
+  "adapter_sha": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+  "history_contract": "natural_language_electron_event_history_v2",
+  "new_model_inference_performed": false,
+  "new_training_performed": false
+}

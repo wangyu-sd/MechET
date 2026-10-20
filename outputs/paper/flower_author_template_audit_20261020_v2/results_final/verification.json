@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "standalone_tests": 20,
+  "events": 189233,
+  "every_new_fixed_binding_certificate_verified": true,
+  "new_replay_events": 30121,
+  "new_replay_witnesses": 33325,
+  "gt_action_states_resolved": 72,
+  "coverage_changed_by_import_resolution": false,
+  "source_dataset_sha256": "70a06f01a08490d4b5da602056a8f8e2f978128d3da3224d1601186529aeee3f",
+  "current_code_sha256": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/collect_regression_fixtures.py": "b2d099cb196b9dc86de51e2c2985b146fb27aeefb7006f39d60321d0a06a597e",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/action_state.py": "b3dfb84f9b6a747a4e38bcd7be82061b44dd46a3dd215c87e62e826fbc36f013",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/test_representation_match.py": "76c23d8911d3ce2b2115be47dc65f7f2581c46a69955eb933d8def1f0d898946",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/test_action_state.py": "abc3e6dde2037d2a4c940b6c148bc4d3957a946905f714228b5b80f8dbfe7a91",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/run_representation_audit.py": "3fbdd1cafad57c9a02fc7901936c644fe14dd46b23073a758dd79601a7e5faec",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/test_full_population_links.py": "bec0aa3df50abdfd7155ee37b75ebb51d4dd0cf1bcf032dd19864b241ee581cc",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/finalize_representation_audit.py": "8ccbe2fb3a8349b17cacd0c0ec3ea86d3cafd9036ab5f6f702d5264708130eb9",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/representation_match.py": "99903c8a4219642bb1b4adf673a59be615da1fe9932aebfcaee2bd3d3879c773"
+  },
+  "artifact_sha256": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_final/progress.json": "b4a3a1c0b08e8aba57325b20d544d9007931b61eadb6505b14afd13c2cff86a4",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_final/summary.json": "9868189babed092f3046881c722f284516ddab00b2cae40cb1ab78751e1ff8a3",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_final/event_matches.jsonl.gz": "c716daf735be519222c94686aacde68bc87d6d8f0f10fccf98a36a8480c6dc45",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_final/runtime_source_snapshot.json": "77a828946e80a3a07a3c4cc73cbf96474d19093c513a670778bfaea36d4ef7a2",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_final/unit_tests.log": "47f6db7ba23a6245e1eaf0c360b0b6f9759f828f7e7cba803f3bef32537b23bb",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_final/report.txt": "d1724d7a25decce6c4ec6ae72719eb993127c8d413482d03339a800a632a17c3",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_final/gt_recorded_import_corrections.jsonl.gz": "85e1828a902005d3967adc4355ebc69c786195203d8619f05632c40dd21c6d32"
+  },
+  "main_repository_suite": {
+    "status": "collection_errors",
+    "tests": [
+      "tests/test_mech_uspto31k_causal_import.py: missing mechet.a7_rescue",
+      "tests/test_nl_history_beam.py: missing mechet.in_place_grounded_flow"
+    ]
+  }
+}

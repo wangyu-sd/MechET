@@ -1,0 +1,28 @@
+Confirmed example of a strict matcher miss, NOT a chemical-negative label
+
+Reference event:
+  gt:textbook-tool-sft:flower_mech_proof_test_9:0
+  Full actual states and arrows: results_v2/event_inputs.jsonl.gz
+
+The inverse event adds Cl16 to C15 while the C15/N14 pi system becomes a
+dearomatized anionic sigma complex. In the forward direction this is the
+halide-leaving/rearomatization stage of an SNAr ether transformation.
+
+Author source:
+  Mechanistic_dataset/templates/Reaction_templates.py
+  class ('SNAr ether synthesis',), mechanism 'reaction with alcohol group',
+  stage 2, description 'Halide leaving':
+  [*;a;-1:1]:[c;+0:2]([F,Cl,Br,I:3])-[#8;+0:5]
+    >>[*;a;+0:1]:[c;+0:2]-[#8;+0:5].[F,Cl,Br,I;-1:3]
+
+The raw template keeps aromatic SMARTS predicates on the sigma-complex side.
+The strict compiled trajectory instead stores a valid dearomatized N-/C
+structure. Parsing its two real states gives six ring-bond aromatic/Kekule
+changes plus the C-Cl cleavage; the raw local author SMARTS encodes the latter
+without those full-ring changes. Therefore the strict joint-state matcher does
+not certify this event, despite an identifiable author template family.
+
+This case demonstrates why the measured compatibility is a LOWER BOUND and
+why an unmatched valid GT event must not be labelled chemically impossible.
+Template-family attribution under a representation conversion would require
+an additional validated adapter; this audit does not silently relax matching.

@@ -1,0 +1,20 @@
+test_author_pka_threshold_keeps_hydroxide_but_excludes_weaker_amine (test_audit_population.AuthorExpansionTests.test_author_pka_threshold_keeps_hydroxide_but_excludes_weaker_amine) ... ok
+test_conflicting_successors_are_not_silently_merged (test_audit_population.ReconciliationTests.test_conflicting_successors_are_not_silently_merged) ... ok
+test_shared_events_keep_every_program_and_source (test_audit_population.ReconciliationTests.test_shared_events_keep_every_program_and_source) ... ok
+test_changed_isotopic_hydrogen_is_not_silently_removed (test_author_template_match.JointStateMatchTests.test_changed_isotopic_hydrogen_is_not_silently_removed) ... ok
+test_disconnected_matching_must_share_atom_identity_on_both_sides (test_author_template_match.JointStateMatchTests.test_disconnected_matching_must_share_atom_identity_on_both_sides) ... ok
+test_disconnected_template_can_describe_intramolecular_ring_closure (test_author_template_match.JointStateMatchTests.test_disconnected_template_can_describe_intramolecular_ring_closure) ... ok
+test_extra_changed_bond_cannot_be_ignored (test_author_template_match.JointStateMatchTests.test_extra_changed_bond_cannot_be_ignored) ... ok
+test_forward_direction_is_not_mistaken_for_inverse (test_author_template_match.JointStateMatchTests.test_forward_direction_is_not_mistaken_for_inverse) ... ok
+test_index_keeps_rules_with_mixed_fixed_and_unspecified_h_counts (test_author_template_match.JointStateMatchTests.test_index_keeps_rules_with_mixed_fixed_and_unspecified_h_counts) ... ok
+test_inverse_substitution_matches_forward_author_rule (test_author_template_match.JointStateMatchTests.test_inverse_substitution_matches_forward_author_rule) ... ok
+test_mapped_explicit_proton_normalizes_without_losing_charge (test_author_template_match.JointStateMatchTests.test_mapped_explicit_proton_normalizes_without_losing_charge) ... ok
+test_radical_change_is_not_certified_by_closed_shell_template (test_author_template_match.JointStateMatchTests.test_radical_change_is_not_certified_by_closed_shell_template) ... ok
+test_spectator_does_not_prevent_match (test_author_template_match.JointStateMatchTests.test_spectator_does_not_prevent_match) ... ok
+test_unchanged_substructure_is_not_a_transition_match (test_author_template_match.JointStateMatchTests.test_unchanged_substructure_is_not_a_transition_match) ... ok
+test_whole_context_query_is_required (test_author_template_match.JointStateMatchTests.test_whole_context_query_is_required) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.022s
+
+OK
