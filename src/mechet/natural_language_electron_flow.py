@@ -132,10 +132,12 @@ def _container_phrase(
 
 
 def render_event_arguments(
-    mapped_state: str, moves: Sequence[Mapping[str, Any]]
+    mapped_state: str, moves: Sequence[Mapping[str, Any]], *, direction: str = "retrosynthetic"
 ) -> dict[str, Any]:
     """Render a reference event into constrained natural-language fields."""
 
+    if direction not in {"retrosynthetic", "forward"}:
+        raise ValueError("unsupported electron-event direction")
     inventory = build_inventory(mapped_state)
     if any(item.get("mode") == "BE_DELTA" for item in moves):
         if len(moves) != 1 or moves[0].get("mode") != "BE_DELTA":
@@ -174,7 +176,7 @@ def render_event_arguments(
                 }
             )
         return {
-            "direction": "retrosynthetic",
+            "direction": direction,
             "electron_flow": [],
             "bond_order_changes": bond_changes,
             "charge_changes": charge_changes,
@@ -198,7 +200,7 @@ def render_event_arguments(
     if not arrows:
         raise ValueError("event contains no electron moves")
     return {
-        "direction": "retrosynthetic",
+        "direction": direction,
         "electron_flow": arrows,
         "bond_order_changes": [],
         "charge_changes": [],
@@ -259,12 +261,12 @@ def _resolve_destination(
 
 
 def compile_event_arguments(
-    mapped_state: str, arguments: Mapping[str, Any]
+    mapped_state: str, arguments: Mapping[str, Any], *, direction: str = "retrosynthetic"
 ) -> list[dict[str, Any]]:
     """Resolve constrained natural language to executor-native moves."""
 
-    if arguments.get("direction") != "retrosynthetic":
-        raise ValueError("event direction must be retrosynthetic")
+    if direction not in {"retrosynthetic", "forward"} or arguments.get("direction") != direction:
+        raise ValueError(f"event direction must be {direction}")
     inventory = build_inventory(mapped_state)
     arrows = list(arguments.get("electron_flow") or [])
     bond_changes = list(arguments.get("bond_order_changes") or [])
