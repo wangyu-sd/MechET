@@ -214,7 +214,9 @@ class AnchoredExperiment(Experiment):
 def main():
     import yaml
     p = argparse.ArgumentParser(description=__doc__); p.add_argument('--config', type=Path, required=True)
-    cfg = yaml.safe_load(p.parse_args().config.read_text()); out = Path(cfg['output']); old = Path(cfg['legacy_source'])
+    p.add_argument('--prepare-only',action='store_true',help='verify real source/model/replay/root contracts without allocating a GPU engine')
+    args=p.parse_args()
+    cfg = yaml.safe_load(args.config.read_text()); out = Path(cfg['output']); old = Path(cfg['legacy_source'])
     out.mkdir(parents=True, exist_ok=True)
     config_path = out/'resolved_config.json'
     if config_path.exists() and json.loads(config_path.read_text()) != cfg:raise ValueError('immutable resolved config changed')
@@ -253,6 +255,13 @@ def main():
         'control_budget_boundary':'equal scored examples/updates; active-loss tokens separately reported'})
     ex = AnchoredExperiment(cfg, out); ex.profile_rows = train;ex.valid_rows=valid
     try:
+        ex.tokenizer=tokenizer;ex.prompt_gate()
+        write_json(out/'preflight.json',{'status':'passed','train_targets':128,'valid_targets':32,
+            'replay_reactions':512,'replay_actions':len(replay),'R0_sha':r0['weight_sha256'],
+            'F0_sha':f0['weight_sha256'],'test_used':False})
+        if args.prepare_only:
+            ex.log('preflight-complete-no-GPU',replay_actions=len(replay),root_prompts=160)
+            return
         ex.setup()
         if (out/'f0_v1_cache.json').exists():ex.roundtrips = json.loads((out/'f0_v1_cache.json').read_text())
         ex.register('R1v0', old/'models/R1/policy')

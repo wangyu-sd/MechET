@@ -1,6 +1,6 @@
 # PR92 real-data-anchored RSI correction
 
-Status: implementation and real-data gates verified; new GPU outcomes pending.
+Status: implementation and full local launch preflight verified; new GPU outcomes pending.
 This is the explicitly requested PR92 bounded experiment, not a full-test result
 or another SFT retraining. PR91 adapters, raw results and tasks are unchanged.
 
@@ -43,7 +43,7 @@ canonical proof product. Two observed differences matter:
   arrows then produced a different, fragmented structure. The regression test
   reproduces failure from remapping and success from the original source graph.
 
-In the frozen PR91 TRAIN128, 38 root prompts differ from the actual Stage-II
+In the frozen PR91 TRAIN128, 38 root prompts (and 8 of VALID32) differ from the actual Stage-II
 source when initialized via the old normalization. For v1 **all actors** use
 the same authenticated original product graph, with maps private and only the
 existing map-free product/state/inventory/history visible. No expected
@@ -93,6 +93,22 @@ not experimental chemical results.
 python -u scripts/run_mechet_rsi_anchored.py \
   --config configs/experiments/mechet_rsi_real_anchored_resolved_20261021.yaml
 ```
+
+Adding `--prepare-only` executes the entire model/data/replay/root-input
+preflight without creating a GPU engine. That actual local command passed:
+512 TRAIN replay reactions, 1,995 retained actions, all 160 root prefixes.
+
+### First launch failure (preserved, not an optimizer result)
+
+Task `meteor_mechet_pr92_anchored_rsi_2a100_qy_20261021_01`, instance
+`8b1d899ea13fdea001a15ebd00a74061`, pinned code `0a1100d`, acquired two
+A100-SXM4-40GB cards in QY. Ceph mounted and Taiji default stdout showed the
+45-second heartbeat, Torch2.6.0+cu118, vLLM0.8.5 and RDKit2026.03.4.
+It exited before engine creation or optimizer work: the real proof validation
+split is named `val`, which the new source gate incorrectly rejected as if it
+were TEST. The gate now normalizes only `val` to `valid`; TEST remains refused.
+A regression reproduced the failure and the full no-GPU launch preflight then
+passed. A separate new pinned retry is required; the failed instance is END.
 
 New isolated root (absolute):
 `/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_real_anchored_smoke_20261021`

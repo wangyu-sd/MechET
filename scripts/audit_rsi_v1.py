@@ -27,12 +27,14 @@ def reference_classes(path, identifiers, expected_sha):
             row = json.loads(line)
             if row['id'] not in identifiers:
                 continue
-            if row['metadata']['source_split'] not in {'train', 'valid'}:
+            split = row['metadata']['source_split']
+            split = 'valid' if split == 'val' else split
+            if split not in {'train', 'valid'}:
                 raise ValueError('TEST forbidden in RSI source gate')
             result[row['id']] = {**net_reaction(row['target_smiles'], row['structural_precursor']),
                 'reference_id': row['id'], 'source_path': str(path), 'source_sha256': expected_sha,
                 'mapped_target': row['target_smiles'],
-                'source_split': row['metadata']['source_split']}
+                'source_split': split}
     if digest.hexdigest() != expected_sha or set(result) != identifiers:
         raise ValueError('reference source SHA / exact source-ID crosswalk failed')
     return result
