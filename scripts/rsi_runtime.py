@@ -12,6 +12,18 @@ from collections import deque
 from mechet.rsi_contract import stable_seed,fingerprint,JsonJournal
 
 
+def decode_seed(identifier,candidate,decision,direction,*,actor_sha,phase,contract='v0'):
+    if contract=='v1':return stable_seed(17,identifier,candidate,decision,direction)
+    if contract!='v0':raise ValueError('unknown decoder seed contract')
+    return stable_seed(17,phase if direction=='reverse' else 'frozen_forward',identifier,candidate,decision,actor_sha)
+
+
+def repeat_rejection(seen,state,raw,*,enabled):
+    key=fingerprint([state,raw])
+    duplicate=key in seen;seen.add(key)
+    return bool(enabled and duplicate)
+
+
 def rolling_agent_batch(controllers,make_request,consume,owner,*,cpu_workers=16,max_inflight=64,on_done=None):
     ready=deque(controllers);gpu={};cpu={};done=[]
     with ThreadPoolExecutor(max_workers=cpu_workers) as pool:
@@ -108,7 +120,8 @@ def restore_recorded_steps(c,records,direction):
 
 
 def collect_episodes(rows,*,owner,tokenizer,lora,actor_sha,round_id,sample_indices,
-                     direction='reverse',journal_path,max_attempts=24,max_tokens=384,cpu_workers=16):
+                     direction='reverse',journal_path,max_attempts=24,max_tokens=384,cpu_workers=16,
+                     seed_contract='v0',temperature=1.,rejection_guard=False):
     from scripts.run_natural_language_value_search import Node,private_product_state,visible
     from mechet.in_place_grounded_flow import mapped_atom_numbers
     completed={};recorded={}
@@ -133,17 +146,23 @@ def collect_episodes(rows,*,owner,tokenizer,lora,actor_sha,round_id,sample_indic
             if identifier in completed:prior.append(completed[identifier]);continue
             c={'id':row['id'],'episode_id':identifier,
               'candidate':candidate,'round':round_id,'actor_sha':actor_sha,'node':node,'initial_state':state,
-              'state':state,'target':row.get('target',''),'steps':[],'history':[],'flow_count':0,'terminal':False}
+              'state':state,'target':row.get('target',''),'steps':[],'history':[],'flow_count':0,'terminal':False,
+              'rejected_calls':set()}
             restore_recorded_steps(c,recorded.get(identifier,[]),direction);controllers.append(c)
+            for s in c['steps']:
+                if not s.get('accepted') and s.get('complete') and repeat_rejection(c['rejected_calls'],s['state_before'],s['raw'],enabled=rejection_guard):
+                    c['stop_reason']='REPEATED_REJECTION_GUARD'
     start=time.monotonic()
     def request(c):
         if c['terminal']:return None
+        if c.get('stop_reason')=='REPEATED_REJECTION_GUARD':return None
         if len(c['steps'])>=max_attempts:c['stop_reason']='ATTEMPT_BUDGET';return None
         prompt=reverse_prompt(c['node'],tokenizer) if direction=='reverse' else forward_prompt_text(c['state'],c['history'],tokenizer)
         ids=tokenizer.encode(prompt,add_special_tokens=False)
         if len(ids)+max_tokens>16384:c['stop_reason']='CONTEXT_BUDGET';return None
-        c['request']={'prompt_text':prompt,'prompt_ids':ids,'seed':stable_seed(17,round_id if direction=='reverse' else 'frozen_forward',c['id'],c['candidate'],len(c['steps']),actor_sha),
-                      'max_tokens':max_tokens,'lora':lora};return c['request']
+        c['request']={'prompt_text':prompt,'prompt_ids':ids,'seed':decode_seed(c['id'],c['candidate'],len(c['steps']),direction,
+                      actor_sha=actor_sha,phase=round_id,contract=seed_contract),
+                      'max_tokens':max_tokens,'lora':lora,'temperature':temperature};return c['request']
     def consume(c,result):
         cpu_start=time.monotonic()
         from scripts.eval_natural_language_event_local import prediction_call
@@ -174,13 +193,15 @@ def collect_episodes(rows,*,owner,tokenizer,lora,actor_sha,round_id,sample_indic
               'generated_sum_logp':sum(float(scores[token].logprob) for scores,token in zip(out.logprobs,ids)) if out.logprobs is not None else None}
         raw.append({'episode_id':c['episode_id'],'actor_sha':actor_sha,**step});c['steps'].append(step);c['state']=after
         if accepted and name in {'apply_electron_flow','apply_forward_electron_flow'}:c['flow_count']+=1
-        c['done']=c['terminal'] or len(c['steps'])>=max_attempts
+        guarded=not accepted and complete and repeat_rejection(c['rejected_calls'],before,raw_text,enabled=rejection_guard)
+        if guarded:c['stop_reason']='REPEATED_REJECTION_GUARD'
+        c['done']=c['terminal'] or len(c['steps'])>=max_attempts or guarded
         return c
     def finish(c):
         c['final_state']=c['state'];c['elapsed_seconds']=time.monotonic()-start
-        saved={k:v for k,v in c.items() if k not in {'node','request'}};episodes.append(saved)
+        saved={k:v for k,v in c.items() if k not in {'node','request','rejected_calls'}};episodes.append(saved)
         print({'phase':'RSI-episode','direction':direction,'round':round_id,'id':c['id'],'candidate':c['candidate'],
                'terminal':c['terminal'],'attempts':len(c['steps']),'elapsed_seconds':c['elapsed_seconds']},flush=True)
     try:result=rolling_agent_batch(controllers,request,consume,owner,cpu_workers=cpu_workers,on_done=finish)
     finally:raw.close();episodes.close()
-    return sorted(prior+[{k:v for k,v in c.items() if k not in {'node','request'}} for c in result],key=lambda e:e['episode_id'])
+    return sorted(prior+[{k:v for k,v in c.items() if k not in {'node','request','rejected_calls'}} for c in result],key=lambda e:e['episode_id'])

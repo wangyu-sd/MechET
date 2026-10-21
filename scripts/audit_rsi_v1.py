@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 
@@ -20,8 +21,8 @@ def reference_classes(path, identifiers, expected_sha):
         for line in f:
             digest.update(line)
             # ID is a top-level prefix field, verified again after decoding.
-            prefix = line[:500]
-            if not any(identifier.encode() in prefix for identifier in identifiers):
+            match = re.search(rb'"id"\s*:\s*"([^"]+)"', line[:500])
+            if not match or match[1].decode() not in identifiers:
                 continue
             row = json.loads(line)
             if row['id'] not in identifiers:
@@ -30,6 +31,7 @@ def reference_classes(path, identifiers, expected_sha):
                 raise ValueError('TEST forbidden in RSI source gate')
             result[row['id']] = {**net_reaction(row['target_smiles'], row['structural_precursor']),
                 'reference_id': row['id'], 'source_path': str(path), 'source_sha256': expected_sha,
+                'mapped_target': row['target_smiles'],
                 'source_split': row['metadata']['source_split']}
     if digest.hexdigest() != expected_sha or set(result) != identifiers:
         raise ValueError('reference source SHA / exact source-ID crosswalk failed')

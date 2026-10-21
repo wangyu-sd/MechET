@@ -82,3 +82,20 @@ def paired_candidates(episodes, limit):
             for a, b in zip(pair[0]['steps'], pair[1]['steps'])), fingerprint([e['episode_id'] for e in pair])))
         selected.extend(options[0])
     return selected
+
+
+def per_target_budget(episodes, target_ids, budget):
+    """Whole-episode token censors, independently within every frozen target."""
+    ids = set(target_ids); kept = []; spent = defaultdict(int); censored = set()
+    observed = {e['id'] for e in episodes}
+    for e in sorted(episodes, key=lambda e: (e['id'], e.get('candidate', 0))):
+        if e['id'] not in ids:
+            raise ValueError('unexpected validation target')
+        cost = sum(len(s['completion_ids']) for s in e['steps'])
+        cap = budget[e['id']] if isinstance(budget, dict) else budget
+        if spent[e['id']]+cost > cap:
+            censored.add(e['id']); continue
+        kept.append(e); spent[e['id']] += cost
+    return {'targets': len(ids), 'episodes': kept, 'spent_tokens': sum(spent.values()),
+        'per_target_spent': dict(spent), 'censored_target_ids': sorted(censored),
+        'missing_target_ids': sorted(ids-observed), 'budget': budget}
