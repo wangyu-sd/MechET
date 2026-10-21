@@ -123,6 +123,17 @@ private Ceph init is recovered from a prior successful task, not stored in Git.
 Creation/start success is only submission evidence; check raw episode journals,
 adapter manifests and paired validation before claiming model-update success.
 
+Observed live after retry: both A100-SXM4-40GB cards are present, Ceph is mounted,
+and the real vLLM owner plus HF scorer loaded the pinned models. The source
+preflight passed in the GPU container and `provenance.json` records `f77d60c…`.
+At the first sampling readback, D0v1 K2 had **871 durably saved action records,
+99,694 generated tokens, 800 accepted actions, and 7/256 completed episodes**
+(all seven terminal). This is a partial TRAIN collection, not endpoint accuracy
+or evidence of improved weights; controls and held-out evaluation were pending.
+Worker stdout/stderr were verified to have the same pipe targets as PID1.
+The Taiji log API was serving a lagging bootstrap snapshot while raw journals
+and phase events continued growing; logs are not redirected to a separate file.
+
 New isolated root (absolute):
 `/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_real_anchored_smoke_20261021`
 
