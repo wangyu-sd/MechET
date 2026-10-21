@@ -1,6 +1,6 @@
 # PR91 executable round-trip policy iteration — execution record
 
-Status: independent code review and corrections complete; GPU execution is the next gate. **No GPU RSI result, new trained R1/R2, or improvement is claimed by this record yet.**
+Status: independent code review and corrections complete; two-A100 task submitted and allocated, runtime startup under verification. **No GPU RSI result, new trained R1/R2, or improvement is claimed by this record yet.**
 
 ## Authenticated policies
 
@@ -46,3 +46,12 @@ Expected new artifact root (not evidence that it already exists):
 `/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_roundtrip_smoke_20261021`
 
 Required final GPU evidence still pending: genuine R0/F0 baselines, D0 preferences, nonzero R1 update, fresh D1, R2 update if informative, paired validation and runtime tables. Keep sparse/no-update/failure results rather than claiming successful self-improvement.
+
+## Submitted GPU verification
+
+- Task: `meteor_mechet_pr91_rsi_roundtrip_2a100_qy_20261021_01`.
+- Instance: `8b1d899ea13fdea001a15d1890ee3c85`; submitted2026-10-21 14:14:13CST, allocated14:14:25.
+- Ordinary/nonelastic2A100, `AI4LSLab_KEMO_QY_A100`, `qy`, Tencent `mirrors.tencent.com/whaleywang/metabo:taiji6`.
+- Shell and Python frozen to `34e1047205cafe9b4138b6520cd50fe1b7f11a43`; code archived node-locally. Private Ceph init recovered using the existing successful `meteor_mechet_uspto31k_mcts_ray_resume_8a100_qy_20261016_04` donor. No mount credential committed.
+- Default stdout/stderr retained with45s heartbeat; no stdout redirection. Allocation is not proof of successful inference/update.
+- Public submit contract: `configs/taiji/meteor_mechet_pr91_rsi_roundtrip_2a100_qy_20261021_01.json`.
