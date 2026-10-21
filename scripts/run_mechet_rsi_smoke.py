@@ -302,7 +302,7 @@ class Experiment:
         from mechet.roundtrip_reward import preference_pairs
         episodes=[];pairs=[];sampling_rows=rows
         for lower,upper in [(0,2),(2,4),(4,8)]:
-            self.log('adaptive-stage',actor=actor,phase=phase,lower=lower,upper=upper,targets=len(rows))
+            self.log('adaptive-stage',actor=actor,round_id=phase,lower=lower,upper=upper,targets=len(rows))
             batch=self.collect(sampling_rows,actor,phase+f'_K{upper}',range(lower,upper))
             # Round identity is explicit; episode IDs retain generation phase.
             for e in batch:e['collection_phase']=e['round'];e['round']=phase

@@ -1,6 +1,6 @@
 # PR91 executable round-trip policy iteration — execution record
 
-Status: two-A100 runtime and genuine F0 baseline verified; R0 validation in progress. **No new trained R1/R2 or policy-iteration improvement is claimed by this record yet.**
+Status: first task failed after completing R0 validation; minimal logging fix verified and continuation is being prepared. **No new trained R1/R2 or policy-iteration improvement is claimed by this record yet.**
 
 ## Authenticated policies
 
@@ -70,3 +70,18 @@ Source: `evaluation/F0_recorded_forward.json`; full sampled calls: `F0_recorded_
 Measured full-tool-loop phase:282.304552seconds,31,493generated tokens,111.556827tokens/s; summed executor wall1.355757seconds. Includes all36baseline attempts. Decode-only wave/rolling ABBA did **not** yield identical sampled token sequences, so the runner suppresses a paired speedup ratio; no speedup claim is made.
 
 R0 validation has started with accepted IMPORT/FLOW/FINISH calls, confirming forward→reverse vLLM adapter switching. Its autonomous F0 round-trip scores, actual DPO gradient/weight changes, refreshed D1 and R2 remain pending; do not reuse the F0 baseline number as a reverse-model accuracy.
+
+## Completed R0 baseline and continuation repair (2026-10-21)
+
+The first task failed at14:38CST after all three sampling stages completed. Root cause reproduced locally: `train_pool` called `log('adaptive-stage', phase=...)`, supplying `phase` twice. Fixed only that metadata key to `round_id`; no model, decoder, reward or selection change. Regression exercises the real three-stage pool allocation/logging while replacing only GPU collection. It failed with the production TypeError before the fix, then passed. Full suite494passed,1skipped,3PEFT warnings,73.42s; shell syntax passes.
+
+| R0 frozen VALID32 metric | Result |
+|---|---:|
+| Reverse explicit finish |59/64episodes|
+| First-draw autonomous F0 reconstruction |17/32targets=53.125%|
+| Either of two draws reconstructed by F0 |22/32targets=68.75%|
+| Either draw matches recorded structural precursor |4/32targets=12.5%|
+
+These are **pre-update** measurements. Round-trip success is not reference precursor exact match or independent chemical truth.59unique terminal candidates all have replay-verified forward witnesses;53nontrivial candidates received autonomous F0 checks. Raw witness-score audit AUC0.58797654; likelihood is not used as a positive label. No R1 weights, D0 pool or optimizer update existed at the failure.
+
+Cache recovery audit actually loaded all36/64/53episodes through the stage loader with the producer forbidden; zero new model generation. Existing actor SHAs and runtime source hash match. Retry will reuse these stages and continue at D0, preserving the same resolved config. Original failure/provenance/phase/profile records copied without overwrite to `attempt_history/20261021_01/` under the output root; original raw files remain intact. A pre-existing root `failure.json` therefore describes the old attempt until a new failure or final report supersedes it; use task instance/current phase timestamps, not mere file existence, to determine current status.

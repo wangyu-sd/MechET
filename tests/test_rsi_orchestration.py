@@ -63,3 +63,22 @@ def test_roundtrip_at_one_is_first_draw_not_best_of_k():
     assert result['roundtrip_at_1_targets']==0
     assert result['roundtrip_at_k_targets']==1
     assert result['roundtrip_at_k_rate']==.5
+
+
+def test_training_pool_enters_all_adaptive_stages_without_log_field_collision(tmp_path,monkeypatch):
+    import json
+    from scripts.run_mechet_rsi_smoke import Experiment
+    experiment=Experiment({},tmp_path);requests=[]
+    def empty_gpu_collection(rows,actor,phase,indices):
+        requests.append((actor,phase,list(indices)))
+        return []
+    monkeypatch.setattr(experiment,'collect',empty_gpu_collection)
+    try:
+        episodes,pairs=experiment.train_pool([{'id':'reaction-a'}],'R0','D0')
+    finally:experiment.raw.close()
+    assert episodes==[] and pairs==[]
+    assert requests==[('R0','D0_K2',[0,1]),('R0','D0_K4',[2,3]),('R0','D0_K8',[4,5,6,7])]
+    events=[json.loads(line) for line in (tmp_path/'phase_events.jsonl').read_text().splitlines()]
+    assert len(events)==3
+    assert all(e['phase']=='adaptive-stage' and e['round_id']=='D0' for e in events)
+    assert json.loads((tmp_path/'D0.allocation.json').read_text())['forward_checks_used']==0
