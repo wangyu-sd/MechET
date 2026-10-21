@@ -1,6 +1,6 @@
 # PR91 executable round-trip policy iteration — execution record
 
-Status: independent code review and corrections complete; two-A100 task submitted and allocated, runtime startup under verification. **No GPU RSI result, new trained R1/R2, or improvement is claimed by this record yet.**
+Status: two-A100 runtime and genuine F0 baseline verified; R0 validation in progress. **No new trained R1/R2 or policy-iteration improvement is claimed by this record yet.**
 
 ## Authenticated policies
 
@@ -55,3 +55,18 @@ Required final GPU evidence still pending: genuine R0/F0 baselines, D0 preferenc
 - Shell and Python frozen to `34e1047205cafe9b4138b6520cd50fe1b7f11a43`; code archived node-locally. Private Ceph init recovered using the existing successful `meteor_mechet_uspto31k_mcts_ray_resume_8a100_qy_20261016_04` donor. No mount credential committed.
 - Default stdout/stderr retained with45s heartbeat; no stdout redirection. Allocation is not proof of successful inference/update.
 - Public submit contract: `configs/taiji/meteor_mechet_pr91_rsi_roundtrip_2a100_qy_20261021_01.json`.
+
+## First measured GPU result (partial run,2026-10-21 14:24CST)
+
+The independent **F0 recorded-reactant forward baseline** completed all36 episodes. F0 sees the reactant mixture, not the desired product; this is Forward@1, **not reverse round-trip discovery or RSI improvement**.
+
+| Frozen selection | Product-component hits | Completed explicit finishes | Other outcomes |
+|---|---:|---:|---|
+| VALID32 |25/32=78.125%|32/32|7forward endpoint mismatches|
+| TRAIN4 |1/4=25%|4/4|3forward endpoint mismatches|
+
+Source: `evaluation/F0_recorded_forward.json`; full sampled calls: `F0_recorded_reactants.jsonl.actions.jsonl`; episode states: `F0_recorded_reactants.jsonl`. Fixed selection files are retained. No omitted/censored cases in this baseline. Product matching is canonical mapless/H-normalized component inclusion, not proof of experimental chemical truth.
+
+Measured full-tool-loop phase:282.304552seconds,31,493generated tokens,111.556827tokens/s; summed executor wall1.355757seconds. Includes all36baseline attempts. Decode-only wave/rolling ABBA did **not** yield identical sampled token sequences, so the runner suppresses a paired speedup ratio; no speedup claim is made.
+
+R0 validation has started with accepted IMPORT/FLOW/FINISH calls, confirming forward→reverse vLLM adapter switching. Its autonomous F0 round-trip scores, actual DPO gradient/weight changes, refreshed D1 and R2 remain pending; do not reuse the F0 baseline number as a reverse-model accuracy.
