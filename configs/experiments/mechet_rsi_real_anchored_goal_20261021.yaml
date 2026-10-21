@@ -1,0 +1,114 @@
+# Codex planning manifest ONLY. Intentionally NONRUNNABLE until the PR92
+# implementation freezes and writes a new resolved execution configuration.
+goal_status: specification_only
+runtime_implemented: false
+protocol: mechet_rsi_real_data_anchored_cycle_smoke_v1
+goal_file: docs/goals/MECHET_RSI_REAL_ANCHORED_CORRECTION_CODEX_GOAL_20261021.md
+upstream_pr: 91
+upstream_head_sha: e9ed7b9bfce9ecc3f769cc8c9a5c823b098ffb2b
+is_stacked_fix: true
+
+models:
+  base: Qwen/Qwen3-0.6B
+  revision: c1899de289a04d12100db370d81485cdf75e47ca
+  reverse_reference_sha256: 40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75
+  frozen_forward_checkpoint: outputs/agent/forward_event_flowER_qwen3_0_6b_4h20_20261016_seed17/checkpoint-54000
+  frozen_forward_sha256: 38e663a395a81c6901d078eb395026c4d062f17052730d54093c506d33aaa89e
+  freeze_original_r0_f0: true
+  v1_initial_reverse_checkpoint: original_R0_not_v0_R1
+  train_backbone: false
+  graph_and_crn_jepa_allowed: false
+
+sources:
+  train_reaction_universe: 257167
+  valid_reaction_universe: 2890
+  use_test: false
+  selection_seed: 17
+  reused_v0_train_selection: outputs/agent/mechet_rsi_roundtrip_smoke_20261021/selected_train_ids.json
+  reused_v0_valid_selection: outputs/agent/mechet_rsi_roundtrip_smoke_20261021/selected_valid_ids.json
+  replay_history_sft_file: data/flower_natural_language_event_history_v2/train.jsonl
+  replay_history_sft_manifest: data/flower_natural_language_event_history_v2/manifest.json
+  replay_training_only: true
+  replay_independent_train_reactions: 512
+  replay_actions_per_reaction_range: [1, 4]
+  replay_strata: [import_fragments, apply_electron_flow, finish_trace, recorded_net_class]
+  gold_data_as_universal_dpo_chosen: false
+
+reward:
+  components: [executor_valid, forward_autonomous_reconstruction, task_compatible_net_progress]
+  positive_requires: [productive_inverse_terminal, autonomous_forward_roundtrip]
+  terminal_task_class_from_train_reference_private_only: true
+  classes: [bond_change, functional_group_or_redox, stereochemical, acid_base, unknown]
+  no_global_heavy_bond_required: true
+  do_not_reject_intermediate_proton_transfer: true
+  replayed_forward_path_logprob_is_not_autonomous_success: true
+  forward_mismatch_alone_hard_negative: false
+  incomplete_or_unchecked_is_unknown: true
+  old_v0_roundtrip_metric_separate: true
+  new_productive_roundtrip_at_1_and_k: true
+
+forward_sampling:
+  within_target_paired_allocation: true
+  global_high_low_ranking_primary: false
+  reverse_independent_k_schedule: [2, 4, 8]
+  max_forward_checks_per_128_train_targets: 64
+  max_forward_checks_per_target_initial: 2
+  forward_auto_rollout_k: 1
+  forward_model_sees_target: false
+  keep_hydrogen_stereo_auxiliary_bridge_audit: true
+  source_reaction_cap: 2
+  unique_chemical_successor_only: true
+  weak_forward_disagreement_ablation: false
+
+optimization:
+  primary: anchored_state_conditional_dpo_plus_replay_sft
+  reference: frozen_original_R0
+  beta: 0.1
+  learning_rate: 0.000002
+  replay_weight_initial: 0.25
+  dpo_microexamples_per_four_slots: 3
+  replay_microexamples_per_four_slots: 1
+  assistant_action_only_gradients: true
+  cache_reference_action_probabilities: true
+  max_unique_pair_exposures: 4
+  max_optimizer_steps_per_round: 20
+  steps_derive_from_unique_pairs_not_fixed: true
+  control_models: [R0_frozen, replay_only, corrected_cycle_dpo_only, anchored_cycle_dpo_replay]
+  measure_dpo_and_replay_gradients_separately: true
+  response_and_tool_type_balancing: true
+  cap_correlated_same_reaction_pairs: true
+  two_round_recursive_refresh: true
+  second_round_actor_is_v1_R1: true
+  static_d0_reuse_control: when_viable
+
+validation:
+  fixed_valid_targets_initial: 32
+  optional_extended_valid_targets: 128
+  same_r0_f0_and_valid_ids: true
+  greedy_k1_and_stochastic_k2: true
+  common_generation_seed_independent_actor_sha: true
+  preserve_actor_sha_in_cache_identity: true
+  matched_budget_per_target_not_global_prefix_break: true
+  report_denominator_including_failed_or_censored: true
+  metrics:
+    - productive_forward_verified_roundtrip_at_1
+    - productive_forward_verified_roundtrip_at_k
+    - old_roundtrip_at_1_diagnostic
+    - distinct_productive_disconnections_per_target
+    - reference_precursor_exact_diagnostic
+    - reverse_accepted_and_terminal
+    - state_cycle_rejections
+    - independent_reactions_per_preference_pool
+    - per_tool_type_learning_signal
+    - replay_retention_metrics
+    - tokens_and_wall_per_productive_success
+
+runtime:
+  source_v0_artifacts_read_only: true
+  output_root: outputs/agent/mechet_rsi_real_anchored_smoke_20261021
+  use_existing_vllm_gpu_owner_and_async_executor: true
+  use_existing_selected_policy_logps: true
+  preserve_inflight_prior_tasks: true
+  no_full_mcts_in_training: true
+  F1_update_deferred_until_reverse_v1_verified: true
+  publish_real_shas_not_planned_results: true
