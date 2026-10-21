@@ -1,0 +1,117 @@
+# PROPOSAL / CODEX CONTRACT, not yet an executable training configuration.
+# Make a separate resolved run config after implementing the RSI runner.
+goal_status: specification_only
+runtime_implemented: false
+protocol: mechet_rsi_cycle_grounded_policy_iteration_smoke_v1
+goal_document: docs/goals/MECHET_RSI_EXECUTABLE_ROUNDTRIP_SMOKE_CODEX_GOAL_20261021.md
+
+models:
+  base: Qwen/Qwen3-0.6B
+  base_revision: c1899de289a04d12100db370d81485cdf75e47ca
+  reverse_stage2_adapter: outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
+  reverse_expected_weight_sha256: 40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75
+  forward_adapter_root: outputs/agent/forward_event_flowER_qwen3_0_6b_4h20_20261016_seed17
+  forward_checkpoint_selection: latest_authentic_coherent_final_else_checkpoint
+  forward_weight_sha256: null  # MUST be read from machine; do not invent
+  freeze_r0_for_reference_and_validation: true
+  freeze_f0_for_reverse_feedback_and_validation: true
+  train_backbone: false
+  train_existing_lora_only: true
+  graph_model_allowed: false
+
+dataset:
+  name: flower_strict_executable
+  train_reaction_denominator: 257167
+  valid_reaction_denominator: 2890
+  test_used: false
+  selection_seed: 17
+  smoke_train_targets: 128
+  expansion_train_targets_if_pairs_sparse: 256
+  smoke_valid_targets: 32
+  stratify_by: [reference_event_length, import_count]
+  use_same_train_targets_for_d0_d1: true
+  pair_source: model_autonomous_rollouts
+
+inverse_collection:
+  strategy: progressive_independent_episode_sampling
+  k_initial: 2
+  k_next: 4
+  k_max: 8
+  temperature: 1.0
+  top_p: 1.0
+  top_k: -1
+  max_tool_attempts: 24
+  max_new_tokens_per_attempt: 384
+  checkpoint_r0: existing_stage2
+  checkpoint_r1: newly_updated_lora
+
+forward_feedback:
+  witness_score_all_replayable_unique: true
+  witness_score_metric: mean_generated_forward_tool_token_logprob
+  teacher_force_only_verified_forward_witnesses: true
+  autonomous_forward_rollouts_target_attempts: 64
+  autonomous_forward_samples_per_candidate: 1
+  forward_max_tool_attempts: 24
+  forward_max_new_tokens_per_attempt: 384
+  judge_checkpoint: frozen_f0
+  report_forward_witness_coverage: true
+  report_proxy_vs_autonomous_association: true
+  target_visible_to_forward_policy: false
+  require_explicit_forward_finish: true
+  target_retained_no_transform_is_success: false
+  unknown_not_automatically_negative: true
+  forward_context_variant: full_inverse_terminal_mixture
+  compare_structural_variant_separately: true
+
+preference:
+  pair_type: exact_same_model_visible_prompt_first_distinct_action
+  positive_sources:
+    - independently_autonomous_forward_reconstruction
+    - calibrated_verified_forward_witness_support
+  negative_sources:
+    - executor_rejected
+    - demonstrated_worse_comparable_forward_outcome
+    - nonproductive_complete_transformation
+  pool_equivalent_chemical_successors: true
+  keep_import_flow_finish_breakdown: true
+  log_full_raw_tool_call_including_eos: true
+
+optimizer:
+  algorithm: offline_state_conditional_dpo
+  beta: 0.1
+  learning_rate: 0.000002
+  trainable: reverse_lora
+  fixed_reference: r0
+  microbatch: 1
+  gradient_accumulation: 4
+  max_optimizer_steps_per_round: 50
+  rounds: 2
+  reference_logprob_cache: true
+  token_loss_scope: first_common_state_divergent_complete_assistant_tool_call
+  full_trajectory_loss: false
+  replay_sft_mixed_with_rl_steps: false
+  skip_if_no_authentic_pairs: true
+  independent_forward_lora_update: conditional_after_reverse_round2
+  static_d0_second_round_control: when_viable
+
+runtime:
+  use_existing_vllm_085: true
+  continuous_batching: true
+  gpu_owner_per_engine: 1
+  asynchronous_cpu_executor: true
+  caching: [model_token_prefix, verified_executor_action, forward_witness_likelihood]
+  bounded_in_flight_requests: true
+  per_request_deterministic_seed: true
+  collect_generated_tokens_and_wall_time: true
+  preserve_other_running_jobs: true
+  no_full_route_mcts_for_training: true
+
+output:
+  root: outputs/agent/mechet_rsi_roundtrip_smoke_20261021
+  immutable_shard_manifests: true
+  keep_all_invalid_and_censored: true
+  paired_validation_models: [r0, r1, r2]
+  judge_for_all_reverse_validation: frozen_f0
+  include_static_d0_control: when_viable
+  forward_f1_result: only_if_actually_updated
+  measured_speedup_required_for_claim: true
