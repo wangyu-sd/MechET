@@ -140,7 +140,9 @@ def collect_episodes(rows,*,owner,tokenizer,lora,actor_sha,round_id,sample_indic
     controllers=[];prior=[];raw=JsonJournal(raw_path);episodes=JsonJournal(journal_path)
     for row in rows:
         for candidate in sample_indices:
-            state=private_product_state(row['target']) if direction=='reverse' else row['initial_state']
+            # An authenticated source product can preserve explicit H nodes and
+            # Kekule ordering privately, while row.target stays map-free.
+            state=private_product_state(row.get('initial_state') or row['target']) if direction=='reverse' else row['initial_state']
             node=Node(target=row.get('target',''),state=state,next_map=max(mapped_atom_numbers(state))+1,visited={visible(state)})
             identifier=fingerprint([round_id,actor_sha,row['id'],candidate,direction])
             if identifier in completed:prior.append(completed[identifier]);continue

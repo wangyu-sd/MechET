@@ -151,10 +151,13 @@ def mapped_replay_targets(path, identifiers, expected_sha, output):
 def build_replay_pool(path, identifiers, tokenizer, expected_sha, output, references):
     output = Path(output)
     contract = fingerprint([str(path), sorted(identifiers), expected_sha, 'real-history-execute-v1'])
+    mapped_sha = fingerprint({k:references[k]['replay_mapped_target'] for k in sorted(identifiers)})
     if (output/'manifest.json').exists():
         previous = json.loads((output/'manifest.json').read_text())
         if previous['contract'] != contract:
             raise ValueError('replay resume source contract changed')
+        if previous.get('mapped_source_target_sha') != mapped_sha:
+            raise ValueError('replay mapped parent target digest changed')
         rows = json.loads((output/'actions.json').read_text())
         if fingerprint(rows) != previous['actions_sha']:
             raise ValueError('cached replay pool corrupt')
@@ -206,7 +209,7 @@ def build_replay_pool(path, identifiers, tokenizer, expected_sha, output, refere
         'independent_train_reactions': len(selected), 'retained_actions': len(pool),
         'verified_full_trajectory_actions': verified_count, 'actions_sha': fingerprint(pool),
         'test_used': False, 'assistant_only_eos_included': True,
-        'mapped_source_target_sha': fingerprint({k:references[k]['replay_mapped_target'] for k in sorted(selected)}),
+        'mapped_source_target_sha': mapped_sha,
         'prompt_parity': 'byte_exact_runtime_state_plus_compact_accepted_history'}
     write_json(output/'actions.json', pool); write_json(output/'manifest.json', manifest)
     return pool, manifest

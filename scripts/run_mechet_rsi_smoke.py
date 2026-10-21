@@ -138,7 +138,7 @@ class Experiment:
         self.prompt_gate()
         self.profile_decode()
         eos=self.tokenizer.convert_tokens_to_ids('<|im_end|>')
-        def params(r):return SamplingParams(n=1,temperature=1.,top_p=1.,top_k=-1,max_tokens=r['max_tokens'],
+        def params(r):return SamplingParams(n=1,temperature=r.get('temperature',1.),top_p=1.,top_k=-1,max_tokens=r['max_tokens'],
                      seed=r['seed'],stop_token_ids=[eos],ignore_eos=False,logprobs=1)
         self.owner=GPUOwner(self.engine,params,max_inflight=64)
         self.scorer=PolicyScorer('Qwen/Qwen3-0.6B',self.output/'frozen/R0',self.output/'frozen/F0',device='cuda:1')
@@ -172,7 +172,7 @@ class Experiment:
         from vllm import SamplingParams
         requests=[]
         for row in self.profile_rows[:16]:
-            state=private_product_state(row['target']);node=Node(target=visible(state),state=state,next_map=max(mapped_atom_numbers(state))+1)
+            state=private_product_state(row.get('initial_state') or row['target']);node=Node(target=visible(state),state=state,next_map=max(mapped_atom_numbers(state))+1)
             prompt=reverse_prompt(node,self.tokenizer);ids=self.tokenizer.encode(prompt,add_special_tokens=False)
             requests.append((ids,stable_seed(17,'decode_profile',row['id'])))
         results=[];raw=JsonJournal(self.output/'decode_profile_raw.jsonl')

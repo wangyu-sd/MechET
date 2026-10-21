@@ -1,0 +1,51 @@
+shared: /aaa/fionafyang/buddy1/whaleywang/MechET
+reverse_source: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_0_6b_seed17
+reverse_sha: 40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75
+forward_source: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/forward_event_flowER_qwen3_0_6b_4h20_20261016_seed17/checkpoint-54000
+forward_sha: 38e663a395a81c6901d078eb395026c4d062f17052730d54093c506d33aaa89e
+forward_status: provisional_checkpoint_step54000_epoch1.8169582772543742_of2
+base_model: Qwen/Qwen3-0.6B
+base_revision: c1899de289a04d12100db370d81485cdf75e47ca
+inputs:
+  train:
+    path: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mechet_proof_sft_flower_full_v4/train.jsonl
+    rows: 257167
+    sha256: 2fe6ef3825f31c5e95d47de84c69790acf1012da2a5466118d392ba583ca4315
+  valid:
+    path: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mechet_proof_sft_flower_full_v4/valid.jsonl
+    rows: 2890
+    sha256: b9b03a1f821521dcc6504d9271ccf1817392adff57f98d1c1bb53141c23ebccb
+  view: strict_executable_proof
+  eligibility_filter: named4train_0valid_4test_corrupt_upstream_rows_only
+  overlap_filtering: false
+  token_length_filtering: false
+protocol: mechet_rsi_real_anchored_v1
+output: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_real_anchored_smoke_20261021
+legacy_source: /aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_roundtrip_smoke_20261021
+legacy_r1_sha: 88f3fc89f9c17f667c628d9bc8a5f3348d6b79dab4fc308351911b43773be795
+replay_source: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_natural_language_event_history_v2/train.jsonl
+replay_sha: bc0a859a3c25b6146a8f6cac730610a0d66347baff1f9648b67329b17d785b97
+replay_reactions: 512
+mapped_replay_parent: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/train.jsonl
+mapped_replay_parent_sha: edc80c5c5eb13d50753c5566c5d6ac1b90b955b1a8dfece915241b2da4a40a75
+mapped_valid_parent: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/valid.jsonl
+mapped_valid_parent_sha: 7303a6018850db61594af5854df936778c21a6668e61151f95e2c74c32d22d2a
+valid_history_source: /aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_natural_language_event_history_v2/valid.jsonl
+valid_history_sha: 368a487e877f9ef8f1ed75f70cfe68d324d1bc8aa5c687ca882edc6bfd39d256
+root_input_contract: original_authenticated_mapped_product_private_unmapped_model_prompt
+max_optimizer_steps: 20
+max_pair_exposures: 4
+primary_actor: M3
+primary_rejection_guard: false
+guard_ablation: true
+test_used: false
+seed: 17
+reference: fixed_original_R0
+replay_weight: 0.25
+learning_rate: 2.0e-06
+beta: 0.1
+controls_budget: equal_scored_plan_updates_not_equal_active_loss_tokens
+recursive_parent_selection: M3_preselected_TRAIN_retention_gate_only
+forward_f1: deferred
+train_forward_checks: 64
+validation_ids: 32

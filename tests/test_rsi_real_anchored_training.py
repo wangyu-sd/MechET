@@ -44,8 +44,10 @@ def test_actual_qwen_lora_anchored_branch_gradients_frozen_reference_and_saved_w
     assert result['replay_gradient_norm_max']>0 if mode!='dpo_only' else result['replay_gradient_norm_max']==0
     assert all(torch.equal(refs[n],p) for n,p in model.named_parameters() if n in refs)
     assert (tmp_path/mode/'policy/adapter_model.safetensors').exists()
+    model.delete_adapter('policy')  # fresh process: no previously active control
     again=scorer.train_anchored(pairs,replay,tmp_path/'initial/reference','r0',tmp_path/mode,mode=mode,max_steps=1,lr=.001)
     assert result['weight_sha256']==again['weight_sha256']
+    assert 'policy' in model.peft_config
 
 
 def test_no_preferences_do_not_fabricate_dpo_update(tmp_path):
@@ -53,3 +55,14 @@ def test_no_preferences_do_not_fabricate_dpo_update(tmp_path):
     scorer=PolicyScorer.__new__(PolicyScorer)
     result=scorer.train_anchored([],[],tmp_path,'r0',tmp_path/'out',mode='anchored')
     assert result['status']=='no_update' and result['optimizer_steps']==0
+
+
+def test_recursive_controls_share_token_cap_and_update_count_without_cropping_actions():
+    from mechet.rsi_objective import matched_round_plans
+    def pairs(size):
+        return [{'id':str(i),'source_id':str(i),'chosen_ids':[1]*size,'rejected_ids':[2]*size} for i in range(3)]
+    replay=[{'id':'real','source_id':'r','tool':'finish_trace','completion_ids':[3,4]}]
+    plans,report=matched_round_plans({'dynamic':pairs(10),'static':pairs(6)},replay)
+    assert len(plans['dynamic'])==len(plans['static'])==report['optimizer_steps']
+    assert all(n<=report['common_scored_assistant_token_cap'] for n in report['spent_assistant_tokens'].values())
+    assert report['unused_token_cap']['static']>=0

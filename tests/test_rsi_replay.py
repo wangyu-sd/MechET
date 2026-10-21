@@ -75,3 +75,15 @@ def test_mapped_parent_reader_uses_exact_source_id_and_rejects_changed_sha(tmp_p
         mapped_replay_targets(p,[source],'wrong',tmp_path/'cache.json')
     with pytest.raises(ValueError,match='SHA/coverage'):
         mapped_replay_targets(p,['flower_mech_proof_valid_1'],sha256(p),tmp_path/'other.json')
+
+
+def test_cached_replay_rejects_changed_private_parent_mapping(tmp_path):
+    from mechet.rsi_replay import build_replay_pool
+    from mechet.rsi_contract import fingerprint,write_json
+    source='flower_mech_proof_train_1';path=tmp_path/'source.jsonl'
+    rows=[{'id':'real','source_id':source}]
+    write_json(tmp_path/'actions.json',rows)
+    write_json(tmp_path/'manifest.json',{'contract':fingerprint([str(path),[source],'sha','real-history-execute-v1']),
+        'actions_sha':fingerprint(rows),'mapped_source_target_sha':'different-original-parent'})
+    with pytest.raises(ValueError,match='mapped'):
+        build_replay_pool(path,[source],None,'sha',tmp_path,{source:{'replay_mapped_target':'[CH4:1]'}})

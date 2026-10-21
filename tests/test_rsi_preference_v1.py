@@ -56,3 +56,25 @@ def test_forward_allocation_checks_complementary_candidates_within_a_target():
     from collections import Counter
     assert sorted(Counter(e['id'] for e in selected).values())==[2,2]
     assert len({e['episode_id'] for e in selected})==4
+
+
+def test_cached_comparators_do_not_starve_fresh_targets_or_consume_new_budget():
+    from mechet.rsi_preference_v1 import paired_candidates
+    es=[]
+    for i in range(20):
+        for j in range(2):
+            e=episode(f'{i}-{j}',False,'forward_unchecked',successor='CO' if j==0 else 'C=O')
+            e['id']=str(i);e['bridge_key']=e['episode_id'];es.append(e)
+    first=paired_candidates(es,limit=32)
+    second=paired_candidates(es,limit=16,known_keys={e['bridge_key'] for e in first})
+    assert len(second)==8 and not {e['bridge_key'] for e in first}&{e['bridge_key'] for e in second}
+
+
+def test_single_terminal_with_common_prompt_invalid_alternative_gets_one_check():
+    from mechet.rsi_preference_v1 import paired_candidates
+    candidate=episode('candidate',False,'forward_unchecked')
+    invalid=episode('invalid',False,'inverse_incomplete',accepted=False,successor=None)
+    invalid['terminal']=False
+    assert [e['episode_id'] for e in paired_candidates([candidate,invalid],limit=1)]==['candidate']
+    invalid['steps'][0]['prompt_ids']=[999]
+    assert paired_candidates([candidate,invalid],limit=1)==[]

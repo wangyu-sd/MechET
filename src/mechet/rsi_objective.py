@@ -180,6 +180,32 @@ def anchored_plan(pairs,replay,*,max_steps=20,max_exposures=4):
             for step in range(count)]
 
 
+def matched_round_plans(pools,replay):
+    """Same recursive update count and common action-token *cap* for both arms.
+
+    Complete tool calls are indivisible: actual spent/unused tokens differ and
+    are disclosed. No partial-action cropping or fake padding work is used.
+    """
+    plans={name:anchored_plan(pairs,replay) for name,pairs in pools.items()}
+    def cost(name,step):
+        return sum(len(pools[name][i]['chosen_ids'])+len(pools[name][i]['rejected_ids']) for i in step['pairs'])+len(replay[step['replay']]['completion_ids'])
+    cap=min(sum(cost(name,s) for s in plan) for name,plan in plans.items())
+    fit={}
+    for name,plan in plans.items():
+        used=0;count=0
+        for step in plan:
+            n=cost(name,step)
+            if used+n>cap:break
+            used+=n;count+=1
+        fit[name]=count
+    steps=min(fit.values())
+    plans={name:plan[:steps] for name,plan in plans.items()}
+    spent={name:sum(cost(name,s) for s in plan) for name,plan in plans.items()}
+    return plans,{'optimizer_steps':steps,'common_scored_assistant_token_cap':cap,
+        'spent_assistant_tokens':spent,'unused_token_cap':{name:cap-n for name,n in spent.items()},
+        'boundary':'equal_token_cap_and_updates_not_exact_identical_spent_tokens'}
+
+
 def train_anchored(scorer,pairs,replay,initial_adapter,r0_sha,output,*,mode='anchored',
                    max_steps=20,max_exposures=4,lr=2e-6,beta=.1,replay_weight=.25,plan_override=None):
     import json,os,time
@@ -206,6 +232,10 @@ def train_anchored(scorer,pairs,replay,initial_adapter,r0_sha,output,*,mode='anc
         if (output/'manifest.json').exists():
             previous=json.loads((output/'manifest.json').read_text())
             if sha256(Path(previous['path'])/'adapter_model.safetensors')!=previous['weight_sha256']:raise ValueError('saved anchored adapter corrupt')
+            # A resumed process may have no policy adapter, or the previous
+            # control's policy. Restore the exact saved one before retention.
+            if 'policy' in scorer.model.peft_config:scorer.model.delete_adapter('policy')
+            scorer.model.load_adapter(previous['path'],adapter_name='policy',is_trainable=True)
             return previous
     if 'policy' in scorer.model.peft_config:scorer.model.delete_adapter('policy')
     scorer.model.load_adapter(str(initial_adapter),adapter_name='policy',is_trainable=True)

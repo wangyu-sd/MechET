@@ -56,31 +56,55 @@ def strong_pairs(episodes, max_per_reaction=2):
     return result
 
 
-def paired_candidates(episodes, limit):
+def paired_candidates(episodes, limit, *, known_keys=(), resolved_sources=()):
     """Select complementary terminal mixtures per product; no global score sort.
 
     Exact common-state potential is preferred. A singleton is never checked at
     the expense of an available pair. Unknown F0 outcomes are not negatives.
     """
-    groups = defaultdict(list)
+    groups = defaultdict(list); known_keys = set(known_keys); resolved_sources = set(resolved_sources)
     for e in episodes:
-        if e.get('terminal') and e.get('flow_count'):
+        if e['id'] not in resolved_sources:
             groups[e['id']].append(e)
-    selected = []
+    selected = []; singles = []
+    def common_divergence(a, b):
+        for x, y in zip(a['steps'], b['steps']):
+            if x['prompt_ids'] != y['prompt_ids']:return None
+            if chemical_key(x.get('successor')) != chemical_key(y.get('successor')) or x.get('accepted') != y.get('accepted'):
+                return x, y
+        return None
+    def key(e):return e.get('bridge_key',e['episode_id'])
     for source, group in sorted(groups.items(), key=lambda x: fingerprint(x[0])):
         unique = {}
         for e in sorted(group, key=lambda e: e['episode_id']):
+            if not e.get('terminal') or not e.get('flow_count') or not e.get('forward_check_eligible',True):continue
             state = e.get('final_state') or e['steps'][-1].get('successor')
             if state:
                 unique.setdefault(chemical_key(state), e)
         values = list(unique.values())
-        if len(values) < 2 or len(selected)+2 > limit:
-            continue
         options = [(a, b) for i, a in enumerate(values) for b in values[i+1:]]
-        options.sort(key=lambda pair: (not any(a['prompt_ids'] == b['prompt_ids'] and
-            chemical_key(a.get('successor')) != chemical_key(b.get('successor'))
-            for a, b in zip(pair[0]['steps'], pair[1]['steps'])), fingerprint([e['episode_id'] for e in pair])))
-        selected.extend(options[0])
+        options.sort(key=lambda pair: (common_divergence(*pair) is None,
+            -sum(key(e) not in known_keys for e in pair), fingerprint([e['episode_id'] for e in pair])))
+        allocated = False
+        for pair in options:
+            fresh = [e for e in pair if key(e) not in known_keys]
+            if fresh and len(selected)+len(fresh) <= limit:
+                selected.extend(fresh);known_keys.update(key(e) for e in fresh);allocated=True;break
+        if allocated:continue
+        for e in values:
+            if key(e) in known_keys:continue
+            for other in group:
+                divergence=common_divergence(e,other)
+                if divergence is None:continue
+                a,b=divergence
+                if a.get('accepted') and b.get('complete') and (
+                    (not b.get('accepted') and b.get('error')) or
+                    (other.get('terminal') and other.get('productivity',{}).get('task_compatible_net_progress') is False)):
+                    singles.append(e);break
+    # One terminal + a truly rejected same-prompt action needs only one F0 call.
+    for e in singles:
+        if len(selected)>=limit:break
+        if key(e) not in known_keys:selected.append(e);known_keys.add(key(e))
     return selected
 
 
