@@ -28,6 +28,7 @@ def forward_outcome(episode,target):
 
 
 def preference_pairs(episodes):
+    episodes=sorted(episodes,key=lambda e:e['episode_id'])
     pairs=[];seen=set()
     for i,chosen in enumerate(episodes):
         if not chosen.get('outcome',{}).get('success'):continue
@@ -51,4 +52,11 @@ def preference_pairs(episodes):
                         'rejected_episode':rejected['episode_id'],'chosen_actor_sha':chosen['actor_sha'],
                         'rejected_actor_sha':rejected['actor_sha'],'tool':a['name'],'evidence':evidence})
                 break
-    return pairs
+    return sorted(pairs,key=lambda p:p['id'])
+
+
+def reconstruction_success(episode,expected):
+    from .endpoints import split_precursor_endpoints,structural_exact
+    if not episode.get('terminal') or not episode.get('flow_count'):return False
+    structural=split_precursor_endpoints(episode['final_state'],episode['initial_state']).structural
+    return not component_match(structural,episode['target']) and structural_exact(structural,expected)

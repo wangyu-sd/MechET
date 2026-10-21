@@ -1,6 +1,8 @@
 """Bounded independent Qwen episodes; GPU owner overlaps independent CPU tools."""
 from __future__ import annotations
 import copy
+import json
+from pathlib import Path
 import queue
 import threading
 import time
@@ -82,20 +84,60 @@ def forward_prompt_text(state,history,tokenizer):
     return render_qwen_sft_tool_prefix(tokenizer,messages,tools=forward_tools())
 
 
+def restore_recorded_steps(c,records,direction):
+    from scripts.run_natural_language_value_search import Action,execute
+    from mechet.forward_qwen_events import execute_forward_call
+    from mechet.proof_program import sides_equal
+    for step in records:
+        if not sides_equal(c['state'],step['state_before'],ignore_maps=False):raise ValueError('resume state-before mismatch')
+        if step['accepted']:
+            if direction=='reverse':
+                node,error=execute(c['node'],Action(step['name'],step['arguments'],step['raw'],0.,len(step['completion_ids'])),
+                    max_imports=32,reject_target_retained_finish=True)
+                if error:raise ValueError('recorded accepted action no longer executes: '+error)
+                c['node']=node;after=node.state;c['terminal']=node.terminal
+            else:
+                result=execute_forward_call(c['state'],step['name'],step['arguments'])
+                if not result.get('ok'):raise ValueError('recorded forward action no longer executes')
+                after=result['state_smiles'];c['terminal']=bool(result.get('terminal'))
+                c['history'].append({'name':step['name'],'arguments':step['arguments']})
+            if not sides_equal(after,step['state_after'],ignore_maps=False):raise ValueError('resume state-after mismatch')
+            c['state']=after
+            if step['name'] in {'apply_electron_flow','apply_forward_electron_flow'}:c['flow_count']+=1
+        c['steps'].append(step)
+
+
 def collect_episodes(rows,*,owner,tokenizer,lora,actor_sha,round_id,sample_indices,
                      direction='reverse',journal_path,max_attempts=24,max_tokens=384,cpu_workers=16):
     from scripts.run_natural_language_value_search import Node,private_product_state,visible
     from mechet.in_place_grounded_flow import mapped_atom_numbers
-    controllers=[];raw=JsonJournal(str(journal_path)+'.actions.jsonl');episodes=JsonJournal(journal_path)
+    completed={};recorded={}
+    if Path(journal_path).exists():
+        for line in Path(journal_path).read_text().splitlines():
+            e=json.loads(line)
+            if e['actor_sha']!=actor_sha:raise ValueError('completed episode actor mismatch')
+            completed[e['episode_id']]=e
+    raw_path=Path(str(journal_path)+'.actions.jsonl')
+    if raw_path.exists():
+        with raw_path.open() as f:
+            for line in f:
+                step=json.loads(line)
+                if step['actor_sha']!=actor_sha:raise ValueError('recorded action actor mismatch')
+                recorded.setdefault(step['episode_id'],[]).append(step)
+    controllers=[];prior=[];raw=JsonJournal(raw_path);episodes=JsonJournal(journal_path)
     for row in rows:
         for candidate in sample_indices:
             state=private_product_state(row['target']) if direction=='reverse' else row['initial_state']
             node=Node(target=row.get('target',''),state=state,next_map=max(mapped_atom_numbers(state))+1,visited={visible(state)})
-            controllers.append({'id':row['id'],'episode_id':fingerprint([round_id,actor_sha,row['id'],candidate,direction]),
+            identifier=fingerprint([round_id,actor_sha,row['id'],candidate,direction])
+            if identifier in completed:prior.append(completed[identifier]);continue
+            c={'id':row['id'],'episode_id':identifier,
               'candidate':candidate,'round':round_id,'actor_sha':actor_sha,'node':node,'initial_state':state,
-              'state':state,'target':row.get('target',''),'steps':[],'history':[],'flow_count':0,'terminal':False})
+              'state':state,'target':row.get('target',''),'steps':[],'history':[],'flow_count':0,'terminal':False}
+            restore_recorded_steps(c,recorded.get(identifier,[]),direction);controllers.append(c)
     start=time.monotonic()
     def request(c):
+        if c['terminal']:return None
         if len(c['steps'])>=max_attempts:c['stop_reason']='ATTEMPT_BUDGET';return None
         prompt=reverse_prompt(c['node'],tokenizer) if direction=='reverse' else forward_prompt_text(c['state'],c['history'],tokenizer)
         ids=tokenizer.encode(prompt,add_special_tokens=False)
@@ -141,4 +183,4 @@ def collect_episodes(rows,*,owner,tokenizer,lora,actor_sha,round_id,sample_indic
                'terminal':c['terminal'],'attempts':len(c['steps']),'elapsed_seconds':c['elapsed_seconds']},flush=True)
     try:result=rolling_agent_batch(controllers,request,consume,owner,cpu_workers=cpu_workers,on_done=finish)
     finally:raw.close();episodes.close()
-    return [{k:v for k,v in c.items() if k not in {'node','request'}} for c in result]
+    return sorted(prior+[{k:v for k,v in c.items() if k not in {'node','request'}} for c in result],key=lambda e:e['episode_id'])

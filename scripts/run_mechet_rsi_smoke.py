@@ -25,24 +25,56 @@ def require_fresh_round(episodes,actor_sha,round_id,old_ids):
 
 def summarize_evaluation(episodes,target_ids):
     from mechet.roundtrip_reward import components
+    from mechet.endpoints import split_precursor_endpoints
     ids=set(target_ids);hits={e['id'] for e in episodes if e.get('outcome',{}).get('success')}
+    first_hits={e['id'] for e in episodes if e.get('candidate',0)==0 and e.get('outcome',{}).get('success')}
     observed={e['id'] for e in episodes}
-    unique={fingerprint([e['id'],sorted(components(e['final_state']).items())]) for e in episodes if e.get('outcome',{}).get('success')}
+    unique={fingerprint([e['id'],sorted(components(split_precursor_endpoints(e['final_state'],e['initial_state']).structural).items())]) for e in episodes if e.get('outcome',{}).get('success')}
+    full_unique={fingerprint([e['id'],sorted(components(e['final_state']).items())]) for e in episodes if e.get('outcome',{}).get('success')}
     return {'targets':len(ids),'observed_targets':len(ids&observed),'missing_target_ids':sorted(ids-observed),
             'forward_verified_targets':len(ids&hits),'forward_verified_target_rate':len(ids&hits)/max(len(ids),1),
-            'distinct_forward_verified_reactions':len(unique),'episodes':len(episodes),
+            'roundtrip_at_1_targets':len(ids&first_hits),'roundtrip_at_1_rate':len(ids&first_hits)/max(len(ids),1),
+            'roundtrip_at_k_targets':len(ids&hits),'roundtrip_at_k_rate':len(ids&hits)/max(len(ids),1),
+            'distinct_forward_verified_reactions':len(unique),'distinct_forward_verified_full_mixtures':len(full_unique),'episodes':len(episodes),
             'terminal_episodes':sum(bool(e.get('terminal')) for e in episodes),
             'reverse_generated_tokens':sum(len(s['completion_ids']) for e in episodes for s in e['steps']),
             'outcomes':dict(collections.Counter(e.get('outcome',{}).get('status','unknown') for e in episodes)),
             'errors_by_tool':dict(collections.Counter(s['name']+':'+str(s.get('error')) for e in episodes for s in e['steps'] if not s.get('accepted')))}
 
 
-def load_reaction_rows(path,expected):
+def stage_file(path,contract,producer):
+    path=Path(path);identity=fingerprint(contract)
+    if path.exists():
+        data=json.loads(path.read_text())
+        if data['contract_sha']!=identity:raise ValueError(f'immutable stage contract changed: {path}')
+        return data['value']
+    value=producer();write_json(path,{'contract_sha':identity,'contract':contract,'value':value});return value
+
+
+def targets_needing_comparison(episodes,ids):
+    from mechet.roundtrip_reward import preference_pairs
+    groups=collections.defaultdict(list)
+    for e in episodes:groups[e['id']].append(e)
+    return [identifier for identifier in ids if not preference_pairs(groups[identifier])]
+
+
+def check_likelihood_parity(records):
+    errors=[abs(r['sampled_sum_logp']-r['scored_sum_logp'])/r['tokens'] for r in records
+            if r.get('sampled_sum_logp') is not None and r['tokens']>0]
+    return {'pass':bool(errors) and len(errors)==len(records) and max(errors)<=.03 and sum(errors)/len(errors)<=.01,
+            'actions':len(records),'max_mean_logp_error':max(errors) if errors else None,
+            'mean_mean_logp_error':sum(errors)/len(errors) if errors else None,
+            'max_action_mean_logp_tolerance':.03,'mean_action_mean_logp_tolerance':.01}
+
+
+def load_reaction_rows(path,expected,expected_sha=None,audit=None):
     """Source-only census; no model outputs or test labels select training IDs."""
     from scripts.run_natural_language_value_search import normal_smiles
-    rows=[]
-    with Path(path).open() as f:
+    import hashlib
+    rows=[];digest=hashlib.sha256()
+    with Path(path).open('rb') as f:
         for line in f:
+            digest.update(line)
             r=json.loads(line);m=r['metadata']
             proof=r['messages'][-1]['content']
             rows.append({'id':r['id'],'target':normal_smiles(r['target_smiles']),
@@ -50,13 +82,22 @@ def load_reaction_rows(path,expected):
                  'import_count':proof.count('\n  IMPORT '),'recorded_reactants':m['initial_reactants'],
                  'reference_structural':r['structural_precursor'],'source_split':m['source_split']})
     if len(rows)!=expected or len({r['id'] for r in rows})!=expected:raise ValueError('strict reaction universe changed')
+    if expected_sha and digest.hexdigest()!=expected_sha:raise ValueError('proof input SHA mismatch')
+    if audit is not None:audit.update(path=str(Path(path).resolve()),rows=len(rows),sha256=digest.hexdigest(),
+        view='strict_executable_proof',eligibility_filter='named4train_0valid_4test_corrupt_upstream_rows_only',
+        overlap_filtering=False,token_length_filtering=False,smoke_selection='stratified128train_32valid_seed17')
     return rows
 
 
 def freeze_adapter(source,destination,expected=None):
+    destination=Path(destination)
+    if (destination/'frozen_identity.json').exists():
+        previous=json.loads((destination/'frozen_identity.json').read_text())
+        if sha256(destination/'adapter_model.safetensors')!=previous['weight_sha256'] or (expected and previous['weight_sha256']!=expected):
+            raise ValueError('frozen snapshot corrupt or identity changed')
+        return previous
     before=authenticate_adapter(source,expected)
-    if Path(destination).exists():raise ValueError('frozen adapter destination exists')
-    Path(destination).mkdir(parents=True)
+    destination.mkdir(parents=True,exist_ok=True)
     for p in Path(source).iterdir():
         if p.is_file() and (p.suffix in {'.json','.safetensors','.jinja','.txt'} or p.name=='README.md'):
             if p.name=='trainer_state.json':continue
@@ -64,6 +105,7 @@ def freeze_adapter(source,destination,expected=None):
     after=authenticate_adapter(source,expected)
     if before['weight_sha256']!=after['weight_sha256']:raise ValueError('source changed during freeze')
     if sha256(Path(destination)/'adapter_model.safetensors')!=before['weight_sha256']:raise ValueError('freeze copy corrupt')
+    write_json(destination/'frozen_identity.json',before)
     return before
 
 
@@ -160,22 +202,51 @@ class Experiment:
 
     def collect(self,rows,actor,phase,indices,direction='reverse'):
         from scripts.rsi_runtime import collect_episodes
-        start=time.monotonic()
-        episodes=collect_episodes(rows,owner=self.owner,tokenizer=self.tokenizer,lora=self.loras[actor],
-             actor_sha=self.actor_sha[actor],round_id=phase,sample_indices=indices,direction=direction,
-             journal_path=self.output/(phase+'.jsonl'),max_attempts=24,max_tokens=384)
-        seconds=time.monotonic()-start;tokens=sum(len(s['completion_ids']) for e in episodes for s in e['steps'])
-        self.stats.append({'phase':phase,'seconds':seconds,'generated_tokens':tokens,'tokens_per_second':tokens/max(seconds,1e-9),
-                            'episodes':len(episodes),'actor_sha':self.actor_sha[actor],
-                            'cpu_executor_wall_sum':sum(s.get('cpu_executor_wall_seconds',0) for e in episodes for s in e['steps'])})
+        indices=list(indices)
+        def produce():
+            start=time.monotonic()
+            actions_path=Path(str(self.output/(phase+'.jsonl'))+'.actions.jsonl')
+            offset=actions_path.stat().st_size if actions_path.exists() else 0
+            episodes=collect_episodes(rows,owner=self.owner,tokenizer=self.tokenizer,lora=self.loras[actor],
+                 actor_sha=self.actor_sha[actor],round_id=phase,sample_indices=indices,direction=direction,
+                 journal_path=self.output/(phase+'.jsonl'),max_attempts=24,max_tokens=384)
+            seconds=time.monotonic()-start;total_tokens=sum(len(s['completion_ids']) for e in episodes for s in e['steps']);tokens=0
+            if actions_path.exists():
+                with actions_path.open('rb') as f:
+                    f.seek(offset)
+                    for line in f:tokens+=len(json.loads(line)['completion_ids'])
+            return {'episodes':episodes,'measurement':{'phase':phase,'seconds':seconds,'generated_tokens':tokens,
+                'total_episode_tokens_including_recovered':total_tokens,'recovered_token_count':total_tokens-tokens,
+                'tokens_per_second':tokens/max(seconds,1e-9),'episodes':len(episodes),'actor_sha':self.actor_sha[actor],
+                'cpu_executor_wall_sum':sum(s.get('cpu_executor_wall_seconds',0) for e in episodes for s in e['steps'])}}
+        cached=stage_file(self.output/'stages'/(phase+'.json'),{'rows':rows,'actor_sha':self.actor_sha[actor],
+             'phase':phase,'indices':indices,'direction':direction,'attempts':24,'tokens':384,
+             'runtime_source_sha':sha256(ROOT/'scripts/rsi_runtime.py')},produce)
+        episodes=sorted(cached['episodes'],key=lambda e:e['episode_id']);self.stats.append(cached['measurement'])
         self.log('collection-complete',measurement=self.stats[-1]);return episodes
+
+    def likelihood_gate(self,episodes,require_update=True):
+        import torch
+        selected={}
+        for label,adapter in [('R0','reference'),('F0','forward_judge')]:
+            candidates=[]
+            for e in sorted(episodes,key=lambda e:e['episode_id']):
+                if e['actor_sha']!=self.actor_sha[label]:continue
+                candidates.extend(s for s in e['steps'] if s.get('complete') and s.get('generated_sum_logp') is not None)
+            records=[]
+            for s in candidates[:8]:
+                with torch.no_grad():scored=float(self.scorer.logp(s['prompt_ids'],s['completion_ids'],adapter))
+                records.append({'tokens':len(s['completion_ids']),'sampled_sum_logp':s['generated_sum_logp'],'scored_sum_logp':scored})
+            selected[label]={'records':records,**check_likelihood_parity(records)}
+        write_json(self.output/'sampled_vs_teacher_forced_likelihood_gate.json',selected)
+        if require_update and not all(v['pass'] for v in selected.values()):raise ValueError('sampled/HF exact-action likelihood gate FAILED; no DPO allowed')
 
     def feedback(self,episodes,phase,forward_limit=None):
         from mechet.roundtrip_bridge import bridge_reverse_episode
         from mechet.roundtrip_reward import forward_outcome,component_match,components
         from mechet.endpoints import split_precursor_endpoints
         audit=JsonJournal(self.output/(phase+'.bridge_audit.jsonl'));scores=JsonJournal(self.output/(phase+'.forward_witness_scores.jsonl'))
-        unique={};groups={}
+        episodes=sorted(episodes,key=lambda e:e['episode_id']);unique={};groups={}
         for e in episodes:
             if not e['terminal'] or not e['flow_count']:
                 e['outcome']={'status':'inverse_incomplete' if not e['terminal'] else 'nonproductive','success':False};continue
@@ -229,20 +300,24 @@ class Experiment:
 
     def train_pool(self,rows,actor,phase):
         from mechet.roundtrip_reward import preference_pairs
-        episodes=[];pairs=[]
+        episodes=[];pairs=[];sampling_rows=rows
         for lower,upper in [(0,2),(2,4),(4,8)]:
             self.log('adaptive-stage',actor=actor,phase=phase,lower=lower,upper=upper,targets=len(rows))
-            batch=self.collect(rows,actor,phase+f'_K{upper}',range(lower,upper))
+            batch=self.collect(sampling_rows,actor,phase+f'_K{upper}',range(lower,upper))
             # Round identity is explicit; episode IDs retain generation phase.
             for e in batch:e['collection_phase']=e['round'];e['round']=phase
-            budget_key=phase.split('_')[0];used=self.forward_train_attempts.get(budget_key,0)
+            budget_key=phase;used=self.forward_train_attempts.get(budget_key,0)
             before=len(self.roundtrips);stage_limit=min(32 if upper==2 else 16,max(64-used,0))
             episodes+=self.feedback(batch,phase+f'_K{upper}',forward_limit=stage_limit)
             self.forward_train_attempts[budget_key]=used+len(self.roundtrips)-before
             by_id=collections.defaultdict(list)
             for e in episodes:by_id[e['id']].append(e)
-            pairs=[p for group in by_id.values() for p in preference_pairs(group)]
-            if pairs:break
+            pairs=sorted([p for identifier in sorted(by_id) for p in preference_pairs(by_id[identifier])],key=lambda p:p['id'])
+            unresolved=set(targets_needing_comparison(episodes,[r['id'] for r in rows]))
+            sampling_rows=[r for r in rows if r['id'] in unresolved]
+            if not sampling_rows:break
+        write_json(self.output/(phase+'.allocation.json'),{'forward_checks_used':self.forward_train_attempts.get(phase,0),
+            'max_forward_checks_for_this128target_cohort':64,'informative_target_ids':sorted({e['id'] for e in episodes}-{r['id'] for r in sampling_rows})})
         return episodes,pairs
 
     def evaluate(self,rows,actor):
@@ -261,7 +336,7 @@ class Experiment:
         from rdkit import Chem
         from mechet.forward_qwen_events import initialize_forward_state
         from mechet.endpoints import split_precursor_endpoints,structural_exact
-        from mechet.roundtrip_reward import preference_pairs
+        from mechet.roundtrip_reward import preference_pairs,component_match,reconstruction_success
         from mechet.roundtrip_bridge import mol,text
         source=[{'id':r['id'],'initial_state':initialize_forward_state(r['recorded_reactants'])} for r in train[:32]]
         forward=self.collect(source,'F0','F1_train_F0',[0,1],direction='forward')
@@ -272,6 +347,8 @@ class Experiment:
             fragments=[m for m in Chem.GetMolFrags(mol(e['final_state']),asMols=True) if any(a.GetAtomicNum()==6 for a in m.GetAtoms())]
             if not fragments:continue
             product=max(fragments,key=lambda m:(m.GetNumHeavyAtoms(),text(m)));mapped_product=text(product)
+            if component_match(e['initial_state'],mapped_product):
+                e['outcome']={'status':'nonproductive','success':False};continue
             for a in product.GetAtoms():a.SetAtomMapNum(0)
             key=e['episode_id'];reverse_rows.append({'id':key,'target':text(product)})
             wanted[key]=split_precursor_endpoints(e['initial_state'],mapped_product).structural;by_episode[key]=e
@@ -279,15 +356,14 @@ class Experiment:
             back=self.collect(reverse_rows,'R2','F1_R2_reconstruction',[0])
             for e in back:
                 if not e['terminal']:continue
-                predicted=split_precursor_endpoints(e['final_state'],e['initial_state']).structural
-                if structural_exact(predicted,wanted[e['id']]):
+                if reconstruction_success(e,wanted[e['id']]):
                     by_episode[e['id']]['outcome']={'status':'roundtrip_hit','success':True}
         grouped=collections.defaultdict(list)
         for e in forward:grouped[e['id']].append(e)
         pairs=[p for group in grouped.values() for p in preference_pairs(group)]
         write_json(self.output/'F1_preferences.json',pairs)
         result=self.scorer.train_dpo(pairs,self.output/'frozen/F0',self.cfg['forward_sha'],self.output/'models/F1',
-                                      steps=50,reference_adapter='forward')
+                                      steps=50,reference_adapter='forward_judge')
         if result['status']=='updated':
             self.register('F1',result['path'])
             rows=[{'id':r['id'],'initial_state':initialize_forward_state(r['recorded_reactants'])} for r in valid]
@@ -304,18 +380,26 @@ def main():
     args=parser.parse_args()
     import yaml
     cfg=yaml.safe_load(args.config.read_text());output=Path(cfg['output'])
-    if output.exists():raise ValueError('new immutable experiment output required')
-    output.mkdir(parents=True);shutil.copy2(args.config,output/'smoke_config_resolved.yaml')
+    if (output/'artifact_manifest.json').exists():
+        finished=json.loads((output/'artifact_manifest.json').read_text())
+        for row in finished['files']:
+            if sha256(output/row['path'])!=row['sha256']:raise ValueError('completed run artifact mismatch')
+        print({'phase':'already-complete-verified','manifest':str(output/'artifact_manifest.json')},flush=True);return
+    output.mkdir(parents=True,exist_ok=True)
+    if (output/'smoke_config_resolved.yaml').exists():
+        if yaml.safe_load((output/'smoke_config_resolved.yaml').read_text())!=cfg:raise ValueError('resume config mismatch')
+    else:shutil.copy2(args.config,output/'smoke_config_resolved.yaml')
     r0=freeze_adapter(cfg['reverse_source'],output/'frozen/R0',R0_SHA)
     f0=freeze_adapter(cfg['forward_source'],output/'frozen/F0',cfg['forward_sha'])
-    train_all=load_reaction_rows(Path(cfg['shared'])/'data/mechet_proof_sft_flower_full_v4/train.jsonl',257167)
-    valid_all=load_reaction_rows(Path(cfg['shared'])/'data/mechet_proof_sft_flower_full_v4/valid.jsonl',2890)
+    input_audit={}
+    train_all=load_reaction_rows(cfg['inputs']['train']['path'],257167,cfg['inputs']['train']['sha256'],input_audit.setdefault('train',{}))
+    valid_all=load_reaction_rows(cfg['inputs']['valid']['path'],2890,cfg['inputs']['valid']['sha256'],input_audit.setdefault('valid',{}))
     reserved=select_stratified(train_all,256,17);train=reserved[:128];valid=select_stratified(valid_all,32,17)
     if {r['id'] for r in reserved}&{r['id'] for r in valid}:raise ValueError('TRAIN/VALID overlap')
     write_json(output/'selected_train_ids.json',train);write_json(output/'selected_valid_ids.json',valid)
     write_json(output/'provenance.json',{'R0':r0,'F0':f0,'runtime_commit':os.environ.get('MECHET_RSI_CODE_SHA'),
         'reverse_source_data_contract':json.loads((Path(cfg['reverse_source'])/'data_contract.json').read_text()),
-        'source_paths':{'train':str(Path(cfg['shared'])/'data/mechet_proof_sft_flower_full_v4/train.jsonl')},
+        'input_contracts':input_audit,
         'test_used':False,'selection':'event_length_import_count_stratified_seed17','no_source_weights_overwritten':True})
     experiment=Experiment(cfg,output);experiment.profile_rows=train
     try:
@@ -335,6 +419,9 @@ def main():
             extra,extra_pairs=experiment.train_pool(train[128:],'R0','D0_expansion256')
             d0+=extra;p0+=extra_pairs
         write_json(output/'d0_preferences.json',p0)
+        # Actual F0 and R0 sampled likelihoods must agree with training scoring
+        # on identical generated action IDs before any policy update.
+        experiment.likelihood_gate(baseline+valid_episodes['R0']+d0,require_update=bool(p0))
         r1=experiment.scorer.train_dpo(p0,output/'frozen/R0',R0_SHA,output/'models/R1',steps=50)
         training={'R1':r1};d1=[];p1=[]
         if r1['status']=='updated':
@@ -368,6 +455,18 @@ def main():
             if sha256(Path(source)/'adapter_model.safetensors')!=identity['weight_sha256']:raise ValueError('source mutated')
         experiment.log('completed',training=training,evaluation=evaluations)
         experiment.raw.close()
+        (output/'README.md').write_text(
+            '# PR91 executable round-trip policy iteration\n\n'
+            'Measured run; original TRAIN/VALID selections and all failed/censored actions retained. No TEST used.\n\n'
+            'F0 is the provisional checkpoint-54000, not a completed two-epoch model. '
+            'Forward witness log likelihood is not autonomous reconstruction or chemical truth. '
+            'This run checks full terminal mixtures; a separate structural-only forward-input experiment is not claimed.\n\n'
+            'Command: `python -u scripts/run_mechet_rsi_smoke.py --config configs/experiments/mechet_rsi_resolved_20261021.yaml`\n\n'
+            'Exact runtime commit and source identities: `provenance.json`. '
+            'Complete arguments: `smoke_config_resolved.yaml`. '
+            'Sampled prompts, token IDs, calls, states and failures: `*.actions.jsonl`.\n\n'
+            '## Paired validation and actual updates\n\n```json\n'+json.dumps({'training':training,'validation':evaluations,'F1':f1},indent=2)+'\n```\n',
+            encoding='utf-8')
         files=[p for p in output.rglob('*') if p.is_file()]
         write_json(output/'artifact_manifest.json',{'files':[{ 'path':str(p.relative_to(output)),'bytes':p.stat().st_size,'sha256':sha256(p)} for p in files],
             'status':'reverse_two_round_run_finished' if training.get('R2',{}).get('status')=='updated' else 'no_complete_recursive_update',

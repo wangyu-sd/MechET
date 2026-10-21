@@ -27,7 +27,7 @@ class PolicyScorer:
              torch_dtype=torch.bfloat16,attn_implementation='sdpa').to(device)
         install_selected_logps_forward(base)
         self.model=PeftModel.from_pretrained(base,str(r0),adapter_name='reference',is_trainable=False)
-        self.model.load_adapter(str(f0),adapter_name='forward',is_trainable=False)
+        self.model.load_adapter(str(f0),adapter_name='forward_judge',is_trainable=False)
         self.model.eval();self.reference_cache={};self.forward_cache={}
         for p in self.model.parameters():p.requires_grad_(False)
 
@@ -59,7 +59,7 @@ class PolicyScorer:
             if eos not in a:raise ValueError('witness missing EOS')
             a=a[:a.index(eos)+1];key=fingerprint([f0_sha,p,a,'full_inverse_terminal_mixture_v1'])
             if key not in self.forward_cache:
-                with torch.no_grad():self.forward_cache[key]=float(self.logp(p,a,'forward'))
+                with torch.no_grad():self.forward_cache[key]=float(self.logp(p,a,'forward_judge'))
             total+=self.forward_cache[key];tokens+=len(a)
         return {'sum_logp':total,'tokens':tokens,'mean_logp':total/max(tokens,1),
                 'metric':'teacher_forced_path_support_NOT_autonomous_success'}
@@ -70,13 +70,21 @@ class PolicyScorer:
         from .rsi_contract import fingerprint,sha256,write_json,JsonJournal
         if not pairs:return {'status':'no_update','reason':'no_authentic_same_state_pairs','optimizer_steps':0}
         output=Path(output)
-        if output.exists():raise ValueError('immutable output exists')
+        contract=fingerprint({'pairs':pairs,'parent_sha':sha256(Path(initial_adapter)/'adapter_model.safetensors'),
+            'reference_sha':r0_sha,'steps':steps,'lr':lr,'beta':beta,'accum':accum,'reference_adapter':reference_adapter})
+        if (output/'contract.json').exists():
+            import json
+            if json.loads((output/'contract.json').read_text())['sha']!=contract:raise ValueError('DPO resume contract changed')
+            if (output/'manifest.json').exists():
+                previous=json.loads((output/'manifest.json').read_text())
+                if sha256(Path(previous['path'])/'adapter_model.safetensors')!=previous['weight_sha256']:raise ValueError('completed adapter corrupt')
+                return previous
         # Load a fresh trainable adapter for this round, not the current F0 or
         # frozen R0. Both rounds keep the SAME R0 probability reference.
         if 'policy' in self.model.peft_config:self.model.delete_adapter('policy')
         self.model.load_adapter(str(initial_adapter),adapter_name='policy',is_trainable=True)
         before={n:p.detach().clone() for n,p in self.model.named_parameters() if '.policy.' in n}
-        references={n:p.detach().clone() for n,p in self.model.named_parameters() if '.reference.' in n or '.forward.' in n}
+        references={n:p.detach().clone() for n,p in self.model.named_parameters() if '.reference.' in n or '.forward_judge.' in n}
         margins=[]
         for pair in pairs:
             key=fingerprint([r0_sha,pair['prompt_ids'],pair['chosen_ids'],pair['rejected_ids']])
@@ -87,8 +95,18 @@ class PolicyScorer:
         self.model.set_adapter('policy')
         parameters=[p for n,p in self.model.named_parameters() if '.policy.' in n]
         optimizer=torch.optim.AdamW(parameters,lr=lr);start=time.monotonic()
-        output.mkdir(parents=True);journal=JsonJournal(output/'training_steps.jsonl');tokens=0;tools={}
-        for step in range(steps):
+        output.mkdir(parents=True,exist_ok=True);write_json(output/'contract.json',{'sha':contract})
+        write_json(output/'reference_margins.json',{'reference_sha':r0_sha,'pair_margins':dict(zip([p['id'] for p in pairs],margins))})
+        journal=JsonJournal(output/'training_steps.jsonl');tokens=0;tools={};start_step=0;previous_elapsed=0.
+        recovery=output/'optimizer_recovery.pt'
+        if recovery.exists():
+            from peft import set_peft_model_state_dict
+            saved=torch.load(recovery,map_location=self.device,weights_only=False)
+            if saved['contract']!=contract:raise ValueError('optimizer recovery contract mismatch')
+            set_peft_model_state_dict(self.model,saved['adapter'],adapter_name='policy')
+            optimizer.load_state_dict(saved['optimizer']);start_step=saved['step'];tokens=saved['tokens'];tools=saved['tools']
+            previous_elapsed=saved.get('elapsed_seconds',0.)
+        for step in range(start_step,steps):
             optimizer.zero_grad();loss_sum=0.;margin_sum=0.
             for micro in range(accum):
                 index=(step*accum+micro)%len(pairs);pair=pairs[index]
@@ -101,8 +119,16 @@ class PolicyScorer:
             norm=torch.nn.utils.clip_grad_norm_(parameters,1.)
             if not torch.isfinite(norm):raise ValueError('nonfinite DPO gradients')
             optimizer.step()
+            import os
+            from peft import get_peft_model_state_dict
+            temporary=recovery.with_suffix('.tmp')
+            with temporary.open('wb') as handle:
+                torch.save({'contract':contract,'step':step+1,'tokens':tokens,'tools':tools,'elapsed_seconds':previous_elapsed+time.monotonic()-start,
+                    'adapter':get_peft_model_state_dict(self.model,adapter_name='policy'),
+                    'optimizer':optimizer.state_dict()},handle);handle.flush();os.fsync(handle.fileno())
+            temporary.replace(recovery)
             record={'optimizer_step':step+1,'loss':loss_sum,'policy_margin':margin_sum,
-                    'grad_norm':float(norm),'elapsed_seconds':time.monotonic()-start,'tool_examples':dict(tools)}
+                    'grad_norm':float(norm),'elapsed_seconds':previous_elapsed+time.monotonic()-start,'tool_examples':dict(tools)}
             journal.append(record);print({'phase':'RSI-DPO',**record},flush=True)
         journal.close()
         delta=sum(float((p.detach()-before[n]).float().square().sum()) for n,p in self.model.named_parameters() if n in before)**.5
@@ -113,8 +139,8 @@ class PolicyScorer:
         adapter=output/'policy';self.tokenizer.save_pretrained(adapter)
         result={'status':'updated','path':str(adapter),'weight_sha256':sha256(adapter/'adapter_model.safetensors'),
                 'parent_weight_sha256':sha256(Path(initial_adapter)/'adapter_model.safetensors'),'reference_sha':r0_sha,
-                'unique_pairs':len(pairs),'optimizer_steps':steps,'reused_examples':steps*accum,
-                'weight_delta_l2':delta,'elapsed_seconds':time.monotonic()-start,'assistant_tokens':tokens,
-                'per_tool_examples':tools,'peak_vram_bytes':torch.cuda.max_memory_allocated(self.device)}
+                'unique_pairs':len(pairs),'optimizer_steps':steps,'recovered_optimizer_steps':start_step,'reused_examples':steps*accum,
+                'weight_delta_l2':delta,'elapsed_seconds':previous_elapsed+time.monotonic()-start,'assistant_tokens':tokens,
+                'per_tool_examples':tools,'peak_vram_bytes':torch.cuda.max_memory_allocated(self.device) if str(self.device).startswith('cuda') else 0}
         write_json(output/'manifest.json',result);write_json(output/'reference_margins.json',{'reference_sha':r0_sha,'pair_margins':dict(zip([p['id'] for p in pairs],margins))})
         return result

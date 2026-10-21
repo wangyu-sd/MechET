@@ -55,3 +55,19 @@ def test_pairs_require_exact_common_prompt_and_chemical_divergence():
     assert not preference_pairs([a,e('b',[2,3],'y',b['outcome'])])
     assert not preference_pairs([a,e('b',[1,2],'x',b['outcome'])])
     assert not preference_pairs([a,e('b',[1,2],'y',{'success':False,'status':'censored'})])
+
+
+def test_pairs_are_invariant_to_async_episode_completion_order():
+    from mechet.roundtrip_reward import preference_pairs
+    def e(id,positive,raw):
+        return {'id':'reaction','episode_id':id,'actor_sha':'r0','outcome':{'success':positive,'status':'roundtrip_hit' if positive else 'forward_mismatch'},
+          'steps':[{'prompt_ids':[1],'completion_ids':[ord(raw)],'raw':raw,'accepted':True,'successor':'yes' if positive else 'no','name':'apply_electron_flow'}]}
+    rows=[e('b',True,'b'),e('a',True,'a'),e('c',False,'c')]
+    assert preference_pairs(rows)==preference_pairs(list(reversed(rows)))
+
+
+def test_auxiliary_only_inverse_does_not_count_as_structural_reconstruction():
+    from mechet.roundtrip_reward import reconstruction_success
+    e={'target':'CO','initial_state':'[CH3:1][OH:2]','final_state':'[CH3:1][OH:2].[Cl:3][Cl:4]',
+       'flow_count':1,'terminal':True}
+    assert not reconstruction_success(e,'CO')

@@ -19,6 +19,20 @@ validation_k: 2
 max_tool_attempts: 24
 max_new_tokens_per_attempt: 384
 max_forward_train_attempts_per_round: 64
+forward_budget_scope: per128target_cohort_64_checks_expanding_to256_allows_second64_logged_separately
+inputs:
+  train:
+    path: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mechet_proof_sft_flower_full_v4/train.jsonl
+    rows: 257167
+    sha256: 2fe6ef3825f31c5e95d47de84c69790acf1012da2a5466118d392ba583ca4315
+  valid:
+    path: /aaa/fionafyang/buddy1/whaleywang/MechET/data/mechet_proof_sft_flower_full_v4/valid.jsonl
+    rows: 2890
+    sha256: b9b03a1f821521dcc6504d9271ccf1817392adff57f98d1c1bb53141c23ebccb
+  view: strict_executable_proof
+  eligibility_filter: named4train_0valid_4test_corrupt_upstream_rows_only
+  overlap_filtering: false
+  token_length_filtering: false
 forward_sample_count_per_candidate: 1
 forward_judge_frozen_across_reverse_validation: true
 optimizer: offline_state_conditional_DPO_full_action_logprob
