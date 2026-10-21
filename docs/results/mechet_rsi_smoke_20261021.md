@@ -1,6 +1,6 @@
 # PR91 executable round-trip policy iteration — execution record
 
-Status: first task failed after completing R0 validation; minimal logging fix verified and continuation is being prepared. **No new trained R1/R2 or policy-iteration improvement is claimed by this record yet.**
+Status: first task failed after completing R0 validation; minimal logging fix verified and retry02 has resumed actual D0 generation. **No new trained R1/R2 or policy-iteration improvement is claimed by this record yet.**
 
 ## Authenticated policies
 
@@ -87,3 +87,5 @@ These are **pre-update** measurements. Round-trip success is not reference precu
 Cache recovery audit actually loaded all36/64/53episodes through the stage loader with the producer forbidden; zero new model generation. Existing actor SHAs and runtime source hash match. Retry will reuse these stages and continue at D0, preserving the same resolved config. Original failure/provenance/phase/profile records copied without overwrite to `attempt_history/20261021_01/` under the output root; original raw files remain intact. A pre-existing root `failure.json` therefore describes the old attempt until a new failure or final report supersedes it; use task instance/current phase timestamps, not mere file existence, to determine current status.
 
 Continuation submitted17:01:35CST: `meteor_mechet_pr91_rsi_roundtrip_2a100_qy_20261021_02`, instance `8b1d89f5a13f013001a15db1c945427b`. Same ordinary2A100/KEMO/QY/Tencenttaiji6/proven Ceph/default45s stdout; shell and Python pinned to `b08c046d793d564303aadf3d5f2cac673a9521a1`. Initial readback PENDING at17:01:49 is startup/queue status, not proof of resumed sampling or DPO. Original instance is END; no unrelated task stopped.
+
+**Actual continuation verified17:06CST:** POD has Ceph and2A100-SXM4-40GB/driver580; worker stdout/stderr matchPID1 default captured pipes. Current provenance records b08c046. Runtime-ready at17:05:08, reused all36F0/64R0/53forward-check episodes, then passed the original failure location: `adaptive-stage`/`round_id:D0` at17:05:38 with128TRAIN targets. `D0_K2.jsonl.actions.jsonl` is nonempty with new sampled token IDs/actions (3MB by17:06); no baseline resampling. This verifies the production fix and active D0 collection, not a completed R1/R2 update. Historical root failure timestamp remains14:38 and is not a new retry failure.
