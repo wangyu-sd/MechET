@@ -1,6 +1,8 @@
 # PR91 executable round-trip policy iteration — execution record
 
-Status: first task failed after completing R0 validation; minimal logging fix verified and retry02 has resumed actual D0 generation. **No new trained R1/R2 or policy-iteration improvement is claimed by this record yet.**
+Status updated2026-10-21 20:12CST: retry02 completed a genuine R0→R1 update and held-out evaluation. **R1 is worse on the measured VALID32 metrics; self-improvement is not demonstrated.** R1-generated D1 and a new R2 adapter are verified, but R2 evaluation and the final two-round report are not yet available here. Earlier sections below are dated execution history.
+
+Current comparison, concrete cases and interpretation are in [R1 diagnosis](#r1-result-and-reward-diagnosis-2026-10-21); extracted original calls/states and15source hashes are in [the evidence JSON](mechet_rsi_r1_diagnosis_evidence_20261021.json).
 
 ## Authenticated policies
 
@@ -41,11 +43,11 @@ Final review fixes: target-specific adaptive expansion; deterministic async coll
 
 At most64 autonomous TRAIN forward checks are allocated to the original128-target cohort, with a separately logged extra64 if the authorized second128-target cohort is needed. No extra cohort or resampling is counted as free work. This initial run uses full terminal mixtures as forward inputs; it does not claim a separate structural-only forward-input ablation. Unknown/censored outcomes are not chemical negatives.
 
-Expected new artifact root (not evidence that it already exists):
+Actual artifact root:
 
 `/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_roundtrip_smoke_20261021`
 
-Required final GPU evidence still pending: genuine R0/F0 baselines, D0 preferences, nonzero R1 update, fresh D1, R2 update if informative, paired validation and runtime tables. Keep sparse/no-update/failure results rather than claiming successful self-improvement.
+Verified so far: genuine R0/F0 baselines, D0 preferences, nonzero R1 update and paired R0/R1 validation, fresh R1-generated D1 and a nonzero R2 update. Still pending verification: R2 evaluation, static-D0 control, conditional F1, final matched-token/runtime tables and final artifact manifest. Keep sparse/no-update/failure results rather than claiming successful self-improvement.
 
 ## Submitted GPU verification
 
@@ -89,3 +91,55 @@ Cache recovery audit actually loaded all36/64/53episodes through the stage loade
 Continuation submitted17:01:35CST: `meteor_mechet_pr91_rsi_roundtrip_2a100_qy_20261021_02`, instance `8b1d89f5a13f013001a15db1c945427b`. Same ordinary2A100/KEMO/QY/Tencenttaiji6/proven Ceph/default45s stdout; shell and Python pinned to `b08c046d793d564303aadf3d5f2cac673a9521a1`. Initial readback PENDING at17:01:49 is startup/queue status, not proof of resumed sampling or DPO. Original instance is END; no unrelated task stopped.
 
 **Actual continuation verified17:06CST:** POD has Ceph and2A100-SXM4-40GB/driver580; worker stdout/stderr matchPID1 default captured pipes. Current provenance records b08c046. Runtime-ready at17:05:08, reused all36F0/64R0/53forward-check episodes, then passed the original failure location: `adaptive-stage`/`round_id:D0` at17:05:38 with128TRAIN targets. `D0_K2.jsonl.actions.jsonl` is nonempty with new sampled token IDs/actions (3MB by17:06); no baseline resampling. This verifies the production fix and active D0 collection, not a completed R1/R2 update. Historical root failure timestamp remains14:38 and is not a new retry failure.
+
+## R1 result and reward diagnosis (2026-10-21)
+
+### Measured R0→R1 comparison
+
+Same32held-out reaction IDs, K=2 independent reverse trajectories, decoder/budgets and frozen F0 judge. No TEST. This is the bounded PR91 experiment, not a full benchmark. Reverse sampling seeds include actor SHA and collection phase, so these are **not matched random draws**. No significance or counterfactual causal claim is made from32targets.
+
+| Metric | R0 | R1 |
+|---|---:|---:|
+| First-draw F0 round-trip target hits |17/32=53.125%|10/32=31.25%|
+| Either-of-two F0 round-trip target hits |22/32=68.75%|16/32=50%|
+| First-draw reference structural precursor exact |3/32=9.375%|2/32=6.25%|
+| Either-of-two reference structural precursor exact |4/32=12.5%|3/32=9.375%|
+| Explicit reverse finishes |59/64episodes|51/64episodes|
+| Distinct F0-verified structural candidates |28|18|
+| Generated reverse tokens |81,189|105,403|
+| Rejected cycle actions (`STATE_CYCLE`) |6|125|
+| Invalid-SMILES rejections |6|28|
+
+Cycle/error rows count correlated **action attempts**, not independent reactions or endpoint error rates. A round-trip hit means the independent F0 reconstructs the target component; it is not reference-reactant exact match or experimental feasibility.
+
+R1 is a real saved LoRA: SHA`88f3fc89f9c17f667c628d9bc8a5f3348d6b79dab4fc308351911b43773be795`, authenticated against the actual safetensors file. Frozen R0 reference and F0 judge remain the original identities above.50optimizer steps, L2weight change0.110656522,141.00seconds. This is **state-conditional DPO**, not PPO/GRPO or a newly implemented EARHO run. The sampled-vs-HF likelihood gates passed for both R0 and F0; that checks numerical/protocol consistency, not chemistry quality.
+
+### What the data actually shows
+
+1. **A reward-alignment loophole is present.** Four of11chosen preference pairs preserve every original target heavy-atom bond/order and create no heavy-atom bond to an imported atom. They come from two audited reactions, not four independent reaction mechanisms. Their recorded reference reactions require different structural transformations. They passed because a proton/charge-modified version of the product could return to the product under F0. A successful acid/base round trip is not by itself evidence of the desired structural retrosynthesis.
+2. **The update signal is narrow and heavily reused.**11pairs cover9reactions. Nine pairs are IMPORT preferences and two are FLOW preferences.50steps×4microexamples=200pair exposures:164IMPORT and36FLOW. One chosen trajectory contributes three separate pairs. First logged minibatch loss0.681157→last0.035039 shows fitting to this small pool, not held-out improvement. Over-specialization is a plausible contributor; its independent contribution has not been isolated.
+3. **Validation failure is visible in actual calls.** For`flower_mech_proof_val_1721`,candidate0, R0 finished in5attempts and passed the F0 check; R1 used24attempts without finishing. Its final two calls repeat the same electron event and are both rejected as`STATE_CYCLE`. For`val_648`, R0's first import was`[Cl-]`; R1 first imported`O=P(c1ccccc1)(c1ccccc1)c1ccccc1`, later finished but failed the F0 reconstruction. These observations locate behavioral changes; they do not prove that one import is universally chemically invalid.
+
+### Two audited positive-label shortcuts
+
+| TRAIN reaction | Chosen candidate behavior | Recorded reference transformation | Contribution |
+|---|---|---|---:|
+|`flower_mech_proof_train_214491`|Protonates phosphate`[O-]`to`OH`; original heavy-atom bonds/order unchanged|Reference precursors contain the bromoethyl phosphate derivative and trimethylamine|3/11pairs from the same chosen trajectory|
+|`flower_mech_proof_train_187098`|Protonates N-oxide oxygen:`[n+]([O-])`→`[n+](O)`; N–O remains|Reference contains the parent heterocycle without the N-oxide oxygen and a peracid|1/11pairs|
+
+Full target/candidate/reference SMILES and original accepted reverse tool calls are in the evidence JSON. The4/11count is not a universal "bad chemistry" label: acid/base changes can be legitimate chemistry, and genuine redox/stereochemical tasks need not change connectivity. It identifies a mismatch between these success labels and these recorded structural retrosyntheses. Do not ban proton-transfer **intermediate events** or impose a blanket heavy-bond-change rule without a task-specific protocol decision.
+
+### Forward-model limitations versus reward use
+
+- F0 correctly undoing a protonation can satisfy its forward prediction task while failing to certify a useful inverse disconnection. The loophole is therefore not explained solely by an inaccurate F0: the task-level success predicate is insufficient.
+- On recorded VALID32 reactant mixtures F0 reconstructs25/32products. Its failure on a generated candidate is consequently not a proof that the candidate is chemically infeasible. Current`forward_mismatch`is a measured computational outcome, not a chemical ground-truth label. Seven of11D0pairs use that outcome as rejection evidence.
+- In R0 validation0/31round-trip-hit episodes have unchanged target heavy bonds; in R1 it is1/22. Thus **do not attribute the entire R1 validation decline to shortcut exploitation**. The positive-pool flaw is confirmed; the amounts of decline due to label noise, narrow-data fitting and sampling variation remain unmeasured.
+- R0 is already the frozen DPO reference; the concern is not "no reference model". A finite-pool relative preference objective does not by itself establish behavior retention on all unseen states. This run has no broad SFT-retention replay term.
+
+### Decisions still to make; not implemented by this documentation update
+
+Define useful task-level inverse progress separately from mere F0 reconstruction; retain legitimate proton-transfer steps but stratify terminal acid/base-only candidates. Treat an isolated F0 mismatch as uncertain chemistry rather than an unconditional chemical negative; consider independently supported or repeated reconstruction evidence. Build a more diverse reaction-level preference pool and set update/reuse limits from the number of independent examples, with explicit retention checks. These are proposed directions, **not tested fixes or changes to the running protocol**.
+
+**Later status at20:12CST:** R2 adapter exists and its safetensors SHA was verified:`f7c33061683b0bfb2f0569a4a4f50833a8efc1c867a840e355a1fa36a6771ee0`. It starts from R1, keeps the same R0 reference, and completed50steps on20fresh D1 pairs (all IMPORT), L2weight change0.093180944. No`evaluation/R2.json`was present at this check; no R2 performance gain is claimed. Its manifest/weight hashes are included as a separately timed status snapshot in the evidence JSON.
+
+This update changes documentation/evidence only. Existing retry02 continues under its original immutable code/config; no new experiment submitted, no task stopped, no paper change and no PR merge. R2 performance, static-D0 and F1 outcomes are not claimed here. Read the15hashed source files and selected original cases in`mechet_rsi_r1_diagnosis_evidence_20261021.json`to reproduce these counts.

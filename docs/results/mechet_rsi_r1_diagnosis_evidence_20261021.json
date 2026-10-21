@@ -1,0 +1,671 @@
+{
+  "schema": "pr91_r1_diagnosis_evidence_v1",
+  "snapshot_cst": "2026-10-21T20:07:15.147509+08:00",
+  "artifact_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_roundtrip_smoke_20261021",
+  "runtime_commit": "b08c046d793d564303aadf3d5f2cac673a9521a1",
+  "sample_scope": "TRAIN128 and VALID32; no TEST; diagnostic only",
+  "comparison": {
+    "R0": {
+      "summary": {
+        "targets": 32,
+        "observed_targets": 32,
+        "missing_target_ids": [],
+        "forward_verified_targets": 22,
+        "forward_verified_target_rate": 0.6875,
+        "roundtrip_at_1_targets": 17,
+        "roundtrip_at_1_rate": 0.53125,
+        "roundtrip_at_k_targets": 22,
+        "roundtrip_at_k_rate": 0.6875,
+        "distinct_forward_verified_reactions": 28,
+        "distinct_forward_verified_full_mixtures": 31,
+        "episodes": 64,
+        "terminal_episodes": 59,
+        "reverse_generated_tokens": 81189,
+        "outcomes": {
+          "forward_mismatch": 18,
+          "roundtrip_hit": 31,
+          "censored": 4,
+          "nonproductive": 6,
+          "inverse_incomplete": 5
+        },
+        "reference_structural_targets": 4
+      },
+      "saved_actions": 589,
+      "accepted_actions": 448,
+      "cycle_rejections": 6,
+      "invalid_smiles_rejections": 6,
+      "unknown_tool_rejections": 0,
+      "first_draw_reference_exact_targets": 3,
+      "roundtrip_hit_episodes_without_heavy_bond_changes": 0
+    },
+    "R1": {
+      "summary": {
+        "targets": 32,
+        "observed_targets": 32,
+        "missing_target_ids": [],
+        "forward_verified_targets": 16,
+        "forward_verified_target_rate": 0.5,
+        "roundtrip_at_1_targets": 10,
+        "roundtrip_at_1_rate": 0.3125,
+        "roundtrip_at_k_targets": 16,
+        "roundtrip_at_k_rate": 0.5,
+        "distinct_forward_verified_reactions": 18,
+        "distinct_forward_verified_full_mixtures": 22,
+        "episodes": 64,
+        "terminal_episodes": 51,
+        "reverse_generated_tokens": 105403,
+        "outcomes": {
+          "inverse_incomplete": 13,
+          "roundtrip_hit": 22,
+          "nonproductive": 5,
+          "forward_mismatch": 23,
+          "censored": 1
+        },
+        "reference_structural_targets": 3
+      },
+      "saved_actions": 694,
+      "accepted_actions": 405,
+      "cycle_rejections": 125,
+      "invalid_smiles_rejections": 28,
+      "unknown_tool_rejections": 10,
+      "first_draw_reference_exact_targets": 2,
+      "roundtrip_hit_episodes_without_heavy_bond_changes": 1
+    }
+  },
+  "R1_update": {
+    "status": "updated",
+    "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_roundtrip_smoke_20261021/models/R1/policy",
+    "weight_sha256": "88f3fc89f9c17f667c628d9bc8a5f3348d6b79dab4fc308351911b43773be795",
+    "parent_weight_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+    "reference_sha": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+    "unique_pairs": 11,
+    "optimizer_steps": 50,
+    "recovered_optimizer_steps": 0,
+    "reused_examples": 200,
+    "weight_delta_l2": 0.11065652202105339,
+    "elapsed_seconds": 141.00046050129458,
+    "assistant_tokens": 40341,
+    "per_tool_examples": {
+      "import_fragments": 164,
+      "apply_electron_flow": 36
+    },
+    "peak_vram_bytes": 6445430784
+  },
+  "first_logged_minibatch_loss": 0.6811573207378387,
+  "last_logged_minibatch_loss": 0.03503939165966585,
+  "preference_pool": {
+    "pairs": 11,
+    "distinct_reactions": 9,
+    "chosen_episode_count": 9,
+    "tools": {
+      "import_fragments": 9,
+      "apply_electron_flow": 2
+    },
+    "negative_evidence": {
+      "forward_mismatch": 7,
+      "executor_rejected": 3,
+      "nonproductive": 1
+    },
+    "heavy_bond_unchanged_positive_pair_indices": [
+      0,
+      7,
+      9,
+      10
+    ],
+    "heavy_bond_unchanged_positive_pairs": 4
+  },
+  "shortcut_examples": [
+    {
+      "reaction_id": "flower_mech_proof_train_214491",
+      "episode_id": "eaade1c7c3ac78d2a714b17fd49e7ac67a1863b4b17270a888693223d6cfbec2",
+      "pair_indices": [
+        0,
+        9,
+        10
+      ],
+      "target_unmapped": "CCCCCCCCCCCCCCCCCCNC(=O)OCC(COP(=O)([O-])OCC[N+](C)(C)C)OC",
+      "candidate_full_mixture_unmapped": "CC1CCCCC1.CCCCCCCCCCCCCCCCCCNC(=O)OCC(COP(=O)(O)OCC[N+](C)(C)C)OC.CN(C)C=O.[H-].c1ccncc1",
+      "recorded_structural_precursors_unmapped": "CCCCCCCCCCCCCCCCCCNC(=O)OCC(COP(=O)([O-])OCCBr)OC.CN(C)C",
+      "original_target_heavy_bond_orders_unchanged": true,
+      "accepted_reverse_calls": [
+        {
+          "name": "import_fragments",
+          "arguments": {
+            "fragments": [
+              {
+                "smiles": "CC1CCCCC1",
+                "count": 1,
+                "purpose": "endpoint_context"
+              },
+              {
+                "smiles": "CN(C)C=O",
+                "count": 1,
+                "purpose": "endpoint_context"
+              },
+              {
+                "smiles": "[H][H]",
+                "count": 1,
+                "purpose": "electron_participant"
+              },
+              {
+                "smiles": "c1ccncc1",
+                "count": 1,
+                "purpose": "endpoint_context"
+              }
+            ]
+          },
+          "raw": "<tool_call>\n{\"name\": \"import_fragments\", \"arguments\": {\"fragments\": [{\"smiles\": \"CC1CCCCC1\", \"count\": 1, \"purpose\": \"endpoint_context\"}, {\"smiles\": \"CN(C)C=O\", \"count\": 1, \"purpose\": \"endpoint_context\"}, {\"smiles\": \"[H][H]\", \"count\": 1, \"purpose\": \"electron_participant\"}, {\"smiles\": \"c1ccncc1\", \"count\": 1, \"purpose\": \"endpoint_context\"}]}}\n</tool_call><|im_end|>"
+        },
+        {
+          "name": "apply_electron_flow",
+          "arguments": {
+            "direction": "retrosynthetic",
+            "electron_flow": [
+              {
+                "source": "the bond between atoms A51 and A52",
+                "destination": "atom A51",
+                "instruction": "Move 1: transfer the electron pair from the bond between atoms A51 and A52 to atom A51."
+              },
+              {
+                "source": "a lone pair on atom A36",
+                "destination": "the bond to form between atoms A36 and A52",
+                "instruction": "Move 2: transfer the electron pair from a lone pair on atom A36 to the bond to form between atoms A36 and A52."
+              }
+            ],
+            "bond_order_changes": [],
+            "charge_changes": []
+          },
+          "raw": "<tool_call>\n{\"name\": \"apply_electron_flow\", \"arguments\": {\"direction\": \"retrosynthetic\", \"electron_flow\": [{\"source\": \"the bond between atoms A51 and A52\", \"destination\": \"atom A51\", \"instruction\": \"Move 1: transfer the electron pair from the bond between atoms A51 and A52 to atom A51.\"}, {\"source\": \"a lone pair on atom A36\", \"destination\": \"the bond to form between atoms A36 and A52\", \"instruction\": \"Move 2: transfer the electron pair from a lone pair on atom A36 to the bond to form between atoms A36 and A52.\"}], \"bond_order_changes\": [], \"charge_changes\": []}}\n</tool_call><|im_end|>"
+        },
+        {
+          "name": "finish_trace",
+          "arguments": {},
+          "raw": "<tool_call>\n{\"name\": \"finish_trace\", \"arguments\": {}}\n</tool_call><|im_end|>"
+        }
+      ]
+    },
+    {
+      "reaction_id": "flower_mech_proof_train_187098",
+      "episode_id": "fd4e5b1d14dc3f5ac219c123527be3f493f9e662255dcbdd6545cb5cebb5109f",
+      "pair_indices": [
+        7
+      ],
+      "target_unmapped": "CC1CN(C(=O)OC(C)(C)C)c2nc3c[n+]([O-])c4ccccc4c3n21",
+      "candidate_full_mixture_unmapped": "CC1CN(C(=O)OC(C)(C)C)c2nc3c[n+](O)c4ccccc4c3n21.C[Si](C)(C)[N-][Si](C)(C)C.ClCCl.O=C([O-])O.O=S(=O)([O-])O.[K+].[K+].[Na+]",
+      "recorded_structural_precursors_unmapped": "CC1CN(C(=O)OC(C)(C)C)c2nc3cnc4ccccc4c3n21.O=C(OO)c1cccc(Cl)c1",
+      "original_target_heavy_bond_orders_unchanged": true,
+      "accepted_reverse_calls": [
+        {
+          "name": "import_fragments",
+          "arguments": {
+            "fragments": [
+              {
+                "smiles": "ClCCl",
+                "count": 1,
+                "purpose": "endpoint_context"
+              },
+              {
+                "smiles": "O=C([O-])O",
+                "count": 1,
+                "purpose": "endpoint_context"
+              },
+              {
+                "smiles": "O=S(=O)([O-])O",
+                "count": 1,
+                "purpose": "endpoint_context"
+              },
+              {
+                "smiles": "[H]N([Si](C)(C)C)[Si](C)(C)C",
+                "count": 1,
+                "purpose": "electron_participant"
+              },
+              {
+                "smiles": "[K+]",
+                "count": 2,
+                "purpose": "endpoint_context"
+              },
+              {
+                "smiles": "[Na+]",
+                "count": 1,
+                "purpose": "endpoint_context"
+              }
+            ]
+          },
+          "raw": "<tool_call>\n{\"name\": \"import_fragments\", \"arguments\": {\"fragments\": [{\"smiles\": \"ClCCl\", \"count\": 1, \"purpose\": \"endpoint_context\"}, {\"smiles\": \"O=C([O-])O\", \"count\": 1, \"purpose\": \"endpoint_context\"}, {\"smiles\": \"O=S(=O)([O-])O\", \"count\": 1, \"purpose\": \"endpoint_context\"}, {\"smiles\": \"[H]N([Si](C)(C)C)[Si](C)(C)C\", \"count\": 1, \"purpose\": \"electron_participant\"}, {\"smiles\": \"[K+]\", \"count\": 2, \"purpose\": \"endpoint_context\"}, {\"smiles\": \"[Na+]\", \"count\": 1, \"purpose\": \"endpoint_context\"}]}}\n</tool_call><|im_end|>"
+        },
+        {
+          "name": "apply_electron_flow",
+          "arguments": {
+            "direction": "retrosynthetic",
+            "electron_flow": [
+              {
+                "source": "the bond between atoms A38 and A39",
+                "destination": "atom A39",
+                "instruction": "Move 1: transfer the electron pair from the bond between atoms A38 and A39 to atom A39."
+              },
+              {
+                "source": "a lone pair on atom A17",
+                "destination": "the bond to form between atoms A17 and A38",
+                "instruction": "Move 2: transfer the electron pair from a lone pair on atom A17 to the bond to form between atoms A17 and A38."
+              }
+            ],
+            "bond_order_changes": [],
+            "charge_changes": []
+          },
+          "raw": "<tool_call>\n{\"name\": \"apply_electron_flow\", \"arguments\": {\"direction\": \"retrosynthetic\", \"electron_flow\": [{\"source\": \"the bond between atoms A38 and A39\", \"destination\": \"atom A39\", \"instruction\": \"Move 1: transfer the electron pair from the bond between atoms A38 and A39 to atom A39.\"}, {\"source\": \"a lone pair on atom A17\", \"destination\": \"the bond to form between atoms A17 and A38\", \"instruction\": \"Move 2: transfer the electron pair from a lone pair on atom A17 to the bond to form between atoms A17 and A38.\"}], \"bond_order_changes\": [], \"charge_changes\": []}}\n</tool_call><|im_end|>"
+        },
+        {
+          "name": "finish_trace",
+          "arguments": {},
+          "raw": "<tool_call>\n{\"name\": \"finish_trace\", \"arguments\": {}}\n</tool_call><|im_end|>"
+        }
+      ]
+    }
+  ],
+  "validation_examples": [
+    {
+      "reaction_id": "flower_mech_proof_val_1721",
+      "candidate": 0,
+      "R0": {
+        "episode_id": "4602e68f9032b37f722fb37162a8fd4370e8a0366c043cd4f91e0ff6e1becc50",
+        "target": "CCOC(=O)C1CCN(C(=O)OC(C)(C)C)CC1",
+        "terminal": true,
+        "attempts": 5,
+        "outcome": {
+          "status": "roundtrip_hit",
+          "success": true
+        },
+        "first_sampled_call": {
+          "raw": "<tool_call>\n{\"name\": \"import_fragments\", \"arguments\": {\"fragments\": [{\"smiles\": \"[H]OC(=O)[O-]\", \"count\": 1, \"purpose\": \"electron_participant\"}]}}\n</tool_call><|im_end|>",
+          "complete": true,
+          "name": "import_fragments",
+          "arguments": {
+            "fragments": [
+              {
+                "smiles": "[H]OC(=O)[O-]",
+                "count": 1,
+                "purpose": "electron_participant"
+              }
+            ]
+          },
+          "accepted": true,
+          "error": "",
+          "state_before": "[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([C:10](=[O:11])[O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[CH2:17][CH2:18]1",
+          "state_after": "[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([C:10](=[O:11])[O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[CH2:17][CH2:18]1.[H:19][O:20][C:21](=[O:22])[O-:23]",
+          "seed": 581668403,
+          "finish_reason": "stop"
+        },
+        "last_two_sampled_calls": [
+          {
+            "raw": "<tool_call>\n{\"name\": \"apply_electron_flow\", \"arguments\": {\"direction\": \"retrosynthetic\", \"electron_flow\": [{\"source\": \"the bond between atoms A12 and A13\", \"destination\": \"atom A12\", \"instruction\": \"Move 1: transfer the electron pair from the bond between atoms A12 and A13 to atom A12.\"}, {\"source\": \"a lone pair on atom A30\", \"destination\": \"the bond to form between atoms A13 and A30\", \"instruction\": \"Move 2: transfer the electron pair from a lone pair on atom A30 to the bond to form between atoms A13 and A30.\"}], \"bond_order_changes\": [], \"charge_changes\": []}}\n</tool_call><|im_end|>",
+            "complete": true,
+            "name": "apply_electron_flow",
+            "arguments": {
+              "direction": "retrosynthetic",
+              "electron_flow": [
+                {
+                  "source": "the bond between atoms A12 and A13",
+                  "destination": "atom A12",
+                  "instruction": "Move 1: transfer the electron pair from the bond between atoms A12 and A13 to atom A12."
+                },
+                {
+                  "source": "a lone pair on atom A30",
+                  "destination": "the bond to form between atoms A13 and A30",
+                  "instruction": "Move 2: transfer the electron pair from a lone pair on atom A30 to the bond to form between atoms A13 and A30."
+                }
+              ],
+              "bond_order_changes": [],
+              "charge_changes": []
+            },
+            "accepted": true,
+            "error": "",
+            "state_before": "[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N+:9]([C:10](=[O:11])[O:12][C:13]([CH3:14])([CH3:15])[CH3:16])([H:19])[CH2:17][CH2:18]1.[O-:20][C:21](=[O:22])[O-:23].[CH3:24][N:25]([CH3:26])[CH:27]=[O:28].[OH2:29].[I-:30].[K+:31].[K+:32]",
+            "state_after": "[C:10](=[O:11])([O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[I:30].[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([H:19])[CH2:17][CH2:18]1.[CH3:24][N:25]([CH3:26])[CH:27]=[O:28].[K+:31].[K+:32].[O-:20][C:21](=[O:22])[O-:23].[OH2:29]",
+            "seed": 1805627884,
+            "finish_reason": "stop"
+          },
+          {
+            "raw": "<tool_call>\n{\"name\": \"finish_trace\", \"arguments\": {}}\n</tool_call><|im_end|>",
+            "complete": true,
+            "name": "finish_trace",
+            "arguments": {},
+            "accepted": true,
+            "error": "",
+            "state_before": "[C:10](=[O:11])([O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[I:30].[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([H:19])[CH2:17][CH2:18]1.[CH3:24][N:25]([CH3:26])[CH:27]=[O:28].[K+:31].[K+:32].[O-:20][C:21](=[O:22])[O-:23].[OH2:29]",
+            "state_after": "[C:10](=[O:11])([O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[I:30].[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([H:19])[CH2:17][CH2:18]1.[CH3:24][N:25]([CH3:26])[CH:27]=[O:28].[K+:31].[K+:32].[O-:20][C:21](=[O:22])[O-:23].[OH2:29]",
+            "seed": 1887399078,
+            "finish_reason": "stop"
+          }
+        ]
+      },
+      "R1": {
+        "episode_id": "9b3fc702abaa99ac406ab48dc9cc18a185f61e3a98f5b89f89858fa70aec752e",
+        "target": "CCOC(=O)C1CCN(C(=O)OC(C)(C)C)CC1",
+        "terminal": false,
+        "attempts": 24,
+        "outcome": {
+          "status": "inverse_incomplete",
+          "success": false
+        },
+        "first_sampled_call": {
+          "raw": "<tool_call>\n{\"name\": \"import_fragments\", \"arguments\": {\"fragments\": [{\"smiles\": \"[H]ON1C(=O)NN1\", \"count\": 1, \"purpose\": \"electron_participant\"}]}}\n</tool_call><|im_end|>",
+          "complete": true,
+          "name": "import_fragments",
+          "arguments": {
+            "fragments": [
+              {
+                "smiles": "[H]ON1C(=O)NN1",
+                "count": 1,
+                "purpose": "electron_participant"
+              }
+            ]
+          },
+          "accepted": true,
+          "error": "",
+          "state_before": "[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([C:10](=[O:11])[O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[CH2:17][CH2:18]1",
+          "state_after": "[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([C:10](=[O:11])[O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[CH2:17][CH2:18]1.[H:19][O:20][n:21]1[nH:22][nH:23][c:24]1=[O:25]",
+          "seed": 175811536,
+          "finish_reason": "stop"
+        },
+        "last_two_sampled_calls": [
+          {
+            "raw": "<tool_call>\n{\"name\": \"apply_electron_flow\", \"arguments\": {\"direction\": \"retrosynthetic\", \"electron_flow\": [{\"source\": \"the bond between atoms A08 and A10\", \"destination\": \"atom A10\", \"instruction\": \"Move 1: transfer the electron pair from the bond between atoms A08 and A10 to atom A10.\"}, {\"source\": \"a lone pair on atom A09\", \"destination\": \"the bond between atoms A08 and A09\", \"instruction\": \"Move 2: transfer the electron pair from a lone pair on atom A09 to the bond between atoms A08 and A09.\"}], \"bond_order_changes\": [], \"charge_changes\": []}}\n</tool_call><|im_end|>",
+            "complete": true,
+            "name": "apply_electron_flow",
+            "arguments": {
+              "direction": "retrosynthetic",
+              "electron_flow": [
+                {
+                  "source": "the bond between atoms A08 and A10",
+                  "destination": "atom A10",
+                  "instruction": "Move 1: transfer the electron pair from the bond between atoms A08 and A10 to atom A10."
+                },
+                {
+                  "source": "a lone pair on atom A09",
+                  "destination": "the bond between atoms A08 and A09",
+                  "instruction": "Move 2: transfer the electron pair from a lone pair on atom A09 to the bond between atoms A08 and A09."
+                }
+              ],
+              "bond_order_changes": [],
+              "charge_changes": []
+            },
+            "accepted": false,
+            "error": "ValueError:STATE_CYCLE",
+            "state_before": "[C:10]12([O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[O:11][C:27]([O-:26])([O+:20]1[n:21]1[nH:22][nH:23][c:24]1=[O:25])[O:28]2.[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([H:19])[CH2:17][CH2:18]1",
+            "state_after": "[C:10]12([O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[O:11][C:27]([O-:26])([O+:20]1[n:21]1[nH:22][nH:23][c:24]1=[O:25])[O:28]2.[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([H:19])[CH2:17][CH2:18]1",
+            "seed": 632048568,
+            "finish_reason": "stop"
+          },
+          {
+            "raw": "<tool_call>\n{\"name\": \"apply_electron_flow\", \"arguments\": {\"direction\": \"retrosynthetic\", \"electron_flow\": [{\"source\": \"the bond between atoms A08 and A10\", \"destination\": \"atom A10\", \"instruction\": \"Move 1: transfer the electron pair from the bond between atoms A08 and A10 to atom A10.\"}, {\"source\": \"a lone pair on atom A09\", \"destination\": \"the bond between atoms A08 and A09\", \"instruction\": \"Move 2: transfer the electron pair from a lone pair on atom A09 to the bond between atoms A08 and A09.\"}], \"bond_order_changes\": [], \"charge_changes\": []}}\n</tool_call><|im_end|>",
+            "complete": true,
+            "name": "apply_electron_flow",
+            "arguments": {
+              "direction": "retrosynthetic",
+              "electron_flow": [
+                {
+                  "source": "the bond between atoms A08 and A10",
+                  "destination": "atom A10",
+                  "instruction": "Move 1: transfer the electron pair from the bond between atoms A08 and A10 to atom A10."
+                },
+                {
+                  "source": "a lone pair on atom A09",
+                  "destination": "the bond between atoms A08 and A09",
+                  "instruction": "Move 2: transfer the electron pair from a lone pair on atom A09 to the bond between atoms A08 and A09."
+                }
+              ],
+              "bond_order_changes": [],
+              "charge_changes": []
+            },
+            "accepted": false,
+            "error": "ValueError:STATE_CYCLE",
+            "state_before": "[C:10]12([O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[O:11][C:27]([O-:26])([O+:20]1[n:21]1[nH:22][nH:23][c:24]1=[O:25])[O:28]2.[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([H:19])[CH2:17][CH2:18]1",
+            "state_after": "[C:10]12([O:12][C:13]([CH3:14])([CH3:15])[CH3:16])[O:11][C:27]([O-:26])([O+:20]1[n:21]1[nH:22][nH:23][c:24]1=[O:25])[O:28]2.[CH3:1][CH2:2][O:3][C:4](=[O:5])[CH:6]1[CH2:7][CH2:8][N:9]([H:19])[CH2:17][CH2:18]1",
+            "seed": 255043114,
+            "finish_reason": "stop"
+          }
+        ]
+      }
+    },
+    {
+      "reaction_id": "flower_mech_proof_val_648",
+      "candidate": 0,
+      "R0": {
+        "episode_id": "077377c5350610e01a1313ede019c0143e12fd6bed0ca068811f8e706f1aae82",
+        "target": "COc1cccc(NC(C(=O)OC2CN3CCC2CC3)c2csc3ccccc23)c1",
+        "terminal": true,
+        "attempts": 5,
+        "outcome": {
+          "status": "roundtrip_hit",
+          "success": true
+        },
+        "first_sampled_call": {
+          "raw": "<tool_call>\n{\"name\": \"import_fragments\", \"arguments\": {\"fragments\": [{\"smiles\": \"[Cl-]\", \"count\": 1, \"purpose\": \"electron_participant\"}]}}\n</tool_call><|im_end|>",
+          "complete": true,
+          "name": "import_fragments",
+          "arguments": {
+            "fragments": [
+              {
+                "smiles": "[Cl-]",
+                "count": 1,
+                "purpose": "electron_participant"
+              }
+            ]
+          },
+          "accepted": true,
+          "error": "",
+          "state_before": "[CH3:1][O:2][c:3]1[cH:4][cH:5][cH:6][c:7]([NH:8][CH:9]([C:10](=[O:11])[O:12][CH:13]2[CH2:14][N:15]3[CH2:16][CH2:17][CH:18]2[CH2:19][CH2:20]3)[c:21]2[cH:22][s:23][c:24]3[cH:25][cH:26][cH:27][cH:28][c:29]23)[cH:30]1",
+          "state_after": "[CH3:1][O:2][c:3]1[cH:4][cH:5][cH:6][c:7]([NH:8][CH:9]([C:10](=[O:11])[O:12][CH:13]2[CH2:14][N:15]3[CH2:16][CH2:17][CH:18]2[CH2:19][CH2:20]3)[c:21]2[cH:22][s:23][c:24]3[cH:25][cH:26][cH:27][cH:28][c:29]23)[cH:30]1.[Cl-:31]",
+          "seed": 999347760,
+          "finish_reason": "stop"
+        },
+        "last_two_sampled_calls": [
+          {
+            "raw": "<tool_call>\n{\"name\": \"apply_electron_flow\", \"arguments\": {\"direction\": \"retrosynthetic\", \"electron_flow\": [{\"source\": \"the bond between atoms A37 and A38\", \"destination\": \"atom A37\", \"instruction\": \"Move 1: transfer the electron pair from the bond between atoms A37 and A38 to atom A37.\"}, {\"source\": \"a lone pair on atom A13\", \"destination\": \"the bond to form between atoms A13 and A38\", \"instruction\": \"Move 2: transfer the electron pair from a lone pair on atom A13 to the bond to form between atoms A13 and A38.\"}], \"bond_order_changes\": [], \"charge_changes\": []}}\n</tool_call><|im_end|>",
+            "complete": true,
+            "name": "apply_electron_flow",
+            "arguments": {
+              "direction": "retrosynthetic",
+              "electron_flow": [
+                {
+                  "source": "the bond between atoms A37 and A38",
+                  "destination": "atom A37",
+                  "instruction": "Move 1: transfer the electron pair from the bond between atoms A37 and A38 to atom A37."
+                },
+                {
+                  "source": "a lone pair on atom A13",
+                  "destination": "the bond to form between atoms A13 and A38",
+                  "instruction": "Move 2: transfer the electron pair from a lone pair on atom A13 to the bond to form between atoms A13 and A38."
+                }
+              ],
+              "bond_order_changes": [],
+              "charge_changes": []
+            },
+            "accepted": true,
+            "error": "",
+            "state_before": "[CH3:1][O:2][c:3]1[cH:4][cH:5][cH:6][c:7]([NH-:8])[cH:30]1.[CH:9]([C:10](=[O:11])[O:12][CH:13]1[CH2:14][N:15]2[CH2:16][CH2:17][CH:18]1[CH2:19][CH2:20]2)([c:21]1[cH:22][s:23][c:24]2[cH:25][cH:26][cH:27][cH:28][c:29]12)[Cl:31].[BH2:32][O:33][C:34](=[O:35])[OH:36].[H:37][H:38].[Na+:39]",
+            "state_after": "[BH2:32][O:33][C:34](=[O:35])[OH:36].[CH3:1][O:2][c:3]1[cH:4][cH:5][cH:6][c:7]([NH:8][H:38])[cH:30]1.[CH:9]([C:10](=[O:11])[O:12][CH:13]1[CH2:14][N:15]2[CH2:16][CH2:17][CH:18]1[CH2:19][CH2:20]2)([c:21]1[cH:22][s:23][c:24]2[cH:25][cH:26][cH:27][cH:28][c:29]12)[Cl:31].[H-:37].[Na+:39]",
+            "seed": 1582293629,
+            "finish_reason": "stop"
+          },
+          {
+            "raw": "<tool_call>\n{\"name\": \"finish_trace\", \"arguments\": {}}\n</tool_call><|im_end|>",
+            "complete": true,
+            "name": "finish_trace",
+            "arguments": {},
+            "accepted": true,
+            "error": "",
+            "state_before": "[BH2:32][O:33][C:34](=[O:35])[OH:36].[CH3:1][O:2][c:3]1[cH:4][cH:5][cH:6][c:7]([NH:8][H:38])[cH:30]1.[CH:9]([C:10](=[O:11])[O:12][CH:13]1[CH2:14][N:15]2[CH2:16][CH2:17][CH:18]1[CH2:19][CH2:20]2)([c:21]1[cH:22][s:23][c:24]2[cH:25][cH:26][cH:27][cH:28][c:29]12)[Cl:31].[H-:37].[Na+:39]",
+            "state_after": "[BH2:32][O:33][C:34](=[O:35])[OH:36].[CH3:1][O:2][c:3]1[cH:4][cH:5][cH:6][c:7]([NH:8][H:38])[cH:30]1.[CH:9]([C:10](=[O:11])[O:12][CH:13]1[CH2:14][N:15]2[CH2:16][CH2:17][CH:18]1[CH2:19][CH2:20]2)([c:21]1[cH:22][s:23][c:24]2[cH:25][cH:26][cH:27][cH:28][c:29]12)[Cl:31].[H-:37].[Na+:39]",
+            "seed": 1445687599,
+            "finish_reason": "stop"
+          }
+        ]
+      },
+      "R1": {
+        "episode_id": "54222e1843fa72a7199bbdae54ef8e4a2caa89400263416dbb67d2b1c30983f4",
+        "target": "COc1cccc(NC(C(=O)OC2CN3CCC2CC3)c2csc3ccccc23)c1",
+        "terminal": true,
+        "attempts": 16,
+        "outcome": {
+          "status": "forward_mismatch",
+          "success": false
+        },
+        "first_sampled_call": {
+          "raw": "<tool_call>\n{\"name\": \"import_fragments\", \"arguments\": {\"fragments\": [{\"smiles\": \"O=P(c1ccccc1)(c1ccccc1)c1ccccc1\", \"count\": 1, \"purpose\": \"electron_participant\"}]}}\n</tool_call><|im_end|>",
+          "complete": true,
+          "name": "import_fragments",
+          "arguments": {
+            "fragments": [
+              {
+                "smiles": "O=P(c1ccccc1)(c1ccccc1)c1ccccc1",
+                "count": 1,
+                "purpose": "electron_participant"
+              }
+            ]
+          },
+          "accepted": true,
+          "error": "",
+          "state_before": "[CH3:1][O:2][c:3]1[cH:4][cH:5][cH:6][c:7]([NH:8][CH:9]([C:10](=[O:11])[O:12][CH:13]2[CH2:14][N:15]3[CH2:16][CH2:17][CH:18]2[CH2:19][CH2:20]3)[c:21]2[cH:22][s:23][c:24]3[cH:25][cH:26][cH:27][cH:28][c:29]23)[cH:30]1",
+          "state_after": "[CH3:1][O:2][c:3]1[cH:4][cH:5][cH:6][c:7]([NH:8][CH:9]([C:10](=[O:11])[O:12][CH:13]2[CH2:14][N:15]3[CH2:16][CH2:17][CH:18]2[CH2:19][CH2:20]3)[c:21]2[cH:22][s:23][c:24]3[cH:25][cH:26][cH:27][cH:28][c:29]23)[cH:30]1.[O:31]=[P:32]([c:33]1[cH:34][cH:35][cH:36][cH:37][cH:38]1)([c:39]1[cH:40][cH:41][cH:42][cH:43][cH:44]1)[c:45]1[cH:46][cH:47][cH:48][cH:49][cH:50]1",
+          "seed": 2094747320,
+          "finish_reason": "stop"
+        },
+        "last_two_sampled_calls": [
+          {
+            "raw": "<tool_call>\n{\"name\": \"apply_electron_flow\", \"arguments\": {\"direction\": \"retrosynthetic\", \"electron_flow\": [{\"source\": \"the bond between atoms A07 and A08\", \"destination\": \"atom A08\", \"instruction\": \"Move 1: transfer the electron pair from the bond between atoms A07 and A08 to atom A08.\"}, {\"source\": \"a lone pair on atom A06\", \"destination\": \"the bond between atoms A06 and A07\", \"instruction\": \"Move 2: transfer the electron pair from a lone pair on atom A06 to the bond between atoms A06 and A07.\"}], \"bond_order_changes\": [], \"charge_changes\": []}}\n</tool_call><|im_end|>",
+            "complete": true,
+            "name": "apply_electron_flow",
+            "arguments": {
+              "direction": "retrosynthetic",
+              "electron_flow": [
+                {
+                  "source": "the bond between atoms A07 and A08",
+                  "destination": "atom A08",
+                  "instruction": "Move 1: transfer the electron pair from the bond between atoms A07 and A08 to atom A08."
+                },
+                {
+                  "source": "a lone pair on atom A06",
+                  "destination": "the bond between atoms A06 and A07",
+                  "instruction": "Move 2: transfer the electron pair from a lone pair on atom A06 to the bond between atoms A06 and A07."
+                }
+              ],
+              "bond_order_changes": [],
+              "charge_changes": []
+            },
+            "accepted": true,
+            "error": "",
+            "state_before": "[CH3:1][O:2][C:10]([CH:9]([NH:8][c:7]1[cH:6][cH:5][cH:4][c:3]([O:31][H:51])[cH:30]1)[c:21]1[cH:22][s:23][c:24]2[cH:25][cH:26][cH:27][cH:28][c:29]12)=[O:11].[O:12]([CH:13]1[CH2:14][N:15]2[CH2:16][CH2:17][CH:18]1[CH2:19][CH2:20]2)[c:33]1[cH:34][cH:35][cH:36][cH:37][cH:38]1.[P+:32]([c:45]1[cH:46][cH:47][cH:48][cH:49][cH:50]1)[N:58]([N-:52][C:53](=[O:54])[O:55][CH2:56][CH3:57])[C:60](=[O:61])[O:62][CH2:63][CH2:64][N+:65](=[O:66])[O-:67].[c:39]1([H:59])[cH:40][cH:41][cH:42][cH:43][cH:44]1",
+            "state_after": "[CH3:1][O:2][C:10]([CH:9]([NH:8][c:7]1[cH:6][cH:5][cH:4][c:3]([O:31][H:51])[cH:30]1)[c:21]1[cH:22][s:23][c:24]2[cH:25][cH:26][cH:27][cH:28][c:29]12)=[O:11].[N:52]([C:53](=[O:54])[O:55][CH2:56][CH3:57])=[N:58][C:60](=[O:61])[O:62][CH2:63][CH2:64][N+:65](=[O:66])[O-:67].[O:12]([CH:13]1[CH2:14][N:15]2[CH2:16][CH2:17][CH:18]1[CH2:19][CH2:20]2)[c:33]1[cH:34][cH:35][cH:36][cH:37][cH:38]1.[P:32][c:45]1[cH:46][cH:47][cH:48][cH:49][cH:50]1.[c:39]1([H:59])[cH:40][cH:41][cH:42][cH:43][cH:44]1",
+            "seed": 1069481988,
+            "finish_reason": "stop"
+          },
+          {
+            "raw": "<tool_call>\n{\"name\": \"finish_trace\", \"arguments\": {}}\n</tool_call><|im_end|>",
+            "complete": true,
+            "name": "finish_trace",
+            "arguments": {},
+            "accepted": true,
+            "error": "",
+            "state_before": "[CH3:1][O:2][C:10]([CH:9]([NH:8][c:7]1[cH:6][cH:5][cH:4][c:3]([O:31][H:51])[cH:30]1)[c:21]1[cH:22][s:23][c:24]2[cH:25][cH:26][cH:27][cH:28][c:29]12)=[O:11].[N:52]([C:53](=[O:54])[O:55][CH2:56][CH3:57])=[N:58][C:60](=[O:61])[O:62][CH2:63][CH2:64][N+:65](=[O:66])[O-:67].[O:12]([CH:13]1[CH2:14][N:15]2[CH2:16][CH2:17][CH:18]1[CH2:19][CH2:20]2)[c:33]1[cH:34][cH:35][cH:36][cH:37][cH:38]1.[P:32][c:45]1[cH:46][cH:47][cH:48][cH:49][cH:50]1.[c:39]1([H:59])[cH:40][cH:41][cH:42][cH:43][cH:44]1",
+            "state_after": "[CH3:1][O:2][C:10]([CH:9]([NH:8][c:7]1[cH:6][cH:5][cH:4][c:3]([O:31][H:51])[cH:30]1)[c:21]1[cH:22][s:23][c:24]2[cH:25][cH:26][cH:27][cH:28][c:29]12)=[O:11].[N:52]([C:53](=[O:54])[O:55][CH2:56][CH3:57])=[N:58][C:60](=[O:61])[O:62][CH2:63][CH2:64][N+:65](=[O:66])[O-:67].[O:12]([CH:13]1[CH2:14][N:15]2[CH2:16][CH2:17][CH:18]1[CH2:19][CH2:20]2)[c:33]1[cH:34][cH:35][cH:36][cH:37][cH:38]1.[P:32][c:45]1[cH:46][cH:47][cH:48][cH:49][cH:50]1.[c:39]1([H:59])[cH:40][cH:41][cH:42][cH:43][cH:44]1",
+            "seed": 1188147972,
+            "finish_reason": "stop"
+          }
+        ]
+      }
+    }
+  ],
+  "comparison_limits": [
+    "Same validation IDs, budgets and frozen F0; reverse sampling seeds include actor SHA and phase, so random draws are not matched.",
+    "Four shortcut pairs are an audited reward-alignment issue, not a counterfactual proof that they caused the entire validation decrease.",
+    "Acid/base transformations can be chemically valid; unchanged-heavy-bond is a diagnostic flag, not a universal invalid-chemistry rule.",
+    "Observed F0 mismatch is not proof a precursor is chemically invalid.",
+    "Selected raw examples are retained here; full original trajectories remain in source artifacts."
+  ],
+  "source_files": {
+    "D0_K2.jsonl": {
+      "sha256": "8ea40960092c38928d41165ed03a11f987a6cc819d1f9e5d867657b87472cf79",
+      "bytes": 28454682
+    },
+    "D0_K4.jsonl": {
+      "sha256": "fc25dad3b8ad34459e1fa81a848ee6c4bbfc2cefe3894da0d97363871d2a1c13",
+      "bytes": 27953864
+    },
+    "D0_K8.jsonl": {
+      "sha256": "983b2e4dfb6ad205c0979e4e3e7d3af4d8b633a1b066e34e6861dfe5b1b67c70",
+      "bytes": 53644154
+    },
+    "d0_preferences.json": {
+      "sha256": "d4bcd84e615ea29b23773f91c462fc70ffebe890c6b14e297c1976468abb45c3",
+      "bytes": 215218
+    },
+    "selected_train_ids.json": {
+      "sha256": "c511e36c7a33b5e59053a93ec4fd6066b2c4b83ec94aa93ac1115719f189655e",
+      "bytes": 94389
+    },
+    "selected_valid_ids.json": {
+      "sha256": "d9517435fec1fbbe92bc1295095fe762e6724ab8f3110e1ca600f5c8c6729d53",
+      "bytes": 24176
+    },
+    "evaluation/R0.json": {
+      "sha256": "04c2c97b5c60cd345ecbc9cd3cb62f9afa6ee1cf759824125fe9be09aded424c",
+      "bytes": 17074220
+    },
+    "evaluation/R1.json": {
+      "sha256": "f42bbb2716df2031437157940b51ac7bb3b3c1e0177da4e94ec7cac7b82903bf",
+      "bytes": 20377051
+    },
+    "evaluation/F0_recorded_forward.json": {
+      "sha256": "63aecc14ae56d62eaa87e3ce3708748f97baee204d2a71c4b6876778f98ad9ea",
+      "bytes": 4617
+    },
+    "models/R1/manifest.json": {
+      "sha256": "c52375bb55018ae75d453f853c9ff0b35ee862f8cd848aad776752911d15793e",
+      "bytes": 756
+    },
+    "models/R1/training_steps.jsonl": {
+      "sha256": "fd0fbc24a264e79c97f160fa43a27506de54529334b63a2ab28fa67271e66953",
+      "bytes": 10731
+    },
+    "sampled_vs_teacher_forced_likelihood_gate.json": {
+      "sha256": "084562831e3a3211c1252d43f84bf63928f508467bc5481e0c7c757800f95e88",
+      "bytes": 2736
+    },
+    "models/R2/manifest.json": {
+      "sha256": "59c453ada6a1a65c353c2ebb74e315dabb1ab3096ec9663f208f34c8379f03af",
+      "bytes": 724
+    },
+    "models/R2/policy/adapter_model.safetensors": {
+      "sha256": "f7c33061683b0bfb2f0569a4a4f50833a8efc1c867a840e355a1fa36a6771ee0",
+      "bytes": 18380008
+    },
+    "models/R1/policy/adapter_model.safetensors": {
+      "sha256": "88f3fc89f9c17f667c628d9bc8a5f3348d6b79dab4fc308351911b43773be795",
+      "bytes": 18380008
+    }
+  },
+  "later_R2_status": {
+    "snapshot_cst": "2026-10-21T20:12:22.411219+08:00",
+    "R2_update": {
+      "status": "updated",
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_roundtrip_smoke_20261021/models/R2/policy",
+      "weight_sha256": "f7c33061683b0bfb2f0569a4a4f50833a8efc1c867a840e355a1fa36a6771ee0",
+      "parent_weight_sha256": "88f3fc89f9c17f667c628d9bc8a5f3348d6b79dab4fc308351911b43773be795",
+      "reference_sha": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+      "unique_pairs": 20,
+      "optimizer_steps": 50,
+      "recovered_optimizer_steps": 0,
+      "reused_examples": 200,
+      "weight_delta_l2": 0.09318094404198586,
+      "elapsed_seconds": 151.0426595811732,
+      "assistant_tokens": 33810,
+      "per_tool_examples": {
+        "import_fragments": 200
+      },
+      "peak_vram_bytes": 6945068032
+    },
+    "R2_validation_report_present": false
+  },
+  "validation_examples_note": "Selected original first and last calls, states, errors and raw output; full prompts and token IDs remain in the hashed evaluation source files."
+}
