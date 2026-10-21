@@ -110,6 +110,19 @@ were TEST. The gate now normalizes only `val` to `valid`; TEST remains refused.
 A regression reproduced the failure and the full no-GPU launch preflight then
 passed. A separate new pinned retry is required; the failed instance is END.
 
+### Corrected submission
+
+Retry task: `meteor_mechet_pr92_anchored_rsi_2a100_qy_20261021_02`;
+instance `8b1d89f5a13f013001a15ec3a539449c`, two ordinary A100 cards in
+`AI4LSLab_KEMO_QY_A100`, location `qy`. Runtime is pinned to
+`f77d60cd28a882c6f0e840ea302c49fbd7149d4f`; public submission config is
+`configs/taiji/meteor_mechet_pr92_anchored_rsi_2a100_qy_20261021_02.json`.
+Final pre-submit suite: **540 passed, 1 skipped**, 9 PEFT warnings.
+Default terminal logs retain all progress plus a 45-second heartbeat. The
+private Ceph init is recovered from a prior successful task, not stored in Git.
+Creation/start success is only submission evidence; check raw episode journals,
+adapter manifests and paired validation before claiming model-update success.
+
 New isolated root (absolute):
 `/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/mechet_rsi_real_anchored_smoke_20261021`
 
