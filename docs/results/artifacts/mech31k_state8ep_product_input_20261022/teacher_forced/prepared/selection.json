@@ -1,0 +1,29 @@
+{
+  "schema": "mechet_state_only_gold_state_next_action_v1",
+  "corpus": "mech_uspto_31k",
+  "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_inverse_tool_sft_action_delta_v2_compiler_20260824/valid.jsonl",
+  "source_sha256": "1cf682a7b79ebe6faebcc28db4194b88ac9b51e7d86550d32b112228e0e08d4a",
+  "source_rows": 1319,
+  "validation_reactions": 32,
+  "validation_decisions": 157,
+  "reaction_ids_sha256": "2e8aa8fda859ced320b661d882fa7e2d7391e0e97f04d66c84b39e27e2243428",
+  "tasks_sha256": "1a1a505597f26e6358e40dcfa4e6fb8e53906ed109188153c0a76902bba41b21",
+  "seed": 17,
+  "same_cohort_for_all_tools": true,
+  "stage2_compressed_gold_accepted_history": false,
+  "gold_executor_parity": "passed_all_selected_FLOW",
+  "model_input": "product + gold current state; exact saved state-only SFT prefix; no history or future",
+  "claim_boundary": "oracle-state next-action evaluation, not E2E retrosynthesis",
+  "observation_contract": "unified_inventory_tool_decision_v2",
+  "saved_sft_validation_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto_31k_natural_language_event_v2/valid.jsonl",
+  "saved_sft_validation_sha256": "f0043dae1c5fec21ffea53803ecbcbc320acf274625426b25407efdd00fc05c1",
+  "saved_sft_prefix_parity": {
+    "decisions": 157,
+    "matched": 157,
+    "gold_calls_matched": 157,
+    "private_public_states_matched": 157
+  },
+  "selection_reused_from": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/stage2_teacher_forced_flower_mech31k_pr93_20261022_01/mech31k/prepared/selection.json",
+  "actor_profile": "mech31k_state_actual_epoch8_checkpoint4056",
+  "adapter_sha256": "bf5cacc93d2c5e64b11df585e0dd0febf790773e21d13ec0838fa8dd538cdf51"
+}

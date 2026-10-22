@@ -1,0 +1,19 @@
+{
+  "model": "Qwen/Qwen3-0.6B",
+  "revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+  "adapter_sha256": "bf5cacc93d2c5e64b11df585e0dd0febf790773e21d13ec0838fa8dd538cdf51",
+  "input_tasks_sha256": "1a1a505597f26e6358e40dcfa4e6fb8e53906ed109188153c0a76902bba41b21",
+  "dtype": "float16",
+  "greedy_k1": true,
+  "gold_state_conditioned": true,
+  "world_size": 1,
+  "batch_size": 4,
+  "max_new_tokens": 512,
+  "max_context": 16384,
+  "code_sha256": {
+    "scripts/eval_mechet_stage2_teacher_forced.py": "96dafc9fe810f3fdb89e1218f047e6025bfb91ecbb07e6893de77ef5107a27c6",
+    "scripts/eval_natural_language_event_local.py": "12494f28048dc8a4c0d3937e68e46b4b24747ccc9bde36e69ad5629ab6e96cef",
+    "scripts/build_natural_language_event_sft.py": "04fcdc897ac4140e800c47b9ebff90ad84d776e8a09624678b82b938ffc42733",
+    "scripts/build_natural_language_history_sft.py": "3f8c7d8f6cec1f7867846b1553d322bc8e00d5adf12d2e57b85c886688392856"
+  }
+}
