@@ -23,7 +23,6 @@ from typing import Any, Iterable, Mapping
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-from rdkit import Chem
 from mechet.a7_rescue import mechanism_length_stratum, stratified_sample
 from mechet.assistant_masking import render_qwen_sft_tool_prefix
 from mechet.forward_expert import verify_electron_step
@@ -58,32 +57,22 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
         return [json.loads(line) for line in reader if line.strip()]
 
 
-def private_state_from_prompt(public_prompt: str) -> str:
-    """Reconstruct TEMPORARY alias maps from the actually displayed molecule.
+def assert_visible_private_parity(public_prompt: str, private_state: str) -> None:
+    """Check authentic internal executor state matches public actor observation.
 
-    Each prompt independently numbers atoms A01,... in SMILES input order.
-    These maps are local evaluator addresses, NOT reference/global atom maps.
-    No reference successor or private reference map is used in reconstruction.
+    The source compiler's private atom/H/Kekule maps must NOT be synthesized
+    from the public SMILES: remapping can silently alter the chosen electronic
+    state. Audit the private replay state captured by convert_row instead.
     """
     match = re.search(r"^ANNOTATED CURRENT STATE: ([^\n]+)$", public_prompt, re.M)
     if match is None:
-        raise ValueError("missing annotated current state in model-visible prompt")
-    annotated = match.group(1).strip()
-    ids = [int(s) for s in re.findall(r"<A(\d+)>", annotated)]
-    visible = re.sub(r"<A\d+>", "", annotated)
-    params = Chem.SmilesParserParams()
-    params.removeHs = False
-    mol = Chem.MolFromSmiles(visible, params)
-    if mol is None or len(ids) != mol.GetNumAtoms() or len(ids) != len(set(ids)):
-        raise ValueError("annotated-state atom/alias reconstruction mismatch")
-    for atom, map_id in zip(mol.GetAtoms(), ids, strict=True):
-        atom.SetAtomMapNum(map_id)
-    mapped = Chem.MolToSmiles(mol, canonical=False, isomericSmiles=True)
-    reproduced = build_inventory(mapped).prompt.split("ANNOTATED CURRENT STATE: ", 1)[-1]
-    if reproduced != annotated:
-        raise ValueError("round-trip annotated-state/alias mismatch")
-    return mapped
-
+        raise ValueError("missing annotated current state in public prompt")
+    inventory = build_inventory(private_state)
+    expected = inventory.prompt.split("ANNOTATED CURRENT STATE: ", 1)[-1]
+    if match.group(1).strip() != expected:
+        raise ValueError("authenticated private state differs from actor inventory")
+    if f"CURRENT STATE SMILES: {inventory.visible_smiles}\n" not in public_prompt:
+        raise ValueError("authenticated private state differs from actor SMILES")
 
 def _gold_call(row: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
     calls = row["messages"][2].get("tool_calls") or []
@@ -95,19 +84,20 @@ def _gold_call(row: Mapping[str, Any]) -> tuple[str, dict[str, Any]]:
 
 def prepare_task_rows(source: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Build both original and Stage-II prompts, replaying all gold FLOW labels."""
-    baseline = convert_row(source)
+    private_states: list[str] = []
+    baseline = convert_row(source, private_state_audit_sink=private_states)
     history = list(transform_rows(baseline))
-    if len(baseline) != len(history):
-        raise ValueError("history/decision count mismatch")
+    if len(baseline) != len(history) or len(baseline) != len(private_states):
+        raise ValueError("history/decision/private-state count mismatch")
     n_events = len(source["metadata"]["trace_plan"]["steps"])
     stratum = mechanism_length_stratum(n_events)
     tasks = []
     event_depth = 0
-    for public, stage2 in zip(baseline, history, strict=True):
+    for public, stage2, private_state in zip(baseline, history, private_states, strict=True):
         dtype = str(public["metadata"]["decision_type"])
         gold_name, gold_args = _gold_call(public)
         reference_result = json.loads(public["messages"][3]["content"])
-        private_state = private_state_from_prompt(public["messages"][1]["content"])
+        assert_visible_private_parity(public["messages"][1]["content"], private_state)
         gold_be_delta = bool(gold_args.get("bond_order_changes") or gold_args.get("charge_changes"))
         n_arrows = len(gold_args.get("electron_flow") or [])
         if dtype == "event":
