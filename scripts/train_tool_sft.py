@@ -333,7 +333,8 @@ def validate_rows(
 
 
 def tokenize_rows(
-    rows: list[dict[str, Any]], tokenizer: Any, *, max_length: int
+    rows: list[dict[str, Any]], tokenizer: Any, *, max_length: int,
+    encoding_protocol: str = "legacy_chatml_v1",
 ) -> tuple[list[dict[str, list[int]]], dict[str, Any]]:
     """Render each conversation once and supervise only final ChatML assistant spans."""
 
@@ -344,7 +345,13 @@ def tokenize_rows(
     over_budget_ids: list[str] = []
     mask_methods: set[str] = set()
     for row in rows:
-        encoded, audit = encode_assistant_only_conversation(
+        encoder = encode_assistant_only_conversation
+        if encoding_protocol == "qwen35_tool_span_v1":
+            from mechet.qwen35_protocol import encode_tool_decision
+            encoder = encode_tool_decision
+        elif encoding_protocol != "legacy_chatml_v1":
+            raise ValueError(f"unknown encoding_protocol: {encoding_protocol}")
+        encoded, audit = encoder(
             tokenizer,
             row,
             max_length=max_length,
@@ -596,6 +603,10 @@ def main() -> int:
     configured_max_steps = int(training.get("max_steps", -1))
     env_max_steps = int(os.environ.get("MECHET_MAX_STEPS", "0") or 0)
     max_steps = int(args.max_steps or env_max_steps or configured_max_steps)
+    pr96 = dict(cfg.get("pr96") or {})
+    if pr96:
+        from mechet.pr96_trainer import validate_pr96_config
+        validate_pr96_config({**cfg, "training": training}, max_steps=max_steps)
     seed = int(training.get("seed", 17))
     data_seed = int(training.get("data_seed", seed))
     validated_train = (
@@ -728,6 +739,15 @@ def main() -> int:
             training.get("max_length", 12288)
         ):
             raise ValueError("pretokenized cache max_length mismatch")
+        if pr96:
+            if (cache_manifest.get("model_revision") != requested_revision
+                    or cache_manifest.get("encoding_protocol") != "qwen35_tool_span_v1"):
+                raise ValueError("PR96_TOKENIZER_CACHE_REVISION_OR_PROTOCOL_MISMATCH")
+            for split, path in (("train", train_file), ("validation", validation_file)):
+                if path is None or file_sha256(path) != cache_manifest["sources"][split]["sha256"]:
+                    raise ValueError(f"PR96_TOKEN_CACHE_SOURCE_CHANGED:{split}")
+                if cache_manifest["splits"][split].get("n_windowed_source_rows", 0):
+                    raise ValueError("PR96_CURRENT_STATE_MUST_NOT_BE_WINDOW_CROPPED")
         encoded_rows = []
         audit = dict(cache_manifest["splits"]["train"])
         audit["arrow_files"] = resolve_cached_arrow_files(
@@ -738,6 +758,7 @@ def main() -> int:
             rows,
             tokenizer,
             max_length=int(training.get("max_length", 12288)),
+            encoding_protocol=str(training.get("encoding_protocol", "legacy_chatml_v1")),
         )
     report.update(audit)
     if report["truncation_count"]:
@@ -760,6 +781,7 @@ def main() -> int:
             validation_rows,
             tokenizer,
             max_length=int(training.get("max_length", 12288)),
+            encoding_protocol=str(training.get("encoding_protocol", "legacy_chatml_v1")),
         )
         report["validation_tokenizer_audit"] = validation_audit
         if validation_audit["truncation_count"]:
@@ -824,19 +846,31 @@ def main() -> int:
 
         register_xformers_attention()
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        revision=resolved_revision or requested_revision,
-        trust_remote_code=trust_remote_code,
-        torch_dtype=dtype,
-        quantization_config=quantization_config,
-        device_map={"": local_rank} if use_qlora else None,
-        attn_implementation=attention_implementation or None,
-    )
+    if pr96:
+        from mechet.pr96_trainer import validate_deployed_hardware
+        from mechet.qwen35_protocol import load_language_model
+        report["deployed_gpu_names"] = validate_deployed_hardware(pr96["track"])
+        model, loading_info = load_language_model(model_name, dtype=dtype,
+                                                 revision=resolved_revision or requested_revision)
+        report["language_only_weight_load"] = {k: list(v) if isinstance(v, set) else v for k,v in loading_info.items()}
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            revision=resolved_revision or requested_revision,
+            trust_remote_code=trust_remote_code,
+            torch_dtype=dtype,
+            quantization_config=quantization_config,
+            device_map={"": local_rank} if use_qlora else None,
+            attn_implementation=attention_implementation or None,
+        )
     if gradient_checkpointing and hasattr(model, "config"):
         model.config.use_cache = False
 
     lora = dict(cfg.get("lora") or {})
+    if pr96:
+        from mechet.qwen35_protocol import LORA_TARGETS
+        if sorted(lora.get("target_modules") or []) != sorted(LORA_TARGETS):
+            raise ValueError("PR96_ALL_LANGUAGE_ATTENTION_DELTANET_FFN_LORA_TARGETS_REQUIRED")
     initial_adapter_value = str(cfg.get("initial_adapter_path") or "").strip()
     initial_adapter = Path(initial_adapter_value) if initial_adapter_value else None
     if initial_adapter is not None:
@@ -893,6 +927,19 @@ def main() -> int:
         gradient_checkpointing=gradient_checkpointing,
         has_validation=validated_validation is not None,
     )
+    if pr96:
+        from mechet.pr96_trainer import PR96Trainer, PR96Progress
+        Trainer = PR96Trainer
+        training_kwargs.update(
+            save_strategy="epoch", eval_strategy="epoch", load_best_model_at_end=True,
+            metric_for_best_model="eval_loss", greater_is_better=False,
+            prediction_loss_only=True, save_only_model=False, logging_steps=10,
+            logging_first_step=True, logging_nan_inf_filter=False,
+            average_tokens_across_devices=True,
+            lr_scheduler_type=str(training.get("lr_scheduler_type", "cosine")),
+            warmup_ratio=float(training.get("warmup_ratio", 0.03)),
+            weight_decay=float(training.get("weight_decay", 0.0)),
+        )
     training_args = TrainingArguments(**training_kwargs)
     if cache_manifest is not None:
         dataset = concatenate_datasets(
@@ -929,12 +976,21 @@ def main() -> int:
         processing_class=tokenizer,
         data_collator=AssistantOnlyCollator(tokenizer),
     )
+    if pr96:
+        trainer.add_callback(PR96Progress(trainer, track=pr96["track"], stage=pr96["stage"],
+                                          lineage={**pr96, "base_revision": resolved_revision,
+                                                   "train_file_sha256": report["train_file_sha256"]}))
     trainer.train(
         resume_from_checkpoint=(
             str(resume_checkpoint) if resume_checkpoint is not None else None
         )
     )
     trainer.save_model()
+    if pr96:
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            torch.distributed.barrier()
+        if not trainer.is_world_process_zero():
+            return 0
     output = Path(training_args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     report["base_model_revision"] = resolved_revision or None
@@ -959,10 +1015,20 @@ def main() -> int:
         "liger_kernel_config": dict(training.get("liger_kernel_config") or {}),
         "length_grouping": grouping,
     }
+    if pr96:
+        report["pr96"] = {
+            **pr96, "global_step_completed": trainer.state.global_step,
+            "full_epochs_completed": trainer.state.epoch,
+            "best_checkpoint": trainer.state.best_model_checkpoint,
+            "best_eval_loss": trainer.state.best_metric,
+            "supervised_tokens_consumed_rank0": trainer.supervised_tokens_consumed,
+            "examples_consumed_rank0": trainer.examples_consumed,
+        }
     (output / "data_contract.json").write_text(
         json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    adapter_hash = selected_directory_sha256(output)
+    adapter_hash = (file_sha256(output / "adapter_model.safetensors")
+                    if pr96 else selected_directory_sha256(output))
     adapter_manifest = {
         "artifact_type": "trainable_peft_adapter",
         "adapter_path": str(output),
@@ -980,6 +1046,9 @@ def main() -> int:
         "seed": seed,
         "data_seed": data_seed,
     }
+    if pr96:
+        adapter_manifest["adapter_hash_kind"] = "adapter_model_safetensors_sha256"
+        adapter_manifest["pr96"] = report["pr96"]
     (output / "adapter_manifest.json").write_text(
         json.dumps(adapter_manifest, indent=2, ensure_ascii=False),
         encoding="utf-8",

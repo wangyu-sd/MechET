@@ -59,8 +59,32 @@ def same_chemical_state(left, right):
     for mol in (a, b):
         for atom in mol.GetAtoms():
             atom.SetAtomMapNum(0)
-    return (a.HasSubstructMatch(b, useChirality=True)
-            and b.HasSubstructMatch(a, useChirality=True))
+    # Matching disconnected states as one graph explores factorial permutations
+    # of identical solvent/salt copies when any OTHER component mismatches.
+    # Bucket complete connected components by constitution first; stereo-aware
+    # reciprocal matching is still the final acceptance test within each bucket.
+    from collections import defaultdict
+    def buckets(mol):
+        groups = defaultdict(list)
+        for fragment in Chem.GetMolFrags(mol, asMols=True, sanitizeFrags=True):
+            constitution = Chem.Mol(fragment)
+            Chem.RemoveStereochemistry(constitution)  # lookup key only, never an acceptance predicate
+            key = Chem.MolToSmiles(constitution, canonical=True, isomericSmiles=True)
+            groups[key].append(fragment)
+        return groups
+    left, right = buckets(a), buckets(b)
+    if {k: len(v) for k,v in left.items()} != {k: len(v) for k,v in right.items()}:
+        return False
+    for key, fragments in left.items():
+        remaining = list(right[key])
+        for fragment in fragments:
+            found = next((i for i, other in enumerate(remaining)
+                          if fragment.HasSubstructMatch(other, useChirality=True)
+                          and other.HasSubstructMatch(fragment, useChirality=True)), None)
+            if found is None:
+                return False
+            remaining.pop(found)
+    return True
 
 
 def process_pair(pair):

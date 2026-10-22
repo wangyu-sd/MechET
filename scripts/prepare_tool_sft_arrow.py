@@ -179,6 +179,7 @@ def tokenize_shard(
     require_trace_owned: bool,
     require_tool_decision: bool,
     allow_fallback: bool,
+    encoding_protocol: str = "legacy_chatml_v1",
 ) -> dict[str, Any]:
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
@@ -207,15 +208,21 @@ def tokenize_shard(
                 require_tool_decision=require_tool_decision,
                 allow_upstream_endpoint_fallback=allow_fallback,
             )
-            encoded, audit = encode_assistant_only_conversation(
-                tokenizer, row, max_length=max_length
-            )
-            windows = lossless_assistant_span_windows(
-                encoded,
-                audit,
-                max_length=max_length,
-                context_tokens=context_tokens,
-            )
+            if encoding_protocol == "qwen35_tool_span_v1":
+                from mechet.qwen35_protocol import encode_tool_decision
+                encoded, audit = encode_tool_decision(tokenizer, row, max_length=max_length)
+                if audit["exceeds_max_length"]:
+                    raise ValueError(f"QWEN35_STATE_TRUNCATION_FORBIDDEN:{row['id']}:{audit['raw_length']}")
+                windows = [encoded]
+            elif encoding_protocol == "legacy_chatml_v1":
+                encoded, audit = encode_assistant_only_conversation(
+                    tokenizer, row, max_length=max_length
+                )
+                windows = lossless_assistant_span_windows(
+                    encoded, audit, max_length=max_length, context_tokens=context_tokens,
+                )
+            else:
+                raise ValueError(f"UNKNOWN_ENCODING_PROTOCOL:{encoding_protocol}")
             for window in windows:
                 writer.write(window)
                 window_lengths[len(window["input_ids"])] += 1
@@ -392,6 +399,7 @@ def main() -> int:
                 contract.get("expected_upstream_endpoint_fallback_rows", 0) or 0
             )
             > 0,
+            encoding_protocol=str(training.get("encoding_protocol", "legacy_chatml_v1")),
         )
     report_path = cache_dir / f"rank{rank:02d}.json"
     report_path.write_text(
@@ -409,6 +417,7 @@ def main() -> int:
             "config": str(args.config),
             "model_name_or_path": model_name,
             "model_revision": revision,
+            "encoding_protocol": str(training.get("encoding_protocol", "legacy_chatml_v1")),
             "max_length": max_length,
             "window_context_tokens": context_tokens,
             "world_size": world_size,
