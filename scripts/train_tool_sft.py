@@ -695,6 +695,9 @@ def main() -> int:
     except ImportError as exc:
         raise RuntimeError("Tool-SFT training requires mechet[agent]") from exc
 
+    from mechet.qwen35_text_training import assert_model_configuration, is_qwen35_text_only
+    assert_model_configuration(cfg)
+    qwen35_text_only = is_qwen35_text_only(cfg)
     model_name = str(cfg.get("model_name_or_path") or "")
     if not model_name:
         raise ValueError("model_name_or_path is required")
@@ -824,15 +827,24 @@ def main() -> int:
 
         register_xformers_attention()
     local_rank = int(os.environ.get("LOCAL_RANK", "0"))
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        revision=resolved_revision or requested_revision,
-        trust_remote_code=trust_remote_code,
-        torch_dtype=dtype,
-        quantization_config=quantization_config,
-        device_map={"": local_rank} if use_qlora else None,
-        attn_implementation=attention_implementation or None,
-    )
+    if qwen35_text_only:
+        from mechet.qwen35_text_training import load_text_only_qwen35
+        model = load_text_only_qwen35(
+            revision=resolved_revision or requested_revision,
+            dtype=dtype, quantization_config=quantization_config,
+            device_map={"": local_rank} if use_qlora else None,
+            attn_implementation=attention_implementation or None,
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            revision=resolved_revision or requested_revision,
+            trust_remote_code=trust_remote_code,
+            torch_dtype=dtype,
+            quantization_config=quantization_config,
+            device_map={"": local_rank} if use_qlora else None,
+            attn_implementation=attention_implementation or None,
+        )
     if gradient_checkpointing and hasattr(model, "config"):
         model.config.use_cache = False
 
@@ -859,17 +871,27 @@ def main() -> int:
             model, str(initial_adapter), is_trainable=True
         )
     else:
+        if qwen35_text_only:
+            from mechet.qwen35_text_training import language_lora_modules
+            target_modules = language_lora_modules(model)
+        else:
+            target_modules = list(lora.get("target_modules")
+                                  or ["q_proj", "k_proj", "v_proj", "o_proj"])
         peft_config = LoraConfig(
             r=int(lora.get("r", 16)),
             lora_alpha=int(lora.get("alpha", 32)),
             lora_dropout=float(lora.get("dropout", 0.05)),
-            target_modules=list(
-                lora.get("target_modules")
-                or ["q_proj", "k_proj", "v_proj", "o_proj"]
-            ),
+            target_modules=target_modules,
             task_type="CAUSAL_LM",
         )
         model = get_peft_model(model, peft_config)
+    if qwen35_text_only:
+        from mechet.qwen35_text_training import check_trainable_language_only
+        stats = check_trainable_language_only(model)
+        if int(os.environ.get("RANK", "0")) == 0:
+            print(json.dumps({"stage": "qwen35_08b_language_only_lora",
+                              **stats}), flush=True)
+        report["qwen35_text_only_lora"] = stats
     if gradient_checkpointing:
         if hasattr(model, "enable_input_require_grads"):
             model.enable_input_require_grads()
@@ -939,6 +961,7 @@ def main() -> int:
     output.mkdir(parents=True, exist_ok=True)
     report["base_model_revision"] = resolved_revision or None
     report["training_runtime"] = {
+        "model_architecture": "qwen3_5_vl_text_only" if qwen35_text_only else "causal_lm",
         "seed": seed,
         "data_seed": data_seed,
         "bf16": bf16,
