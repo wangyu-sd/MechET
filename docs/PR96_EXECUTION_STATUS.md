@@ -198,6 +198,15 @@ Full TRAIN history replay completed243753/243753; the actual post-token
 submission operator2166044 waits on token-workflow2067621 and will
 verify all completed source/history/token hashes and fresh resources before
 submitting the exact8H20draft. It must not be duplicated by a manual submission.
+Static full-epoch boundary check of the pinned Transformers5.5 implementation:
+`outputs/audits/pr96_flower_epoch_budget_static_check_20261023_06.json`.
+For1908035training decisions,8ranks,microbatch4andaccumulation2, each epoch
+has59627microbatches/rank and29814optimizer updates. Its final one-microbatch
+accumulation window is included. Expected State5epochs=149070updates;
+History3epochs=89442updates. These are checked scheduling expectations, NOT
+executed training steps. Actual startup/runtime counters and sampler padding
+must still be verified after allocation; consumed examples are not inferred
+from nominal global batch64.
 Remaining: completeFlowERsource/token gates, submit8H20, runState5epochs, apply its own fixed
 GO/NO-GO and runHistory3epochs ifGO, then archive final evidence. No auto merge.
 
