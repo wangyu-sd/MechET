@@ -165,7 +165,13 @@ def prepare(args: argparse.Namespace) -> int:
         str((row.get("metadata") or {}).get("source_dataset") or "")
         for row in sources
     }
-    if source_names != {args.corpus}:
+    accepted_sources = {
+        "flower_new_dataset": {
+            "flower_new_dataset", "flower_mech_proof", "FlowER flower_new_dataset"
+        },
+        "mech_uspto_31k": {"mech_uspto_31k"},
+    }
+    if not source_names or not source_names <= accepted_sources[args.corpus]:
         raise ValueError(f"source corpus mismatch: {source_names} vs {args.corpus}")
     for row in sources:
         split = str((row.get("metadata") or {}).get("source_split") or "").lower()
@@ -387,13 +393,14 @@ def aggregate(args: argparse.Namespace) -> int:
     by_reaction: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for row in predictions:
         by_reaction[row["reaction_id"]].append(row)
+    expected_per_reaction = Counter(task["reaction_id"] for task in tasks)
     all_exact = sum(
-        len(rows) == sum(task["reaction_id"] == rid for task in tasks)
+        len(rows) == expected_per_reaction[rid]
         and all(row["decision_exact"] for row in rows)
         for rid, rows in by_reaction.items()
     )
     all_successors = sum(
-        len(rows) == sum(task["reaction_id"] == rid for task in tasks)
+        len(rows) == expected_per_reaction[rid]
         and all(
             row["successor_chemical_exact"] if row["decision_type"] == "event"
             else row["import_fragment_exact"] if row["decision_type"] == "import"
