@@ -1,11 +1,11 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 01:43 CST
+## Current update — 2026-10-23 01:56 CST
 
 The original scope is still active, not completed. PR96 remains OPEN and
 unmerged at requirement commit `001b761e1a2b0643340d8d24fc1b10586b1baec9`.
-The eight-A100 mech31k pipeline is actually running: latest readback3380/6600
-State updates (51.21%, epoch5.1212). Latest and validation-best checkpoint3300
+The eight-A100 mech31k pipeline is actually running: latest readback3960/6600
+State updates (60%, epoch6). Validation-best checkpoint3300
 has eval loss0.00217462. All optimizer/scheduler, eight RNG and eight counter
 files were independently verified against the frozen deployed731af13 code;
 adapter SHA256 `04f6be2cdeb1575a60c8a58f308d4abb56332fe7b698d5b09644fed0f88754a3`.
@@ -23,9 +23,12 @@ Recovery adds new-version-only, rollback-safe batched appends and a bounded
 transient-I/O retry, source/hash/decision/counter checks for the last committed
 prefix, and byte/hash-verified reuse of completed splits. Original artifacts
 are read-only. Actual new build `_04` is live (PID1992817, session75487):
-completed VALID/TEST copies are hash-identical, and10200/65350 committed TRAIN
-prefix reactions have been verified/copied. This is storage-recovery progress,
-not full training conversion or model accuracy. No source IDs are removed.
+completed VALID/TEST copies are hash-identical, and all65350 committed TRAIN
+prefix reactions have been verified/copied with unchanged62394accepted/2956
+unresolved counts. Sixteen actual CPU workers now process NEW remaining source
+rows:76100/257167(29.592%) complete,72655passed/3445unresolved. The original I/O
+failure point has been passed. This is reference data preparation, not model
+accuracy. No source IDs are removed.
 All accepted recovered rows still require independent full
 history/source replay before authorization. No FlowER H20 job is submitted yet.
 The full local suite is554passed/1skipped; this includes actual partial-write/
@@ -34,6 +37,22 @@ interrupted-versus-continuous CPU unit test also verifies exact adapter,
 optimizer, scheduler, RNG and token-counter recovery.
 Full quarantine review also supports ordered CPU parallelism while preserving
 per-case raw states and refusing a final approval after any interrupted review.
+
+An actual dependent local workflow is waiting (PID2000031, session79776,
+`outputs/audits/pr96_flower_after_build_20261023_04.log`). After the complete
+manifest exists, it runs all accepted history with16CPUworkers, all unresolved
+review with4workers, fixed VALID cohort freezing, complete source authorization,
+and training-view preparation. It fails closed if the builder exits without a
+manifest or either full audit fails. Do not launch duplicate downstream jobs.
+
+The ordinary8H20/ZJK configuration is prepared but NOT submitted:
+`configs/taiji/meteor_mechet_pr96_flower_qwen35_08b_2stage_8h20_zjk_20261023_01.json`.
+It uses the same frozen731af13 GPU trainer and proven Tencenttaiji6/runtime
+archives as the running A100 track, but an independent FlowER model/data plan.
+Naming, default-log wrapper, nonelastic allocation, GPU count and ZJK group/loc
+policy checks passed. Actual submission still needs completed data approval,
+both full token audits and fresh resource/donor checks; preflight must then
+verify eight real H20 GPUs before formal training.
 
 The sections below preserve the earlier **00:38 capture-time snapshot**; where
 they say FlowER `_03` is active or preflight is pending, the current update above
