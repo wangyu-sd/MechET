@@ -86,6 +86,15 @@ All following paths are relative to `/aaa/fionafyang/buddy1/whaleywang/MechET/`:
   (330TF+312closed-loop), exact messages/token IDs, parsed model outputs and
   executor successors reproduce the saved reports. All52endpoint hits reproduce.
   This audit used captured outputs only; it did not run a new model experiment.
+- Independent full captured History I/O replay (both final64VALID cohorts):
+  `outputs/audits/pr96_mech31k_history128_raw_replay_20261023_01.json`.
+  All128single-product public/private roots and1321actual model requests
+  reproduce: exact native history prompts/token IDs, raw XML outputs/EOS,
+  parsed actions, every executor successor, full per-rank scores and journals.
+  All532non-root TF prompts are distinct from State-only prompts, confirming
+  that actual Stage-II requests include compressed accepted-action history.
+  Paired51/64and independent52/64full endpoints reproduce unchanged; this
+  performs no new model generation or TEST evaluation.
 - Full64case State-vs-History-epoch4 comparison:
   `outputs/audits/pr96_mech31k_stage2_epoch4_pair_changes_20261023_01.json`.
   Same products/GT endpoints and raw result hashes verified:47retained hits,
