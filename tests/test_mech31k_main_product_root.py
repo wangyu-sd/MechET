@@ -1,5 +1,6 @@
 """The public root must not preload missing electron-flow participants."""
 import json
+import ast
 from pathlib import Path
 
 import pytest
@@ -157,3 +158,15 @@ def test_endpoint_accepts_identical_unmapped_chemistry_despite_symmetric_map_ass
                                   'mech31k_main_only_14046_pair.json').read_text())
     result = process_pair((json.dumps(legacy), json.dumps(forward)))
     assert result['audit']['reference_endpoint_exact']
+
+
+def test_reference_provenance_includes_the_runtime_that_owns_replay():
+    from scripts import build_mech31k_main_product_only_sft as builder
+    tree = ast.parse(Path(builder.__file__).read_text())
+    literals = {node.value for node in ast.walk(tree)
+                if isinstance(node, ast.Constant) and isinstance(node.value, str)}
+    assert {
+        'scripts/run_natural_language_value_search.py',
+        'src/mechet/forward_expert.py',
+        'src/mechet/natural_language_electron_flow.py',
+    } <= literals

@@ -170,6 +170,9 @@ def main():
         ROOT / 'src/mechet/inverse_trace_data.py',
         ROOT / 'src/mechet/in_place_grounded_flow.py',
         ROOT / 'scripts/build_natural_language_event_sft.py', Path(__file__),
+        ROOT / 'scripts/run_natural_language_value_search.py',
+        ROOT / 'src/mechet/forward_expert.py',
+        ROOT / 'src/mechet/natural_language_electron_flow.py',
     )
     code_hashes = {str(p.relative_to(ROOT)): sha(p) for p in code_paths}
     manifest = json.loads((source / 'manifest.json').read_text())

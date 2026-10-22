@@ -1,0 +1,101 @@
+{
+  "artifact_type": "mech31k_main_product_only_first_use_v1",
+  "complete": false,
+  "input_condition": "main_product_only_v1",
+  "reports": {
+    "valid": {
+      "reactions": 1319,
+      "reference_pass": 1317,
+      "decision_rows": 5552,
+      "flow_events": 2541,
+      "first_import_fragments": 1268,
+      "unresolved": 2,
+      "first_apply_electron_flow": 49,
+      "source_sha256": "1cf682a7b79ebe6faebcc28db4194b88ac9b51e7d86550d32b112228e0e08d4a",
+      "forward_sha256": "2b00ea45caa981cb7ca1111de7d126f2de3684f0bad7e3dfa4d723f925224f0b",
+      "outputs": {
+        "inverse": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/inverse/valid.jsonl",
+          "sha256": "bc21563c6cabf77b30b2487ee3b2ae954beeb4211cd19ff26e583a6f3115783c"
+        },
+        "state_sft": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/state_sft/valid.jsonl",
+          "sha256": "69cd73e651841605697197c19e851e3f1dd0eddf81060e4a74062b919e3b14fb"
+        },
+        "audits": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/audits/valid.jsonl",
+          "sha256": "6a4652bcdbad0e612005be01721d6ac38c3b7294b5cfd3dfc0fdc863a6683afd"
+        }
+      },
+      "unresolved_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/audits/valid.unresolved.jsonl",
+      "unresolved_sha256": "2fb41869d86d57ca9d86201132eb604a3f6eebd51a1f12193edfdd6db25c9370"
+    },
+    "test": {
+      "reactions": 1253,
+      "reference_pass": 1252,
+      "decision_rows": 5215,
+      "flow_events": 2370,
+      "first_import_fragments": 1211,
+      "first_apply_electron_flow": 41,
+      "unresolved": 1,
+      "source_sha256": "0b2cf3835f659558dcc920bd5e52823a605a0a56e957f9084732386b22181afe",
+      "forward_sha256": "3f707fc389e0fd944302ef74999e1d428596b1301f67d9addaae91d257e4fb43",
+      "outputs": {
+        "inverse": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/inverse/test.jsonl",
+          "sha256": "cb17e64c4baabbe142222f9132999f3e5c4dffb0dc44347b270b9fbf0c96a8bd"
+        },
+        "state_sft": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/state_sft/test.jsonl",
+          "sha256": "476f9493f1b1d4b5d4391a4897cd02f1de949b6350bcfcb0d0d6084648bb8510"
+        },
+        "audits": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/audits/test.jsonl",
+          "sha256": "1d43618dbd5e4bca438688dd3b2bd09bb9cdfad56b9168c92f30488415cc213a"
+        }
+      },
+      "unresolved_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/audits/test.unresolved.jsonl",
+      "unresolved_sha256": "d182e0211dfe83123c19610675f6a522228b39badc5bb80e8cb6c42e33abe2d9"
+    },
+    "train": {
+      "reactions": 10152,
+      "reference_pass": 10137,
+      "decision_rows": 42239,
+      "flow_events": 19181,
+      "first_import_fragments": 9874,
+      "first_apply_electron_flow": 263,
+      "unresolved": 15,
+      "source_sha256": "c95f8217c49cf53e8826f4decbc76e552bd8ff98b24c5a3b294fb5091d5bece1",
+      "forward_sha256": "77d09433f065da548a067ead8822e5829759fd77acb24f21dda870ef170818cd",
+      "outputs": {
+        "inverse": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/inverse/train.jsonl",
+          "sha256": "044502e39d5783aafd7bc8d39a4f342242a26b2010c5884d27f72f2edf566fa4"
+        },
+        "state_sft": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/state_sft/train.jsonl",
+          "sha256": "536b6929464fa863ae426154c53ef8959652329d6232a7410b4831a4d158f0f7"
+        },
+        "audits": {
+          "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/audits/train.jsonl",
+          "sha256": "82598af8752ec4939e2a2857f0e84609b22cc694bc11c4bf953b50849f6640da"
+        }
+      },
+      "unresolved_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/audits/train.unresolved.jsonl",
+      "unresolved_sha256": "9a0f359501fb40a2332a709ad74279ea619909f3eb0caf6a88f57b4a9ee94b3f"
+    }
+  },
+  "reference_replay_verified": false,
+  "training_allowed": false,
+  "training_disabled_reason": "User requested data/GT/evaluation only; no tokenizer audit or training authorized.",
+  "denominator_scope": "all frozen current-compiler executable trace-view reactions, not all31199 raw reactions",
+  "source_manifest_sha256": "42f2affe8cb162f107fe5eaccca9e8d9c8479ba674d87ef46538eec0a1e3e57f",
+  "code_sha256": {
+    "src/mechet/inverse_trace_data.py": "bc749b0d64afdd6a3174ecf4bd166ef43519c8c931692dff7a3e080447c426c7",
+    "src/mechet/in_place_grounded_flow.py": "4257bfa241aa6a311f5e662d105bab6a7307ea79282f696425f765d1e9a54814",
+    "scripts/build_natural_language_event_sft.py": "68ee1839a9416e38c21e19114b4da295f2f6dfaf74f6a07bc0f91c2019b3ad85",
+    "scripts/build_mech31k_main_product_only_sft.py": "e623910ede974b39bd14fdd02a13d6b0c50de8432dcbb1073f9578be269f076e"
+  },
+  "code_unchanged_during_build": true,
+  "elapsed_seconds": 165.15555448830128
+}

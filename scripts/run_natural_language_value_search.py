@@ -115,6 +115,12 @@ def private_product_state(product: str) -> str:
     return product
 
 
+def product_only_private_state(product: str) -> str:
+    """Assign fresh private maps from the unmapped product, never source maps."""
+
+    return private_product_state(normal_smiles(product))
+
+
 def validate_matched_v2_args(args: argparse.Namespace) -> None:
     """Fail closed unless inference matches the frozen protocol-v2 policy."""
     if not bool(getattr(args, "matched_v2", False)):

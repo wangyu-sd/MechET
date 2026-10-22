@@ -1,0 +1,32 @@
+{
+  "audit": "PASS",
+  "complete": true,
+  "denominator": 32,
+  "counts": {
+    "verified_prompts_and_attempts": 103,
+    "reactions": 32,
+    "main_core_hits": 0,
+    "main_full_hits": 0,
+    "main_terminal": 12,
+    "baseline_core_hits": 28,
+    "baseline_full_hits": 28,
+    "baseline_terminal": 29
+  },
+  "input_condition": "largest_carbon_containing_component_only; no injected side components",
+  "single_component_roots_verified": 32,
+  "same_checkpoint_verified": "bf5cacc93d2c5e64b11df585e0dd0febf790773e21d13ec0838fa8dd538cdf51",
+  "first_model_tool_counts": {
+    "apply_electron_flow": 32
+  },
+  "max_generated_tokens": 171,
+  "max_prompt_tokens": 1063,
+  "generation_token_cap_reached": false,
+  "core_reference_scope": "only precursor fragments containing atoms of the main product, applied to both conditions",
+  "original_two_component_core_reference_changes": [],
+  "reference_definition": "Corrected main-product-derived structural precursor; full mixture GT unchanged. Frozen weights; no reference imports injected online.",
+  "driver_sha256_verified": true,
+  "raw_artifact_sha256_verified": true,
+  "actual_prompt_token_ids_match_model_executed_state": true,
+  "all_accepted_and_rejected_actions_replayed": true,
+  "no_gt_prefix_or_injected_imports": true
+}

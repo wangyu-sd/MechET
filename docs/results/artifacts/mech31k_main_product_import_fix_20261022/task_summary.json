@@ -1,0 +1,93 @@
+{
+  "status": "root_and_import_fix_implemented_full_reference_gate_not_yet_passed",
+  "scope": {
+    "dataset": "mech-USPTO-31k frozen current-compiler executable trace view",
+    "raw_dataset_full_coverage_claimed": false,
+    "backbone_changed": false,
+    "stage_ii_changed": false,
+    "rl_changed": false,
+    "new_training_submitted": false,
+    "other_platform_tasks_touched": false
+  },
+  "code": {
+    "workspace": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr94-main-product",
+    "branch": "fix/mech31k-main-product-import-20261022",
+    "commit": "c6de2c67fbb11aa16ac6bedb52fefed1dc18875f",
+    "pushed": false
+  },
+  "root_contract": {
+    "input": "one largest carbon-containing component of frozen trace-view product side",
+    "other_components_preloaded": false,
+    "imports": "first-use electron participants; original endpoint-context scheduling retained",
+    "stereo_charge_and_explicit_hydrogens_preserved": true,
+    "reference_electron_moves_preserved_at_source": true
+  },
+  "reference": {
+    "artifact": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04",
+    "total": 12724,
+    "passed": 12706,
+    "unresolved": 18,
+    "train": {
+      "total": 10152,
+      "passed": 10137,
+      "unresolved": 15
+    },
+    "valid": {
+      "total": 1319,
+      "passed": 1317,
+      "unresolved": 2
+    },
+    "test": {
+      "total": 1253,
+      "passed": 1252,
+      "unresolved": 1
+    },
+    "unresolved_chemical_stereo_endpoint_mismatch": 15,
+    "unresolved_root_stereo_correspondence": 3,
+    "denominator_filtered": false,
+    "training_allowed": false
+  },
+  "paired_valid32": {
+    "complete": true,
+    "same_reactions": true,
+    "same_frozen_epoch8_checkpoint": true,
+    "checkpoint": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/reliable_mech_uspto31k_state_qwen3_0_6b_v100_seed17/checkpoint-4056",
+    "adapter_sha256": "bf5cacc93d2c5e64b11df585e0dd0febf790773e21d13ec0838fa8dd538cdf51",
+    "reference_replay_hits": 32,
+    "reference_decisions": 189,
+    "reference_import_decisions": 55,
+    "reference_flow_events": 102,
+    "reference_first_import": 32,
+    "model_endpoint_hits": 0,
+    "model_structural_hits": 0,
+    "model_finish": 12,
+    "model_first_flow": 32,
+    "model_first_import": 0,
+    "raw_model_calls": 103,
+    "accepted_actions": 83,
+    "generated_tokens": 11219,
+    "inference_seconds": 863.2072544693947,
+    "inference_is_greedy": true,
+    "gold_prefix_injected": false,
+    "gold_imports_injected": false,
+    "same_inputs_and_generated_token_ids_as_prior_main_only_103_of103": true,
+    "all_actual_prompts_and_attempts_independently_replayed": true,
+    "reference03_and04_same32_rows_identical": true
+  },
+  "verification": {
+    "passed": 986,
+    "skipped": 17,
+    "warnings": 1,
+    "full_suite_exit_code": 0
+  },
+  "interpretation": "Data/reference correction is not a model weight update. Frozen legacy weights still choose FLOW first, while repaired references require IMPORT first in all32 cases. No accuracy improvement claimed. Remaining18 reference inconsistencies retained and prevent full acceptance.",
+  "artifacts": {
+    "evaluation": "evaluation.json",
+    "independent_audit": "endpoint_comparison.json",
+    "raw_generations": "records/raw_generations.jsonl",
+    "episodes": "records/episodes.jsonl",
+    "all32_ground_truth": "ground_truth/",
+    "unresolved_reference_cases": "unresolved_reference_cases.json",
+    "code_verification": "code_verification.json"
+  }
+}
