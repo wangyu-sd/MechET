@@ -1,0 +1,77 @@
+condition_name: mechet_mech31k_main_product_only_qwen35_08b_history
+scientific_hypothesis: causal_participant_generation_then_executable_inverse_electron_flow
+model_architecture: qwen3_5_vl_text_only
+model_name_or_path: Qwen/Qwen3.5-0.8B
+train_file: data/mechet_qwen35_mainonly_mech31k/history/train.jsonl
+validation_file: data/mechet_qwen35_mainonly_mech31k/history/valid.jsonl
+test_file: data/mechet_qwen35_mainonly_mech31k/history/test.jsonl
+pretokenized_cache_dir: data/mechet_qwen35_mainonly_mech31k/qwen35_08b_tokens_history_4096
+pretokenization_world_size: 8
+output_dir: outputs/agent/mechet_mech31k_mainonly_qwen35_08b_history_seed17
+initial_adapter_path: outputs/agent/mechet_mech31k_mainonly_qwen35_08b_state_seed17
+limit_examples: 0
+environment:
+  max_tool_calls: 40
+  observation_mode: target_current_state_inventory_compact_history_v2
+training:
+  qlora: false
+  attention_implementation: sdpa
+  require_flash_sdp: false
+  bf16: true
+  fp16: false
+  tf32: true
+  learning_rate: 0.000006
+  num_train_epochs: 6.0
+  max_steps: -1
+  per_device_train_batch_size: 4
+  per_device_eval_batch_size: 4
+  gradient_accumulation_steps: 4
+  eval_strategy: "no"
+  max_length: 4096
+  window_context_tokens: 3072
+  packing: false
+  assistant_only_loss: true
+  group_by_length: true
+  gradient_checkpointing: true
+  use_liger_kernel: false
+  torch_compile: false
+  include_tokens_per_second: true
+  include_num_input_tokens_seen: true
+  dataloader_num_workers: 4
+  logging_steps: 10
+  save_steps: 300
+  save_total_limit: 5
+  seed: 17
+  data_seed: 17
+  trust_remote_code: false
+  model_revision: 2fc06364715b967f1860aea9cf38778875588b17
+  report_to: []
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules: []  # opt-in loader uses language-only DeltaNet/attention/FFN regex
+contract:
+  stage: trajectory_sft
+  parent_stage: state_sft
+  input_condition: main_product_only_v1
+  source_corpus: mech31k
+  model_name_or_path: Qwen/Qwen3.5-0.8B
+  base_revision: 2fc06364715b967f1860aea9cf38778875588b17
+  observation_contract: target_current_state_inventory_compact_history_v2
+  require_trace_owned: true
+  require_tool_decision: true
+  terminal_tool: finish_trace
+  gold_horizon_model_visible: false
+  model_visible_atom_maps: false
+  electron_flow_model_generated: true
+  require_main_product_only: true
+  require_reference_replay_audit: true
+  require_validated_quarantine_ledger: true
+  expected_train_rows: 0 # bound from manifest; never train with unresolved 0
+  expected_validation_rows: 0
+  expected_test_rows: 0
+  epoch_minimum: 6
+  root_import_validation_required: true
+  checkpoint_promotes_only_after_real_k1_validation: true
+  phase: compressed_history
