@@ -1,9 +1,10 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 04:07 CST
+## Current update — 2026-10-23 04:20 CST
 
-PR96 is active and unmerged. The mech31k State stage completed all10epochs;
-its fixed64VALID gate passed and its own History stage is running. The FlowER
+PR96 is active and unmerged. The mech31k track completed all10State and5History
+epochs, its paired and independent VALID confirmation, and final artifact checks.
+Taiji reports IsSuccess=true/END; its8A100 are released. The FlowER
 reference rebuild completed; its independent full-history/quarantine audits
 are running. No H20 task has been submitted yet.
 No complete TEST model evaluation has been executed on either track.
@@ -20,14 +21,14 @@ All10epoch losses and full resume files are saved. The42239 unique training
 decisions were consumed over10epochs;422400 distributed consumed examples
 include one padding example per epoch, not422400 unique examples.
 
-| Fixed paired64VALID metric | State best | History ep1 | History ep2 | History ep3 | History ep4 |
-|---|---:|---:|---:|---:|---:|
-| Main-product-only greedyK1 structural endpoint |52/64|51/64|53/64|51/64|50/64|
-| Complete precursor-component endpoint |52/64|51/64|53/64|51/64|50/64|
-| TF root IMPORT fragment exact |54/60|49/60|52/60|50/60|49/60|
-| TF FLOW chemical successor exact |157/166|161/166|159/166|162/166|163/166|
-| TF FINISH |64/64|64/64|64/64|64/64|64/64|
-| Truncated generations |0|0|0|0|0|
+| Fixed paired64VALID metric | State best | History ep1 | History ep2 | History ep3 | History ep4 | History ep5 |
+|---|---:|---:|---:|---:|---:|---:|
+| Main-product-only greedyK1 structural endpoint |52/64|51/64|53/64|51/64|50/64|49/64|
+| Complete precursor-component endpoint |52/64|51/64|53/64|51/64|50/64|49/64|
+| TF root IMPORT fragment exact |54/60|49/60|52/60|50/60|49/60|48/60|
+| TF FLOW chemical successor exact |157/166|161/166|159/166|162/166|163/166|163/166|
+| TF FINISH |64/64|64/64|64/64|64/64|64/64|64/64|
+| Truncated generations |0|0|0|0|0|0|
 
 These are frozen VALID predictions, not TEST accuracy. TF conditions on the
 reference prefix; greedyK1 starts from a single public product and generates
@@ -36,10 +37,27 @@ are not64successful executions:62actually reached FINISH; the other2were
 rejected. Small paired changes are descriptive, not established improvement.
 
 The State gate was GO, and History automatically started at02:52CST from
-this track's best State adapter. At04:07:17 it reached3130/3300updates,
-94.85% of its required5epochs. Per-epoch real generation reports and raw
-inputs/outputs already exist for epochs1through4. Final best-paired and independent
-64VALID confirmation remain pending.
+this track's best State adapter. History completed3300updates/all5epochs;
+the final pipeline finished04:16:40CST and Taiji ended successfully04:16:43.
+Per-epoch generation reports and raw inputs/outputs exist for every epoch.
+Its predeclared validation-loss best is History checkpoint660(epoch1),
+SHA256 `cd5f2f9dbdc883674be2f87781452366a3fb2c01c7c930482e0b5e4b3dab49ca`,
+with eval loss0.00205156. The final epoch is not retrospectively selected;
+neither is epoch2 picked just for its53endpoint hits. Root model files match
+the chosen best adapters, while latest full-training checkpoints remain saved.
+
+| Final greedyK1 VALID result | Structural endpoint | Complete precursor endpoint | TF FLOW successor |
+|---|---:|---:|---:|
+| State best, paired64 |52/64(81.25%)|52/64|157/166|
+| History best, same paired64 |51/64(79.69%)|51/64|161/166|
+| History best, independent64 |52/64(81.25%)|52/64|162/166|
+
+The independent64 are a disjoint cohort, not a paired improvement over the
+first64. All three reports have zero truncated calls. History improves
+conditional FLOW successor matching, but these observations do not establish
+a closed-loop endpoint improvement over State. All complete raw reports were
+independently reaggregated from their8rank outputs and checked against cohort,
+model, data and code hashes. No extra model sampling was run for that audit.
 
 All following paths are relative to `/aaa/fionafyang/buddy1/whaleywang/MechET/`:
 
@@ -48,7 +66,19 @@ All following paths are relative to `/aaa/fionafyang/buddy1/whaleywang/MechET/`:
 - State report and all8rank raw call journals:
   `validation/state_best_paired/` below that run.
 - History epoch reports and all raw calls:
-  `models/history/epoch_validation/step-{660,1320,1980,2640}/` below that run.
+  `models/history/epoch_validation/step-{660,1320,1980,2640,3300}/` below that run.
+- Final selected-model paired/independent results and all raw journals:
+  `validation/history_best_{paired,independent}/` below that run.
+- Full training/checkpoint/resume/raw-report verification:
+  `outputs/audits/pr96_mech31k_final_track_verification_20261023_01.json`.
+- Audited, frozen TEST plan (not submitted or executed):
+  `outputs/audits/pr96_mech31k_audited_test_plan_20261023_01.json` and
+  `outputs/audits/pr96_mech31k_frozen_test_public_roots_20261023_01.jsonl`.
+  All1253original trace-view TEST IDs have verified single-product public roots;
+  1252have strict references, while24875retains its endpoint-stereo disagreement
+  flag. Future endpoint evaluation must account for all1253, report reference
+  availability separately and preserve original GT; TF coverage is1252only.
+  This is not the raw3120TEST benchmark. No TEST model generation occurred.
 - Independent replay of every captured State model request and action:
   `outputs/audits/pr96_mech31k_state64_raw_replay_20261023_01.json`.
   All64single-component private/public roots,642actual model requests
@@ -100,10 +130,13 @@ in accepted or quarantine ledgers. Old `_04` outputs have the wrong root scope
 and `_05` was interrupted before the late-H inventory fix; both are historical,
 training-forbidden artifacts. They cannot substitute for `_06` approval.
 
-The dependent workflow has started: history PID2142031 with16workers and
+The dependent workflow started history PID2142031 with16workers and
 quarantine-review PID2142032 with4workers. All2751accepted VALID histories
-already passed independent public-prefix replay; TEST and TRAIN remain pending.
-All15120unresolved reactions require review before authorization. The FlowER
+already passed independent public-prefix replay; TEST/TRAIN continue.
+Quarantine review completed04:13:20: all15120failures reproduced and classified,
+with11764public event-successor disagreements,2221main-product ambiguities,
+1129endpoint disagreements and6source bonds absent after public-prefix replay.
+No quarantined row was relabeled as accepted. The FlowER
 paired64+independent64VALID cohorts are frozen and disjoint (each60rootIMPORT,
 4rootFLOW; frozen cohort SHA256
 `0b2615103ac87146c228da429da060cf2adaa977cee06d74c8cd6bd4b748822f`).
@@ -122,8 +155,11 @@ this is intentionally separate from the immutable running GPU code.
 
 Latest full local code verification:564passed/1skipped, including real FlowER
 root and late-H regression fixtures. Tests are not new experimental results.
-Remaining: complete31kHistory5epochs/final paired+independent confirmation;
-completeFlowERdata/token gates, submit8H20, runState5epochs, apply its own fixed
+Full accepted FlowER budget audit verified all273904reaction IDs/audit hashes:
+maximum23decisions and25imported fragments, none beyond64/32public budgets;
+all public roots are single components. Evidence:
+`outputs/audits/pr96_flower_full_reference_budget_20261023_06.json`.
+Remaining: completeFlowERhistory/source/token gates, submit8H20, runState5epochs, apply its own fixed
 GO/NO-GO and runHistory3epochs ifGO, then archive final evidence. No auto merge.
 
 ## Historical update — 2026-10-23 01:56 CST (superseded)
