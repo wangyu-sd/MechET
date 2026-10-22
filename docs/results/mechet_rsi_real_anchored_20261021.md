@@ -1,8 +1,92 @@
 # PR92 real-data-anchored RSI correction
 
-Status: implementation and full local launch preflight verified; new GPU outcomes pending.
+Status (2026-10-22): completed; GT precursor matching did not improve.
 This is the explicitly requested PR92 bounded experiment, not a full-test result
 or another SFT retraining. PR91 adapters, raw results and tasks are unchanged.
+
+## Completed held-out results
+
+The core endpoint objective was not improved by anchored DPO or the recursive
+update: greedy GT structural matching is **6/32 for R0, 5/32 for M3 and 4/32
+for R2v1**. ReplayOnly reaches 7/32, one additional target; this single-seed,
+32-target comparison does not establish a reliable gain. Higher frozen-F0
+round-trip confirmation must not be reported as higher precursor accuracy.
+These results do not justify claiming successful endpoint optimization or
+scaling this training configuration on the strength of round-trip gains alone.
+
+All seven actors use the same fixed VALID32 products, original source-graph
+initialization, prompts, actor-independent seed17 decoder and frozen F0.
+The primary repeat-rejection guard is OFF. Greedy K1 has 32 episodes per actor;
+stochastic K2 has 64. All 32 targets are present in every primary evaluation;
+no TEST examples were used. Stochastic either-of-two is a coverage measure,
+not an NLL-ranked top-1 result.
+
+| Actor | Description | GT structural, greedy /32 | GT structural, either-of-two /32 | Productive round-trip, greedy /32 | Productive round-trip, stochastic first /32 | Productive round-trip, either-of-two /32 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| R0 | Original Stage-II | 6 | 4 | 17 | 12 | 19 |
+| R1v0 | Historical unanchored DPO, re-evaluated with v1 inputs | 2 | 5 | 6 | 7 | 9 |
+| M1 | ReplayOnly | 7 | 3 | 18 | 13 | 17 |
+| M2 | CorrectedDPOOnly | 5 | 2 | 17 | 9 | 14 |
+| M3 | Anchored DPO + replay, round 1 | 5 | 2 | 17 | 10 | 16 |
+| R2v1 | M3 + fresh D1 anchored update | 4 | 5 | 20 | 11 | 17 |
+| R2staticD0 | M3 + original D0 anchored update | 4 | 3 | 19 | 11 | 17 |
+
+GT structural counts use the evaluator's `reference_structural_targets`;
+they are not an independent chemical-validity verdict. Productive round-trip
+requires executed task-compatible progress and frozen-model forward
+confirmation, not experimental evidence that a reaction occurs. R2v1's
+greedy round-trip gain (17 to 20) does not rescue its lower GT matching (6 to
+4); its stochastic coverage also falls from 19 to 17. Fresh versus static
+round 2 differs by only one greedy confirmed target and ties at K2. Neither
+comparison establishes recursive self-improvement.
+
+| Actor | Terminal episodes, greedy /32 | Terminal episodes, stochastic /64 | Reverse tokens, greedy | Reverse tokens, stochastic |
+| --- | ---: | ---: | ---: | ---: |
+| R0 | 26 | 60 | 49,647 | 70,019 |
+| R1v0 | 13 | 43 | 100,446 | 144,668 |
+| M1 | 29 | 60 | 33,647 | 65,770 |
+| M2 | 26 | 62 | 50,166 | 73,202 |
+| M3 | 28 | 63 | 45,412 | 63,280 |
+| R2v1 | 27 | 60 | 39,557 | 71,275 |
+| R2staticD0 | 27 | 60 | 43,440 | 76,027 |
+
+These token totals are reverse generation only, not end-to-end cost including
+F0. The machine-readable snapshot also retains per-product token-matched
+comparisons, all tool-error counts and the separate R0/M3 guard-on ablation;
+guard-on outcomes are not substituted into the primary table.
+
+### Actual updates and recursive budget
+
+| New actor | Updates | Preference pool: pairs / sources | Scored assistant tokens | Active-loss tokens | Optimizer-stage seconds |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| M1 | 12 | 9 / 7 (DPO weight zero) | 6,898 | 1,322 | 20.24 |
+| M2 | 12 | 9 / 7 | 6,898 | 5,576 | 23.83 |
+| M3 | 12 | 9 / 7 | 6,898 | 6,898 | 26.42 |
+| R2v1 | 12 | 19 / 13 | 6,689 | 6,689 | 36.44 |
+| R2staticD0 | 12 | 9 / 7 | 6,898 | 6,898 | 23.40 |
+
+The round-1 controls share the exact scored-example plan, not equal
+active-loss tokens. Each arm uses only 12 actual replay examples, not the
+entire 512-source replay pool. D0v1 uses 64 fresh F0 checks to obtain nine
+strong pairs (seven IMPORT, two FLOW). Fresh D1v1 is collected from the saved
+M3 adapter: 926 new episodes, 64 fresh F0 checks, 19 strong pairs (16 IMPORT,
+three FLOW). R2v1 and static-D0 both start at M3 with fixed original R0 as the
+probability reference. Both have 12 updates and a 6,898-token scored cap;
+R2v1 spends 6,689 and leaves 209 unused. Identical token caps are not identical
+realized token costs. F1 was not trained.
+
+All five new adapters were saved; their bytes match the recorded SHA256s.
+The completion file reports `finished`. The platform reports task `_02` as
+`END`, `IsSuccess=true`, ending 2026-10-22 03:59:44 (UTC+8); creation was
+2026-10-21 22:00:43. Roughly six hours is total task time including collection
+and evaluation, not the short optimizer stages above.
+
+The [final evidence snapshot](mechet_rsi_real_anchored_final_20261022.json)
+contains the unabridged paired metrics, token-matched views, completion and
+training manifests, recursive budget, guard-ablation summaries, and raw-file
+paths/sizes/SHA256s. Full prompt/action/state journals and adapters remain at
+the absolute artifact root below; large raw journals and model weights are
+not embedded in Git. Historical S0 evidence is preserved unchanged.
 
 ## Measured S0 audit
 
@@ -108,9 +192,9 @@ It exited before engine creation or optimizer work: the real proof validation
 split is named `val`, which the new source gate incorrectly rejected as if it
 were TEST. The gate now normalizes only `val` to `valid`; TEST remains refused.
 A regression reproduced the failure and the full no-GPU launch preflight then
-passed. A separate new pinned retry is required; the failed instance is END.
+passed. The failed instance is END; the separate pinned retry below completed.
 
-### Corrected submission
+### Corrected submission (now completed)
 
 Retry task: `meteor_mechet_pr92_anchored_rsi_2a100_qy_20261021_02`;
 instance `8b1d89f5a13f013001a15ec3a539449c`, two ordinary A100 cards in
@@ -120,16 +204,17 @@ instance `8b1d89f5a13f013001a15ec3a539449c`, two ordinary A100 cards in
 Final pre-submit suite: **540 passed, 1 skipped**, 9 PEFT warnings.
 Default terminal logs retain all progress plus a 45-second heartbeat. The
 private Ceph init is recovered from a prior successful task, not stored in Git.
-Creation/start success is only submission evidence; check raw episode journals,
-adapter manifests and paired validation before claiming model-update success.
+Creation/start success alone was only submission evidence. Completion and the
+measured validation results are now recorded above.
 
 Observed live after retry: both A100-SXM4-40GB cards are present, Ceph is mounted,
 and the real vLLM owner plus HF scorer loaded the pinned models. The source
 preflight passed in the GPU container and `provenance.json` records `f77d60c…`.
-At the first sampling readback, D0v1 K2 had **871 durably saved action records,
+At the historical first sampling readback, D0v1 K2 had **871 durably saved action records,
 99,694 generated tokens, 800 accepted actions, and 7/256 completed episodes**
 (all seven terminal). This is a partial TRAIN collection, not endpoint accuracy
-or evidence of improved weights; controls and held-out evaluation were pending.
+or evidence of improved weights; controls and held-out evaluation were pending
+at that time, and have since completed.
 Worker stdout/stderr were verified to have the same pipe targets as PID1.
 The Taiji log API was serving a lagging bootstrap snapshot while raw journals
 and phase events continued growing; logs are not redirected to a separate file.
