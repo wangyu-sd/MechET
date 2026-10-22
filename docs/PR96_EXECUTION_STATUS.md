@@ -1,13 +1,14 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 05:24 CST
+## Current update — 2026-10-23 06:23 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
 Taiji reports IsSuccess=true/END; its8A100 are released. The FlowER
-reference rebuild and independent full-history/quarantine audits completed.
-Original-source consistency verification is running; full token caches remain
-pending. No H20 task has been submitted yet.
+reference rebuild, independent full-history/quarantine and original-source
+consistency audits completed. Its new reference subset is authorized; complete
+token caches and actual GPU preflight remain required. Eight CPU ranks are
+building State tokens. No H20 task has been submitted yet.
 No complete TEST model evaluation has been executed on either track.
 
 ### mech31k: real training and model predictions
@@ -155,13 +156,27 @@ No quarantined row was relabeled as accepted. The FlowER
 paired64+independent64VALID cohorts are frozen and disjoint (each60rootIMPORT,
 4rootFLOW; frozen cohort SHA256
 `0b2615103ac87146c228da429da060cf2adaa977cee06d74c8cd6bd4b748822f`).
-Full source integrity/new-version authorization now runs as PID2218389 under
-parent2063994. At05:24CST it had checked27000/257167TRAIN source records
-(10.50% of this separate stage), after verifying full source/reference file
-hashes. This rechecks every original ID, unchanged source steps/endpoints and
-the corrected main-root/import partition; it is not another model run or a
-restart of history replay. Approval is not yet issued. A second dependent
-workflow2067621 then builds both full token caches.
+Full source integrity/new-version authorization completed for every original
+TRAIN/VALID/TEST ID and file hash, unchanged source steps/endpoints, corrected
+main-root/import partition, split separation and independent full history.
+The old finalizer2218389 and after-build parent2063994 ended normally; workflow
+session96928 returned exit0. New subset authorization:
+`data/pr96_flower_reference_approval_20261023_06/reference_approval.json`, SHA256
+`eb92320d9711e85bfcd8281cce8bc90cde496b4b47688405372809280d618ada`.
+It sets reference_training_authorized=true but training_allowed=false until
+complete pinned-token audits and actual deployed-GPU preflight pass. Original
+PR95/legacy source statuses were not overwritten.
+
+Independent FlowER run prepared at
+`outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/`: State5epochs,
+History3epochs only after own State gate/best-parent selection. Both configs
+initially have no adapter parent; they cannot reuse mech31k or old0.6B weights.
+Each stage has1908035TRAIN decisions and409paired-VALID decisions from64full
+reactions. CPU token workflow2067621 launched torchrun2280813/eight CPU ranks
+on State. At06:22:51 rank logs record at least176000/1908035TRAIN rows(>=9.22%);
+these logs update every2000rows/rank, so this is a conservative progress bound,
+not an exact completed-cache count. State/History complete token manifests are
+not yet present. No GPU model training or TEST inference is running here.
 Their logs are `outputs/audits/pr96_flower_after_build_20261023_06.log` and
 `outputs/audits/pr96_flower_token_after_approval_20261023_06.log`.
 No duplicate builders or premature training jobs are needed.
@@ -207,7 +222,7 @@ History3epochs=89442updates. These are checked scheduling expectations, NOT
 executed training steps. Actual startup/runtime counters and sampler padding
 must still be verified after allocation; consumed examples are not inferred
 from nominal global batch64.
-Remaining: completeFlowERsource/token gates, submit8H20, runState5epochs, apply its own fixed
+Remaining: completebothFlowERtoken gates, submit8H20, runState5epochs, apply its own fixed
 GO/NO-GO and runHistory3epochs ifGO, then archive final evidence. No auto merge.
 
 ## Historical update — 2026-10-23 01:56 CST (superseded)
