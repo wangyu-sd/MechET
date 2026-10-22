@@ -180,7 +180,8 @@ def test_builder_recovers_bound_prefix_and_completed_splits_then_processes_every
     code = ["scripts/build_main_product_training_data.py", "scripts/build_natural_language_event_sft.py",
             "scripts/run_natural_language_value_search.py", "scripts/build_mech31k_main_product_only_sft.py",
             "src/mechet/inverse_trace_data.py", "src/mechet/in_place_grounded_flow.py",
-            "src/mechet/natural_language_electron_flow.py", "src/mechet/forward_expert.py"]
+            "src/mechet/natural_language_electron_flow.py", "src/mechet/forward_expert.py",
+            "scripts/pr96_source_product_side.py"]
     for name in code:
         path = old / "code_snapshot" / name; path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(builder.ROOT / name, path)

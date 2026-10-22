@@ -112,7 +112,10 @@ def reproduce_failure(source):
             "classification": category, "source_state": expected, "executed_state": actual,
             "strict_chemical_equal": strict, "same_only_after_stereo_removed_for_diagnosis": no_stereo_same,
             "comparison_phase": "before_failed_action" if before_failed_action else "failed_successor_or_endpoint",
-            "original_product_side": source["target_smiles"],
+            "original_product_side": (
+                ".".join([source["target_smiles"], *source["metadata"]["trace_plan"]["initial_imports"]])
+                if str(source["source_id"]).startswith("flower_mech_proof_") else source["target_smiles"]),
+            "legacy_selected_target": source["target_smiles"],
             "corrected_mapped_main_root": inverse["target_smiles"] if inverse else None,
             "original_full_endpoint": source.get("full_precursor_state", source.get("expected_precursor")),
             "context": states, "training_allowed": False,

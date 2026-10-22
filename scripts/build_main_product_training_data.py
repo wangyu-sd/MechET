@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-from copy import deepcopy
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -25,11 +24,11 @@ sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 from mechet.in_place_grounded_flow import (
     extract_import_fragments, mapped_atom_numbers, retain_mapped_components, schedule_imports,
 )
-from mechet.inverse_trace_data import select_mapped_target
 from mechet.pr96_durable_io import DurableAppendSet
 from scripts.pr96_build_recovery import (
     copy_completed_split, encoded, recover_prefix, result_payload, verify_recovery_code,
 )
+from scripts.pr96_source_product_side import prepare_source_reference
 from scripts.build_mech31k_main_product_only_sft import same_chemical_state, sha
 from scripts.build_natural_language_event_sft import convert_row, _worker_init
 from scripts.run_natural_language_value_search import (
@@ -48,40 +47,7 @@ def prepare_reference(source):
     Missing product-side species join existing first-use imports. The stored
     reference is a private plan, not a stale full conversation with hidden root.
     """
-    row = deepcopy(source)
-    original_target = str(source["target_smiles"])
-    target, removed, selection = select_mapped_target(
-        original_target, original_target, main_product_only=True,
-    )
-    original_imports = extract_import_fragments(source)
-    plan = row["metadata"]["trace_plan"]
-    plan["target_smiles"] = target
-    plan["initial_imports"] = original_imports + list(removed)
-    present = set(mapped_atom_numbers(target))
-    for fragment in plan["initial_imports"]:
-        maps = mapped_atom_numbers(fragment)
-        if maps & present:
-            raise ValueError("IMPORT_MAP_OVERLAP")
-        present.update(maps)
-    first_state_maps = mapped_atom_numbers(plan["steps"][0]["state_before"])
-    # Later step imports are represented in legacy import_fragment calls too.
-    if not first_state_maps <= present:
-        raise ValueError("SOURCE_ATOMS_NOT_ACCOUNTED_FOR")
-    row["target_smiles"] = target
-    row["metadata"]["target_selection"] = selection
-    row["metadata"]["input_condition"] = "main_product_only_v1"
-    row["metadata"]["original_product_side"] = original_target
-    row["metadata"]["removed_product_components"] = list(removed)
-    row["metadata"]["source_row_sha256"] = hashlib.sha256(
-        json.dumps(source, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
-    row["metadata"]["n_trace_imports"] = len(plan["initial_imports"])
-    row["artifact_type"] = "private_reference_plan_not_training_conversation"
-    row["messages"] = [{"role": "assistant", "content": "", "tool_calls": [{
-        "id": f"reference_import_{i}", "type": "function",
-        "function": {"name": "import_fragment", "arguments": {"fragment_smiles": f}},
-    }]} for i, f in enumerate(plan["initial_imports"])]
-    return row
+    return prepare_source_reference(source)
 
 
 def audit_reference(inverse):
@@ -199,7 +165,8 @@ def main():
                   ROOT / "src/mechet/inverse_trace_data.py",
                   ROOT / "src/mechet/in_place_grounded_flow.py",
                   ROOT / "src/mechet/natural_language_electron_flow.py",
-                  ROOT / "src/mechet/forward_expert.py"]
+                  ROOT / "src/mechet/forward_expert.py",
+                  ROOT / "scripts/pr96_source_product_side.py"]
     recovery = None
     if args.recover_from:
         verify_recovery_code(args.recover_from, code_paths, ROOT)
@@ -322,6 +289,11 @@ def main():
             "source_manifest_sha256": sha(manifest_path), "source_manifest": str(manifest_path),
             "split_id_overlap": overlap, "code_sha256": code_hashes,
             "original_moves_preserved": True, "full_source_denominators_accounted": True,
+            "main_product_selection": {
+                "product_side": "complete_compiled_initial_product_inventory" if args.track == "flower" else "annotated_product_side",
+                "rule": "unique_largest_heavy_atom_carbon_component",
+                "organometallic_components_excluded": False, "uses_future_moves_or_precursor": False,
+            },
             "training_allowed": False, "status": "awaiting_independent_review_and_token_audit",
         }
         if recovery:

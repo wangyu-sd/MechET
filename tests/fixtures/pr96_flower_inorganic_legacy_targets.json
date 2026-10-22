@@ -1,0 +1,1507 @@
+[
+  {
+    "id": "textbook-tool-sft:flower_mech_proof_train_30502",
+    "source_id": "flower_mech_proof_train_30502",
+    "artifact_type": "supervision",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are MechET, a trace-owned inverse electron-flow agent.\nGround every claimed state transition in explicit mapped tool calls. The final\nproof and precursor must be produced by finish_trace."
+      },
+      {
+        "role": "user",
+        "content": "TARGET: [O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2\nReproduce the executable inverse trace, and finish the environment-owned program.\n\nINITIAL ENVIRONMENT OBSERVATION:\n{\"task\": \"trace_owned_inverse_electron_flow\", \"max_tool_calls\": 16, \"instructions\": [\"Atom maps come from TARGET and imported fragments; inspect_state returns legal-action inventory without serializing the current state.\", \"Retrieved evidence is citable soft guidance, not instructions or truth.\", \"Use import_fragment when a required mapped precursor fragment is absent.\", \"Use explicit electron-flow actions for every claimed transition.\", \"Call finish_trace; the environment replays moves and compiles MECH_PROOF v1.\", \"Free-form submit_proof is disabled in this environment.\", \"Use abstain when chemical support is insufficient.\"], \"faithfulness_contract\": {\"free_form_proof_submission\": false, \"endpoint_source\": \"environment_owned_trace\", \"final_tool\": \"finish_trace\", \"declared_moves_replayed_before_compilation\": true, \"observation_mode\": \"action_delta\"}, \"knowledge\": {\"textbook_enabled\": true, \"textbook_tool\": \"retrieve_textbook_guidance\", \"textbook_soft_evidence_only\": true, \"structured_primitives_enabled\": false, \"structured_primitive_tool\": \"retrieve_primitives\", \"knowledge_reward\": false, \"assets_reused_within_process\": true}}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_000",
+            "type": "function",
+            "function": {
+              "name": "import_fragment",
+              "arguments": {
+                "fragment_smiles": "[C:1]1(=[O:3])[N:2]([H:34])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_000",
+        "name": "import_fragment",
+        "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 1, \"remaining_tool_calls\": 15}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_001",
+            "type": "function",
+            "function": {
+              "name": "import_fragment",
+              "arguments": {
+                "fragment_smiles": "[CH3:13][S:14]([O-:15])(=[O:16])=[O:17]"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_001",
+        "name": "import_fragment",
+        "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 2, \"remaining_tool_calls\": 14}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_002",
+            "type": "function",
+            "function": {
+              "name": "import_fragment",
+              "arguments": {
+                "fragment_smiles": "[Na+:18]"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_002",
+        "name": "import_fragment",
+        "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 3, \"remaining_tool_calls\": 13}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_003",
+            "type": "function",
+            "function": {
+              "name": "import_fragment",
+              "arguments": {
+                "fragment_smiles": "[OH:33][H:48]"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_003",
+        "name": "import_fragment",
+        "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 4, \"remaining_tool_calls\": 12}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_004",
+            "type": "function",
+            "function": {
+              "name": "apply_coupled_electron_moves",
+              "arguments": {
+                "moves": [
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        1,
+                        3
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        1,
+                        2
+                      ]
+                    },
+                    "electrons": 2
+                  },
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        2,
+                        34
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        3,
+                        34
+                      ]
+                    },
+                    "electrons": 2
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_004",
+        "name": "apply_coupled_electron_moves",
+        "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 11, \"trace_bound\": true}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_005",
+            "type": "function",
+            "function": {
+              "name": "apply_coupled_electron_moves",
+              "arguments": {
+                "moves": [
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        33,
+                        48
+                      ]
+                    },
+                    "sink": {
+                      "kind": "ATOM",
+                      "atoms": [
+                        33
+                      ]
+                    },
+                    "electrons": 2
+                  },
+                  {
+                    "source": {
+                      "kind": "LP",
+                      "atoms": [
+                        3
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        3,
+                        48
+                      ]
+                    },
+                    "electrons": 2
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_005",
+        "name": "apply_coupled_electron_moves",
+        "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 10, \"trace_bound\": true}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_006",
+            "type": "function",
+            "function": {
+              "name": "apply_coupled_electron_moves",
+              "arguments": {
+                "moves": [
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        1,
+                        3
+                      ]
+                    },
+                    "sink": {
+                      "kind": "ATOM",
+                      "atoms": [
+                        3
+                      ]
+                    },
+                    "electrons": 2
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_006",
+        "name": "apply_coupled_electron_moves",
+        "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 9, \"trace_bound\": true}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_007",
+            "type": "function",
+            "function": {
+              "name": "apply_coupled_electron_moves",
+              "arguments": {
+                "moves": [
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        2,
+                        4
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        1,
+                        4
+                      ]
+                    },
+                    "electrons": 2
+                  },
+                  {
+                    "source": {
+                      "kind": "LP",
+                      "atoms": [
+                        3
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        2,
+                        3
+                      ]
+                    },
+                    "electrons": 2
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_007",
+        "name": "apply_coupled_electron_moves",
+        "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 8, \"trace_bound\": true}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_008",
+            "type": "function",
+            "function": {
+              "name": "apply_coupled_electron_moves",
+              "arguments": {
+                "moves": [
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        3,
+                        48
+                      ]
+                    },
+                    "sink": {
+                      "kind": "ATOM",
+                      "atoms": [
+                        3
+                      ]
+                    },
+                    "electrons": 2
+                  },
+                  {
+                    "source": {
+                      "kind": "LP",
+                      "atoms": [
+                        15
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        15,
+                        48
+                      ]
+                    },
+                    "electrons": 2
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_008",
+        "name": "apply_coupled_electron_moves",
+        "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 7, \"trace_bound\": true}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_009",
+            "type": "function",
+            "function": {
+              "name": "finish_trace",
+              "arguments": {}
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_009",
+        "name": "finish_trace",
+        "content": "{\"ok\": true, \"formal_execute\": true, \"endpoint_exact\": true, \"derived_precursor\": \"[C:1]1(=[N:2][O:3][H:34])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O:15][H:48])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]\", \"trace_bound\": true, \"trace_digest\": \"ee92ad246d64dc53b6a1b71a7e3723f0a15c528b6fedc55921ebb327a22f93fa\", \"move_sequence_digest\": \"0c6c224d1804013f5f92cf0ecc6b754f5bfd52ab3cd40b6a45df87502a83ccf0\", \"n_trace_transitions\": 5, \"endpoint_source\": \"environment_owned_trace\", \"declared_moves_replayed\": true, \"reward\": 3.4, \"tool_calls\": 10, \"successful_steps\": 5, \"failed_steps\": 0, \"observation_mode\": \"action_delta_v1\"}"
+      },
+      {
+        "role": "assistant",
+        "content": "The environment-owned trace compiled and executed successfully; the precursor is taken only from finish_trace."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "inspect_state",
+          "description": "Inspect the current mapped molecular state and enumerate legal electron sources and sinks.",
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "import_fragment",
+          "description": "Import one mapped fragment that is absent from the product but required by the next inverse transition.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "fragment_smiles": {
+                "type": "string",
+                "description": "Atom-mapped fragment SMILES with unique positive map numbers."
+              }
+            },
+            "required": [
+              "fragment_smiles"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "apply_electron_move",
+          "description": "Apply one explicit two-electron source-to-sink move to the current state.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "type": "string",
+                "enum": [
+                  "LP",
+                  "BOND"
+                ]
+              },
+              "source_atoms": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "minItems": 1,
+                "maxItems": 2
+              },
+              "sink_kind": {
+                "type": "string",
+                "enum": [
+                  "ATOM",
+                  "LP",
+                  "BOND"
+                ]
+              },
+              "sink_atoms": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "minItems": 1,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "source_kind",
+              "source_atoms",
+              "sink_kind",
+              "sink_atoms"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "apply_coupled_electron_moves",
+          "description": "Apply a non-empty list of coupled two-electron moves atomically as one elementary event.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "moves": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "LP",
+                                "BOND",
+                                "RADICAL_PAIR"
+                              ]
+                            },
+                            "atoms": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer"
+                              },
+                              "minItems": 1,
+                              "maxItems": 2
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "atoms"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sink": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "ATOM",
+                                "LP",
+                                "BOND",
+                                "RADICAL_PAIR"
+                              ]
+                            },
+                            "atoms": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer"
+                              },
+                              "minItems": 1,
+                              "maxItems": 2
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "atoms"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "electrons": {
+                          "type": "integer",
+                          "enum": [
+                            2
+                          ]
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "sink"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "BE_DELTA"
+                          ]
+                        },
+                        "bond_deltas": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "atoms": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer"
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                              },
+                              "delta": {
+                                "type": "integer",
+                                "minimum": -3,
+                                "maximum": 3
+                              }
+                            },
+                            "required": [
+                              "atoms",
+                              "delta"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "charge_actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "atom_map": {
+                                "type": "integer"
+                              },
+                              "q0": {
+                                "type": "integer"
+                              },
+                              "q1": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "atom_map",
+                              "q0",
+                              "q1"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "bond_deltas",
+                        "charge_actions"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "moves"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "finish_trace",
+          "description": "Compile the committed environment-owned trace, execute it, and derive the only admissible precursor endpoint.",
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "abstain",
+          "description": "Terminate the episode without an unsupported precursor when available evidence is insufficient.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string",
+                "description": "Concise reason for abstaining."
+              }
+            },
+            "required": [
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    ],
+    "target_smiles": "[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2",
+    "expected_precursor": "[C:1]1(=[N:2][O:3][H:34])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O:15][H:48])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]",
+    "full_precursor_state": "[C:1]1(=[N:2][O:3][H:34])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O:15][H:48])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]",
+    "structural_precursor": "[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2",
+    "auxiliary_fragments": [
+      "[C:1]1(=[N:2][O:3][H:34])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1",
+      "[CH3:13][S:14]([O:15][H:48])(=[O:16])=[O:17]",
+      "[Na+:18]",
+      "[OH-:33]"
+    ],
+    "metadata": {
+      "original_proof_sha256": "1880b693f8ff3ec67ff1ec0b2affc5d16f5666539b7b4f857f8a087424f7d452",
+      "source_mechanism_family": "unknown",
+      "proof_topology": "linear",
+      "trace_plan": {
+        "target_smiles": "[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2",
+        "expected_precursor": "[C:1]1(=[N:2][O:3][H:34])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O:15][H:48])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]",
+        "initial_imports": [
+          "[C:1]1(=[O:3])[N:2]([H:34])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1",
+          "[CH3:13][S:14]([O-:15])(=[O:16])=[O:17]",
+          "[Na+:18]",
+          "[OH:33][H:48]"
+        ],
+        "steps": [
+          {
+            "step_index": 0,
+            "state_before": "[C:1]1(=[O:3])[N:2]([H:34])[C:4]2=[C:5]([CH:6]=[CH:7][CH:8]=[CH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH:33][H:48]",
+            "state_after": "[C:1]1([O:3][H:34])=[N:2][c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH:33][H:48]",
+            "imports": [],
+            "moves": [
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    1,
+                    3
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    1,
+                    2
+                  ]
+                },
+                "electrons": 2
+              },
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    2,
+                    34
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    3,
+                    34
+                  ]
+                },
+                "electrons": 2
+              }
+            ]
+          },
+          {
+            "step_index": 1,
+            "state_before": "[C:1]1([O:3][H:34])=[N:2][c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH:33][H:48]",
+            "state_after": "[C:1]1([O+:3]([H:34])[H:48])=[N:2][c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]",
+            "imports": [],
+            "moves": [
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    33,
+                    48
+                  ]
+                },
+                "sink": {
+                  "kind": "ATOM",
+                  "atoms": [
+                    33
+                  ]
+                },
+                "electrons": 2
+              },
+              {
+                "source": {
+                  "kind": "LP",
+                  "atoms": [
+                    3
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    3,
+                    48
+                  ]
+                },
+                "electrons": 2
+              }
+            ]
+          },
+          {
+            "step_index": 2,
+            "state_before": "[C:1]1([O+:3]([H:34])[H:48])=[N:2][c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]",
+            "state_after": "[C+:1]1=[N:2][c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[O:3]([H:34])[H:48].[OH-:33]",
+            "imports": [],
+            "moves": [
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    1,
+                    3
+                  ]
+                },
+                "sink": {
+                  "kind": "ATOM",
+                  "atoms": [
+                    3
+                  ]
+                },
+                "electrons": 2
+              }
+            ]
+          },
+          {
+            "step_index": 3,
+            "state_before": "[C+:1]1=[N:2][c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[O:3]([H:34])[H:48].[OH-:33]",
+            "state_after": "[C:1]1(=[N:2][O+:3]([H:34])[H:48])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]",
+            "imports": [],
+            "moves": [
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    2,
+                    4
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    1,
+                    4
+                  ]
+                },
+                "electrons": 2
+              },
+              {
+                "source": {
+                  "kind": "LP",
+                  "atoms": [
+                    3
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    2,
+                    3
+                  ]
+                },
+                "electrons": 2
+              }
+            ]
+          },
+          {
+            "step_index": 4,
+            "state_before": "[C:1]1(=[N:2][O+:3]([H:34])[H:48])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O-:15])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]",
+            "state_after": "[C:1]1(=[N:2][O:3][H:34])[c:4]2[c:5]([cH:6][cH:7][cH:8][cH:9]2)[CH2:10][CH2:11][CH2:12]1.[CH3:13][S:14]([O:15][H:48])(=[O:16])=[O:17].[Na+:18].[O:19]=[P:20]12[O:21][P:22]3(=[O:23])[O:24][P:25](=[O:26])([O:27][P:28](=[O:29])([O:30]3)[O:31]1)[O:32]2.[OH-:33]",
+            "imports": [],
+            "moves": [
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    3,
+                    48
+                  ]
+                },
+                "sink": {
+                  "kind": "ATOM",
+                  "atoms": [
+                    3
+                  ]
+                },
+                "electrons": 2
+              },
+              {
+                "source": {
+                  "kind": "LP",
+                  "atoms": [
+                    15
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    15,
+                    48
+                  ]
+                },
+                "electrons": 2
+              }
+            ]
+          }
+        ]
+      },
+      "n_trace_steps": 5,
+      "n_trace_moves": 9,
+      "n_be_delta_steps": 0,
+      "n_trace_imports": 4,
+      "execution_primitive_signatures": [
+        "{\"electrons\":2,\"sink_atoms\":[[0,0,0],[8,-1,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,-1,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[0,0,0],[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[0,0,0],[7,0,0]],\"source_bond_order\":0,\"source_kind\":\"BOND\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[0,0,0],[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,0,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[7,0,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[6,0,0],[8,0,0]],\"source_bond_order\":2,\"source_kind\":\"BOND\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[6,0,1],[6,1,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[6,0,1],[7,0,0]],\"source_bond_order\":1,\"source_kind\":\"BOND\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[7,0,0],[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,0,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[0,0,0],[8,0,0]],\"source_bond_order\":0,\"source_kind\":\"BOND\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[8,1,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[0,0,0],[8,1,0]],\"source_bond_order\":0,\"source_kind\":\"BOND\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[8,1,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[6,0,0],[8,1,0]],\"source_bond_order\":1,\"source_kind\":\"BOND\"}"
+      ],
+      "execution_composition_signature": "441ecbdb80f8a59f5dbfc9d6bb65effcee03f5989801b0680230386d311b6cc0",
+      "compiled_proof": null,
+      "trace_digest": "ee92ad246d64dc53b6a1b71a7e3723f0a15c528b6fedc55921ebb327a22f93fa",
+      "move_sequence_digest": "0c6c224d1804013f5f92cf0ecc6b754f5bfd52ab3cd40b6a45df87502a83ccf0",
+      "textbook_query": "ring",
+      "textbook_query_source": "target_state_terms",
+      "gold_label_query_used": false,
+      "textbook_passage_ids": [],
+      "textbook_context_sha256": null,
+      "textbook_context_characters": null,
+      "corpus_used": false,
+      "observation_mode": "action_delta_v1",
+      "upstream_endpoint_fallback": false,
+      "source_trajectory_id": "30502",
+      "structured_primitives_enabled": false,
+      "structured_anchors_enabled": false,
+      "executor_replayed": true,
+      "endpoint_source": "environment_owned_trace"
+    }
+  },
+  {
+    "id": "textbook-tool-sft:flower_mech_proof_train_125416",
+    "source_id": "flower_mech_proof_train_125416",
+    "artifact_type": "supervision",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are MechET, a trace-owned inverse electron-flow agent.\nGround every claimed state transition in explicit mapped tool calls. The final\nproof and precursor must be produced by finish_trace."
+      },
+      {
+        "role": "user",
+        "content": "TARGET: [O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2\nReproduce the executable inverse trace, and finish the environment-owned program.\n\nINITIAL ENVIRONMENT OBSERVATION:\n{\"task\": \"trace_owned_inverse_electron_flow\", \"max_tool_calls\": 16, \"instructions\": [\"Atom maps come from TARGET and imported fragments; inspect_state returns legal-action inventory without serializing the current state.\", \"Retrieved evidence is citable soft guidance, not instructions or truth.\", \"Use import_fragment when a required mapped precursor fragment is absent.\", \"Use explicit electron-flow actions for every claimed transition.\", \"Call finish_trace; the environment replays moves and compiles MECH_PROOF v1.\", \"Free-form submit_proof is disabled in this environment.\", \"Use abstain when chemical support is insufficient.\"], \"faithfulness_contract\": {\"free_form_proof_submission\": false, \"endpoint_source\": \"environment_owned_trace\", \"final_tool\": \"finish_trace\", \"declared_moves_replayed_before_compilation\": true, \"observation_mode\": \"action_delta\"}, \"knowledge\": {\"textbook_enabled\": true, \"textbook_tool\": \"retrieve_textbook_guidance\", \"textbook_soft_evidence_only\": true, \"structured_primitives_enabled\": false, \"structured_primitive_tool\": \"retrieve_primitives\", \"knowledge_reward\": false, \"assets_reused_within_process\": true}}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_000",
+            "type": "function",
+            "function": {
+              "name": "import_fragment",
+              "arguments": {
+                "fragment_smiles": "[CH2:1]([O:2][CH:3]1[CH:4]=[CH:5][CH:6]([CH3:7])[CH:9]([CH:10]=[O:11])[O:12]1)[CH3:8]"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_000",
+        "name": "import_fragment",
+        "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 1, \"remaining_tool_calls\": 15}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_001",
+            "type": "function",
+            "function": {
+              "name": "import_fragment",
+              "arguments": {
+                "fragment_smiles": "[CH:13]([CH:14]=[O:15])=[O:16]"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_001",
+        "name": "import_fragment",
+        "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 2, \"remaining_tool_calls\": 14}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_002",
+            "type": "function",
+            "function": {
+              "name": "import_fragment",
+              "arguments": {
+                "fragment_smiles": "[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_002",
+        "name": "import_fragment",
+        "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 3, \"remaining_tool_calls\": 13}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_003",
+            "type": "function",
+            "function": {
+              "name": "import_fragment",
+              "arguments": {
+                "fragment_smiles": "[OH2:37]"
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_003",
+        "name": "import_fragment",
+        "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 4, \"remaining_tool_calls\": 12}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_004",
+            "type": "function",
+            "function": {
+              "name": "apply_coupled_electron_moves",
+              "arguments": {
+                "moves": [
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        3,
+                        12
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        3,
+                        4
+                      ]
+                    },
+                    "electrons": 2
+                  },
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        4,
+                        5
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        5,
+                        6
+                      ]
+                    },
+                    "electrons": 2
+                  },
+                  {
+                    "source": {
+                      "kind": "BOND",
+                      "atoms": [
+                        6,
+                        9
+                      ]
+                    },
+                    "sink": {
+                      "kind": "BOND",
+                      "atoms": [
+                        9,
+                        12
+                      ]
+                    },
+                    "electrons": 2
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_004",
+        "name": "apply_coupled_electron_moves",
+        "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 11, \"trace_bound\": true}"
+      },
+      {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+          {
+            "id": "call_005",
+            "type": "function",
+            "function": {
+              "name": "finish_trace",
+              "arguments": {}
+            }
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_005",
+        "name": "finish_trace",
+        "content": "{\"ok\": true, \"formal_execute\": true, \"endpoint_exact\": true, \"derived_precursor\": \"[CH2:1]([O:2][CH:3]=[CH:4][CH:5]=[CH:6][CH3:7])[CH3:8].[CH:13]([CH:14]=[O:15])=[O:16].[CH:9]([CH:10]=[O:11])=[O:12].[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2.[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1.[OH2:37]\", \"trace_bound\": true, \"trace_digest\": \"29e8fee7fb71ffa6e698c3cea0c2dba96dd5ed3e89aa8413f0ecfb07c361bf34\", \"move_sequence_digest\": \"c270d9711b63755fbff77d53fdbf3a2261743e716fd2e2d5c2d8189a95c728d3\", \"n_trace_transitions\": 1, \"endpoint_source\": \"environment_owned_trace\", \"declared_moves_replayed\": true, \"reward\": 3.3, \"tool_calls\": 6, \"successful_steps\": 1, \"failed_steps\": 0, \"observation_mode\": \"action_delta_v1\"}"
+      },
+      {
+        "role": "assistant",
+        "content": "The environment-owned trace compiled and executed successfully; the precursor is taken only from finish_trace."
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "function": {
+          "name": "inspect_state",
+          "description": "Inspect the current mapped molecular state and enumerate legal electron sources and sinks.",
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "import_fragment",
+          "description": "Import one mapped fragment that is absent from the product but required by the next inverse transition.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "fragment_smiles": {
+                "type": "string",
+                "description": "Atom-mapped fragment SMILES with unique positive map numbers."
+              }
+            },
+            "required": [
+              "fragment_smiles"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "apply_electron_move",
+          "description": "Apply one explicit two-electron source-to-sink move to the current state.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "source_kind": {
+                "type": "string",
+                "enum": [
+                  "LP",
+                  "BOND"
+                ]
+              },
+              "source_atoms": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "minItems": 1,
+                "maxItems": 2
+              },
+              "sink_kind": {
+                "type": "string",
+                "enum": [
+                  "ATOM",
+                  "LP",
+                  "BOND"
+                ]
+              },
+              "sink_atoms": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                },
+                "minItems": 1,
+                "maxItems": 2
+              }
+            },
+            "required": [
+              "source_kind",
+              "source_atoms",
+              "sink_kind",
+              "sink_atoms"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "apply_coupled_electron_moves",
+          "description": "Apply a non-empty list of coupled two-electron moves atomically as one elementary event.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "moves": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "source": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "LP",
+                                "BOND",
+                                "RADICAL_PAIR"
+                              ]
+                            },
+                            "atoms": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer"
+                              },
+                              "minItems": 1,
+                              "maxItems": 2
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "atoms"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "sink": {
+                          "type": "object",
+                          "properties": {
+                            "kind": {
+                              "type": "string",
+                              "enum": [
+                                "ATOM",
+                                "LP",
+                                "BOND",
+                                "RADICAL_PAIR"
+                              ]
+                            },
+                            "atoms": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer"
+                              },
+                              "minItems": 1,
+                              "maxItems": 2
+                            }
+                          },
+                          "required": [
+                            "kind",
+                            "atoms"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "electrons": {
+                          "type": "integer",
+                          "enum": [
+                            2
+                          ]
+                        }
+                      },
+                      "required": [
+                        "source",
+                        "sink"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "BE_DELTA"
+                          ]
+                        },
+                        "bond_deltas": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "atoms": {
+                                "type": "array",
+                                "items": {
+                                  "type": "integer"
+                                },
+                                "minItems": 2,
+                                "maxItems": 2
+                              },
+                              "delta": {
+                                "type": "integer",
+                                "minimum": -3,
+                                "maximum": 3
+                              }
+                            },
+                            "required": [
+                              "atoms",
+                              "delta"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "charge_actions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "atom_map": {
+                                "type": "integer"
+                              },
+                              "q0": {
+                                "type": "integer"
+                              },
+                              "q1": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": [
+                              "atom_map",
+                              "q0",
+                              "q1"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "bond_deltas",
+                        "charge_actions"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "moves"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "finish_trace",
+          "description": "Compile the committed environment-owned trace, execute it, and derive the only admissible precursor endpoint.",
+          "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "abstain",
+          "description": "Terminate the episode without an unsupported precursor when available evidence is insufficient.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "type": "string",
+                "description": "Concise reason for abstaining."
+              }
+            },
+            "required": [
+              "reason"
+            ],
+            "additionalProperties": false
+          }
+        }
+      }
+    ],
+    "target_smiles": "[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2",
+    "expected_precursor": "[CH2:1]([O:2][CH:3]=[CH:4][CH:5]=[CH:6][CH3:7])[CH3:8].[CH:13]([CH:14]=[O:15])=[O:16].[CH:9]([CH:10]=[O:11])=[O:12].[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2.[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1.[OH2:37]",
+    "full_precursor_state": "[CH2:1]([O:2][CH:3]=[CH:4][CH:5]=[CH:6][CH3:7])[CH3:8].[CH:13]([CH:14]=[O:15])=[O:16].[CH:9]([CH:10]=[O:11])=[O:12].[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2.[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1.[OH2:37]",
+    "structural_precursor": "[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2",
+    "auxiliary_fragments": [
+      "[CH2:1]([O:2][CH:3]=[CH:4][CH:5]=[CH:6][CH3:7])[CH3:8]",
+      "[CH:13]([CH:14]=[O:15])=[O:16]",
+      "[CH:9]([CH:10]=[O:11])=[O:12]",
+      "[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1",
+      "[OH2:37]"
+    ],
+    "metadata": {
+      "original_proof_sha256": "51041533bf2caf697bd65fe10d350d0446c0308a0b9f805f2bf0c4190f7f65fa",
+      "source_mechanism_family": "unknown",
+      "proof_topology": "linear",
+      "trace_plan": {
+        "target_smiles": "[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2",
+        "expected_precursor": "[CH2:1]([O:2][CH:3]=[CH:4][CH:5]=[CH:6][CH3:7])[CH3:8].[CH:13]([CH:14]=[O:15])=[O:16].[CH:9]([CH:10]=[O:11])=[O:12].[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2.[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1.[OH2:37]",
+        "initial_imports": [
+          "[CH2:1]([O:2][CH:3]1[CH:4]=[CH:5][CH:6]([CH3:7])[CH:9]([CH:10]=[O:11])[O:12]1)[CH3:8]",
+          "[CH:13]([CH:14]=[O:15])=[O:16]",
+          "[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1",
+          "[OH2:37]"
+        ],
+        "steps": [
+          {
+            "step_index": 0,
+            "state_before": "[CH2:1]([O:2][CH:3]1[CH:4]=[CH:5][CH:6]([CH3:7])[CH:9]([CH:10]=[O:11])[O:12]1)[CH3:8].[CH:13]([CH:14]=[O:15])=[O:16].[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2.[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1.[OH2:37]",
+            "state_after": "[CH2:1]([O:2][CH:3]=[CH:4][CH:5]=[CH:6][CH3:7])[CH3:8].[CH:13]([CH:14]=[O:15])=[O:16].[CH:9]([CH:10]=[O:11])=[O:12].[O:17]=[P:18]12[O:19][P:20]3(=[O:21])[O:22][P:23](=[O:24])([O:25][P:26](=[O:27])([O:28]3)[O:29]1)[O:30]2.[O:31]1[CH:32]=[CH:33][CH:34]=[CH:35][CH2:36]1.[OH2:37]",
+            "imports": [],
+            "moves": [
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    3,
+                    12
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    3,
+                    4
+                  ]
+                },
+                "electrons": 2
+              },
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    4,
+                    5
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    5,
+                    6
+                  ]
+                },
+                "electrons": 2
+              },
+              {
+                "source": {
+                  "kind": "BOND",
+                  "atoms": [
+                    6,
+                    9
+                  ]
+                },
+                "sink": {
+                  "kind": "BOND",
+                  "atoms": [
+                    9,
+                    12
+                  ]
+                },
+                "electrons": 2
+              }
+            ]
+          }
+        ]
+      },
+      "n_trace_steps": 1,
+      "n_trace_moves": 3,
+      "n_be_delta_steps": 0,
+      "n_trace_imports": 4,
+      "execution_primitive_signatures": [
+        "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[6,0,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[6,0,0],[6,0,0]],\"source_bond_order\":2,\"source_kind\":\"BOND\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[6,0,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[6,0,0],[8,0,0]],\"source_bond_order\":1,\"source_kind\":\"BOND\"}",
+        "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[8,0,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[6,0,0],[6,0,0]],\"source_bond_order\":1,\"source_kind\":\"BOND\"}"
+      ],
+      "execution_composition_signature": "9a451e09b83c56c1ec713196ce935df5bfe15a6648d266fd3d462bfb2868c6aa",
+      "compiled_proof": null,
+      "trace_digest": "29e8fee7fb71ffa6e698c3cea0c2dba96dd5ed3e89aa8413f0ecfb07c361bf34",
+      "move_sequence_digest": "c270d9711b63755fbff77d53fdbf3a2261743e716fd2e2d5c2d8189a95c728d3",
+      "textbook_query": "ring",
+      "textbook_query_source": "target_state_terms",
+      "gold_label_query_used": false,
+      "textbook_passage_ids": [],
+      "textbook_context_sha256": null,
+      "textbook_context_characters": null,
+      "corpus_used": false,
+      "observation_mode": "action_delta_v1",
+      "upstream_endpoint_fallback": false,
+      "source_trajectory_id": "125416",
+      "structured_primitives_enabled": false,
+      "structured_anchors_enabled": false,
+      "executor_replayed": true,
+      "endpoint_source": "environment_owned_trace"
+    }
+  }
+]

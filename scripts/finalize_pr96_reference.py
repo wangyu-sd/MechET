@@ -13,9 +13,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 from mechet.in_place_grounded_flow import extract_import_fragments
-from mechet.inverse_trace_data import select_mapped_target
 from scripts.build_main_product_training_data import DENOMINATORS, validate_coverage
 from scripts.build_mech31k_main_product_only_sft import sha
+from scripts.pr96_source_product_side import prepare_source_reference
 
 
 def verify_source_identity(source, reference):
@@ -27,12 +27,17 @@ def verify_source_identity(source, reference):
     original_endpoint = source.get("full_precursor_state") or source["expected_precursor"]
     if reference.get("full_precursor_state", reference["expected_precursor"]) != original_endpoint:
         raise ValueError("ORIGINAL_ENDPOINT_CHANGED")
-    main, removed, _ = select_mapped_target(source["target_smiles"], source["target_smiles"], main_product_only=True)
+    expected_reference = prepare_source_reference(source)
+    main = expected_reference["target_smiles"]
     if reference["target_smiles"] != main or "." in main:
         raise ValueError("PUBLIC_MAIN_ROOT_CHANGED")
-    wanted_imports = sorted(extract_import_fragments(source) + list(removed))
+    wanted_imports = sorted(extract_import_fragments(expected_reference))
     if sorted(extract_import_fragments(reference)) != wanted_imports:
         raise ValueError("MISSING_OR_DUPLICATED_FIRST_USE_IMPORT")
+    if expected_reference["metadata"].get("product_side_definition") == "flower_full_compiled_product_side_v1":
+        for key in ("product_side_definition", "original_product_side", "legacy_selected_target"):
+            if reference["metadata"].get(key) != expected_reference["metadata"][key]:
+                raise ValueError("FULL_FLOWER_PRODUCT_SIDE_NOT_VERIFIED")
 
 
 def main():
