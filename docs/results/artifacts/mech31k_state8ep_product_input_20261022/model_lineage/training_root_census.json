@@ -1,0 +1,21 @@
+{
+  "checkpoint": "actual_epoch8_checkpoint4056",
+  "adapter_sha256": "bf5cacc93d2c5e64b11df585e0dd0febf790773e21d13ec0838fa8dd538cdf51",
+  "stage": "Stage-I state-only",
+  "train_file": "data/mech_uspto_31k_natural_language_event_v2/train.jsonl",
+  "train_sha256": "2477ca592841422b116b70fdab8fff06ee324e85e605e769e78fdbbd9a09192d",
+  "decision_rows": 32401,
+  "reaction_roots": 10152,
+  "root_product_component_counts": {"1": 266, "2": 9886},
+  "single_component_roots": 266,
+  "multi_component_roots": 9886,
+  "multi_component_percent": 97.3798,
+  "first_gold_tool_counts": {"apply_electron_flow": 10152},
+  "first_gold_import_count": 0,
+  "component_count_by_first_tool": [
+    {"components": 1, "first_tool": "apply_electron_flow", "count": 266},
+    {"components": 2, "first_tool": "apply_electron_flow", "count": 9886}
+  ],
+  "method": "Stream every byte of the actual contract-bound training JSONL; verify SHA; select metadata.decision_index==0; require unique source_id and exactly10152 roots; count dot-separated components of target_smiles and first assistant tool name.",
+  "coverage": "Full checkpoint training file, no sampling or filtering; not full24959 endpoint training reactions."
+}

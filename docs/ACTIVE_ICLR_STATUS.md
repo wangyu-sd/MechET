@@ -1,5 +1,22 @@
 # Active ICLR status
 
+## 2026-10-22: actual31k epoch8 paired input audit; new training paused
+
+User explicitly requested smoke then a main-product-only control. Same actual
+Stage-I state-only checkpoint4056/bf5cacc9...8cdf51 and32VALID reactions:
+two-component product-side input28/32 endpoints,29/32FINISH; only the MAIN
+component0/32 endpoints,12/32FINISH.87.5% is not strict product-only or full3120
+test accuracy. Complete actual training census:9886/10152 roots have two
+components;266 have one; all10152 first gold callsFLOW, zero firstIMPORT.
+All32 selected GT first events use removed-component atoms; the model always
+startsFLOW even after removal. Do not infer that more epochs alone solve this.
+
+The user paused the proposed new4A100 Stage-II submission. No new model,
+training task, benchmark field change, or unrelated cancellation occurred.
+Both raw254 closed-loop calls and all32 paired cases/GT are archived in Git;
+157 separate teacher-forcing records are also included. Report and links:
+`docs/results/MECH31K_STATE8EP_PRODUCT_INPUT_20261022.md`.
+
 ## 2026-09-18: natural-language protocol v2 repair
 
 Keep the agreed mechanism-first method.  The current implementation authority

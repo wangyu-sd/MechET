@@ -1,0 +1,43 @@
+{
+  "audit": "PASS",
+  "verified_prompts_and_attempts": 151,
+  "reactions": 32,
+  "structural_hits": 28,
+  "full_mixture_hits": 28,
+  "terminal_reactions": 29,
+  "accepted_actions": 148,
+  "raw_artifact_sha256_verified": true,
+  "driver_sha256_verified": true,
+  "actual_prompt_token_ids_match_replayed_current_state": true,
+  "generated_tool_calls_match_recorded_attempts": true,
+  "accepted_and_rejected_actions_independently_replayed": true,
+  "endpoint_scores_recomputed": true,
+  "all_generations_greedy": true,
+  "max_generated_tokens": 165,
+  "max_prompt_tokens": 1121,
+  "by_gt_electron_event_count": {
+    "1": {"reactions": 3, "hits": 3, "terminal": 3},
+    "2": {"reactions": 8, "hits": 8, "terminal": 8},
+    "3": {"reactions": 11, "hits": 7, "terminal": 8},
+    "5": {"reactions": 10, "hits": 10, "terminal": 10}
+  },
+  "input_condition": {
+    "name": "frozen_trace_view_product_side",
+    "two_component_inputs": 32,
+    "single_major_product_only": false,
+    "smaller_product_side_components": {
+      "[Cl-]": 15,
+      "[OH2+]B(Br)Br": 10,
+      "[Br-]": 3,
+      "CC(C)(C)OC(=O)[O-]": 2,
+      "[I-]": 1,
+      "CC(C)(C)[Si](C)(C)F": 1
+    }
+  },
+  "failures": [
+    {"id": "10643", "terminal": false, "accepted_actions": 1, "attempts": 2, "error": "ValueError:STATE_CYCLE"},
+    {"id": "20393", "terminal": true, "accepted_actions": 2, "attempts": 2, "error": "", "endpoint_matches_reference": false},
+    {"id": "29278", "terminal": false, "accepted_actions": 1, "attempts": 2, "error": "ValueError:STATE_CYCLE"},
+    {"id": "8002", "terminal": false, "accepted_actions": 7, "attempts": 8, "error": "ValueError:CHEMICAL_STATE_INVALID"}
+  ]
+}

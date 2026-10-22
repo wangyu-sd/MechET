@@ -1,5 +1,24 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-22 actual31k epoch8 input-dependence audit (32VALID smoke).**
+> Actual Stage-I STATE-ONLY checkpoint4056/epoch8, weight SHA
+> bf5cacc93d2c5e64b11df585e0dd0febf790773e21d13ec0838fa8dd538cdf51:
+> original TWO-component product-side roots28/32 endpoint hits,29/32FINISH;
+> SAME32 roots with only the MAIN component0/32 hits,12/32FINISH. Both core
+> and full-mixture endpoint scores independently checked.87.5% is NOT strict
+> main-product-only or full3120 test accuracy. Full actual training-file census:
+>10152 reactions/32401 decision rows;9886 two-component roots(97.38%),266
+> single-component roots; ALL10152 first gold decisionsFLOW, zero firstIMPORT.
+> All32 smoke GT first events use removed-component atoms, but model first
+> actions32FLOW/0IMPORT. This is a concrete root/partner-supervision gap, not
+> evidence that longer Stage-II training alone fixes main-product-only input.
+> Full raw inputs/outputs,254 closed-loop generations,64 episodes,32 GT rows,
+> plus157 separate teacher-forcing predictions are committed with the report:
+> docs/results/MECH31K_STATE8EP_PRODUCT_INPUT_20261022.md. New4A100 Stage-II
+> request is ON HOLD after user“等等”; no new training/job submitted. Existing
+> tasks/checkpoints/data unchanged. This audit does not silently redefine a
+> frozen benchmark or establish that every non-GT endpoint is chemically wrong.
+
 > **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
 > compact-history task was stopped because its action-conditioned observation
 > and private-map replay contract are diagnostic only.  The first clean v2
