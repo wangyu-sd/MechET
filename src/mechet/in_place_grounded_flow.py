@@ -107,6 +107,21 @@ def mapped_state_signature(smiles: str) -> tuple[tuple[Any, ...], tuple[Any, ...
     """
 
     mol = _mapped_mol(smiles)
+    def mapped_chirality(atom: Chem.Atom) -> int:
+        # RDKit's tetrahedral tag is relative to SMILES neighbor order, not
+        # an absolute configuration. Express its parity in sorted map order
+        # so equivalent traversals compare equal without discarding stereo.
+        tag = int(atom.GetChiralTag())
+        if atom.GetChiralTag() not in (
+            Chem.ChiralType.CHI_TETRAHEDRAL_CW,
+            Chem.ChiralType.CHI_TETRAHEDRAL_CCW,
+        ):
+            return tag
+        neighbors = [int(a.GetAtomMapNum()) for a in atom.GetNeighbors()]
+        parity = sum(a > b for i, a in enumerate(neighbors)
+                     for b in neighbors[i + 1:]) % 2
+        return 3 - tag if parity else tag
+
     atoms = tuple(
         sorted(
             (
@@ -117,7 +132,7 @@ def mapped_state_signature(smiles: str) -> tuple[tuple[Any, ...], tuple[Any, ...
                 int(atom.GetNumRadicalElectrons()),
                 int(atom.GetTotalNumHs(includeNeighbors=False)),
                 bool(atom.GetIsAromatic()),
-                int(atom.GetChiralTag()),
+                mapped_chirality(atom),
             )
             for atom in mol.GetAtoms()
         )
