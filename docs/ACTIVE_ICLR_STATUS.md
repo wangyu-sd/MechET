@@ -1,5 +1,12 @@
 # Active ICLR status
 
+> **2026-10-22 main-product-only root/IMPORT repair; training remains on hold.**
+> Existing31k trace-view reference audit12706/12724PASS;18unresolved retained.
+> Same32VALID GT32/32replay to correct endpoint; frozen epoch8actor0/32hits,
+>12/32FINISH. No backbone/Stage-II/RL or platform task changes. Complete raw
+> model inputs/outputs,32GT files and per-reaction audit are archived with
+> docs/results/MECH31K_MAIN_PRODUCT_IMPORT_FIX_20261022.md. Not all raw31k.
+
 ## 2026-09-18: natural-language protocol v2 repair
 
 Keep the agreed mechanism-first method.  The current implementation authority

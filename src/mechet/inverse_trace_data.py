@@ -99,11 +99,30 @@ def clear_atom_stereo(smiles: str, atom_maps: Sequence[int]) -> str:
 
 
 def select_mapped_target(
-    final_state: str, product_reference: str
+    final_state: str, product_reference: str, *, main_product_only: bool = False
 ) -> tuple[str, tuple[str, ...], dict[str, Any]]:
     """Select mapped product fragments and return the remaining root imports."""
     final_fragments = sorted(_fragments(final_state))
     reference_fragments = _fragments(product_reference)
+    if main_product_only:
+        # rxn_prod_min is a product SIDE, not necessarily one main molecule.
+        # Keep the withheld components in `available` so they become imports,
+        # never silently preload them in the public or private product root.
+        organic = [text for text in reference_fragments
+                   if any(atom.GetAtomicNum() == 6 for atom in _mol(text).GetAtoms())]
+        if not organic:
+            raise ValueError("MAIN_PRODUCT_NOT_FOUND: no carbon-containing component")
+        largest = max(_mol(text).GetNumHeavyAtoms() for text in organic)
+        candidates = [text for text in organic if _mol(text).GetNumHeavyAtoms() == largest]
+        keys = set()
+        for text in candidates:
+            molecule = _mol(text)
+            for atom in molecule.GetAtoms():
+                atom.SetAtomMapNum(0)
+            keys.add(Chem.MolToSmiles(molecule, canonical=True, isomericSmiles=True))
+        if len(keys) != 1:
+            raise ValueError("MAIN_PRODUCT_AMBIGUOUS: tied non-equivalent organic components")
+        reference_fragments = [sorted(candidates)[0]]
     available: dict[str, list[str]] = defaultdict(list)
     for fragment in final_fragments:
         available[_component_key(fragment)].append(fragment)
@@ -134,6 +153,7 @@ def select_mapped_target(
         "root_imports": len(imports),
         "component_match_ignores_maps": True,
         "component_match_ignores_stereo": True,
+        **({"input_condition": "main_product_only_v1"} if main_product_only else {}),
     }
 
 
@@ -205,6 +225,7 @@ def build_inverse_tool_sft_row(
     *,
     product_reference: str,
     observation_mode: str = "action_delta",
+    main_product_only: bool = False,
 ) -> dict[str, Any]:
     reaction_id = str(forward_trace.get("id") or "")
     forward_steps = list(forward_trace.get("steps") or [])
@@ -218,7 +239,7 @@ def build_inverse_tool_sft_row(
         str(forward_trace["initial_state"]), stereo_maps
     )
     target, initial_imports, target_metadata = select_mapped_target(
-        final_state, product_reference
+        final_state, product_reference, main_product_only=main_product_only
     )
     required_calls = len(initial_imports) + len(forward_steps) + 1
     env = TraceOwnedAgentEnv(

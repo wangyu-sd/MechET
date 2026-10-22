@@ -1,0 +1,19 @@
+{
+  "code_workspace": "/aaa/fionafyang/buddy1/whaleywang/MechET-pr94-main-product",
+  "branch": "fix/mech31k-main-product-import-20261022",
+  "commit": "c6de2c67fbb11aa16ac6bedb52fefed1dc18875f",
+  "git_diff_check": "PASS",
+  "unit_tests": {"passed": 986, "skipped": 17, "warnings": 1, "seconds": 274.18, "exit_code": 0},
+  "warning": "Existing PEFT config/vocabulary warning in test_joint_earho_artifacts.py",
+  "final_reference_artifact": "data/mech_uspto31k_main_product_only_v1_20261022_04",
+  "sampled_reference_artifact": "data/mech_uspto31k_main_product_only_v1_20261022_03",
+  "same32_reference_rows_byte_equivalent_as_parsed_json": {"inverse": 32, "state_sft": 189, "audits": 32},
+  "same32_first_reference_tools": {"import_fragments": 32},
+  "same32_reference_flow_events": 102,
+  "same32_reference_import_decisions": 55,
+  "backbone_changed": false,
+  "stage_ii_changed": false,
+  "rl_changed": false,
+  "training_submitted": false,
+  "remote_push_performed": false
+}

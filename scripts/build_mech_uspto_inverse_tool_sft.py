@@ -39,6 +39,8 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--quarantine", type=Path, required=True)
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--main-product-only", action="store_true",
+                        help="Expose only the principal organic product; other final-state components become imports.")
     parser.add_argument(
         "--observation-mode",
         choices=(
@@ -82,6 +84,7 @@ def main() -> int:
                     row,
                     product_reference=product_references[reaction_id],
                     observation_mode=args.observation_mode,
+                    main_product_only=args.main_product_only,
                 )
                 good.write(json.dumps(value, ensure_ascii=False) + "\n")
                 written += 1
@@ -125,7 +128,11 @@ def main() -> int:
         "failure_codes": dict(sorted(errors.items())),
         "accepted_trace_steps": dict(sorted(steps.items())),
         "accepted_root_imports": dict(sorted(imports.items())),
-        "target_source": "rxn_prod_min matched into globally mapped final state",
+        "target_source": (
+            "largest carbon-containing rxn_prod_min component matched into globally mapped final state"
+            if args.main_product_only else "rxn_prod_min matched into globally mapped final state"
+        ),
+        "input_condition": "main_product_only_v1" if args.main_product_only else "source_product_side",
         "endpoint_source": "finish_trace",
         "corpus_used": False,
         "stereo_policy": (

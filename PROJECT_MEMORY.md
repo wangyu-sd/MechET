@@ -1,5 +1,17 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-22 opt-in main-product-only root and first-use IMPORT repair.**
+> Backbone/Stage-II/RL frozen; no new training. Existing current-compiler
+> trace-view reference audit12706/12724PASS,18unresolved retained,training disabled.
+> Same32VALID gold trajectories32/32reach originalGT; frozen epoch8
+> checkpoint4056 Qwen3-0.6B still0/32closed-loop hits,12/32FINISH.
+> All32 firstGT toolsIMPORT; all32 firstmodel toolsFLOW. These are different
+> measurements; do not call GT replay a model gain or FINISH a correct endpoint.
+> Code, raw103model calls,32episodes,32GT files and full per-reaction audit:
+> docs/results/MECH31K_MAIN_PRODUCT_IMPORT_FIX_20261022.md.
+> This is not all31199raw reactions. Do not submit training or silently filter
+> the18 reference failures. Historical inference used6874ea7b runtime.
+
 > **2026-09-18 protocol-v2 full remote rebuild/training:** the running v1
 > compact-history task was stopped because its action-conditioned observation
 > and private-map replay contract are diagnostic only.  The first clean v2

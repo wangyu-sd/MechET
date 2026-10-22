@@ -381,6 +381,23 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     # differ from the product available to a real product-only runtime.
     current = target
     target_visible = _visible(target)
+    if metadata.get('target_selection', {}).get('input_condition') == 'main_product_only_v1':
+        # Use precisely the public runtime's unmapped canonical root. Source
+        # atom order/maps are reference metadata, not part of the input.
+        from scripts.run_natural_language_value_search import product_only_private_state
+        current = product_only_private_state(target_visible)
+        params = Chem.SmilesParserParams()
+        params.removeHs = False
+        source_mol = Chem.MolFromSmiles(target, params)
+        runtime_mol = Chem.MolFromSmiles(current, params)
+        match = runtime_mol.GetSubstructMatch(source_mol, useChirality=True)
+        if len(match) != source_mol.GetNumAtoms():
+            raise ValueError('public root is not stereo-isomorphic to source target')
+        translation = {
+            atom.GetAtomMapNum(): runtime_mol.GetAtomWithIdx(match[atom.GetIdx()]).GetAtomMapNum()
+            for atom in source_mol.GetAtoms()
+        }
+        next_private_map = max(mapped_atom_numbers(current), default=0) + 1
     public_row = dict(
         row,
         target_smiles=target_visible,
@@ -493,7 +510,15 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
     if events != len(steps):
         raise ValueError("event-decision coverage mismatch")
     runtime_expected = _translate_mapped_smiles(expected, translation)
-    if mapped_state_signature(current) != mapped_state_signature(runtime_expected):
+    mapped_endpoint_equal = mapped_state_signature(current) == mapped_state_signature(runtime_expected)
+    # At a completed endpoint, symmetric/private atom identity is not an
+    # observable label. Accept byte-identical isomeric unmapped chemistry in
+    # the opt-in public-root condition; never ignore stereo or protonation.
+    public_endpoint_equal = (
+        metadata.get('target_selection', {}).get('input_condition') == 'main_product_only_v1'
+        and _visible(current) == _visible(runtime_expected)
+    )
+    if not mapped_endpoint_equal and not public_endpoint_equal:
         raise ValueError("natural-language trace endpoint changed")
     output.append(
         _decision_row(

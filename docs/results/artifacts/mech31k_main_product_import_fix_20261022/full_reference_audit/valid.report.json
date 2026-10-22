@@ -1,0 +1,27 @@
+{
+  "reactions": 1319,
+  "reference_pass": 1317,
+  "decision_rows": 5552,
+  "flow_events": 2541,
+  "first_import_fragments": 1268,
+  "unresolved": 2,
+  "first_apply_electron_flow": 49,
+  "source_sha256": "1cf682a7b79ebe6faebcc28db4194b88ac9b51e7d86550d32b112228e0e08d4a",
+  "forward_sha256": "2b00ea45caa981cb7ca1111de7d126f2de3684f0bad7e3dfa4d723f925224f0b",
+  "outputs": {
+    "inverse": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/inverse/valid.jsonl",
+      "sha256": "bc21563c6cabf77b30b2487ee3b2ae954beeb4211cd19ff26e583a6f3115783c"
+    },
+    "state_sft": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/state_sft/valid.jsonl",
+      "sha256": "69cd73e651841605697197c19e851e3f1dd0eddf81060e4a74062b919e3b14fb"
+    },
+    "audits": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/audits/valid.jsonl",
+      "sha256": "6a4652bcdbad0e612005be01721d6ac38c3b7294b5cfd3dfc0fdc863a6683afd"
+    }
+  },
+  "unresolved_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/mech_uspto31k_main_product_only_v1_20261022_04/audits/valid.unresolved.jsonl",
+  "unresolved_sha256": "2fb41869d86d57ca9d86201132eb604a3f6eebd51a1f12193edfdd6db25c9370"
+}
