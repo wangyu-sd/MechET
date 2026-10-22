@@ -1,5 +1,38 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
+## Current update — 2026-10-23 01:37 CST
+
+The original scope is still active, not completed. PR96 remains OPEN and
+unmerged at requirement commit `001b761e1a2b0643340d8d24fc1b10586b1baec9`.
+The eight-A100 mech31k pipeline is actually running: latest readback3050/6600
+State updates (46.21%, epoch4.6212). Latest and validation-best checkpoint2640
+has eval loss0.00241115. All optimizer/scheduler, eight RNG and eight counter
+files were independently verified against the frozen deployed731af13 code;
+adapter SHA256 `36d7013cb56c6ac0c686030a6396a7f976b4fbb47d643b204ccb01e209b53798`.
+These are training and loss observations, not endpoint-accuracy results.
+
+FlowER `_03` stopped on shared-storage `OSError(EIO)` during output flushing
+at65350/257167 training reactions. It is NOT a live builder. Its completed
+VALID2776/2890 and TEST27595/28967 reference reports and all partial TRAIN files
+are retained and training-forbidden. All114 VALID and1372 TEST failures were
+independently reproduced. Two missing-source-bond cases retain both the
+actual before-action graph and original reference arrows; none was relabeled
+as a passing reaction. Full TRAIN review remains incomplete.
+
+Recovery adds new-version-only, rollback-safe batched appends and a bounded
+transient-I/O retry, source/hash/decision/counter checks for the last committed
+prefix, and byte/hash-verified reuse of completed splits. Original artifacts
+are read-only. All accepted recovered rows still require independent full
+history/source replay before authorization. No FlowER H20 job is submitted yet.
+The full local suite is553passed/1skipped; this includes actual partial-write/
+EIO and end-to-end recovery fixtures, not new model experiments. A real PEFT
+interrupted-versus-continuous CPU unit test also verifies exact adapter,
+optimizer, scheduler, RNG and token-counter recovery.
+
+The sections below preserve the earlier **00:38 capture-time snapshot**; where
+they say FlowER `_03` is active or preflight is pending, the current update above
+supersedes them. Live outputs remain authoritative.
+
 Status snapshot: 2026-10-23 00:38 CST. This is execution work on
 `exec/pr96-qwen35-dual-mainonly-20261022`, based on the merged PR95 plus PR96
 requirements. The first Taiji pipeline failed preflight; its replacement has

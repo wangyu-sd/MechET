@@ -158,7 +158,7 @@ class PR96Progress(TrainerCallback):
         tokens_per_sec = (values[1] - self.last_counts[1]) / seconds
         samples_per_sec = (values[0] - self.last_counts[0]) / seconds
         memory = {}
-        if torch.cuda.is_available():
+        if args.device.type == "cuda" and torch.cuda.is_available():
             device = args.device
             memory = {"memory_rank": args.local_rank,
                       "gpu_memory_allocated_bytes": torch.cuda.memory_allocated(device),

@@ -151,12 +151,17 @@ def test_nonfinite_metric_is_persisted_and_fails_instead_of_continuing(tmp_path)
     assert events[-1]["global_step"] == 10
 
 
-def test_checkpoint_counters_resume_instead_of_resetting_and_keep_throughput_session_local(tmp_path):
+def test_checkpoint_counters_resume_instead_of_resetting_and_keep_throughput_session_local(tmp_path, monkeypatch):
     from types import SimpleNamespace
     import json
     from transformers import TrainingArguments
     from transformers.trainer_callback import TrainerState
     from mechet.pr96_trainer import PR96Progress
+    # A GPU-equipped host may deliberately run a CPU verifier. Availability
+    # must not make the callback query CUDA memory for args.device='cpu'.
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: True)
+    monkeypatch.setattr(torch.cuda, "is_initialized", lambda: True)
+    monkeypatch.setattr(torch.cuda.memory, "is_initialized", lambda: True)
     checkpoint = tmp_path / "checkpoint-10"
     checkpoint.mkdir()
     (checkpoint / "pr96_counters.rank00.json").write_text(json.dumps({"counts": [200, 4000, 8000]}))
@@ -172,3 +177,51 @@ def test_checkpoint_counters_resume_instead_of_resetting_and_keep_throughput_ses
     assert record["supervised_tokens_consumed_global"] == 4100
     assert record["latest_checkpoint"] == str(checkpoint)
     assert record["supervised_tokens_per_second"] / record["samples_per_second"] == pytest.approx(20)
+
+
+def test_real_peft_optimizer_rng_and_counters_resume_match_uninterrupted_training(tmp_path):
+    """Exercise HF's actual resume loader, not just existence of its files."""
+    from peft import get_peft_model, LoraConfig
+    from transformers import TrainingArguments, TrainerCallback
+    from mechet.pr96_trainer import PR96Trainer, PR96Progress
+    torch.manual_seed(41)
+    initial = get_peft_model(TinyCausalModel(), LoraConfig(target_modules=["head"], r=2,
+                                                         lora_alpha=2, lora_dropout=.1))
+    rows = [{"input_ids": [i+1, i+2, i+3, i+4], "labels": [-100, -100, i+3, i+4]}
+            for i in range(8)]
+    def make(model, output, resume=None):
+        args = TrainingArguments(output_dir=str(output), use_cpu=True, report_to=[],
+                                 per_device_train_batch_size=1, gradient_accumulation_steps=2,
+                                 num_train_epochs=2, learning_rate=.01, seed=17, data_seed=17,
+                                 remove_unused_columns=False, save_strategy="epoch", logging_steps=1)
+        trainer = PR96Trainer(model=model, args=args, train_dataset=rows,
+                             data_collator=lambda batch: {k:torch.tensor([r[k] for r in batch]) for k in batch[0]})
+        trainer.add_callback(PR96Progress(trainer, track="mech31k", stage="state", lineage={},
+                                          resume_checkpoint=resume))
+        return trainer
+    full = make(deepcopy(initial), tmp_path / "continuous")
+    full.train()
+    assert full.optimizer.state_dict()["state"]
+    assert any(not torch.equal(value, initial.state_dict()[name])
+               for name, value in full.model.state_dict().items() if "lora_" in name)
+    class StopAtFirstEpoch(TrainerCallback):
+        def on_save(self, args, state, control, **kwargs):
+            if state.global_step == 4:
+                control.should_training_stop = True
+    interrupted = make(deepcopy(initial), tmp_path / "interrupted")
+    interrupted.add_callback(StopAtFirstEpoch())
+    interrupted.train()
+    assert interrupted.state.global_step == 4
+    checkpoint = tmp_path / "interrupted/checkpoint-4"
+    resumed = make(deepcopy(initial), tmp_path / "interrupted", checkpoint)
+    resumed.train(resume_from_checkpoint=str(checkpoint))
+    assert resumed.state.global_step == full.state.global_step == 8
+    assert resumed.examples_consumed == full.examples_consumed == 16
+    assert resumed.supervised_tokens_consumed == full.supervised_tokens_consumed == 32
+    for name, actual in resumed.model.state_dict().items():
+        assert torch.allclose(actual, full.model.state_dict()[name], atol=1e-7), name
+    for key, state in resumed.optimizer.state_dict()["state"].items():
+        for name, value in state.items():
+            expected = full.optimizer.state_dict()["state"][key][name]
+            assert torch.allclose(value, expected, atol=1e-7), name
+    assert resumed.lr_scheduler.state_dict() == full.lr_scheduler.state_dict()

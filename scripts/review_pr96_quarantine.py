@@ -9,6 +9,7 @@ from collections import Counter
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -41,6 +42,16 @@ def reproduce_failure(source):
             loc = frame.tb_frame.f_locals
             if frame.tb_frame.f_code.co_name == "convert_row":
                 states.update({k: loc[k] for k in ("current", "runtime_expected", "target", "event_state") if k in loc})
+                if "electron-source bond is absent" in str(exc) and "step" in loc:
+                    from mechet.in_place_grounded_flow import retain_mapped_components
+                    from scripts.build_natural_language_event_sft import _translate_mapped_smiles
+                    states["original_source_moves"] = loc.get("source_moves", [])
+                    states["runtime_moves"] = loc.get("moves", [])
+                    states["source_step_index"] = loc["step"].get("step_index")
+                    states["projected_source_before"] = _translate_mapped_smiles(
+                        retain_mapped_components(loc["step"]["state_before"], loc["present_maps"]),
+                        loc["translation"],
+                    )
             if frame.tb_frame.f_code.co_name == "audit_reference" and loc.get("child") is not None:
                 states["executed_successor"] = loc["child"].state
                 states["expected_successor"] = loc.get("expected", "")
@@ -59,18 +70,46 @@ def reproduce_failure(source):
             category = "public_event_successor_disagreement"
         elif "MAIN_PRODUCT_AMBIGUOUS" in error or "MAIN_PRODUCT_NOT_FOUND" in error:
             category = "ambiguous_or_absent_unique_main_product"
+        elif "electron-source bond is absent" in error:
+            from rdkit import Chem
+            params = Chem.SmilesParserParams()
+            params.removeHs = False
+            actual = states.get("event_state", states.get("current", ""))
+            expected = states.get("projected_source_before", "")
+            mol = Chem.MolFromSmiles(actual, params)
+            reference = Chem.MolFromSmiles(expected, params)
+            if mol is not None and reference is not None:
+                indexes = [{a.GetAtomMapNum(): a.GetIdx() for a in m.GetAtoms()} for m in (mol, reference)]
+                missing, originally_present = set(), []
+                for move in states.get("runtime_moves", []):
+                    container = move.get("source", {})
+                    if container.get("kind") != "BOND":
+                        continue
+                    pair = tuple(sorted(container["atoms"]))
+                    if len(pair) != 2:
+                        continue
+                    if not set(pair) <= indexes[0].keys() or mol.GetBondBetweenAtoms(*[indexes[0][a] for a in pair]) is None:
+                        missing.add(pair)
+                        originally_present.append(set(pair) <= indexes[1].keys() and reference.GetBondBetweenAtoms(*[indexes[1][a] for a in pair]) is not None)
+                states["missing_runtime_source_bonds"] = [list(p) for p in sorted(missing)]
+                states["missing_bonds_present_in_projected_source_before"] = originally_present
+                if missing:
+                    category = ("source_bond_absent_after_public_prefix_replay" if all(originally_present)
+                                else "source_bond_absent_in_recorded_reference")
         strict = same_chemical_state(actual, expected) if actual and expected else None
         no_stereo_same = (same_chemical_state(_without_stereo_for_diagnosis(actual),
                                             _without_stereo_for_diagnosis(expected))
                           if actual and expected else None)
         if category == "public_endpoint_replay_disagreement" and not strict and no_stereo_same:
             category = "endpoint_stereo_mismatch"
-        if strict is True:
+        before_failed_action = category.startswith("source_bond_absent_")
+        if strict is True and not before_failed_action:
             raise ValueError("REVIEW_CHEMICALLY_EQUAL_FAILURE_REQUIRES_FIX_NOT_QUARANTINE") from exc
         return {
             "source_id": str(source["source_id"]), "error": f"{type(exc).__name__}:{error}",
             "classification": category, "source_state": expected, "executed_state": actual,
             "strict_chemical_equal": strict, "same_only_after_stereo_removed_for_diagnosis": no_stereo_same,
+            "comparison_phase": "before_failed_action" if before_failed_action else "failed_successor_or_endpoint",
             "original_product_side": source["target_smiles"],
             "corrected_mapped_main_root": inverse["target_smiles"] if inverse else None,
             "original_full_endpoint": source.get("full_precursor_state", source.get("expected_precursor")),
@@ -88,38 +127,56 @@ def main():
     manifest_path = args.data_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     cases, counts = [], Counter()
-    for split in ("train", "valid", "test"):
-        report = manifest["reports"][split]
-        path = Path(report["unresolved_path"])
-        if sha(path) != report["unresolved_sha256"]:
-            raise ValueError("UNRESOLVED_JOURNAL_HASH_MISMATCH")
-        seen = set()
-        for line in path.open():
-            value = json.loads(line)
-            result = reproduce_failure(value["source_row"])
-            if result["source_row_sha256"] != value["source_row_sha256"]:
-                raise ValueError("UNRESOLVED_SOURCE_ROW_HASH_MISMATCH")
-            if result["error"] != value["error"]:
-                raise ValueError("UNRESOLVED_FAILURE_CHANGED_REQUIRES_REVIEW")
-            result["split"] = split
-            rid = result["source_id"]
-            if rid in seen:
-                raise ValueError("DUPLICATE_UNRESOLVED_ID")
-            seen.add(rid)
-            cases.append(result)
-            counts[result["classification"]] += 1
-            print(json.dumps({"stage": "quarantine-independent-reproduction", "split": split,
-                              "source_id": rid, "classification": result["classification"],
-                              "training_allowed": False}), flush=True)
-        if seen != set(report["unresolved_ids"]):
-            raise ValueError("UNRESOLVED_IDS_CHANGED")
+    if args.output.exists():
+        raise ValueError("REFUSING_TO_OVERWRITE_EXISTING_REVIEW")
+    cases_path = args.output.with_suffix(".cases.jsonl")
+    progress_path = args.output.with_suffix(".progress.jsonl")
+    total = sum(len(r["unresolved_ids"]) for r in manifest["reports"].values())
+    with cases_path.open("x") as case_sink, progress_path.open("x") as progress_sink:
+        for split in ("train", "valid", "test"):
+            report = manifest["reports"][split]
+            path = Path(report["unresolved_path"])
+            if sha(path) != report["unresolved_sha256"]:
+                raise ValueError("UNRESOLVED_JOURNAL_HASH_MISMATCH")
+            seen = set()
+            with path.open() as source:
+                for line in source:
+                    value = json.loads(line)
+                    result = reproduce_failure(value["source_row"])
+                    if result["source_row_sha256"] != value["source_row_sha256"]:
+                        raise ValueError("UNRESOLVED_SOURCE_ROW_HASH_MISMATCH")
+                    if result["error"] != value["error"]:
+                        raise ValueError("UNRESOLVED_FAILURE_CHANGED_REQUIRES_REVIEW")
+                    result["split"] = split
+                    rid = result["source_id"]
+                    if rid in seen:
+                        raise ValueError("DUPLICATE_UNRESOLVED_ID")
+                    seen.add(rid)
+                    cases.append(result)
+                    counts[result["classification"]] += 1
+                    case_sink.write(json.dumps(result) + "\n")
+                    case_sink.flush()
+                    os.fsync(case_sink.fileno())
+                    progress = {"stage": "quarantine-independent-reproduction", "split": split,
+                                "source_id": rid, "classification": result["classification"],
+                                "training_allowed": False, "processed": len(cases), "total": total,
+                                "percent": 100 * len(cases) / total,
+                                "timestamp": datetime.now(timezone.utc).isoformat()}
+                    progress_sink.write(json.dumps(progress) + "\n")
+                    progress_sink.flush()
+                    os.fsync(progress_sink.fileno())
+                    print(json.dumps(progress), flush=True)
+            if seen != set(report["unresolved_ids"]):
+                raise ValueError("UNRESOLVED_IDS_CHANGED")
     result = {"track": manifest["track"], "source_manifest_sha256": sha(manifest_path),
               "review_version": "pr96_reproduce_states_without_relabeling_v1",
               "quarantined_rows_training_allowed": False, "counts": dict(counts), "cases": cases,
               "all_failures_reproduced": True,
               "all_classified": not counts["unclassified_failure_needs_investigation"],
               "timestamp": datetime.now(timezone.utc).isoformat(),
-              "review_code_sha256": sha(Path(__file__))}
+              "review_code_sha256": sha(Path(__file__)),
+              "cases_journal": {"path": str(cases_path), "sha256": sha(cases_path)},
+              "progress_journal": {"path": str(progress_path), "sha256": sha(progress_path)}}
     with args.output.open("x") as out:
         out.write(json.dumps(result, indent=2) + "\n")
     print(json.dumps({"stage": "quarantine-review-complete", "counts": dict(counts),

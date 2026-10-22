@@ -26,6 +26,10 @@ from mechet.in_place_grounded_flow import (
     extract_import_fragments, mapped_atom_numbers, retain_mapped_components, schedule_imports,
 )
 from mechet.inverse_trace_data import select_mapped_target
+from mechet.pr96_durable_io import DurableAppendSet
+from scripts.pr96_build_recovery import (
+    copy_completed_split, encoded, recover_prefix, result_payload, verify_recovery_code,
+)
 from scripts.build_mech31k_main_product_only_sft import same_chemical_state, sha
 from scripts.build_natural_language_event_sft import convert_row, _worker_init
 from scripts.run_natural_language_value_search import (
@@ -177,6 +181,8 @@ def main():
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--workers", type=int, default=16)
+    parser.add_argument("--recover-from", type=Path,
+                        help="Read-only interrupted build; verify and copy committed work to a NEW output directory.")
     args = parser.parse_args()
     source = args.source_dir
     manifest_path = source / ("training_manifest.json" if args.track == "flower" else "manifest.json")
@@ -194,6 +200,14 @@ def main():
                   ROOT / "src/mechet/in_place_grounded_flow.py",
                   ROOT / "src/mechet/natural_language_electron_flow.py",
                   ROOT / "src/mechet/forward_expert.py"]
+    recovery = None
+    if args.recover_from:
+        verify_recovery_code(args.recover_from, code_paths, ROOT)
+        recovery = {"source_directory": str(args.recover_from),
+                    "source_progress_sha256": sha(args.recover_from / "progress.jsonl"),
+                    "chemical_dependencies_unchanged": True, "original_files_modified": False,
+                    "recovered_train_prefix": 0}
+    code_paths += [ROOT / "src/mechet/pr96_durable_io.py", ROOT / "scripts/pr96_build_recovery.py"]
     code_hashes = {str(p.relative_to(ROOT)): sha(p) for p in code_paths}
     for name in ("inverse", "state_sft", "audits"):
         (args.output_dir / name).mkdir()
@@ -209,23 +223,23 @@ def main():
     progress_path = args.output_dir / "progress.jsonl"
     reports, split_ids = {}, {}
     start = time.monotonic()
-    with progress_path.open("x") as progress:
+    with DurableAppendSet({"progress": progress_path}) as progress:
         def emit(**value):
             value.update(timestamp=datetime.now(timezone.utc).isoformat(), track=args.track,
                          elapsed_seconds=round(time.monotonic() - start, 2))
             text = json.dumps(value)
             print(text, flush=True)
-            progress.write(text + "\n")
-            progress.flush()
+            progress.commit({"progress": (text + "\n").encode()})
+        def io_event(value):
+            emit(**value)
         # This is a GT data-integrity check explicitly required by PR96, not a
         # small-subset model experiment. The complete split audit follows it.
         selected = read_selected(source / "valid.jsonl", 64, 17)
-        with (args.output_dir / "valid_preflight.jsonl").open("x") as preflight:
+        with DurableAppendSet({"preflight": args.output_dir / "valid_preflight.jsonl"}, on_retry=io_event) as preflight:
             for i, row in enumerate(selected, 1):
                 _worker_init()
                 ok, value = worker(json.dumps(row))
-                preflight.write(json.dumps({"ok": ok, "result": value}) + "\n")
-                preflight.flush()
+                preflight.commit({"preflight": encoded({"ok": ok, "result": value})})
                 emit(stage="valid-reference-preflight", processed=i, total=len(selected),
                      source_id=str(row["source_id"]), reference_pass=ok, percent=100*i/len(selected))
         for split in ("valid", "test", "train"):
@@ -236,32 +250,57 @@ def main():
             paths = {k: args.output_dir / k / f"{split}.jsonl" for k in ("inverse", "state_sft", "audits")}
             bad_path = args.output_dir / "audits" / f"{split}.unresolved.jsonl"
             accepted, unresolved, counter = set(), set(), Counter()
+            if args.recover_from and (args.recover_from / f"{split}.report.json").exists():
+                report = copy_completed_split(args.recover_from, split, manifest["splits"][split]["sha256"],
+                                              expected, paths, bad_path, io_event)
+                accepted, unresolved = set(report["accepted_ids"]), set(report["unresolved_ids"])
+                validate_coverage(original=expected, accepted=accepted, unresolved=unresolved)
+                split_ids[split], reports[split] = accepted | unresolved, report
+                (args.output_dir / f"{split}.report.json").write_text(json.dumps(report, indent=2) + "\n")
+                emit(stage="reference-replay", split=split, processed=expected, total=expected,
+                     percent=100, reference_pass=len(accepted), unresolved=len(unresolved),
+                     counts=report["counts"], reused_completed_split=True)
+                continue
             emit(stage="reference-replay", split=split, processed=0, total=expected, percent=0)
-            with inp.open() as reader, paths["inverse"].open("x") as invout, paths["state_sft"].open("x") as sftout, paths["audits"].open("x") as auditout, bad_path.open("x") as bad, mp.get_context("fork").Pool(max(1, args.workers), initializer=_worker_init) as pool:
-                for ok, value in pool.imap(worker, reader, chunksize=2):
+            with inp.open() as reader, DurableAppendSet(dict(paths, unresolved=bad_path), on_retry=io_event) as writer:
+                if args.recover_from and split == "train":
+                    last = None
+                    with (args.recover_from / "progress.jsonl").open() as saved_progress:
+                        for line in saved_progress:
+                            entry = json.loads(line)
+                            if entry.get("stage") == "reference-replay" and entry.get("split") == split:
+                                last = entry
+                    if last and last["processed"]:
+                        old_paths = {k: args.recover_from / k / f"{split}.jsonl" for k in paths}
+                        old_paths["unresolved"] = args.recover_from / "audits" / f"{split}.unresolved.jsonl"
+                        accepted, unresolved, counter = recover_prefix(reader, old_paths, last, writer, io_event)
+                        recovery["recovered_train_prefix"] = last["processed"]
+                        recovery["recovered_progress_record"] = last
+                        emit(stage="reference-replay", split=split, processed=last["processed"], total=expected,
+                             percent=100 * last["processed"] / expected, reference_pass=len(accepted),
+                             unresolved=len(unresolved), counts=dict(counter),
+                             committed_offsets=dict(writer.offsets), recovered_prefix=True)
+                pending = {k: bytearray() for k in writer.paths}
+                with mp.get_context("fork").Pool(max(1, args.workers), initializer=_worker_init) as pool:
+                  for ok, value in pool.imap(worker, reader, chunksize=2):
                     rid = value["audit"]["source_id"] if ok else value["source_id"]
                     if rid in accepted or rid in unresolved:
                         raise ValueError(f"DUPLICATE_SOURCE_ID:{split}:{rid}")
                     if ok:
                         accepted.add(rid)
-                        invout.write(json.dumps(value["inverse"], ensure_ascii=False) + "\n")
-                        for decision in value["decisions"]:
-                            sftout.write(json.dumps(decision, ensure_ascii=False) + "\n")
-                            counter[decision["metadata"]["decision_type"] + "_decisions"] += 1
-                        auditout.write(json.dumps(value["audit"], ensure_ascii=False) + "\n")
-                        counter["first_" + value["audit"]["first_tool"]] += 1
                     else:
                         unresolved.add(rid)
-                        value["split"] = split
-                        bad.write(json.dumps(value, ensure_ascii=False) + "\n")
-                        counter["error:" + value["error"].split(":", 1)[-1].split(":", 1)[0]] += 1
+                    payload, increment = result_payload(ok, value, split)
+                    counter.update(increment)
+                    for key, raw in payload.items():
+                        pending[key].extend(raw)
                     processed = len(accepted) + len(unresolved)
                     if processed % 50 == 0 or processed == expected:
-                        for f in (invout, sftout, auditout, bad):
-                            f.flush()
+                        offsets = writer.commit({k: bytes(v) for k,v in pending.items()})
+                        pending = {k: bytearray() for k in writer.paths}
                         emit(stage="reference-replay", split=split, processed=processed, total=expected,
                              percent=round(100 * processed / expected, 3), reference_pass=len(accepted),
-                             unresolved=len(unresolved), counts=dict(counter))
+                             unresolved=len(unresolved), counts=dict(counter), committed_offsets=offsets)
             validate_coverage(original=expected, accepted=accepted, unresolved=unresolved)
             split_ids[split] = accepted | unresolved
             reports[split] = {
@@ -285,6 +324,8 @@ def main():
             "original_moves_preserved": True, "full_source_denominators_accounted": True,
             "training_allowed": False, "status": "awaiting_independent_review_and_token_audit",
         }
+        if recovery:
+            result["recovery"] = recovery
         (args.output_dir / "manifest.json").write_text(json.dumps(result, indent=2) + "\n")
         for directory in (args.output_dir, args.output_dir / "state_sft"):
             (directory / "ARTIFACT_STATUS.json").write_text(json.dumps({
