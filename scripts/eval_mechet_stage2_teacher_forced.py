@@ -35,6 +35,7 @@ from scripts.eval_natural_language_event_local import (
 )
 
 DEFAULT_REVISION = "c1899de289a04d12100db370d81485cdf75e47ca"
+DEFAULT_ADAPTER_SHA = "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75"
 TYPES = ("import", "event", "finish")
 METRICS = (
     "correct_tool", "decision_exact", "argument_compile", "formal_execute",
@@ -161,6 +162,27 @@ def prepare(args: argparse.Namespace) -> int:
         },
         "mech_uspto_31k": {"mech_uspto_31k"},
     }
+    source_contract = {"kind": "row_corpus_metadata"}
+    # Frozen legacy FlowER rows store provenance at the artifact level, not
+    # per row. Authenticate the entire validation file; a filename is not proof.
+    if args.corpus == "flower_new_dataset" and source_names == {""}:
+        manifest_path = args.data.parent / "training_manifest.json"
+        if not manifest_path.is_file():
+            raise ValueError("legacy FlowER validation needs its frozen training manifest")
+        source_manifest = json.loads(manifest_path.read_text())
+        valid = (source_manifest.get("splits") or {}).get("valid") or {}
+        if (source_manifest.get("artifact_type") != "flower_strict_action_delta_trace_owned_tool_sft"
+                or source_manifest.get("source_dataset") != "FlowER flower_new_dataset"
+                or valid.get("rows") != len(sources)
+                or valid.get("sha256") != sha256(args.data)):
+            raise ValueError("legacy FlowER validation manifest corpus/rows/SHA mismatch")
+        source_names = {source_manifest["source_dataset"]}
+        source_contract = {
+            "kind": "sha_bound_frozen_validation_manifest",
+            "manifest": str(manifest_path),
+            "manifest_sha256": sha256(manifest_path),
+            "split": "valid",
+        }
     if not source_names or not source_names <= accepted_sources[args.corpus]:
         raise ValueError(f"source corpus mismatch: {source_names} vs {args.corpus}")
     for row in sources:
@@ -190,6 +212,7 @@ def prepare(args: argparse.Namespace) -> int:
         "corpus": args.corpus,
         "source": str(args.data),
         "source_sha256": sha256(args.data),
+        "source_contract": source_contract,
         "source_rows": len(sources),
         "validation_reactions": len(selected),
         "validation_decisions": len(tasks),
@@ -212,6 +235,21 @@ def prepare(args: argparse.Namespace) -> int:
 def _chunks(rows: list[dict[str, Any]], size: int) -> Iterable[list[dict[str, Any]]]:
     for begin in range(0, len(rows), size):
         yield rows[begin:begin + size]
+
+
+def ensure_run_contract(output: Path, rank: int, contract: Mapping[str, Any], *,
+                        has_predictions: bool) -> None:
+    """Bind output before generation; never adopt unbound previous predictions."""
+    path = output / f"run_contract.rank-{rank:02d}.json"
+    if path.exists():
+        if json.loads(path.read_text()) != dict(contract):
+            raise ValueError("immutable prediction run contract mismatch")
+    elif has_predictions:
+        raise ValueError("cannot resume predictions without immutable run contract")
+    else:
+        with path.open("x", encoding="utf-8") as writer:
+            json.dump(dict(contract), writer, indent=2)
+            writer.write("\n")
 
 
 def run(args: argparse.Namespace) -> int:
@@ -239,6 +277,22 @@ def run(args: argparse.Namespace) -> int:
     args.output.mkdir(parents=True, exist_ok=True)
     shard = args.output / f"decisions.shard-{rank:02d}-of-{world:02d}.jsonl"
     previous = read_jsonl(shard) if shard.exists() else []
+    contract = {
+        "model": args.model, "revision": args.revision, "adapter_sha256": weight_sha,
+        "input_tasks_sha256": meta["tasks_sha256"], "dtype": args.dtype,
+        "greedy_k1": True, "gold_state_conditioned": True,
+        "world_size": world, "batch_size": args.batch_size,
+        "max_new_tokens": args.max_new_tokens, "max_context": args.max_context,
+        "code_sha256": {
+            name: sha256(ROOT / name) for name in (
+                "scripts/eval_mechet_stage2_teacher_forced.py",
+                "scripts/eval_natural_language_event_local.py",
+                "scripts/build_natural_language_event_sft.py",
+                "scripts/build_natural_language_history_sft.py",
+            )
+        },
+    }
+    ensure_run_contract(args.output, rank, contract, has_predictions=bool(previous))
     existing = {row["key"] for row in previous}
     if len(existing) != len(previous):
         raise ValueError("duplicate rows in resumed prediction shard")
@@ -308,6 +362,7 @@ def run(args: argparse.Namespace) -> int:
         "model": args.model, "revision": args.revision, "adapter_sha256": weight_sha,
         "input_tasks_sha256": meta["tasks_sha256"], "dtype": args.dtype,
         "greedy_k1": True, "gold_state_conditioned": True,
+        "run_contract": contract,
     }
     (args.output / f"provenance.rank-{rank:02d}.json").write_text(
         json.dumps(provenance, indent=2) + "\n"
@@ -338,7 +393,35 @@ def aggregate(args: argparse.Namespace) -> int:
         raise ValueError("tasks changed after preparation")
     task_index = {row["key"]: row for row in tasks}
     predictions: list[dict[str, Any]] = []
+    provenances = []
+    common_identity = None
     for path in sorted(args.output.glob("decisions.shard-*-of-*.jsonl")):
+        match = re.fullmatch(r"decisions\.shard-(\d+)-of-(\d+)\.jsonl", path.name)
+        rank = int(match.group(1))
+        provenance_path = args.output / f"provenance.rank-{rank:02d}.json"
+        if not provenance_path.is_file():
+            raise ValueError(f"missing completed prediction provenance: {path.name}")
+        provenance = json.loads(provenance_path.read_text())
+        if (provenance.get("input_tasks_sha256") != meta["tasks_sha256"]
+                or provenance.get("greedy_k1") is not True
+                or provenance.get("gold_state_conditioned") is not True
+                or provenance.get("model") != getattr(args, "model", "Qwen/Qwen3-0.6B")
+                or provenance.get("revision") != getattr(args, "revision", DEFAULT_REVISION)
+                or provenance.get("adapter_sha256") != getattr(args, "expected_adapter_sha", DEFAULT_ADAPTER_SHA)):
+            raise ValueError("prediction provenance differs from frozen model/tasks protocol")
+        identity = {key: provenance.get(key) for key in (
+            "model", "revision", "adapter_sha256", "input_tasks_sha256", "dtype",
+            "greedy_k1", "gold_state_conditioned", "run_contract",
+        )}
+        if common_identity is not None and identity != common_identity:
+            raise ValueError("mixed prediction provenance across shards")
+        common_identity = identity
+        if "run_contract" in provenance:
+            contract_path = args.output / f"run_contract.rank-{rank:02d}.json"
+            if (not contract_path.is_file()
+                    or json.loads(contract_path.read_text()) != provenance["run_contract"]):
+                raise ValueError("prediction provenance/run contract mismatch")
+        provenances.append(provenance)
         predictions.extend(read_jsonl(path))
     keys = [row["key"] for row in predictions]
     if len(set(keys)) != len(keys):
@@ -408,6 +491,10 @@ def aggregate(args: argparse.Namespace) -> int:
         "planned_decisions": len(tasks), "completed_decisions": len(predictions),
         "missing_decisions": len(missing), "complete": not missing,
         "selection": meta,
+        "prediction_provenance": provenances,
+        "immutable_resume_contract": bool(provenances) and all(
+            "run_contract" in item for item in provenances
+        ),
         "overall": counts(predictions), "by_type": by_type,
         "tool_confusion_matrix": confusion,
         "import_by_purpose": import_purpose,
@@ -466,7 +553,7 @@ def main() -> int:
     parser.add_argument("--input", type=Path, help="prepared dataset directory")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--adapter", type=Path)
-    parser.add_argument("--expected-adapter-sha", default="")
+    parser.add_argument("--expected-adapter-sha", default=DEFAULT_ADAPTER_SHA)
     parser.add_argument("--model", default="Qwen/Qwen3-0.6B")
     parser.add_argument("--revision", default=DEFAULT_REVISION)
     parser.add_argument("--dtype", choices=("bfloat16", "float16"), default="bfloat16")

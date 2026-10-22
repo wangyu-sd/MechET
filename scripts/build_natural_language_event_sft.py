@@ -479,6 +479,12 @@ def convert_row(
                 f"natural-language replay failed at {events}: {replay.get('code')}"
             )
         successor = str(replay["state_smiles"])
+        if private_state_audit_sink is not None and mapped_state_signature(
+            successor
+        ) != mapped_state_signature(authoritative_successor):
+            raise ValueError(
+                f"audited reference FLOW successor differs from source at {events}"
+            )
         output.append(
             _decision_row(
                 row=public_row,

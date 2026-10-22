@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 
 import pytest
@@ -9,8 +10,9 @@ import pytest
 from mechet.forward_expert import verify_electron_step
 from mechet.natural_language_electron_flow import build_inventory
 from scripts.eval_mechet_stage2_teacher_forced import (
-    assert_visible_private_parity, prepare, prepare_task_rows, read_jsonl,
+    assert_visible_private_parity, prepare, prepare_task_rows, read_jsonl, aggregate,
 )
+from scripts import eval_mechet_stage2_teacher_forced as evaluator
 
 
 def _source(corpus: str, split: str = "valid") -> dict:
@@ -115,3 +117,75 @@ def test_fail_closed_on_reference_successor_mismatch():
     source["metadata"]["trace_plan"]["steps"][0]["state_after"] = source["target_smiles"]
     with pytest.raises(ValueError):
         prepare_task_rows(source)
+
+
+def test_manifest_authenticates_legacy_flower_rows_without_row_provenance(tmp_path):
+    source = _source("flower_mech_proof")
+    source["metadata"].pop("source_dataset")
+    source["metadata"].pop("source_split")
+    file = tmp_path / "valid.jsonl"
+    file.write_text(json.dumps(source) + "\n")
+    manifest = {
+        "artifact_type": "flower_strict_action_delta_trace_owned_tool_sft",
+        "source_dataset": "FlowER flower_new_dataset",
+        "splits": {"valid": {"rows": 1, "sha256": hashlib.sha256(file.read_bytes()).hexdigest()}},
+    }
+    (tmp_path / "training_manifest.json").write_text(json.dumps(manifest))
+    args = argparse.Namespace(data=file, corpus="flower_new_dataset", expected_source_rows=1,
+                              sample_reactions=0, seed=17, output=tmp_path / "prepared")
+    assert prepare(args) == 0
+    assert len(read_jsonl(args.output / "tasks.jsonl")) == 2
+
+
+def test_manifest_cannot_authenticate_a_changed_legacy_flower_validation_file(tmp_path):
+    source = _source("flower_mech_proof")
+    source["metadata"].pop("source_dataset")
+    source["metadata"].pop("source_split")
+    file = tmp_path / "valid.jsonl"
+    file.write_text(json.dumps(source) + "\n")
+    (tmp_path / "training_manifest.json").write_text(json.dumps({
+        "artifact_type": "flower_strict_action_delta_trace_owned_tool_sft",
+        "source_dataset": "FlowER flower_new_dataset",
+        "splits": {"valid": {"rows": 1, "sha256": "0" * 64}},
+    }))
+    args = argparse.Namespace(data=file, corpus="flower_new_dataset", expected_source_rows=1,
+                              sample_reactions=0, seed=17, output=tmp_path / "prepared")
+    with pytest.raises(ValueError, match="manifest.*SHA"):
+        prepare(args)
+
+
+def test_resume_refuses_changed_contract_or_unbound_predictions(tmp_path):
+    contract = {"adapter_sha256": "original", "input_tasks_sha256": "tasks"}
+    evaluator.ensure_run_contract(tmp_path, 0, contract, has_predictions=False)
+    evaluator.ensure_run_contract(tmp_path, 0, contract, has_predictions=True)
+    with pytest.raises(ValueError, match="contract"):
+        evaluator.ensure_run_contract(tmp_path, 0, dict(contract, adapter_sha256="changed"),
+                                      has_predictions=True)
+    with pytest.raises(ValueError, match="contract"):
+        evaluator.ensure_run_contract(tmp_path, 1, contract, has_predictions=True)
+
+
+def test_aggregate_refuses_predictions_with_wrong_task_provenance(tmp_path):
+    source = tmp_path / "valid.jsonl"
+    source.write_text(json.dumps(_source("mech_uspto_31k")) + "\n")
+    prepared = tmp_path / "prepared"
+    prepare(argparse.Namespace(data=source, corpus="mech_uspto_31k", expected_source_rows=1,
+                              sample_reactions=0, seed=17, output=prepared))
+    predictions = tmp_path / "predictions"
+    predictions.mkdir()
+    records = []
+    for task in read_jsonl(prepared / "tasks.jsonl"):
+        records.append(dict(task, predicted_name=task["gold_name"],
+                            predicted_arguments=task["gold_arguments"],
+                            generation_error="", execution_error="",
+                            decision_exact=True, successor_chemical_exact=True,
+                            import_fragment_exact=False, finish_exact=task["decision_type"]=="finish"))
+    (predictions / "decisions.shard-00-of-01.jsonl").write_text(
+        "".join(json.dumps(row)+"\n" for row in records))
+    (predictions / "provenance.rank-00.json").write_text(json.dumps({
+        "model": "Qwen/Qwen3-0.6B", "revision": evaluator.DEFAULT_REVISION,
+        "adapter_sha256": evaluator.DEFAULT_ADAPTER_SHA, "input_tasks_sha256": "wrong-tasks",
+        "dtype": "float16", "greedy_k1": True, "gold_state_conditioned": True,
+    }))
+    with pytest.raises(ValueError, match="provenance"):
+        aggregate(argparse.Namespace(input=prepared, output=predictions))
