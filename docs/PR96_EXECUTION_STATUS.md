@@ -1,12 +1,13 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 04:20 CST
+## Current update — 2026-10-23 05:24 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
 Taiji reports IsSuccess=true/END; its8A100 are released. The FlowER
-reference rebuild completed; its independent full-history/quarantine audits
-are running. No H20 task has been submitted yet.
+reference rebuild and independent full-history/quarantine audits completed.
+Original-source consistency verification is running; full token caches remain
+pending. No H20 task has been submitted yet.
 No complete TEST model evaluation has been executed on either track.
 
 ### mech31k: real training and model predictions
@@ -130,9 +131,14 @@ in accepted or quarantine ledgers. Old `_04` outputs have the wrong root scope
 and `_05` was interrupted before the late-H inventory fix; both are historical,
 training-forbidden artifacts. They cannot substitute for `_06` approval.
 
-The dependent workflow started history PID2142031 with16workers and
-quarantine-review PID2142032 with4workers. All2751accepted VALID histories
-already passed independent public-prefix replay; TEST/TRAIN continue.
+The dependent workflow completed history with16workers and quarantine review
+with4workers. All243753TRAIN/2751VALID/27400TEST accepted reactions passed
+independent public-prefix replay, including every rendered State and compressed
+history decision. Full History manifest SHA256:
+`edd299a832e7f15c53d134b74015097865737837d587c723db4527d2b9290f06`.
+All online prefixes match, original source-arrow decisions are preserved, and
+no failed or future action enters history. The completed history builder is
+not a running job; its old PID2142031 has ended.
 Quarantine review completed04:13:20: all15120failures reproduced and classified,
 with11764public event-successor disagreements,2221main-product ambiguities,
 1129endpoint disagreements and6source bonds absent after public-prefix replay.
@@ -140,8 +146,13 @@ No quarantined row was relabeled as accepted. The FlowER
 paired64+independent64VALID cohorts are frozen and disjoint (each60rootIMPORT,
 4rootFLOW; frozen cohort SHA256
 `0b2615103ac87146c228da429da060cf2adaa977cee06d74c8cd6bd4b748822f`).
-Full source integrity and new-version authorization follow both complete
-audits. A second dependent workflow then builds both full token caches.
+Full source integrity/new-version authorization now runs as PID2218389 under
+parent2063994. At05:24CST it had checked27000/257167TRAIN source records
+(10.50% of this separate stage), after verifying full source/reference file
+hashes. This rechecks every original ID, unchanged source steps/endpoints and
+the corrected main-root/import partition; it is not another model run or a
+restart of history replay. Approval is not yet issued. A second dependent
+workflow2067621 then builds both full token caches.
 Their logs are `outputs/audits/pr96_flower_after_build_20261023_06.log` and
 `outputs/audits/pr96_flower_token_after_approval_20261023_06.log`.
 No duplicate builders or premature training jobs are needed.
@@ -174,11 +185,11 @@ this still is not the official unfiltered28971TEST. Root selection did not use
 future moves or GT precursors. Final model SHA and generation budget will be
 bound only after the FlowER model is actually trained and selected. This is
 input construction/audit only, not TEST inference or test-set parameter tuning.
-Full TRAIN history replay reached146750/243753(60.20%) at04:51CST; the actual
-post-token submission operator2166044 waits on token-workflow2067621 and will
+Full TRAIN history replay completed243753/243753; the actual post-token
+submission operator2166044 waits on token-workflow2067621 and will
 verify all completed source/history/token hashes and fresh resources before
 submitting the exact8H20draft. It must not be duplicated by a manual submission.
-Remaining: completeFlowERhistory/source/token gates, submit8H20, runState5epochs, apply its own fixed
+Remaining: completeFlowERsource/token gates, submit8H20, runState5epochs, apply its own fixed
 GO/NO-GO and runHistory3epochs ifGO, then archive final evidence. No auto merge.
 
 ## Historical update — 2026-10-23 01:56 CST (superseded)
