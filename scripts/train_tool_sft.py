@@ -957,6 +957,14 @@ def main() -> int:
         )
     )
     trainer.save_model()
+    if qwen35_text_only:
+        trainer.save_state()
+        if int(os.environ.get("RANK", "0")) == 0:
+            print(json.dumps({"phase": "QWEN35_STAGE_TRAINED",
+                              "epoch": trainer.state.epoch,
+                              "global_step": trainer.state.global_step,
+                              "configured_epochs": float(training.get("num_train_epochs", 0)),
+                              "final_checkpoint": str(training_args.output_dir)}), flush=True)
     output = Path(training_args.output_dir)
     output.mkdir(parents=True, exist_ok=True)
     report["base_model_revision"] = resolved_revision or None
