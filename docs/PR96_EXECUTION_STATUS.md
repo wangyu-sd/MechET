@@ -159,6 +159,25 @@ Full accepted FlowER budget audit verified all273904reaction IDs/audit hashes:
 maximum23decisions and25imported fragments, none beyond64/32public budgets;
 all public roots are single components. Evidence:
 `outputs/audits/pr96_flower_full_reference_budget_20261023_06.json`.
+
+Additional full TEST input audit completed04:50:59CST (no model calls):
+`outputs/audits/pr96_flower_test_public_input_contract_20261023_06.json` and
+`outputs/audits/pr96_flower_frozen_test_public_roots_20261023_06.jsonl`.
+All28967original strict-trace TEST IDs/source hashes are accounted for.
+28768have single-component, stereo-equivalent public/private product roots;
+199have non-equivalent largest-carbon-component ties and remain ROOT_UNDEFINED.
+The27400strict reference passes are a different count:1368further reactions
+have valid roots but unresolved later reference replay. Future evaluation must
+keep the full28967denominator, report both availability limits and retain
+the199undefined IDs. Do not substitute27400or28768for the full strict TEST;
+this still is not the official unfiltered28971TEST. Root selection did not use
+future moves or GT precursors. Final model SHA and generation budget will be
+bound only after the FlowER model is actually trained and selected. This is
+input construction/audit only, not TEST inference or test-set parameter tuning.
+Full TRAIN history replay reached146750/243753(60.20%) at04:51CST; the actual
+post-token submission operator2166044 waits on token-workflow2067621 and will
+verify all completed source/history/token hashes and fresh resources before
+submitting the exact8H20draft. It must not be duplicated by a manual submission.
 Remaining: completeFlowERhistory/source/token gates, submit8H20, runState5epochs, apply its own fixed
 GO/NO-GO and runHistory3epochs ifGO, then archive final evidence. No auto merge.
 
