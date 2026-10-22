@@ -1,15 +1,16 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 07:01 CST
+## Current update — 2026-10-23 07:44 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
 Taiji reports IsSuccess=true/END; its8A100 are released. The FlowER
 reference rebuild, independent full-history/quarantine and original-source
-consistency audits completed. Its new reference subset is authorized; complete
-History token cache and actual GPU preflight remain required. The complete
-State token cache passed its manifest checks; eight CPU ranks have automatically
-started History tokenization. No H20 task has been submitted yet.
+consistency audits completed. Its new reference subset is authorized; both
+complete token caches passed their manifest checks. The sole submission operator
+is independently rehashing source files and Arrow shards. Actual eight-H20
+deployment/preflight and formal training remain outstanding; no H20 task has
+been submitted yet.
 No complete TEST model evaluation has been executed on either track.
 
 ### mech31k: real training and model predictions
@@ -182,18 +183,26 @@ truncation. TRAIN contains2493771031input tokens and251982800supervised tokens;
 the longest input is3419tokens and longest supervised span600tokens. The
 immutable deployed pipeline derives a768-token generation budget from these
 training labels, instead of retaining an insufficient512-token limit.
-History tokenization automatically started at06:59:39CST under torchrun2319814,
-with all eight CPU ranks active. Its complete manifest remains pending. The
-sole submission operator still requires both complete caches and independently
-checks all Arrow hashes before creating the H20 task. No GPU model training or
-TEST inference is running here.
+History tokenization automatically started at06:59:39CST and completed with
+exit0 at07:42:36CST. Its complete manifest SHA256 is
+`6795858154bc84cdac2bdcdadc4d86b3da8a8731ecca61667f03863ae93c9042`.
+History also has1908035TRAIN/409VALID decisions, zero truncation/windowing/
+fallback and correct owned XML masks. Its TRAIN input contains2646532471tokens,
+with the same251982800supervised tokens; longest input3529/supervised span600.
+Both actual immutable731 token validators passed, deriving768-token generation
+budgets from each TRAIN cache. The completed token workflow is not running now.
+The sole submission operator2166044 has independently begun rehashing all
+authorized source/history files and Arrow shards before creating the H20 task.
+No GPU model training or TEST inference is running here.
 Their logs are `outputs/audits/pr96_flower_after_build_20261023_06.log` and
 `outputs/audits/pr96_flower_token_after_approval_20261023_06.log`.
 No duplicate builders or premature training jobs are needed.
 
 The8H20/ZJK config is prepared only. Submission requires complete reference,
-history, quarantine and token gates, fresh resource/donor checks, and an actual
-eight-H20 compatibility preflight. It uses independent FlowER initialization
+history, quarantine and token gates plus fresh resource/donor checks. Formal
+training additionally requires the actual eight-H20 compatibility preflight
+after allocation; a successful submission alone is not a training pass.
+It uses independent FlowER initialization
 and the already deployed731af13 GPU trainer, Tencenttaiji6 image, pinned
 runtime and45sdefault-POD heartbeat. Local corrected data code is ee9901e;
 this is intentionally separate from the immutable running GPU code.
