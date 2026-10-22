@@ -1,6 +1,116 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 01:56 CST
+## Current update — 2026-10-23 03:34 CST
+
+PR96 is active and unmerged. The mech31k State stage completed all10epochs;
+its fixed64VALID gate passed and its own History stage is running. The FlowER
+track is rebuilding corrected references; no H20 task has been submitted yet.
+No complete TEST model evaluation has been executed on either track.
+
+### mech31k: real training and model predictions
+
+Task `meteor_mechet_pr96_mech31k_qwen35_08b_2stage_8a100_qy_20261023_02`,
+instance `8b1d810aa162a6bb01a16470ef310393`, uses8A100 in Qingyuan.
+The independently initialized official Qwen3.5-0.8B actor completed6600State
+updates at02:49CST. Its validation-loss best is checkpoint3300 (epoch5), not
+the last checkpoint. Best adapter SHA256:
+`04f6be2cdeb1575a60c8a58f308d4abb56332fe7b698d5b09644fed0f88754a3`.
+All10epoch losses and full resume files are saved. The42239 unique training
+decisions were consumed over10epochs;422400 distributed consumed examples
+include one padding example per epoch, not422400 unique examples.
+
+| Fixed paired64VALID metric | State best | History epoch1 | History epoch2 |
+|---|---:|---:|---:|
+| Main-product-only greedyK1 structural endpoint |52/64|51/64|53/64|
+| Complete precursor-component endpoint |52/64|51/64|53/64|
+| TF root IMPORT fragment exact |54/60|49/60|52/60|
+| TF FLOW chemical successor exact |157/166|161/166|159/166|
+| TF FINISH |64/64|64/64|64/64|
+| Truncated generations |0|0|0|
+
+These are frozen VALID predictions, not TEST accuracy. TF conditions on the
+reference prefix; greedyK1 starts from a single public product and generates
+its own IMPORT/FLOW/FINISH actions. State52/64=81.25%. The64processed episodes
+are not64successful executions:62actually reached FINISH; the other2were
+rejected. Small paired changes are descriptive, not established improvement.
+
+The State gate was GO, and History automatically started at02:52CST from
+this track's best State adapter. At03:33:34 it reached1690/3300updates,
+51.21% of its required5epochs. Per-epoch real generation reports and raw
+inputs/outputs already exist for epochs1and2. Final best-paired and independent
+64VALID confirmation remain pending.
+
+All following paths are relative to `/aaa/fionafyang/buddy1/whaleywang/MechET/`:
+
+- Run/configs/checkpoints/progress:
+  `outputs/agent/pr96_mech31k_qwen35_08b_mainonly_20261022_01/`.
+- State report and all8rank raw call journals:
+  `validation/state_best_paired/` below that run.
+- History epoch reports and all raw calls:
+  `models/history/epoch_validation/step-{660,1320}/` below that run.
+- Independent replay of every captured State model request and action:
+  `outputs/audits/pr96_mech31k_state64_raw_replay_20261023_01.json`.
+  All64single-component private/public roots,642actual model requests
+  (330TF+312closed-loop), exact messages/token IDs, parsed model outputs and
+  executor successors reproduce the saved reports. All52endpoint hits reproduce.
+  This audit used captured outputs only; it did not run a new model experiment.
+
+### FlowER: complete initial product inventory, not the legacy selected component
+
+The legacy source `target_smiles` was already a preselected component. Merely
+rechecking it missed equal-size organic ties and two recoverable cases where
+the legacy selector chose an inorganic byproduct. The corrected selector uses
+the original target plus the original compiled initial product imports. Later
+source imports, including explicit hydrogens, remain available for first-use
+IMPORT but cannot win initial product selection. Original electronic arrows,
+full endpoints, stereochemistry, charge and explicit H are retained.
+The PR96 rule is the unique largest carbon-containing component by heavy-atom
+count; it does not add an unrequested metal exclusion or a future-GT heuristic.
+It is a declared product proxy, not an independently curated desired-product label.
+
+Full root-construction/inventory precheck examined all289024source reactions:
+0unexpected errors. Root-defined counts were255170/257167TRAIN,
+2865/2890VALID and28768/28967TEST; remaining root ambiguities are explicit.
+These counts are NOT strict electron-replay acceptance or model accuracy.
+Evidence: `outputs/audits/pr96_all_product_sides_20261023_06/report.json`.
+
+Fresh full public reference replay is running in
+`data/pr96_flower_mainonly_source_arrows_v2_20261023_06/`:
+
+| Split | Original denominator | Reference pass | Explicit unresolved |
+|---|---:|---:|---:|
+| VALID |2890|2751|139|
+| TEST |28967|27400|1567|
+| TRAIN |257167|In progress; see durable progress journal|In progress|
+
+TRAIN had processed107900/257167(41.96%) at03:32:52CST. This is data
+preparation progress, not a training or prediction result. All source IDs stay
+in accepted or quarantine ledgers. Old `_04` outputs have the wrong root scope
+and `_05` was interrupted before the late-H inventory fix; both are historical,
+training-forbidden artifacts. They cannot substitute for `_06` approval.
+
+The actual dependent workflow waits for builder PID2061317 to finish, then
+replays all accepted histories, reviews all unresolved cases, freezes its own
+paired64+independent64VALID, verifies source identity and authorizes a new
+version. A second dependent workflow then builds both full token caches.
+Their logs are `outputs/audits/pr96_flower_after_build_20261023_06.log` and
+`outputs/audits/pr96_flower_token_after_approval_20261023_06.log`.
+No duplicate builders or premature training jobs are needed.
+
+The8H20/ZJK config is prepared only. Submission requires complete reference,
+history, quarantine and token gates, fresh resource/donor checks, and an actual
+eight-H20 compatibility preflight. It uses independent FlowER initialization
+and the already deployed731af13 GPU trainer, Tencenttaiji6 image, pinned
+runtime and45sdefault-POD heartbeat. Local corrected data code is ee9901e;
+this is intentionally separate from the immutable running GPU code.
+
+Latest full local code verification:564passed/1skipped, including real FlowER
+root and late-H regression fixtures. Tests are not new experimental results.
+Remaining: complete31kHistory5epochs/final paired+independent confirmation;
+completeFlowERdata/token gates, submit8H20, runState5epochs, apply its own fixed
+GO/NO-GO and runHistory3epochs ifGO, then archive final evidence. No auto merge.
+
+## Historical update — 2026-10-23 01:56 CST (superseded)
 
 The original scope is still active, not completed. PR96 remains OPEN and
 unmerged at requirement commit `001b761e1a2b0643340d8d24fc1b10586b1baec9`.
