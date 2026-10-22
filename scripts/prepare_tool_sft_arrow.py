@@ -46,7 +46,9 @@ def iter_jsonl_byte_shard(source: Path, rank: int, world_size: int):
     with source.open("rb") as handle:
         handle.seek(start)
         if start:
-            handle.readline()
+            handle.seek(start - 1)
+            if handle.read(1) != b"\n":
+                handle.readline()
         while True:
             position = handle.tell()
             if rank + 1 < world_size and position >= end:
@@ -332,6 +334,7 @@ def aggregate(reports: list[dict[str, Any]], max_length: int) -> dict[str, Any]:
         "p95_raw_input_tokens": percentile_from_histogram(raw_lengths, 0.95),
         "p99_raw_input_tokens": percentile_from_histogram(raw_lengths, 0.99),
         "min_supervised_tokens": min(supervised, default=0),
+        "max_supervised_tokens": max(supervised, default=0),
         "max_assistant_turns": max(
             (int(report["max_assistant_turns"]) for report in reports), default=0
         ),
@@ -436,6 +439,8 @@ def main() -> int:
                 for split in sources
             },
         }
+        for record in manifest["splits"].values():
+            record["arrow_sha256"] = {Path(path).name: sha256(Path(path)) for path in record["arrow_files"]}
         expected_train = int(contract.get("expected_train_rows", 0) or 0)
         if manifest["splits"]["train"]["n_rows"] != expected_train:
             raise ValueError(

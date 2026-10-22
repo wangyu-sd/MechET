@@ -181,3 +181,21 @@ class PR96Progress(TrainerCallback):
             self._emit(args, state, {"event": "checkpoint-saved", "checkpoint": str(checkpoint),
                        "adapter_model_sha256": manifest["files"]["adapter_model.safetensors"],
                        "optimizer_scheduler_rng_saved": True, "best_checkpoint": state.best_model_checkpoint})
+        if self.stage == "history":
+            # Keep every epoch's raw I/O outside rotating checkpoint folders.
+            import yaml
+            from .pr96_eval_runtime import run_validation
+            cfg = yaml.safe_load(Path(self.lineage["config_file"]).read_text())
+            target = Path(args.output_dir) / "epoch_validation" / f"step-{state.global_step}"
+            paths = [str(target)]
+            if state.is_world_process_zero and target.exists():
+                paths[0] += "-attempt-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+            if torch.distributed.is_available() and torch.distributed.is_initialized():
+                torch.distributed.broadcast_object_list(paths, src=0)
+            report = run_validation(cfg, self.trainer.model, self.trainer.processing_class,
+                                    adapter=checkpoint, output_dir=paths[0], cohort="paired")
+            if state.is_world_process_zero:
+                metadata_path = checkpoint / "pr96_checkpoint_manifest.json"
+                metadata = json.loads(metadata_path.read_text())
+                metadata["epoch_validation_report"] = str(report)
+                metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")

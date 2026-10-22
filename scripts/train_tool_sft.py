@@ -607,6 +607,9 @@ def main() -> int:
     if pr96:
         from mechet.pr96_trainer import validate_pr96_config
         validate_pr96_config({**cfg, "training": training}, max_steps=max_steps)
+        if not args.dry_run:
+            from mechet.pr96_artifacts import verify_training_bindings
+            verify_training_bindings(cfg, cache_manifest)
     seed = int(training.get("seed", 17))
     data_seed = int(training.get("data_seed", seed))
     validated_train = (
