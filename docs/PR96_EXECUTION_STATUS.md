@@ -90,7 +90,7 @@ All following paths are relative to `/aaa/fionafyang/buddy1/whaleywang/MechET/`:
   `outputs/audits/pr96_mech31k_history128_raw_replay_20261023_01.json`.
   All128single-product public/private roots and1321actual model requests
   reproduce: exact native history prompts/token IDs, raw XML outputs/EOS,
-  parsed actions, every executor successor, full per-rank scores and journals.
+  parsed actions, all recorded successor states, full per-rank scores and journals.
   All532non-root TF prompts are distinct from State-only prompts, confirming
   that actual Stage-II requests include compressed accepted-action history.
   Paired51/64and independent52/64full endpoints reproduce unchanged; this
