@@ -12,6 +12,13 @@ LORA_TARGETS = ["q_proj", "k_proj", "v_proj", "o_proj", "in_proj_qkv",
                 "gate_proj", "up_proj", "down_proj"]
 
 
+def validate_runtime_versions(*, torch_version, cuda_version, triton_version):
+    # PyTorch2.6 declares triton==3.2.0. FLA's advisory >=3.3 recommendation
+    # cannot override that hard ABI/API dependency: AttrsDescriptor was removed.
+    if (torch_version != "2.6.0+cu118" or cuda_version != "11.8" or triton_version != "3.2.0"):
+        raise ValueError(f"PR96_TORCH_TRITON_RUNTIME_MISMATCH:{torch_version}:{cuda_version}:{triton_version}")
+
+
 def tool_prefix(tokenizer, messages, tools):
     if not tools or not messages or messages[-1].get("role") != "user":
         raise ValueError("QWEN35_EXPECTS_CURRENT_USER_STATE_AND_TOOLS")

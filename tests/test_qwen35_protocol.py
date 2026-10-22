@@ -50,6 +50,13 @@ class TinyCausalModel(torch.nn.Module):
         return SimpleNamespace(logits=self.head(self.embedding(input_ids)[:, logits_to_keep, :]))
 
 
+def test_runtime_rejects_triton_that_breaks_pinned_torch_inductor_imports():
+    from mechet.qwen35_protocol import validate_runtime_versions
+    validate_runtime_versions(torch_version="2.6.0+cu118", cuda_version="11.8", triton_version="3.2.0")
+    with pytest.raises(ValueError, match="TORCH_TRITON"):
+        validate_runtime_versions(torch_version="2.6.0+cu118", cuda_version="11.8", triton_version="3.3.1")
+
+
 def test_selective_loss_and_gradients_match_full_causal_loss_with_different_spans_per_row():
     from mechet.qwen35_protocol import supervised_loss
     torch.manual_seed(17)

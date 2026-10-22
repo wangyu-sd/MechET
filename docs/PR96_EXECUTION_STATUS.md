@@ -1,9 +1,29 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-Status snapshot: 2026-10-23 00:15 CST. This is execution work on
+Status snapshot: 2026-10-23 00:27 CST. This is execution work on
 `exec/pr96-qwen35-dual-mainonly-20261022`, based on the merged PR95 plus PR96
-requirements. No new Taiji training job has been submitted yet. No model
+requirements. The first Taiji pipeline failed preflight; formal training has
+not begun and a corrected replacement is being prepared. No model
 accuracy below is inferred from GT replay or unit tests.
+
+Update 00:26 CST: first eight-A100 allocation reached the real deployed
+preflight, then failed before any formal optimizer update. Triton3.3.1 is
+incompatible with Torch2.6's Inductor `AttrsDescriptor` import. The failure and
+default POD logs are retained, not reported as successful training. The
+corrected isolated runtime uses the base Torch-declared Triton3.2.0; direct FLA
+operation imports and actual CPU language-model load (752393024 parameters,
+zero missing/unexpected keys) pass. Replacement submission remains required.
+Runtime archive:
+`artifacts/pr96_runtime_tf550_peft0181_baseTr320_py311_20261023_02.tar.gz`,
+SHA256 `a3b6ab71e016cc0cef60b2b273dfb6ccbfcdddc8b2973c6cdd75f317b8d8c8d0`.
+
+FlowER `_02` builder was stopped explicitly after reproducing the native
+high-symmetry metal VF2 stall. All partial artifacts remain training-forbidden.
+Exact canonical **isomeric** positive checks now avoid that enumeration;
+unequal spellings still use the chirality-aware fallback. A real stalled-state
+regression also rejects a separate enantiomer mismatch. Full source rebuild
+`data/pr96_flower_mainonly_source_arrows_v2_20261023_03` is active with16workers;
+it does not reuse incomplete rows or change the original split denominator.
 
 ## Fixed scope
 
@@ -36,9 +56,10 @@ The new data remain training-disabled pending actual eight-device preflight. The
 PR95 data and its `training_allowed=false` status were not overwritten.
 
 FlowER build is active at
-`data/pr96_flower_mainonly_source_arrows_v2_20261022_02/progress.jsonl`:
-VALID 2776/2890 replay-passed; TEST 27595/28967 replay-passed; TRAIN is still
-processing. Every failure is retained with its source row. These are reference
+`data/pr96_flower_mainonly_source_arrows_v2_20261023_03/progress.jsonl`.
+The stopped `_02` attempt had VALID2776/2890 and TEST27595/28967 replay-passed;
+these are historical partial-build figures, not `_03` completion evidence.
+Every failure is retained with its source row. These are reference
 conversion checks, not test-set model predictions. Failure review, history,
 authorization and tokenizer audit remain pending for this track.
 
@@ -61,9 +82,9 @@ future tool responses are not supervised. Selective vocabulary projection has
 the same loss and gradients as dense causal CE in regression tests.
 
 An isolated Python3.11 overlay uses Transformers5.5.0, PEFT0.18.1,
-HF-Hub1.5.0, tokenizers0.22.2, FLA0.5.2 and Triton3.3.1 over the proven
+HF-Hub1.5.0, tokenizers0.22.2, FLA0.5.2 and base Triton3.2.0 over the proven
 Torch2.6/CUDA11.8 meteor base. It is packaged as
-`artifacts/pr96_runtime_tf550_peft0181_triton331_py311_20261022_01.tar.gz`.
+`artifacts/pr96_runtime_tf550_peft0181_baseTr320_py311_20261023_02.tar.gz`.
 No global meteor packages were changed. Actual eight-device forward/backward,
 LoRA updates, kernel behavior and generation still need deployed preflight.
 
@@ -91,7 +112,7 @@ structured default-stdout progress. They are not evidence of a launched job.
 5. Run all requested epochs and validations. Stage-II must fail closed if its own
    fixed gate is not met. No TEST accuracy is claimed until actual inference.
 
-Latest complete local suite: 540 passed, 1 skipped. Pinned Transformers5.5
+Latest complete local suite: 543 passed, 1 skipped. Pinned Transformers5.5
 protocol/evaluation/trainer checks: 26 passed (two upstream SWIG deprecation
 warnings); the real two-rank CPU DDP accumulation/update tests also pass using
 spawn, including unequal token counts and partial final accumulation windows.

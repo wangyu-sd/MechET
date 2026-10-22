@@ -12,7 +12,10 @@ def training_identity(cfg):
     code = ["src/mechet/pr96_trainer.py", "src/mechet/qwen35_protocol.py",
             "src/mechet/collator.py", "scripts/train_tool_sft.py",
             "scripts/prepare_tool_sft_arrow.py", "src/mechet/pr96_evaluation.py",
-            "src/mechet/pr96_eval_runtime.py", "src/mechet/pr96_artifacts.py"]
+            "src/mechet/pr96_eval_runtime.py", "src/mechet/pr96_artifacts.py",
+            "scripts/build_mech31k_main_product_only_sft.py", "scripts/run_natural_language_value_search.py",
+            "src/mechet/in_place_grounded_flow.py", "src/mechet/natural_language_electron_flow.py",
+            "src/mechet/forward_expert.py", "scripts/build_natural_language_event_sft.py"]
     identity = {"model": cfg["model_name_or_path"], "training": cfg["training"],
                 "lora": cfg.get("lora", {}), "contract": cfg.get("contract", {}),
                 "bindings": {k: settings[k] for k in ("track", "stage", "base_manifest_sha256",

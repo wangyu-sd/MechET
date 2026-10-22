@@ -34,11 +34,15 @@ export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONUNBUFFERED=1
 export TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
 export TORCH_NCCL_ASYNC_ERROR_HANDLING=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 python - <<'PY'
-import sys,torch,transformers,peft
+import sys,torch,triton,transformers,peft
+from mechet.qwen35_protocol import validate_runtime_versions
 if sys.version_info[:2]!=(3,11):raise ValueError('PR96_REQUIRES_PYTHON311')
-if not torch.__version__.startswith('2.6.0') or torch.version.cuda!='11.8':raise ValueError('PR96_WRONG_TORCH_CUDA_BASE')
+validate_runtime_versions(torch_version=torch.__version__,cuda_version=torch.version.cuda,triton_version=triton.__version__)
+from transformers import Qwen3_5ForCausalLM
+from fla.ops.gated_delta_rule import chunk_gated_delta_rule
+from fla.modules import FusedRMSNormGated
 print({'phase':'runtime-imported','python':sys.version,'torch':torch.__version__,'cuda':torch.version.cuda,
-       'transformers':transformers.__version__,'peft':peft.__version__,
+       'transformers':transformers.__version__,'peft':peft.__version__,'triton':triton.__version__,
        'gpu_names':[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]},flush=True)
 PY
 cd "$pr96_node/code"
