@@ -1,10 +1,40 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-Status snapshot: 2026-10-23 00:27 CST. This is execution work on
+Status snapshot: 2026-10-23 00:38 CST. This is execution work on
 `exec/pr96-qwen35-dual-mainonly-20261022`, based on the merged PR95 plus PR96
-requirements. The first Taiji pipeline failed preflight; formal training has
-not begun and a corrected replacement is being prepared. No model
+requirements. The first Taiji pipeline failed preflight; its replacement has
+passed real eight-GPU compatibility and entered formal State-SFT. No model
 accuracy below is inferred from GT replay or unit tests.
+
+## Actual allocation and formal training
+
+Replacement task
+`meteor_mechet_pr96_mech31k_qwen35_08b_2stage_8a100_qy_20261023_02`, instance
+`8b1d810aa162a6bb01a16470ef310393`, ordinary Qingyuan8A100, Tencenttaiji6.
+Actual Ceph mount and8A100-SXM4-40GB verified. Every rank passed finite nonzero
+gradients, synchronized DDP gradients and scratch parameter updates. Scratch
+weights were discarded. Raw base-model generations are saved; all eight were
+truncated and not parseable, so this is **not** a base-model chemistry/format
+accuracy pass. The native-template GT parse/mask/prefix round-trip passed.
+
+Formal training reloaded the official base and has reached at least130/6600
+optimizer steps (1.97% of10epochs). Step80 loss0.04933/finite gradient norm;
+later steps are archived in the machine-readable snapshot below. Stable
+throughput is about55–58decisions/sec after startup, suggesting roughly2–3h
+for State training including overhead, not a promised completion time. No
+endpoint accuracy or Stage-II GO is claimed. Stage-II still requires the same
+fixed paired64 gate and own best State checkpoint.
+
+Durable evidence:
+`docs/results/artifacts/pr96_execution_20261023/mech31k_launch_snapshot.json`,
+and shared `outputs/agent/pr96_mech31k_qwen35_08b_mainonly_20261022_01/`.
+All eight training processes' stdout matches the default POD PID1 pipe. The
+CLI log endpoint currently shows only bootstrap lines while structured shared
+progress updates continuously; do not infer absent training from that CLI view.
+The HF telemetry's `memory_rank=-1` is a TrainingArguments label, not an actual
+missing GPU; device identities come from the eight real preflight records.
+
+## Retained failed attempt and runtime correction
 
 Update 00:26 CST: first eight-A100 allocation reached the real deployed
 preflight, then failed before any formal optimizer update. Triton3.3.1 is
