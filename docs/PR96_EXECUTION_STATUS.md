@@ -1,14 +1,14 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 01:37 CST
+## Current update — 2026-10-23 01:43 CST
 
 The original scope is still active, not completed. PR96 remains OPEN and
 unmerged at requirement commit `001b761e1a2b0643340d8d24fc1b10586b1baec9`.
-The eight-A100 mech31k pipeline is actually running: latest readback3050/6600
-State updates (46.21%, epoch4.6212). Latest and validation-best checkpoint2640
-has eval loss0.00241115. All optimizer/scheduler, eight RNG and eight counter
+The eight-A100 mech31k pipeline is actually running: latest readback3380/6600
+State updates (51.21%, epoch5.1212). Latest and validation-best checkpoint3300
+has eval loss0.00217462. All optimizer/scheduler, eight RNG and eight counter
 files were independently verified against the frozen deployed731af13 code;
-adapter SHA256 `36d7013cb56c6ac0c686030a6396a7f976b4fbb47d643b204ccb01e209b53798`.
+adapter SHA256 `04f6be2cdeb1575a60c8a58f308d4abb56332fe7b698d5b09644fed0f88754a3`.
 These are training and loss observations, not endpoint-accuracy results.
 
 FlowER `_03` stopped on shared-storage `OSError(EIO)` during output flushing
@@ -22,12 +22,18 @@ as a passing reaction. Full TRAIN review remains incomplete.
 Recovery adds new-version-only, rollback-safe batched appends and a bounded
 transient-I/O retry, source/hash/decision/counter checks for the last committed
 prefix, and byte/hash-verified reuse of completed splits. Original artifacts
-are read-only. All accepted recovered rows still require independent full
+are read-only. Actual new build `_04` is live (PID1992817, session75487):
+completed VALID/TEST copies are hash-identical, and10200/65350 committed TRAIN
+prefix reactions have been verified/copied. This is storage-recovery progress,
+not full training conversion or model accuracy. No source IDs are removed.
+All accepted recovered rows still require independent full
 history/source replay before authorization. No FlowER H20 job is submitted yet.
-The full local suite is553passed/1skipped; this includes actual partial-write/
+The full local suite is554passed/1skipped; this includes actual partial-write/
 EIO and end-to-end recovery fixtures, not new model experiments. A real PEFT
 interrupted-versus-continuous CPU unit test also verifies exact adapter,
 optimizer, scheduler, RNG and token-counter recovery.
+Full quarantine review also supports ordered CPU parallelism while preserving
+per-case raw states and refusing a final approval after any interrupted review.
 
 The sections below preserve the earlier **00:38 capture-time snapshot**; where
 they say FlowER `_03` is active or preflight is pending, the current update above
