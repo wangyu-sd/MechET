@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import pytest
 
 
 def test_stereo_failure_review_preserves_both_states_and_never_relabels_it_as_success():
@@ -37,7 +38,8 @@ def test_missing_source_bond_review_records_actual_graph_and_original_arrow_with
     assert result["training_allowed"] is False
 
 
-def test_partial_quarantine_review_preserves_raw_states_and_progress_but_never_publishes_approval(tmp_path, monkeypatch):
+@pytest.mark.parametrize("workers", [1, 2])
+def test_partial_quarantine_review_preserves_raw_states_and_progress_but_never_publishes_approval(tmp_path, monkeypatch, workers):
     import hashlib
     import pytest
     from mechet.inverse_trace_data import build_inverse_tool_sft_row
@@ -55,7 +57,7 @@ def test_partial_quarantine_review_preserves_raw_states_and_progress_but_never_p
               "unresolved_ids": [str(failed["source_id"]), str(replayable["source_id"])]}
     (tmp_path / "manifest.json").write_text(json.dumps({"track": "mech31k", "reports": {"train": report}}))
     output = tmp_path / "review.json"
-    monkeypatch.setattr("sys.argv", ["review", "--data-dir", str(tmp_path), "--output", str(output)])
+    monkeypatch.setattr("sys.argv", ["review", "--data-dir", str(tmp_path), "--output", str(output), "--workers", str(workers)])
     with pytest.raises(ValueError, match="NOW_REPLAYABLE"):
         module.main()
     assert not output.exists()

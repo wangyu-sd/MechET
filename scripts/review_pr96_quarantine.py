@@ -6,9 +6,11 @@ reference, accepts a failed trajectory, or permits any quarantined row to train.
 """
 import argparse
 from collections import Counter
+from contextlib import nullcontext
 from datetime import datetime, timezone
 import hashlib
 import json
+import multiprocessing as mp
 import os
 from pathlib import Path
 import sys
@@ -119,11 +121,19 @@ def reproduce_failure(source):
     raise ValueError(f"REVIEW_NOW_REPLAYABLE_MUST_REPAIR_DATA:{source['source_id']}")
 
 
+def _review_line(line):
+    value = json.loads(line)
+    return value, reproduce_failure(value["source_row"])
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--data-dir", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
+    p.add_argument("--workers", type=int, default=1)
     args = p.parse_args()
+    if args.workers < 1:
+        p.error("workers must be positive")
     manifest_path = args.data_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text())
     cases, counts = [], Counter()
@@ -139,10 +149,10 @@ def main():
             if sha(path) != report["unresolved_sha256"]:
                 raise ValueError("UNRESOLVED_JOURNAL_HASH_MISMATCH")
             seen = set()
-            with path.open() as source:
-                for line in source:
-                    value = json.loads(line)
-                    result = reproduce_failure(value["source_row"])
+            context = mp.get_context("fork").Pool(args.workers) if args.workers > 1 else nullcontext(None)
+            with path.open() as source, context as pool:
+                reviewed = pool.imap(_review_line, source, chunksize=1) if pool else map(_review_line, source)
+                for value, result in reviewed:
                     if result["source_row_sha256"] != value["source_row_sha256"]:
                         raise ValueError("UNRESOLVED_SOURCE_ROW_HASH_MISMATCH")
                     if result["error"] != value["error"]:
