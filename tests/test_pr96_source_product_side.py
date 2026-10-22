@@ -98,3 +98,27 @@ def test_formal_builder_replays_repaired_real_references_to_original_gt_without_
     assert result["inverse"]["metadata"]["trace_plan"]["steps"] == source["metadata"]["trace_plan"]["steps"]
     from scripts.finalize_pr96_reference import verify_source_identity
     verify_source_identity(source, result["inverse"])
+
+
+def test_later_source_imports_are_preserved_without_becoming_root_product_candidates():
+    from scripts.pr96_source_product_side import prepare_source_reference
+    row = flower_row("[CH3:1][OH:2].[Br-:3]", "[CH3:1][OH:2]", ["[Br-:3]"])
+    late = "[CH3:4][CH2:5][CH2:6][CH3:7]"
+    row["messages"].append({"role": "assistant", "tool_calls": [{"function": {
+        "name": "import_fragment", "arguments": {"fragment_smiles": late}}}]})
+    result = prepare_source_reference(row)
+    assert mapped_atom_numbers(result["target_smiles"]) == {1, 2}
+    assert late in result["metadata"]["trace_plan"]["initial_imports"]
+    assert late not in result["metadata"]["original_product_side"]
+
+
+def test_real_late_hydrogen_restorations_keep_all_source_atoms_and_reach_original_gt():
+    from scripts.pr96_source_product_side import prepare_source_reference
+    from scripts.build_main_product_training_data import audit_reference
+    source = json.loads((Path(__file__).parent / "fixtures/pr96_flower_late_hydrogen_imports.json").read_text())
+    prepared = prepare_source_reference(source)
+    imports = prepared["metadata"]["trace_plan"]["initial_imports"]
+    assert {36, 37, 38, 55, 65, 82} <= set().union(*(mapped_atom_numbers(v) for v in imports))
+    result = audit_reference(prepared)
+    assert result["audit"]["reference_endpoint_exact"] is True
+    assert result["audit"]["original_moves_preserved"] is True

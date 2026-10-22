@@ -27,7 +27,7 @@ def product_side(source):
             if inventory & maps:
                 raise ValueError("IMPORT_MAP_OVERLAP")
             inventory.update(maps)
-        if (inventory != mapped_atom_numbers(side)
+        if (not mapped_atom_numbers(side) <= inventory
                 or not mapped_atom_numbers(plan["steps"][0]["state_before"]) <= inventory):
             raise ValueError("FLOWER_PRODUCT_SIDE_ATOM_INVENTORY_MISMATCH")
         return side, "flower_full_compiled_product_side_v1"
@@ -45,8 +45,21 @@ def prepare_source_reference(source):
     # A FlowER legacy target is already a single preselected component; it can
     # itself be inorganic or a catalyst. Repartition the complete recorded
     # product side instead of retaining that old selection implicitly.
-    plan["initial_imports"] = (list(removed) if definition == "flower_full_compiled_product_side_v1"
-                               else original_imports + list(removed))
+    if definition == "flower_full_compiled_product_side_v1":
+        side_maps = mapped_atom_numbers(side)
+        later_imports = []
+        for fragment in original_imports:
+            maps = mapped_atom_numbers(fragment)
+            if not maps & side_maps:
+                later_imports.append(fragment)
+            elif not maps <= side_maps:
+                raise ValueError("FLOWER_PRODUCT_SIDE_PARTIAL_IMPORT_OVERLAP")
+        # Step-specific source imports (notably explicit-H restorations) were
+        # not part of the initial product side. Preserve their original first
+        # use, but never let a future imported fragment win root selection.
+        plan["initial_imports"] = list(removed) + later_imports
+    else:
+        plan["initial_imports"] = original_imports + list(removed)
     present = set(mapped_atom_numbers(target))
     for fragment in plan["initial_imports"]:
         maps = mapped_atom_numbers(fragment)
