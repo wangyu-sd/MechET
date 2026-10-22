@@ -31,6 +31,10 @@ on:
       - "scripts/train_tool_sft.py"
       - "scripts/run_natural_language_value_search.py"
       - "scripts/eval_natural_language_event_local.py"
+      - "scripts/eval_mechet_stage2_teacher_forced.py"
+      - "scripts/build_natural_language_event_sft.py"
+      - "scripts/run_taiji_stage2_teacher_forced_flower_mech31k.sh"
+      - "tests/test_mechet_stage2_teacher_forced.py"
       - "scripts/audit_stage2_v2_protocol_parity.py"
       - "scripts/run_taiji_stage2_v2_matched_valid256.sh"
       - "scripts/run_vnext_autoresearch.py"
@@ -123,6 +127,8 @@ jobs:
             scripts/train_tool_sft.py \
             scripts/run_natural_language_value_search.py \
             scripts/eval_natural_language_event_local.py \
+            scripts/eval_mechet_stage2_teacher_forced.py \
+            scripts/build_natural_language_event_sft.py \
             scripts/audit_stage2_v2_protocol_parity.py \
             scripts/run_vnext_autoresearch.py \
             scripts/summarize_vnext_pointer_search.py \
@@ -142,10 +148,12 @@ jobs:
             tests/test_statistical_evaluation.py \
             tests/test_evaluation_seed_aggregation.py \
             tests/test_stage2_v2_protocol_parity.py \
+            tests/test_mechet_stage2_teacher_forced.py \
             tests/test_vnext_autoresearch.py
       - name: Validate Stage-II v2 launcher/config syntax
         run: |
           bash -n scripts/run_taiji_stage2_v2_matched_valid256.sh
+          bash -n scripts/run_taiji_stage2_teacher_forced_flower_mech31k.sh
           python -m json.tool configs/taiji/meteor_mechet_stage2_v2_matched_valid256_8a100_qy_20260929.json >/dev/null
       - name: Validate vNext AutoResearch configs and launchers
         run: |
