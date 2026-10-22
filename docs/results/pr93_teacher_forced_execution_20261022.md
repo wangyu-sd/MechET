@@ -1,6 +1,8 @@
 # PR93 frozen Stage-II next-action diagnosis
 
-Status: mech-USPTO-31k completed; FlowER inference in progress. This is the
+Status: mech-USPTO-31k completed; FlowER inference stopped at the user's request,
+with316/491 decision outputs preserved. No completed FlowER aggregate is
+reported, no automatic continuation or new evaluation is authorized. This is the
 user-authorized fixed64/32 diagnosis, not a full-test or product-start result.
 
 ## Frozen inputs and actual execution
@@ -18,6 +20,9 @@ user-authorized fixed64/32 diagnosis, not a full-test or product-start result.
   All491 public prompts/tools match the saved Stage-II validation SFT rows
   exactly. All selected reference FLOWs replay and match their authentic source
   successor under the stricter audit.
+  This491/491 input-parity audit is distinct from the cancelled model generation;
+  it does not mean491 predictions finished. The partial316 outputs are not a
+  completed64-reaction accuracy result.
 - mech31k source:1319 current-compiler trace-view validation reactions;
   stratified32 selected,157 decisions; all selected reference FLOWs pass replay.
   This actor is FlowER-trained, so this is a cross-corpus local diagnostic,
