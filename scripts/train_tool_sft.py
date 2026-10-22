@@ -607,6 +607,9 @@ def main() -> int:
     if pr96:
         from mechet.pr96_trainer import validate_pr96_config
         validate_pr96_config({**cfg, "training": training}, max_steps=max_steps)
+        if resume_checkpoint is not None:
+            from mechet.pr96_artifacts import verify_resume_checkpoint
+            verify_resume_checkpoint({**cfg, "training": training}, resume_checkpoint)
         if not args.dry_run:
             from mechet.pr96_artifacts import verify_training_bindings
             verify_training_bindings(cfg, cache_manifest)
@@ -980,9 +983,12 @@ def main() -> int:
         data_collator=AssistantOnlyCollator(tokenizer),
     )
     if pr96:
+        from mechet.pr96_artifacts import training_identity
         trainer.add_callback(PR96Progress(trainer, track=pr96["track"], stage=pr96["stage"],
                                           lineage={**pr96, "base_revision": resolved_revision,
-                                                   "train_file_sha256": report["train_file_sha256"]}))
+                                                   "training_identity": training_identity({**cfg, "training": training}),
+                                                   "train_file_sha256": report["train_file_sha256"]},
+                                          resume_checkpoint=resume_checkpoint))
     trainer.train(
         resume_from_checkpoint=(
             str(resume_checkpoint) if resume_checkpoint is not None else None
@@ -1021,6 +1027,7 @@ def main() -> int:
     if pr96:
         report["pr96"] = {
             **pr96, "global_step_completed": trainer.state.global_step,
+            "training_identity": training_identity({**cfg, "training": training}),
             "full_epochs_completed": trainer.state.epoch,
             "best_checkpoint": trainer.state.best_model_checkpoint,
             "best_eval_loss": trainer.state.best_metric,

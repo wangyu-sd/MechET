@@ -6,6 +6,85 @@ import torch
 from test_qwen35_protocol import TinyCausalModel
 
 
+def _ddp_gradient_parity(rank, rendezvous, output_dir, microbatches):
+    """Two real Gloo ranks, not simulated DDP gradient averaging."""
+    import os
+    import torch.distributed as dist
+    from accelerate.state import AcceleratorState
+    from transformers import TrainingArguments
+    from mechet.pr96_trainer import PR96Trainer
+    os.environ.update(RANK=str(rank), LOCAL_RANK=str(rank), WORLD_SIZE="2", LOCAL_WORLD_SIZE="2",
+                      MASTER_ADDR="127.0.0.1", MASTER_PORT="29597")
+    AcceleratorState._reset_state(reset_partial_state=True)
+    dist.init_process_group("gloo", init_method=rendezvous, rank=rank, world_size=2)
+    try:
+        torch.manual_seed(31)
+        model = TinyCausalModel()
+        dense_model = deepcopy(model)
+        ids = torch.tensor([[1,2,3,4], [4,3,2,1], [5,6,7,8], [8,7,6,5]])
+        labels = torch.tensor([[-100,-100,3,4], [-100,3,2,1], [-100,-100,-100,8], [-100,7,6,5]])
+        selected = [i for r in range(2) for i in range(r*2, r*2+microbatches)]
+        dense = torch.nn.functional.cross_entropy(
+            dense_model(ids[selected], slice(None)).logits[:, :-1].reshape(-1, 17),
+            labels[selected, 1:].reshape(-1))
+        dense.backward()
+        args = TrainingArguments(output_dir=output_dir, use_cpu=True, report_to=[],
+                                 gradient_accumulation_steps=2, average_tokens_across_devices=True,
+                                 ddp_find_unused_parameters=False)
+        trainer = PR96Trainer(model=model, args=args)
+        wrapped = trainer.accelerator.prepare_model(model)
+        trainer.current_gradient_accumulation_steps = microbatches
+        denominator = (labels[selected, 1:] != -100).sum()
+        for index in range(microbatches):
+            i = rank*2 + index
+            from contextlib import nullcontext
+            context = trainer.accelerator.no_sync(wrapped) if index+1 < microbatches else nullcontext()
+            with context:
+                trainer.training_step(wrapped, {"input_ids": ids[i:i+1], "labels": labels[i:i+1]}, denominator)
+        for (name, actual), expected in zip(model.named_parameters(), dense_model.parameters()):
+            assert torch.allclose(actual.grad, expected.grad, atol=1e-7), name
+        # Verify an actual optimizer update, not merely a gradient norm.
+        torch.optim.SGD(model.parameters(), lr=.1).step()
+        torch.optim.SGD(dense_model.parameters(), lr=.1).step()
+        for actual, expected in zip(model.parameters(), dense_model.parameters()):
+            assert torch.allclose(actual, expected, atol=1e-7)
+    finally:
+        dist.destroy_process_group()
+
+
+@pytest.mark.parametrize("microbatches", [1, 2])
+def test_real_two_rank_token_normalized_accumulation_and_update_match_dense(tmp_path, microbatches):
+    import torch.multiprocessing as mp
+    mp.start_processes(_ddp_gradient_parity,
+                       args=(f"file://{tmp_path / 'rendezvous'}", str(tmp_path), microbatches),
+                       nprocs=2, join=True, start_method="spawn")
+
+
+@pytest.mark.parametrize("microbatches", [1, 2])
+def test_accumulated_gradient_equals_dense_ce_including_partial_final_step(tmp_path, microbatches):
+    """Catch Accelerator's extra GA division, including a short last window."""
+    from mechet.pr96_trainer import PR96Trainer
+    from transformers import TrainingArguments
+    torch.manual_seed(23)
+    model = TinyCausalModel()
+    baseline = deepcopy(model)
+    ids = torch.tensor([[1, 2, 3, 4], [4, 3, 2, 1]])[:microbatches]
+    labels = torch.tensor([[-100, -100, 3, 4], [-100, 3, 2, 1]])[:microbatches]
+    dense = torch.nn.functional.cross_entropy(
+        baseline(ids, slice(None)).logits[:, :-1].reshape(-1, 17), labels[:, 1:].reshape(-1))
+    dense.backward()
+    args = TrainingArguments(output_dir=str(tmp_path), use_cpu=True, report_to=[],
+                             gradient_accumulation_steps=2)
+    trainer = PR96Trainer(model=model, args=args)
+    trainer.current_gradient_accumulation_steps = microbatches
+    total_tokens = (labels[:, 1:] != -100).sum()
+    losses = [trainer.training_step(model, {"input_ids": ids[i:i+1], "labels": labels[i:i+1]},
+                                    num_items_in_batch=total_tokens) for i in range(microbatches)]
+    assert torch.allclose(sum(losses), dense.detach(), atol=1e-7)
+    for (name, actual), expected in zip(model.named_parameters(), baseline.parameters()):
+        assert torch.allclose(actual.grad, expected.grad, atol=1e-7), name
+
+
 def test_real_trainer_updates_weights_using_selective_causal_loss(tmp_path):
     from mechet.pr96_trainer import PR96Trainer
     from transformers import TrainingArguments
@@ -70,3 +149,26 @@ def test_nonfinite_metric_is_persisted_and_fails_instead_of_continuing(tmp_path)
     events = [json.loads(l) for l in (tmp_path / "progress.jsonl").read_text().splitlines()]
     assert events[-1]["event"] == "nonfinite-training-metric"
     assert events[-1]["global_step"] == 10
+
+
+def test_checkpoint_counters_resume_instead_of_resetting_and_keep_throughput_session_local(tmp_path):
+    from types import SimpleNamespace
+    import json
+    from transformers import TrainingArguments
+    from transformers.trainer_callback import TrainerState
+    from mechet.pr96_trainer import PR96Progress
+    checkpoint = tmp_path / "checkpoint-10"
+    checkpoint.mkdir()
+    (checkpoint / "pr96_counters.rank00.json").write_text(json.dumps({"counts": [200, 4000, 8000]}))
+    args = TrainingArguments(output_dir=str(tmp_path), use_cpu=True, report_to=[])
+    trainer = SimpleNamespace(_counts=torch.zeros(3, dtype=torch.long))
+    callback = PR96Progress(trainer, track="mech31k", stage="state", lineage={}, resume_checkpoint=checkpoint)
+    state = TrainerState(global_step=10, max_steps=100, epoch=1, is_world_process_zero=True)
+    callback.on_train_begin(args, state, None)
+    trainer._counts += torch.tensor([5, 100, 200])
+    callback.on_log(args, state, None, logs={"loss": 1.0})
+    record = json.loads((tmp_path / "progress.json").read_text())
+    assert record["examples_consumed_global"] == 205
+    assert record["supervised_tokens_consumed_global"] == 4100
+    assert record["latest_checkpoint"] == str(checkpoint)
+    assert record["supervised_tokens_per_second"] / record["samples_per_second"] == pytest.approx(20)

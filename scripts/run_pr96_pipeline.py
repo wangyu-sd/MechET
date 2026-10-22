@@ -13,8 +13,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
-from mechet.pr96_artifacts import validate_preflight, validate_tokens, validate_parent
-from mechet.pr96_eval_runtime import sha
+from mechet.pr96_artifacts import (validate_preflight, validate_tokens, validate_parent,
+                                   verify_resume_checkpoint, training_identity)
+from mechet.pr96_eval_runtime import sha, load_validation_report
 from mechet.qwen35_protocol import OFFICIAL_MODEL, OFFICIAL_REVISION
 
 
@@ -43,7 +44,11 @@ def main():
         cmd = [sys.executable, "-m", "torch.distributed.run", "--standalone", "--nproc_per_node=8",
                str(ROOT / "scripts" / script), *map(str, options)]
         emit("launch", command=cmd)
-        subprocess.run(cmd, cwd=ROOT, check=True)  # inherit Taiji stdout/stderr; never redirect
+        try:
+            subprocess.run(cmd, cwd=ROOT, check=True)  # inherit Taiji stdout/stderr; never redirect
+        except Exception as exc:
+            emit("subprocess-failed", command=cmd, error=f"{type(exc).__name__}:{exc}")
+            raise
     def save(path, cfg):
         Path(path).write_text(yaml.safe_dump(cfg, sort_keys=False))
 
@@ -120,6 +125,7 @@ def main():
                 raise ValueError("PR96_EXISTING_ROOT_ADAPTER_IS_NOT_FULL_STAGE")
             if (previous.get("base_model_revision") != OFFICIAL_REVISION
                     or previous["pr96"].get("reference_approval_sha256") != plan["reference_approval_sha256"]
+                    or previous["pr96"].get("training_identity") != training_identity(cfg)
                     or previous["adapter_sha256"] != sha(model_dir / "adapter_model.safetensors")):
                 raise ValueError("PR96_REFUSING_WRONG_EXISTING_STAGE_LINEAGE")
             emit("reuse-completed-stage", training_stage=stage, adapter_manifest=str(finished))
@@ -128,8 +134,7 @@ def main():
         checkpoints = sorted(model_dir.glob("checkpoint-*"), key=lambda x:int(x.name.split("-")[-1]))
         if checkpoints:
             candidate = checkpoints[-1]
-            if not (candidate / "pr96_checkpoint_manifest.json").is_file():
-                raise ValueError("PR96_REFUSING_UNVERIFIED_RESUME_CHECKPOINT")
+            verify_resume_checkpoint(cfg, candidate)
             options += ["--resume-from-checkpoint", candidate]
         emit("formal-training-start", training_stage=stage, epochs=cfg["training"]["num_train_epochs"],
              effective_batch=64, expected_rows=cfg["contract"]["expected_train_rows"])
@@ -142,11 +147,11 @@ def main():
     state = train("state")
     parent = Path(state["pr96"]["best_checkpoint"])
     gate_dir = run / "validation" / "state_best_paired"
-    if not (gate_dir / "report.json").is_file():
+    if load_validation_report(configs["state"], parent, gate_dir, "paired") is None:
         command("evaluate_pr96.py", "--config", plan["configs"]["state"], "--adapter", parent,
                 "--output", gate_dir)
     gate_path = gate_dir / "report.json"
-    gate = json.loads(gate_path.read_text())
+    gate = load_validation_report(configs["state"], parent, gate_dir, "paired")
     if not gate["gate"]["go"]:
         emit("stage-one-no-go", gate=gate["gate"], report=str(gate_path), stage_two_started=False)
         return
@@ -166,16 +171,14 @@ def main():
             metadata = json.loads((best / "pr96_checkpoint_manifest.json").read_text())
             previous_report = metadata.get("epoch_validation_report")
             if previous_report:
-                old = json.loads(Path(previous_report).read_text())
-                if (old["adapter_model_sha256"] == sha(best / "adapter_model.safetensors")
-                        and old["cohorts_sha256"] == configs["history"]["pr96"]["cohorts_sha256"]
-                        and old["decoder"]["max_new_tokens"] == configs["history"]["pr96"]["max_new_tokens"]):
+                old = load_validation_report(configs["history"], best, Path(previous_report).parent, cohort)
+                if old:
                     shutil.copytree(Path(previous_report).parent, target)
                     emit("reuse-exact-paired-epoch-validation", source=previous_report, target=str(target))
-        if not (target / "report.json").is_file():
+        if load_validation_report(configs["history"], best, target, cohort) is None:
             command("evaluate_pr96.py", "--config", plan["configs"]["history"], "--adapter", best,
                     "--output", target, "--cohort", cohort)
-        final_reports[cohort] = json.loads((target / "report.json").read_text())
+        final_reports[cohort] = load_validation_report(configs["history"], best, target, cohort)
     comparison = {key: {"state": gate["metrics"][key], "history": final_reports["paired"]["metrics"][key]}
                   for key in ("structural_hits", "full_hits", "root_import_fragment", "tf_flow_successor", "tf_finish")}
     (run / "paired_comparison.json").write_text(json.dumps(comparison, indent=2) + "\n")

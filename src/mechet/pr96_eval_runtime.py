@@ -29,6 +29,16 @@ def aggregate_parts(parts, expected_ids):
     result = {k: sum(p["metrics"][k] for p in parts) for k in scalars}
     for key in ("parse", "root_import_tool", "root_import_fragment", "tf_flow_successor", "tf_finish"):
         result[key] = {name: sum(p["metrics"][key][name] for p in parts) for name in ("correct", "total")}
+    for key in ("tf_correct_tool", "tf_decision_exact", "tf_formal_execute", "tf_event_exact",
+                "tf_source_site_exact", "tf_destination_site_exact"):
+        if all(key in p["metrics"] for p in parts):
+            result[key] = {name: sum(p["metrics"][key][name] for p in parts) for name in ("correct", "total")}
+    if all("root_import_components" in p["metrics"] for p in parts):
+        components = {k: sum(p["metrics"]["root_import_components"][k] for p in parts)
+                      for k in ("matched", "predicted", "gold")}
+        result.update(root_import_components=components,
+                      root_import_precision=components["matched"] / max(components["predicted"], 1),
+                      root_import_recall=components["matched"] / max(components["gold"], 1))
     for key in ("root_predicted_tools", "rejected"):
         counter = Counter()
         for part in parts:
@@ -44,6 +54,35 @@ def prepare_output_directory(path, rank, barrier):
     barrier()
     if not Path(path).is_dir():
         raise ValueError("PR96_VALIDATION_DIRECTORY_NOT_CREATED")
+
+
+def reserve_validation_attempt(root):
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    for number in range(1, 100000):
+        target = root / f"attempt-{number:05d}"
+        try:
+            target.mkdir()
+            return target
+        except FileExistsError:
+            continue
+    raise ValueError("PR96_TOO_MANY_VALIDATION_ATTEMPTS")
+
+
+def load_validation_report(cfg, adapter, root, cohort):
+    from .pr96_artifacts import verify_evaluation_bindings
+    report = Path(root) / "report.json"
+    if not report.is_file():
+        return None
+    value = json.loads(report.read_text())
+    bindings = verify_evaluation_bindings(cfg, adapter)
+    decoder = {"k": 1, "do_sample": False, "num_beams": 1, "max_decisions": 64,
+               "max_new_tokens": cfg["pr96"]["max_new_tokens"]}
+    if (value.get("bindings") != bindings or value.get("cohort") != cohort
+            or value.get("track") != cfg["pr96"]["track"] or value.get("stage") != cfg["pr96"]["stage"]
+            or value.get("decoder") != decoder):
+        raise ValueError("PR96_CACHED_VALIDATION_LINEAGE_CHANGED")
+    return value
 
 
 class HFBackend:
@@ -98,10 +137,15 @@ class HFBackend:
 def run_validation(cfg, model, tokenizer, *, adapter, output_dir, cohort="paired"):
     import torch
     import torch.distributed as dist
-    output_dir = Path(output_dir)
+    from .pr96_artifacts import verify_evaluation_bindings
+    bindings = verify_evaluation_bindings(cfg, adapter)
+    report_root = Path(output_dir)
     rank = dist.get_rank() if dist.is_initialized() else 0
     world = dist.get_world_size() if dist.is_initialized() else 1
-    prepare_output_directory(output_dir, rank, dist.barrier if dist.is_initialized() else lambda: None)
+    paths = [str(reserve_validation_attempt(report_root)) if rank == 0 else None]
+    if dist.is_initialized():
+        dist.broadcast_object_list(paths, src=0)
+    output_dir = Path(paths[0])
     settings = cfg["pr96"]
     cohort_file = Path(settings["cohorts_file"])
     frozen = json.loads(cohort_file.read_text())
@@ -143,6 +187,7 @@ def run_validation(cfg, model, tokenizer, *, adapter, output_dir, cohort="paired
         parts = [json.loads((output_dir / f"result.rank{i:02d}.json").read_text()) for i in range(world)]
         metrics = aggregate_parts(parts, ids)
         report = {"track": settings["track"], "stage": settings["stage"], "cohort": cohort,
+                  "bindings": bindings, "evidence_directory": str(output_dir),
                   "reaction_ids": ids, "cohorts_sha256": sha(cohort_file),
                   "adapter": str(adapter), "adapter_model_sha256": sha(Path(adapter) / "adapter_model.safetensors"),
                   "metrics": metrics, "gate": stage_one_gate(metrics) if cohort == "paired" else None,
@@ -150,9 +195,13 @@ def run_validation(cfg, model, tokenizer, *, adapter, output_dir, cohort="paired
                   "decoder": {"k": 1, "do_sample": False, "num_beams": 1, "max_decisions": 64,
                               "max_new_tokens": settings["max_new_tokens"]},
                   "timestamp": datetime.now(timezone.utc).isoformat(), "complete_test_evaluation_executed": False}
-        (output_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+        text = json.dumps(report, indent=2) + "\n"
+        (output_dir / "report.json").write_text(text)
+        temporary = report_root / "report.json.building"
+        temporary.write_text(text)
+        temporary.replace(report_root / "report.json")
         print(json.dumps({"stage": "fixed-valid-complete", "report": str(output_dir / "report.json"),
                           "metrics": metrics, "gate": report["gate"]}), flush=True)
     if dist.is_initialized():
         dist.barrier()
-    return output_dir / "report.json"
+    return report_root / "report.json"

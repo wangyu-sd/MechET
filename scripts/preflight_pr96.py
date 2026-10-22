@@ -21,18 +21,18 @@ def main():
     import torch.distributed as dist
     import yaml
     from peft import LoraConfig, get_peft_model
-    from transformers import AutoTokenizer
+    from transformers import AutoTokenizer, TrainingArguments
     from mechet.agent_inference import parse_tool_calls
     from mechet.collator import AssistantOnlyCollator
     from mechet.pr96_artifacts import validate_preflight
     from mechet.pr96_eval_runtime import HFBackend, sha
-    from mechet.pr96_trainer import validate_deployed_hardware
+    from mechet.pr96_trainer import validate_deployed_hardware, PR96Trainer
     from mechet.qwen35_protocol import (OFFICIAL_REVISION, LORA_TARGETS, encode_tool_decision,
                                         load_language_model, supervised_loss)
     cfg = yaml.safe_load(args.config.read_text())
     names = validate_deployed_hardware(cfg["pr96"]["track"])
     rank = int(os.environ["RANK"])
-    dist.init_process_group("gloo")
+    dist.init_process_group("nccl")
     args.output.mkdir(parents=True, exist_ok=True)
     versions = {n: importlib.metadata.version(n) for n in
                 ("torch", "transformers", "peft", "accelerate", "datasets", "tokenizers", "fla-core", "triton", "rdkit")}
@@ -76,16 +76,34 @@ def main():
         raise ValueError("PR96_PREFLIGHT_NONLANGUAGE_TRAINABLE")
     before = {n:p.detach().clone() for n,p in model.named_parameters() if "lora_B" in n}
     optimizer = torch.optim.AdamW((p for p in model.parameters() if p.requires_grad), lr=1e-4, fused=True)
+    scratch_args = TrainingArguments(output_dir=str(args.output / "scratch_not_saved"), report_to=[],
+                                    bf16=True, gradient_accumulation_steps=2, average_tokens_across_devices=True,
+                                    ddp_find_unused_parameters=False, remove_unused_columns=False)
+    trainer = PR96Trainer(model=model, args=scratch_args)
+    wrapped, optimizer = trainer.accelerator.prepare(model, optimizer)
     batch = AssistantOnlyCollator(tokenizer)(encoded)
     batch = {k:v.to(next(model.parameters()).device) for k,v in batch.items()}
     begin = time.monotonic()
-    loss, _ = supervised_loss(model, batch)
+    denominator = (batch["labels"][:, 1:] != -100).sum()
+    dist.all_reduce(denominator)
+    trainer.current_gradient_accumulation_steps = 2
+    from contextlib import nullcontext
+    loss = torch.zeros((), device=denominator.device)
+    torch.manual_seed(17 + rank)  # distinct dropout; equality below must come from DDP
+    for index, section in enumerate((slice(0, 2), slice(2, 3))):
+        context = trainer.accelerator.no_sync(wrapped) if index == 0 else nullcontext()
+        with context:
+            loss += trainer.training_step(wrapped, {k:v[section] for k,v in batch.items()}, denominator)
     if not torch.isfinite(loss):
         raise ValueError("PR96_PREFLIGHT_NONFINITE_LOSS")
-    loss.backward()
     gradients = [p.grad for p in model.parameters() if p.grad is not None]
     finite = bool(gradients) and all(torch.isfinite(g).all().item() for g in gradients)
     nonzero = any(torch.count_nonzero(g).item() for g in gradients)
+    signature = torch.stack([sum(g.float().sum() for g in gradients),
+                             sum(g.float().square().sum() for g in gradients)])
+    signatures = [torch.empty_like(signature) for _ in range(8)]
+    dist.all_gather(signatures, signature)
+    synchronized = all(torch.allclose(signature, other, rtol=1e-5, atol=1e-7) for other in signatures)
     optimizer.step()
     changed = any(not torch.equal(p.detach(), before[n]) for n,p in model.named_parameters() if n in before)
     model.eval()
@@ -94,6 +112,7 @@ def main():
     generated = backend.generate([next(iter(samples.values()))["messages"][:2]])[0]
     record = {"rank": rank, "gpu_names": names, "versions": versions, "loss": float(loss.detach()),
               "finite_nonzero_gradients": bool(finite and nonzero), "parameters_updated": changed,
+              "ddp_gradient_synchronization": synchronized,
               "assistant_mask_verified": True, "tool_prefix_parity": True,
               "all_language_targets_present": True, "language_only": True,
               "generation_completed": bool(generated["generated_token_ids"]),

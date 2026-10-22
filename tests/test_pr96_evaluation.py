@@ -64,3 +64,22 @@ def test_truncated_generation_is_preserved_as_failure_not_silently_dropped():
     assert result["metrics"]["closed_loop_completed"] == 1
     assert result["metrics"]["parse"]["correct"] == 0
     assert result["metrics"]["truncated_calls"] == 4
+
+
+def test_fragment_precision_recall_count_extra_imports_and_keep_tf_flow_diagnostics():
+    from copy import deepcopy
+    from mechet.pr96_evaluation import evaluate_reactions
+    source = prepare_reference(legacy_sn2())
+    rows = state_rows()
+    calls = [r["messages"][2]["tool_calls"][0]["function"] for r in rows]
+    extra = deepcopy(calls[0])
+    extra["arguments"]["fragments"].append({"smiles": "[Na+]", "count": 1, "purpose": "endpoint_context"})
+    backend = OrderedBackend([extra] + calls[1:] + calls)
+    metrics = evaluate_reactions([source], {source["source_id"]: rows}, backend,
+                                 compact_history=False)["metrics"]
+    assert metrics["root_import_components"] == {"matched": 1, "predicted": 2, "gold": 1}
+    assert metrics["root_import_precision"] == .5
+    assert metrics["root_import_recall"] == 1.0
+    assert metrics["tf_event_exact"] == {"correct": 1, "total": 1}
+    assert metrics["tf_source_site_exact"] == {"correct": 1, "total": 1}
+    assert metrics["tf_destination_site_exact"] == {"correct": 1, "total": 1}

@@ -11,7 +11,7 @@ from mechet.endpoints import split_precursor_endpoints
 from mechet.in_place_grounded_flow import mapped_atom_numbers
 from scripts.build_mech31k_main_product_only_sft import same_chemical_state
 from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
-from scripts.eval_natural_language_event_local import score_prediction
+from scripts.eval_natural_language_event_local import score_prediction, _import_counter
 from scripts.run_natural_language_value_search import (
     Action, Node, execute, policy_prompt, product_only_private_state, visible,
 )
@@ -96,9 +96,14 @@ def evaluate_reactions(references, state_rows, backend, *, compact_history,
         if task["decision_type"] == "event" and score["formal_execute"]:
             score["successor_chemical_exact"] = same_chemical_state(tf_child.state, task["reference_successor"])
         dtype = task["decision_type"]
+        counts["tf_decisions"] += 1
+        for field in ("correct_tool", "decision_exact", "formal_execute"):
+            counts["tf_" + field] += bool(score[field])
         if dtype == "event":
             counts["flow_total"] += 1
             counts["flow_correct"] += score["successor_chemical_exact"]
+            for field in ("event_exact", "source_site_exact", "destination_site_exact"):
+                counts["tf_" + field] += bool(score[field])
         if dtype == "finish":
             counts["finish_total"] += 1
             counts["finish_correct"] += score["finish_exact"]
@@ -106,6 +111,14 @@ def evaluate_reactions(references, state_rows, backend, *, compact_history,
             counts["root_import_total"] += 1
             counts["root_import_tool_correct"] += score["correct_tool"]
             counts["root_import_fragment_correct"] += score["import_fragment_exact"]
+            gold = _import_counter(task["gold_arguments"], include_purpose=False)
+            try:
+                predicted = _import_counter(arguments, include_purpose=False) if name == "import_fragments" else Counter()
+            except Exception:
+                predicted = Counter()  # invalid import still contributes every GT missing component
+            counts["root_fragment_matched"] += sum((predicted & gold).values())
+            counts["root_fragment_predicted"] += sum(predicted.values())
+            counts["root_fragment_gold"] += sum(gold.values())
         value = {"mode": "teacher_forced", "reaction_id": task["reaction_id"],
                  "depth": task["depth"], "decision_type": dtype,
                  "input_messages": task["messages"], "output": output,
@@ -178,6 +191,11 @@ def evaluate_reactions(references, state_rows, backend, *, compact_history,
                "parse": ratio("parse_correct", "parse_total"),
                "root_import_tool": ratio("root_import_tool_correct", "root_import_total"),
                "root_import_fragment": ratio("root_import_fragment_correct", "root_import_total"),
+               "root_import_components": {k: counts["root_fragment_" + k] for k in ("matched", "predicted", "gold")},
+               "root_import_precision": counts["root_fragment_matched"] / max(counts["root_fragment_predicted"], 1),
+               "root_import_recall": counts["root_fragment_matched"] / max(counts["root_fragment_gold"], 1),
+               **{"tf_" + k: ratio("tf_" + k, "tf_decisions") for k in ("correct_tool", "decision_exact", "formal_execute")},
+               **{"tf_" + k: ratio("tf_" + k, "flow_total") for k in ("event_exact", "source_site_exact", "destination_site_exact")},
                "tf_flow_successor": ratio("flow_correct", "flow_total"),
                "expected_tf_flow_decisions": counts["flow_total"],
                "tf_finish": ratio("finish_correct", "finish_total"),

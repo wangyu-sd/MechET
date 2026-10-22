@@ -1,6 +1,6 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-Status snapshot: 2026-10-22 23:10 CST. This is execution work on
+Status snapshot: 2026-10-23 00:15 CST. This is execution work on
 `exec/pr96-qwen35-dual-mainonly-20261022`, based on the merged PR95 plus PR96
 requirements. No new Taiji training job has been submitted yet. No model
 accuracy below is inferred from GT replay or unit tests.
@@ -29,7 +29,10 @@ All paths below are under `/aaa/fionafyang/buddy1/whaleywang/MechET/`.
 | `data/pr96_mech31k_reference_approval_20261022_01/reference_approval.json` | Source hashes, original step payloads/endpoints, source IDs, split separation, quarantine and history verified. Reference subset authorized by code; actual GPU compatibility and complete tokenizer audits still required. |
 | Source directory, `frozen_valid_cohorts.json` | Two disjoint 64-reaction VALID sets, each containing 60 root IMPORT and 4 root FLOW cases, stratified by mechanism length and import role. Frozen before training. |
 
-The new data remain training-disabled pending the remaining gates. The old
+Full State and History tokenizer caches now both contain all 42239 training
+decisions and 330 paired-VALID decisions, with zero truncation/windowing. The
+State input maximum is 1774 tokens and maximum supervised action is 196 tokens.
+The new data remain training-disabled pending actual eight-device preflight. The old
 PR95 data and its `training_allowed=false` status were not overwritten.
 
 FlowER build is active at
@@ -73,18 +76,30 @@ structured default-stdout progress. They are not evidence of a launched job.
 
 1. Complete FlowER reconstruction; classify/fix unresolved cases where reliable,
    then build and audit its history and freeze its own two VALID cohorts.
-2. Bind training inputs to reference authorization, pinned token caches and actual
-   deployed preflight; audit complete assistant-only tokenization without state
-   cropping or supervised token truncation.
-3. Finish frozen teacher-forced and true public-root greedy K1 evaluation runners,
-   raw-output archival, paired/independent reports, automatic Stage-I gate and
-   Stage-II handoff; freeze both launch pipelines.
-4. Fresh code review, resource/donor checks, then submit exactly one 8 A100 track
+2. Run actual eight-device NCCL/Trainer gradient-accumulation preflight and
+   discard scratch updates; only then authorize formal training.
+3. The frozen teacher-forced/public-root K1 runners, raw-output archival,
+   paired/independent reports, automatic fixed Stage-I gate and own-parent
+   Stage-II handoff are implemented. Execute them on each resulting model.
+4. Fresh whole-branch review identified five deployment defects; all were
+   addressed in the review fix pass: duplicate accumulation scaling, unchecked
+   resume lineage/files, interrupted validation recovery, actual VALID source
+   bindings, and resumed cumulative token counters. Resource/donor checks precede
+   submission of exactly one 8 A100 track
    and one 8 H20 track with meteor naming, proven Ceph init and <=60-second
    default-POD heartbeat. Verify real GPUs and optimizer updates after allocation.
 5. Run all requested epochs and validations. Stage-II must fail closed if its own
    fixed gate is not met. No TEST accuracy is claimed until actual inference.
 
-Latest complete local suite at this snapshot: 521 passed, 1 skipped. The isolated
-Transformers5.5 protocol/Trainer/token-cache checks also passed (8 tests; two
-upstream SWIG deprecation warnings). GPU deployment readiness remains unproven.
+Latest complete local suite: 540 passed, 1 skipped. Pinned Transformers5.5
+protocol/evaluation/trainer checks: 26 passed (two upstream SWIG deprecation
+warnings); the real two-rank CPU DDP accumulation/update tests also pass using
+spawn, including unequal token counts and partial final accumulation windows.
+Tests are code verification, not chemical-model experimental results.
+
+The successful Taiji donor actually used Tencent `metabo:taiji6`, not the
+`taiji7` in older example configs. A read-only probe in the active MechET
+R1/R2 node confirms Python3.11.13, Torch2.6.0+cu118, Accelerate1.9.0 and
+Datasets4.0.0. New tasks must use that successful image/Ceph init and a frozen
+45-second default-stdout heartbeat. Actual PR96 eight-GPU readiness and model
+accuracy remain unproven until allocation and preflight.

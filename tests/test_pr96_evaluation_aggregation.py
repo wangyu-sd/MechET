@@ -32,3 +32,30 @@ def test_eight_rank_validation_directory_is_created_once(tmp_path):
     assert target.is_dir()
     with pytest.raises(FileExistsError):
         prepare_output_directory(target, 0, lambda: None)
+
+
+def test_interrupted_validation_uses_new_attempt_without_overwriting_raw_io(tmp_path):
+    from mechet.pr96_eval_runtime import reserve_validation_attempt
+    target = tmp_path / "validation"
+    first = reserve_validation_attempt(target)
+    (first / "raw_generation.rank00.jsonl").write_text("original raw output\n")
+    second = reserve_validation_attempt(target)
+    assert first != second and second.is_dir()
+    assert (first / "raw_generation.rank00.jsonl").read_text() == "original raw output\n"
+
+
+def test_cached_validation_rejects_changed_decoder_or_checkpoint(tmp_path, monkeypatch):
+    import json
+    from mechet.pr96_eval_runtime import load_validation_report
+    # Source verification is exercised with real files in artifact-gate tests.
+    # Here isolate report reuse from its expensive source hashing boundary.
+    binding = {"adapter_model_sha256": "original", "cohorts_sha256": "fixed"}
+    monkeypatch.setattr("mechet.pr96_artifacts.verify_evaluation_bindings", lambda cfg, adapter: binding)
+    cfg = {"pr96": {"track": "mech31k", "stage": "state", "max_new_tokens": 512}}
+    report = {"track": "mech31k", "stage": "state", "cohort": "paired", "bindings": binding,
+              "decoder": {"k": 1, "do_sample": False, "num_beams": 1, "max_decisions": 64, "max_new_tokens": 512}}
+    (tmp_path / "report.json").write_text(json.dumps(report))
+    assert load_validation_report(cfg, "adapter", tmp_path, "paired") == report
+    cfg["pr96"]["max_new_tokens"] = 1024
+    with pytest.raises(ValueError, match="CACHED_VALIDATION"):
+        load_validation_report(cfg, "adapter", tmp_path, "paired")

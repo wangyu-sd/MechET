@@ -61,6 +61,11 @@ class PR96Trainer(Trainer):
         # We implement the actual accumulation-wide token denominator. Prevent
         # Trainer from dividing by gradient_accumulation_steps a second time.
         self.model_accepts_loss_kwargs = True
+        # Trainer owns microbatch grouping, no_sync and optimizer scheduling.
+        # TF5.5 passes GA into Accelerate, whose backward() would otherwise
+        # divide our already accumulation-normalized loss again (also on a
+        # partial final group). Keep its backward scaling at identity.
+        self.accelerator.gradient_accumulation_steps = 1
         self._counts = torch.zeros(3, dtype=torch.long, device=self.args.device)
 
     @property
@@ -98,12 +103,25 @@ def _sha(path):
 
 class PR96Progress(TrainerCallback):
     """All ranks contribute counters; only rank zero writes aggregated logs."""
-    def __init__(self, trainer, *, track, stage, lineage):
+    def __init__(self, trainer, *, track, stage, lineage, resume_checkpoint=None):
         self.trainer, self.track, self.stage = trainer, track, stage
         self.lineage = dict(lineage)
         self.started = self.last_time = time.monotonic()
         self.last_counts = [0, 0, 0]
-        self.last_checkpoint = None
+        self.last_checkpoint = str(resume_checkpoint) if resume_checkpoint else None
+        if resume_checkpoint:
+            rank = trainer.args.process_index if hasattr(trainer, "args") else 0
+            saved = json.loads((Path(resume_checkpoint) / f"pr96_counters.rank{rank:02d}.json").read_text())
+            trainer._counts.copy_(torch.tensor(saved["counts"], device=trainer._counts.device))
+
+    def on_train_begin(self, args, state, control, **kwargs):
+        counts = self.trainer._counts.clone()
+        if torch.distributed.is_available() and torch.distributed.is_initialized():
+            torch.distributed.all_reduce(counts)
+        self.last_counts = counts.tolist()
+        self.last_time = time.monotonic()
+        if self.stage == "history" and self.last_checkpoint:
+            self._validate_epoch(args, state, Path(self.last_checkpoint))
 
     def _emit(self, args, state, event):
         if not state.is_world_process_zero:
@@ -159,9 +177,11 @@ class PR96Progress(TrainerCallback):
                    "next_validation": "next full epoch end"})
 
     def on_save(self, args, state, control, **kwargs):
+        checkpoint = Path(args.output_dir) / f"checkpoint-{state.global_step}"
+        (checkpoint / f"pr96_counters.rank{args.process_index:02d}.json").write_text(
+            json.dumps({"counts": self.trainer._counts.tolist()}) + "\n")
         if torch.distributed.is_available() and torch.distributed.is_initialized():
             torch.distributed.barrier()
-        checkpoint = Path(args.output_dir) / f"checkpoint-{state.global_step}"
         self.last_checkpoint = str(checkpoint)
         if state.is_world_process_zero:
             required = ["adapter_model.safetensors", "adapter_config.json", "optimizer.pt",
@@ -176,26 +196,33 @@ class PR96Progress(TrainerCallback):
                         "step": state.global_step, "epoch": state.epoch,
                         "files": {name: _sha(checkpoint / name) for name in required},
                         "rng_files": {p.name: _sha(p) for p in rng},
+                        "counter_files": {p.name: _sha(p) for p in checkpoint.glob("pr96_counters.rank*.json")},
                         "best_checkpoint": state.best_model_checkpoint}
-            (checkpoint / "pr96_checkpoint_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+            metadata_path = checkpoint / "pr96_checkpoint_manifest.json"
+            temporary = metadata_path.with_suffix(".json.building")
+            temporary.write_text(json.dumps(manifest, indent=2) + "\n")
+            temporary.replace(metadata_path)
             self._emit(args, state, {"event": "checkpoint-saved", "checkpoint": str(checkpoint),
                        "adapter_model_sha256": manifest["files"]["adapter_model.safetensors"],
                        "optimizer_scheduler_rng_saved": True, "best_checkpoint": state.best_model_checkpoint})
         if self.stage == "history":
-            # Keep every epoch's raw I/O outside rotating checkpoint folders.
-            import yaml
-            from .pr96_eval_runtime import run_validation
-            cfg = yaml.safe_load(Path(self.lineage["config_file"]).read_text())
-            target = Path(args.output_dir) / "epoch_validation" / f"step-{state.global_step}"
-            paths = [str(target)]
-            if state.is_world_process_zero and target.exists():
-                paths[0] += "-attempt-" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
             if torch.distributed.is_available() and torch.distributed.is_initialized():
-                torch.distributed.broadcast_object_list(paths, src=0)
-            report = run_validation(cfg, self.trainer.model, self.trainer.processing_class,
-                                    adapter=checkpoint, output_dir=paths[0], cohort="paired")
-            if state.is_world_process_zero:
-                metadata_path = checkpoint / "pr96_checkpoint_manifest.json"
-                metadata = json.loads(metadata_path.read_text())
-                metadata["epoch_validation_report"] = str(report)
-                metadata_path.write_text(json.dumps(metadata, indent=2) + "\n")
+                torch.distributed.barrier()  # rank-zero manifest must exist before all ranks audit it
+            self._validate_epoch(args, state, checkpoint)
+
+    def _validate_epoch(self, args, state, checkpoint):
+        # Recover interrupted callback evaluation before continuing training.
+        import yaml
+        from .pr96_eval_runtime import run_validation, load_validation_report
+        cfg = yaml.safe_load(Path(self.lineage["config_file"]).read_text())
+        target = Path(args.output_dir) / "epoch_validation" / f"step-{state.global_step}"
+        if load_validation_report(cfg, checkpoint, target, "paired") is None:
+            run_validation(cfg, self.trainer.model, self.trainer.processing_class,
+                           adapter=checkpoint, output_dir=target, cohort="paired")
+        if state.is_world_process_zero:
+            metadata_path = checkpoint / "pr96_checkpoint_manifest.json"
+            metadata = json.loads(metadata_path.read_text())
+            metadata["epoch_validation_report"] = str(target / "report.json")
+            temporary = metadata_path.with_suffix(".json.building")
+            temporary.write_text(json.dumps(metadata, indent=2) + "\n")
+            temporary.replace(metadata_path)
