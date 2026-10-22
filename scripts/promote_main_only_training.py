@@ -115,6 +115,7 @@ def promote(args: argparse.Namespace) -> dict[str, Any]:
             "unresolved_sha256": sha(bad_path),
             "source_sha256": sha(source),
             "state_sft_sha256": sha(supervised),
+            "decision_rows": int(report.get("decision_rows", report.get("decisions", 0))),
             "supervision_label": "audited_replayable_subset_not_full_corpus",
             "raw_denominator_retained": True,
         }
@@ -150,6 +151,7 @@ def promote(args: argparse.Namespace) -> dict[str, Any]:
             "input_condition": "main_product_only_v1",
             "source_ledger": str(args.destination / "manifest.json"),
             "reaction_denominator": {k:v["reference_replay_pass"] for k,v in ledger["audited_quarantine"].items()},
+            "decision_rows": {k:v["decision_rows"] for k,v in ledger["audited_quarantine"].items()},
             "original_reaction_denominator": EXPECTED[args.corpus],
         }, indent=2) + "\n"
     )
