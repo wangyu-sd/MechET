@@ -1,14 +1,15 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 06:23 CST
+## Current update — 2026-10-23 07:01 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
 Taiji reports IsSuccess=true/END; its8A100 are released. The FlowER
 reference rebuild, independent full-history/quarantine and original-source
 consistency audits completed. Its new reference subset is authorized; complete
-token caches and actual GPU preflight remain required. Eight CPU ranks are
-building State tokens. No H20 task has been submitted yet.
+History token cache and actual GPU preflight remain required. The complete
+State token cache passed its manifest checks; eight CPU ranks have automatically
+started History tokenization. No H20 task has been submitted yet.
 No complete TEST model evaluation has been executed on either track.
 
 ### mech31k: real training and model predictions
@@ -172,11 +173,20 @@ Independent FlowER run prepared at
 History3epochs only after own State gate/best-parent selection. Both configs
 initially have no adapter parent; they cannot reuse mech31k or old0.6B weights.
 Each stage has1908035TRAIN decisions and409paired-VALID decisions from64full
-reactions. CPU token workflow2067621 launched torchrun2280813/eight CPU ranks
-on State. At06:22:51 rank logs record at least176000/1908035TRAIN rows(>=9.22%);
-these logs update every2000rows/rank, so this is a conservative progress bound,
-not an exact completed-cache count. State/History complete token manifests are
-not yet present. No GPU model training or TEST inference is running here.
+reactions. CPU token workflow2067621 completed all State shards and their source/
+Arrow hash pass. The State manifest was observed complete at06:59:39CST;
+SHA256 `9a986f702b60a5bac43f155f38ceb7e17d04cf9c214fa63d32bdf43eeff4befc`.
+TRAIN1908035/VALID409 rows have one supervised decision per row, correct owned
+XML assistant masks, no fallback or windowed rows and zero supervised-token
+truncation. TRAIN contains2493771031input tokens and251982800supervised tokens;
+the longest input is3419tokens and longest supervised span600tokens. The
+immutable deployed pipeline derives a768-token generation budget from these
+training labels, instead of retaining an insufficient512-token limit.
+History tokenization automatically started at06:59:39CST under torchrun2319814,
+with all eight CPU ranks active. Its complete manifest remains pending. The
+sole submission operator still requires both complete caches and independently
+checks all Arrow hashes before creating the H20 task. No GPU model training or
+TEST inference is running here.
 Their logs are `outputs/audits/pr96_flower_after_build_20261023_06.log` and
 `outputs/audits/pr96_flower_token_after_approval_20261023_06.log`.
 No duplicate builders or premature training jobs are needed.
