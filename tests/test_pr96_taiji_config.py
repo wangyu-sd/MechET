@@ -31,7 +31,14 @@ def test_region_replacement_preserves_full_training_and_deployment_payload():
     assert replacement["task_flag"] != original["task_flag"], (
         "Preserve the failed attempt; submit its replacement under a fresh flag"
     )
-    changes = {"task_flag", "task_description", "location"}
+    changes = {"task_flag", "task_description", "location", "quota_type"}
     assert {k: v for k, v in replacement.items() if k not in changes} == {
         k: v for k, v in original.items() if k not in changes
     }
+
+
+def test_latest_h20_payload_uses_business_quota_not_zero_public_quota():
+    """H20 public quota is zero; successful same-group tasks use group defaults."""
+    assert latest_payload()["quota_type"] == "", (
+        "Do not copy A100's public pool override into the H20 business quota"
+    )

@@ -1,6 +1,6 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 08:03 CST
+## Current update — 2026-10-23 08:11 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
@@ -10,8 +10,10 @@ consistency audits completed. Its new reference subset is authorized; both
 complete token caches passed their manifest checks and independent source/Arrow
 rehashing. The first H20 submission immediately ended before POD allocation:
 Taiji rejected the unsupported explicit location `zjk` (-1100408). A replacement
-payload `_02` uses the proven empty-location business-group binding, matching
-running H20 tasks in the same group; all training/deployment fields are retained.
+payload `_02` removed that alias but also ended before allocation: its copied
+A100 `quota_type=public` requested a zero-public-quota H20 pool. The replacement
+`_03` leaves both `location` and `quota_type` empty, matching successful H20
+requests in the same application group. Scientific/deployment fields are retained.
 Actual eight-H20 deployment/preflight and formal training remain outstanding.
 No complete TEST model evaluation has been executed on either track.
 
@@ -201,17 +203,23 @@ successful create/start response was not a deployment pass: instance
 confirms no host ever ran. No GPU model training or TEST inference ran there.
 Failure evidence is preserved in
 `outputs/audits/pr96_flower_deployment_01_region_failure_20261023.json`.
+The `_02` instance `8b1d810aa162a6bb01a16612ed32046f` also ended before any host
+ran (1100400: public Beijing H20 quota0), despite the group's own ordinary
+quota snapshot136/86used/0waiting. This was a quota-routing override, not proof
+that the entitled business group had no capacity. Evidence:
+`outputs/audits/pr96_flower_deployment_02_public_quota_failure_20261023.json`.
+Neither failed instance created pipeline, preflight or model outputs.
 Their logs are `outputs/audits/pr96_flower_after_build_20261023_06.log` and
 `outputs/audits/pr96_flower_token_after_approval_20261023_06.log`.
 No duplicate builders or premature training jobs are needed.
 
 The replacement config is
-`configs/taiji/meteor_mechet_pr96_flower_qwen35_08b_2stage_8h20_zjk_20261023_02.json`.
-Only the task flag, description and unsupported region override change from
-`_01`; the failed task/config/receipt remain historical evidence. The working
+`configs/taiji/meteor_mechet_pr96_flower_qwen35_08b_2stage_8h20_zjk_20261023_03.json`.
+Only the task flag, description, region and quota-routing overrides change from
+`_01`; both failed tasks/configs/receipts remain historical evidence. The working
 same-group forward4H20 and currently running CRN H20 tasks all have empty
-`location`, so the group binding is used instead of inventing another alias.
-Two regression tests reproduced the old failure and passed on the replacement;
+`location` AND empty `quota_type`; matching just the region field was insufficient.
+Three regression tests reproduced the old request defects and passed on the replacement;
 they also ensure all scientific/deployment fields are unchanged. Submission
 requires complete reference, history, quarantine and token gates plus fresh
 resource/donor checks. Formal
@@ -222,7 +230,7 @@ and the already deployed731af13 GPU trainer, Tencenttaiji6 image, pinned
 runtime and45sdefault-POD heartbeat. Local corrected data code is ee9901e;
 this is intentionally separate from the immutable running GPU code.
 
-Latest full local verification with the pinned official tokenizer:566passed/
+Latest full local verification with the pinned official tokenizer:567passed/
 1skipped (the existing optional large-artifact RL test), including the new
 region-routing regressions and real FlowER root/late-H fixtures. Tests are not
 new experimental results.
