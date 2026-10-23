@@ -1,6 +1,6 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 08:18 CST
+## Current update — 2026-10-23 08:54 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
@@ -15,8 +15,10 @@ A100 `quota_type=public` requested a zero-public-quota H20 pool. The replacement
 `_03` leaves both `location` and `quota_type` empty, matching successful H20
 requests in the same application group. Scientific/deployment fields are retained.
 The `_03` job is now allocated and its POD is Running: eight actual NVIDIA H20,
-Ceph and PID1/default-stdout binding are verified. It is preparing local caches;
-the eight-GPU model preflight and positive formal optimizer steps remain pending.
+Ceph and PID1/default-stdout binding are verified. Both complete local caches and
+the actual eight-GPU model preflight passed. The formal State launcher has
+started; its eight workers are checking training-file hashes, and a positive
+formal optimizer step has not yet been observed.
 No complete TEST model evaluation has been executed on either track.
 
 Current FlowER task:
@@ -31,6 +33,21 @@ Node cache `/tmp/mechet-pr96.JVB7sd` has3.3Treported free space; official base
 files10/10have been copied/verified. Pipeline and heartbeat processes write to
 the same stdout pipe as PID1. The logs API can lag; this does not claim its
 bootstrap-only tail already displays current heartbeat or training updates.
+State and History local cache audits passed08:29:19/08:43:52CST, with all16Arrow
+files and complete manifests per stage, no state cropping and768generation tokens.
+The eight-H20 preflight manifest is
+`preflight_20261023T004353/manifest.json` under the FlowER run, SHA256
+`e15ff0e3de3eb3c97acda70cef6770e3733b643d490420e0c5ddbb168505ea1c`.
+All ranks passed finite nonzero gradients, actual LoRA updates, DDP synchronization,
+assistant masks/tool prefix parity, language-only targets and generation. These
+were discarded scratch updates, not formal SFT progress or model accuracy.
+Actual runtime is torch2.6.0+cu118/TF5.5/PEFT0.18.1/Triton3.2/RDKit2026.3.4.
+Independent deployed-validator readback:
+`outputs/audits/pr96_flower_h20_preflight_verified_20261023_0853.json`.
+The formal State launcher started08:48:59CST, preserving5epochs/max_steps=-1,
+own-gate History3epochs, independent base initialization and all frozen data.
+Current eight workers6847–6854are genuinely reading the authorized State train
+file; do not substitute the preflight's one scratch update for a formal step.
 
 ### mech31k: real training and model predictions
 
