@@ -1,6 +1,6 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 09:18 CST
+## Current update — 2026-10-23 09:45 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
@@ -16,16 +16,20 @@ A100 `quota_type=public` requested a zero-public-quota H20 pool. The replacement
 requests in the same application group. Scientific/deployment fields are retained.
 The `_03` job is now allocated and its POD is Running: eight actual NVIDIA H20,
 Ceph and PID1/default-stdout binding are verified. Both complete local caches and
-the actual eight-GPU model preflight passed. The formal State launcher has
-started; its workers completed hash checks and loaded the model, but are still
-inferring lengths for HF grouping on CPU. A positive formal optimizer step has
-not yet been observed.
+the actual eight-GPU model preflight passed. The one-time CPU length scan has
+finished, and formal State-SFT is now making sustained optimizer updates.
+First formal step1 was recorded09:27:52CST; step10 has a positive learning rate.
+The independently checked09:44:36CST record is800/149070updates (0.5367% of
+the full5epochs), loss0.0627604, finite gradient norm2.0662, global consumed
+examples51200 and zero reported exceptions. This is training progress, not
+endpoint accuracy. No epoch checkpoint or validation result exists yet.
 No complete TEST model evaluation has been executed on either track.
 
 Current FlowER task:
 `meteor_mechet_pr96_flower_qwen35_08b_2stage_8h20_zjk_20261023_03`, instance
 `8b1d8923a162a6a801a1661b13c6047a`, submitted08:13:33CST, platform
-TRAINING_RUNNING. This is not yet proof that model training has begun.
+TRAINING_RUNNING. Formal model training is separately proven by its sustained
+step journal and nonzero-learning-rate updates, not by this platform label.
 Use `submission_receipt_03.json` in the FlowER run and live instance/pipeline
 status, not the initial `_01` submission receipt or preparation-time plan flag.
 Actual device/mount/log-chain evidence:
@@ -47,19 +51,35 @@ Independent deployed-validator readback:
 `outputs/audits/pr96_flower_h20_preflight_verified_20261023_0853.json`.
 The formal State launcher started08:48:59CST, preserving5epochs/max_steps=-1,
 own-gate History3epochs, independent base initialization and all frozen data.
-Current eight workers6847–6854completed their startup hash checks and loaded the
-model. Nonblocking read-only profiler samples at09:11/09:14confirm the current
-delay is `Dataset.__iter__` inside `LengthGroupedSampler`, not CUDA/NCCL.
+The eight workers6847–6854completed their startup hash checks and loaded the
+model. Nonblocking read-only profiler samples at09:11/09:14identified the earlier
+pre-first-batch delay as `Dataset.__iter__` inside `LengthGroupedSampler`, not
+CUDA/NCCL. That scan subsequently finished; it is not the current phase.
 The Arrow cache has no length column, so each rank formats all1908035decision
-rows to infer lengths before its first batch. This is startup scanning, not
-eightfold extra training data. Memory-map activity confirms forward traversal;
-no exact sampler-row progress or formal training step is claimed.
+rows to infer lengths before its first batch. This was startup scanning, not
+eightfold extra training data. Earlier memory-map observations established
+forward traversal only; formal progress now comes from actual optimizer logs.
 Raw stack: `outputs/audits/pr96_flower_state_startup_stack_20261023011410Z.txt`;
 diagnosis: `outputs/audits/pr96_flower_state_startup_length_scan_20261023_0916.json`.
 The current job is not restarted/hot-patched; model/data/epochs/sampling remain
 unchanged. A future implementation can derive the identical lengths directly
 from Arrow offsets before Trainer construction. Do not substitute the preflight's
 one scratch update for a formal step.
+
+Formal-start verification:
+`outputs/audits/pr96_flower_formal_training_positive_steps_20261023_09.json`.
+All81logged positive-step records through800are strictly increasing, retain
+149070total steps/5epochs, have finite losses/gradients and zero exceptions;
+global example counts match64per completed update in this early full-batch
+portion. This does not extrapolate the final partial accumulation/padding count.
+The audit binds the official base, source approval, State token cache and actual
+eight-H20 preflight hashes. At09:45:43CST, the POD readback reconfirmed Ceph,
+all eight live workers and their shared PID1 stdout/stderr pipes. Seven GPUs
+sampled100%utilization and one13%; this instantaneous snapshot is not a sustained
+utilization average. Heartbeat cumulative writes advanced to26568bytes.
+The logs API tail remains bootstrap-only and is not used
+as evidence of fresh training output. No scientific configuration, source,
+sampling order, code/runtime package, epochs or checkpoint lineage was changed.
 
 ### mech31k: real training and model predictions
 
@@ -297,21 +317,25 @@ this still is not the official unfiltered28971TEST. Root selection did not use
 future moves or GT precursors. Final model SHA and generation budget will be
 bound only after the FlowER model is actually trained and selected. This is
 input construction/audit only, not TEST inference or test-set parameter tuning.
-Full TRAIN history replay completed243753/243753; the actual post-token
-submission operator2166044 waits on token-workflow2067621 and will
-verify all completed source/history/token hashes and fresh resources before
-submitting the exact8H20draft. It must not be duplicated by a manual submission.
+Full TRAIN history replay completed243753/243753. The token workflow and sole
+post-token submission operator completed normally; the original full source,
+History and token/Arrow hash gates passed before submission. The live task is
+the routing-corrected `_03` described above. Do not start a duplicate operator
+or job from the obsolete preparation-time flags/receipts.
 Static full-epoch boundary check of the pinned Transformers5.5 implementation:
 `outputs/audits/pr96_flower_epoch_budget_static_check_20261023_06.json`.
 For1908035training decisions,8ranks,microbatch4andaccumulation2, each epoch
 has59627microbatches/rank and29814optimizer updates. Its final one-microbatch
 accumulation window is included. Expected State5epochs=149070updates;
-History3epochs=89442updates. These are checked scheduling expectations, NOT
-executed training steps. Actual startup/runtime counters and sampler padding
-must still be verified after allocation; consumed examples are not inferred
-from nominal global batch64.
-Remaining: completebothFlowERtoken gates, submit8H20, runState5epochs, apply its own fixed
-GO/NO-GO and runHistory3epochs ifGO, then archive final evidence. No auto merge.
+History3epochs=89442updates. The actual State trainer now confirms149070total
+planned updates;800completed updates are verified separately above. No complete
+epoch or History training is claimed. Actual per-rank runtime counters and
+sampler padding must be audited at checkpoints rather than inferring final
+consumption from nominal global batch64.
+Remaining: finishState5epochs, apply its own fixed GO/NO-GO, runHistory3epochs
+ifGO, then perform final paired+independent VALID verification and archive the
+selected-checkpoint-bound audited TEST plan. No actual TEST inference or auto
+merge is included in this handoff.
 
 ## Historical update — 2026-10-23 01:56 CST (superseded)
 
