@@ -9,6 +9,11 @@ from pathlib import Path
 PARENT_SHA = 'cd5f2f9dbdc883674be2f87781452366a3fb2c01c7c930482e0b5e4b3dab49ca'
 
 
+def validate_hardware(names, expected):
+    if expected not in ('H20', 'A100') or len(names) != 8 or not all(expected in name for name in names):
+        raise ValueError('EARHO_HARDWARE_MISMATCH')
+
+
 def validate(cfg):
     if cfg.get('algorithm') != 'pr96_earho_v1':
         raise ValueError('EARHO_ALGORITHM_MISMATCH')

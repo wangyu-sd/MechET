@@ -92,6 +92,18 @@ def test_formal_contract_rejects_diagnostic_parent_and_test_sources():
         m.validate({**base, 'train_reactions': 64})
 
 
+def test_hardware_guard_accepts_declared_a100_but_not_wrong_or_mixed_devices():
+    m = module()
+    m.validate_hardware(['NVIDIA A100-SXM4-40GB']*8, 'A100')
+    m.validate_hardware(['NVIDIA H20']*8, 'H20')
+    with pytest.raises(ValueError, match='HARDWARE'):
+        m.validate_hardware(['NVIDIA H20']*8, 'A100')
+    with pytest.raises(ValueError, match='HARDWARE'):
+        m.validate_hardware(['NVIDIA A100-SXM4-40GB']*7, 'A100')
+    with pytest.raises(ValueError, match='HARDWARE'):
+        m.validate_hardware(['NVIDIA A100-SXM4-40GB']*7+['NVIDIA V100'], 'A100')
+
+
 def test_sampled_kl_uses_fixed_reference_not_new_behavior():
     m = module()
     import torch

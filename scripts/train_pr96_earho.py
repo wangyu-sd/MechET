@@ -394,8 +394,7 @@ def main():
     local_rank = int(os.environ['LOCAL_RANK'])
     if world != cfg['world_size'] or torch.cuda.device_count() != 8:
         raise ValueError('EARHO_REQUIRES_EIGHT_ACTUAL_GPUS')
-    if not all('H20' in torch.cuda.get_device_name(i) for i in range(8)):
-        raise ValueError('EARHO_HARDWARE_MISMATCH')
+    contract_api.validate_hardware([torch.cuda.get_device_name(i) for i in range(8)], cfg.get('gpu_name', 'H20'))
     torch.cuda.set_device(local_rank)
     torch.set_num_threads(cfg['cpu_threads_per_rank'])
     dist.init_process_group('nccl', timeout=timedelta(minutes=45))
