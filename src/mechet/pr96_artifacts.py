@@ -9,7 +9,7 @@ def training_identity(cfg):
     from .pr96_eval_runtime import sha
     settings = cfg["pr96"]
     root = Path(__file__).resolve().parents[2]
-    code = ["src/mechet/pr96_trainer.py", "src/mechet/qwen35_protocol.py",
+    code = ["src/mechet/pr96_trainer.py", "src/mechet/pr96_performance.py", "src/mechet/qwen35_protocol.py",
             "src/mechet/collator.py", "scripts/train_tool_sft.py",
             "scripts/prepare_tool_sft_arrow.py", "src/mechet/pr96_evaluation.py",
             "src/mechet/pr96_eval_runtime.py", "src/mechet/pr96_artifacts.py",
@@ -32,9 +32,23 @@ def verify_resume_checkpoint(cfg, checkpoint):
     from .pr96_eval_runtime import sha
     checkpoint = Path(checkpoint)
     value = json.loads((checkpoint / "pr96_checkpoint_manifest.json").read_text())
-    if (value.get("track") != cfg["pr96"]["track"] or value.get("stage") != cfg["pr96"]["stage"]
-            or value.get("lineage", {}).get("training_identity") != training_identity(cfg)):
+    if value.get("track") != cfg["pr96"]["track"] or value.get("stage") != cfg["pr96"]["stage"]:
         raise ValueError("PR96_RESUME_SCIENTIFIC_LINEAGE_MISMATCH")
+    _verify_checkpoint_identity(cfg, checkpoint, value)
+    _verify_checkpoint_components(value, checkpoint)
+    return value
+
+
+def _verify_checkpoint_identity(cfg, checkpoint, value):
+    target = training_identity(cfg)
+    if value.get("lineage", {}).get("training_identity") != target:
+        from .pr96_performance import verify_performance_checkpoint_identity
+        verify_performance_checkpoint_identity(cfg, checkpoint, value, target)
+
+
+def _verify_checkpoint_components(value, checkpoint):
+    import json
+    from .pr96_eval_runtime import sha
     required = {"adapter_model.safetensors", "adapter_config.json", "optimizer.pt", "scheduler.pt", "trainer_state.json"}
     if set(value.get("files", {})) != required:
         raise ValueError("PR96_RESUME_COMPONENTS_MISSING")
@@ -50,7 +64,6 @@ def verify_resume_checkpoint(cfg, checkpoint):
     state = json.loads((checkpoint / "trainer_state.json").read_text())
     if state["global_step"] != value["step"] or state["epoch"] != value["epoch"]:
         raise ValueError("PR96_RESUME_TRAINER_POSITION_MISMATCH")
-    return value
 
 
 def verify_evaluation_bindings(cfg, adapter):
@@ -81,9 +94,9 @@ def verify_evaluation_bindings(cfg, adapter):
     metadata = json.loads((adapter / "pr96_checkpoint_manifest.json").read_text())
     weight = sha(adapter / "adapter_model.safetensors")
     if (metadata.get("track") != settings["track"] or metadata.get("stage") != settings["stage"]
-            or metadata.get("lineage", {}).get("training_identity") != training_identity(cfg)
             or metadata["files"].get("adapter_model.safetensors") != weight):
         raise ValueError("PR96_EVALUATION_CHECKPOINT_LINEAGE_CHANGED")
+    _verify_checkpoint_identity(cfg, adapter, metadata)
     return {"valid_source_sha256": sources, "reference_approval_sha256": sha(approval_path),
             "cohorts_sha256": sha(settings["cohorts_file"]), "adapter_model_sha256": weight,
             "training_identity": training_identity(cfg)}

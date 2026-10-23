@@ -41,8 +41,13 @@ validate_runtime_versions(torch_version=torch.__version__,cuda_version=torch.ver
 from transformers import Qwen3_5ForCausalLM
 from fla.ops.gated_delta_rule import chunk_gated_delta_rule
 from fla.modules import FusedRMSNormGated
+from transformers.models.qwen3_5 import modeling_qwen3_5
+import causal_conv1d
+if not modeling_qwen3_5.is_fast_path_available:
+    raise ValueError('PR96_NATIVE_CAUSAL_CONV_AND_FLA_REQUIRED')
 print({'phase':'runtime-imported','python':sys.version,'torch':torch.__version__,'cuda':torch.version.cuda,
        'transformers':transformers.__version__,'peft':peft.__version__,'triton':triton.__version__,
+       'causal_conv1d':causal_conv1d.__version__,'qwen35_fast_path_available':True,
        'gpu_names':[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]},flush=True)
 PY
 cd "$pr96_node/code"

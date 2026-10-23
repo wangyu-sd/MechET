@@ -132,8 +132,12 @@ def main():
             return previous
         options = ["--config", plan["configs"][stage]]
         checkpoints = sorted(model_dir.glob("checkpoint-*"), key=lambda x:int(x.name.split("-")[-1]))
-        if checkpoints:
-            candidate = checkpoints[-1]
+        if cfg["pr96"].get("performance_resume_anchor") or checkpoints:
+            if cfg["pr96"].get("performance_resume_anchor"):
+                from mechet.pr96_performance import select_performance_resume_checkpoint
+                candidate = select_performance_resume_checkpoint(cfg)
+            else:
+                candidate = checkpoints[-1]
             verify_resume_checkpoint(cfg, candidate)
             options += ["--resume-from-checkpoint", candidate]
         emit("formal-training-start", training_stage=stage, epochs=cfg["training"]["num_train_epochs"],

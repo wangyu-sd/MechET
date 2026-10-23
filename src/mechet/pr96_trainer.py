@@ -68,6 +68,25 @@ class PR96Trainer(Trainer):
         self.accelerator.gradient_accumulation_steps = 1
         self._counts = torch.zeros(3, dtype=torch.long, device=self.args.device)
 
+    def _get_train_sampler(self, train_dataset=None):
+        dataset = self.train_dataset if train_dataset is None else train_dataset
+        if self.args.train_sampling_strategy == "group_by_length" and hasattr(dataset, "data"):
+            from transformers.trainer_pt_utils import LengthGroupedSampler
+            from .pr96_performance import arrow_sequence_lengths
+            return LengthGroupedSampler(
+                self.args.train_batch_size * self.args.gradient_accumulation_steps,
+                lengths=arrow_sequence_lengths(dataset),
+            )
+        return super()._get_train_sampler(train_dataset)
+
+    def _get_eval_sampler(self, eval_dataset):
+        if self.args.train_sampling_strategy == "group_by_length" and hasattr(eval_dataset, "data"):
+            from transformers.trainer_pt_utils import LengthGroupedSampler
+            from .pr96_performance import arrow_sequence_lengths
+            return LengthGroupedSampler(self.args.eval_batch_size,
+                                        lengths=arrow_sequence_lengths(eval_dataset))
+        return super()._get_eval_sampler(eval_dataset)
+
     @property
     def examples_consumed(self):
         return int(self._counts[0].item())
@@ -120,8 +139,21 @@ class PR96Progress(TrainerCallback):
             torch.distributed.all_reduce(counts)
         self.last_counts = counts.tolist()
         self.last_time = time.monotonic()
-        if self.stage == "history" and self.last_checkpoint:
+        if self.stage == "history" and self.last_checkpoint and self._at_epoch_boundary(state):
             self._validate_epoch(args, state, Path(self.last_checkpoint))
+
+    @staticmethod
+    def _at_epoch_boundary(state):
+        epoch = float(state.epoch or 0)
+        return epoch > 0 and abs(epoch - round(epoch)) < 1e-6
+
+    def on_step_end(self, args, state, control, **kwargs):
+        interval = self.lineage.get("recovery_checkpoint_steps", 0)
+        if interval and (type(interval) is not int or interval < 1):
+            raise ValueError("PR96_INVALID_RECOVERY_CHECKPOINT_INTERVAL")
+        if interval and state.global_step > 0 and state.global_step % interval == 0:
+            control.should_save = True
+        return control
 
     def _emit(self, args, state, event):
         if not state.is_world_process_zero:
@@ -205,7 +237,7 @@ class PR96Progress(TrainerCallback):
             self._emit(args, state, {"event": "checkpoint-saved", "checkpoint": str(checkpoint),
                        "adapter_model_sha256": manifest["files"]["adapter_model.safetensors"],
                        "optimizer_scheduler_rng_saved": True, "best_checkpoint": state.best_model_checkpoint})
-        if self.stage == "history":
+        if self.stage == "history" and self._at_epoch_boundary(state):
             if torch.distributed.is_available() and torch.distributed.is_initialized():
                 torch.distributed.barrier()  # rank-zero manifest must exist before all ranks audit it
             self._validate_epoch(args, state, checkpoint)

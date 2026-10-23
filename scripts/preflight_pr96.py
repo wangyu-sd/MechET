@@ -106,6 +106,39 @@ def main():
     synchronized = all(torch.allclose(signature, other, rtol=1e-5, atol=1e-7) for other in signatures)
     optimizer.step()
     changed = any(not torch.equal(p.detach(), before[n]) for n,p in model.named_parameters() if n in before)
+    layout = None
+    if cfg["pr96"].get("performance_layout_probe"):
+        from mechet.pr96_performance import largest_cached_example
+        from transformers.models.qwen3_5 import modeling_qwen3_5 as qwen35
+        if not qwen35.is_fast_path_available:
+            raise ValueError("PR96_PERFORMANCE_FAST_PATH_REQUIRED")
+        optimizer.zero_grad(set_to_none=True)
+        node = Path(os.environ["PR96_NODE_CACHE"])
+        longest, layout = largest_cached_example([node / "tokens_state", node / "tokens_history"])
+        micro = int(cfg["training"]["per_device_train_batch_size"])
+        probe = AssistantOnlyCollator(tokenizer)([longest] * micro)
+        probe = {k: v.to(next(model.parameters()).device) for k, v in probe.items()}
+        denominator = (probe["labels"][:, 1:] != -100).sum()
+        dist.all_reduce(denominator)
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+        started = time.monotonic()
+        trainer.current_gradient_accumulation_steps = 1
+        probe_loss = trainer.training_step(wrapped, probe, denominator)
+        torch.cuda.synchronize()
+        if not torch.isfinite(probe_loss) or not any(p.grad is not None for p in model.parameters()):
+            raise ValueError("PR96_PERFORMANCE_LAYOUT_BACKWARD_FAILED")
+        if not all(torch.isfinite(p.grad).all().item() for p in model.parameters() if p.grad is not None):
+            raise ValueError("PR96_PERFORMANCE_LAYOUT_NONFINITE_GRADIENT")
+        layout.update(per_device_train_batch_size=micro,
+                      gradient_checkpointing=cfg["training"]["gradient_checkpointing"],
+                      native_causal_conv1d=True, finite_backward=True,
+                      peak_gpu_memory_bytes=torch.cuda.max_memory_allocated(),
+                      elapsed_seconds=time.monotonic() - started,
+                      timing_is_compatibility_only_not_steady_state_throughput=True)
+        print(json.dumps({"stage": "pr96-performance-layout-verified", "rank": rank, **layout}), flush=True)
+        optimizer.zero_grad(set_to_none=True)
+        del probe
     model.eval()
     backend = HFBackend(model, tokenizer, max_new_tokens=512, batch_size=1,
                         raw_path=args.output / f"generation.rank{rank:02d}.jsonl")
@@ -121,6 +154,8 @@ def main():
               "elapsed_seconds": time.monotonic() - begin,
               "peak_gpu_memory_bytes": torch.cuda.max_memory_allocated(),
               "scratch_optimizer_updates": 1, "scratch_weights_saved": False}
+    if layout is not None:
+        record["performance_layout_probe"] = layout
     (args.output / f"rank{rank:02d}.json").write_text(json.dumps(record, indent=2) + "\n")
     print(json.dumps({"stage": "pr96-deployed-preflight-rank-complete", **record}), flush=True)
     dist.barrier()
