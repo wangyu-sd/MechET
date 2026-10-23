@@ -1,5 +1,22 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-23 permanent user storage restriction: NO data on local test disk.**
+> All new datasets/model weights/downloads/test-generated files and caches must
+> use the Ceph mount, not host `/tmp`, `/root/.cache` or its root filesystem.
+> Before host-side tests/downloads/installs/processing, source
+> `configs/runtime/shared_host_storage.env` using its absolute primary-repo path.
+> This redirects tempfile/pytest/HuggingFace/pip/Torch/Triton/WandB caches to
+> `outputs/shared_host_storage/` on Ceph; explicit path overrides must comply too.
+> Root cause of this session's local writes: TMPDIR/HF_HOME/PIP_CACHE_DIR were
+> unset, so tests and dependencies used local defaults. The host has historical
+> `/tmp`46G and `/root/.cache`41G; pytest temp root2.6G is shared across sessions,
+> not all attributable to this run. Our PR96 runtime overlay143M, frozen code16M;
+> completed172M causalconv unit cache already recoverably archived to
+> `artifacts/pr96_host_causalconv_unit_cache_archived_20261023` on Ceph.
+> Formal PR96 data/checkpoints remain on Ceph. No unknown historical directories
+> deleted, no other session or Taiji training stopped. Do not repeat the storage
+> error or claim the entire root-disk usage was caused by these small overlays.
+
 > **2026-10-23 PR96 execution and requested performance handoff (13:22 CST snapshot).**
 > Official independently initialized Qwen3.5-0.8B@2fc06364715b967f1860aea9cf38778875588b17,
 > NOT an old Qwen3-0.6B/8B adapter. mech31k completed State10epochs/6600updates
