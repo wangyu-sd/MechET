@@ -1,16 +1,18 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 07:44 CST
+## Current update — 2026-10-23 08:03 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
 Taiji reports IsSuccess=true/END; its8A100 are released. The FlowER
 reference rebuild, independent full-history/quarantine and original-source
 consistency audits completed. Its new reference subset is authorized; both
-complete token caches passed their manifest checks. The sole submission operator
-is independently rehashing source files and Arrow shards. Actual eight-H20
-deployment/preflight and formal training remain outstanding; no H20 task has
-been submitted yet.
+complete token caches passed their manifest checks and independent source/Arrow
+rehashing. The first H20 submission immediately ended before POD allocation:
+Taiji rejected the unsupported explicit location `zjk` (-1100408). A replacement
+payload `_02` uses the proven empty-location business-group binding, matching
+running H20 tasks in the same group; all training/deployment fields are retained.
+Actual eight-H20 deployment/preflight and formal training remain outstanding.
 No complete TEST model evaluation has been executed on either track.
 
 ### mech31k: real training and model predictions
@@ -191,15 +193,28 @@ fallback and correct owned XML masks. Its TRAIN input contains2646532471tokens,
 with the same251982800supervised tokens; longest input3529/supervised span600.
 Both actual immutable731 token validators passed, deriving768-token generation
 budgets from each TRAIN cache. The completed token workflow is not running now.
-The sole submission operator2166044 has independently begun rehashing all
-authorized source/history files and Arrow shards before creating the H20 task.
-No GPU model training or TEST inference is running here.
+The sole submission operator2166044 completed independent hashing of every
+authorized source/history file and every Arrow shard: State passed07:50:30,
+History07:55:18. It submitted `_01` at07:55:21 and then ended normally. Its
+successful create/start response was not a deployment pass: instance
+`8b1d8923a162a6a801a1660a6a380474` is END/IsSuccess=false, and the logs endpoint
+confirms no host ever ran. No GPU model training or TEST inference ran there.
+Failure evidence is preserved in
+`outputs/audits/pr96_flower_deployment_01_region_failure_20261023.json`.
 Their logs are `outputs/audits/pr96_flower_after_build_20261023_06.log` and
 `outputs/audits/pr96_flower_token_after_approval_20261023_06.log`.
 No duplicate builders or premature training jobs are needed.
 
-The8H20/ZJK config is prepared only. Submission requires complete reference,
-history, quarantine and token gates plus fresh resource/donor checks. Formal
+The replacement config is
+`configs/taiji/meteor_mechet_pr96_flower_qwen35_08b_2stage_8h20_zjk_20261023_02.json`.
+Only the task flag, description and unsupported region override change from
+`_01`; the failed task/config/receipt remain historical evidence. The working
+same-group forward4H20 and currently running CRN H20 tasks all have empty
+`location`, so the group binding is used instead of inventing another alias.
+Two regression tests reproduced the old failure and passed on the replacement;
+they also ensure all scientific/deployment fields are unchanged. Submission
+requires complete reference, history, quarantine and token gates plus fresh
+resource/donor checks. Formal
 training additionally requires the actual eight-H20 compatibility preflight
 after allocation; a successful submission alone is not a training pass.
 It uses independent FlowER initialization
@@ -207,8 +222,10 @@ and the already deployed731af13 GPU trainer, Tencenttaiji6 image, pinned
 runtime and45sdefault-POD heartbeat. Local corrected data code is ee9901e;
 this is intentionally separate from the immutable running GPU code.
 
-Latest full local code verification:564passed/1skipped, including real FlowER
-root and late-H regression fixtures. Tests are not new experimental results.
+Latest full local verification with the pinned official tokenizer:566passed/
+1skipped (the existing optional large-artifact RL test), including the new
+region-routing regressions and real FlowER root/late-H fixtures. Tests are not
+new experimental results.
 Full accepted FlowER budget audit verified all273904reaction IDs/audit hashes:
 maximum23decisions and25imported fragments, none beyond64/32public budgets;
 all public roots are single components. Evidence:
