@@ -131,6 +131,36 @@ a closed-loop endpoint improvement over State. All complete raw reports were
 independently reaggregated from their8rank outputs and checked against cohort,
 model, data and code hashes. No extra model sampling was run for that audit.
 
+Additional required fine-grained metrics from these same selected checkpoints:
+
+| VALID metric | State paired64 | History paired64 | History independent64 |
+|---|---:|---:|---:|
+| TF root IMPORT component precision / recall |90.00% /90.00%|81.67% /81.67%|88.33% /88.33%|
+| TF electronic event exact |156/166|160/166|162/166|
+| TF electron-source site exact |157/166|161/166|162/166|
+| TF electron-destination site exact |156/166|160/166|162/166|
+| TF formally executable decisions |330/330|329/330|330/330|
+| Closed-loop actual FINISH |62/64|62/64|64/64|
+
+The denominator166is FLOW decisions conditioned on the reference prefix, not
+166independent reactions or autonomous endpoint hits. Component precision/recall
+are micro-aggregated matched/predicted/gold fragments on the60root-IMPORT cases;
+each happens to have one component here. Formal execution is distinct from
+reference chemical-successor matching and from a correct complete endpoint.
+
+Existing-output episode analysis accounts for all64IDs in each report. Among
+the12State endpoint misses,8first diverge from the reference at depth0;
+History paired has11of13misses first diverging at depth0, independent7of12.
+Depth is zero-based. Two State episodes first diverge at depth1but subsequently
+reach the exact complete endpoint: a reference divergence is not automatically
+a chemistry error or an endpoint failure. The independent History cohort has
+12terminal endpoint mismatches and no executor rejection; its64FINISH outcomes
+must not be presented as64correct endpoints. Saved per-case classifications,
+all24rank-result hashes, report/checkpoint bindings and full metric dictionaries:
+`outputs/audits/pr96_mech31k_selected_fine_grained_existing_outputs_20261023_01.json`.
+This reuses captured VALID outputs only; no new generation, TEST evaluation,
+checkpoint selection or label change was performed.
+
 All following paths are relative to `/aaa/fionafyang/buddy1/whaleywang/MechET/`:
 
 - Run/configs/checkpoints/progress:
