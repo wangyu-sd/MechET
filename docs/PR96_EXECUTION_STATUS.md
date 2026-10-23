@@ -1,6 +1,6 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 08:11 CST
+## Current update — 2026-10-23 08:18 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
@@ -14,8 +14,23 @@ payload `_02` removed that alias but also ended before allocation: its copied
 A100 `quota_type=public` requested a zero-public-quota H20 pool. The replacement
 `_03` leaves both `location` and `quota_type` empty, matching successful H20
 requests in the same application group. Scientific/deployment fields are retained.
-Actual eight-H20 deployment/preflight and formal training remain outstanding.
+The `_03` job is now allocated and its POD is Running: eight actual NVIDIA H20,
+Ceph and PID1/default-stdout binding are verified. It is preparing local caches;
+the eight-GPU model preflight and positive formal optimizer steps remain pending.
 No complete TEST model evaluation has been executed on either track.
+
+Current FlowER task:
+`meteor_mechet_pr96_flower_qwen35_08b_2stage_8h20_zjk_20261023_03`, instance
+`8b1d8923a162a6a801a1661b13c6047a`, submitted08:13:33CST, platform
+TRAINING_RUNNING. This is not yet proof that model training has begun.
+Use `submission_receipt_03.json` in the FlowER run and live instance/pipeline
+status, not the initial `_01` submission receipt or preparation-time plan flag.
+Actual device/mount/log-chain evidence:
+`outputs/audits/pr96_flower_deployment_03_h20_pod_readback_20261023_0817.json`.
+Node cache `/tmp/mechet-pr96.JVB7sd` has3.3Treported free space; official base
+files10/10have been copied/verified. Pipeline and heartbeat processes write to
+the same stdout pipe as PID1. The logs API can lag; this does not claim its
+bootstrap-only tail already displays current heartbeat or training updates.
 
 ### mech31k: real training and model predictions
 
