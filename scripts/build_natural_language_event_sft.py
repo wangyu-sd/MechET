@@ -360,8 +360,14 @@ def _import_arguments(
     }
 
 
-def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Convert and independently replay one complete source reaction."""
+def convert_row(
+    row: Mapping[str, Any], *, private_state_audit_sink: list[str] | None = None
+) -> list[dict[str, Any]]:
+    """Convert/replay a source, optionally capturing private states for auditing.
+
+    The audit sink is never inserted into the model-visible training records.
+    It preserves original authenticated Kekule, H and atom-map state.
+    """
 
     metadata = dict(row.get("metadata") or {})
     plan = dict(metadata.get("trace_plan") or {})
@@ -455,6 +461,8 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
                     },
                 )
             )
+            if private_state_audit_sink is not None:
+                private_state_audit_sink.append(current)
             sequence += 1
 
         authoritative_successor = _translate_mapped_smiles(
@@ -488,6 +496,12 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
                 f"natural-language replay failed at {events}: {replay.get('code')}"
             )
         successor = str(replay["state_smiles"])
+        if private_state_audit_sink is not None and mapped_state_signature(
+            successor
+        ) != mapped_state_signature(authoritative_successor):
+            raise ValueError(
+                f"audited reference FLOW successor differs from source at {events}"
+            )
         output.append(
             _decision_row(
                 row=public_row,
@@ -503,6 +517,8 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
                 },
             )
         )
+        if private_state_audit_sink is not None:
+            private_state_audit_sink.append(event_state)
         sequence += 1
         events += 1
         current = successor
@@ -536,6 +552,8 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             },
         )
     )
+    if private_state_audit_sink is not None:
+        private_state_audit_sink.append(current)
     return output
 
 

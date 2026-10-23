@@ -1,0 +1,108 @@
+diff --git a/scripts/build_natural_language_event_sft.py b/scripts/build_natural_language_event_sft.py
+index 190184e..1b0366d 100644
+--- a/scripts/build_natural_language_event_sft.py
++++ b/scripts/build_natural_language_event_sft.py
+@@ -479,6 +479,12 @@ def convert_row(
+                 f"natural-language replay failed at {events}: {replay.get('code')}"
+             )
+         successor = str(replay["state_smiles"])
++        if private_state_audit_sink is not None and mapped_state_signature(
++            successor
++        ) != mapped_state_signature(authoritative_successor):
++            raise ValueError(
++                f"audited reference FLOW successor differs from source at {events}"
++            )
+         output.append(
+             _decision_row(
+                 row=public_row,
+diff --git a/scripts/eval_mechet_stage2_teacher_forced.py b/scripts/eval_mechet_stage2_teacher_forced.py
+index 0db8283..e2e2f0e 100644
+--- a/scripts/eval_mechet_stage2_teacher_forced.py
++++ b/scripts/eval_mechet_stage2_teacher_forced.py
+@@ -161,6 +161,27 @@ def prepare(args: argparse.Namespace) -> int:
+         },
+         "mech_uspto_31k": {"mech_uspto_31k"},
+     }
++    source_contract = {"kind": "row_corpus_metadata"}
++    # Frozen legacy FlowER rows store provenance at the artifact level, not
++    # per row. Authenticate the entire validation file; a filename is not proof.
++    if args.corpus == "flower_new_dataset" and source_names == {""}:
++        manifest_path = args.data.parent / "training_manifest.json"
++        if not manifest_path.is_file():
++            raise ValueError("legacy FlowER validation needs its frozen training manifest")
++        source_manifest = json.loads(manifest_path.read_text())
++        valid = (source_manifest.get("splits") or {}).get("valid") or {}
++        if (source_manifest.get("artifact_type") != "flower_strict_action_delta_trace_owned_tool_sft"
++                or source_manifest.get("source_dataset") != "FlowER flower_new_dataset"
++                or valid.get("rows") != len(sources)
++                or valid.get("sha256") != sha256(args.data)):
++            raise ValueError("legacy FlowER validation manifest corpus/rows/SHA mismatch")
++        source_names = {source_manifest["source_dataset"]}
++        source_contract = {
++            "kind": "sha_bound_frozen_validation_manifest",
++            "manifest": str(manifest_path),
++            "manifest_sha256": sha256(manifest_path),
++            "split": "valid",
++        }
+     if not source_names or not source_names <= accepted_sources[args.corpus]:
+         raise ValueError(f"source corpus mismatch: {source_names} vs {args.corpus}")
+     for row in sources:
+@@ -190,6 +211,7 @@ def prepare(args: argparse.Namespace) -> int:
+         "corpus": args.corpus,
+         "source": str(args.data),
+         "source_sha256": sha256(args.data),
++        "source_contract": source_contract,
+         "source_rows": len(sources),
+         "validation_reactions": len(selected),
+         "validation_decisions": len(tasks),
+diff --git a/tests/test_mechet_stage2_teacher_forced.py b/tests/test_mechet_stage2_teacher_forced.py
+index 08e87c8..ab90996 100644
+--- a/tests/test_mechet_stage2_teacher_forced.py
++++ b/tests/test_mechet_stage2_teacher_forced.py
+@@ -2,6 +2,7 @@
+ from __future__ import annotations
+ 
+ import argparse
++import hashlib
+ import json
+ 
+ import pytest
+@@ -115,3 +116,38 @@ def test_fail_closed_on_reference_successor_mismatch():
+     source["metadata"]["trace_plan"]["steps"][0]["state_after"] = source["target_smiles"]
+     with pytest.raises(ValueError):
+         prepare_task_rows(source)
++
++
++def test_manifest_authenticates_legacy_flower_rows_without_row_provenance(tmp_path):
++    source = _source("flower_mech_proof")
++    source["metadata"].pop("source_dataset")
++    source["metadata"].pop("source_split")
++    file = tmp_path / "valid.jsonl"
++    file.write_text(json.dumps(source) + "\n")
++    manifest = {
++        "artifact_type": "flower_strict_action_delta_trace_owned_tool_sft",
++        "source_dataset": "FlowER flower_new_dataset",
++        "splits": {"valid": {"rows": 1, "sha256": hashlib.sha256(file.read_bytes()).hexdigest()}},
++    }
++    (tmp_path / "training_manifest.json").write_text(json.dumps(manifest))
++    args = argparse.Namespace(data=file, corpus="flower_new_dataset", expected_source_rows=1,
++                              sample_reactions=0, seed=17, output=tmp_path / "prepared")
++    assert prepare(args) == 0
++    assert len(read_jsonl(args.output / "tasks.jsonl")) == 2
++
++
++def test_manifest_cannot_authenticate_a_changed_legacy_flower_validation_file(tmp_path):
++    source = _source("flower_mech_proof")
++    source["metadata"].pop("source_dataset")
++    source["metadata"].pop("source_split")
++    file = tmp_path / "valid.jsonl"
++    file.write_text(json.dumps(source) + "\n")
++    (tmp_path / "training_manifest.json").write_text(json.dumps({
++        "artifact_type": "flower_strict_action_delta_trace_owned_tool_sft",
++        "source_dataset": "FlowER flower_new_dataset",
++        "splits": {"valid": {"rows": 1, "sha256": "0" * 64}},
++    }))
++    args = argparse.Namespace(data=file, corpus="flower_new_dataset", expected_source_rows=1,
++                              sample_reactions=0, seed=17, output=tmp_path / "prepared")
++    with pytest.raises(ValueError, match="manifest.*SHA"):
++        prepare(args)
