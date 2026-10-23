@@ -1,6 +1,6 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
-## Current update — 2026-10-23 08:54 CST
+## Current update — 2026-10-23 09:18 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
 epochs, its paired and independent VALID confirmation, and final artifact checks.
@@ -17,8 +17,9 @@ requests in the same application group. Scientific/deployment fields are retaine
 The `_03` job is now allocated and its POD is Running: eight actual NVIDIA H20,
 Ceph and PID1/default-stdout binding are verified. Both complete local caches and
 the actual eight-GPU model preflight passed. The formal State launcher has
-started; its eight workers are checking training-file hashes, and a positive
-formal optimizer step has not yet been observed.
+started; its workers completed hash checks and loaded the model, but are still
+inferring lengths for HF grouping on CPU. A positive formal optimizer step has
+not yet been observed.
 No complete TEST model evaluation has been executed on either track.
 
 Current FlowER task:
@@ -46,8 +47,19 @@ Independent deployed-validator readback:
 `outputs/audits/pr96_flower_h20_preflight_verified_20261023_0853.json`.
 The formal State launcher started08:48:59CST, preserving5epochs/max_steps=-1,
 own-gate History3epochs, independent base initialization and all frozen data.
-Current eight workers6847–6854are genuinely reading the authorized State train
-file; do not substitute the preflight's one scratch update for a formal step.
+Current eight workers6847–6854completed their startup hash checks and loaded the
+model. Nonblocking read-only profiler samples at09:11/09:14confirm the current
+delay is `Dataset.__iter__` inside `LengthGroupedSampler`, not CUDA/NCCL.
+The Arrow cache has no length column, so each rank formats all1908035decision
+rows to infer lengths before its first batch. This is startup scanning, not
+eightfold extra training data. Memory-map activity confirms forward traversal;
+no exact sampler-row progress or formal training step is claimed.
+Raw stack: `outputs/audits/pr96_flower_state_startup_stack_20261023011410Z.txt`;
+diagnosis: `outputs/audits/pr96_flower_state_startup_length_scan_20261023_0916.json`.
+The current job is not restarted/hot-patched; model/data/epochs/sampling remain
+unchanged. A future implementation can derive the identical lengths directly
+from Arrow offsets before Trainer construction. Do not substitute the preflight's
+one scratch update for a formal step.
 
 ### mech31k: real training and model predictions
 
