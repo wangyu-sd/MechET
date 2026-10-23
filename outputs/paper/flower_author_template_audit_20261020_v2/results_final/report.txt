@@ -1,0 +1,12 @@
+Representation repair: complete (same 189233-event population)
+Current author template revision (Reaction_templates):
+saved_model_event: 46980/71868 (65.370%) -> 57690/71868 (80.272%); added 10710
+flower_strict_test_gt_event: 94417/117365 (80.447%) -> 113083/117365 (96.352%); added 18666
+r1_mcts_pr88: 16574/27402 (60.485%) -> 21122/27402 (77.082%)
+r1_greedy_dynamic: 2716/3722 (72.972%) -> 3249/3722 (87.292%)
+r1_greedy_shared: 2738/3758 (72.858%) -> 3275/3758 (87.147%)
+mech31k_greedy_dynamic: 3561/4634 (76.845%) -> 4062/4634 (87.656%)
+mech31k_greedy_shared: 3476/4466 (77.833%) -> 3966/4466 (88.804%)
+mech31k_mcts_pr88: 17915/27886 (64.244%) -> 22016/27886 (78.950%)
+All additions require full-state replay equality with original maps, charge, H, isotope and stereo preserved.
+This is a MATCHER repair, not an improvement in model predictions or endpoint accuracy.

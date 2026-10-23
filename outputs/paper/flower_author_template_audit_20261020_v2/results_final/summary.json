@@ -1,0 +1,155 @@
+{
+  "status": "complete",
+  "manifest": {
+    "source_hashes": {
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/event_inputs.jsonl.gz": "79295d13b188892928b2101226bde0f7ee1802ea15f62692a9568052eb1e569e",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/event_matches.jsonl.gz": "fced15bcad3e7699252926c1acbca1b40377c7eb850b046dc2693fc496dd7e1b",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/compiled_author_templates.jsonl.gz": "835a3e3f4943e3c0aa5bdec311911d28b5180778d4144553e74439606c348964",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/unsupported_author_templates.jsonl.gz": "28b6123ce157ebbab885b29934f75e0c436053474b7208fd37e2d9d1e4f7a8f6",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/electron_event_templates_20261019_v1/results/program_event_links.jsonl.gz": "c872f84d55990db183c87fa45a13f41688c7b1333523776912d8034768ee2879"
+    },
+    "rdkit_version": "2026.03.4",
+    "author_h_expansion_source": "/aaa/fionafyang/buddy1/whaleywang/datasets/flower_original_mechanistic_templates_20261019/Mechanistic_dataset/utils/explicit_H.py",
+    "author_h_expansion_sha256": "b4e78d21340f20cf7f69ecdebfd6ce6d96ee21cd39e78a90911931e171b00aca",
+    "original_denominator": 189233,
+    "old_positive_reuse": true,
+    "local_code_sha256": {
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/collect_regression_fixtures.py": "b2d099cb196b9dc86de51e2c2985b146fb27aeefb7006f39d60321d0a06a597e",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/test_representation_match.py": "76c23d8911d3ce2b2115be47dc65f7f2581c46a69955eb933d8def1f0d898946",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/run_representation_audit.py": "3fbdd1cafad57c9a02fc7901936c644fe14dd46b23073a758dd79601a7e5faec",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/test_full_population_links.py": "bec0aa3df50abdfd7155ee37b75ebb51d4dd0cf1bcf032dd19864b241ee581cc",
+      "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/representation_match.py": "99903c8a4219642bb1b4adf673a59be615da1fe9932aebfcaee2bd3d3879c773"
+    },
+    "first_pass_results": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_02",
+    "source_input_states": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/event_inputs.jsonl.gz",
+    "gt_import_corrections": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_final/gt_recorded_import_corrections.jsonl.gz",
+    "gt_import_corrections_sha256": "85e1828a902005d3967adc4355ebc69c786195203d8619f05632c40dd21c6d32",
+    "gt_import_corrections_count": 72,
+    "gt_import_corrections_change_coverage": false,
+    "replay_catalog": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261020_v2/results_02/replay_template_catalog.jsonl.gz",
+    "all_new_replay_witnesses_verified": 33325
+  },
+  "elapsed_seconds": 515.1050270050764,
+  "populations": {
+    "saved_model_event": {
+      "events": 71868,
+      "old_either": 47668,
+      "new_either": 58370,
+      "legacy_both_versions_reused": 43825,
+      "old:Reaction_templates": 46980,
+      "new:Reaction_templates": 57690,
+      "old:Reaction_templates_20250216": 44513,
+      "new:Reaction_templates_20250216": 53578,
+      "new_full_state_replay_match": 10991,
+      "no_additional_match": 16464,
+      "radical_change_outside_requested_repair": 588
+    },
+    "flower_strict_test_gt_event": {
+      "events": 117365,
+      "old_either": 94489,
+      "new_either": 113084,
+      "legacy_both_versions_reused": 83233,
+      "old:Reaction_templates": 94417,
+      "new:Reaction_templates": 113083,
+      "old:Reaction_templates_20250216": 83305,
+      "new:Reaction_templates_20250216": 99308,
+      "new_full_state_replay_match": 19130,
+      "no_additional_match": 11210,
+      "radical_change_outside_requested_repair": 3792
+    }
+  },
+  "by_run": {
+    "r1_mcts_pr88": {
+      "events": 27402,
+      "old:Reaction_templates": 16574,
+      "new:Reaction_templates": 21122,
+      "old:Reaction_templates_20250216": 15611,
+      "new:Reaction_templates_20250216": 19448
+    },
+    "r1_greedy_dynamic": {
+      "events": 3722,
+      "old:Reaction_templates": 2716,
+      "new:Reaction_templates": 3249,
+      "old:Reaction_templates_20250216": 2522,
+      "new:Reaction_templates_20250216": 2938
+    },
+    "r1_greedy_shared": {
+      "events": 3758,
+      "old:Reaction_templates": 2738,
+      "new:Reaction_templates": 3275,
+      "old:Reaction_templates_20250216": 2537,
+      "new:Reaction_templates_20250216": 2952
+    },
+    "mech31k_greedy_dynamic": {
+      "events": 4634,
+      "old:Reaction_templates": 3561,
+      "new:Reaction_templates": 4062,
+      "old:Reaction_templates_20250216": 3441,
+      "new:Reaction_templates_20250216": 3867
+    },
+    "mech31k_greedy_shared": {
+      "events": 4466,
+      "old:Reaction_templates": 3476,
+      "new:Reaction_templates": 3966,
+      "old:Reaction_templates_20250216": 3356,
+      "new:Reaction_templates_20250216": 3761
+    },
+    "mech31k_mcts_pr88": {
+      "events": 27886,
+      "old:Reaction_templates": 17915,
+      "new:Reaction_templates": 22016,
+      "old:Reaction_templates_20250216": 17046,
+      "new:Reaction_templates_20250216": 20612
+    }
+  },
+  "program_paths": {
+    "r1_mcts_pr88": {
+      "programs": 11480,
+      "event_occurrences": 38124,
+      "all_events:Reaction_templates": 6723,
+      "all_events:Reaction_templates_20250216": 5962
+    },
+    "r1_greedy_dynamic": {
+      "programs": 1341,
+      "event_occurrences": 3832,
+      "all_events:Reaction_templates": 1024,
+      "all_events:Reaction_templates_20250216": 932
+    },
+    "r1_greedy_shared": {
+      "programs": 1364,
+      "event_occurrences": 3913,
+      "all_events:Reaction_templates": 1038,
+      "all_events:Reaction_templates_20250216": 944
+    },
+    "mech31k_greedy_dynamic": {
+      "programs": 2294,
+      "event_occurrences": 6549,
+      "all_events:Reaction_templates": 1973,
+      "all_events:Reaction_templates_20250216": 1895
+    },
+    "mech31k_greedy_shared": {
+      "programs": 2249,
+      "event_occurrences": 6359,
+      "all_events:Reaction_templates": 1966,
+      "all_events:Reaction_templates_20250216": 1897
+    },
+    "mech31k_mcts_pr88": {
+      "programs": 19194,
+      "event_occurrences": 66031,
+      "all_events:Reaction_templates": 12774,
+      "all_events:Reaction_templates_20250216": 11153
+    }
+  },
+  "gt_reaction_paths": {
+    "Reaction_templates": 26142,
+    "Reaction_templates_20250216": 20711
+  },
+  "no_old_positive_removed": true,
+  "interpretation": "Author local-transition compatibility: legacy strict joint-state match OR new complete mapped-state template-replay certificate. Not kinetic feasibility or endpoint accuracy.",
+  "limitations": [
+    "radical changes and unbalanced author templates remain unsupported",
+    "no reaction-level reagent/exclusion or mechanistic stage-sequence certification",
+    "one witness per previously missing catalog version; not exhaustive template multiplicity",
+    "all old inputs/outputs immutable; no model/executor/data changes"
+  ]
+}

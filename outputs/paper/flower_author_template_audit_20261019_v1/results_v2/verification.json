@@ -1,0 +1,43 @@
+{
+  "status": "passed",
+  "standalone_tests": 15,
+  "gzip_integrity": "passed",
+  "population_reconciliation": "189233 events / 37922 programs / 124808 program event occurrences",
+  "rdkit_version": "2026.03.4",
+  "python_version": "3.13.5 | packaged by Anaconda, Inc. | (main, Jun 12 2025, 16:09:02) [GCC 11.2.0]",
+  "historical_delivery_hashes_verified": true,
+  "original_matcher_sha256": "e593c52277413c1d46926df4789b3757212a2951f8891593aabf22b349e7e263",
+  "post_run_changes": [
+    "close catalog input handle; add regression assertion for no ResourceWarning"
+  ],
+  "current_code_sha256": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/author_template_match.py": "a0b073175fea866d2171332a27ddf982612766e1366ede435dbce4dfa95b6b05",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/test_audit_population.py": "de74a0e11696c75fd9c5b5d208eba8c7ad7b3a79ec5b51450fec68d501ca0640",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/run_author_audit.py": "bea62b73cc35cce32417acdfa699188a7b0ded5d3756fff715a77b2fe0e5f10f",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/verify_author_audit.py": "336a60e359aa5984bce86210660c51c1d9afb070d0616e34b74bad612d233f93",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/test_author_template_match.py": "d1a23e3873cf00ef12ae54ec7f1f4bcb9a72ed4e5ef82ddb9b7bcfdd4e7c2b3f",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/finalize_author_audit.py": "792e47422607fc2d624b985e58db43e26e33ad3e7c8ea1a18a7b30e43139f451"
+  },
+  "artifact_sha256": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/runtime_matcher_source.json": "395d5cd98c21057bd6ae855a6c9ef31547591be14fc4207aee8942e8624a6c37",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/coverage_by_event_type.csv": "a47849d45b1fab6d12badff470fc007292f575bea04363c9a6730ea74eccf1b4",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/progress.json": "f71276337e6ef9883257e704e0e7de9890636d0ce8b4f813cd3eca5f477cb103",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/gt_reaction_coverage.csv": "f397598ea5dcefcf2261f4d71db24bed926a4c85850a87690e552c5b5a6ec502",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/summary.json": "eced4f3197d788fb92fe39b407ca2f7fb73abc321863bba8e50efa4110e66ec2",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/event_matches.jsonl.gz": "fced15bcad3e7699252926c1acbca1b40377c7eb850b046dc2693fc496dd7e1b",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/unit_tests.log": "a54f2c70cfdc721d680b2c60a56a272d643e3a02a07a676f11e574a28dae6096",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/compiled_author_templates.jsonl.gz": "835a3e3f4943e3c0aa5bdec311911d28b5180778d4144553e74439606c348964",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/report.txt": "dec7b4e78c0aba26b8952ca51da5e6d014ed33de84cbc1d9b309f125d4752bbd",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/delivery_summary.json": "69292ad6b9bfdb09e703806be284e1e31d06c94150c8a937cede61c9c59449f4",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/representative_cases.jsonl.gz": "f68b3a60e2bd447e7eddf688139c1919f9e1f2dc52ec12f8d669ed01c365d1b9",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/unsupported_author_templates.jsonl.gz": "28b6123ce157ebbab885b29934f75e0c436053474b7208fd37e2d9d1e4f7a8f6",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/event_inputs.jsonl.gz": "79295d13b188892928b2101226bde0f7ee1802ea15f62692a9568052eb1e569e"
+  },
+  "main_repository_suite": {
+    "status": "collection_errors",
+    "tests": [
+      "tests/test_mech_uspto31k_causal_import.py: missing mechet.a7_rescue",
+      "tests/test_nl_history_beam.py: missing mechet.in_place_grounded_flow"
+    ]
+  }
+}
