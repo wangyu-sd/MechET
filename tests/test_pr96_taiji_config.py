@@ -27,7 +27,9 @@ def test_latest_h20_payload_uses_proven_application_group_region_binding():
 
 def test_region_replacement_preserves_full_training_and_deployment_payload():
     original = json.loads((CONFIGS / f"{PREFIX}01.json").read_text())
-    replacement = latest_payload()
+    # This specifically tests the routing-only _03 repair. Later _04 is the
+    # explicitly authorized performance/runtime upgrade, not a region retry.
+    replacement = json.loads((CONFIGS / f"{PREFIX}03.json").read_text())
     assert replacement["task_flag"] != original["task_flag"], (
         "Preserve the failed attempt; submit its replacement under a fresh flag"
     )
@@ -42,3 +44,20 @@ def test_latest_h20_payload_uses_business_quota_not_zero_public_quota():
     assert latest_payload()["quota_type"] == "", (
         "Do not copy A100's public pool override into the H20 business quota"
     )
+
+
+def test_performance_replacement_retains_proven_image_ceph_and_default_logs():
+    payload = latest_payload()
+    assert payload["task_flag"].endswith("_04")
+    assert payload["readable_name"].startswith("meteor ")
+    assert payload["image_full_name"] == "mirrors.tencent.com/whaleywang/metabo:taiji6"
+    assert payload["init_cmd"] == "REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK"
+    assert payload["is_mount_ceph"] is True
+    assert "TAIJI_HEARTBEAT_SECONDS=45" in payload["start_cmd"]
+    assert "TAIJI_MIRROR_PID1_STDOUT=1" in payload["start_cmd"]
+    assert "scripts/taiji_run_with_heartbeat.sh" in payload["start_cmd"]
+    assert "pr96_code_c42c94b_performance_20261023_01.tar.gz" in payload["start_cmd"]
+    assert "pr96_runtime_tf550_causalconv170_Tr320_py311_20261023_01.tar.gz" in payload["start_cmd"]
+    assert "/performance_v1/plan.json" in payload["start_cmd"]
+    import re
+    assert not re.search(r"(?:^|[;&|\s])(?:[12]?>>?|&>)", payload["start_cmd"])

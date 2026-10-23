@@ -1,5 +1,64 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
+## Performance handoff — 2026-10-23 13:22 CST
+
+User requested additional acceleration, resubmission and checkpoint recovery.
+The earlier persistent goal remains user-paused; this explicit performance
+request authorizes the bounded implementation and single-task replacement.
+
+Frozen implementation: `c42c94bd23c425f7c0f900e2cef195a52a6ed95e`.
+584 unit tests passed, one missing-large-artifact test skipped. Independent
+read-only review found two handoff races, both repaired and regression-tested:
+recheck replacement existence before stop/submit, and pin the authenticated
+source checkpoint instead of independently selecting a newer partial directory.
+
+| Performance-only change | Preserved contract / verification |
+|---|---|
+| Read sequence lengths from Arrow offsets | Exact selected row order, duplicates, slices and native length-grouped sampler ordering retained. The earlier full-cache read measured0.618s; this is metadata loading, not whole-model speedup. |
+| Compatible official causal-conv1d1.7.0 CUDA11/Torch2.6 ABI-false wheel | Actual H20 forward/backward tests passed, including6144channels and3419tokens; native Qwen3.5 fast-path enabled in isolated test. BF16 numerical closeness, not bitwise equality or measured throughput. |
+| microbatch4/GA2 → microbatch8/GA1, activation checkpointing off | Global batch64, original data/masks/loss/LR/LoRA/seed and State5+History3epochs unchanged. Deployment requires eight-rank finite-backward probe on longest real rows across BOTH stage caches. |
+| Recovery checkpoint every1000updates in addition to epoch saves | Full optimizer/scheduler/eight-rank RNG/counters retained. Epoch validation and minVALIDloss selection unchanged; recovery saves do not trigger additional mid-epoch History generation. |
+| Explicit hashed performance-resume authorization | Same scientific identity, narrowly whitelisted performance/code differences only. Source/latest and existing validation-best checkpoint hashes bound; actual HF/PEFT tests verify optimizer, scheduler, counters and cursor recovery, including changed microbatch and partial final groups. Numerical matching tests disable dropout; live stochastic updates are not claimed bitwise identical. |
+
+Current source remains `_03`, instance`8b1d8923a162a6a801a1661b13c6047a`.
+At13:22CST it was actually training at11500/149070updates, with NO complete
+checkpoint. The original configuration saves only after each29814update epoch;
+interrupting now would lose the current partial epoch. The existing workers,
+configs and code were NOT hot-patched. At the measured old cadence, the first
+resumable checkpoint is about6hours away; this is an estimate, not an SLA.
+
+CPU-only operator PID2798887 is active and emits its actual status every45s:
+`outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/performance_v1/handoff_status.json`.
+It reserves no extra GPUs. Only after a complete source checkpoint matches the
+original deployed731identity and ALL component hashes will it stop the exact
+source task, verify END/pipeline-lock release, and submit one ordinary8H20`_04`.
+All other tasks, including unrelated CRN runs, remain untouched.
+At this snapshot `_04` is prepared and render-validated, NOT submitted/queued.
+After submission it separately checks actual8H20/PID1 default log bindings,
+the new eight-rank native-kernel/max-batch preflight and fresh optimizer updates
+beyond the resume anchor before reporting a successful resumed launch.
+
+Same proven group`AI4LSLab_KEMO_ZJK_H20`; BOTH location and quota type empty,
+nonelastic/Tencent`metabo:taiji6`/successful31k privateCeph donor, inherited
+unbuffered defaultPOD stdout/stderr plus45sheartbeat. Host-only operator logs
+are separate diagnostics; model stdout is never redirected to a file.
+
+Frozen deployment artifacts:
+
+- `artifacts/pr96_code_c42c94b_performance_20261023_01.tar.gz`, SHA256
+  `1f9f52078e5fadc83e40794dcdf235e0fb58ae717c782584f3b9bfb6b7e8a09f`.
+- `artifacts/pr96_runtime_tf550_causalconv170_Tr320_py311_20261023_01.tar.gz`, SHA256
+  `cf0276843d01faf90fd2c13529c578d464673ab4d756e8d6a289ca295c26d911`.
+- Shared`performance_v1/{plan,control,source_training_identity}.json`, separate
+  new`state.yaml`/`history.yaml`, source snapshots and frozen payload;38input
+  file hashes checked before waiting and again before stopping.
+- `outputs/audits/pr96_causalconv_h20_unit_20261023.{py,json}` preserves native
+  operator reproduction code and results. No model experiment/accuracy claim.
+
+No new throughput or endpoint result is claimed before deployment. Data and
+token-cache denominators remain exactly as documented below; no unrequested
+smoke/subset training/evaluation, TEST inference, RL, or new model condition.
+
 ## Current update — 2026-10-23 09:45 CST
 
 PR96 is active and unmerged. The mech31k track completed all10State and5History
