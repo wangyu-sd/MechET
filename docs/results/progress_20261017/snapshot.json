@@ -1,0 +1,235 @@
+{
+  "schema": "mechet_progress_search_no_ranking_v1",
+  "captured_at": "2026-10-17 23:09:25 +0800",
+  "new_inference_or_training": false,
+  "ranking_recomputed": false,
+  "reporting_policy": "No NLL/Top-K accuracy; report discovery under recorded search work and stock-AND closure. Source files remain unchanged.",
+  "r1": {
+    "full_denominator": 460,
+    "saved_reports": 200,
+    "nonzero_stock_connected": 199,
+    "already_stock": 1,
+    "unfinished": 260,
+    "observed_by_cohort": {
+      "retrocast_mkt_cnv160": 106,
+      "ursa_drugs100": 49,
+      "paroutes_derived_n5_100": 22,
+      "ursa_expert100": 23
+    },
+    "nonzero_by_cohort": {
+      "retrocast_mkt_cnv160": 105,
+      "ursa_drugs100": 49,
+      "paroutes_derived_n5_100": 22,
+      "ursa_expert100": 23
+    },
+    "already_by_cohort": {
+      "retrocast_mkt_cnv160": 1,
+      "ursa_drugs100": 0,
+      "paroutes_derived_n5_100": 0,
+      "ursa_expert100": 0
+    },
+    "complete_benchmark": false
+  },
+  "r2": {
+    "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/r2/r2_composition_strata.json",
+    "sha256": "4dea3b0f1c2bd9723818d41896c938f89ff69e4f863135a62002bc94bc8840c0",
+    "cohort": "retrocast_mkt_cnv160",
+    "denominator": 160,
+    "annotation_complete": false,
+    "strata_counts": {
+      "C0": 0,
+      "C1": 0,
+      "C2": 0,
+      "Unknown": 160
+    },
+    "formal_compositional_result_available": false
+  },
+  "mech31k": {
+    "denominator": 3120,
+    "unique_ids": 3120,
+    "completed": 3120,
+    "endpoint_found_targets": 300,
+    "terminal_targets": 3022,
+    "stop_reasons": {
+      "MCTS_TRAJECTORY_ATTEMPT_GOAL_REACHED": 3120
+    },
+    "actor_sha256": "40204c7a059d16976fc4b24b315c3bdde7bf61c705d24bbde515071757e9de75",
+    "test_source_sha256": "819215c5d40720afd998aaf77b7b938045d8171a5487b26bf929897f65a957c4",
+    "protocol": "frozen rxn_prod_min proxy DIAGNOSTIC; ten TOTAL trajectory attempts, including invalid/censored attempts; not recursive stock-route planning"
+  },
+  "sources": {
+    "mech31k_evaluation": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/mech_uspto31k_full_mcts_ray_20261016_04/tree/evaluation.json",
+      "sha256": "4e35ee13609669dfeaecb8e7e03a4164b942c0bf7f68a085802e9ca1c436bff4",
+      "mtime": 1792206829.3309336
+    },
+    "r1_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree",
+    "r1_progress": [
+      {
+        "rank": 0,
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank00/progress.json",
+        "sha256": "0a8fa05617f2ccbdfde4d66f3f536df7b2703046d47dc4b2bde42d4a8a8b8a1d",
+        "mtime": 1792249597.6930273,
+        "denominator": 58,
+        "finished": 25,
+        "pending": 33,
+        "stock_solved_targets": 25,
+        "output_tokens": 109049266,
+        "elapsed_seconds": 259389.45958158898
+      },
+      {
+        "rank": 1,
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank01/progress.json",
+        "sha256": "cabda578d8ec497ea502f9ef34c5a3bcabc43e9a848a63cdd028cd50c1e31818",
+        "mtime": 1792249596.138821,
+        "denominator": 58,
+        "finished": 23,
+        "pending": 35,
+        "stock_solved_targets": 23,
+        "output_tokens": 106032437,
+        "elapsed_seconds": 259387.80576928105
+      },
+      {
+        "rank": 2,
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank02/progress.json",
+        "sha256": "cc4ef73630da159670fb21bc2cce87f865495fce685abcf2093a33b13e8704bc",
+        "mtime": 1792249550.6107705,
+        "denominator": 58,
+        "finished": 30,
+        "pending": 28,
+        "stock_solved_targets": 30,
+        "output_tokens": 105236717,
+        "elapsed_seconds": 259341.83232545998
+      },
+      {
+        "rank": 3,
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank03/progress.json",
+        "sha256": "9d5151feba529c09b4437f020c687bae46a6a91480df176c096ac5b9cacadef1",
+        "mtime": 1792249613.221091,
+        "denominator": 58,
+        "finished": 19,
+        "pending": 39,
+        "stock_solved_targets": 19,
+        "output_tokens": 110853989,
+        "elapsed_seconds": 259404.89092709502
+      },
+      {
+        "rank": 4,
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank04/progress.json",
+        "sha256": "e732984a557a167cd9cc654980da81872fce5ed0bbfa2bd1eaaaccc6385dd926",
+        "mtime": 1792249574.792984,
+        "denominator": 57,
+        "finished": 28,
+        "pending": 29,
+        "stock_solved_targets": 28,
+        "output_tokens": 102808700,
+        "elapsed_seconds": 259367.239789914
+      },
+      {
+        "rank": 5,
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank05/progress.json",
+        "sha256": "677a3ac23c0c5579e8aa218ef3b6266e163198f7b0409d7e10847812734dee09",
+        "mtime": 1792249604.651952,
+        "denominator": 57,
+        "finished": 23,
+        "pending": 34,
+        "stock_solved_targets": 23,
+        "output_tokens": 107538499,
+        "elapsed_seconds": 259397.03606069996
+      },
+      {
+        "rank": 6,
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank06/progress.json",
+        "sha256": "69c7dff358d966597af5936bbb0d99b789484af514ad343a829fac38b94afdfc",
+        "mtime": 1792249586.8725893,
+        "denominator": 57,
+        "finished": 26,
+        "pending": 31,
+        "stock_solved_targets": 26,
+        "output_tokens": 104021028,
+        "elapsed_seconds": 259379.253997388
+      },
+      {
+        "rank": 7,
+        "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/eval/r1_r2_frozen_06b_shared_mcts_20261014_07/tree/rank07/progress.json",
+        "sha256": "fcc8a32fcd8735eb3b199d960a63fc83673b6a04b93b5f3b80496425f7fd3533",
+        "mtime": 1792249576.6552315,
+        "denominator": 57,
+        "finished": 26,
+        "pending": 31,
+        "stock_solved_targets": 25,
+        "output_tokens": 107410944,
+        "elapsed_seconds": 259369.31642445596
+      }
+    ]
+  },
+  "forward_sft": {
+    "checkpoint": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/forward_event_flowER_qwen3_0_6b_4h20_20261016_seed17/checkpoint-22000",
+    "trainer_state_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/forward_event_flowER_qwen3_0_6b_4h20_20261016_seed17/checkpoint-22000/trainer_state.json",
+    "trainer_state_sha256": "faa7b6e32a59cd1634db6832f4bb744e63bdf4ef69c25c69856af58fb6daa871",
+    "checkpoint_mtime": 1792248299.0990813,
+    "global_step": 22000,
+    "max_steps": 59440,
+    "epoch": 0.7402422611036339,
+    "num_train_epochs": 2,
+    "latest_logged_loss": 0.0079,
+    "source": "Original FlowER forward transitions on strict 257167/2890/28967 reaction IDs; independent original-base Qwen3-0.6B LoRA; reverse actor unchanged"
+  },
+  "independent_joint_training": {
+    "task": "meteor_mechet_joint_import_flow_full_1a100_qy_20261013_01",
+    "submission_date": "2026-10-13",
+    "relation_to_R1_R2": "independent experimental branch, not their actor, search or result",
+    "latest_curriculum_marker": {
+      "status": "curriculum",
+      "after_root": 11488,
+      "promoted": false,
+      "horizon": 2
+    },
+    "total_training_reactions": 257167,
+    "journal_mtime": 1792249740.1261456,
+    "journal_size_bytes": 983792770,
+    "parsed_tail_sha256": "f4ecb0d6f6784cc8206a86e22ad0961761733714fff5a8400fcf335a3dfdc0f6",
+    "journal_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr84_joint_import_flow_stage1_train257167_20261013_01/training_groups.jsonl",
+    "complete_journal_sha256": null,
+    "complete_journal_hash_note": "live growing journal; only parsed tail bound; not a whole-file snapshot",
+    "task_was_not_stopped_or_changed": true
+  },
+  "platform": {
+    "r1_r2": {
+      "task": "meteor_mechet_r1_r2_full460_shared_mcts_8a100_qy_20261014_07",
+      "created_at": "2026-10-14 23:00:46",
+      "instance_id": "8b1d89c4a13ad33601a13aee1c0b0052",
+      "is_success": false,
+      "state": "TRAINING_RUNNING",
+      "time_delay_reported_seconds": 259721,
+      "platform_time_start_field": "2026-10-14 23:00:56"
+    },
+    "mech31k": {
+      "task": "meteor_mechet_uspto31k_mcts_ray_resume_8a100_qy_20261016_04",
+      "created_at": "2026-10-16 13:22:07",
+      "instance_id": "8b1d89f5a13f013001a143290e8a0a56",
+      "is_success": true,
+      "state": "END",
+      "time_delay_reported_seconds": 78708,
+      "platform_time_start_field": "2026-10-17 11:13:55"
+    },
+    "forward_sft": {
+      "task": "meteor_mechet_forward_event_06b_2ep_4h20_zjk_20261016_01",
+      "created_at": "2026-10-16 16:08:13",
+      "instance_id": "8b1d8921a13fde2a01a143c120e408c3",
+      "is_success": false,
+      "state": "TRAINING_RUNNING",
+      "time_delay_reported_seconds": 111674,
+      "platform_time_start_field": "2026-10-16 16:09:41"
+    },
+    "joint_training": {
+      "task": "meteor_mechet_joint_import_flow_full_1a100_qy_20261013_01",
+      "created_at": "2026-10-13 13:28:58",
+      "instance_id": "8b1d8249a1250fb701a133bc40f81482",
+      "is_success": false,
+      "state": "TRAINING_RUNNING",
+      "time_delay_reported_seconds": 380429,
+      "platform_time_start_field": "2026-10-13 13:29:09"
+    }
+  }
+}
