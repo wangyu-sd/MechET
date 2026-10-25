@@ -7,21 +7,30 @@ surrogate; the reference regularizer is evaluated on those behavior samples.
 from pathlib import Path
 
 PARENT_SHA = 'cd5f2f9dbdc883674be2f87781452366a3fb2c01c7c930482e0b5e4b3dab49ca'
+TRACKS = {
+    'mech31k': (PARENT_SHA, 10137),
+    'flower': ('2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453', 243753),
+}
 
 
-def validate_hardware(names, expected):
-    if expected not in ('H20', 'A100') or len(names) != 8 or not all(expected in name for name in names):
+def validate_hardware(names, expected, world_size=8):
+    if (expected not in ('H20', 'A100') or world_size not in (4, 8)
+            or len(names) != world_size or not all(expected in name for name in names)):
         raise ValueError('EARHO_HARDWARE_MISMATCH')
 
 
 def validate(cfg):
     if cfg.get('algorithm') != 'pr96_earho_v1':
         raise ValueError('EARHO_ALGORITHM_MISMATCH')
-    if cfg.get('parent_sha256') != PARENT_SHA:
+    track = cfg.get('track', 'mech31k')
+    if track not in TRACKS:
+        raise ValueError('EARHO_UNKNOWN_TRACK')
+    parent, count = TRACKS[track]
+    if cfg.get('parent_sha256') != parent:
         raise ValueError('EARHO_PARENT_MISMATCH')
-    if cfg.get('train_reactions') != 10137:
+    if cfg.get('train_reactions') != count:
         raise ValueError('EARHO_TRAIN_DENOMINATOR_MISMATCH')
-    if cfg.get('world_size') != 8 or cfg.get('candidates') != 2:
+    if cfg.get('world_size') not in (4, 8) or cfg.get('candidates') != 2:
         raise ValueError('EARHO_DISTRIBUTION_OR_CANDIDATE_CONTRACT_CHANGED')
     for key in ('train_file', 'history_file'):
         if Path(cfg[key]).name != 'train.jsonl' or 'DIAGNOSTIC' in cfg[key].upper():
@@ -96,6 +105,38 @@ def token_logps(model, prompt, response):
     return result.logits[0].float().log_softmax(-1).gather(-1, selected[:, None]).squeeze(-1)
 
 
+def token_logps_batch(model, sequences, pad_token_id=0):
+    """Align response starts, project only response positions, retain each mask.
+
+    Left-pad prompts and right-pad responses. Position IDs count real tokens,
+    so causal rotary positions match individual forwards. Padding is never a
+    target. Per-action means and successor-class weights remain caller-owned.
+    """
+    import torch
+    if not sequences:
+        return []
+    if any(not p or not r for p,r in sequences):
+        raise ValueError('EARHO_EMPTY_POLICY_SEQUENCE')
+    device = next(model.parameters()).device
+    prefix = max(len(p) for p,r in sequences)
+    response = max(len(r) for p,r in sequences)
+    ids = torch.full((len(sequences),prefix+response),pad_token_id,dtype=torch.long,device=device)
+    attention = torch.zeros_like(ids)
+    for i,(p,r) in enumerate(sequences):
+        ids[i,prefix-len(p):prefix+len(r)] = torch.tensor(p+r,device=device)
+        attention[i,prefix-len(p):prefix+len(r)] = 1
+    position_ids = (attention.cumsum(-1)-1).clamp_min(0)
+    positions = torch.arange(prefix-1,prefix+response-1,device=device)
+    result = model(input_ids=ids,attention_mask=attention,position_ids=position_ids,
+                   logits_to_keep=positions,use_cache=False)
+    values = []
+    for i,(_,r) in enumerate(sequences):
+        logits = result.logits[i,:len(r)].float()
+        selected = torch.tensor(r,device=device)
+        values.append(logits.log_softmax(-1).gather(-1,selected[:,None]).squeeze(-1))
+    return values
+
+
 def policy_loss(new, behavior, reference, advantage, clip, beta):
     import torch
     ratio = (new - behavior).exp()
@@ -105,7 +146,7 @@ def policy_loss(new, behavior, reference, advantage, clip, beta):
     return pg + beta * regularizer, pg, regularizer
 
 
-def synchronize_gradients(model, denominator):
+def synchronize_gradients(model, denominator, bucket_bytes=16*1024*1024):
     """Exact global mean despite unequal local groups and optional PG records.
 
     Accumulate sums locally, then reduce each trainable tensor in fixed order.
@@ -116,13 +157,31 @@ def synchronize_gradients(model, denominator):
     import torch.distributed as dist
     if denominator <= 0:
         raise ValueError('EARHO_ZERO_GLOBAL_BATCH')
+    buckets, bucket, size, previous = [], [], 0, None
     for parameter in model.parameters():
-        if parameter.requires_grad:
-            if parameter.grad is None:
-                parameter.grad = torch.zeros_like(parameter)
-            if dist.is_initialized():
-                dist.all_reduce(parameter.grad, op=dist.ReduceOp.SUM)
-            parameter.grad.div_(denominator)
+        if not parameter.requires_grad:
+            continue
+        if parameter.grad is None:
+            parameter.grad = torch.zeros_like(parameter)
+        signature = (parameter.device, parameter.dtype)
+        nbytes = parameter.numel()*parameter.element_size()
+        if bucket and (signature != previous or size+nbytes > bucket_bytes):
+            buckets.append(bucket)
+            bucket, size = [], 0
+        bucket.append(parameter)
+        size += nbytes
+        previous = signature
+    if bucket:
+        buckets.append(bucket)
+    for bucket in buckets:
+        flat = torch.cat([p.grad.reshape(-1) for p in bucket])
+        if dist.is_initialized():
+            dist.all_reduce(flat, op=dist.ReduceOp.SUM)
+        flat.div_(denominator)
+        offset = 0
+        for parameter in bucket:
+            parameter.grad.copy_(flat[offset:offset+parameter.numel()].view_as(parameter))
+            offset += parameter.numel()
 
 
 def continue_branches(branches, horizon, generate, execute, journal):
@@ -147,15 +206,19 @@ def continue_branches(branches, horizon, generate, execute, journal):
         branch['censored'] = not branch['error'] and not branch['node'].terminal
 
 
-def verify_checkpoint(path, contract_sha):
+def verify_checkpoint(path, contract_sha, cfg=None):
     import hashlib
     import json
     path = Path(path)
+    cfg = cfg or dict(world_size=8, train_reactions=10137, products_per_round=128,
+                      initial_horizon=2, maximum_horizon=12)
+    total = cfg['train_reactions']
+    round_size = cfg['products_per_round']
     manifest = json.loads((path / 'complete.json').read_text())
     if manifest['contract_sha256'] != contract_sha:
         raise ValueError('EARHO_RESUME_CONTRACT_MISMATCH')
     required = {'adapter_model.safetensors', 'adapter_config.json', 'optimizer.pt', 'trainer_state.json'}
-    required.update(f'rng.rank{rank:02d}.pt' for rank in range(8))
+    required.update(f'rng.rank{rank:02d}.pt' for rank in range(cfg['world_size']))
     if not required.issubset(manifest['files']):
         raise ValueError('EARHO_RESUME_COMPONENTS_MISSING')
     for name, expected in manifest['files'].items():
@@ -173,10 +236,10 @@ def verify_checkpoint(path, contract_sha):
     if any(key not in state or manifest.get(key) != state[key] for key in keys):
         raise ValueError('EARHO_RESUME_CURSOR_MISMATCH')
     if (any(type(state[k]) is not int for k in keys[:-1])
-            or not 1 <= state['next_round'] <= 80
-            or not 2 <= state['horizon'] <= 12 or state['optimizer_step'] < 0
-            or state['train_denominator'] != 10137
-            or state['visited_train_roots'] != min(state['next_round']*128, 10137)
+            or not 1 <= state['next_round'] <= (total+round_size-1)//round_size
+            or not cfg['initial_horizon'] <= state['horizon'] <= cfg['maximum_horizon'] or state['optimizer_step'] < 0
+            or state['train_denominator'] != total
+            or state['visited_train_roots'] != min(state['next_round']*round_size, total)
             or path.name != f"round-{state['next_round']:05d}"):
         raise ValueError('EARHO_RESUME_CURSOR_OUTSIDE_FROZEN_SCHEDULE')
     return manifest
@@ -189,7 +252,7 @@ def checkpoint_staging(root, next_round):
     return Path(tempfile.mkdtemp(prefix=f'round-{next_round:05d}.building-', dir=parent))
 
 
-def discover_checkpoint(root, contract_sha):
+def discover_checkpoint(root, contract_sha, cfg=None):
     import re
     root = Path(root)
     candidates = sorted(p for p in (root/'checkpoints').glob('round-*')
@@ -199,5 +262,5 @@ def discover_checkpoint(root, contract_sha):
             raise ValueError('EARHO_RESUME_PUBLISHED_CHECKPOINT_MISSING')
         return None
     selected = candidates[-1]
-    verify_checkpoint(selected, contract_sha)
+    verify_checkpoint(selected, contract_sha, cfg)
     return selected

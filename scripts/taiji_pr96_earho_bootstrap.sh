@@ -25,11 +25,12 @@ for name,expected in paths.items():
     if h.hexdigest()!=expected:raise ValueError('EARHO_INPUT_HASH_CHANGED:'+name)
     print(json.dumps({'event':'earho-input-verified','path':name}),flush=True)
 PY
+export MECHET_EARHO_VERIFIED_CONTRACT_SHA256=$(sha256sum "$contract" | cut -d' ' -f1)
 readarray -t earho_archives < <(python - "$contract" <<'PY'
 import json,sys
 from pathlib import Path
 c=json.loads(Path(sys.argv[1]).read_text())
-print(c['reference_code_archive']);print(c['runtime_archive'])
+print(c['reference_code_archive']);print(c['runtime_archive']);print(c['world_size'])
 PY
 )
 tar -xzf "${earho_archives[0]}" -C "$earho_node/code"
@@ -40,7 +41,8 @@ export MECHET_PR96_REFERENCE_CODE_ROOT="$earho_node/code"
 export PYTHONPATH="$earho_node/runtime:$earho_node/rdkit:$earho_node/code/src:$earho_node/code"
 export HF_HUB_CACHE="$earho_node/hf_cache"
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 PYTHONUNBUFFERED=1
-export TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=1
+export TOKENIZERS_PARALLELISM=false OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 OPENBLAS_NUM_THREADS=1
+export PYTHONNOUSERSITE=1
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 python - "$contract" <<'PY'
 import json,os,shutil,sys,torch,transformers,peft,triton
@@ -62,5 +64,5 @@ print(json.dumps({'event':'earho-runtime-ready','torch':torch.__version__,'cuda'
     'gpus':[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]}),flush=True)
 PY
 cd "$earho_node/code"
-exec python -u -m torch.distributed.run --standalone --nproc_per_node=8 \
+exec python -u -m torch.distributed.run --standalone --nproc_per_node="${earho_archives[2]}" \
   "$earho_node/entry/scripts/train_pr96_earho.py" --contract "$contract"

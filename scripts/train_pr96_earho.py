@@ -30,6 +30,7 @@ def import_file(name, path):
 
 
 contract_api = import_file('pr96_earho_contract', ENTRY/'pr96_earho_contract.py')
+storage = import_file('pr96_earho_storage', ENTRY/'pr96_earho_storage.py')
 evaluation = import_file('pr96_earho_evaluation', ENTRY/'evaluate_pr96_test.py')
 
 
@@ -234,12 +235,15 @@ def collect(ids, source, history, nodes, model, reference, tokenizer, cfg, direc
             positions = [i for i, label in enumerate(encoded['labels']) if label != -100]
             group['replay_prompt'] = encoded['input_ids'][:positions[0]]
             group['replay_response'] = encoded['input_ids'][positions[0]:positions[-1]+1]
-        for candidate in group['candidates']:
-            if candidate['advantage']:
-                output = candidate['first_output']
-                with torch.no_grad():
-                    candidate['behavior_logps'] = contract_api.token_logps(model, output['prompt_token_ids'], output['generated_token_ids']).cpu().tolist()
-                    candidate['reference_logps'] = contract_api.token_logps(reference, output['prompt_token_ids'], output['generated_token_ids']).cpu().tolist()
+    supported = [c for g in groups for c in g['candidates'] if c['advantage']]
+    with torch.no_grad():
+        for start in range(0,len(supported),cfg.get('loss_batch_size',4)):
+            part = supported[start:start+cfg.get('loss_batch_size',4)]
+            sequences = [(c['first_output']['prompt_token_ids'],c['first_output']['generated_token_ids']) for c in part]
+            behavior = contract_api.token_logps_batch(model,sequences,tokenizer.pad_token_id)
+            frozen = contract_api.token_logps_batch(reference,sequences,tokenizer.pad_token_id)
+            for candidate,b,r in zip(part,behavior,frozen):
+                candidate['behavior_logps'],candidate['reference_logps'] = b.cpu().tolist(),r.cpu().tolist()
     write(directory/'optimizer_inputs.json', groups)
     write(directory/'coverage.json', dict(visited_ids=ids, correction_or_rehearsal_ids=[g['reaction_id'] for g in groups],
           solved_without_correction=[rid for rid in ids if indexed[rid]['structural_exact']],
@@ -267,31 +271,38 @@ def optimize(model, optimizer, groups, cfg, rank, world, step, root, round_index
             batch = all_ids[begin:begin+cfg['global_batch_size']]
             optimizer.zero_grad(set_to_none=True)
             counts = torch.zeros(4, device=device)
+            jobs = []
             for rid in batch:
                 group = byid.get(rid)
                 if group is None:
                     continue
                 for candidate in group['candidates']:
-                    if not candidate['advantage']:
-                        continue
-                    output = candidate['first_output']
-                    new = contract_api.token_logps(model, output['prompt_token_ids'], output['generated_token_ids'])
-                    loss, pg, kl = contract_api.policy_loss(new,
-                        torch.tensor(candidate['behavior_logps'], device=device),
-                        torch.tensor(candidate['reference_logps'], device=device), candidate['advantage'],
-                        cfg['clip_epsilon'], cfg['kl_beta'])
-                    if not torch.isfinite(loss):
-                        raise ValueError('EARHO_NONFINITE_POLICY_LOSS')
-                    (candidate['policy_weight']*loss).backward()
-                    counts[0] += 1
-                    counts[2] += pg.detach()
-                    counts[3] += kl.detach()
+                    if candidate['advantage']:
+                        output = candidate['first_output']
+                        jobs.append(('policy',candidate,output['prompt_token_ids'],output['generated_token_ids']))
                 if group['fallback_replay']:
-                    ce = -contract_api.token_logps(model, group['replay_prompt'], group['replay_response']).mean()
-                    if not torch.isfinite(ce):
-                        raise ValueError('EARHO_NONFINITE_REPLAY_LOSS')
-                    (cfg['replay_weight']*ce).backward()
-                    counts[1] += 1
+                    jobs.append(('replay',None,group['replay_prompt'],group['replay_response']))
+            for start in range(0,len(jobs),cfg.get('loss_batch_size',4)):
+                part = jobs[start:start+cfg.get('loss_batch_size',4)]
+                values = contract_api.token_logps_batch(model,[(p,r) for kind,c,p,r in part])
+                losses = []
+                for (kind,candidate,p,r),new in zip(part,values):
+                    if kind == 'policy':
+                        loss,pg,kl = contract_api.policy_loss(new,
+                            torch.tensor(candidate['behavior_logps'],device=device),
+                            torch.tensor(candidate['reference_logps'],device=device),candidate['advantage'],
+                            cfg['clip_epsilon'],cfg['kl_beta'])
+                        losses.append(candidate['policy_weight']*loss)
+                        counts[0] += 1
+                        counts[2] += pg.detach()
+                        counts[3] += kl.detach()
+                    else:
+                        losses.append(-cfg['replay_weight']*new.mean())
+                        counts[1] += 1
+                combined = torch.stack(losses).sum()
+                if not torch.isfinite(combined):
+                    raise ValueError('EARHO_NONFINITE_BATCHED_LOSS')
+                combined.backward()
             dist.all_reduce(counts)
             if not (counts[:2] > 0).any():
                 continue
@@ -310,7 +321,7 @@ def optimize(model, optimizer, groups, cfg, rank, world, step, root, round_index
     return step
 
 
-def save_checkpoint(model, optimizer, root, cfg_sha, next_round, horizon, step, rank, completed_ids):
+def save_checkpoint(model, optimizer, root, cfg_sha, next_round, horizon, step, rank, completed_ids, cfg):
     import torch
     import torch.distributed as dist
     import numpy as np
@@ -328,7 +339,7 @@ def save_checkpoint(model, optimizer, root, cfg_sha, next_round, horizon, step, 
     dist.barrier()
     if rank == 0:
         state = dict(next_round=next_round, horizon=horizon, optimizer_step=step,
-                     train_denominator=10137, visited_train_roots=len(completed_ids),
+                     train_denominator=cfg['train_reactions'], visited_train_roots=len(completed_ids),
                      completed_train_ids_sha256=hashlib.sha256(json.dumps(completed_ids).encode()).hexdigest())
         write(staging/'trainer_state.json', state)
         files = {p.name:sha(p) for p in staging.iterdir() if p.is_file()}
@@ -341,28 +352,37 @@ def save_checkpoint(model, optimizer, root, cfg_sha, next_round, horizon, step, 
     dist.barrier()
 
 
-def full_validation(model, tokenizer, cfg, root, label, rank, world):
+def validation_sources(source):
     from rdkit import Chem
-    from scripts.run_natural_language_value_search import visible
-    source = list(rows(cfg['validation_file']))
-    if len(source) != cfg['validation_reactions']:
-        raise ValueError('EARHO_VALIDATION_DENOMINATOR_CHANGED')
-    public_sources = []
-    for original in source[rank::world]:
+    public_sources, unresolved = [], []
+    for original in source:
         parser = Chem.SmilesParserParams()
         parser.removeHs = False
         mol = Chem.MolFromSmiles(original['target_smiles'], parser)
+        if mol is None:
+            raise ValueError('EARHO_INVALID_ORIGINAL_VALIDATION_SMILES')
         fragments = list(Chem.GetMolFrags(mol, asMols=True))
         organic = [f for f in fragments if any(a.GetAtomicNum() == 6 for a in f.GetAtoms())]
-        if not organic:
-            raise ValueError('EARHO_VALIDATION_MAIN_PRODUCT_UNRESOLVED')
         ordered = sorted(organic, key=lambda f:f.GetNumHeavyAtoms(), reverse=True)
-        if len(ordered)>1 and ordered[0].GetNumHeavyAtoms()==ordered[1].GetNumHeavyAtoms():
-            raise ValueError('EARHO_VALIDATION_MAIN_PRODUCT_AMBIGUOUS')
+        error = ('MAIN_PRODUCT_UNRESOLVED' if not ordered else
+                 'MAIN_PRODUCT_AMBIGUOUS' if len(ordered)>1 and ordered[0].GetNumHeavyAtoms()==ordered[1].GetNumHeavyAtoms() else '')
+        if error:
+            unresolved.append(dict(reaction_id=str(original['source_id']), terminal=False,
+                                   structural_exact=False, full_exact=False, generated_decisions=0, error=error))
+            continue
         # Original expected precursor is untouched. Its mapped main component
         # remains the independent structural projection used in scoring.
         public_sources.append({**original, 'target_smiles': Chem.MolToSmiles(ordered[0])})
+    return public_sources, unresolved
+
+
+def full_validation(model, tokenizer, cfg, root, label, rank, world):
+    source = list(rows(cfg['validation_file']))
+    if len(source) != cfg['validation_reactions']:
+        raise ValueError('EARHO_VALIDATION_DENOMINATOR_CHANGED')
+    public_sources, unresolved = validation_sources(source[rank::world])
     scored, _ = run_episodes(public_sources, model, tokenizer, cfg, root/label/f'rank{rank:02d}')
+    scored.extend(unresolved)
     write(root/label/f'rank{rank:02d}'/'scored.json', scored)
     import torch.distributed as dist
     dist.barrier()
@@ -392,21 +412,26 @@ def main():
     cfg_sha = sha(args.contract)
     rank, world = int(os.environ['RANK']), int(os.environ['WORLD_SIZE'])
     local_rank = int(os.environ['LOCAL_RANK'])
-    if world != cfg['world_size'] or torch.cuda.device_count() != 8:
-        raise ValueError('EARHO_REQUIRES_EIGHT_ACTUAL_GPUS')
-    contract_api.validate_hardware([torch.cuda.get_device_name(i) for i in range(8)], cfg.get('gpu_name', 'H20'))
+    if world != cfg['world_size'] or torch.cuda.device_count() != world:
+        raise ValueError('EARHO_ACTUAL_GPU_COUNT_MISMATCH')
+    contract_api.validate_hardware([torch.cuda.get_device_name(i) for i in range(world)], cfg.get('gpu_name', 'H20'), world)
     torch.cuda.set_device(local_rank)
     torch.set_num_threads(cfg['cpu_threads_per_rank'])
     dist.init_process_group('nccl', timeout=timedelta(minutes=45))
     root = Path(cfg['output_dir'])
     root.mkdir(parents=True, exist_ok=True)
-    for path, expected in cfg['files_sha256'].items():
-        if sha(path) != expected:
-            raise ValueError('EARHO_FROZEN_INPUT_CHANGED:'+path)
+    # Bootstrap authenticated all immutable inputs once before torchrun. Avoid
+    # rereading 15GB from Ceph on every GPU rank. Direct entry still verifies.
+    if os.environ.get('MECHET_EARHO_VERIFIED_CONTRACT_SHA256') != cfg_sha:
+        if rank == 0:
+            for path, expected in cfg['files_sha256'].items():
+                if sha(path) != expected:
+                    raise ValueError('EARHO_FROZEN_INPUT_CHANGED:'+path)
+        dist.barrier()
     parent_cfg = yaml.safe_load(Path(cfg['parent_config']).read_text())
     verify_evaluation_bindings(parent_cfg, Path(cfg['parent']))
     base = json.loads(Path(cfg['base_manifest']).read_text())
-    if base['revision'] != OFFICIAL_REVISION or sha(Path(cfg['parent'])/'adapter_model.safetensors') != contract_api.PARENT_SHA:
+    if base['revision'] != OFFICIAL_REVISION or sha(Path(cfg['parent'])/'adapter_model.safetensors') != cfg['parent_sha256']:
         raise ValueError('EARHO_WRONG_INITIAL_ACTOR')
     local = Path(os.environ['HF_HUB_CACHE'])/'models--Qwen--Qwen3.5-0.8B'/'snapshots'/OFFICIAL_REVISION
     for name, record in base['files'].items():
@@ -417,9 +442,9 @@ def main():
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     resumed = None
-    checkpoint = contract_api.discover_checkpoint(root, cfg_sha)
+    checkpoint = contract_api.discover_checkpoint(root, cfg_sha, cfg)
     if checkpoint is not None:
-        resumed = contract_api.verify_checkpoint(checkpoint, cfg_sha)
+        resumed = contract_api.verify_checkpoint(checkpoint, cfg_sha, cfg)
     else:
         checkpoint = Path(cfg['parent'])
     actor, _ = load_language_model(local, dtype=torch.bfloat16)
@@ -449,15 +474,22 @@ def main():
     for parameter in actor.parameters():
         if parameter.requires_grad:
             dist.broadcast(parameter.data, src=0)
-    source = {}
-    for row in rows(cfg['train_file']):
-        rid = str(row['source_id'])
-        if rid in source:
-            raise ValueError('EARHO_DUPLICATE_TRAIN_SOURCE')
-        source[rid] = row
-    if len(source) != cfg['train_reactions']:
-        raise ValueError('EARHO_TRAIN_DENOMINATOR_CHANGED')
-    ids = sorted(source, key=lambda rid:hashlib.sha256(f"earho:{cfg['seed']}:{rid}".encode()).hexdigest())
+    index_root = root/'indexes'
+    if rank == 0 and not cfg.get('indexes'):
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            jobs = [pool.submit(storage.build_index, cfg[key], index_root/f'{key}.sqlite',
+                                grouped=(key == 'history_file'), expected_reactions=cfg['train_reactions'])
+                    for key in ('train_file','history_file')]
+            for job in jobs:
+                job.result()
+    dist.barrier()
+    indexes = cfg.get('indexes') or {key:str(index_root/f'{key}.sqlite') for key in ('train_file','history_file')}
+    source_store = storage.IndexedJsonl(cfg['train_file'], indexes['train_file'])
+    history_store = storage.IndexedJsonl(cfg['history_file'], indexes['history_file'])
+    ids = sorted(source_store.ids(), key=lambda rid:hashlib.sha256(f"earho:{cfg['seed']}:{rid}".encode()).hexdigest())
+    if set(ids) != set(history_store.ids()):
+        raise ValueError('EARHO_MISSING_HISTORY_REACTIONS')
     chunks = list(contract_api.rounds(ids, cfg['products_per_round']))
     if resumed:
         completed_ids = [rid for chunk in chunks[:start] for rid in chunk]
@@ -465,27 +497,19 @@ def main():
             raise ValueError('EARHO_RESUME_COMPLETED_IDS_CHANGED')
         if not (root/'valid_before/report.json').exists():
             raise ValueError('EARHO_RESUME_BASELINE_REPORT_MISSING')
-    mine = set(rid for chunk in chunks for rid in chunk[rank::world])
-    history = defaultdict(list)
-    for row in rows(cfg['history_file']):
-        rid = str(row['source_id'])
-        if rid in mine:
-            history[rid].append(row)
-    if set(history) != mine:
-        raise ValueError('EARHO_MISSING_HISTORY_REACTIONS')
-    nodes = {}
-    for count, rid in enumerate(sorted(mine)):
-        nodes[rid] = replay(source[rid], history[rid])
-        if count % 100 == 0:
-            emit(root, rank, 'reference-replay', completed=count+1, total=len(mine))
-    emit(root, rank, 'actor-ready', parent_sha256=contract_api.PARENT_SHA, gpu=torch.cuda.get_device_name(local_rank),
-         train_roots=len(source), owned_roots=len(mine), next_round=start, total_rounds=len(chunks),
-         frozen_reference_sha256=contract_api.PARENT_SHA, resumed=bool(resumed))
+    emit(root, rank, 'actor-ready', parent_sha256=cfg['parent_sha256'], gpu=torch.cuda.get_device_name(local_rank),
+         train_roots=len(ids), world_size=world, next_round=start, total_rounds=len(chunks),
+         frozen_reference_sha256=cfg['parent_sha256'], resumed=bool(resumed))
     if not (root/'valid_before'/'report.json').exists():
         full_validation(actor, tokenizer, cfg, root, 'valid_before', rank, world)
     for index in range(start, len(chunks)):
         chunk = chunks[index]
         mine_ids = chunk[rank::world]
+        # Bound resident JSON and replayed states to this round, not all TRAIN.
+        source = {rid:source_store.get(rid)[0] for rid in mine_ids}
+        history = {rid:history_store.get(rid) for rid in mine_ids}
+        nodes = {rid:replay(source[rid],history[rid]) for rid in mine_ids}
+        emit(root, rank, 'round-references-ready', round=index+1, owned_roots=len(mine_ids))
         full_count = max(1, round(len(chunk)*cfg['full_episode_fraction']))
         rehearsal = set(sorted(chunk, key=lambda rid:hashlib.sha256(('rehearsal:'+rid).encode()).hexdigest())[:full_count])
         directory = root/f'round-{index:05d}'/f'rank{rank:02d}'/f'attempt-{time.time_ns()}'
@@ -498,7 +522,8 @@ def main():
         horizon = contract_api.promote(horizon, [g for part in parts for g in part], cfg['maximum_horizon'],
                                        cfg['minimum_effective_groups'], cfg['productive_support_threshold'])
         completed_ids = [rid for part in chunks[:index+1] for rid in part]
-        save_checkpoint(actor, optimizer, root, cfg_sha, index+1, horizon, step, rank, completed_ids)
+        save_checkpoint(actor, optimizer, root, cfg_sha, index+1, horizon, step, rank, completed_ids, cfg)
+        del source, history, nodes, groups
         visited = sum(map(len, chunks[:index+1]))
         emit(root, rank, 'round-complete', round=index+1, total_rounds=len(chunks),
              visited_train_roots=visited, train_denominator=len(ids), percent=100*visited/len(ids),
@@ -506,16 +531,18 @@ def main():
              effective_policy_groups=sum(g['effective'] for part in parts for g in part))
     full_validation(actor, tokenizer, cfg, root, 'valid_after', rank, world)
     if rank == 0:
-        final_checkpoint = contract_api.discover_checkpoint(root, cfg_sha)
-        final_state = contract_api.verify_checkpoint(final_checkpoint, cfg_sha)
+        final_checkpoint = contract_api.discover_checkpoint(root, cfg_sha, cfg)
+        final_state = contract_api.verify_checkpoint(final_checkpoint, cfg_sha, cfg)
         if final_state['visited_train_roots'] != len(ids):
             raise ValueError('EARHO_INCOMPLETE_TRAIN_COVERAGE')
         write(root/'completion.json', dict(algorithm=cfg['algorithm'], visited_train_roots=final_state['visited_train_roots'],
             optimizer_steps=step, final_horizon=horizon, test_used=False,
-            parent_sha256=contract_api.PARENT_SHA, contract_sha256=cfg_sha,
+            parent_sha256=cfg['parent_sha256'], contract_sha256=cfg_sha,
             validation_before=json.loads((root/'valid_before/report.json').read_text()),
             validation_after=json.loads((root/'valid_after/report.json').read_text())))
     dist.barrier()
+    source_store.close()
+    history_store.close()
     dist.destroy_process_group()
 
 
