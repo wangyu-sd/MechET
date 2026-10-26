@@ -1,5 +1,12 @@
 # Active ICLR status
 
+> **2026-10-26 latest:** mech31k4H20 EARHO completed10137TRAIN/80rounds/
+>160updates;pairedVALID1319 hits939→971(71.19→73.62%,+2.43pp),74corrected/
+>42regressed. FlowER4H20 EARHO is actually sampling/updating,not queued or
+> bootstrapping. See docs/results/PR96_EARHO_20261026.md and timestamped
+> artifact snapshot. No newStageIII TEST;combinedPG/replay updates,notpureRL
+> causal evidence. Earlierdatedsections below are historical snapshots.
+
 > **2026-10-23 13:22 CST PR96 performance replacement: WAITING FOR SOURCE CHECKPOINT.**
 > This supersedes older training-on-hold notes ONLY for the explicitly authorized
 > PR96 tracks. mech31k State10+History5 completed successfully; selected pairedVALID

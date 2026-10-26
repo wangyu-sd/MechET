@@ -1,5 +1,17 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-26 EARHO publication update.** mech31k4H20_20261025_02 completed
+> END/true01:40:45,all10137acceptedTRAIN/80rounds/160updates,finalround00080
+> checkpoint hashesverified. Paired originalVALID1319:939→971(71.19→73.62%,
+>+2.43pp),74corrected/42regressed. Everyupdate includesPGandfallbackreplay;
+> notpureRL attribution ornewTEST result. Horizonremained2. Runtime6h17from
+> submission includesbootstrap andbefore/afterVALID. FlowER own-parent4H20
+> EARHO stillrunning; frozencheckpointprogress andfull31krawI/O are in
+> docs/results/PR96_EARHO_20261026.md and its hashmanifest. Source5c7cb96;
+> officialQwen3.5-0.8B,notold0.6B/8B. CurrentPR96acceptedTRAIN counts10137/
+>243753 are not unqualified fullendpoint data. Earlier bootstrap-only notes
+> and historicrunning statuses below are superseded by this dated report.
+
 > **2026-10-23 permanent user storage restriction: NO data on local test disk.**
 > All new datasets/model weights/downloads/test-generated files and caches must
 > use the Ceph mount, not host `/tmp`, `/root/.cache` or its root filesystem.

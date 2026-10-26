@@ -1,0 +1,15 @@
+{
+  "track": "mech31k",
+  "validation_denominator": 1319,
+  "before_hits": 939,
+  "after_hits": 971,
+  "corrected": 74,
+  "regressed": 42,
+  "optimizer_steps": 160,
+  "policy_gradient_steps": 160,
+  "replay_steps": 160,
+  "policy_record_uses": 3188,
+  "replay_record_uses": 1168,
+  "test_used": false,
+  "claim": "Paired VALID improvement of the combined EARHO policy/replay procedure; not isolated RL attribution or TEST accuracy."
+}

@@ -1,0 +1,305 @@
+.......................s................................................ [ 11%]
+............................................................{
+  "artifact_type": "direct_endpoint_candidate_evaluation",
+  "reference": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_endpoint_evaluator_report0/reference.jsonl",
+  "reference_sha256": "8d3a015f9d90a894dd646f98ae39be482f92c6a17def338c0b87133e8435b7d1",
+  "predictions": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_endpoint_evaluator_report0/predictions.jsonl",
+  "predictions_sha256": "83ed5df121d57c4bf0c34c37c1e832eb3b29c7e3417e514aa07bc15254516639",
+  "n_reference_rows": 1,
+  "n_prediction_rows_used": 1,
+  "n_prediction_rows_ignored_as_superset": 0,
+  "candidates_per_target": 2,
+  "n_candidates": 2,
+  "candidate_validity_rate": 1.0,
+  "generation_order": {
+    "semantics": "independent-sample Pass@K; not ranked Top-K",
+    "structural_pass_at_1": 0.0,
+    "structural_pass_at_3": 1.0,
+    "structural_pass_at_5": 1.0,
+    "structural_pass_at_10": 1.0,
+    "top1_validity": 1.0,
+    "neutralized_pass_at_1": 0.0
+  },
+  "nll_ranked": {
+    "semantics": "gold-independent teacher-forced assistant mean-NLL rank",
+    "ranker": "formal_trace_gate__assistant_mean_nll_v1",
+    "structural_top_1": 1.0,
+    "structural_top_3": 1.0,
+    "structural_top_5": 1.0,
+    "structural_top_10": 1.0,
+    "top1_validity": 1.0,
+    "neutralized_top_1": 1.0,
+    "selection_uses_ground_truth": false
+  }
+}
+.{
+  "artifact_type": "candidate_nll_ranking_evaluation",
+  "ranker": "formal_trace_gate__assistant_mean_nll_v1",
+  "n_rows": 1,
+  "n_candidates": 2,
+  "score_status": {
+    "ok": 2
+  },
+  "mapped_selected_hits": 1,
+  "mapped_selected_accuracy": 1.0,
+  "structural_map_free_selected_hits": 1,
+  "structural_map_free_selected_accuracy": 1.0,
+  "strict_selected_hits": 1,
+  "strict_selected_accuracy": 1.0,
+  "neutralized_selected_hits": 1,
+  "neutralized_selected_accuracy": 1.0,
+  "mapped_first_candidate_hits": 0,
+  "mapped_first_candidate_accuracy": 0.0,
+  "structural_map_free_first_candidate_hits": 1,
+  "structural_map_free_first_candidate_accuracy": 1.0,
+  "neutralized_first_candidate_hits": 1,
+  "neutralized_first_candidate_accuracy": 1.0,
+  "selection_uses_ground_truth": false,
+  "evaluation_uses_ground_truth": true
+}
+........... [ 23%]
+........................................................................ [ 34%]
+........................................................................ [ 46%]
+........................................................................ [ 58%]
+................s......................................{
+  "artifact_type": "complete_proof_candidate_evaluation",
+  "reference": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_complete_proof_candidates0/reference.jsonl",
+  "reference_sha256": "d6ec7c3c7dd51071e43cb5df7c9a7015a16c9e09f361a23c7eca755322cf22af",
+  "predictions": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_complete_proof_candidates0/predictions.jsonl",
+  "predictions_sha256": "cbad380820cd9787473b59675f3f9494ee36da9c8a00d53280d04cf6955078cc",
+  "n_reference_rows": 1,
+  "candidates_per_target": 2,
+  "n_candidates": 2,
+  "generation_order": {
+    "semantics": "independent-sample Pass@K; not ranked Top-K",
+    "structural_exact_at_1": 0.0,
+    "mapped_exact_at_1": 0.0,
+    "full_precursor_exact_at_1": 0.0,
+    "execute_ok_at_1": 0.0,
+    "structural_exact_at_5": 1.0,
+    "mapped_exact_at_5": 1.0,
+    "full_precursor_exact_at_5": 1.0,
+    "execute_ok_at_5": 1.0,
+    "structural_exact_at_10": 1.0,
+    "mapped_exact_at_10": 1.0,
+    "full_precursor_exact_at_10": 1.0,
+    "execute_ok_at_10": 1.0
+  },
+  "formal_nll_ranked": {
+    "semantics": "formal-execution gate, then gold-independent assistant mean-NLL",
+    "ranker": "proof_execute_gate__assistant_mean_nll_v1",
+    "selection_uses_ground_truth": false,
+    "structural_exact_at_1": 1.0,
+    "mapped_exact_at_1": 1.0,
+    "full_precursor_exact_at_1": 1.0,
+    "execute_ok_at_1": 1.0,
+    "structural_exact_at_5": 1.0,
+    "mapped_exact_at_5": 1.0,
+    "full_precursor_exact_at_5": 1.0,
+    "execute_ok_at_5": 1.0,
+    "structural_exact_at_10": 1.0,
+    "mapped_exact_at_10": 1.0,
+    "full_precursor_exact_at_10": 1.0,
+    "execute_ok_at_10": 1.0
+  },
+  "execution_failure_codes": {
+    "PROOF_EXECUTION_FAILED": 1
+  }
+}
+................. [ 69%]
+...........................ss........................................... [ 81%]
+..................{
+  "suite_id": "split-test",
+  "artifact_type": "split_evidence_suite_manifest",
+  "config": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_split_evidence_builder_re0/suite.yaml",
+  "config_sha256": "4a12dac0cd7aae4aecf93ddbd6867ecd317d5a54be04751a2eba5ce58bb4ad24",
+  "output_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_split_evidence_builder_re0/suite",
+  "splits": {
+    "train": {
+      "manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_split_evidence_builder_re0/suite/train/manifest.json",
+      "n_matched_ids": 1,
+      "matched_ids_sha256": "825cd5ae2692eb978054a9146586f25ec44de544e9dbc94cfada045d7425680b"
+    },
+    "valid": {
+      "manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_split_evidence_builder_re0/suite/valid/manifest.json",
+      "n_matched_ids": 1,
+      "matched_ids_sha256": "7c422c08ccb8db1f2b405ae083d33b5fd1799b84c4f390d799c6d1d69ca6b65c"
+    },
+    "test": {
+      "manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_split_evidence_builder_re0/suite/test/manifest.json",
+      "n_matched_ids": 1,
+      "matched_ids_sha256": "ed1e1dcf971990c1b89676ae785436106f7548b1ae41d174ca9d3bfb9661a477"
+    }
+  },
+  "cross_split_id_overlap": {
+    "train__valid": 0,
+    "train__test": 0,
+    "valid__test": 0
+  },
+  "controls": {
+    "train_valid_test_stable_ids_disjoint": true,
+    "final_evaluation_split": "test",
+    "training_split": "train",
+    "model_selection_split": "valid"
+  },
+  "training_contract": {},
+  "evaluation_contract": {}
+}
+.same_topic_wrong:   0%|                                 | 0/3 [00:00<?, ?row/s]same_topic_wrong: 100%|███████████████████████| 3/3 [00:00<00:00, 4877.10row/s]
+{
+  "artifact_type": "evidence_intervention_suite",
+  "input": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_same_topic_wrong_writes_p0/input.jsonl",
+  "n_rows": 3,
+  "outputs": {
+    "same_topic_wrong": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_same_topic_wrong_writes_p0/interventions/same_topic_wrong.jsonl",
+      "paired_reference": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_same_topic_wrong_writes_p0/interventions/same_topic_wrong.reference.jsonl",
+      "eligible_ids": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_same_topic_wrong_writes_p0/interventions/same_topic_wrong.eligible_ids.json",
+      "n_rows": 2,
+      "n_quarantined": 1,
+      "eligible_fraction": 0.6666666666666666,
+      "same_ids_as_full_input": false,
+      "quarantine": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/earho-pr-publish-tests.JMQKEm/run/test_same_topic_wrong_writes_p0/interventions/same_topic_wrong.quarantine.jsonl",
+      "quarantine_reasons": {
+        "NO_SAME_TOPIC_WRONG_PASSAGE_DONOR": 1
+      },
+      "stable_ids_sha256": "7e18f737311b2dc3b2f269dd78396b0351f14fb66efa879f768cb23181883c78",
+      "paired_reference_ids_sha256": "7e18f737311b2dc3b2f269dd78396b0351f14fb66efa879f768cb23181883c78",
+      "characters_preserved": true,
+      "paired_alignment_valid": true
+    }
+  },
+  "contract": {
+    "same_chemistry_trace": true,
+    "same_context_character_budget": true,
+    "direct_reward": false,
+    "intervention_fields_are_isolated": true,
+    "paired_reference_written_for_every_intervention": true,
+    "subset_interventions_must_use_their_paired_reference": true,
+    "full_input_id_universe_preserved": false
+  }
+}
+.usage: run_h1_suite.py [-h] [--config CONFIG] [--data DATA]
+                       [--out-dir OUT_DIR] [--adapter ADAPTER]
+                       [--model-revision MODEL_REVISION] [--seed SEED]
+                       [--samples-per-target SAMPLES_PER_TARGET]
+                       [--max-iterations MAX_ITERATIONS]
+                       [--max-new-tokens MAX_NEW_TOKENS]
+                       [--temperature TEMPERATURE] [--top-p TOP_P]
+                       [--limit LIMIT] [--resume] [--dry-run]
+
+Run the frozen H1 normal/intervention rollout suite and paired evaluation.
+
+options:
+  -h, --help            show this help message and exit
+  --config CONFIG
+  --data DATA
+  --out-dir OUT_DIR
+  --adapter ADAPTER     checkpoint/adapter to evaluate; defaults to
+                        config.initial_adapter_path
+  --model-revision MODEL_REVISION
+                        optional immutable 40-hex revision; otherwise read
+                        from adapter manifest
+  --seed SEED
+  --samples-per-target SAMPLES_PER_TARGET
+  --max-iterations MAX_ITERATIONS
+  --max-new-tokens MAX_NEW_TOKENS
+  --temperature TEMPERATURE
+  --top-p TOP_P
+  --limit LIMIT
+  --resume
+  --dry-run
+usage: run_h2_suite.py [-h] [--split-dir SPLIT_DIR] [--config CONFIG]
+                       [--adapter ADAPTER] [--out-dir OUT_DIR] [--seed SEED]
+                       [--samples-per-target SAMPLES_PER_TARGET]
+                       [--max-iterations MAX_ITERATIONS]
+                       [--max-new-tokens MAX_NEW_TOKENS]
+                       [--temperature TEMPERATURE] [--top-p TOP_P]
+                       [--limit LIMIT] [--resume] [--dry-run]
+
+Run H2 trace-owned inference on a frozen composition-OOD split.
+
+options:
+  -h, --help            show this help message and exit
+  --split-dir SPLIT_DIR
+  --config CONFIG
+  --adapter ADAPTER
+  --out-dir OUT_DIR
+  --seed SEED
+  --samples-per-target SAMPLES_PER_TARGET
+  --max-iterations MAX_ITERATIONS
+  --max-new-tokens MAX_NEW_TOKENS
+  --temperature TEMPERATURE
+  --top-p TOP_P
+  --limit LIMIT
+  --resume
+  --dry-run
+usage: run_h3_suite.py [-h] [--suite-root SUITE_ROOT] [--out-dir OUT_DIR]
+                       [--adapter ADAPTER] [--config CONFIG] [--seed SEED]
+                       [--samples-per-target SAMPLES_PER_TARGET]
+                       [--max-iterations MAX_ITERATIONS]
+                       [--max-new-tokens MAX_NEW_TOKENS]
+                       [--temperature TEMPERATURE] [--top-p TOP_P]
+                       [--limit LIMIT] [--resume] [--dry-run]
+
+Run the six matched H3 conditions on the frozen held-out test suite.
+
+options:
+  -h, --help            show this help message and exit
+  --suite-root SUITE_ROOT
+                        held-out test condition directory produced by
+                        build_knowledge_ablation_suite.py
+  --out-dir OUT_DIR
+  --adapter ADAPTER
+  --config CONFIG
+  --seed SEED
+  --samples-per-target SAMPLES_PER_TARGET
+  --max-iterations MAX_ITERATIONS
+  --max-new-tokens MAX_NEW_TOKENS
+  --temperature TEMPERATURE
+  --top-p TOP_P
+  --limit LIMIT
+  --resume
+  --dry-run
+usage: run_h3_intervention.py [-h] --name
+                              {passage_shuffle,remove_competing_pathways,remove_warnings,same_topic_wrong}
+                              [--intervention-dir INTERVENTION_DIR]
+                              [--config CONFIG] [--adapter ADAPTER]
+                              [--train-file TRAIN_FILE] [--out-dir OUT_DIR]
+                              [--seed SEED]
+                              [--samples-per-target SAMPLES_PER_TARGET]
+                              [--max-iterations MAX_ITERATIONS]
+                              [--max-new-tokens MAX_NEW_TOKENS]
+                              [--temperature TEMPERATURE] [--top-p TOP_P]
+                              [--bootstrap-samples BOOTSTRAP_SAMPLES]
+                              [--dry-run]
+
+Run one H3 evidence-content intervention on its frozen paired ID universe.
+
+options:
+  -h, --help            show this help message and exit
+  --name {passage_shuffle,remove_competing_pathways,remove_warnings,same_topic_wrong}
+  --intervention-dir INTERVENTION_DIR
+  --config CONFIG
+  --adapter ADAPTER
+  --train-file TRAIN_FILE
+  --out-dir OUT_DIR
+  --seed SEED
+  --samples-per-target SAMPLES_PER_TARGET
+  --max-iterations MAX_ITERATIONS
+  --max-new-tokens MAX_NEW_TOKENS
+  --temperature TEMPERATURE
+  --top-p TOP_P
+  --bootstrap-samples BOOTSTRAP_SAMPLES
+  --dry-run
+.................................................... [ 93%]
+..........................................                               [100%]
+=============================== warnings summary ===============================
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyPacked has no __module__ attribute
+
+<frozen importlib._bootstrap>:241
+  <frozen importlib._bootstrap>:241: DeprecationWarning: builtin type SwigPyObject has no __module__ attribute
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+614 passed, 4 skipped, 2 warnings in 1106.72s (0:18:26)

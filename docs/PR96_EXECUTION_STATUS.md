@@ -1,5 +1,20 @@
 # PR96 execution — Qwen3.5-0.8B main-product-only supervision
 
+## Latest — 2026-10-26 EARHO result and production implementation
+
+The dated sections below are historical execution snapshots, not current state.
+See [the current result and complete evidence](results/PR96_EARHO_20261026.md).
+mech31k State10/History5 and FlowER State5/History3 are complete. The four-H20
+mech31k EARHO job also completed all10,137acceptedTRAIN reactions/80rounds/
+160updates: same1319VALID endpoint hits939→971 (71.19%→73.62%,+2.43pp).
+There are74corrections and42regressions; every update included both policy
+gradients and explicit fallback replay. This is not new TEST accuracy or
+isolated pure-RL attribution. FlowER four-H20 EARHO is still running; its
+frozen progress is linked from the current result. No posttraining TEST yet.
+
+This implementation and artifact publication follows the design in PR96;
+the original PR96 itself contained only the goal, not these production changes.
+
 ## Performance handoff — 2026-10-23 13:22 CST
 
 User requested additional acceleration, resubmission and checkpoint recovery.
