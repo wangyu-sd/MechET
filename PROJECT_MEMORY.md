@@ -1,5 +1,64 @@
 # MechET project memory: authoritative data and model lineage
 
+> **2026-10-26 EARHO publication update.** mech31k4H20_20261025_02 completed
+> END/true01:40:45,all10137acceptedTRAIN/80rounds/160updates,finalround00080
+> checkpoint hashesverified. Paired originalVALID1319:939→971(71.19→73.62%,
+>+2.43pp),74corrected/42regressed. Everyupdate includesPGandfallbackreplay;
+> notpureRL attribution ornewTEST result. Horizonremained2. Runtime6h17from
+> submission includesbootstrap andbefore/afterVALID. FlowER own-parent4H20
+> EARHO stillrunning; frozencheckpointprogress andfull31krawI/O are in
+> docs/results/PR96_EARHO_20261026.md and its hashmanifest. Source5c7cb96;
+> officialQwen3.5-0.8B,notold0.6B/8B. CurrentPR96acceptedTRAIN counts10137/
+>243753 are not unqualified fullendpoint data. Earlier bootstrap-only notes
+> and historicrunning statuses below are superseded by this dated report.
+
+> **2026-10-23 permanent user storage restriction: NO data on local test disk.**
+> All new datasets/model weights/downloads/test-generated files and caches must
+> use the Ceph mount, not host `/tmp`, `/root/.cache` or its root filesystem.
+> Before host-side tests/downloads/installs/processing, source
+> `configs/runtime/shared_host_storage.env` using its absolute primary-repo path.
+> This redirects tempfile/pytest/HuggingFace/pip/Torch/Triton/WandB caches to
+> `outputs/shared_host_storage/` on Ceph; explicit path overrides must comply too.
+> Root cause of this session's local writes: TMPDIR/HF_HOME/PIP_CACHE_DIR were
+> unset, so tests and dependencies used local defaults. The host has historical
+> `/tmp`46G and `/root/.cache`41G; pytest temp root2.6G is shared across sessions,
+> not all attributable to this run. Our PR96 runtime overlay143M, frozen code16M;
+> completed172M causalconv unit cache already recoverably archived to
+> `artifacts/pr96_host_causalconv_unit_cache_archived_20261023` on Ceph.
+> Formal PR96 data/checkpoints remain on Ceph. No unknown historical directories
+> deleted, no other session or Taiji training stopped. Do not repeat the storage
+> error or claim the entire root-disk usage was caused by these small overlays.
+
+> **2026-10-23 PR96 execution and requested performance handoff (13:22 CST snapshot).**
+> Official independently initialized Qwen3.5-0.8B@2fc06364715b967f1860aea9cf38778875588b17,
+> NOT an old Qwen3-0.6B/8B adapter. mech31k completed State10epochs/6600updates
+> then own-gated History5epochs/3300updates on8A100; selected by minVALIDloss:
+> Statecheckpoint3300SHA04f6be2c...754a3 andHistorycheckpoint660SHAcd5f2f9d...ab49ca.
+> PairedVALID State52/64, selectedHistory51/64; independentHistory52/64;
+> these are NOT TEST results. See docs/PR96_EXECUTION_STATUS.md for exact lineage.
+> FlowER original strict source257167/2890/28967; corrected source-arrow accepted
+> subset243753/2751/27400 with explicit quarantines, NOT unqualified FlowER full.
+> Training1908035unique event decisions per stage, no cropped/windowed rows.
+> FlowER _03 task meteor_mechet_pr96_flower_qwen35_08b_2stage_8h20_zjk_20261023_03,
+> instance8b1d8923a162a6a801a1661b13c6047a, is actually training on8H20; at13:22
+> step11500/149070, NO complete checkpoint yet (epoch-only original saves).
+> User requested additional acceleration and checkpoint-preserving resubmission.
+> New frozen implementation c42c94bd23c425f7c0f900e2cef195a52a6ed95e:
+> identical Arrow-offset lengths/sampler; compatible native causal-conv1d1.7.0
+> Torch2.6cu118; micro8*GA1 instead4*GA2, same global64, checkpointing off after
+> actual max-length finite-backward compatibility gate; recovery saves1000steps.
+> Data/loss/LR/LoRA/State5+History3epochs remain unchanged; no ordinary training KV cache.
+> Native H20 kernel fwd/backward and CPU genuine optimizer/RNG/cursor recovery tests
+> passed;584unit testsPASS/1missing-data skip. No measured new throughput claimed.
+> CPU-only handoff PID2798887 waits for authenticated full optimizer/scheduler/
+> eight-rank RNG+counters checkpoint BEFORE stopping ONLY _03 and submitting _04.
+> _04 is prepared/render-validated, NOT yet submitted/queued at this snapshot.
+> It uses ordinary AI4LSLab_KEMO_ZJK_H20, BOTH location/quota_type empty,
+> Tencent metabo:taiji6/proven privateCeph/default45sstdout. No extra waiting GPU job.
+> Read actual status/control in outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/performance_v1/.
+> Original persistent goal was user-paused; this new explicit performance request
+> does not itself change that goal status. No push/PR/merge or unrelated job stop.
+
 > **2026-10-22 opt-in main-product-only root and first-use IMPORT repair.**
 > Backbone/Stage-II/RL frozen; no new training. Existing current-compiler
 > trace-view reference audit12706/12724PASS,18unresolved retained,training disabled.

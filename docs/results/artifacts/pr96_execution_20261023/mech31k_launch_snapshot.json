@@ -1,0 +1,211 @@
+{
+  "task_flag": "meteor_mechet_pr96_mech31k_qwen35_08b_2stage_8a100_qy_20261023_02",
+  "instance_id": "8b1d810aa162a6bb01a16470ef310393",
+  "code_commit": "731af1315c20cbe72cfcdbcd54665fa2cf337caa",
+  "preflight_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_qwen35_08b_mainonly_20261022_01/preflight_20261022T162903/manifest.json",
+  "preflight": [
+    {
+      "rank": 0,
+      "loss": 0.5235312581062317,
+      "finite_nonzero_gradients": true,
+      "parameters_updated": true,
+      "ddp_gradient_synchronization": true,
+      "base_generation_parse_success": false,
+      "base_generation_truncated": true,
+      "peak_gpu_memory_bytes": 2660328448,
+      "versions": {
+        "torch": "2.6.0+cu118",
+        "transformers": "5.5.0",
+        "peft": "0.18.1",
+        "accelerate": "1.9.0",
+        "datasets": "4.0.0",
+        "tokenizers": "0.22.2",
+        "fla-core": "0.5.2",
+        "triton": "3.2.0",
+        "rdkit": "2026.3.4"
+      }
+    },
+    {
+      "rank": 1,
+      "loss": 0.5235312581062317,
+      "finite_nonzero_gradients": true,
+      "parameters_updated": true,
+      "ddp_gradient_synchronization": true,
+      "base_generation_parse_success": false,
+      "base_generation_truncated": true,
+      "peak_gpu_memory_bytes": 2660328448,
+      "versions": {
+        "torch": "2.6.0+cu118",
+        "transformers": "5.5.0",
+        "peft": "0.18.1",
+        "accelerate": "1.9.0",
+        "datasets": "4.0.0",
+        "tokenizers": "0.22.2",
+        "fla-core": "0.5.2",
+        "triton": "3.2.0",
+        "rdkit": "2026.3.4"
+      }
+    },
+    {
+      "rank": 2,
+      "loss": 0.5235312581062317,
+      "finite_nonzero_gradients": true,
+      "parameters_updated": true,
+      "ddp_gradient_synchronization": true,
+      "base_generation_parse_success": false,
+      "base_generation_truncated": true,
+      "peak_gpu_memory_bytes": 2660328448,
+      "versions": {
+        "torch": "2.6.0+cu118",
+        "transformers": "5.5.0",
+        "peft": "0.18.1",
+        "accelerate": "1.9.0",
+        "datasets": "4.0.0",
+        "tokenizers": "0.22.2",
+        "fla-core": "0.5.2",
+        "triton": "3.2.0",
+        "rdkit": "2026.3.4"
+      }
+    },
+    {
+      "rank": 3,
+      "loss": 0.5235312581062317,
+      "finite_nonzero_gradients": true,
+      "parameters_updated": true,
+      "ddp_gradient_synchronization": true,
+      "base_generation_parse_success": false,
+      "base_generation_truncated": true,
+      "peak_gpu_memory_bytes": 2660328448,
+      "versions": {
+        "torch": "2.6.0+cu118",
+        "transformers": "5.5.0",
+        "peft": "0.18.1",
+        "accelerate": "1.9.0",
+        "datasets": "4.0.0",
+        "tokenizers": "0.22.2",
+        "fla-core": "0.5.2",
+        "triton": "3.2.0",
+        "rdkit": "2026.3.4"
+      }
+    },
+    {
+      "rank": 4,
+      "loss": 0.5235312581062317,
+      "finite_nonzero_gradients": true,
+      "parameters_updated": true,
+      "ddp_gradient_synchronization": true,
+      "base_generation_parse_success": false,
+      "base_generation_truncated": true,
+      "peak_gpu_memory_bytes": 2660328448,
+      "versions": {
+        "torch": "2.6.0+cu118",
+        "transformers": "5.5.0",
+        "peft": "0.18.1",
+        "accelerate": "1.9.0",
+        "datasets": "4.0.0",
+        "tokenizers": "0.22.2",
+        "fla-core": "0.5.2",
+        "triton": "3.2.0",
+        "rdkit": "2026.3.4"
+      }
+    },
+    {
+      "rank": 5,
+      "loss": 0.5235312581062317,
+      "finite_nonzero_gradients": true,
+      "parameters_updated": true,
+      "ddp_gradient_synchronization": true,
+      "base_generation_parse_success": false,
+      "base_generation_truncated": true,
+      "peak_gpu_memory_bytes": 2660328448,
+      "versions": {
+        "torch": "2.6.0+cu118",
+        "transformers": "5.5.0",
+        "peft": "0.18.1",
+        "accelerate": "1.9.0",
+        "datasets": "4.0.0",
+        "tokenizers": "0.22.2",
+        "fla-core": "0.5.2",
+        "triton": "3.2.0",
+        "rdkit": "2026.3.4"
+      }
+    },
+    {
+      "rank": 6,
+      "loss": 0.5235312581062317,
+      "finite_nonzero_gradients": true,
+      "parameters_updated": true,
+      "ddp_gradient_synchronization": true,
+      "base_generation_parse_success": false,
+      "base_generation_truncated": true,
+      "peak_gpu_memory_bytes": 2660328448,
+      "versions": {
+        "torch": "2.6.0+cu118",
+        "transformers": "5.5.0",
+        "peft": "0.18.1",
+        "accelerate": "1.9.0",
+        "datasets": "4.0.0",
+        "tokenizers": "0.22.2",
+        "fla-core": "0.5.2",
+        "triton": "3.2.0",
+        "rdkit": "2026.3.4"
+      }
+    },
+    {
+      "rank": 7,
+      "loss": 0.5235312581062317,
+      "finite_nonzero_gradients": true,
+      "parameters_updated": true,
+      "ddp_gradient_synchronization": true,
+      "base_generation_parse_success": false,
+      "base_generation_truncated": true,
+      "peak_gpu_memory_bytes": 2660328448,
+      "versions": {
+        "torch": "2.6.0+cu118",
+        "transformers": "5.5.0",
+        "peft": "0.18.1",
+        "accelerate": "1.9.0",
+        "datasets": "4.0.0",
+        "tokenizers": "0.22.2",
+        "fla-core": "0.5.2",
+        "triton": "3.2.0",
+        "rdkit": "2026.3.4"
+      }
+    }
+  ],
+  "formal_training_progress": {
+    "event": "training-log",
+    "metrics": {
+      "loss": 0.030328935384750365,
+      "grad_norm": 0.4676717519760132,
+      "learning_rate": 0.00006515151515151516,
+      "epoch": 0.19696969696969696,
+      "num_input_tokens_seen": 9802172,
+      "train_runtime": 232.2806,
+      "train_tokens_per_second": 42199.703
+    },
+    "examples_consumed_global": 8320,
+    "supervised_tokens_consumed_global": 885978,
+    "input_tokens_consumed_global": 9782920,
+    "samples_per_second": 58.313510818257676,
+    "supervised_tokens_per_second": 6259.864271479308,
+    "latest_checkpoint": null,
+    "best_checkpoint": null,
+    "recent_exceptions": 0,
+    "memory_rank": -1,
+    "gpu_memory_allocated_bytes": 1695419392,
+    "gpu_memory_peak_bytes": 5318038528,
+    "timestamp": "2026-10-22T16:37:53.704072+00:00",
+    "track": "mech31k",
+    "stage": "state",
+    "elapsed_seconds": 297.784,
+    "global_step": 130,
+    "total_steps": 6600,
+    "epoch": 0.19696969696969696,
+    "epochs": 10,
+    "percent": 1.9696969696969697
+  },
+  "endpoint_model_accuracy_measured": false,
+  "stage_two_started": false,
+  "complete_test_inference_executed": false
+}

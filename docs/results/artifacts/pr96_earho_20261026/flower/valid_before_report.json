@@ -1,0 +1,27 @@
+{
+  "denominator": 2890,
+  "structural_hits": 1802,
+  "full_hits": 370,
+  "structural_accuracy": 0.6235294117647059,
+  "full_accuracy": 0.12802768166089964,
+  "terminal_reached": 2866,
+  "generated_decisions": 22480,
+  "failure_reasons": {
+    "ValueError:electron-source bond is absent: A20,A34": 1,
+    "ValueError:destination bond is absent: A24,A30": 1,
+    "ValueError:destination bond is absent: A02,A13": 1,
+    "ValueError:CHEMICAL_STATE_INVALID": 4,
+    "ValueError:electron-source bond is absent: A22,A23": 1,
+    "ValueError:destination bond is absent: A30,A36": 1,
+    "ValueError:destination bond is absent: A42,A49": 1,
+    "ValueError:invalid SMILES": 2,
+    "ValueError:destination bond is absent: A07,A16": 1,
+    "ValueError:electron-source bond is absent: A100,A97": 1,
+    "ValueError:destination bond is absent: A03,A08": 1,
+    "ValueError:STATE_CYCLE": 5,
+    "ValueError:destination bond is absent: A05,A10": 1,
+    "ValueError:electron-source bond is absent: A04,A11": 1,
+    "ValueError:destination bond is absent: A08,A20": 1,
+    "ValueError:destination bond is absent: A14,A21": 1
+  }
+}

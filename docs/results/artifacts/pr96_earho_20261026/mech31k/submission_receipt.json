@@ -1,0 +1,23 @@
+{
+  "task_flag": "meteor_mechet_pr96_mech31k_earho_train10137_4h20_zjk_20261025_02",
+  "instance_id": "8b1d89fea162a63c01a172cd3fbf3b62",
+  "created_at_cst": "2026-10-25 19:23:36",
+  "initial_state": "PENDING",
+  "entry_commit": "5c7cb9617663df01022b464e2eb4873fe30042a4",
+  "entry_archive_sha256": "8bc760d2ef4dc56df033ac1c93282cb7c93350ebc90bbb89b0978d54d44193b6",
+  "requested_gpus": 4,
+  "requested_gpu_model": "H20",
+  "business_flag": "AI4LSLab_KEMO_ZJK_H20",
+  "location": "",
+  "quota_type": "",
+  "image": "mirrors.tencent.com/whaleywang/metabo:taiji6",
+  "private_ceph_init_donor": "meteor_mechet_pr96_flower_qwen35_08b_2stage_8h20_zjk_20261023_04",
+  "default_stdout_heartbeat_seconds": 45,
+  "train_reactions": 10137,
+  "validation_reactions": 1319,
+  "parent_adapter_sha256": "cd5f2f9dbdc883674be2f87781452366a3fb2c01c7c930482e0b5e4b3dab49ca",
+  "software_tests": {"passed": 614, "skipped": 4, "warnings": 2},
+  "actual_pod_gpu_sampling_and_optimizer_verified": false,
+  "supersedes_stopped_instance": "8b1d81eba162a06c01a172629f223aa6",
+  "unrelated_tasks_stopped": false
+}

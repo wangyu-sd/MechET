@@ -1,0 +1,16 @@
+{
+  "denominator": 1319,
+  "structural_hits": 971,
+  "full_hits": 971,
+  "structural_accuracy": 0.7361637604245641,
+  "full_accuracy": 0.7361637604245641,
+  "terminal_reached": 1311,
+  "generated_decisions": 5536,
+  "failure_reasons": {
+    "ValueError:electron-source bond is absent: A06,A16": 1,
+    "ValueError:invalid SMILES": 1,
+    "ValueError:CHEMICAL_STATE_INVALID": 3,
+    "ValueError:STATE_CYCLE": 2,
+    "ValueError:electron-source bond is absent: A02,A07": 1
+  }
+}

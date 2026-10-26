@@ -1,0 +1,27 @@
+{
+  "captured_at": "2026-10-26T07:28:31.479804+00:00",
+  "track": "flower",
+  "status": "running_not_complete",
+  "committed_checkpoint": {
+    "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_flower_earho_train243753_20261025_02/checkpoints/round-00194",
+    "next_round": 194,
+    "optimizer_step": 394,
+    "horizon": 2
+  },
+  "progress": {
+    "event": "round-complete",
+    "timestamp": 1792999678.1551669,
+    "rank": 0,
+    "round": 194,
+    "total_rounds": 1905,
+    "visited_train_roots": 24832,
+    "train_denominator": 243753,
+    "percent": 10.18736179657276,
+    "optimizer_step": 394,
+    "horizon_before": 2,
+    "horizon_after": 2,
+    "effective_policy_groups": 9
+  },
+  "posttraining_validation_available": false,
+  "test_used": false
+}
