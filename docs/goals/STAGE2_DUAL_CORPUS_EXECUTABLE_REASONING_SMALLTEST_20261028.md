@@ -78,7 +78,7 @@ P1 只进行独立 K=1 主产物自主演化，最多 **16 次工具动作/目�
 
 ## 6. P3：真实库存闭合多步路线小测
 
-目标集、标准化与 frozen stock 来源：MechET PR #84，configs/eval/frozen_route_benchmarks_20261013.json、src/mechet/reverse_route_network.py；独立采样源码参考 PR #89 的 scripts/independent_route_control.py、scripts/independent_route_runtime.py、scripts/independent_route_cli.py。
+目标集、标准化与 frozen stock 来源：MechET PR #84，configs/eval/frozen_route_benchmarks_20261013.json、src/mechet/reverse_route_network.py；独立采样源码参考 PR #89 的三个未合并脚本：independent_route_control.py、independent_route_runtime.py、independent_route_cli.py（均在该 PR 的 scripts 目录，属于跨分支参考，不是本 PR 当前文件）。
 
 **重要：这些旧 route 程序未存在于当前 PR97 stacked branch，且绑定旧 0.6B Stage-II。** Codex 只移植完成本试验必要的受审接口，同时验证新 0.8B 官方 Qwen3.5 token/tool 模板、first-use IMPORT、状态执行、whole-salt stock semantics 和权限。不得直接执行旧 checkpoint 配置，也不得合并旧 PR 数百文件。
 
@@ -96,7 +96,7 @@ P1 只进行独立 K=1 主产物自主演化，最多 **16 次工具动作/目�
 
 ## 7. 交付实现、证据和绘图
 
-Codex 在本 stacked PR 内优先做完整数据校验，再实现单一增量小测入口，建议 scripts/eval_stage2_dual_smalltest.py，支持 prepare / run / aggregate，按 track=mech31k|flower 和 study=P1|P2|P3 选择。以上是待实现接口名称，不声称已经存在。
+Codex 在本 stacked PR 内优先做完整数据校验，再实现单一增量小测入口，建议新增名为 eval_stage2_dual_smalltest.py 的入口（实现时放入 scripts 目录），支持 prepare / run / aggregate，按 track=mech31k|flower 和 study=P1|P2|P3 选择。以上是待实现接口名称，不声称已经存在。
 
 工程约束：
 - 复用 PR97 的 tokenizer/model/executor/eval，加载真实冻结 Stage-II checkpoint，不更改训练 hardware guard；如果推理硬件不足或数据挂载不存在，给出 BLOCKED 状态而不是伪造结果。
