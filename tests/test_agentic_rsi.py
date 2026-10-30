@@ -81,8 +81,9 @@ def dev_pairs(n=8,*,gain=True,changed=2):
               "memory_decision_changes":0}
         candidate={**base,"route_solved":bool(gain and i==0),
                    "memory_decision_changes":changed if i==0 else 0}
-        pairs.append({"id":f"dev-{i}","split":"DEV","actor_sha":ACTOR,
-                      "stock_sha":STOCK,"baseline":base,"candidate":candidate})
+        pairs.append({"id":f"dev-{i}","target":"CCN","split":"DEV",
+                      "actor_sha":ACTOR,"stock_sha":STOCK,
+                      "baseline":base,"candidate":candidate})
     return pairs
 
 
@@ -100,6 +101,10 @@ def test_promotion_requires_true_route_gain_and_memory_caused_decision_change():
     bad[0]["id"]="train-01"
     with pytest.raises(ValueError,match="LEAKED"):
         verify_promotion([entry],bad,actor_sha=ACTOR,stock_sha=STOCK)
+    overlap=dev_pairs()
+    overlap[0]["target"]="CCO"
+    with pytest.raises(ValueError,match="STRUCTURE_LEAK"):
+        verify_promotion([entry],overlap,actor_sha=ACTOR,stock_sha=STOCK)
 
 
 def test_only_promoted_verified_memory_can_enter_eval(tmp_path):
