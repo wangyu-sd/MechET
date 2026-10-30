@@ -113,10 +113,13 @@ def run(args):
         manifest,rows=pilot(args.assets,args.selection)
     else:
         if not args.targets_jsonl:raise ValueError("TRAIN_DEV_REQUIRE_EXPLICIT_TARGETS")
-        manifest,_=load_assets(args.assets)
+        manifest,eval_rows=load_assets(args.assets)
         rows=list(read_jsonl(args.targets_jsonl))
-        if not rows or any(r["cohort"] in COHORTS for r in rows):
-            raise ValueError("TRAIN_DEV_MUST_BE_DISJOINT_FROM_EVAL_COHORTS")
+        forbidden_ids={r["id"] for r in eval_rows}
+        forbidden_structures={r["product_unmapped"] for r in eval_rows}
+        if not rows or any(r["cohort"] in COHORTS or r["id"] in forbidden_ids
+                           or r["product_unmapped"] in forbidden_structures for r in rows):
+            raise ValueError("TRAIN_DEV_MUST_BE_STRUCTURE_DISJOINT_FROM_EVAL")
         if len({r["id"] for r in rows})!=len(rows):raise ValueError("DUPLICATE_TARGETS")
     if args.allow_candidate and args.split!="DEV":
         raise ValueError("CANDIDATE_MEMORY_DEV_ONLY")
@@ -128,7 +131,9 @@ def run(args):
     for row in rows:
         stock_info=manifest["stocks"].get(row["stock"])
         if stock_info is None:raise ValueError("STOCK_NOT_IN_FROZEN_MANIFEST")
-        memory=load_memory(args.memory,actor_sha=actor.actor_sha,
+        memory_path=(args.memory / f"{row['stock']}.json"
+                     if args.memory is not None and args.memory.is_dir() else args.memory)
+        memory=load_memory(memory_path,actor_sha=actor.actor_sha,
                            stock_sha=stock_info["canonical_sha256"],
                            allow_candidate=args.allow_candidate)
         if any(e["evidence"]["case_id"]==row["id"] for e in memory.entries):
