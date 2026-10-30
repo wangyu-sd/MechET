@@ -138,7 +138,10 @@ def run(args):
         memory=load_memory(memory_path,actor_sha=actor.actor_sha,
                            stock_sha=stock_info["canonical_sha256"],
                            allow_candidate=args.allow_candidate)
-        if any(e["evidence"]["case_id"]==row["id"] for e in memory.entries):
+        from mechet.dynamic_electron_tree import chemical_key
+        if any(e["evidence"]["case_id"]==row["id"]
+               or chemical_key(e["product"])==chemical_key(row["product_unmapped"])
+               for e in memory.entries):
             raise ValueError("TARGET_EXPERIENCE_LEAK")
         stock=set(Path(stock_info["canonical_path"]).read_text().splitlines())
         result=run_one(row,args=args,actor=actor,memory=memory,
@@ -191,7 +194,10 @@ def pair_dev(args):
                     "route_solved":x["stock_solved"],"real_executor":x["real_executor"],
                     "model_actions":x["model_actions"],"generated_tokens":x["generated_tokens"],
                     "memory_decision_changes":x["memory_decision_changes"]}
-        pairs.append({"id":rid,"split":"DEV","actor_sha":a["actor_sha"],
+        if a["target"] != b["target"]:
+            raise ValueError("UNMATCHED_DEV_TARGET_STRUCTURE")
+        pairs.append({"id":rid,"target":a["target"],"split":"DEV",
+                      "actor_sha":a["actor_sha"],
                       "stock_sha":a["stock_sha"],"baseline":arm(a),"candidate":arm(b)})
     args.pairs.parent.mkdir(parents=True,exist_ok=True)
     if args.pairs.exists():raise ValueError("DEV_PAIR_FILE_ALREADY_EXISTS")
