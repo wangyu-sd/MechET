@@ -5,6 +5,10 @@ These use deterministic fixtures only, never a frozen Stage-II checkpoint.
 import json
 from pathlib import Path
 from types import SimpleNamespace
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(ROOT), str(ROOT / "src")]
 
 import pytest
 
