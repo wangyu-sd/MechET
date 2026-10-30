@@ -185,11 +185,16 @@ class AgentSession:
             complexity=0.4/(1+Chem.MolFromSmiles(molecule).GetNumHeavyAtoms())
             bonus,eid=(self.memory.priority(molecule,ctx.node.actions,ctx.node.state)
                        if self.mode=="agent_rsi" else (0.0,None))
-            options.append((base+complexity+bonus,ctx.key,ctx,eid))
-        chosen=max(options,key=lambda x:(x[0],x[1]))
-        return chosen[2],baseline,chosen[3]
+            # Same deterministic Agent policy in both arms; only promoted
+            # memory bonus may change the selected electron-flow frontier.
+            options.append((base+complexity+bonus,base+complexity,ctx.key,ctx,eid))
+        baseline_agent=max(options,key=lambda x:(x[1],x[2]))
+        chosen=max(options,key=lambda x:(x[0],x[2]))
+        return chosen[3],baseline_agent[3],chosen[4]
 
     def _select(self,state:GraphState):
+        if state["done"]:
+            return state
         if self.network.target in self.network._closure() and not self.network.already_in_stock:
             return {**state,"done":True,"stop_reason":"STOCK_SOLVED"}
         if self.network.already_in_stock:
@@ -204,7 +209,7 @@ class AgentSession:
     def _act(self,state:GraphState):
         context,without,eid=self.pending
         changed=without is not None and context.key!=without
-        self.memory_decision_changes+=int(changed and self.mode=="agent_rsi")
+        self.memory_decision_changes+=int(changed and eid is not None and self.mode=="agent_rsi")
         room=self.max_tokens-state["tokens"]
         seed=int(checksum([self.seed,self.case_id,context.key,
                            context.stats.draws,state["actions"]])[:8],16)
@@ -218,9 +223,11 @@ class AgentSession:
                    token_ids=output.get("generated_token_ids",[]))
         edges=self.network.incorporate(context.key,[p])
         self.journal.record(self.network,context.key,edges)
+        independent_invalid=(self.mode=="independent" and
+                             not any(edge.get("child_context") for edge in edges))
         event={"id":self.case_id,"decision":state["actions"],"context":context.key,
                "baseline_context":without,"memory_id":eid,
-               "memory_changed_decision":bool(changed and self.mode=="agent_rsi"),
+               "memory_changed_decision":bool(changed and eid is not None and self.mode=="agent_rsi"),
                "messages":messages,"model_output":output,
                "predicted_name":name,"arguments":args,"parse_error":error,
                "executor_edges":edges,"state_before":context.node.state,
@@ -228,7 +235,9 @@ class AgentSession:
         with (self.output/"calls.jsonl").open("a",encoding="utf-8") as handle:
             handle.write(json.dumps(event,ensure_ascii=False)+"\n")
             handle.flush()
-        return {**state,"actions":state["actions"]+1,"tokens":state["tokens"]+p.tokens}
+        return {**state,"actions":state["actions"]+1,"tokens":state["tokens"]+p.tokens,
+                "done":independent_invalid,
+                "stop_reason":"INDEPENDENT_ACTION_REJECTED" if independent_invalid else ""}
 
     def run(self):
         from langgraph.graph import END,START,StateGraph
