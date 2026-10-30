@@ -70,18 +70,24 @@ class FrozenStageIIActor:
             torch.cuda.manual_seed_all(seed)
         cfg = GenerationConfig.from_model_config(self.model.config)
         cfg.do_sample, cfg.temperature, cfg.top_p, cfg.num_beams = True, 1.0, 1.0, 1
+        # No sampling warp: native electron-tree NLL must use actual model probabilities.
+        cfg.top_k, cfg.repetition_penalty = 0, 1.0
         cfg.pad_token_id = self.tokenizer.pad_token_id
         cfg.eos_token_id = self.tokenizer.eos_token_id
         with torch.inference_mode():
             samples = self.model.generate(**encoded, generation_config=cfg,
-                                          max_new_tokens=max_new_tokens, use_cache=True)
-        generated = samples[0, width:].tolist()
+                                          max_new_tokens=max_new_tokens, use_cache=True,
+                                          return_dict_in_generate=True, output_scores=True)
+        logps = self.model.compute_transition_scores(
+            samples.sequences, samples.scores, normalize_logits=True)[0]
+        generated = samples.sequences[0, width:].tolist()
         ended = self.tokenizer.eos_token_id in generated
         if ended:
             generated = generated[:generated.index(self.tokenizer.eos_token_id) + 1]
         output = {"raw":self.tokenizer.decode(generated, skip_special_tokens=False),
                   "generated_token_ids":generated, "prompt_token_ids":ids_before,
-                  "truncated":not ended, "logprob_available":False,
+                  "truncated":not ended, "logprob_available":True,
+                  "logprob":float(logps[:len(generated)].sum().item()),
                   "track":self.track, "stage":"Stage-II-frozen", "actor_sha":self.actor_sha}
         with self.log_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps({"messages":messages, "prompt":prompt,
