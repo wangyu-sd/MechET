@@ -56,6 +56,11 @@ agent = [
   "accelerate>=1,<2",
   "pyyaml>=6.0",
 ]
+agentic = [
+  # Deliberately exclude training/RL packages and avoid replacing the PR97 GPU stack.
+  "langgraph==1.2.18",
+  "psutil>=5.9",
+]
 inference = [
   # Qwen3 support starts at vLLM 0.8.4; 0.8.5 includes the first dense-model
   # fixes. Keep this optional because CUDA-11/V100 images use the explicit
