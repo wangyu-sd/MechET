@@ -140,3 +140,45 @@ def test_rsi_changes_actual_frontier_not_only_explanation():
     chosen,baseline,none=agent._choose()
     assert chosen.key==baseline.key=="high-policy"
     assert none is None
+
+
+def test_real_executor_route_closure_from_native_import_flow_finish(tmp_path):
+    """CPU full-route integration: stub predictor only, REAL chemistry executor."""
+    from test_pr96_history import state_rows
+    from test_main_product_training_data import legacy_sn2
+    from scripts.build_main_product_training_data import prepare_reference
+    from mechet.dynamic_electron_tree import chemical_key
+    from mechet.endpoints import split_precursor_endpoints
+
+    source=prepare_reference(legacy_sn2())
+    decisions=[r["messages"][2]["tool_calls"][0]["function"] for r in state_rows()]
+    assert [x["name"] for x in decisions]==[
+        "import_fragments","apply_electron_flow","finish_trace"]
+    precursors=split_precursor_endpoints(
+        source["full_precursor_state"],source["target_smiles"]).structural
+    stock={chemical_key(precursors)}
+    assert stock
+    class ReplayActor:
+        def __init__(self):
+            self.index=0
+        def generate(self,messages,*,max_new_tokens,seed):
+            if self.index>=len(decisions):
+                raise AssertionError("actor ran beyond expected program")
+            call=decisions[self.index]
+            self.index+=1
+            return {"raw":"<tool_call>"+json.dumps(call)+"</tool_call>",
+                    "generated_token_ids":[42],
+                    "truncated":False,"logprob":-1.0}
+    actor=ReplayActor()
+    session=AgentSession(case_id="cpu-executor-integration",
+                         product=source["target_smiles"],stock=stock,
+                         stock_sha=STOCK,actor_sha=ACTOR,actor=actor,
+                         memory=ExperienceMemory(actor_sha=ACTOR,stock_sha=STOCK),
+                         output=tmp_path,mode="independent",
+                         max_actions=4,max_tokens=1000,max_new_tokens=128,seed=17)
+    result=session.run()
+    assert result["stock_solved"] is True
+    assert result["model_actions"]==3
+    assert len(result["complete_reaction_edges"])==1
+    assert result["complete_reaction_edges"][0]["program"]["actions"][-1]["name"]=="finish_trace"
+    assert (tmp_path/"report.json").is_file()
