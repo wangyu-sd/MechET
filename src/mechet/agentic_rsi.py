@@ -93,10 +93,14 @@ def verify_promotion(entries,dev_pairs,*,actor_sha,stock_sha,min_pairs=8):
     mem=ExperienceMemory(entries,actor_sha=actor_sha,stock_sha=stock_sha,kind="candidate")
     if len(dev_pairs)<min_pairs:raise ValueError("INSUFFICIENT_DEV_PAIRS")
     seen=set()
+    from .dynamic_electron_tree import chemical_key
     sources={e["evidence"]["case_id"] for e in mem.entries}
+    experience_products={chemical_key(e["product"]) for e in mem.entries}
     wins=losses=changes=0
     for pair in dev_pairs:
         tid=pair["id"]
+        if "target" not in pair or chemical_key(pair["target"]) in experience_products:
+            raise ValueError("DEV_EXPERIENCE_TARGET_STRUCTURE_LEAK")
         if tid in seen or tid in sources or pair["split"]!="DEV":
             raise ValueError("LEAKED_OR_DUPLICATED_DEV_ID")
         if pair["actor_sha"]!=actor_sha or pair["stock_sha"]!=stock_sha:
