@@ -78,7 +78,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[dev,agent,knowledge]"
+          python -m pip install -e ".[dev,agent,knowledge,agentic]"
           python - <<'PY'
           import datasets, peft, transformers, trl
           print({
@@ -91,6 +91,11 @@ jobs:
       - name: Compile runtime entrypoints
         run: |
           python -m py_compile \
+            src/mechet/agentic_hf.py \
+            src/mechet/agentic_rsi.py \
+            src/mechet/dynamic_electron_tree.py \
+            src/mechet/reverse_route_network.py \
+            src/mechet/shared_electron_search.py \
             src/mechet/agent_env.py \
             src/mechet/agent_inference.py \
             src/mechet/anchor_trl_environment.py \
@@ -106,6 +111,7 @@ jobs:
             src/mechet/tool_schemas.py \
             src/mechet/trace_agent_env.py \
             src/mechet/trl_environments.py \
+            scripts/eval_agentic_rsi.py \
             scripts/agent_model_init.py \
             scripts/build_h1_benchmark.py \
             scripts/build_knowledge_ablation_suite.py \
@@ -132,6 +138,7 @@ jobs:
       - name: Run runtime and regression tests
         run: |
           pytest -q \
+            tests/test_agentic_rsi.py \
             tests/test_agent_frameworks.py \
             tests/test_agent_model_init.py \
             tests/test_trace_proof_binding.py \
