@@ -116,9 +116,11 @@ def run(args):
         manifest,eval_rows=load_assets(args.assets)
         rows=list(read_jsonl(args.targets_jsonl))
         forbidden_ids={r["id"] for r in eval_rows}
-        forbidden_structures={r["product_unmapped"] for r in eval_rows}
+        from mechet.dynamic_electron_tree import chemical_key
+        forbidden_structures={chemical_key(r["product_unmapped"]) for r in eval_rows}
         if not rows or any(r["cohort"] in COHORTS or r["id"] in forbidden_ids
-                           or r["product_unmapped"] in forbidden_structures for r in rows):
+                           or chemical_key(r["product_unmapped"]) in forbidden_structures
+                           for r in rows):
             raise ValueError("TRAIN_DEV_MUST_BE_STRUCTURE_DISJOINT_FROM_EVAL")
         if len({r["id"] for r in rows})!=len(rows):raise ValueError("DUPLICATE_TARGETS")
     if args.allow_candidate and args.split!="DEV":
