@@ -1,0 +1,36 @@
+name: Unified FlowER electron-event search
+on:
+  pull_request:
+    paths:
+      - "src/mechet/unified_electron_search.py"
+      - "src/mechet/dynamic_electron_tree.py"
+      - "src/mechet/reverse_route_network.py"
+      - "src/mechet/shared_electron_search.py"
+      - "src/mechet/agentic_hf.py"
+      - "src/mechet/frozen_route_assets.py"
+      - "scripts/eval_unified_electron_search.py"
+      - "scripts/prepare_frozen_route_benchmarks.py"
+      - "tests/test_unified_electron_search.py"
+      - "tests/test_unified_electron_protocol.py"
+      - ".github/workflows/unified-flow-tree.yml"
+  workflow_dispatch:
+jobs:
+  cpu-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev]" psutil
+      - name: Compile search and evaluation
+        run: |
+          python -m py_compile src/mechet/unified_electron_search.py \
+            src/mechet/dynamic_electron_tree.py \
+            src/mechet/reverse_route_network.py \
+            scripts/eval_unified_electron_search.py
+      - name: Run focused deterministic contracts
+        run: python -m pytest -q tests/test_unified_electron_search.py tests/test_unified_electron_protocol.py
+      - name: CLI available without a GPU
+        run: python scripts/eval_unified_electron_search.py --help
