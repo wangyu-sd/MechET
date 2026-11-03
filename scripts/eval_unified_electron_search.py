@@ -16,6 +16,9 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+# Scripts are executed as files on GPU hosts. Both the repository root
+# (namespace package scripts) and src (installed mechet) must be importable.
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 
 from mechet.agentic_hf import FrozenStageIIActor, STAGE2
