@@ -152,6 +152,28 @@ def test_unmapped_comparison_keeps_stereo_charge_hydrogen_and_stoichiometry():
     assert not same_chemical_state('[H]O[H]', 'O')
 
 
+def _compare_many_equal_spectators(queue):
+    from scripts.build_mech31k_main_product_only_sft import same_chemical_state
+    queue.put(same_chemical_state('O.' * 18 + '[NH4+].[Cl-]',
+                                  'O.' * 17 + '[OH-].N.Cl'))
+
+
+def test_chemical_comparison_does_not_permute_identical_spectators_factorially():
+    import multiprocessing as mp
+    context = mp.get_context('fork')
+    queue = context.Queue()
+    process = context.Process(target=_compare_many_equal_spectators, args=(queue,))
+    process.start()
+    process.join(2)
+    try:
+        assert not process.is_alive(), 'chemical equality searches factorial spectator permutations'
+        assert queue.get(timeout=1) is False
+    finally:
+        if process.is_alive():
+            process.terminate()
+            process.join()
+
+
 def test_endpoint_accepts_identical_unmapped_chemistry_despite_symmetric_map_assignment():
     from scripts.build_mech31k_main_product_only_sft import process_pair
     legacy, forward = json.loads((Path(__file__).parent / 'fixtures' /

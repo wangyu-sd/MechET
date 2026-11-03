@@ -1,0 +1,23 @@
+{
+  "contract_sha256": "d19bfdd1b1adee2aa6fbda3e18f4005ed22c7cacbc31141ff22d92c5a1fcad53",
+  "next_round": 80,
+  "horizon": 2,
+  "optimizer_step": 160,
+  "train_denominator": 10137,
+  "visited_train_roots": 10137,
+  "completed_train_ids_sha256": "abf111a31af7480533cce0e07c8806ccad0dabb57413efb26f74058a0698dc14",
+  "files": {
+    "trainer_state.json": "84e53c1189d0e57fea10cd5720ed351debf7ff9fdc524b3978fdf4e8dfba64d4",
+    "rng.rank03.pt": "81ea09956402e5c8cadaed84e372c8fcfe68bf4385fa8e21fcc5168b2bc5f5a1",
+    "README.md": "e655d81ce80ad491be55f1963bd61e1f651fbe89851e863b2812aae005929cb6",
+    "rng.rank01.pt": "52b1eaad39b12b016e7de9d7f552cdc8d90227adbd475e50f47fbb03f76da9f4",
+    "optimizer.pt": "3df47534aeb6dc862d55c3fa77d75a3e5477d67a1fec6ad5a99f3684179fc2e6",
+    "rng.rank02.pt": "0cdf96559ea37e92b841cfff4e0e83231843c2a8517e4fe58d839aace0b558a9",
+    "rng.rank00.pt": "b4e9c113fe71bae36e8d2a0ec8d3756d851799421a41e9e9adb747f860f52347",
+    "adapter_config.json": "1a4585044bbb3803fa02927eaf8792d48f4e4672132bb7572ba4eb8475f78eed",
+    "adapter_model.safetensors": "c513cca927538402ff76e0c927c41fdb740c441815d0a45ccd46ff6e5565d618"
+  },
+  "benchmark_eligible": true,
+  "training_contains_originalTEST": false,
+  "algorithm": "pr96_earho_v1"
+}

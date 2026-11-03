@@ -46,7 +46,9 @@ def iter_jsonl_byte_shard(source: Path, rank: int, world_size: int):
     with source.open("rb") as handle:
         handle.seek(start)
         if start:
-            handle.readline()
+            handle.seek(start - 1)
+            if handle.read(1) != b"\n":
+                handle.readline()
         while True:
             position = handle.tell()
             if rank + 1 < world_size and position >= end:
@@ -179,6 +181,7 @@ def tokenize_shard(
     require_trace_owned: bool,
     require_tool_decision: bool,
     allow_fallback: bool,
+    encoding_protocol: str = "legacy_chatml_v1",
 ) -> dict[str, Any]:
     target.parent.mkdir(parents=True, exist_ok=True)
     if target.exists():
@@ -207,15 +210,21 @@ def tokenize_shard(
                 require_tool_decision=require_tool_decision,
                 allow_upstream_endpoint_fallback=allow_fallback,
             )
-            encoded, audit = encode_assistant_only_conversation(
-                tokenizer, row, max_length=max_length
-            )
-            windows = lossless_assistant_span_windows(
-                encoded,
-                audit,
-                max_length=max_length,
-                context_tokens=context_tokens,
-            )
+            if encoding_protocol == "qwen35_tool_span_v1":
+                from mechet.qwen35_protocol import encode_tool_decision
+                encoded, audit = encode_tool_decision(tokenizer, row, max_length=max_length)
+                if audit["exceeds_max_length"]:
+                    raise ValueError(f"QWEN35_STATE_TRUNCATION_FORBIDDEN:{row['id']}:{audit['raw_length']}")
+                windows = [encoded]
+            elif encoding_protocol == "legacy_chatml_v1":
+                encoded, audit = encode_assistant_only_conversation(
+                    tokenizer, row, max_length=max_length
+                )
+                windows = lossless_assistant_span_windows(
+                    encoded, audit, max_length=max_length, context_tokens=context_tokens,
+                )
+            else:
+                raise ValueError(f"UNKNOWN_ENCODING_PROTOCOL:{encoding_protocol}")
             for window in windows:
                 writer.write(window)
                 window_lengths[len(window["input_ids"])] += 1
@@ -325,6 +334,7 @@ def aggregate(reports: list[dict[str, Any]], max_length: int) -> dict[str, Any]:
         "p95_raw_input_tokens": percentile_from_histogram(raw_lengths, 0.95),
         "p99_raw_input_tokens": percentile_from_histogram(raw_lengths, 0.99),
         "min_supervised_tokens": min(supervised, default=0),
+        "max_supervised_tokens": max(supervised, default=0),
         "max_assistant_turns": max(
             (int(report["max_assistant_turns"]) for report in reports), default=0
         ),
@@ -392,6 +402,7 @@ def main() -> int:
                 contract.get("expected_upstream_endpoint_fallback_rows", 0) or 0
             )
             > 0,
+            encoding_protocol=str(training.get("encoding_protocol", "legacy_chatml_v1")),
         )
     report_path = cache_dir / f"rank{rank:02d}.json"
     report_path.write_text(
@@ -409,6 +420,7 @@ def main() -> int:
             "config": str(args.config),
             "model_name_or_path": model_name,
             "model_revision": revision,
+            "encoding_protocol": str(training.get("encoding_protocol", "legacy_chatml_v1")),
             "max_length": max_length,
             "window_context_tokens": context_tokens,
             "world_size": world_size,
@@ -427,6 +439,8 @@ def main() -> int:
                 for split in sources
             },
         }
+        for record in manifest["splits"].values():
+            record["arrow_sha256"] = {Path(path).name: sha256(Path(path)) for path in record["arrow_files"]}
         expected_train = int(contract.get("expected_train_rows", 0) or 0)
         if manifest["splits"]["train"]["n_rows"] != expected_train:
             raise ValueError(

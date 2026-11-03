@@ -16,3 +16,21 @@ trace subsets. In this repository, unqualified "FlowER full" means the frozen
 reaction-level official split with 257,171 train, 2,890 valid, and 28,971 test
 rows. Any filtering must be explicitly named and must not silently replace the
 requested full condition.
+
+## Shared-storage requirement (user-mandated, 2026-10-23)
+
+Do not store datasets, model weights, downloaded artifacts, generated test data,
+pytest temporary files, or model/package caches on the local test filesystem
+(`/tmp`, `/root/.cache`, or another directory on the host root partition).
+Store them on the shared Ceph mount under `/aaa/fionafyang/buddy1/`.
+Before host-side tests, downloads, installs, or data processing, source:
+
+```bash
+source /aaa/fionafyang/buddy1/whaleywang/MechET/configs/runtime/shared_host_storage.env
+```
+
+Explicit temporary/cache arguments must also target Ceph; do not override this
+with local `--basetemp`, `cache_dir`, `pip --target`, or dataset staging paths.
+Check the resolved paths, not merely whether environment variables are set.
+Do not delete or relocate other sessions' files, or alter live task dependencies,
+without resolving ownership and obtaining any necessary authorization.

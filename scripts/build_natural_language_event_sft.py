@@ -360,7 +360,9 @@ def _import_arguments(
     }
 
 
-def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
+def convert_row(
+    row: Mapping[str, Any], *, preserve_source_moves: bool = False,
+) -> list[dict[str, Any]]:
     """Convert and independently replay one complete source reaction."""
 
     metadata = dict(row.get("metadata") or {})
@@ -462,9 +464,9 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             translation,
         )
         replay = verify_electron_step(event_state, moves)
-        if not replay.get("ok") or mapped_state_signature(
+        if not preserve_source_moves and (not replay.get("ok") or mapped_state_signature(
             str(replay.get("state_smiles") or "")
-        ) != mapped_state_signature(authoritative_successor):
+        ) != mapped_state_signature(authoritative_successor)):
             try:
                 repair = _raw_graph_delta(event_state, authoritative_successor)
                 repaired = verify_electron_step(event_state, [repair])
@@ -536,6 +538,9 @@ def convert_row(row: Mapping[str, Any]) -> list[dict[str, Any]]:
             },
         )
     )
+    if preserve_source_moves:
+        for decision in output:
+            decision["metadata"]["source_electron_moves_preserved"] = True
     return output
 
 

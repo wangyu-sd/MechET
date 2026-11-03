@@ -1,0 +1,353 @@
+{
+  "captured_at": "2026-10-26T07:28:31.744779+00:00",
+  "code_commit": "5c7cb9617663df01022b464e2eb4873fe30042a4",
+  "includes_all_1319_validation_inputs_outputs_before_after": true,
+  "omitted_duplicate_episodes": "Each episodes.json was byte-identical to its archived scored.json.",
+  "contains_model_weights": false,
+  "contains_private_ceph_init": false,
+  "no_new_model_sampling": true,
+  "files": [
+    {
+      "path": "mech31k/completion.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/completion.json",
+      "sha256": "4930ae8abd08e62cdbdb397de23027ff65cd52d2c8124b8ab25cdad70d831f35",
+      "bytes": 1399,
+      "uncompressed_sha256": "4930ae8abd08e62cdbdb397de23027ff65cd52d2c8124b8ab25cdad70d831f35",
+      "compression": null
+    },
+    {
+      "path": "mech31k/latest_checkpoint.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/latest_checkpoint.json",
+      "sha256": "75b88f37f8dcb3895c8ac32fc44154ec095d47a99574f5f078647f7d35b56841",
+      "bytes": 198,
+      "uncompressed_sha256": "75b88f37f8dcb3895c8ac32fc44154ec095d47a99574f5f078647f7d35b56841",
+      "compression": null
+    },
+    {
+      "path": "mech31k/contract.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/pr96_mech31k_earho_train10137_20261025_02/contract.json",
+      "sha256": "d19bfdd1b1adee2aa6fbda3e18f4005ed22c7cacbc31141ff22d92c5a1fcad53",
+      "bytes": 7824,
+      "uncompressed_sha256": "d19bfdd1b1adee2aa6fbda3e18f4005ed22c7cacbc31141ff22d92c5a1fcad53",
+      "compression": null
+    },
+    {
+      "path": "mech31k/submission_receipt.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/pr96_mech31k_earho_train10137_20261025_02/submission_receipt.json",
+      "sha256": "c7a06040660dd362ebfbd0023a3c31aa5c41d26548930586e63eebc6fd94397c",
+      "bytes": 1088,
+      "uncompressed_sha256": "c7a06040660dd362ebfbd0023a3c31aa5c41d26548930586e63eebc6fd94397c",
+      "compression": null
+    },
+    {
+      "path": "mech31k/task_config.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/pr96_mech31k_earho_train10137_20261025_02/task_config.json",
+      "sha256": "aff5323e79c846d67cd7502a4c073f07a34c814e68b8f3fd243e922a2162c57f",
+      "bytes": 2519,
+      "uncompressed_sha256": "aff5323e79c846d67cd7502a4c073f07a34c814e68b8f3fd243e922a2162c57f",
+      "compression": null
+    },
+    {
+      "path": "mech31k/final_checkpoint_manifest.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/checkpoints/round-00080/complete.json",
+      "sha256": "e1b9f5af681e39eecf10462dc9fe51cad464c0d76a880eb0e9966fb1249cfa59",
+      "bytes": 1256,
+      "uncompressed_sha256": "e1b9f5af681e39eecf10462dc9fe51cad464c0d76a880eb0e9966fb1249cfa59",
+      "compression": null
+    },
+    {
+      "path": "mech31k/progress.rank00.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/progress.rank00.jsonl",
+      "sha256": "33e4d406de486fbebd05a6a2f89bece38fa8bb31e34ad94c4861ed75b6922595",
+      "bytes": 13610,
+      "uncompressed_sha256": "a3032be77ce7f3fa66af371229bcb0ed1cc78a193ba37c5b470bae89d002f76f",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/report.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/report.json",
+      "sha256": "506eca351538cacb3a57d825cd8213fed14835511abdff6ff63be84a75c7eae1",
+      "bytes": 502,
+      "uncompressed_sha256": "506eca351538cacb3a57d825cd8213fed14835511abdff6ff63be84a75c7eae1",
+      "compression": null
+    },
+    {
+      "path": "mech31k/valid_before/rank00/scored.json.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank00/scored.json",
+      "sha256": "542eb44141dc1f1747b6ecb6c8eedad46ba64c1b41a4bd6ab598893daabc4211",
+      "bytes": 97575,
+      "uncompressed_sha256": "4f1f041e5441fb0f0b02955474daf4d2d163e64e2fb6c47d39ab9567fdf351fb",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank00/calls.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank00/calls.jsonl",
+      "sha256": "b7dacaf431a992ce381e0bba4570e4fcb74ef8ad77602588a9899b911381f6b8",
+      "bytes": 852176,
+      "uncompressed_sha256": "9c4653139bfda43b9146dacc054bf9c70b9a1a8638ca2a18c56eeefba82c9c23",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank00/raw_generation.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank00/raw_generation.jsonl",
+      "sha256": "14ff24cc5925c83e3e267a664cc23c4ffe86b6324e33826338ee89436e559016",
+      "bytes": 687362,
+      "uncompressed_sha256": "7f6d68b2eecf789a7daccccc934310344de2b200cb73c264d2198aa9a2e21ce4",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank01/scored.json.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank01/scored.json",
+      "sha256": "3b3b2597d4a8fb5ed05f4ff2f9fb421a5141171f69536fdc86dab415df68a244",
+      "bytes": 98075,
+      "uncompressed_sha256": "69b70a274d1b731c0a1cc284536655b50ea43d00b541a8779defbaf048114929",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank01/calls.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank01/calls.jsonl",
+      "sha256": "9f9267b0db739d3bcf0dab2c4ff7182ae31dbde574cc3df232e943eb15e69af8",
+      "bytes": 851548,
+      "uncompressed_sha256": "251d05a30d221ddb116e7bfb07681db1aeb494299452254ee2d4bbffdc946385",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank01/raw_generation.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank01/raw_generation.jsonl",
+      "sha256": "e63853b39494bffc3bdbbf9ec204ac9c9dfe791e13822f25e5419cbcf0e5a7f7",
+      "bytes": 686792,
+      "uncompressed_sha256": "48e8f935628181e6392210a5ace32bc50482e7d0ef60ad5af44a12878da6f9b0",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank02/scored.json.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank02/scored.json",
+      "sha256": "0283615eabc0a6094e32ded1e1f180c6417d3889de6d330c73e6ed391ec2d6fe",
+      "bytes": 98039,
+      "uncompressed_sha256": "ea72673c87f55bc0626aa56bcccd2ba3d0e69f11497e8276f0d5b73c49f4ffb9",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank02/calls.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank02/calls.jsonl",
+      "sha256": "3f8158d2eb607600745f7e7b372a22c06825921ac892028345869ba08ed9be70",
+      "bytes": 858554,
+      "uncompressed_sha256": "410eb2a2cef8571b21e7747805d59b31c47207c75a079d8af8d462380bc59d7a",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank02/raw_generation.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank02/raw_generation.jsonl",
+      "sha256": "c0914fee675f0665781fa7152c4a27cd488554242382ae45359a7895698f0ee1",
+      "bytes": 693575,
+      "uncompressed_sha256": "83fb0c9c57104533a2a67d409de1fdf36b14a55194dceff0af95dea424b19343",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank03/scored.json.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank03/scored.json",
+      "sha256": "f8d9d96810e9ca0cae4008e0931f98f92415b8ec4df3dc387cdf8cec6a459d40",
+      "bytes": 97387,
+      "uncompressed_sha256": "e4127e87985de3278e9730abb7b18a3e5720d925222c748cc92d0991d3dd3c96",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank03/calls.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank03/calls.jsonl",
+      "sha256": "c84d48447246033c4c7dad76e32ae233d714dadb4c9aca84a5cbf1edb0fa1a50",
+      "bytes": 858829,
+      "uncompressed_sha256": "92dd4b0b45acf5ef8b7dcabf3d663648b2c8bc68be15fe77c53c3a358ae6f9e9",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_before/rank03/raw_generation.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_before/rank03/raw_generation.jsonl",
+      "sha256": "9498f9333a6e7c9f1da1bb523a10c8e4e1a46518c7fd564a077b9209f74bb368",
+      "bytes": 692012,
+      "uncompressed_sha256": "e3ef6dff9c7522932c78422bed61cc9ab76c9279329fff5f3358382a04b4ee31",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/report.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/report.json",
+      "sha256": "2e24909b3054e6d59303d04cd641784e78ce4e18739e2e64a803c86b1ff013f3",
+      "bytes": 477,
+      "uncompressed_sha256": "2e24909b3054e6d59303d04cd641784e78ce4e18739e2e64a803c86b1ff013f3",
+      "compression": null
+    },
+    {
+      "path": "mech31k/valid_after/rank00/scored.json.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank00/scored.json",
+      "sha256": "bd8f495129d498675ded505c0ec4b5ac8ac861c520fcb340e3eb0a95e61f6346",
+      "bytes": 97632,
+      "uncompressed_sha256": "f5b1751f92bbae20ecdef77c86ec02f453d772bdb433e66c4a0d0e215092eb53",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank00/calls.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank00/calls.jsonl",
+      "sha256": "72e787f3a9a5ac30e18f16eb4c91f643763d12b87b90c960852cf6312fc5af58",
+      "bytes": 851798,
+      "uncompressed_sha256": "d2ebc54e60a3f3f87658734650a885264bd045b22afe1e31bdbde8d70e01002d",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank00/raw_generation.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank00/raw_generation.jsonl",
+      "sha256": "c9fedd0e9eb72ed036a4827e396286d3aac205c8d52c22bb23e26c5cb043b69b",
+      "bytes": 686580,
+      "uncompressed_sha256": "ed6285375fafec001fd0b71e270e8f11d682b0fbff789fce962b17bcb47a365a",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank01/scored.json.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank01/scored.json",
+      "sha256": "53fddb6d9acc04fcebb4c467c88dfbeb6e8122d972223b9492c2f80398f7bd42",
+      "bytes": 98310,
+      "uncompressed_sha256": "44218cad2924147a83f353d60f8cb8a86e9ae4fa8f45aae72dd9adbce1782e7a",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank01/calls.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank01/calls.jsonl",
+      "sha256": "58eeda88cf1963d6346a89d421764f12fd1882d1193fa3374ea238a9cc0030aa",
+      "bytes": 854754,
+      "uncompressed_sha256": "e1d4c5c6b4710162c0dc3c4a3bc4a82ced8fb1cfa7f827905ad0b8ebf11b7430",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank01/raw_generation.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank01/raw_generation.jsonl",
+      "sha256": "2a6f35a27247b62602e686497bc397467eaa5ed21ae5ce0c498f6ea8e27ab96d",
+      "bytes": 689014,
+      "uncompressed_sha256": "8a336ea7cfbf7d59419cd2fb662e613246341a1bbbb09b8b4c08a96772716357",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank02/scored.json.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank02/scored.json",
+      "sha256": "6217961ae7875f1149b11c285eca73188a3efbb74d0dff89ef5c0ce4dc42b458",
+      "bytes": 97525,
+      "uncompressed_sha256": "ebf8fc297913e215f72946b8869bf72a1d3b99e0a26ced0f30eee77612e283a7",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank02/calls.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank02/calls.jsonl",
+      "sha256": "71e6622fda76c682b415809f465dfc44a97bdac7a55827ef0ccf5d281b403762",
+      "bytes": 852787,
+      "uncompressed_sha256": "fc289098a33f725f9969bc3d67f30d593650b4b499989b0dab7fabc5e4707b09",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank02/raw_generation.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank02/raw_generation.jsonl",
+      "sha256": "79533e70626f30633b7f4fcc7c92a5db9daa44915ba4d4427595cdc82338bfab",
+      "bytes": 688477,
+      "uncompressed_sha256": "179c64b09b7b4ef5aacb30e0d7a12713c3c859621c605e59ed91a0a84eeab521",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank03/scored.json.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank03/scored.json",
+      "sha256": "8aa88b360e745ac1e4522906451487fcad4efc1b7be3af36607e59f59a793194",
+      "bytes": 97622,
+      "uncompressed_sha256": "9d66bbf59fdfb27a2662d74cd7cd929309fc6f3f4098458377122ed09086821f",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank03/calls.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank03/calls.jsonl",
+      "sha256": "345d0a24be8fe15576e9130ab0f2e014b189c605291ca2d725c6b5b16941742d",
+      "bytes": 862299,
+      "uncompressed_sha256": "756d44b09d16d3f6ed2928040d13e5906b6b71f99ab3679aa5b6209900e5616b",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/valid_after/rank03/raw_generation.jsonl.gz",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/valid_after/rank03/raw_generation.jsonl",
+      "sha256": "9293612f6f70d202664a6a4dbcce8f5c29a26ca5fa369dde4ac48cb81365f0b2",
+      "bytes": 694527,
+      "uncompressed_sha256": "bb3ecf9705e2bb3dce91ba2741948b27816a5553f270cdfbbc9b3d5b2590c379",
+      "compression": "gzip"
+    },
+    {
+      "path": "mech31k/paired_cases.jsonl",
+      "sha256": "e844b277b71cfc3ba6d03e8612ba31b6f5092e65515d198ab53b85135409d10b",
+      "bytes": 604512,
+      "generated": true
+    },
+    {
+      "path": "mech31k/paired_summary.json",
+      "sha256": "c753ec37b0220262932490ab28f6190910c1f0e650b9acb90599e322805b9aa2",
+      "bytes": 435,
+      "generated": true
+    },
+    {
+      "path": "flower/valid_before_report.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_flower_earho_train243753_20261025_02/valid_before/report.json",
+      "sha256": "4c1e0cc6a53916c932ee29f2091df7ea3293a0ea66acc8fb35fd02121b6d658d",
+      "bytes": 1116,
+      "uncompressed_sha256": "4c1e0cc6a53916c932ee29f2091df7ea3293a0ea66acc8fb35fd02121b6d658d",
+      "compression": null
+    },
+    {
+      "path": "flower/checkpoint_manifest.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_flower_earho_train243753_20261025_02/checkpoints/round-00194/complete.json",
+      "sha256": "78276f94a480f4c76182fb7eecc9d0f10a0a66adb52d7d48dcbe93cc44a66aa3",
+      "bytes": 1258,
+      "uncompressed_sha256": "78276f94a480f4c76182fb7eecc9d0f10a0a66adb52d7d48dcbe93cc44a66aa3",
+      "compression": null
+    },
+    {
+      "path": "flower/contract.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/pr96_flower_earho_train243753_20261025_02/contract.json",
+      "sha256": "25cb8b8a2901f8f6b0b3bfcc2a9bd8e8cc8135f923cde100db0ae71417d6d92e",
+      "bytes": 7804,
+      "uncompressed_sha256": "25cb8b8a2901f8f6b0b3bfcc2a9bd8e8cc8135f923cde100db0ae71417d6d92e",
+      "compression": null
+    },
+    {
+      "path": "flower/task_config.json",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/pr96_flower_earho_train243753_20261025_02/task_config.json",
+      "sha256": "ff806277ca064c0c8801535d9c33fce72beebe8d6b7b852f03113a320d7348e8",
+      "bytes": 2517,
+      "uncompressed_sha256": "ff806277ca064c0c8801535d9c33fce72beebe8d6b7b852f03113a320d7348e8",
+      "compression": null
+    },
+    {
+      "path": "flower/progress_snapshot.json",
+      "sha256": "428c5d8ad27a2232769f5197cba141d0dcaf338f8dd4db75e406251426cb9422",
+      "bytes": 775,
+      "generated": true
+    },
+    {
+      "path": "flower/progress_through_checkpoint.jsonl",
+      "sha256": "c1125a312a7feb5d3c8fa1ab9f4da9644efa1947c470d64b62c5e1682c3a0340",
+      "bytes": 190736,
+      "generated": true
+    },
+    {
+      "path": "software_verification.log",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/earho_4gpu_software_final02_20261025.log",
+      "sha256": "b76b7aee4433906488db0df93d1bd7659885e35d8e2235173272698ab9252b6c",
+      "bytes": 13695,
+      "uncompressed_sha256": "b76b7aee4433906488db0df93d1bd7659885e35d8e2235173272698ab9252b6c",
+      "compression": null
+    },
+    {
+      "path": "mech31k/platform_final_status.json",
+      "sha256": "eddc28c44f39c090874bb7f4f3a167e363d36e10dacaef3bc5764b7bef11f6b3",
+      "bytes": 910,
+      "generated": true
+    },
+    {
+      "path": "publication_software_verification.log",
+      "source": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/earho_pr_publish_tests_20261026.log",
+      "sha256": "e720975fd676824aa0930cfc96e5f4e045afdf68946e7b2497b8706756111539",
+      "bytes": 13738,
+      "uncompressed_sha256": "e720975fd676824aa0930cfc96e5f4e045afdf68946e7b2497b8706756111539",
+      "compression": null
+    }
+  ]
+}

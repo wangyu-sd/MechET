@@ -1,0 +1,23 @@
+{
+  "contract_sha256": "25cb8b8a2901f8f6b0b3bfcc2a9bd8e8cc8135f923cde100db0ae71417d6d92e",
+  "next_round": 194,
+  "horizon": 2,
+  "optimizer_step": 394,
+  "train_denominator": 243753,
+  "visited_train_roots": 24832,
+  "completed_train_ids_sha256": "bed90003b06d7e89d11b9687f9c5e18c0fad39fbc68aa5c7e2c3f29a9547229a",
+  "files": {
+    "trainer_state.json": "6f918aa5a916c0047fe89bf3bf5f566110186ebdec7dc76c1a1ee5b43c4b6c00",
+    "rng.rank03.pt": "34378d069ac6033a27e86527792e6207ef1783219d332a77ccf8b73490c4c132",
+    "README.md": "ef52ebea688509badd9d0582064fa042ff947f21f93f3030f316e3fc904c19eb",
+    "rng.rank01.pt": "582f4c414901d989b7e6e0e0fbb38a1e5c8e9143c7068f72be5603a2cc36b3b8",
+    "optimizer.pt": "41d21d77249b56d14e7b687e79e788e2f361d35c5544000fa483d36c860a1c83",
+    "rng.rank02.pt": "e3d0d110332982ec835dc4f9fbea2375993e9ec6c8b5ee5bf6e6440c07d606c6",
+    "rng.rank00.pt": "535223d342eea67ff9958aa20652653a74165b09abe304d27f547f9cd95fc48f",
+    "adapter_config.json": "2b10323d98d7af3c044f32bdf5f233946881aa8ef21714068d3f177807db2ae5",
+    "adapter_model.safetensors": "081b6019b442d0e3fb242c3ca910aed2e1766d8da9a9b74666e04c9461a19a8f"
+  },
+  "benchmark_eligible": true,
+  "training_contains_originalTEST": false,
+  "algorithm": "pr96_earho_v1"
+}

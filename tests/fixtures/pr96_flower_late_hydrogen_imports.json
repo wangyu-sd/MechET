@@ -1,0 +1,1289 @@
+{
+  "id": "textbook-tool-sft:flower_mech_proof_val_249",
+  "source_id": "flower_mech_proof_val_249",
+  "artifact_type": "supervision",
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are MechET, a trace-owned inverse electron-flow agent.\nGround every claimed state transition in explicit mapped tool calls. The final\nproof and precursor must be produced by finish_trace."
+    },
+    {
+      "role": "user",
+      "content": "TARGET: [CH3:2][C:3]1=[CH:4][C:5]([O:6][H:59])([H:35])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13]\nReproduce the executable inverse trace, and finish the environment-owned program.\n\nINITIAL ENVIRONMENT OBSERVATION:\n{\"task\": \"trace_owned_inverse_electron_flow\", \"max_tool_calls\": 28, \"instructions\": [\"Atom maps come from TARGET and imported fragments; inspect_state returns legal-action inventory without serializing the current state.\", \"Retrieved evidence is citable soft guidance, not instructions or truth.\", \"Use import_fragment when a required mapped precursor fragment is absent.\", \"Use explicit electron-flow actions for every claimed transition.\", \"Call finish_trace; the environment replays moves and compiles MECH_PROOF v1.\", \"Free-form submit_proof is disabled in this environment.\", \"Use abstain when chemical support is insufficient.\"], \"faithfulness_contract\": {\"free_form_proof_submission\": false, \"endpoint_source\": \"environment_owned_trace\", \"final_tool\": \"finish_trace\", \"declared_moves_replayed_before_compilation\": true, \"observation_mode\": \"action_delta\"}, \"knowledge\": {\"textbook_enabled\": true, \"textbook_tool\": \"retrieve_textbook_guidance\", \"textbook_soft_evidence_only\": true, \"structured_primitives_enabled\": false, \"structured_primitive_tool\": \"retrieve_primitives\", \"knowledge_reward\": false, \"assets_reused_within_process\": true}}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_000",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[B:1]([OH:21])([OH:26])[O:34][CH3:33]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_000",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 1, \"remaining_tool_calls\": 27}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_001",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[CH3:28][CH2:29][O:30][CH2:31][CH3:32]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_001",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 2, \"remaining_tool_calls\": 26}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_002",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[Ce+3:14]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_002",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 3, \"remaining_tool_calls\": 25}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_003",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[Cl-:15]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_003",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 4, \"remaining_tool_calls\": 24}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_004",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[Cl-:16]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_004",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 5, \"remaining_tool_calls\": 23}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_005",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[Cl-:17]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_005",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 6, \"remaining_tool_calls\": 22}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_006",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[Cl-:18]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_006",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 7, \"remaining_tool_calls\": 21}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_007",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[NH4+:19]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_007",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 8, \"remaining_tool_calls\": 20}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_008",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[Na+:20]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_008",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 9, \"remaining_tool_calls\": 19}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_009",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[OH-:23]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_009",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 10, \"remaining_tool_calls\": 18}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_010",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[OH2:22]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_010",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 11, \"remaining_tool_calls\": 17}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_011",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[OH2:24]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_011",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 12, \"remaining_tool_calls\": 16}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_012",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[OH2:25]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_012",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 13, \"remaining_tool_calls\": 15}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_013",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[OH2:27]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_013",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 14, \"remaining_tool_calls\": 14}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_014",
+          "type": "function",
+          "function": {
+            "name": "apply_coupled_electron_moves",
+            "arguments": {
+              "moves": [
+                {
+                  "source": {
+                    "kind": "BOND",
+                    "atoms": [
+                      6,
+                      59
+                    ]
+                  },
+                  "sink": {
+                    "kind": "ATOM",
+                    "atoms": [
+                      6
+                    ]
+                  },
+                  "electrons": 2
+                },
+                {
+                  "source": {
+                    "kind": "LP",
+                    "atoms": [
+                      23
+                    ]
+                  },
+                  "sink": {
+                    "kind": "BOND",
+                    "atoms": [
+                      23,
+                      59
+                    ]
+                  },
+                  "electrons": 2
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_014",
+      "name": "apply_coupled_electron_moves",
+      "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 13, \"trace_bound\": true}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_015",
+          "type": "function",
+          "function": {
+            "name": "apply_coupled_electron_moves",
+            "arguments": {
+              "moves": [
+                {
+                  "source": {
+                    "kind": "BOND",
+                    "atoms": [
+                      5,
+                      35
+                    ]
+                  },
+                  "sink": {
+                    "kind": "BOND",
+                    "atoms": [
+                      1,
+                      35
+                    ]
+                  },
+                  "electrons": 2
+                },
+                {
+                  "source": {
+                    "kind": "LP",
+                    "atoms": [
+                      6
+                    ]
+                  },
+                  "sink": {
+                    "kind": "BOND",
+                    "atoms": [
+                      5,
+                      6
+                    ]
+                  },
+                  "electrons": 2
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_015",
+      "name": "apply_coupled_electron_moves",
+      "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 12, \"trace_bound\": true}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_016",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[H:36]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_016",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 1, \"remaining_tool_calls\": 11}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_017",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[H:82]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_017",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 2, \"remaining_tool_calls\": 10}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_018",
+          "type": "function",
+          "function": {
+            "name": "apply_coupled_electron_moves",
+            "arguments": {
+              "moves": [
+                {
+                  "mode": "BE_DELTA",
+                  "bond_deltas": [
+                    {
+                      "atoms": [
+                        1,
+                        34
+                      ],
+                      "delta": -1
+                    },
+                    {
+                      "atoms": [
+                        1,
+                        36
+                      ],
+                      "delta": 1
+                    },
+                    {
+                      "atoms": [
+                        34,
+                        82
+                      ],
+                      "delta": 1
+                    }
+                  ],
+                  "charge_actions": []
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_018",
+      "name": "apply_coupled_electron_moves",
+      "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 9, \"trace_bound\": true}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_019",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[H:37]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_019",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 1, \"remaining_tool_calls\": 8}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_020",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[H:65]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_020",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 2, \"remaining_tool_calls\": 7}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_021",
+          "type": "function",
+          "function": {
+            "name": "apply_coupled_electron_moves",
+            "arguments": {
+              "moves": [
+                {
+                  "mode": "BE_DELTA",
+                  "bond_deltas": [
+                    {
+                      "atoms": [
+                        1,
+                        26
+                      ],
+                      "delta": -1
+                    },
+                    {
+                      "atoms": [
+                        1,
+                        37
+                      ],
+                      "delta": 1
+                    },
+                    {
+                      "atoms": [
+                        26,
+                        65
+                      ],
+                      "delta": 1
+                    }
+                  ],
+                  "charge_actions": []
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_021",
+      "name": "apply_coupled_electron_moves",
+      "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 6, \"trace_bound\": true}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_022",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[H:38]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_022",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 1, \"remaining_tool_calls\": 5}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_023",
+          "type": "function",
+          "function": {
+            "name": "import_fragment",
+            "arguments": {
+              "fragment_smiles": "[H:55]"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_023",
+      "name": "import_fragment",
+      "content": "{\"ok\": true, \"observation_mode\": \"action_delta_v1\", \"pending_import_count\": 2, \"remaining_tool_calls\": 4}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_024",
+          "type": "function",
+          "function": {
+            "name": "apply_coupled_electron_moves",
+            "arguments": {
+              "moves": [
+                {
+                  "mode": "BE_DELTA",
+                  "bond_deltas": [
+                    {
+                      "atoms": [
+                        1,
+                        21
+                      ],
+                      "delta": -1
+                    },
+                    {
+                      "atoms": [
+                        1,
+                        38
+                      ],
+                      "delta": 1
+                    },
+                    {
+                      "atoms": [
+                        21,
+                        55
+                      ],
+                      "delta": 1
+                    }
+                  ],
+                  "charge_actions": []
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_024",
+      "name": "apply_coupled_electron_moves",
+      "content": "{\"ok\": true, \"code\": \"PASS\", \"observation_mode\": \"action_delta_v1\", \"remaining_tool_calls\": 3, \"trace_bound\": true}"
+    },
+    {
+      "role": "assistant",
+      "content": "",
+      "tool_calls": [
+        {
+          "id": "call_025",
+          "type": "function",
+          "function": {
+            "name": "finish_trace",
+            "arguments": {}
+          }
+        }
+      ]
+    },
+    {
+      "role": "tool",
+      "tool_call_id": "call_025",
+      "name": "finish_trace",
+      "content": "{\"ok\": true, \"formal_execute\": true, \"endpoint_exact\": true, \"derived_precursor\": \"[B-:1]([H:35])([H:36])([H:37])[H:38].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:21][H:55].[OH:23][H:59].[OH:26][H:65]\", \"trace_bound\": true, \"trace_digest\": \"8eb6f3aad6916aa1277b80557ab56316a184bbb4b18a80075ba5e59f974af703\", \"move_sequence_digest\": \"29c5ae368a86e043c6366e4bd964ecd645d9e515ce38d031ab110fcafb7cca99\", \"n_trace_transitions\": 5, \"endpoint_source\": \"environment_owned_trace\", \"declared_moves_replayed\": true, \"reward\": 3.4, \"tool_calls\": 26, \"successful_steps\": 5, \"failed_steps\": 0, \"observation_mode\": \"action_delta_v1\"}"
+    },
+    {
+      "role": "assistant",
+      "content": "The environment-owned trace compiled and executed successfully; the precursor is taken only from finish_trace."
+    }
+  ],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "inspect_state",
+        "description": "Inspect the current mapped molecular state and enumerate legal electron sources and sinks.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "import_fragment",
+        "description": "Import one mapped fragment that is absent from the product but required by the next inverse transition.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "fragment_smiles": {
+              "type": "string",
+              "description": "Atom-mapped fragment SMILES with unique positive map numbers."
+            }
+          },
+          "required": [
+            "fragment_smiles"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "apply_electron_move",
+        "description": "Apply one explicit two-electron source-to-sink move to the current state.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "source_kind": {
+              "type": "string",
+              "enum": [
+                "LP",
+                "BOND"
+              ]
+            },
+            "source_atoms": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 1,
+              "maxItems": 2
+            },
+            "sink_kind": {
+              "type": "string",
+              "enum": [
+                "ATOM",
+                "LP",
+                "BOND"
+              ]
+            },
+            "sink_atoms": {
+              "type": "array",
+              "items": {
+                "type": "integer"
+              },
+              "minItems": 1,
+              "maxItems": 2
+            }
+          },
+          "required": [
+            "source_kind",
+            "source_atoms",
+            "sink_kind",
+            "sink_atoms"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "apply_coupled_electron_moves",
+        "description": "Apply a non-empty list of coupled two-electron moves atomically as one elementary event.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "moves": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "LP",
+                              "BOND",
+                              "RADICAL_PAIR"
+                            ]
+                          },
+                          "atoms": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            },
+                            "minItems": 1,
+                            "maxItems": 2
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "atoms"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "sink": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "ATOM",
+                              "LP",
+                              "BOND",
+                              "RADICAL_PAIR"
+                            ]
+                          },
+                          "atoms": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            },
+                            "minItems": 1,
+                            "maxItems": 2
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "atoms"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "electrons": {
+                        "type": "integer",
+                        "enum": [
+                          2
+                        ]
+                      }
+                    },
+                    "required": [
+                      "source",
+                      "sink"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "mode": {
+                        "type": "string",
+                        "enum": [
+                          "BE_DELTA"
+                        ]
+                      },
+                      "bond_deltas": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "atoms": {
+                              "type": "array",
+                              "items": {
+                                "type": "integer"
+                              },
+                              "minItems": 2,
+                              "maxItems": 2
+                            },
+                            "delta": {
+                              "type": "integer",
+                              "minimum": -3,
+                              "maximum": 3
+                            }
+                          },
+                          "required": [
+                            "atoms",
+                            "delta"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "charge_actions": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "atom_map": {
+                              "type": "integer"
+                            },
+                            "q0": {
+                              "type": "integer"
+                            },
+                            "q1": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "atom_map",
+                            "q0",
+                            "q1"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "mode",
+                      "bond_deltas",
+                      "charge_actions"
+                    ],
+                    "additionalProperties": false
+                  }
+                ]
+              }
+            }
+          },
+          "required": [
+            "moves"
+          ],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "finish_trace",
+        "description": "Compile the committed environment-owned trace, execute it, and derive the only admissible precursor endpoint.",
+        "parameters": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "abstain",
+        "description": "Terminate the episode without an unsupported precursor when available evidence is insufficient.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "reason": {
+              "type": "string",
+              "description": "Concise reason for abstaining."
+            }
+          },
+          "required": [
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "target_smiles": "[CH3:2][C:3]1=[CH:4][C:5]([O:6][H:59])([H:35])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13]",
+  "expected_precursor": "[B-:1]([H:35])([H:36])([H:37])[H:38].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:21][H:55].[OH:23][H:59].[OH:26][H:65]",
+  "full_precursor_state": "[B-:1]([H:35])([H:36])([H:37])[H:38].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:21][H:55].[OH:23][H:59].[OH:26][H:65]",
+  "structural_precursor": "[B-:1]([H:35])([H:36])([H:37])[H:38].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[OH:23][H:59]",
+  "auxiliary_fragments": [
+    "[CH3:28][CH2:29][O:30][CH2:31][CH3:32]",
+    "[CH3:33][O:34][H:82]",
+    "[Ce+3:14]",
+    "[Cl-:15]",
+    "[Cl-:16]",
+    "[Cl-:17]",
+    "[Cl-:18]",
+    "[NH4+:19]",
+    "[Na+:20]",
+    "[OH2:22]",
+    "[OH2:24]",
+    "[OH2:25]",
+    "[OH2:27]",
+    "[OH:21][H:55]",
+    "[OH:26][H:65]"
+  ],
+  "metadata": {
+    "original_proof_sha256": "ef2034e3e43ac7d06c26f9c86e4058973bd7200a3296677c2a31a2b0f3a55197",
+    "source_mechanism_family": "unknown",
+    "proof_topology": "linear",
+    "trace_plan": {
+      "target_smiles": "[CH3:2][C:3]1=[CH:4][C:5]([O:6][H:59])([H:35])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13]",
+      "expected_precursor": "[B-:1]([H:35])([H:36])([H:37])[H:38].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:21][H:55].[OH:23][H:59].[OH:26][H:65]",
+      "initial_imports": [
+        "[B:1]([OH:21])([OH:26])[O:34][CH3:33]",
+        "[CH3:28][CH2:29][O:30][CH2:31][CH3:32]",
+        "[Ce+3:14]",
+        "[Cl-:15]",
+        "[Cl-:16]",
+        "[Cl-:17]",
+        "[Cl-:18]",
+        "[NH4+:19]",
+        "[Na+:20]",
+        "[OH-:23]",
+        "[OH2:22]",
+        "[OH2:24]",
+        "[OH2:25]",
+        "[OH2:27]"
+      ],
+      "steps": [
+        {
+          "step_index": 0,
+          "state_before": "[B:1]([OH:21])([OH:26])[O:34][CH3:33].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5]([O:6][H:59])([H:35])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH-:23].[OH2:22].[OH2:24].[OH2:25].[OH2:27]",
+          "state_after": "[B:1]([OH:21])([OH:26])[O:34][CH3:33].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5]([O-:6])([H:35])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:23][H:59]",
+          "imports": [],
+          "moves": [
+            {
+              "source": {
+                "kind": "BOND",
+                "atoms": [
+                  6,
+                  59
+                ]
+              },
+              "sink": {
+                "kind": "ATOM",
+                "atoms": [
+                  6
+                ]
+              },
+              "electrons": 2
+            },
+            {
+              "source": {
+                "kind": "LP",
+                "atoms": [
+                  23
+                ]
+              },
+              "sink": {
+                "kind": "BOND",
+                "atoms": [
+                  23,
+                  59
+                ]
+              },
+              "electrons": 2
+            }
+          ]
+        },
+        {
+          "step_index": 1,
+          "state_before": "[B:1]([OH:21])([OH:26])[O:34][CH3:33].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5]([O-:6])([H:35])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:23][H:59]",
+          "state_after": "[B-:1]([OH:21])([OH:26])([O:34][CH3:33])[H:35].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:23][H:59]",
+          "imports": [],
+          "moves": [
+            {
+              "source": {
+                "kind": "BOND",
+                "atoms": [
+                  5,
+                  35
+                ]
+              },
+              "sink": {
+                "kind": "BOND",
+                "atoms": [
+                  1,
+                  35
+                ]
+              },
+              "electrons": 2
+            },
+            {
+              "source": {
+                "kind": "LP",
+                "atoms": [
+                  6
+                ]
+              },
+              "sink": {
+                "kind": "BOND",
+                "atoms": [
+                  5,
+                  6
+                ]
+              },
+              "electrons": 2
+            }
+          ]
+        },
+        {
+          "step_index": 2,
+          "state_before": "[B-:1]([OH:21])([OH:26])([O:34][CH3:33])[H:35].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:23][H:59]",
+          "state_after": "[B-:1]([OH:21])([OH:26])([H:35])[H:36].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:23][H:59]",
+          "imports": [
+            "[H:36]",
+            "[H:82]"
+          ],
+          "moves": [
+            {
+              "mode": "BE_DELTA",
+              "bond_deltas": [
+                {
+                  "atoms": [
+                    1,
+                    34
+                  ],
+                  "delta": -1
+                },
+                {
+                  "atoms": [
+                    1,
+                    36
+                  ],
+                  "delta": 1
+                },
+                {
+                  "atoms": [
+                    34,
+                    82
+                  ],
+                  "delta": 1
+                }
+              ],
+              "charge_actions": []
+            }
+          ]
+        },
+        {
+          "step_index": 3,
+          "state_before": "[B-:1]([OH:21])([OH:26])([H:35])[H:36].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:23][H:59]",
+          "state_after": "[B-:1]([OH:21])([H:35])([H:36])[H:37].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:23][H:59].[OH:26][H:65]",
+          "imports": [
+            "[H:37]",
+            "[H:65]"
+          ],
+          "moves": [
+            {
+              "mode": "BE_DELTA",
+              "bond_deltas": [
+                {
+                  "atoms": [
+                    1,
+                    26
+                  ],
+                  "delta": -1
+                },
+                {
+                  "atoms": [
+                    1,
+                    37
+                  ],
+                  "delta": 1
+                },
+                {
+                  "atoms": [
+                    26,
+                    65
+                  ],
+                  "delta": 1
+                }
+              ],
+              "charge_actions": []
+            }
+          ]
+        },
+        {
+          "step_index": 4,
+          "state_before": "[B-:1]([OH:21])([H:35])([H:36])[H:37].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:23][H:59].[OH:26][H:65]",
+          "state_after": "[B-:1]([H:35])([H:36])([H:37])[H:38].[CH3:28][CH2:29][O:30][CH2:31][CH3:32].[CH3:2][C:3]1=[CH:4][C:5](=[O:6])[CH2:7][CH:8]1[C:9]([O:10][CH2:11][CH3:12])=[O:13].[CH3:33][O:34][H:82].[Ce+3:14].[Cl-:15].[Cl-:16].[Cl-:17].[Cl-:18].[NH4+:19].[Na+:20].[OH2:22].[OH2:24].[OH2:25].[OH2:27].[OH:21][H:55].[OH:23][H:59].[OH:26][H:65]",
+          "imports": [
+            "[H:38]",
+            "[H:55]"
+          ],
+          "moves": [
+            {
+              "mode": "BE_DELTA",
+              "bond_deltas": [
+                {
+                  "atoms": [
+                    1,
+                    21
+                  ],
+                  "delta": -1
+                },
+                {
+                  "atoms": [
+                    1,
+                    38
+                  ],
+                  "delta": 1
+                },
+                {
+                  "atoms": [
+                    21,
+                    55
+                  ],
+                  "delta": 1
+                }
+              ],
+              "charge_actions": []
+            }
+          ]
+        }
+      ]
+    },
+    "n_trace_steps": 5,
+    "n_trace_moves": 7,
+    "n_be_delta_steps": 3,
+    "n_trace_imports": 20,
+    "execution_primitive_signatures": [
+      "{\"electrons\":2,\"sink_atoms\":[[0,0,0],[5,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[0,0,0],[6,0,0]],\"source_bond_order\":0,\"source_kind\":\"BOND\"}",
+      "{\"electrons\":2,\"sink_atoms\":[[0,0,0],[8,-1,0]],\"sink_bond_order\":0,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,-1,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}",
+      "{\"electrons\":2,\"sink_atoms\":[[6,0,0],[8,-1,0]],\"sink_bond_order\":1,\"sink_kind\":\"BOND\",\"source_atoms\":[[8,-1,0]],\"source_bond_order\":0,\"source_kind\":\"LP\"}",
+      "{\"electrons\":2,\"sink_atoms\":[[8,0,0]],\"sink_bond_order\":0,\"sink_kind\":\"ATOM\",\"source_atoms\":[[0,0,0],[8,0,0]],\"source_bond_order\":0,\"source_kind\":\"BOND\"}",
+      "{\"electrons\":2,\"sink_atoms\":[],\"sink_bond_order\":0,\"sink_kind\":\"\",\"source_atoms\":[],\"source_bond_order\":0,\"source_kind\":\"\"}"
+    ],
+    "execution_composition_signature": "cd86ec005a09b93ea301a76fbe964db6425c982b8d8b0bbc4d1d96a3497c13e4",
+    "compiled_proof": null,
+    "trace_digest": "8eb6f3aad6916aa1277b80557ab56316a184bbb4b18a80075ba5e59f974af703",
+    "move_sequence_digest": "29c5ae368a86e043c6366e4bd964ecd645d9e515ce38d031ab110fcafb7cca99",
+    "textbook_query": "alcohol alkene carbonyl ester ring",
+    "textbook_query_source": "target_state_terms",
+    "gold_label_query_used": false,
+    "textbook_passage_ids": [],
+    "textbook_context_sha256": null,
+    "textbook_context_characters": null,
+    "corpus_used": false,
+    "observation_mode": "action_delta_v1",
+    "upstream_endpoint_fallback": false,
+    "source_trajectory_id": "249",
+    "structured_primitives_enabled": false,
+    "structured_anchors_enabled": false,
+    "executor_replayed": true,
+    "endpoint_source": "environment_owned_trace"
+  }
+}

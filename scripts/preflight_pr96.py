@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""Eight-device compatibility audit; scratch updates are discarded, never SFT."""
+import argparse
+import importlib.metadata
+import json
+import os
+from pathlib import Path
+import sys
+import time
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path[:0] = [str(ROOT), str(ROOT / "src")]
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--config", type=Path, required=True)
+    p.add_argument("--output", type=Path, required=True)
+    args = p.parse_args()
+    import torch
+    import torch.distributed as dist
+    import yaml
+    from peft import LoraConfig, get_peft_model
+    from transformers import AutoTokenizer, TrainingArguments
+    from mechet.agent_inference import parse_tool_calls
+    from mechet.collator import AssistantOnlyCollator
+    from mechet.pr96_artifacts import validate_preflight
+    from mechet.pr96_eval_runtime import HFBackend, sha
+    from mechet.pr96_trainer import validate_deployed_hardware, PR96Trainer
+    from mechet.qwen35_protocol import (OFFICIAL_REVISION, LORA_TARGETS, encode_tool_decision,
+                                        load_language_model, supervised_loss)
+    cfg = yaml.safe_load(args.config.read_text())
+    names = validate_deployed_hardware(cfg["pr96"]["track"])
+    rank = int(os.environ["RANK"])
+    dist.init_process_group("nccl")
+    args.output.mkdir(parents=True, exist_ok=True)
+    versions = {n: importlib.metadata.version(n) for n in
+                ("torch", "transformers", "peft", "accelerate", "datasets", "tokenizers", "fla-core", "triton", "rdkit")}
+    print(json.dumps({"stage": "pr96-deployed-preflight-start", "rank": rank, "gpu_names": names,
+                      "versions": versions, "cuda": torch.version.cuda}), flush=True)
+    tokenizer = AutoTokenizer.from_pretrained(cfg["model_name_or_path"], revision=OFFICIAL_REVISION,
+                                              local_files_only=True)
+    samples = {}
+    for line in Path(cfg["train_file"]).open():
+        row = json.loads(line)
+        name = row["messages"][2]["tool_calls"][0]["function"]["name"]
+        samples.setdefault(name, row)
+        if len(samples) == 3:
+            break
+    if set(samples) != {"import_fragments", "apply_electron_flow", "finish_trace"}:
+        raise ValueError("PR96_PREFLIGHT_MISSING_TOOL_CLASS")
+    encoded = []
+    for sample in samples.values():
+        value, audit = encode_tool_decision(tokenizer, sample, max_length=cfg["training"]["max_length"])
+        if audit["exceeds_max_length"]:
+            raise ValueError("PR96_PREFLIGHT_WOULD_TRUNCATE")
+        text = tokenizer.decode([v for v,l in zip(value["input_ids"], value["labels"]) if l != -100])
+        expected = sample["messages"][2]["tool_calls"][0]["function"]
+        calls = parse_tool_calls(text)
+        if len(calls) != 1 or calls[0].name != expected["name"] or calls[0].arguments != expected["arguments"]:
+            raise ValueError("PR96_PREFLIGHT_XML_PARSE_ROUNDTRIP_FAILED")
+        encoded.append(value)
+    torch.manual_seed(17)
+    model, info = load_language_model(cfg["model_name_or_path"], dtype=torch.bfloat16)
+    targets = {n.rsplit(".",1)[-1] for n,m in model.named_modules() if isinstance(m, torch.nn.Linear)}
+    if not set(LORA_TARGETS) <= targets:
+        raise ValueError("PR96_PREFLIGHT_LANGUAGE_TARGETS_MISSING")
+    model = get_peft_model(model, LoraConfig(r=16, lora_alpha=32, lora_dropout=.05,
+                                            target_modules=LORA_TARGETS, task_type="CAUSAL_LM"))
+    model.to(int(os.environ["LOCAL_RANK"]))
+    if cfg["training"].get("gradient_checkpointing"):
+        model.enable_input_require_grads()
+        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+    model.train()
+    if any("visual" in n or (p.requires_grad and "lora_" not in n) for n,p in model.named_parameters()):
+        raise ValueError("PR96_PREFLIGHT_NONLANGUAGE_TRAINABLE")
+    before = {n:p.detach().clone() for n,p in model.named_parameters() if "lora_B" in n}
+    optimizer = torch.optim.AdamW((p for p in model.parameters() if p.requires_grad), lr=1e-4, fused=True)
+    scratch_args = TrainingArguments(output_dir=str(args.output / "scratch_not_saved"), report_to=[],
+                                    bf16=True, gradient_accumulation_steps=2, average_tokens_across_devices=True,
+                                    ddp_find_unused_parameters=False, remove_unused_columns=False)
+    trainer = PR96Trainer(model=model, args=scratch_args)
+    wrapped, optimizer = trainer.accelerator.prepare(model, optimizer)
+    batch = AssistantOnlyCollator(tokenizer)(encoded)
+    batch = {k:v.to(next(model.parameters()).device) for k,v in batch.items()}
+    begin = time.monotonic()
+    denominator = (batch["labels"][:, 1:] != -100).sum()
+    dist.all_reduce(denominator)
+    trainer.current_gradient_accumulation_steps = 2
+    from contextlib import nullcontext
+    loss = torch.zeros((), device=denominator.device)
+    torch.manual_seed(17 + rank)  # distinct dropout; equality below must come from DDP
+    for index, section in enumerate((slice(0, 2), slice(2, 3))):
+        context = trainer.accelerator.no_sync(wrapped) if index == 0 else nullcontext()
+        with context:
+            loss += trainer.training_step(wrapped, {k:v[section] for k,v in batch.items()}, denominator)
+    if not torch.isfinite(loss):
+        raise ValueError("PR96_PREFLIGHT_NONFINITE_LOSS")
+    gradients = [p.grad for p in model.parameters() if p.grad is not None]
+    finite = bool(gradients) and all(torch.isfinite(g).all().item() for g in gradients)
+    nonzero = any(torch.count_nonzero(g).item() for g in gradients)
+    signature = torch.stack([sum(g.float().sum() for g in gradients),
+                             sum(g.float().square().sum() for g in gradients)])
+    signatures = [torch.empty_like(signature) for _ in range(8)]
+    dist.all_gather(signatures, signature)
+    synchronized = all(torch.allclose(signature, other, rtol=1e-5, atol=1e-7) for other in signatures)
+    optimizer.step()
+    changed = any(not torch.equal(p.detach(), before[n]) for n,p in model.named_parameters() if n in before)
+    layout = None
+    if cfg["pr96"].get("performance_layout_probe"):
+        from mechet.pr96_performance import largest_cached_example
+        from transformers.models.qwen3_5 import modeling_qwen3_5 as qwen35
+        if not qwen35.is_fast_path_available:
+            raise ValueError("PR96_PERFORMANCE_FAST_PATH_REQUIRED")
+        optimizer.zero_grad(set_to_none=True)
+        node = Path(os.environ["PR96_NODE_CACHE"])
+        longest, layout = largest_cached_example([node / "tokens_state", node / "tokens_history"])
+        micro = int(cfg["training"]["per_device_train_batch_size"])
+        probe = AssistantOnlyCollator(tokenizer)([longest] * micro)
+        probe = {k: v.to(next(model.parameters()).device) for k, v in probe.items()}
+        denominator = (probe["labels"][:, 1:] != -100).sum()
+        dist.all_reduce(denominator)
+        torch.cuda.reset_peak_memory_stats()
+        torch.cuda.synchronize()
+        started = time.monotonic()
+        trainer.current_gradient_accumulation_steps = 1
+        probe_loss = trainer.training_step(wrapped, probe, denominator)
+        torch.cuda.synchronize()
+        if not torch.isfinite(probe_loss) or not any(p.grad is not None for p in model.parameters()):
+            raise ValueError("PR96_PERFORMANCE_LAYOUT_BACKWARD_FAILED")
+        if not all(torch.isfinite(p.grad).all().item() for p in model.parameters() if p.grad is not None):
+            raise ValueError("PR96_PERFORMANCE_LAYOUT_NONFINITE_GRADIENT")
+        layout.update(per_device_train_batch_size=micro,
+                      gradient_checkpointing=cfg["training"]["gradient_checkpointing"],
+                      native_causal_conv1d=True, finite_backward=True,
+                      peak_gpu_memory_bytes=torch.cuda.max_memory_allocated(),
+                      elapsed_seconds=time.monotonic() - started,
+                      timing_is_compatibility_only_not_steady_state_throughput=True)
+        print(json.dumps({"stage": "pr96-performance-layout-verified", "rank": rank, **layout}), flush=True)
+        optimizer.zero_grad(set_to_none=True)
+        del probe
+    model.eval()
+    backend = HFBackend(model, tokenizer, max_new_tokens=512, batch_size=1,
+                        raw_path=args.output / f"generation.rank{rank:02d}.jsonl")
+    generated = backend.generate([next(iter(samples.values()))["messages"][:2]])[0]
+    record = {"rank": rank, "gpu_names": names, "versions": versions, "loss": float(loss.detach()),
+              "finite_nonzero_gradients": bool(finite and nonzero), "parameters_updated": changed,
+              "ddp_gradient_synchronization": synchronized,
+              "assistant_mask_verified": True, "tool_prefix_parity": True,
+              "all_language_targets_present": True, "language_only": True,
+              "generation_completed": bool(generated["generated_token_ids"]),
+              "base_generation_parse_success": len(parse_tool_calls(generated["raw"])) == 1,
+              "base_generation_truncated": generated["truncated"],
+              "elapsed_seconds": time.monotonic() - begin,
+              "peak_gpu_memory_bytes": torch.cuda.max_memory_allocated(),
+              "scratch_optimizer_updates": 1, "scratch_weights_saved": False}
+    if layout is not None:
+        record["performance_layout_probe"] = layout
+    (args.output / f"rank{rank:02d}.json").write_text(json.dumps(record, indent=2) + "\n")
+    print(json.dumps({"stage": "pr96-deployed-preflight-rank-complete", **record}), flush=True)
+    dist.barrier()
+    if rank == 0:
+        result = {"track": cfg["pr96"]["track"], "base_revision": OFFICIAL_REVISION,
+                  "base_manifest_sha256": sha(cfg["pr96"]["base_manifest"]),
+                  "ranks": [json.loads((args.output / f"rank{i:02d}.json").read_text()) for i in range(8)],
+                  "purpose": "compatibility_only_discarded_weights_not_formal_training"}
+        validate_preflight(result, cfg["pr96"]["track"])
+        (args.output / "manifest.json").write_text(json.dumps(result, indent=2) + "\n")
+    dist.barrier()
+    dist.destroy_process_group()
+
+
+if __name__ == "__main__":
+    main()

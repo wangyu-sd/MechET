@@ -1,5 +1,31 @@
 # Active ICLR status
 
+> **2026-10-26 latest:** mech31k4H20 EARHO completed10137TRAIN/80rounds/
+>160updates;pairedVALID1319 hits939→971(71.19→73.62%,+2.43pp),74corrected/
+>42regressed. FlowER4H20 EARHO is actually sampling/updating,not queued or
+> bootstrapping. See docs/results/PR96_EARHO_20261026.md and timestamped
+> artifact snapshot. No newStageIII TEST;combinedPG/replay updates,notpureRL
+> causal evidence. Earlierdatedsections below are historical snapshots.
+
+> **2026-10-23 13:22 CST PR96 performance replacement: WAITING FOR SOURCE CHECKPOINT.**
+> This supersedes older training-on-hold notes ONLY for the explicitly authorized
+> PR96 tracks. mech31k State10+History5 completed successfully; selected pairedVALID
+> 52/64 and51/64, independentHistory52/64 (NOT TEST). FlowER _03 is live on8H20,
+> step11500/149070, no complete checkpoint yet. See docs/PR96_EXECUTION_STATUS.md.
+> User requested acceleration plus resumable replacement; frozen c42c94b adds
+> identical Arrow-offset length sampling, compatible native causal-conv, micro8/GA1
+> and no activation recomputation, same global64/data/epochs/loss,1000step saves.
+>584unit testsPASS/1missing-artifact skip and actualH20nativeoperator correctness
+> checks passed; new model throughput is NOT yet measured. No unrequested smoke.
+> CPU-only handoff PID2798887 waits for a complete hash-verified optimizer/RNG/
+> counter checkpoint before stopping ONLY exactFlowER_03 and submitting _04.
+> _04 is prepared/rendered, NOT submitted at this snapshot. Other tasks untouched.
+> Current phase/progress/receipts:
+> outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/performance_v1/handoff_status.json.
+> Same8H20 ordinary business group, location/quota empty, Tencenttaiji6/privateCeph,
+> unbuffered defaultPOD logs+45sheartbeat. The earlier persistent goal remains
+> user-paused; do not infer completion or resume from this operational update.
+
 > **2026-10-22 main-product-only root/IMPORT repair; training remains on hold.**
 > Existing31k trace-view reference audit12706/12724PASS;18unresolved retained.
 > Same32VALID GT32/32replay to correct endpoint; frozen epoch8actor0/32hits,

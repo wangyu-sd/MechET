@@ -1,0 +1,6 @@
+{
+  "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_mech31k_earho_train10137_20261025_02/checkpoints/round-00080",
+  "next_round": 80,
+  "optimizer_step": 160,
+  "horizon": 2
+}
