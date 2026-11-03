@@ -112,5 +112,6 @@ def test_real_executable_flow_and_stock_closure(tmp_path):
     assert result["counters"]["import_preparations"]==1
     assert result["counters"]["finish_markers"]==1
     assert result["counters"]["successful_route_backups"]==1
+    assert abs(result["complete_reaction_edges"][0]["cost"] - 2.0) < 1e-6
     assert not any("finish" in k.lower() for k in result["puct_statistics"]["parents"])
     assert (tmp_path/"report.json").is_file()
