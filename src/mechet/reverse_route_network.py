@@ -131,7 +131,13 @@ class RouteNetwork:
         # is an obligation; individual ions are not invented as stock entries.
         precursors=[structural] if structural in self.stock else sorted(structural.split('.'))
         identifier=digest([molecule,precursors])
-        cost=max(1e-9,-context.node.logprob)
+        # FINISH is only a reaction-boundary marker in unified event search.
+        # Charge its real generation tokens to the budget but do not treat its
+        # action likelihood as a chemical transformation cost.
+        boundary_logprob=next((float(edge['action']['logprob']) for edge in reversed(tree.edges)
+                                if edge.get('child_context')==context.key
+                                and edge.get('action',{}).get('name')=='finish_trace'),0.0)
+        cost=max(1e-9,-(context.node.logprob-boundary_logprob))
         existing=self.edge_index.get(identifier)
         program={'terminal_context':context.key,'full_terminal_state':context.node.state,
                  'structural_terminal_mapped':parts.structural,'auxiliary_fragments':list(parts.auxiliary),
