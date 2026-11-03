@@ -133,9 +133,9 @@ class ElectronicFrontier:
         self.credited_routes.add(identity)
         for reaction in certificate["complete_reaction_edges"]:
             terminal = reaction["program"]["terminal_context"]
-            for key in self._ancestors(terminal):
-                # FINISH has no branch in parents, so the terminal's parent
-                # must be recovered from the verified reaction's last event.
+            for key in self._ancestors(terminal)[1:]:
+                # The FINISH terminal is a marker, never a chemical decision;
+                # only its actually executed event ancestors receive credit.
                 self.rewards[key] = self.rewards.get(key, 0.0) + 1.0
         return True
 

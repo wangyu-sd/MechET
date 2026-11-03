@@ -137,11 +137,15 @@ def run_routes(args):
     if actor.actor_sha!=STAGE2["flower"]["sha256"]:
         raise ValueError("FLOWER_STAGE_II_PIN_FAILED")
     reports=[]
+    # Do not reload a 250k/300k-stock file for every benchmark target.
+    stock_cache={name:set(Path(item["canonical_path"]).read_text().splitlines())
+                 for name,item in manifest["stocks"].items()
+                 if any(r["stock"]==name for r in rows)}
     for row in rows:
         case_id=row["id"]
         folder=out/row["cohort"]/hashlib.sha256(case_id.encode()).hexdigest()[:20]
         stock_spec=manifest["stocks"][row["stock"]]
-        stock=set(Path(stock_spec["canonical_path"]).read_text().splitlines())
+        stock=stock_cache[row["stock"]]
         if args.method=="event_puct":
             controller=UnifiedRouteSearch(case_id=case_id,product=row["product_unmapped"],
                 stock=stock,stock_sha=stock_spec["canonical_sha256"],
@@ -212,7 +216,6 @@ def gold_for_one_step(row:dict, product:str):
                or row.get("structural_precursors"))
     if not reference and row.get("full_precursor_state"):
         from mechet.endpoints import split_precursor_endpoints
-        from mechet.in_place_grounded_flow import map_unmapped_fragment
         from mechet.dynamic_electron_tree import product_only_private_state
         reference=split_precursor_endpoints(row["full_precursor_state"],
                                            product_only_private_state(product)).structural
