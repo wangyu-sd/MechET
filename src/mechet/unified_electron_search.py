@@ -326,7 +326,16 @@ class OneStepElectronicSearch:
             if parts.structural:
                 from .dynamic_electron_tree import chemical_key
                 structure=chemical_key(parts.structural)
-                record={"precursor":structure,"score":ctx.node.policy_score,
+                # FINISH is a boundary marker. Its probability must not
+                # decide which chemical transformation ranks first.
+                boundary=next((e["action"] for e in reversed(self.tree.edges)
+                               if e.get("child_context")==ctx.key and
+                               e.get("action",{}).get("name")=="finish_trace"),None)
+                if boundary is None:
+                    raise ValueError("TERMINAL_CONTEXT_WITHOUT_BOUNDARY")
+                chemistry_score=(ctx.node.logprob-float(boundary["logprob"])) / max(
+                    1,ctx.node.tokens-int(boundary["tokens"]))
+                record={"precursor":structure,"score":chemistry_score,
                         "electron_actions":sum(x["name"]=="apply_electron_flow"
                                                for x in ctx.node.actions),
                         "context":ctx.key}
