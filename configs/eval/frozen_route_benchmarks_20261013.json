@@ -1,0 +1,65 @@
+{
+  "schema_version": "mechet_route_assets_v1",
+  "raw_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/route_benchmarks/raw_20261013",
+  "stocks": {
+    "ursa_bbs_v1": {
+      "path": "ursa_stock/URSA_BBs_v1_0_0.csv",
+      "sha256": "b895120f2b80a75e9208b969dd6d4d453196bda231649824f9a5d33bb53ad3e6",
+      "rows": 255958,
+      "smiles_column": "smiles",
+      "license": "CC-BY-NC-SA-4.0",
+      "source_revision": "9ac1948b272fafbaaae99916a02eb5298907138b",
+      "source_url": "https://huggingface.co/datasets/insilicomedicine/URSA-BBs"
+    },
+    "buyables_publication": {
+      "path": "retrocast_publication/1-benchmarks/stocks/buyables-stock.csv.gz",
+      "sha256": "aee42d44c9a96279dd13732d8a298bcfcad34a3ac0ba6b4b2715ec36ad18ec0b",
+      "rows": 313458,
+      "smiles_column": "SMILES",
+      "license": "public_download_data_license_not_declared_do_not_redistribute",
+      "source_revision": "publication-schema1.0-retrocast0.5.0",
+      "source_url": "https://files.ischemist.com/retrocast/publication-data/1-benchmarks/stocks/buyables-stock.csv.gz"
+    },
+    "n5_publication": {
+      "path": "retrocast_publication/1-benchmarks/stocks/n5-stock.csv.gz",
+      "sha256": "1207cb1fa08f33c0170093b36ff29d0a399cb3e22afe7a0feda929bdb9bb73c9",
+      "rows": 13306,
+      "smiles_column": "SMILES",
+      "license": "public_download_data_license_not_declared_do_not_redistribute",
+      "source_revision": "publication-schema1.0-retrocast0.5.0",
+      "source_url": "https://files.ischemist.com/retrocast/publication-data/1-benchmarks/stocks/n5-stock.csv.gz"
+    }
+  },
+  "cohorts": {
+    "ursa_expert100": {
+      "format": "csv", "path": "ursa_targets/URSA-expert-2026.csv",
+      "sha256": "f1a99358e7cbed494dbf3b9ee2754ec1a9e8e6b6f2e15075cb3dd8258b4b9a47",
+      "rows": 100, "id_column": "Structure ID", "smiles_column": "SMILES", "stock": "ursa_bbs_v1",
+      "license": "Apache-2.0", "source_revision": "42fd2f24df04e2b24836a3019342f396e06c1209",
+      "source_url": "https://huggingface.co/datasets/insilicomedicine/URSA-benchmarking-sets"
+    },
+    "ursa_drugs100": {
+      "format": "csv", "path": "ursa_targets/URSA-drugs-clinicals-2026.csv",
+      "sha256": "ae648b7c4f1858a85497f7e6aa6029a01d14fb0e05c1c60255dec0d9c9af9dcf",
+      "rows": 100, "id_column": "Structure ID", "smiles_column": "SMILES", "stock": "ursa_bbs_v1",
+      "license": "Apache-2.0", "source_revision": "42fd2f24df04e2b24836a3019342f396e06c1209",
+      "source_url": "https://huggingface.co/datasets/insilicomedicine/URSA-benchmarking-sets"
+    },
+    "retrocast_mkt_cnv160": {
+      "format": "retrocast", "path": "retrocast_publication/1-benchmarks/definitions/mkt-cnv-160.json.gz",
+      "sha256": "b7f960fb5c97d18a1776881423f3569e804b89dcd7f38fcec912749d86522084",
+      "rows": 160, "stock": "buyables_publication",
+      "license": "public_download_data_license_not_declared_do_not_redistribute",
+      "source_revision": "publication-schema1.0-retrocast0.5.0-seed20180329",
+      "source_url": "https://files.ischemist.com/retrocast/publication-data/1-benchmarks/definitions/mkt-cnv-160.json.gz"
+    },
+    "paroutes_derived_n5_100": {
+      "format": "retrocast", "path": "retrocast_publication/1-benchmarks/definitions/random-n5-100.json.gz",
+      "sha256": "7ac127ff2b3c53c4585106b515336bd4b693288e1d550ab9ab700dc227026ab2",
+      "rows": 100, "stock": "n5_publication",
+      "license": "public_download_data_license_not_declared_do_not_redistribute",
+      "source_revision": "publication-schema1.0-retrocast0.5.0-seed42-PaRoutesV2-derived",
+      "source_url": "https://files.ischemist.com/retrocast/publication-data/1-benchmarks/definitions/random-n5-100.json.gz"
+    }
+  }
+}
