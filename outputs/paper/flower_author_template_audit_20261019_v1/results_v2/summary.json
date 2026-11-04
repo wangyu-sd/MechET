@@ -1,0 +1,172 @@
+{
+  "status": "complete",
+  "source_hashes": {
+    "/aaa/fionafyang/buddy1/whaleywang/datasets/flower_original_mechanistic_templates_20261019/Reaction_templates_index.jsonl": "bf723535d559dd546e04373a7d7ad629f042220343f5bf2486e687e272e2ff56",
+    "/aaa/fionafyang/buddy1/whaleywang/datasets/flower_original_mechanistic_templates_20261019/Reaction_templates_20250216_index.jsonl": "742d7adf965a10d0a5edee3e87bd3a80cce8b3ae91957b56fd2ad938aa4ee756",
+    "/aaa/fionafyang/buddy1/whaleywang/datasets/flower_original_mechanistic_templates_20261019/Mechanistic_dataset/templates/AcidBase_lookup.py": "13e8951c8a451c1d3625e5cec8ac8e520df1b93be1992b7174dbabed53e41581",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/data/flower_inverse_tool_sft_action_delta_v1/test.jsonl": "70a06f01a08490d4b5da602056a8f8e2f978128d3da3224d1601186529aeee3f",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/electron_event_templates_20261019_v1/results/event_annotations_v2.jsonl.gz": "09ecfe1acbb3784eb82a495cc79e3ef7e589ca74021b6299646cfb08fd3dd458",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/electron_event_templates_20261019_v1/results/program_event_links.jsonl.gz": "c872f84d55990db183c87fa45a13f41688c7b1333523776912d8034768ee2879"
+  },
+  "source_commit": "8bd5b38e9602c4d45485bf50076d03c292dcc486",
+  "populations": {
+    "saved_model_event": 71868,
+    "flower_strict_test_gt_event": 117365
+  },
+  "status_counts": {
+    "saved_model_event": {
+      "author_transition_compatible": 47668,
+      "no_implemented_author_template_match": 21476,
+      "state_processing_error": 2147,
+      "radical_change_not_implemented": 577
+    },
+    "flower_strict_test_gt_event": {
+      "author_transition_compatible": 94489,
+      "state_processing_error": 1496,
+      "no_implemented_author_template_match": 17660,
+      "radical_change_not_implemented": 3720
+    }
+  },
+  "version_event_coverage": {
+    "saved_model_event": {
+      "Reaction_templates": 46980,
+      "Reaction_templates_20250216": 44513
+    },
+    "flower_strict_test_gt_event": {
+      "Reaction_templates": 94417,
+      "Reaction_templates_20250216": 83305
+    }
+  },
+  "by_run": {
+    "r1_mcts_pr88": {
+      "events": 27402,
+      "author_transition_compatible": 16833,
+      "Reaction_templates": 16574,
+      "Reaction_templates_20250216": 15611,
+      "no_implemented_author_template_match": 9187,
+      "state_processing_error": 1017,
+      "radical_change_not_implemented": 365
+    },
+    "r1_greedy_dynamic": {
+      "events": 3722,
+      "author_transition_compatible": 2738,
+      "Reaction_templates": 2716,
+      "Reaction_templates_20250216": 2522,
+      "no_implemented_author_template_match": 925,
+      "state_processing_error": 41,
+      "radical_change_not_implemented": 18
+    },
+    "r1_greedy_shared": {
+      "events": 3758,
+      "author_transition_compatible": 2758,
+      "Reaction_templates": 2738,
+      "Reaction_templates_20250216": 2537,
+      "no_implemented_author_template_match": 943,
+      "radical_change_not_implemented": 22,
+      "state_processing_error": 35
+    },
+    "mech31k_greedy_dynamic": {
+      "events": 4634,
+      "author_transition_compatible": 3597,
+      "Reaction_templates": 3561,
+      "Reaction_templates_20250216": 3441,
+      "no_implemented_author_template_match": 981,
+      "radical_change_not_implemented": 3,
+      "state_processing_error": 53
+    },
+    "mech31k_greedy_shared": {
+      "events": 4466,
+      "author_transition_compatible": 3516,
+      "Reaction_templates": 3476,
+      "Reaction_templates_20250216": 3356,
+      "no_implemented_author_template_match": 901,
+      "state_processing_error": 47,
+      "radical_change_not_implemented": 2
+    },
+    "mech31k_mcts_pr88": {
+      "events": 27886,
+      "author_transition_compatible": 18226,
+      "Reaction_templates": 17915,
+      "Reaction_templates_20250216": 17046,
+      "no_implemented_author_template_match": 8539,
+      "state_processing_error": 954,
+      "radical_change_not_implemented": 167
+    }
+  },
+  "program_coverage": {
+    "r1_mcts_pr88": {
+      "programs": 11480,
+      "event_occurrences": 38124,
+      "compatible_event_occurrences_either": 24301,
+      "all_events_compatible_either": 4217,
+      "all_events_compatible_Reaction_templates": 4098,
+      "all_events_compatible_Reaction_templates_20250216": 3891
+    },
+    "r1_greedy_dynamic": {
+      "programs": 1341,
+      "event_occurrences": 3832,
+      "compatible_event_occurrences_either": 2837,
+      "all_events_compatible_either": 708,
+      "all_events_compatible_Reaction_templates": 695,
+      "all_events_compatible_Reaction_templates_20250216": 687
+    },
+    "r1_greedy_shared": {
+      "programs": 1364,
+      "event_occurrences": 3913,
+      "compatible_event_occurrences_either": 2884,
+      "all_events_compatible_either": 711,
+      "all_events_compatible_Reaction_templates": 698,
+      "all_events_compatible_Reaction_templates_20250216": 689
+    },
+    "mech31k_greedy_dynamic": {
+      "programs": 2294,
+      "event_occurrences": 6549,
+      "compatible_event_occurrences_either": 5474,
+      "no_event_programs": 1,
+      "all_events_compatible_either": 1639,
+      "all_events_compatible_Reaction_templates": 1626,
+      "all_events_compatible_Reaction_templates_20250216": 1613
+    },
+    "mech31k_greedy_shared": {
+      "programs": 2249,
+      "event_occurrences": 6359,
+      "compatible_event_occurrences_either": 5394,
+      "all_events_compatible_either": 1655,
+      "all_events_compatible_Reaction_templates": 1641,
+      "all_events_compatible_Reaction_templates_20250216": 1635,
+      "no_event_programs": 1
+    },
+    "mech31k_mcts_pr88": {
+      "programs": 19194,
+      "event_occurrences": 66031,
+      "compatible_event_occurrences_either": 47352,
+      "all_events_compatible_either": 9251,
+      "all_events_compatible_Reaction_templates": 9182,
+      "all_events_compatible_Reaction_templates_20250216": 8937,
+      "no_event_programs": 25
+    }
+  },
+  "gt_reactions": 28967,
+  "gt_official_test_denominator": 28971,
+  "gt_upstream_corrupt_no_trace": 4,
+  "gt_all_event_reactions": {
+    "either": 16770,
+    "Reaction_templates": 16739,
+    "Reaction_templates_20250216": 14181
+  },
+  "catalog_expansion_counts": {
+    "Reaction_templates:expanded_occurrences": 33543,
+    "Reaction_templates_20250216:expanded_occurrences": 20702
+  },
+  "unsupported_template_occurrences": 1858,
+  "unsupported_reasons": {
+    "template adds/deletes mapped atoms": 9,
+    "explicit hydrogen template requires separate matcher": 1336,
+    "unmapped or repeated template atom": 513
+  },
+  "wall_seconds": 772.1672349870205,
+  "interpretation": "Full local author-SMARTS transition compatibility; not full mechanism sequence, reagent screen, kinetic feasibility or unique arrow-pairing proof.",
+  "normalization": "Remove ordinary mapped attached H into H counts; preserve charge/isotope/stereo. Joint private atom binding across BOTH states; all normalized bond/charge/H changes must be covered.",
+  "nonmatches_are_not_chemical_negatives": true,
+  "experimental_model_sampling": false
+}

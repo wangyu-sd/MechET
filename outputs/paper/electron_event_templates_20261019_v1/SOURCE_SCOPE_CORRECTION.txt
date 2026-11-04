@@ -1,0 +1,10 @@
+2026-10-19 用户澄清：所需模板是 FlowER 原始机理数据生成器模板。
+本目录 62.3% 等结果来自临时人工编写的局部化学规则，不能称为
+“FlowER 原始模板覆盖率”，也不能替代作者模板匹配结果。
+原始结果保留，不重命名为官方模板分析，不改写模型输出或正确答案。
+
+正确的作者公开来源为 FlowER Nature 论文 Code availability 指向的
+https://github.com/jfjoung/Mechanistic_dataset
+已另存作者模板原件和版本信息：
+/aaa/fionafyang/buddy1/whaleywang/datasets/flower_original_mechanistic_templates_20261019/
+当前还没有用作者模板重跑覆盖率分析，禁止沿用此前数字作为其结果。

@@ -1,0 +1,25 @@
+FlowER official author-template compatibility audit (complete)
+Primary: current author version. Dated version and union reported separately.
+
+saved_model_event: 71868 events
+  current_version_matches: 46980/71868 = 65.370%
+  dated_version_matches: 44513/71868 = 61.937%
+  either_version_matches: 47668/71868 = 66.327%
+flower_strict_test_gt_event: 117365 events
+  current_version_matches: 94417/117365 = 80.447%
+  dated_version_matches: 83305/117365 = 70.979%
+  either_version_matches: 94489/117365 = 80.509%
+
+Separate heavy-bond-changing events from charge/H-only events:
+saved_model_event | no_heavy_bond_change: current 18137/24195; either 18359/24195
+saved_model_event | heavy_bond_rearrangement: current 28843/45526; either 29309/45526
+saved_model_event | hydrogen_projection_or_state_processing_unsupported: current 0/2147; either 0/2147
+flower_strict_test_gt_event | no_heavy_bond_change: current 29107/33092; either 29111/33092
+flower_strict_test_gt_event | heavy_bond_rearrangement: current 65310/82777; either 65378/82777
+flower_strict_test_gt_event | hydrogen_projection_or_state_processing_unsupported: current 0/1496; either 0/1496
+
+All-event path coverage and per-run counts: summary.json.
+All original states, moves and sources: event_inputs.jsonl.gz.
+Every match and binding: event_matches.jsonl.gz.
+Nonmatch does NOT mean chemically incorrect. This library is the author generator, not independent experimental validation.
+15 standalone unit tests passed. Whole repository pytest is blocked at collection by the two missing historical modules recorded in README.txt.

@@ -1,0 +1,105 @@
+{
+  "primary_coverage": {
+    "saved_model_event": {
+      "events": 71868,
+      "current_version_matches": 46980,
+      "dated_version_matches": 44513,
+      "either_version_matches": 47668
+    },
+    "flower_strict_test_gt_event": {
+      "events": 117365,
+      "current_version_matches": 94417,
+      "dated_version_matches": 83305,
+      "either_version_matches": 94489
+    }
+  },
+  "by_event_type": [
+    {
+      "population": "saved_model_event",
+      "event_type": "no_heavy_bond_change",
+      "events": 24195,
+      "either_version_compatible": 18359,
+      "Reaction_templates": 18137,
+      "Reaction_templates_20250216": 17762
+    },
+    {
+      "population": "saved_model_event",
+      "event_type": "heavy_bond_rearrangement",
+      "events": 45526,
+      "either_version_compatible": 29309,
+      "Reaction_templates": 28843,
+      "Reaction_templates_20250216": 26751
+    },
+    {
+      "population": "saved_model_event",
+      "event_type": "hydrogen_projection_or_state_processing_unsupported",
+      "events": 2147,
+      "either_version_compatible": 0
+    },
+    {
+      "population": "flower_strict_test_gt_event",
+      "event_type": "no_heavy_bond_change",
+      "events": 33092,
+      "either_version_compatible": 29111,
+      "Reaction_templates": 29107,
+      "Reaction_templates_20250216": 26719
+    },
+    {
+      "population": "flower_strict_test_gt_event",
+      "event_type": "heavy_bond_rearrangement",
+      "events": 82777,
+      "either_version_compatible": 65378,
+      "Reaction_templates": 65310,
+      "Reaction_templates_20250216": 56586
+    },
+    {
+      "population": "flower_strict_test_gt_event",
+      "event_type": "hydrogen_projection_or_state_processing_unsupported",
+      "events": 1496,
+      "either_version_compatible": 0
+    }
+  ],
+  "gt_reaction_count": 28967,
+  "gt_zero_event_reactions": 0,
+  "author_compatible_model_events_prior_declaration_delta_check": {
+    "matched": 47668
+  },
+  "unsupported_projection_errors": {
+    "normalized atom inventory changed": 3643
+  },
+  "representative_case_count": 47,
+  "verification": {
+    "standalone_tests": 15,
+    "main_repository_suite": "collection failed on existing missing a7_rescue and in_place_grounded_flow"
+  },
+  "raw_author_source_sha256": {
+    "/aaa/fionafyang/buddy1/whaleywang/datasets/flower_original_mechanistic_templates_20261019/Mechanistic_dataset/templates/Reaction_templates.py": "13ba7029e659afd964add417e36a0307d6c8d012d950f92a40a18ea6fea21bc5",
+    "/aaa/fionafyang/buddy1/whaleywang/datasets/flower_original_mechanistic_templates_20261019/Mechanistic_dataset/templates/AcidBase_lookup.py": "13e8951c8a451c1d3625e5cec8ac8e520df1b93be1992b7174dbabed53e41581",
+    "/aaa/fionafyang/buddy1/whaleywang/datasets/flower_original_mechanistic_templates_20261019/Mechanistic_dataset/templates/Reaction_templates_20250216.py": "4c4839700945b15ab8c3ab0af05d1c55e1fc56d07103a7a9deb5fd568608a968"
+  },
+  "artifact_sha256": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/coverage_by_event_type.csv": "a47849d45b1fab6d12badff470fc007292f575bea04363c9a6730ea74eccf1b4",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/progress.json": "f71276337e6ef9883257e704e0e7de9890636d0ce8b4f813cd3eca5f477cb103",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/gt_reaction_coverage.csv": "f397598ea5dcefcf2261f4d71db24bed926a4c85850a87690e552c5b5a6ec502",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/summary.json": "eced4f3197d788fb92fe39b407ca2f7fb73abc321863bba8e50efa4110e66ec2",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/event_matches.jsonl.gz": "fced15bcad3e7699252926c1acbca1b40377c7eb850b046dc2693fc496dd7e1b",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/compiled_author_templates.jsonl.gz": "835a3e3f4943e3c0aa5bdec311911d28b5180778d4144553e74439606c348964",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/representative_cases.jsonl.gz": "f68b3a60e2bd447e7eddf688139c1919f9e1f2dc52ec12f8d669ed01c365d1b9",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/unsupported_author_templates.jsonl.gz": "28b6123ce157ebbab885b29934f75e0c436053474b7208fd37e2d9d1e4f7a8f6",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/results_v2/event_inputs.jsonl.gz": "79295d13b188892928b2101226bde0f7ee1802ea15f62692a9568052eb1e569e"
+  },
+  "local_code_sha256": {
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/author_template_match.py": "e593c52277413c1d46926df4789b3757212a2951f8891593aabf22b349e7e263",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/test_audit_population.py": "2b0b327d597f75dde4b86e9122fbebeec2340a81243ca822bc436c5c3e9c8e6d",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/run_author_audit.py": "bea62b73cc35cce32417acdfa699188a7b0ded5d3756fff715a77b2fe0e5f10f",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/test_author_template_match.py": "d1a23e3873cf00ef12ae54ec7f1f4bcb9a72ed4e5ef82ddb9b7bcfdd4e7c2b3f",
+    "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/paper/flower_author_template_audit_20261019_v1/finalize_author_audit.py": "792e47422607fc2d624b985e58db43e26e33ad3e7c8ea1a18a7b30e43139f451"
+  },
+  "limitations": [
+    "local paired-state compatibility, not independent chemical truth",
+    "full reagent screens, stage sequence, unique arrow pairing and kinetics unverified",
+    "GT is the complete STRICT COMPILED test view; official test has 4 extra corrupt endpoint rows",
+    "unsupported chemistry stays in denominator; no nonmatch is labelled chemically incorrect",
+    "no new sampling or training; earlier endpoint-hit counts are not altered"
+  ]
+}

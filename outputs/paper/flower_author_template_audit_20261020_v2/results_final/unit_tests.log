@@ -1,0 +1,25 @@
+test_already_present_atom_is_not_imported_twice (test_action_state.RecordedImportStateTests.test_already_present_atom_is_not_imported_twice) ... ok
+test_missing_recorded_h_atoms_are_added_without_inventing_h2 (test_action_state.RecordedImportStateTests.test_missing_recorded_h_atoms_are_added_without_inventing_h2) ... ok
+test_partial_map_collision_is_rejected (test_action_state.RecordedImportStateTests.test_partial_map_collision_is_rejected) ... ok
+test_reconciliation_reads_actual_frozen_program_pool_not_author_output (test_full_population_links.FrozenPopulationLinkTests.test_reconciliation_reads_actual_frozen_program_pool_not_author_output) ... ok
+test_actual_gt9_halide_leaving_rearomatization (test_representation_match.RepresentationMatchTests.test_actual_gt9_halide_leaving_rearomatization) ... ok
+test_actual_gt9_sigma_complex_addition (test_representation_match.RepresentationMatchTests.test_actual_gt9_sigma_complex_addition) ... ok
+test_actual_hydrogen_to_hydride_keeps_hydrogen_identity (test_representation_match.RepresentationMatchTests.test_actual_hydrogen_to_hydride_keeps_hydrogen_identity) ... ok
+test_actual_snar_with_extra_charge_change_is_rejected (test_representation_match.RepresentationMatchTests.test_actual_snar_with_extra_charge_change_is_rejected) ... ok
+test_aromatic_and_valid_kekule_inputs_give_same_substitution (test_representation_match.RepresentationMatchTests.test_aromatic_and_valid_kekule_inputs_give_same_substitution) ... ok
+test_atom_identity_swap_cannot_be_hidden_by_canonicalization (test_representation_match.RepresentationMatchTests.test_atom_identity_swap_cannot_be_hidden_by_canonicalization) ... ok
+test_attached_explicit_hydrogen_transfer (test_representation_match.RepresentationMatchTests.test_attached_explicit_hydrogen_transfer) ... ok
+test_extra_remote_bond_cleavage_is_rejected (test_representation_match.RepresentationMatchTests.test_extra_remote_bond_cleavage_is_rejected) ... ok
+test_hydride_charge_is_not_neutralized (test_representation_match.RepresentationMatchTests.test_hydride_charge_is_not_neutralized) ... ok
+test_isotope_transmutation_is_rejected (test_representation_match.RepresentationMatchTests.test_isotope_transmutation_is_rejected) ... ok
+test_original_substitution_still_matches (test_representation_match.RepresentationMatchTests.test_original_substitution_still_matches) ... ok
+test_remote_alkene_migration_is_not_aromatic_equivalence (test_representation_match.RepresentationMatchTests.test_remote_alkene_migration_is_not_aromatic_equivalence) ... ok
+test_unchanged_spectator_is_preserved (test_representation_match.RepresentationMatchTests.test_unchanged_spectator_is_preserved) ... ok
+test_unchanged_state_does_not_count_as_an_event (test_representation_match.RepresentationMatchTests.test_unchanged_state_does_not_count_as_an_event) ... ok
+test_valid_deuterium_transfer_preserves_isotope_and_identity (test_representation_match.RepresentationMatchTests.test_valid_deuterium_transfer_preserves_isotope_and_identity) ... ok
+test_wrong_direction_does_not_match (test_representation_match.RepresentationMatchTests.test_wrong_direction_does_not_match) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 0.369s
+
+OK
