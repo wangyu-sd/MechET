@@ -1,0 +1,33 @@
+{
+  "schema": "mechet_conditional_electron_route_branch_v1",
+  "enabled": false,
+  "sampling": {
+    "fork_action_kind": "FLOW",
+    "anchor_selection": "pre_reward_uniform_deterministic_hash",
+    "siblings_per_anchor": 2,
+    "seed": 17,
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "top_k": 0,
+    "max_decisions_resource_guard": 128,
+    "reuse_root_prefix_for_sampling_cost_only": true,
+    "allow_mcts_selected_training_branches": false
+  },
+  "training": {
+    "objective": "conditional_dr_grpo_suffix_only_v1",
+    "clip_epsilon": 0.2,
+    "kl_beta": 0.02,
+    "fixed_C": 1024,
+    "on_censor": "exclude_complete_sibling_group",
+    "frozen_behavior_per_collection": true,
+    "frozen_reference": "initial_SFT_policy",
+    "keep_original_G4_target_only_route_training": true
+  },
+  "paper_evaluation": {
+    "compare": ["original_root_G4", "boundary_conditional", "electronic_conditional"],
+    "match": ["root_target", "stock", "behavior_policy", "model_generated_tokens", "model_requests", "executor_calls"],
+    "require_full_VALID_2986": true,
+    "chemical_outcome_definition": "hidden_reference_supported_AND_stock_closed",
+    "allow_claimed_gpu_results_without_provenance": false
+  }
+}
