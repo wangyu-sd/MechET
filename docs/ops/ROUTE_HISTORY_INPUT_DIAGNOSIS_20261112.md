@@ -78,6 +78,50 @@ issue after repair. These are software checks, not experimental success counts.
 
 Attempt03 is declared separately: freshly generate native and v5 under the same
 four contexts/seeds,16 continuations and eight extra physical-B4 probe requests.
-Keep the same probability gate and both behavioral/software criteria. Its actual
-result must be appended after verification; preparation is not evidence of a fix.
+Keep the same probability gate and both behavioral/software criteria. Its verified
+FAIL result is recorded below; preparation was not evidence of a fix.
 The formal full v3 task is neither replaced nor promoted by this diagnostic.
+
+
+## Attempt03 result: FAIL; preserving native user alone is insufficient
+
+The fresh native arm reproduced8/8 target-changing continuations and7/8
+productive current-reaction commits, with zero missing-atom or rejected FINISH
+requests. V5 produced6/8 target-changing continuations but only1/8 commits,
+three missing-atom errors, zero rejected FINISH, three resource-censored and
+four diagnostic-cap continuations. Its root continuation generated multiple
+tool calls and reached the output boundary. The system appendix follows the
+native one-tool instruction; this motivates testing their order, rather than
+adding a FINISH mask.
+
+All weight/active-adapter and actual B4 coverage checks passed. Software status
+FAILED: maximum sampled/teacher-forced drift0.4759037495>.25. Native main44
+receipts had maximum0.1396018863 and zero violations; v5 main42 had six
+violations, with its maximum on a2048-token root output. Total94 sampled
+requests,0 optimizer updates,1308.01s. Source report SHA
+`2d863896cb61a433075875f52c91dc59aca493c0eb5e1ca682a428dcf432b184`;
+[aggregate report](../../configs/ops/route_history_smoke03_results_20261112.json).
+No actor or reference weight update occurred.
+
+## V6: complete memory before original decision instructions
+
+V6 prefixes complete scoped memory and active feedback before a boundary and
+the original native system text. The current native user remains unchanged.
+This keeps the original one-tool instructions closest to the current decision;
+its effectiveness remains a GPU-test hypothesis. Restore still validates every
+original receipt across mixed v3/v5/v6 histories, including empty original
+system messages. No kernel, numerical precision, reward or sampling change.
+
+The [separate04 protocol](ROUTE_NATIVE_LAST_HISTORY_SMOKE_20261112_04.md) retains
+fresh native/v6, the same four contexts/two seeds,16 continuations and eight
+extra B4 requests. Before launch its behavioral gate is strengthened to require
+at least as many productive current-reaction commits as native, in addition to
+the existing target-change and alias criteria. Temporary movement alone is
+insufficient. Earlier v4/v5 criteria and outcomes are preserved unchanged.
+Final affected regression suite:74 passed,5.26s, overlapping earlier coverage;
+independent review found no Critical/Important issue. Resource censoring is now
+an explicit arm-summary count. The
+[v6 patch](../../patches/route_native_last_history_v6_20261112.patch) against
+immutable19 was applied and all four after-file hashes verified against
+[its bindings](../../configs/ops/route_native_last_history_v6_integration_20261112.json).
+No v6 behavioral success or formal training promotion is established here.
