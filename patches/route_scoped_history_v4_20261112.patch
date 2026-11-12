@@ -1,0 +1,525 @@
+--- a/src/mechet/route_event_history.py
++++ b/src/mechet/route_event_history.py
+@@ -6,14 +6,58 @@
+ """
+ from copy import deepcopy
+ import json
++import re
+ 
+ 
+ EVENT_ROUTE_HISTORY = 'route_event_history_feedback_v3'
++SCOPED_ROUTE_HISTORY = 'route_scoped_history_feedback_v4'
+ HISTORY_HEADER = '\nCOMPLETE ROUTE EVENT HISTORY (PAST EVENTS)\n'
+ ACTIVE_HEADER = '\nCURRENT REACTION (AUTHORITATIVE FOR NEXT ACTION)\n'
+ LOCAL_HEADER = '\nCURRENT LOCAL OBSERVATION\n'
+ _CAPSULE = 'TRAJECTORY HISTORY (executor-owned; past actions only)\n'
+ _TABLES = ('state_texts', 'observation_texts', 'observations', 'output_texts')
++_HANDLE = re.compile(r'(?<![A-Za-z0-9_])([AB])(\d+)(?![A-Za-z0-9_])')
++
++
++def _past_text(text, observation):
++    """An old local handle is never a handle in the final active inventory."""
++    replace=lambda m: 'past_'+str(observation)+'.'+('atom' if m[1]=='A' else 'bond')+m[2]
++    lines=[]
++    for line in text.splitlines(keepends=True):
++        if line.startswith(('TARGET PRODUCT SMILES:','CURRENT STATE SMILES:','ROUTE_CYCLE:')):
++            lines.append(line)
++        elif line.startswith('ANNOTATED CURRENT STATE:'):
++            # Only angle-bracket inventory labels are identifiers; B12 can be
++            # a real boron atom with ring closures in the underlying SMILES.
++            lines.append(re.sub(r'<(A)(\d+)>',lambda m:'<'+replace(m)+'>',line))
++        else:
++            lines.append(_HANDLE.sub(replace,line))
++    scoped=''.join(lines)
++    return scoped.replace('<', '\\u003c').replace('>', '\\u003e')
++
++
++def _past_value(value, observation):
++    if isinstance(value, str):
++        return _past_text(value, observation)
++    if isinstance(value, list):
++        return [_past_value(v, observation) for v in value]
++    if isinstance(value, dict):
++        items=[]
++        for k,v in value.items():
++            key=_past_text(k,observation)
++            if k in ('smiles','target_smiles','current_state','initial_state','final_state') and isinstance(v,str):
++                # Axx is not an element/ring token; Bxx can be. Keep valid
++                # chemical B/ring notation rather than treating it as a bond ID.
++                text=re.sub(r'(?<![A-Za-z0-9_])(A)(\d+)(?![A-Za-z0-9_])',
++                    lambda m:'past_'+str(observation)+'.atom'+m[2],v)
++                rendered=text.replace('<','\\u003c').replace('>','\\u003e')
++            else:
++                rendered=_past_value(v,observation)
++            items.append((key,rendered))
++        if len({k for k,_ in items})!=len(items):
++            return {'historical_mapping_items':[[k,v] for k,v in items]}
++        return dict(items)
++    return value
+ 
+ 
+ def public_json(value):
+@@ -95,14 +139,68 @@
+             feedback['instruction_at_that_time'] = instruction
+         return feedback
+ 
+-    def latest_feedback(self, reaction_id):
++    def latest_feedback(self, reaction_id, *, scope_aliases=False):
+         for event in reversed(self.data['events']):
+             if event['reaction_id'] == reaction_id and event['type'] == 'attempt':
+                 return dict(accepted=event['feedback']['accepted'],
+-                    error=event['feedback']['error'],
++                    error=(_past_text(event['feedback']['error'],event['observation_ref'])
++                           if scope_aliases else event['feedback']['error']),
+                     state_changed=event['feedback']['state_changed'],
+                     resulting_state_ref=event['after_state_ref'])
+         return None
++
++    def model_view(self, *, parse_calls=None):
++        """Scoped semantic display; the verbatim ledger and receipts stay intact.
++
++        The same raw response can occur under different local inventories, so
++        display actions are keyed by BOTH observation and raw-output reference.
++        Raw tool delimiters never become apparent current assistant calls.
++        """
++        result = dict(schema_version=3, model_view_version=4,
++            handle_scope='past_N.atomXX/bondXX belong only to historical observation N; '
++                         'only the final native inventory provides current Axx/Bxx handles',
++            state_texts=list(self.data['state_texts']), observation_texts=[],
++            observations=[], past_actions=[], events=[])
++        text_index, action_index = {}, {}
++        for ref, observation in enumerate(self.data['observations']):
++            frames = []
++            for message in observation:
++                parts = []
++                for part in message['parts']:
++                    text = _past_text(self.data['observation_texts'][part], ref)
++                    if text not in text_index:
++                        text_index[text] = len(result['observation_texts'])
++                        result['observation_texts'].append(text)
++                    parts.append(text_index[text])
++                frames.append(dict(role=message['role'],parts=parts))
++            result['observations'].append(frames)
++        for original in self.data['events']:
++            event = deepcopy(original)
++            if event['type']=='attempt':
++                ref, output = event['observation_ref'],event.pop('output_ref')
++                key = (ref,output)
++                if key not in action_index:
++                    raw = self.data['output_texts'][output]
++                    try:
++                        calls = parse_calls(raw) if parse_calls is not None else []
++                    except Exception:
++                        calls = []
++                    if calls:
++                        action = dict(calls=[dict(name=_past_text(c.name,ref),
++                            arguments=_past_value(c.arguments,ref)) for c in calls])
++                        other = re.sub(r'<tool_call>.*?</tool_call>', '', raw,
++                                       flags=re.DOTALL|re.IGNORECASE)
++                        other = other.replace('<|im_end|>','').strip()
++                        if other:
++                            action['other_response_text']=_past_text(other,ref)
++                    else:
++                        action = dict(unparsed_response=_past_text(raw,ref))
++                    action_index[key] = len(result['past_actions'])
++                    result['past_actions'].append(action)
++                event['action_ref'] = action_index[key]
++                event['feedback'] = _past_value(event['feedback'],ref)
++            result['events'].append(event)
++        return result
+ 
+     def snapshot(self):
+         return deepcopy(self.data)
+--- a/src/mechet/route_policy_episode.py
++++ b/src/mechet/route_policy_episode.py
+@@ -12,10 +12,10 @@
+ 
+ 
+ FULL_ROUTE_HISTORY = 'full_route_history_feedback_v2'
+-from .route_event_history import (EVENT_ROUTE_HISTORY, RouteEventHistory,
++from .route_event_history import (EVENT_ROUTE_HISTORY, SCOPED_ROUTE_HISTORY, RouteEventHistory,
+     HISTORY_HEADER, ACTIVE_HEADER, LOCAL_HEADER, public_json)
+ 
+-AGENTIC_ROUTE_OBSERVATIONS = (FULL_ROUTE_HISTORY, EVENT_ROUTE_HISTORY)
++AGENTIC_ROUTE_OBSERVATIONS = (FULL_ROUTE_HISTORY, EVENT_ROUTE_HISTORY, SCOPED_ROUTE_HISTORY)
+ 
+ 
+ def import_work_bytes(state,arguments):
+@@ -112,7 +112,7 @@
+         self.used_tokens, self.depth = 0, 0
+         self.full_history = []
+         self.event_history = (RouteEventHistory() if
+-            self.cfg.get('public_observation_contract') == EVENT_ROUTE_HISTORY else None)
++            self.cfg.get('public_observation_contract') in (EVENT_ROUTE_HISTORY,SCOPED_ROUTE_HISTORY) else None)
+         self.consecutive_recoveries = 0
+         if self.agentic_feedback:
+             ceiling=self.cfg.get('max_consecutive_recoveries',8)
+@@ -136,13 +136,19 @@
+             return messages
+         if self.event_history is not None:
+             rid=self.uid+'/r'+str(len(self.reactions))
+-            latest=self.event_history.latest_feedback(rid)
++            scoped=self.cfg['public_observation_contract']==SCOPED_ROUTE_HISTORY
++            latest=self.event_history.latest_feedback(rid,scope_aliases=scoped)
++            if scoped:
++                from .agent_inference import parse_tool_calls
++                ledger=self.event_history.model_view(parse_calls=parse_tool_calls)
++            else:
++                ledger=self.event_history.snapshot()
+             context=dict(original_route_target=self.public_root,
+                 pending_obligations=copy.deepcopy(self.pending),
+                 completed_reactions=[{k:copy.deepcopy(edge[k]) for k in
+                     ('public_product','public_precursors','occurrence','depth')}
+                     for edge in self.reactions],
+-                stock_leaves=list(self.stock_leaves),ledger=self.event_history.snapshot())
++                stock_leaves=list(self.stock_leaves),ledger=ledger)
+             active=dict(reaction_id=rid,occurrence=self.current['occurrence'],
+                 phase='new_reaction' if latest is None else 'ongoing_reaction',
+                 target=self.current['public_product'],current_state=public_molecule(self.node.state),
+@@ -424,7 +430,7 @@
+         result=object.__new__(cls)
+         result.__dict__.update(copy.deepcopy(snapshot))
+         result.event_history=(RouteEventHistory(snapshot['event_history'])
+-            if result.cfg.get('public_observation_contract')==EVENT_ROUTE_HISTORY else None)
++            if result.cfg.get('public_observation_contract') in (EVENT_ROUTE_HISTORY,SCOPED_ROUTE_HISTORY) else None)
+         result.stock=stock if stock is not None else set(snapshot['stock'])
+         result.protected=set(snapshot['protected'])
+         result.chemistry=chemistry or NativeChemistry(result.cfg.get('concurrent_executors',32))
+--- /dev/null
++++ b/scripts/smoke_route_scoped_history.py
+@@ -0,0 +1,209 @@
++"""Explicitly authorized fixed-state paired smoke, never training/benchmark data."""
++from copy import deepcopy
++import hashlib
++import json
++from pathlib import Path
++import time
++from types import SimpleNamespace
++
++
++def audit_probe_batches(path):
++    """A configured maximum B4 is not evidence that a physical B4 ran."""
++    rows=[json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
++    returned=[r for r in rows if r.get('event')=='gpu-returned']
++    sizes=[len(r['requests']) for r in returned]
++    nonempty=sum(bool(ids) for r in returned for ids in r['generated_token_ids'])
++    return dict(physical_batch_sizes=sizes,nonempty_outputs=nonempty,
++                complete=sizes==[4] and nonempty==4)
++
++
++def run(manifest_path):
++    manifest_path=Path(manifest_path)
++    manifest=json.loads(manifest_path.read_text())
++    root=Path(manifest['output_dir']);root.mkdir(mode=0o700,parents=True,exist_ok=True)
++    began=time.monotonic()
++    from mechet.route_training_contract import atomic_json,chemical_identity
++    from mechet.route_vllm_adapter import verify_hashes
++    def event(name,**values):
++        data=dict(event=name,time=time.time(),elapsed_seconds=time.monotonic()-began,**values)
++        atomic_json(root/'progress.json',data);print(json.dumps(data),flush=True)
++    try:
++        with (root/'attempt_started.json').open('x') as f:
++            json.dump(dict(manifest_sha256=hashlib.sha256(manifest_path.read_bytes()).hexdigest()),f)
++        event('scope-smoke-verifying')
++        assert manifest['scope']=='explicit_user_authorized_paired_history_smoke_v1'
++        verify_hashes(manifest['files_sha256'])
++        cfg=json.loads(Path(manifest['learner_contract']).read_text())
++        from mechet.external_route_actor import verify_actor_binding
++        verify_actor_binding(cfg)
++        bank=json.loads(Path(manifest['cases']).read_text())
++        assert len(bank['cases'])==4 and bank['parent_sha256']==cfg['parent_sha256']
++        assert manifest['draw_seeds']==[17,18] and manifest['max_new_decisions']==8
++        assert manifest['generation_batch_size']==1 and manifest['padding_probe_batch_size']==4
++        import torch,peft,transformers
++        from peft import PeftModel
++        from transformers import AutoTokenizer
++        from mechet.qwen35_protocol import load_language_model,OFFICIAL_REVISION
++        from mechet.route_precision import configure_precision,policy_autocast
++        from mechet.external_route_rl import TargetOnlyRouteEpisode
++        from mechet.route_event_history import EVENT_ROUTE_HISTORY,SCOPED_ROUTE_HISTORY
++        from mechet.external_route_io import BatchedNativeRouteSampler,ReceiptBatch
++        from mechet.agent_inference import parse_tool_calls
++        from scripts.replay_route_hf_precision import audit_adapter_masters
++        from scripts.pr96_earho_contract import token_logps_batch
++        assert torch.__version__.startswith('2.6.0') and torch.version.cuda=='11.8'
++        assert peft.__version__=='0.18.1' and transformers.__version__=='5.5.0'
++        torch.cuda.set_device(0);torch.set_num_threads(4)
++        assert 'H20' in torch.cuda.get_device_name(0)
++        configure_precision(cfg)
++        event('scope-smoke-loading-original-history89442',parent_sha256=cfg['parent_sha256'])
++        tokenizer=AutoTokenizer.from_pretrained(cfg['base_path'],revision=OFFICIAL_REVISION,local_files_only=True)
++        tokenizer.padding_side='left'
++        if tokenizer.pad_token_id is None:tokenizer.pad_token=tokenizer.eos_token
++        actor,_=load_language_model(cfg['base_path'],dtype=torch.bfloat16)
++        actor=PeftModel.from_pretrained(actor,cfg['parent'],is_trainable=True).cuda().eval()
++        reference,_=load_language_model(cfg['base_path'],dtype=torch.bfloat16)
++        reference=PeftModel.from_pretrained(reference,cfg['parent'],is_trainable=False).cuda().eval()
++        for p in reference.parameters():p.requires_grad_(False)
++        for model in (actor,reference):
++            for module in model.modules():
++                if isinstance(module,torch.nn.Dropout):module.p=0.
++        before=audit_adapter_masters(actor,reference,Path(cfg['parent'])/'adapter_model.safetensors')
++        layers=[m for m in actor.modules() if hasattr(m,'lora_A') and len(m.lora_A)]
++        assert len(layers)==186 and all(not m.disable_adapters and 'default' in m.active_adapters for m in layers)
++        event('scope-smoke-actual-gpu-adapter-verified',audit=before,active_lora_modules=len(layers))
++        stock=set((Path(cfg['dataset'])/'stock.txt').read_text().splitlines())
++        class NativeViewEpisode(TargetOnlyRouteEpisode):
++            def _messages(self):
++                return deepcopy(self.chemistry.messages(self.node))
++        def episode(case,arm):
++            snapshot=deepcopy(case['snapshot'])
++            snapshot['cfg']['public_observation_contract']=(SCOPED_ROUTE_HISTORY if arm=='v4' else EVENT_ROUTE_HISTORY)
++            cls=NativeViewEpisode if arm=='native' else TargetOnlyRouteEpisode
++            return cls.restore(snapshot,stock=stock)
++        run_cfg=dict(cfg,pad_token_id=tokenizer.pad_token_id,_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest())
++        first_draws={};results=[];drifts=[];model_calls=0;request_attempts=0
++        def sample(requests,cases,arm,seed,batch_size,path):
++            nonlocal model_calls,request_attempts
++            local_cfg=dict(run_cfg,seed=seed,generation_batch_size=batch_size)
++            writer=ReceiptBatch(path/'executed.jsonl',cfg=local_cfg)
++            sampler=BatchedNativeRouteSampler(actor,tokenizer,local_cfg,path/'raw.jsonl',writer)
++            # Correlation IDs are not model input. Keep the physical ID and the
++            # logical environment ID explicitly; identical keys pair RNG across arms.
++            wire=[SimpleNamespace(**dict(vars(req),request_id=
++                'smoke_case'+str(case['case_id'])+'/draw'+str(seed)+'/'+req.request_id))
++                for req,case in zip(requests,cases)]
++            outputs=sampler.generate(wire);request_attempts+=len(outputs)
++            model_calls+=sum(not output.get('resource_error') for output in outputs)
++            for output,transport,logical in zip(outputs,wire,requests):
++                assert output['request_id']==transport.request_id
++                output['sampler_request_id']=output['request_id']
++                output['request_id']=logical.request_id
++                if output.get('generated_token_ids'):
++                    with torch.inference_mode():
++                        actual=token_logps_batch(actor,[(output['prompt_token_ids'],output['generated_token_ids'])],
++                            tokenizer.pad_token_id,precision='bf16_autocast')[0]
++                    expected=torch.tensor(output['behavior_logprobs'],device=actual.device,dtype=actual.dtype)
++                    drift=(actual.detach()-expected).abs().max().item()
++                    assert torch.isfinite(actual).all() and len(actual)==len(output['generated_token_ids'])
++                    drifts.append(drift);output['teacherforced_max_abs_drift']=drift
++            return outputs
++        # Verify the adapter affects a real native prompt, rather than merely
++        # finding correctly named but disabled CUDA tensors.
++        from mechet.qwen35_protocol import tool_prefix
++        from scripts.build_natural_language_event_sft import TOOLS
++        control=episode(bank['cases'][0],'native').next_decision()
++        ids=tokenizer(tool_prefix(tokenizer,control.messages,TOOLS),return_tensors='pt',add_special_tokens=False)
++        ids={k:v.cuda() for k,v in ids.items()}
++        with torch.inference_mode(),policy_autocast(actor,'bf16_autocast'):
++            enabled=actor(**ids,use_cache=False,logits_to_keep=1).logits[:,-1].float()
++            with actor.disable_adapter():disabled=actor(**ids,use_cache=False,logits_to_keep=1).logits[:,-1].float()
++        adapter_effect=(enabled-disabled).abs().max().item()
++        assert adapter_effect>1e-5 and torch.isfinite(enabled).all()
++        del enabled,disabled,ids
++        event('scope-smoke-active-adapter-effect-confirmed',max_abs_logit_effect=adapter_effect)
++        for arm in ('native','v3','v4'):
++            for seed in manifest['draw_seeds']:
++                contexts=[dict(case=c,ep=episode(c,arm),start=len(c['snapshot']['reactions']),
++                    previous_records=len(c['snapshot']['records']),target_changing_flow=False,
++                    stop=None,first_tool=None) for c in bank['cases']]
++                for step in range(manifest['max_new_decisions']):
++                    active=[c for c in contexts if c['stop'] is None]
++                    if not active:break
++                    requests=[c['ep'].next_decision() for c in active]
++                    assert all(r is not None for r in requests)
++                    outputs=sample(requests,[c['case'] for c in active],arm,seed,1,
++                                   root/arm/('seed'+str(seed))/('step'+str(step)))
++                    if step==0:first_draws[(arm,seed)]=deepcopy(outputs)
++                    for context,output in zip(active,outputs):
++                        ep=context['ep']
++                        try:
++                            calls=parse_tool_calls(output.get('raw',''));name=calls[0].name if len(calls)==1 else 'UNPARSED'
++                        except Exception:name='UNPARSED'
++                        if context['first_tool'] is None:context['first_tool']=name
++                        ep.accept(output)
++                        record=ep.records[-1]
++                        if name=='apply_electron_flow' and record.get('accepted'):
++                            changed=(chemical_identity(ep.chemistry.precursors(ep.node,ep.initial))!=ep.current['product'])
++                            context['target_changing_flow']|=changed
++                        if len(ep.reactions)>context['start']:context['stop']='productive_reaction_committed'
++                        elif ep.status is not None:context['stop']=ep.status
++                    event('scope-smoke-continuing',arm=arm,seed=seed,step=step+1,
++                          model_calls=model_calls,active_contexts=sum(c['stop'] is None for c in contexts))
++                for context in contexts:
++                    ep=context['ep'];records=ep.records[context['previous_records']:]
++                    result=dict(arm=arm,seed=seed,case_id=context['case']['case_id'],label=context['case']['label'],
++                        first_tool=context['first_tool'],target_changing_flow=context['target_changing_flow'],
++                        stop=context['stop'] or 'smoke_decision_cap_censored',new_decisions=len(records),
++                        missing_atom_errors=sum(r.get('error','').startswith('KeyError:') for r in records),
++                        historical_handle_rejections=sum('past_' in r.get('raw','') and not r.get('accepted') for r in records),
++                        rejected_finish=sum('FINISH' in r.get('error','') or r.get('error','').startswith('ROUTE_CYCLE:') for r in records),
++                        records=records)
++                    results.append(result)
++                    atomic_json(root/arm/('seed'+str(seed))/('case'+str(result['case_id'])+'.json'),result)
++        probes=[];probe_coverage={}
++        for arm in ('native','v3','v4'):
++            eps=[episode(c,arm) for c in bank['cases']]
++            requests=[ep.next_decision() for ep in eps]
++            outputs=sample(requests,bank['cases'],arm,17,4,root/arm/'padding_probe')
++            probe_coverage[arm]=audit_probe_batches(root/arm/'padding_probe'/'raw.jsonl')
++            for case,single,batched in zip(bank['cases'],first_draws[(arm,17)],outputs):
++                common=0;worst=0.
++                for a,b,x,y in zip(single['generated_token_ids'],batched['generated_token_ids'],
++                                   single['behavior_logprobs'],batched['behavior_logprobs']):
++                    if a!=b:break
++                    common+=1;worst=max(worst,abs(x-y))
++                probes.append(dict(arm=arm,case_id=case['case_id'],same_output=
++                    single['generated_token_ids']==batched['generated_token_ids'],
++                    common_prefix_positions=common,max_common_prefix_logprob_difference=worst))
++        after=audit_adapter_masters(actor,reference,Path(cfg['parent'])/'adapter_model.safetensors')
++        summaries={arm:dict(continuations=8,target_changing_draws=sum(r['target_changing_flow'] for r in results if r['arm']==arm),
++            productive_finishes=sum(r['stop']=='productive_reaction_committed' for r in results if r['arm']==arm),
++            immediate_finish=sum(r['first_tool']=='finish_trace' for r in results if r['arm']==arm),
++            missing_atom_errors=sum(r['missing_atom_errors'] for r in results if r['arm']==arm),
++            historical_handle_rejections=sum(r['historical_handle_rejections'] for r in results if r['arm']==arm),
++            rejected_finish=sum(r['rejected_finish'] for r in results if r['arm']==arm),
++            capped_continuations=sum(r['stop']=='smoke_decision_cap_censored' for r in results if r['arm']==arm))
++            for arm in ('native','v3','v4')}
++        software_ok=(bool(drifts) and max(drifts)<=manifest['logprob_max_abs_tolerance']
++                     and all(v['complete'] for v in probe_coverage.values()))
++        candidate=summaries['v4'];native=summaries['native']
++        changed_cases={r['case_id'] for r in results if r['arm']=='v4' and r['target_changing_flow']}
++        behavior_ok=(candidate['missing_atom_errors']==0 and candidate['historical_handle_rejections']==0
++            and {1,3}.issubset(changed_cases) and candidate['target_changing_draws']>=native['target_changing_draws'])
++        report=dict(scope=manifest['scope'],status='PASS' if software_ok and behavior_ok else 'INCONCLUSIVE' if software_ok else 'FAIL',
++            software_status='PASS' if software_ok else 'FAIL',behavior_status='EVIDENCE_OF_FIX' if behavior_ok else 'NOT_ESTABLISHED',
++            parent_sha256=cfg['parent_sha256'],actual_gpu_master_audit_before=before,actual_gpu_master_audit_after=after,
++            active_adapter_logit_effect=adapter_effect,model_calls=model_calls,request_attempts=request_attempts,
++            model_calls_scope='completed policy sampling requests; excludes receipt/logit verification forwards',optimizer_updates=0,
++            max_teacherforced_logprob_drift=max(drifts,default=0.),logprob_tolerance=manifest['logprob_max_abs_tolerance'],
++            behavior_summary_by_arm=summaries,padding_probe=probes,probe_coverage=probe_coverage,
++            elapsed_seconds=time.monotonic()-began,
++            limitation='Four fixed diagnostic contexts, two seeds, eight-decision cap; not full route evaluation or RL improvement. Recorded prefix actions are fixed historical predictions, not fresh samples from each condition.')
++        atomic_json(root/'report.json',report)
++        event('scope-smoke-complete',status=report['status'],software_status=report['software_status'],
++              behavior_status=report['behavior_status'],model_calls=model_calls,summaries=summaries)
++    except BaseException as exc:
++        atomic_json(root/'bootstrap_failure.json',dict(status='FAIL',error=type(exc).__name__+':'+str(exc)))
++        event('scope-smoke-failed',error=type(exc).__name__+':'+str(exc))
++        raise
+--- /dev/null
++++ b/tests/test_route_scoped_history.py
+@@ -0,0 +1,123 @@
++"""History-only handles must never masquerade as current executor handles."""
++from copy import deepcopy
++import json
++import re
++
++from test_route_event_history import episode, view
++from test_route_policy_episode import act, finish
++
++
++def populated():
++    from mechet.route_event_history import RouteEventHistory
++    ledger = RouteEventHistory()
++    ledger.start('r0', dict(occurrence='0', public_product='CO', ancestors=[], level=0), 'CO')
++    raw = '<tool_call>{"name":"apply_electron_flow","arguments":{"source":"atom A21","bond":"B02"}}</tool_call><|im_end|>'
++    record = dict(request_id='a0', reaction_id='r0', occurrence='0', raw=raw,
++        feedback=dict(accepted=False, error="KeyError:'A21'", state_changed=False,
++                      current_state='CO', instruction='Correct A21'))
++    ledger.record(record, [{'role':'user','content':'inventory <A01>C<A02>O; bond B01'}],
++                  'CO', 'CO', reaction_committed=False)
++    return ledger
++
++
++def test_model_view_has_scoped_past_handles_and_original_archive_is_unchanged():
++    from mechet.agent_inference import parse_tool_calls
++    ledger = populated()
++    archive = ledger.snapshot()
++    rendered = ledger.model_view(parse_calls=parse_tool_calls)
++    text = json.dumps(rendered)
++    assert not re.search(r'\b[AB]\d+\b', text)
++    assert '<tool_call>' not in text and '<|im_end|>' not in text
++    event = rendered['events'][1]
++    action = rendered['past_actions'][event['action_ref']]
++    assert action['calls'][0]['name'] == 'apply_electron_flow'
++    assert action['calls'][0]['arguments']['source'] == 'atom past_0.atom21'
++    assert action['calls'][0]['arguments']['bond'] == 'past_0.bond02'
++    assert event['feedback']['error'] == "KeyError:'past_0.atom21'"
++    assert rendered['state_texts'] == ['CO']
++    assert ledger.snapshot() == archive
++
++
++def test_same_raw_action_in_different_inventories_gets_different_scope():
++    from mechet.agent_inference import parse_tool_calls
++    ledger = populated()
++    record = dict(request_id='a1', reaction_id='r0', occurrence='0',
++        raw=ledger.data['output_texts'][0], feedback=dict(accepted=False,
++            error="KeyError:'A21'", state_changed=False,current_state='CO'))
++    ledger.record(record, [{'role':'user','content':'different inventory <A01>O<A02>C'}],
++                  'CO','CO',reaction_committed=False)
++    model = ledger.model_view(parse_calls=parse_tool_calls)
++    assert len(model['events']) == 3
++    assert len(model['past_actions']) == 2
++    assert 'past_1.atom21' in json.dumps(model['past_actions'][1])
++    assert len(ledger.data['output_texts']) == 1
++
++
++def test_unparsed_history_is_retained_but_cannot_inject_tools_or_aliases():
++    ledger = populated()
++    ledger.data['output_texts'][0] = 'bad <tool_call>atom A21<|im_end|>'
++    model = ledger.model_view()
++    action = model['past_actions'][0]
++    assert 'past_0.atom21' in action['unparsed_response']
++    assert '<tool_call>' not in json.dumps(model)
++    assert '<|im_end|>' not in json.dumps(model)
++
++
++def test_v4_scopes_only_history_and_keeps_the_current_native_observation_last():
++    ep = episode()
++    ep.cfg['public_observation_contract'] = 'route_scoped_history_feedback_v4'
++    finish(ep, 'CO')
++    act(ep, 'finish_trace')
++    history, active, local = view(ep)
++    assert history['ledger']['model_view_version'] == 4
++    assert local == 'CO'
++    assert active['target'] == 'CO' and active['accepted_electron_flows'] == 0
++    assert active['latest_feedback']['error'] == 'NONPRODUCTIVE_FINISH'
++    from mechet.route_policy_episode import RouteEpisode
++    restored = RouteEpisode.restore(json.loads(json.dumps(ep.snapshot())), chemistry=ep.chemistry)
++    assert restored.next_decision() == ep.next_decision()
++
++
++def test_v4_latest_error_cannot_offer_an_old_atom_as_a_current_handle():
++    ledger = populated()
++    feedback = ledger.latest_feedback('r0', scope_aliases=True)
++    assert feedback['error'] == "KeyError:'past_0.atom21'"
++    assert ledger.latest_feedback('r0')['error'] == "KeyError:'A21'"
++
++
++def test_malformed_historical_call_names_and_keys_are_scoped_too():
++    from mechet.agent_inference import parse_tool_calls
++    ledger=populated()
++    ledger.data['output_texts'][0]='<tool_call>{"name":"A21","arguments":{"A21":"B02"}}</tool_call>'
++    model=ledger.model_view(parse_calls=parse_tool_calls)
++    call=model['past_actions'][0]['calls'][0]
++    assert call['name']=='past_0.atom21'
++    assert call['arguments']=={'past_0.atom21':'past_0.bond02'}
++    assert not re.search(r'\b[AB]\d+\b',json.dumps(model))
++
++
++def test_scope_does_not_modify_chemical_smiles_with_boron_ring_labels():
++    from mechet.agent_inference import parse_tool_calls
++    ledger=populated()
++    ledger.data['output_texts'][0]='<tool_call>{"name":"import_fragments","arguments":{"fragments":[{"smiles":"C1CC2CCC-B12","count":1}]}}</tool_call>'
++    ledger.data['observation_texts'][0]='CURRENT STATE SMILES: C1CC2CCC-B12\nANNOTATED CURRENT STATE: <A01>B12<A02>C'
++    model=ledger.model_view(parse_calls=parse_tool_calls)
++    assert model['past_actions'][0]['calls'][0]['arguments']['fragments'][0]['smiles']=='C1CC2CCC-B12'
++    assert 'CURRENT STATE SMILES: C1CC2CCC-B12' in model['observation_texts'][0]
++    assert 'past_0.atom01' in model['observation_texts'][0]
++
++
++def test_probe_coverage_rejects_split_batches_and_empty_outputs(tmp_path):
++    from scripts.smoke_route_scoped_history import audit_probe_batches
++    path=tmp_path/'probe.jsonl'
++    rows=[dict(event='gpu-returned',requests=[{},{}],generated_token_ids=[[1],[2]])]*2
++    path.write_text('\n'.join(json.dumps(r) for r in rows)+'\n')
++    assert audit_probe_batches(path)['complete'] is False
++    row=dict(event='gpu-returned',requests=[{}]*4,generated_token_ids=[[1],[2],[],[3]])
++    path.write_text(json.dumps(row)+'\n')
++    assert audit_probe_batches(path)['complete'] is False
++    row['generated_token_ids'][2]=[4]
++    path.write_text(json.dumps(row)+'\n')
++    actual=audit_probe_batches(path)
++    assert actual['complete'] is True and actual['physical_batch_sizes']==[4]
++    assert actual['nonempty_outputs']==4

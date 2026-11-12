@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "scope": "four-file patch application and before/after bytes; not model behavior",
+  "copy": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/route-native-patch-1112-y1q2cgc5",
+  "patch_sha256": "793529dce39697e0b47e7375549e3ac4e0e4e2fd9e3133b0446d1fb6805393cd",
+  "verified_files": 4
+}

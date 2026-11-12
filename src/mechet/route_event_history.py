@@ -6,14 +6,59 @@ remove duplicate snapshots without deleting decision events.
 """
 from copy import deepcopy
 import json
+import re
 
 
 EVENT_ROUTE_HISTORY = 'route_event_history_feedback_v3'
+SCOPED_ROUTE_HISTORY = 'route_scoped_history_feedback_v4'
+NATIVE_ROUTE_HISTORY = 'route_native_history_feedback_v5'
 HISTORY_HEADER = '\nCOMPLETE ROUTE EVENT HISTORY (PAST EVENTS)\n'
 ACTIVE_HEADER = '\nCURRENT REACTION (AUTHORITATIVE FOR NEXT ACTION)\n'
 LOCAL_HEADER = '\nCURRENT LOCAL OBSERVATION\n'
 _CAPSULE = 'TRAJECTORY HISTORY (executor-owned; past actions only)\n'
 _TABLES = ('state_texts', 'observation_texts', 'observations', 'output_texts')
+_HANDLE = re.compile(r'(?<![A-Za-z0-9_])([AB])(\d+)(?![A-Za-z0-9_])')
+
+
+def _past_text(text, observation):
+    """An old local handle is never a handle in the final active inventory."""
+    replace=lambda m: 'past_'+str(observation)+'.'+('atom' if m[1]=='A' else 'bond')+m[2]
+    lines=[]
+    for line in text.splitlines(keepends=True):
+        if line.startswith(('TARGET PRODUCT SMILES:','CURRENT STATE SMILES:','ROUTE_CYCLE:')):
+            lines.append(line)
+        elif line.startswith('ANNOTATED CURRENT STATE:'):
+            # Only angle-bracket inventory labels are identifiers; B12 can be
+            # a real boron atom with ring closures in the underlying SMILES.
+            lines.append(re.sub(r'<(A)(\d+)>',lambda m:'<'+replace(m)+'>',line))
+        else:
+            lines.append(_HANDLE.sub(replace,line))
+    scoped=''.join(lines)
+    return scoped.replace('<', '\\u003c').replace('>', '\\u003e')
+
+
+def _past_value(value, observation):
+    if isinstance(value, str):
+        return _past_text(value, observation)
+    if isinstance(value, list):
+        return [_past_value(v, observation) for v in value]
+    if isinstance(value, dict):
+        items=[]
+        for k,v in value.items():
+            key=_past_text(k,observation)
+            if k in ('smiles','target_smiles','current_state','initial_state','final_state') and isinstance(v,str):
+                # Axx is not an element/ring token; Bxx can be. Keep valid
+                # chemical B/ring notation rather than treating it as a bond ID.
+                text=re.sub(r'(?<![A-Za-z0-9_])(A)(\d+)(?![A-Za-z0-9_])',
+                    lambda m:'past_'+str(observation)+'.atom'+m[2],v)
+                rendered=text.replace('<','\\u003c').replace('>','\\u003e')
+            else:
+                rendered=_past_value(v,observation)
+            items.append((key,rendered))
+        if len({k for k,_ in items})!=len(items):
+            return {'historical_mapping_items':[[k,v] for k,v in items]}
+        return dict(items)
+    return value
 
 
 def public_json(value):
@@ -95,14 +140,68 @@ class RouteEventHistory:
             feedback['instruction_at_that_time'] = instruction
         return feedback
 
-    def latest_feedback(self, reaction_id):
+    def latest_feedback(self, reaction_id, *, scope_aliases=False):
         for event in reversed(self.data['events']):
             if event['reaction_id'] == reaction_id and event['type'] == 'attempt':
                 return dict(accepted=event['feedback']['accepted'],
-                    error=event['feedback']['error'],
+                    error=(_past_text(event['feedback']['error'],event['observation_ref'])
+                           if scope_aliases else event['feedback']['error']),
                     state_changed=event['feedback']['state_changed'],
                     resulting_state_ref=event['after_state_ref'])
         return None
+
+    def model_view(self, *, parse_calls=None):
+        """Scoped semantic display; the verbatim ledger and receipts stay intact.
+
+        The same raw response can occur under different local inventories, so
+        display actions are keyed by BOTH observation and raw-output reference.
+        Raw tool delimiters never become apparent current assistant calls.
+        """
+        result = dict(schema_version=3, model_view_version=4,
+            handle_scope='past_N.atomXX/bondXX belong only to historical observation N; '
+                         'only the final native inventory provides current Axx/Bxx handles',
+            state_texts=list(self.data['state_texts']), observation_texts=[],
+            observations=[], past_actions=[], events=[])
+        text_index, action_index = {}, {}
+        for ref, observation in enumerate(self.data['observations']):
+            frames = []
+            for message in observation:
+                parts = []
+                for part in message['parts']:
+                    text = _past_text(self.data['observation_texts'][part], ref)
+                    if text not in text_index:
+                        text_index[text] = len(result['observation_texts'])
+                        result['observation_texts'].append(text)
+                    parts.append(text_index[text])
+                frames.append(dict(role=message['role'],parts=parts))
+            result['observations'].append(frames)
+        for original in self.data['events']:
+            event = deepcopy(original)
+            if event['type']=='attempt':
+                ref, output = event['observation_ref'],event.pop('output_ref')
+                key = (ref,output)
+                if key not in action_index:
+                    raw = self.data['output_texts'][output]
+                    try:
+                        calls = parse_calls(raw) if parse_calls is not None else []
+                    except Exception:
+                        calls = []
+                    if calls:
+                        action = dict(calls=[dict(name=_past_text(c.name,ref),
+                            arguments=_past_value(c.arguments,ref)) for c in calls])
+                        other = re.sub(r'<tool_call>.*?</tool_call>', '', raw,
+                                       flags=re.DOTALL|re.IGNORECASE)
+                        other = other.replace('<|im_end|>','').strip()
+                        if other:
+                            action['other_response_text']=_past_text(other,ref)
+                    else:
+                        action = dict(unparsed_response=_past_text(raw,ref))
+                    action_index[key] = len(result['past_actions'])
+                    result['past_actions'].append(action)
+                event['action_ref'] = action_index[key]
+                event['feedback'] = _past_value(event['feedback'],ref)
+            result['events'].append(event)
+        return result
 
     def snapshot(self):
         return deepcopy(self.data)

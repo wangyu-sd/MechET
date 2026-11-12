@@ -1,0 +1,83 @@
+# Checkpoint-native versus global route history: paired GPU diagnosis
+
+The original corrected History-89442 checkpoint can expand the diagnostic
+states under its native input. Wrapping the same states in the new global
+history representation substantially degrades the observed continuations.
+Historical-handle namespacing alone does not repair that degradation.
+
+## Preserved attempt02 result: FAIL
+
+One H20, identical original checkpoint, four fixed saved-state contexts, two
+seeds and at most eight new decisions per continuation. These are training
+trajectory diagnostics with fixed predicted prefixes, not benchmark results or
+fresh complete routes. No optimizer, reference action labels or FINISH mask.
+
+| Input arm | Target-changing continuations | Productive current-reaction commits | Missing-atom errors | Rejected FINISH requests |
+|---|---:|---:|---:|---:|
+| Checkpoint-native | 8/8 | 7/8 | 0 | 0 |
+| Existing v3 history | 3/8 | 1/8 | 18 | 21 |
+| Scoped/structured v4 history | 6/8 | 1/8 | 6 | 24 |
+
+The error columns count requests, including repeats; they are not fractions of
+routes. A productive commit passes the existing structural-change/cycle guard;
+it does not establish agreement with a reference route or experimental validity.
+The native arm has one cap-censored continuation, v3 has four, v4 has five.
+
+All372 actor and reference FP32 CUDA adapter tensors exactly matched the
+original checkpoint before and after. All186 actor LoRA modules were active;
+an enabled-versus-disabled forward changed logits by a maximum17.40625.
+The base/adapter lineage is therefore supported by actual GPU checks, rather
+than checkpoint filenames alone. Original-base plus History adapter is the
+historical composition: History training continued the same Stage-I adapter,
+without merging it and training a new delta.
+
+Software status also FAILED the unchanged sampled-versus-teacher-forced
+absolute logprob tolerance0.25: observed maximum0.3572392464. Per-arm main B1
+maxima were0.1396018863(native),0.3572392464(v3),0.3410599232(v4), with0/3/2
+main requests over tolerance. Therefore the discrepancy is already present in
+long-history B1 continuation, rather than arising only in padded generation.
+All three extra probes really executed one physical B4 with four nonempty
+outputs. Total179 completed policy requests,0 optimizer updates,1323.28s.
+Do not treat the software failure as a pass by widening the tolerance.
+
+Canonical private report SHA:
+`d63e6ecb38a4a0c6feac1e34ee349653b3045ae74767394a4ba57395fc704dde`.
+A structure-free aggregate copy is in
+[route_history_smoke02_results_20261112.json](../../configs/ops/route_history_smoke02_results_20261112.json).
+Attempt01's pre-model bootstrap failure and attempt02's complete failures are
+preserved. The model's native behavior is evidence against attributing the
+observed non-expansion solely to an incapable or wrongly named checkpoint;
+these four contexts do not establish its general accuracy.
+
+## Repairs and exact reproduction artifacts
+
+V4 gives historical atoms and bonds observation-local names and displays parsed
+past tool calls as structured actions. It keeps raw archives unchanged, handles
+malformed names/keys and protects real boron/ring SMILES from alias substitution.
+The smoke establishes that this repair alone is insufficient.
+
+V5 additionally keeps the current native user message byte for byte. Complete
+scoped route history and current failure feedback move to the system appendix.
+No fake assistant output is added. Mixed historical v3/v5 receipts restore with
+the same count, state, raw-output, feedback, commit and native-observation
+validation; empty original system messages are preserved too. Preparation still
+defaults to v3; v5 is a separately selected diagnostic condition.
+
+- [Frozen attempt02 protocol](ROUTE_SCOPED_HISTORY_SMOKE_20261112.md)
+- [Separate v5 follow-up protocol](ROUTE_NATIVE_HISTORY_SMOKE_20261112_03.md)
+- [Runtime16-to-v4 patch](../../patches/route_scoped_history_v4_20261112.patch)
+- [Attempt18-to-v5 patch](../../patches/route_native_history_v5_20261112.patch)
+- [V4 before/after bindings](../../configs/ops/route_scoped_history_v4_integration_20261112.json)
+- [V5 before/after bindings](../../configs/ops/route_native_history_v5_integration_20261112.json)
+
+Both patches were dry-run, applied to independent Ceph copies and checked against
+all four after-file hashes. Final affected regression suite:67 passed,6.72s;
+this overlaps earlier v3/v4 coverage. The suite caught the mixed-version restore
+gap before submission. Independent read-only review found no Critical/Important
+issue after repair. These are software checks, not experimental success counts.
+
+Attempt03 is declared separately: freshly generate native and v5 under the same
+four contexts/seeds,16 continuations and eight extra physical-B4 probe requests.
+Keep the same probability gate and both behavioral/software criteria. Its actual
+result must be appended after verification; preparation is not evidence of a fix.
+The formal full v3 task is neither replaced nor promoted by this diagnostic.
