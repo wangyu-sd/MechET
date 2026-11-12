@@ -1,0 +1,24 @@
+{
+  "base": "artifacts/route_scoped_history_smoke_20261112_20/code",
+  "observation_contract": "route_passive_history_feedback_v7",
+  "preparation_default_changed": false,
+  "patch_sha256": "78db66c80f6a80490e1365a5507041624a5997a83270da013c3cd6828a3ac753",
+  "files": {
+    "src/mechet/route_event_history.py": {
+      "before_sha256": "0db0c8080f9662e05aef4601533b3c857319b7a2116769d3421fdbfc0f7f8559",
+      "after_sha256": "dfc8456ea29b369f86f9c31299beb2e729cd1e46720841e1d4f5bd077f718146"
+    },
+    "src/mechet/route_policy_episode.py": {
+      "before_sha256": "fdd5c5270d53de89453cdb62718019f01afd1759a35094ce93e807f894b30870",
+      "after_sha256": "14a6393eacaf4cb63dcaecef500a85db1bd4a02d1a868b24596de19be0b14e44"
+    },
+    "scripts/smoke_route_scoped_history.py": {
+      "before_sha256": "54f577d569e39befc4838137b60c1a828d005a94824ab0de1d1ccd1e9def29f6",
+      "after_sha256": "714969b8e0bf418818a5ffcf127ee60861dbd432131ea7df83562abcac6531c7"
+    },
+    "tests/test_route_passive_history.py": {
+      "before_sha256": null,
+      "after_sha256": "5ece8815b9acb5e451fa2707c9bf9dc5cbaac3d8dd44aba53e3143acbab6b34b"
+    }
+  }
+}

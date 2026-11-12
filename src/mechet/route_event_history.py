@@ -13,18 +13,36 @@ EVENT_ROUTE_HISTORY = 'route_event_history_feedback_v3'
 SCOPED_ROUTE_HISTORY = 'route_scoped_history_feedback_v4'
 NATIVE_ROUTE_HISTORY = 'route_native_history_feedback_v5'
 NATIVE_LAST_ROUTE_HISTORY = 'route_native_last_history_feedback_v6'
+PASSIVE_ROUTE_HISTORY = 'route_passive_history_feedback_v7'
 NATIVE_SYSTEM_HEADER = '\nNATIVE CURRENT-DECISION SYSTEM INSTRUCTIONS\n'
 HISTORY_HEADER = '\nCOMPLETE ROUTE EVENT HISTORY (PAST EVENTS)\n'
 ACTIVE_HEADER = '\nCURRENT REACTION (AUTHORITATIVE FOR NEXT ACTION)\n'
 LOCAL_HEADER = '\nCURRENT LOCAL OBSERVATION\n'
 _CAPSULE = 'TRAJECTORY HISTORY (executor-owned; past actions only)\n'
+_DERIVED_CAPSULE = re.compile(re.escape(_CAPSULE)+
+    r'accepted_actions: \d+\naccepted_action_types: (?:START|(?:import_fragments|apply_electron_flow|finish_trace)(?:>(?:import_fragments|apply_electron_flow|finish_trace))*)\n'
+    r'import_batches_committed: \d+\nimported_fragments_committed: \d+\nelectron_events_committed: \d+\n'
+    r'last_action: (?:START|import_fragments|apply_electron_flow|finish_trace)\nlast_result: (?:START|PASS)'
+    r'\nChoose the single next retrosynthetic action\.')
 _TABLES = ('state_texts', 'observation_texts', 'observations', 'output_texts')
 _HANDLE = re.compile(r'(?<![A-Za-z0-9_])([AB])(\d+)(?![A-Za-z0-9_])')
+_OLD_SCOPED_HANDLE = re.compile(r'(?<![A-Za-z0-9_])past_(\d+)\.(atom|bond)(\d+)(?![A-Za-z0-9_])')
 
 
-def _past_text(text, observation):
+def _history_handle(kind, digits, observation, opaque):
+    # Digit-wise encoding is injective even for invalid spellings A1/A01/A001.
+    letters=lambda value: ''.join(chr(ord('a')+int(d)) for d in str(value))
+    scope=letters(observation) if opaque else str(observation)
+    label=('atom' if kind=='A' else 'bond')
+    return 'past_'+scope+'.'+label+('_'+letters(digits) if opaque else digits)
+
+
+def _past_text(text, observation, *, opaque=False):
     """An old local handle is never a handle in the final active inventory."""
-    replace=lambda m: 'past_'+str(observation)+'.'+('atom' if m[1]=='A' else 'bond')+m[2]
+    replace=lambda m: _history_handle(m[1],m[2],observation,opaque)
+    if opaque:
+        text=_OLD_SCOPED_HANDLE.sub(lambda m:_history_handle(
+            'A' if m[2]=='atom' else 'B',m[3],m[1],True),text)
     lines=[]
     for line in text.splitlines(keepends=True):
         if line.startswith(('TARGET PRODUCT SMILES:','CURRENT STATE SMILES:','ROUTE_CYCLE:')):
@@ -39,23 +57,26 @@ def _past_text(text, observation):
     return scoped.replace('<', '\\u003c').replace('>', '\\u003e')
 
 
-def _past_value(value, observation):
+def _past_value(value, observation, *, opaque=False):
     if isinstance(value, str):
-        return _past_text(value, observation)
+        return _past_text(value, observation,opaque=opaque)
     if isinstance(value, list):
-        return [_past_value(v, observation) for v in value]
+        return [_past_value(v, observation,opaque=opaque) for v in value]
     if isinstance(value, dict):
         items=[]
         for k,v in value.items():
-            key=_past_text(k,observation)
+            key=_past_text(k,observation,opaque=opaque)
             if k in ('smiles','target_smiles','current_state','initial_state','final_state') and isinstance(v,str):
                 # Axx is not an element/ring token; Bxx can be. Keep valid
                 # chemical B/ring notation rather than treating it as a bond ID.
                 text=re.sub(r'(?<![A-Za-z0-9_])(A)(\d+)(?![A-Za-z0-9_])',
-                    lambda m:'past_'+str(observation)+'.atom'+m[2],v)
+                    lambda m:_history_handle('A',m[2],observation,opaque),v)
+                if opaque:
+                    text=_OLD_SCOPED_HANDLE.sub(lambda m:_history_handle(
+                        'A' if m[2]=='atom' else 'B',m[3],m[1],True),text)
                 rendered=text.replace('<','\\u003c').replace('>','\\u003e')
             else:
-                rendered=_past_value(v,observation)
+                rendered=_past_value(v,observation,opaque=opaque)
             items.append((key,rendered))
         if len({k for k,_ in items})!=len(items):
             return {'historical_mapping_items':[[k,v] for k,v in items]}
@@ -142,35 +163,43 @@ class RouteEventHistory:
             feedback['instruction_at_that_time'] = instruction
         return feedback
 
-    def latest_feedback(self, reaction_id, *, scope_aliases=False):
+    def latest_feedback(self, reaction_id, *, scope_aliases=False,opaque_handles=False):
         for event in reversed(self.data['events']):
             if event['reaction_id'] == reaction_id and event['type'] == 'attempt':
                 return dict(accepted=event['feedback']['accepted'],
-                    error=(_past_text(event['feedback']['error'],event['observation_ref'])
+                    error=(_past_text(event['feedback']['error'],event['observation_ref'],opaque=opaque_handles)
                            if scope_aliases else event['feedback']['error']),
                     state_changed=event['feedback']['state_changed'],
                     resulting_state_ref=event['after_state_ref'])
         return None
 
-    def model_view(self, *, parse_calls=None):
+    def model_view(self, *, parse_calls=None,passive=False,native_system=None):
         """Scoped semantic display; the verbatim ledger and receipts stay intact.
 
         The same raw response can occur under different local inventories, so
         display actions are keyed by BOTH observation and raw-output reference.
         Raw tool delimiters never become apparent current assistant calls.
         """
-        result = dict(schema_version=3, model_view_version=4,
-            handle_scope='past_N.atomXX/bondXX belong only to historical observation N; '
-                         'only the final native inventory provides current Axx/Bxx handles',
+        result = dict(schema_version=3, model_view_version=7 if passive else 4,
+            handle_scope=('Alphabetic historical atom/bond labels belong to their past observations; '
+                          'only the final native inventory supplies current Axx/Bxx handles' if passive else
+                         'past_N.atomXX/bondXX belong only to historical observation N; '
+                         'only the final native inventory provides current Axx/Bxx handles'),
             state_texts=list(self.data['state_texts']), observation_texts=[],
             observations=[], past_actions=[], events=[])
         text_index, action_index = {}, {}
         for ref, observation in enumerate(self.data['observations']):
             frames = []
             for message in observation:
+                if (passive and message['role']=='system' and native_system is not None
+                        and ''.join(self.data['observation_texts'][p] for p in message['parts'])==native_system):
+                    continue  # The identical policy remains in the current native SYSTEM.
                 parts = []
                 for part in message['parts']:
-                    text = _past_text(self.data['observation_texts'][part], ref)
+                    original=self.data['observation_texts'][part]
+                    if passive and _DERIVED_CAPSULE.fullmatch(original):
+                        continue  # Derived counts/actions remain reconstructable from every event.
+                    text = _past_text(original, ref,opaque=passive)
                     if text not in text_index:
                         text_index[text] = len(result['observation_texts'])
                         result['observation_texts'].append(text)
@@ -189,19 +218,23 @@ class RouteEventHistory:
                     except Exception:
                         calls = []
                     if calls:
-                        action = dict(calls=[dict(name=_past_text(c.name,ref),
-                            arguments=_past_value(c.arguments,ref)) for c in calls])
+                        action = dict(calls=[dict(name=_past_text(c.name,ref,opaque=passive),
+                            arguments=_past_value(c.arguments,ref,opaque=passive)) for c in calls])
                         other = re.sub(r'<tool_call>.*?</tool_call>', '', raw,
                                        flags=re.DOTALL|re.IGNORECASE)
                         other = other.replace('<|im_end|>','').strip()
                         if other:
-                            action['other_response_text']=_past_text(other,ref)
+                            action['other_response_text']=_past_text(other,ref,opaque=passive)
                     else:
-                        action = dict(unparsed_response=_past_text(raw,ref))
+                        action = dict(unparsed_response=_past_text(raw,ref,opaque=passive))
                     action_index[key] = len(result['past_actions'])
                     result['past_actions'].append(action)
                 event['action_ref'] = action_index[key]
-                event['feedback'] = _past_value(event['feedback'],ref)
+                event['feedback'] = _past_value(event['feedback'],ref,opaque=passive)
+                if passive and event['feedback'].get('instruction_at_that_time') in (
+                        'Continue from the executor-owned state.',
+                        'State was not committed. Correct the error and choose another action.'):
+                    event['feedback'].pop('instruction_at_that_time')
             result['events'].append(event)
         return result
 

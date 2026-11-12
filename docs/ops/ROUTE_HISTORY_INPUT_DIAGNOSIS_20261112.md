@@ -125,3 +125,43 @@ an explicit arm-summary count. The
 immutable19 was applied and all four after-file hashes verified against
 [its bindings](../../configs/ops/route_native_last_history_v6_integration_20261112.json).
 No v6 behavioral success or formal training promotion is established here.
+
+## Attempt04 result: FAIL; V7 removes remaining historical handle/policy cues
+
+V6 produced8/8 target-changing continuations and5/8 productive commits, versus
+native8/8 and7/8. It had zero immediate/rejected FINISH, two missing-atom errors,
+three diagnostic caps and no resource censoring. The two invalid atoms A19/A15
+were absent from current inventory while their numeric identifiers still
+occurred in past labels. This is an observed ambiguity, not proof of copying.
+Its maximum main probability drift was0.3600578308>.25, on a392-token coupled
+flow; native remained0.1396018863. All GPU adapter/source and actual B4 coverage
+checks passed.102 policy requests,0 optimizer updates,878.15s. Keep FAIL.
+[Preserved aggregate report](../../configs/ops/route_history_smoke04_results_20261112.json),
+SHA `4d111859bdefa8668bd28d3070783f2620cda3b5b581c72cf41d074673d28db0`.
+
+V7 keeps complete chemical history but removes old policy scaffolding from its
+model view. Historical handles use independent alphabetic symbols, including
+previously scoped and leading-zero spellings. Every chemical inventory, state,
+action, event and error remains; raw archives remain verbatim. A historical
+SYSTEM is omitted only when identical to current native SYSTEM. A derived
+accepted-action capsule is omitted only on an exact recognized native-format
+match; all its facts remain reconstructible from complete events. Novel fields,
+result codes, extra tails, nonidentical system text and unknown feedback text
+remain visible. Standard redundant past feedback instructions are omitted;
+outcomes and errors are kept. The active block is factual, without extra global
+route/stock imperatives; environment closure/cycle checks are unchanged. Native
+SYSTEM and USER remain last. No reward, mask, precision or kernel change.
+
+Final affected suite:85 passed,5.13s, overlapping earlier tests. The REAL native
+formatter test caught a two-versus-one-newline suffix mismatch before freezing;
+the fix now recognizes the actual PROMPT_SUFFIX. An unknown-capsule-tail case
+also failed before repair. Independent final review found no remaining
+Critical/Important issue. The
+[v7 patch](../../patches/route_passive_history_v7_20261112.patch) against frozen20
+was applied and checked against all four
+[file bindings](../../configs/ops/route_passive_history_v7_integration_20261112.json).
+
+The [05 protocol](ROUTE_PASSIVE_HISTORY_SMOKE_20261112_05.md) retains fresh
+native/v7, the same4contexts/seeds17/18,16 continuations plus8 extra B4 requests,
+unchanged0.25 probability tolerance and the stronger commit comparison. No v7
+GPU success, benchmark improvement or formal training promotion is claimed here.

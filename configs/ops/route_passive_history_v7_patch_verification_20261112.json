@@ -1,0 +1,7 @@
+{
+  "status": "PASS",
+  "scope": "four-file patch application and before/after bytes; not model behavior",
+  "copy": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/route-passive-patch-1112-xib8g1vv",
+  "patch_sha256": "78db66c80f6a80490e1365a5507041624a5997a83270da013c3cd6828a3ac753",
+  "verified_files": 4
+}

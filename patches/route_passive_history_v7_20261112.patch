@@ -1,0 +1,390 @@
+--- a/src/mechet/route_event_history.py
++++ b/src/mechet/route_event_history.py
+@@ -13,18 +13,36 @@
+ SCOPED_ROUTE_HISTORY = 'route_scoped_history_feedback_v4'
+ NATIVE_ROUTE_HISTORY = 'route_native_history_feedback_v5'
+ NATIVE_LAST_ROUTE_HISTORY = 'route_native_last_history_feedback_v6'
++PASSIVE_ROUTE_HISTORY = 'route_passive_history_feedback_v7'
+ NATIVE_SYSTEM_HEADER = '\nNATIVE CURRENT-DECISION SYSTEM INSTRUCTIONS\n'
+ HISTORY_HEADER = '\nCOMPLETE ROUTE EVENT HISTORY (PAST EVENTS)\n'
+ ACTIVE_HEADER = '\nCURRENT REACTION (AUTHORITATIVE FOR NEXT ACTION)\n'
+ LOCAL_HEADER = '\nCURRENT LOCAL OBSERVATION\n'
+ _CAPSULE = 'TRAJECTORY HISTORY (executor-owned; past actions only)\n'
++_DERIVED_CAPSULE = re.compile(re.escape(_CAPSULE)+
++    r'accepted_actions: \d+\naccepted_action_types: (?:START|(?:import_fragments|apply_electron_flow|finish_trace)(?:>(?:import_fragments|apply_electron_flow|finish_trace))*)\n'
++    r'import_batches_committed: \d+\nimported_fragments_committed: \d+\nelectron_events_committed: \d+\n'
++    r'last_action: (?:START|import_fragments|apply_electron_flow|finish_trace)\nlast_result: (?:START|PASS)'
++    r'\nChoose the single next retrosynthetic action\.')
+ _TABLES = ('state_texts', 'observation_texts', 'observations', 'output_texts')
+ _HANDLE = re.compile(r'(?<![A-Za-z0-9_])([AB])(\d+)(?![A-Za-z0-9_])')
+-
+-
+-def _past_text(text, observation):
++_OLD_SCOPED_HANDLE = re.compile(r'(?<![A-Za-z0-9_])past_(\d+)\.(atom|bond)(\d+)(?![A-Za-z0-9_])')
++
++
++def _history_handle(kind, digits, observation, opaque):
++    # Digit-wise encoding is injective even for invalid spellings A1/A01/A001.
++    letters=lambda value: ''.join(chr(ord('a')+int(d)) for d in str(value))
++    scope=letters(observation) if opaque else str(observation)
++    label=('atom' if kind=='A' else 'bond')
++    return 'past_'+scope+'.'+label+('_'+letters(digits) if opaque else digits)
++
++
++def _past_text(text, observation, *, opaque=False):
+     """An old local handle is never a handle in the final active inventory."""
+-    replace=lambda m: 'past_'+str(observation)+'.'+('atom' if m[1]=='A' else 'bond')+m[2]
++    replace=lambda m: _history_handle(m[1],m[2],observation,opaque)
++    if opaque:
++        text=_OLD_SCOPED_HANDLE.sub(lambda m:_history_handle(
++            'A' if m[2]=='atom' else 'B',m[3],m[1],True),text)
+     lines=[]
+     for line in text.splitlines(keepends=True):
+         if line.startswith(('TARGET PRODUCT SMILES:','CURRENT STATE SMILES:','ROUTE_CYCLE:')):
+@@ -39,23 +57,26 @@
+     return scoped.replace('<', '\\u003c').replace('>', '\\u003e')
+ 
+ 
+-def _past_value(value, observation):
++def _past_value(value, observation, *, opaque=False):
+     if isinstance(value, str):
+-        return _past_text(value, observation)
++        return _past_text(value, observation,opaque=opaque)
+     if isinstance(value, list):
+-        return [_past_value(v, observation) for v in value]
++        return [_past_value(v, observation,opaque=opaque) for v in value]
+     if isinstance(value, dict):
+         items=[]
+         for k,v in value.items():
+-            key=_past_text(k,observation)
++            key=_past_text(k,observation,opaque=opaque)
+             if k in ('smiles','target_smiles','current_state','initial_state','final_state') and isinstance(v,str):
+                 # Axx is not an element/ring token; Bxx can be. Keep valid
+                 # chemical B/ring notation rather than treating it as a bond ID.
+                 text=re.sub(r'(?<![A-Za-z0-9_])(A)(\d+)(?![A-Za-z0-9_])',
+-                    lambda m:'past_'+str(observation)+'.atom'+m[2],v)
++                    lambda m:_history_handle('A',m[2],observation,opaque),v)
++                if opaque:
++                    text=_OLD_SCOPED_HANDLE.sub(lambda m:_history_handle(
++                        'A' if m[2]=='atom' else 'B',m[3],m[1],True),text)
+                 rendered=text.replace('<','\\u003c').replace('>','\\u003e')
+             else:
+-                rendered=_past_value(v,observation)
++                rendered=_past_value(v,observation,opaque=opaque)
+             items.append((key,rendered))
+         if len({k for k,_ in items})!=len(items):
+             return {'historical_mapping_items':[[k,v] for k,v in items]}
+@@ -142,35 +163,43 @@
+             feedback['instruction_at_that_time'] = instruction
+         return feedback
+ 
+-    def latest_feedback(self, reaction_id, *, scope_aliases=False):
++    def latest_feedback(self, reaction_id, *, scope_aliases=False,opaque_handles=False):
+         for event in reversed(self.data['events']):
+             if event['reaction_id'] == reaction_id and event['type'] == 'attempt':
+                 return dict(accepted=event['feedback']['accepted'],
+-                    error=(_past_text(event['feedback']['error'],event['observation_ref'])
++                    error=(_past_text(event['feedback']['error'],event['observation_ref'],opaque=opaque_handles)
+                            if scope_aliases else event['feedback']['error']),
+                     state_changed=event['feedback']['state_changed'],
+                     resulting_state_ref=event['after_state_ref'])
+         return None
+ 
+-    def model_view(self, *, parse_calls=None):
++    def model_view(self, *, parse_calls=None,passive=False,native_system=None):
+         """Scoped semantic display; the verbatim ledger and receipts stay intact.
+ 
+         The same raw response can occur under different local inventories, so
+         display actions are keyed by BOTH observation and raw-output reference.
+         Raw tool delimiters never become apparent current assistant calls.
+         """
+-        result = dict(schema_version=3, model_view_version=4,
+-            handle_scope='past_N.atomXX/bondXX belong only to historical observation N; '
+-                         'only the final native inventory provides current Axx/Bxx handles',
++        result = dict(schema_version=3, model_view_version=7 if passive else 4,
++            handle_scope=('Alphabetic historical atom/bond labels belong to their past observations; '
++                          'only the final native inventory supplies current Axx/Bxx handles' if passive else
++                         'past_N.atomXX/bondXX belong only to historical observation N; '
++                         'only the final native inventory provides current Axx/Bxx handles'),
+             state_texts=list(self.data['state_texts']), observation_texts=[],
+             observations=[], past_actions=[], events=[])
+         text_index, action_index = {}, {}
+         for ref, observation in enumerate(self.data['observations']):
+             frames = []
+             for message in observation:
++                if (passive and message['role']=='system' and native_system is not None
++                        and ''.join(self.data['observation_texts'][p] for p in message['parts'])==native_system):
++                    continue  # The identical policy remains in the current native SYSTEM.
+                 parts = []
+                 for part in message['parts']:
+-                    text = _past_text(self.data['observation_texts'][part], ref)
++                    original=self.data['observation_texts'][part]
++                    if passive and _DERIVED_CAPSULE.fullmatch(original):
++                        continue  # Derived counts/actions remain reconstructable from every event.
++                    text = _past_text(original, ref,opaque=passive)
+                     if text not in text_index:
+                         text_index[text] = len(result['observation_texts'])
+                         result['observation_texts'].append(text)
+@@ -189,19 +218,23 @@
+                     except Exception:
+                         calls = []
+                     if calls:
+-                        action = dict(calls=[dict(name=_past_text(c.name,ref),
+-                            arguments=_past_value(c.arguments,ref)) for c in calls])
++                        action = dict(calls=[dict(name=_past_text(c.name,ref,opaque=passive),
++                            arguments=_past_value(c.arguments,ref,opaque=passive)) for c in calls])
+                         other = re.sub(r'<tool_call>.*?</tool_call>', '', raw,
+                                        flags=re.DOTALL|re.IGNORECASE)
+                         other = other.replace('<|im_end|>','').strip()
+                         if other:
+-                            action['other_response_text']=_past_text(other,ref)
++                            action['other_response_text']=_past_text(other,ref,opaque=passive)
+                     else:
+-                        action = dict(unparsed_response=_past_text(raw,ref))
++                        action = dict(unparsed_response=_past_text(raw,ref,opaque=passive))
+                     action_index[key] = len(result['past_actions'])
+                     result['past_actions'].append(action)
+                 event['action_ref'] = action_index[key]
+-                event['feedback'] = _past_value(event['feedback'],ref)
++                event['feedback'] = _past_value(event['feedback'],ref,opaque=passive)
++                if passive and event['feedback'].get('instruction_at_that_time') in (
++                        'Continue from the executor-owned state.',
++                        'State was not committed. Correct the error and choose another action.'):
++                    event['feedback'].pop('instruction_at_that_time')
+             result['events'].append(event)
+         return result
+ 
+--- a/src/mechet/route_policy_episode.py
++++ b/src/mechet/route_policy_episode.py
+@@ -13,11 +13,11 @@
+ 
+ FULL_ROUTE_HISTORY = 'full_route_history_feedback_v2'
+ from .route_event_history import (EVENT_ROUTE_HISTORY, SCOPED_ROUTE_HISTORY, NATIVE_ROUTE_HISTORY,
+-    NATIVE_LAST_ROUTE_HISTORY, NATIVE_SYSTEM_HEADER, RouteEventHistory,
++    NATIVE_LAST_ROUTE_HISTORY, PASSIVE_ROUTE_HISTORY, NATIVE_SYSTEM_HEADER, RouteEventHistory,
+     HISTORY_HEADER, ACTIVE_HEADER, LOCAL_HEADER, public_json)
+ 
+ EVENT_ROUTE_OBSERVATIONS = (EVENT_ROUTE_HISTORY, SCOPED_ROUTE_HISTORY, NATIVE_ROUTE_HISTORY,
+-                            NATIVE_LAST_ROUTE_HISTORY)
++                            NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY)
+ AGENTIC_ROUTE_OBSERVATIONS = (FULL_ROUTE_HISTORY, *EVENT_ROUTE_OBSERVATIONS)
+ 
+ 
+@@ -139,12 +139,14 @@
+             return messages
+         if self.event_history is not None:
+             rid=self.uid+'/r'+str(len(self.reactions))
++            passive=self.cfg['public_observation_contract']==PASSIVE_ROUTE_HISTORY
+             scoped=self.cfg['public_observation_contract'] in (SCOPED_ROUTE_HISTORY,NATIVE_ROUTE_HISTORY,
+-                                                              NATIVE_LAST_ROUTE_HISTORY)
+-            latest=self.event_history.latest_feedback(rid,scope_aliases=scoped)
++                                                              NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY)
++            latest=self.event_history.latest_feedback(rid,scope_aliases=scoped,opaque_handles=passive)
+             if scoped:
+                 from .agent_inference import parse_tool_calls
+-                ledger=self.event_history.model_view(parse_calls=parse_tool_calls)
++                ledger=self.event_history.model_view(parse_calls=parse_tool_calls,passive=passive,
++                    native_system=messages[0]['content'] if messages[0]['role']=='system' else None)
+             else:
+                 ledger=self.event_history.snapshot()
+             context=dict(original_route_target=self.public_root,
+@@ -166,8 +168,10 @@
+                     'A rejected action did not change the current state; correct its error. '
+                     'FINISH commits one productive, acyclic reaction, not the whole route. '
+                     'All pending precursor occurrences must close in stock.'))
++            if passive:
++                active.pop('instructions')  # Route constraints are executor-owned, not extra action-policy commands.
+             memory=HISTORY_HEADER+public_json(context)+ACTIVE_HEADER+public_json(active)
+-            if self.cfg['public_observation_contract']==NATIVE_LAST_ROUTE_HISTORY:
++            if self.cfg['public_observation_contract'] in (NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY):
+                 # Historical route instructions must precede the original
+                 # one-decision policy. Preserve native SYSTEM then USER as
+                 # the final current-decision text, without generated turns.
+--- a/scripts/smoke_route_scoped_history.py
++++ b/scripts/smoke_route_scoped_history.py
+@@ -24,6 +24,8 @@
+         expected=['native','v5']
+     elif manifest['scope']=='explicit_user_authorized_native_last_history_smoke_v1':
+         expected=['native','v6']
++    elif manifest['scope']=='explicit_user_authorized_passive_history_smoke_v1':
++        expected=['native','v7']
+     else:
+         raise ValueError('UNRECOGNIZED_SMOKE_SCOPE')
+     if manifest.get('arms',expected)!=expected:
+@@ -38,7 +40,7 @@
+         and {1,3}.issubset(changed_cases) and candidate['target_changing_draws']>=native['target_changing_draws'])
+     # V6's separately predeclared gate also requires committed reactions:
+     # temporary graph movement alone cannot establish the requested repair.
+-    if candidate_arm=='v6':
++    if candidate_arm in ('v6','v7'):
+         eligible=eligible and candidate['productive_finishes']>=native['productive_finishes']
+     return eligible
+ 
+@@ -74,7 +76,7 @@
+         from mechet.route_precision import configure_precision,policy_autocast
+         from mechet.external_route_rl import TargetOnlyRouteEpisode
+         from mechet.route_event_history import (EVENT_ROUTE_HISTORY,SCOPED_ROUTE_HISTORY,
+-            NATIVE_ROUTE_HISTORY,NATIVE_LAST_ROUTE_HISTORY)
++            NATIVE_ROUTE_HISTORY,NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY)
+         from mechet.external_route_io import BatchedNativeRouteSampler,ReceiptBatch
+         from mechet.agent_inference import parse_tool_calls
+         from scripts.replay_route_hf_precision import audit_adapter_masters
+@@ -109,7 +111,7 @@
+             snapshot['cfg']['public_observation_contract']={
+                 'native':EVENT_ROUTE_HISTORY,'v3':EVENT_ROUTE_HISTORY,
+                 'v4':SCOPED_ROUTE_HISTORY,'v5':NATIVE_ROUTE_HISTORY,
+-                'v6':NATIVE_LAST_ROUTE_HISTORY}[arm]
++                'v6':NATIVE_LAST_ROUTE_HISTORY,'v7':PASSIVE_ROUTE_HISTORY}[arm]
+             cls=NativeViewEpisode if arm=='native' else TargetOnlyRouteEpisode
+             return cls.restore(snapshot,stock=stock)
+         run_cfg=dict(cfg,pad_token_id=tokenizer.pad_token_id,_sha=hashlib.sha256(manifest_path.read_bytes()).hexdigest())
+--- /dev/null
++++ b/tests/test_route_passive_history.py
+@@ -0,0 +1,147 @@
++"""Complete chemical evidence must not replay old policy prompts or handle IDs."""
++from copy import deepcopy
++import json
++import pytest
++from test_route_event_history import episode
++from test_route_native_history import SystemChemistry,V5
++from test_route_native_last_history import V6
++from test_route_policy_episode import act,finish
++
++V7='route_passive_history_feedback_v7'
++
++
++def populated():
++    from mechet.route_event_history import RouteEventHistory
++    from mechet.trajectory_history import TrajectoryHistory
++    from scripts.run_natural_language_value_search import PROMPT_SUFFIX
++    ledger=RouteEventHistory()
++    ledger.start('r0',dict(occurrence='0',public_product='CO',ancestors=[],level=0),'CO')
++    raw='<tool_call>{"name":"apply_electron_flow","arguments":{"source":"atom A19","destination":"bond B02","older":"past_7.atom15","smiles":"C1CC2CCC-B12"}}</tool_call>'
++    observation=[dict(role='system',content='fixed SYSTEM'),dict(role='user',content=
++        'CURRENT STATE SMILES: CO\nMOLECULAR INVENTORY\n<A01>C<A19>O; B02\n\n'+
++        TrajectoryHistory().render()+PROMPT_SUFFIX)]
++    record=dict(request_id='a0',reaction_id='r0',occurrence='0',raw=raw,
++        feedback=dict(accepted=False,error="KeyError:'A19'",state_changed=False,current_state='CO',
++            instruction='State was not committed. Correct the error and choose another action.'))
++    ledger.record(record,observation,'CO','CO',reaction_committed=False)
++    return ledger
++
++
++def test_passive_view_keeps_all_graphs_actions_errors_and_raw_archive():
++    from mechet.agent_inference import parse_tool_calls
++    ledger=populated();archive=ledger.snapshot()
++    view=ledger.model_view(parse_calls=parse_tool_calls,passive=True,native_system='fixed SYSTEM')
++    text=json.dumps(view)
++    assert view['model_view_version']==7
++    assert len(view['events'])==len(archive['events'])
++    assert view['state_texts']==archive['state_texts']
++    assert 'MOLECULAR INVENTORY' in text and 'CURRENT STATE SMILES: CO' in text
++    assert 'apply_electron_flow' in text and 'KeyError' in text
++    assert 'fixed SYSTEM' not in text
++    assert 'TRAJECTORY HISTORY' not in text and 'accepted_actions:' not in text
++    assert 'Choose the single next' not in text
++    assert 'instruction_at_that_time' not in text
++    assert ledger.snapshot()==archive
++
++
++def test_historical_handles_are_opaque_even_inside_errors_and_previous_scopes():
++    from mechet.agent_inference import parse_tool_calls
++    ledger=populated();view=ledger.model_view(parse_calls=parse_tool_calls,passive=True,native_system='fixed SYSTEM')
++    args=view['past_actions'][0]['calls'][0]['arguments']
++    assert args['source']=='atom past_a.atom_bj'
++    assert args['destination']=='bond past_a.bond_ac'
++    assert args['older']=='past_h.atom_bf'
++    assert args['smiles']=='C1CC2CCC-B12'
++    assert 'atom19' not in json.dumps(view) and 'A19' not in json.dumps(view)
++    feedback=ledger.latest_feedback('r0',scope_aliases=True,opaque_handles=True)
++    assert feedback['error']=="KeyError:'past_a.atom_bj'"
++    assert ledger.latest_feedback('r0')['error']=="KeyError:'A19'"
++
++
++def test_passive_view_preserves_nonidentical_system_and_nonstandard_feedback():
++    from mechet.agent_inference import parse_tool_calls
++    ledger=populated()
++    ledger.data['events'][1]['feedback']['instruction_at_that_time']='Unique recorded observation'
++    view=ledger.model_view(parse_calls=parse_tool_calls,passive=True,native_system='different current system')
++    text=json.dumps(view)
++    assert 'fixed SYSTEM' in text and 'Unique recorded observation' in text
++
++
++def test_passive_view_does_not_discard_unknown_capsule_tail():
++    from mechet.agent_inference import parse_tool_calls
++    ledger=populated()
++    for index,text in enumerate(ledger.data['observation_texts']):
++        if text.startswith('TRAJECTORY HISTORY'):
++            ledger.data['observation_texts'][index]+='\nUnique chemical observation'
++    view=ledger.model_view(parse_calls=parse_tool_calls,passive=True,native_system='fixed SYSTEM')
++    assert 'Unique chemical observation' in json.dumps(view)
++
++
++def test_passive_view_recognizes_the_real_native_formatter_capsule():
++    from mechet.route_policy_episode import RouteEpisode
++    from mechet.route_event_history import HISTORY_HEADER,ACTIVE_HEADER
++    from scripts.run_natural_language_value_search import PROMPT_SUFFIX
++    ep=RouteEpisode(dict(behavior_version='v0',episode_token_budget=10000,
++        public_observation_contract=V6,max_consecutive_recoveries=8),'CO',set(),'real-native',17)
++    act(ep,'finish_trace')
++    archive=ep.event_history.snapshot();ep.cfg['public_observation_contract']=V7
++    req=ep.next_decision()
++    history=json.loads(req.messages[0]['content'].split(HISTORY_HEADER,1)[1].split(ACTIVE_HEADER,1)[0])
++    assert 'TRAJECTORY HISTORY' not in json.dumps(history['ledger'])
++    assert 'TRAJECTORY HISTORY' in req.messages[-1]['content']
++    assert req.messages[-1]['content'].endswith(PROMPT_SUFFIX)
++    assert ep.event_history.snapshot()==archive
++
++
++def test_old_v4_rendering_is_unchanged_by_passive_opt_in():
++    from mechet.agent_inference import parse_tool_calls
++    ledger=populated();before=ledger.model_view(parse_calls=parse_tool_calls)
++    assert before['model_view_version']==4 and 'past_0.atom19' in json.dumps(before)
++    assert 'fixed SYSTEM' in json.dumps(before) and 'TRAJECTORY HISTORY' in json.dumps(before)
++
++
++def test_opaque_handles_preserve_invalid_leading_zero_spellings():
++    from mechet.route_event_history import _past_value
++    keys=['A1','A01','A001','past_7.atom15','past_07.atom15']
++    rendered=_past_value(dict(zip(keys,range(5))),0,opaque=True)
++    assert len(rendered)==5 and len(set(rendered))==5
++    assert set(rendered.values())==set(range(5))
++
++
++def test_v7_has_full_memory_and_feedback_but_only_native_current_policy_instructions():
++    from mechet.route_event_history import HISTORY_HEADER,ACTIVE_HEADER,NATIVE_SYSTEM_HEADER
++    ep=episode();ep.chemistry=SystemChemistry();ep.cfg['public_observation_contract']=V7
++    finish(ep,'CO');act(ep,'finish_trace')
++    req=ep.next_decision();native=ep.chemistry.messages(ep.node)
++    assert req.messages[-1]==native[-1] and req.messages[0]['content'].endswith(native[0]['content'])
++    history,rest=req.messages[0]['content'].split(HISTORY_HEADER,1)[1].split(ACTIVE_HEADER,1)
++    active=json.loads(rest.split(NATIVE_SYSTEM_HEADER,1)[0]);history=json.loads(history)
++    assert history['ledger']['model_view_version']==7
++    assert len(history['ledger']['events'])==len(ep.event_history.data['events'])
++    assert 'instructions' not in active
++    assert active['latest_feedback']['error']=='NONPRODUCTIVE_FINISH'
++    assert active['target']=='CO' and active['accepted_electron_flows']==0
++
++
++def test_v7_restores_mixed_prior_conditions_without_dropping_receipts():
++    from mechet.route_policy_episode import RouteEpisode
++    ep=episode();ep.chemistry=SystemChemistry();finish(ep,'CO')
++    for contract in [V5,V6,V7]:
++        ep.cfg['public_observation_contract']=contract;act(ep,'finish_trace')
++    saved=json.loads(json.dumps(ep.snapshot()))
++    restored=RouteEpisode.restore(saved,chemistry=ep.chemistry)
++    assert restored.next_decision()==ep.next_decision()
++    assert restored.event_history.snapshot()==ep.event_history.snapshot()
++    saved['records'][-1]['messages'][-1]['content']='corrupted native user'
++    with pytest.raises(ValueError,match='HISTORY_RECEIPT_CONTENT_MISMATCH'):
++        RouteEpisode.restore(saved,chemistry=ep.chemistry)
++
++
++@pytest.mark.parametrize('commits,expected',[(1,False),(7,True)])
++def test_v7_smoke_retains_fresh_control_and_strong_commit_gate(commits,expected):
++    from scripts.smoke_route_scoped_history import smoke_arms,behavior_evidence
++    assert smoke_arms(dict(scope='explicit_user_authorized_passive_history_smoke_v1',arms=['native','v7']))==('native','v7')
++    summaries={'native':dict(target_changing_draws=8,productive_finishes=7),
++               'v7':dict(target_changing_draws=8,productive_finishes=commits,missing_atom_errors=0,historical_handle_rejections=0)}
++    results=[dict(arm='v7',case_id=i,target_changing_flow=True) for i in range(4)]
++    assert behavior_evidence(summaries,results,'v7') is expected
