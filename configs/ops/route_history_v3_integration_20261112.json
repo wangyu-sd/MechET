@@ -1,0 +1,53 @@
+{
+  "base": "artifacts/route_phase_runtime_20261111_15/code",
+  "base_snapshot_sha256": "7f8d6d2aff0af3d2ca67ce55b1dcaf664ce3ce0c63a84555f852d1e07e815783",
+  "new_snapshot_sha256": "4b3b0a0eaed73daeb160d3bcfd9cf8e804f72d4166c1e115dd152718593cbbce",
+  "observation_contract": "route_event_history_feedback_v3",
+  "patch_sha256": "44b592e65b561f9f5f69bcf86b0d37148bb73aec38a529166e54dc4ef48e3acf",
+  "files": {
+    "src/mechet/route_event_history.py": {
+      "before_sha256": null,
+      "after_sha256": "ae5ace35ea580c6604bdb5b01d5ac3394d036d7e6fa8ecfb4e4ce28ff8ecd2f5"
+    },
+    "src/mechet/route_policy_episode.py": {
+      "before_sha256": "565ca3344abacb6628a92ac89d07ca08408c2cce23058f6abb9d2d2276293447",
+      "after_sha256": "7013e4cba98917a958ec207cf1b7489289d538ef2bfcf58b02255386302ed004"
+    },
+    "scripts/prepare_external_route_rl.py": {
+      "before_sha256": "734a571325dadeaec9c4dd95400360fd44bf5e527b399584daf261fdc6642d66",
+      "after_sha256": "73147894bf97df2a4b82d85bf1319715474744610b28e17e40a65595f22569aa"
+    },
+    "scripts/eval_pr98_route_policy.py": {
+      "before_sha256": "34fb7fa4ef590457e7a0117f13957eca746b77ab7b6467b4db0beecb3c6d0f44",
+      "after_sha256": "b013e0f6b8ce82ec56b8af62987bf634644850b93965158ad99a9a47aa1fb79e"
+    },
+    "tests/test_route_event_history.py": {
+      "before_sha256": null,
+      "after_sha256": "d0910cdd9f83baf94884e8df0330a344843e05a0e9fb071d346eff774225f9e2"
+    },
+    "tests/test_route_agentic_feedback.py": {
+      "before_sha256": null,
+      "after_sha256": "5c9eb60901b571f2be4daf3871bcbce19afbbec03ac221d2cc281a9aba437c68"
+    },
+    "tests/test_external_route_training.py": {
+      "before_sha256": "18203f74510e7d98f8e98ceb169d71a33a21518824c57cc2cfae7f4605410041",
+      "after_sha256": "e1af2fcf5956b051fcfff8d0b03b58da6376b03c2750e083a533ae3e25b4b663"
+    },
+    "tests/test_route_policy_episode.py": {
+      "before_sha256": null,
+      "after_sha256": "e3465f6ec7075b5ceb2e597168335d8061b19aa64495779b6dfe4339612de4ff"
+    },
+    "tests/test_pr96_history.py": {
+      "before_sha256": null,
+      "after_sha256": "eea3e3184f1572f25c5c2e9d030e36dc661564371da66ccfbbb91c2381cb9a9a"
+    },
+    "tests/test_main_product_training_data.py": {
+      "before_sha256": null,
+      "after_sha256": "f13f53a8502fbd31345cdd8355c66652f7e969466339e932e3bdd9bbd6591773"
+    },
+    "tests/test_mech31k_main_product_root.py": {
+      "before_sha256": null,
+      "after_sha256": "527bacb71509682646efe7cd227be43bc694316eb2208c4e0d7a349029ff1be5"
+    }
+  }
+}

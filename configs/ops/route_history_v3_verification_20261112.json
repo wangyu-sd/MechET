@@ -1,0 +1,47 @@
+{
+  "status": "PASS",
+  "completed_episodes": 256,
+  "checked_action_records": 5054,
+  "failed_episodes": 0,
+  "old_prompt_characters": 176034404,
+  "new_prompt_characters": 109048750,
+  "source_snapshot_sha256": "4b3b0a0eaed73daeb160d3bcfd9cf8e804f72d4166c1e115dd152718593cbbce",
+  "raw_sha256": {
+    "rank00": "3e4f65a8dc8cd98ae0b08b35836efdaf13f77f2bc0d1578aeaf43a17b3eae6fa",
+    "rank01": "b0ab8bf4b46763650047579abe06129099de4447bf0c3cddc82eb02394306c75",
+    "rank02": "36a87df6858262023b982ccfa01b42e8ffe6ee45279e8b7f6824bfba0581676d",
+    "rank03": "ee8084e48fc2b5735dc7425b419be9fbf7cbcd8f8d7b1f3671667c2915fb2818"
+  },
+  "model_calls": 0,
+  "optimizer_updates": 0,
+  "elapsed_seconds": 339.9731207340956,
+  "limitation": "Saved-action software replay only. Retains recorded censor flags. Old probabilities are not v3 probabilities. No new route quality or actual GPU speed result.",
+  "scope": "Software verification of history v3, not a new policy rollout or route-quality evaluation",
+  "tests": {
+    "affected": {
+      "passed": 74,
+      "seconds": 705.69
+    },
+    "portable_core": {
+      "passed": 4,
+      "seconds": 17.02
+    },
+    "overlap_note": "Portable and patch tests repeat coverage; do not add counts as unique cases."
+  },
+  "submission": {
+    "task_flag": "meteor_mechet_stage2_external_route_drgrpo_4h20_zjk_20261112_history_v3_01",
+    "instance_id": "8b1d8912a1b06b6f01a1ce8c2bfd3669",
+    "created_cst": "2026-11-12 14:57:35",
+    "platform_running_cst": "2026-11-12 14:58:12",
+    "optimizer_update_confirmed": false,
+    "contract_sha256": "3c90c5bdaed9921fe1bfc4230b1bdb182cdc44b275fe3a4533cc4e6f98465035",
+    "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+    "observation_contract": "route_event_history_feedback_v3",
+    "train_targets": 23730,
+    "validation_targets": 2986,
+    "candidates": 4,
+    "world_size": 4,
+    "epochs": 1,
+    "seed": 17
+  }
+}
