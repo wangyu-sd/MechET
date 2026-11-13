@@ -25,3 +25,8 @@ Ruling: maintain the existing4CPU cache job unchanged and share its four verifie
 Ruling: memory transfers only three typed error-recovery advice kinds initially — this makes applicability auditable; broader semantic generalization remains future work, not an achieved result.
 Ruling: downstream stages remain explicit dependencies until new8B weights, replay counts and backend binding exist — avoids launching under an old actor; costs waiting for the real upstream run.
 Final review: four Important findings plus unstarted snapshot API defect reproduced and fixed; focused52PASS and subsequent11PASS overlap earlier counts. Final expanded affected run92PASS88.45s; full-project attempt timed out180s/exit124, no full-suite claim.
+
+
+## Separate follow-on: official Agent runtime + chemically grounded memory
+
+**New implementation contract:** [`PR105_AGENT_MEMORY_FRAMEWORK_CONTRACT_20261113.md`](../../ops/PR105_AGENT_MEMORY_FRAMEWORK_CONTRACT_20261113.md). Execute [the dedicated G0–G6 checklist](2026-11-13-pr105-agent-memory-framework-execution.md) after protecting the existing corrected-8B queue. This is **not** a claim that LangGraph, two-level transferable memory, ReFIT memory views or verl have been integrated. They are pending follow-on tasks; do not re-run completed stage preparation.
