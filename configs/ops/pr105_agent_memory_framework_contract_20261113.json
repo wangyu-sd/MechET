@@ -1,7 +1,7 @@
 {
   "schema": "mechet_pr105_agent_memory_framework_implementation_contract_v1",
   "updated_for": "2026-11-13",
-  "status": "planned_not_implemented",
+  "status": "G0_verified_G1_G6_not_implemented",
   "continuation": "preserve_old_qwen3_8b_history_v2_checkpoint_31366_and_existing_8h20_queue",
   "code_branch": "train/qwen3-8b-rsi-8h20-20261113",
   "base_pr": 104,
@@ -47,8 +47,9 @@
   "gates": [
     {
       "id": "G0",
-      "status": "not_started",
-      "require": "verify source versions and live 8H20 queue"
+      "status": "source_queue_audit_passed",
+      "require": "verify source versions and live 8H20 queue",
+      "evidence": "configs/ops/pr105_g0_readback_20261113.json"
     },
     {
       "id": "G1",

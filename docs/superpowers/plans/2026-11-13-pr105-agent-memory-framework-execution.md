@@ -6,7 +6,7 @@
 
 ## Deliverables (execute in this PR)
 
-- [ ] **G0 — Rebase safety and provenance:** inspect newest PR105 head and PR104 base, frozen deployed source snapshot and current queue. Write status/versions/readiness; do not mutate queued active training source.
+- [x] **G0 — Rebase safety and provenance:** inspect newest PR105 head and PR104 base, frozen deployed source snapshot and current queue. Write status/versions/readiness; do not mutate queued active training source.
 - [ ] **G1 — Two-tier memory:** keep `ExperienceMemory` exact execution key; add separate typed transferable advice retrieval with explicit error/current-inventory/active-obligation eligibility and evidence IDs, deterministic ranking, refusal of obsolete atom handles. Regression: different histories same local state -> no unsafe executable reuse; typed advice may transfer.
 - [ ] **G2 — Four public state views:** deterministic Working/Failure/Route-Proof/Episodic memory projections backed by exact v8 Event Ledger. Preserve all original events, repeated precursor occurrences and route certificates; never expose hidden reference route. Typed advice is optional, not chemical truth.
 - [ ] **G3 — Context budget and binding:** version `route_memory_observation_v1`; render true Qwen3 tool/prompt template; cap optional memories with tokenizer tokens, never silently drop current state/required obligations. Freeze memory snapshot/retrieval policy for each G4 group. Persist actual prompt IDs, per-token behavior logprobs, memory and retrieval hashes. Restore must fail on version mismatch.
@@ -19,3 +19,5 @@
 For each gate commit exact code, software test command/output, source/actor/tokenizer/memory/checkpointer SHA, counterexample replays, input prompt/token counts, closed/open blockers and any changed protocol namespace. Advance only upon passing gates. The stack stays Draft. Do not claim official runtime integration, GPU success or 8B model improvement merely because software tests pass.
 
 Official interfaces for implementation research: LangGraph StateGraph/persistence docs `https://docs.langchain.com/oss/python/langgraph/persistence`, verl AgentLoop `https://verl.readthedocs.io/en/latest/advance/agent_loop.html`. Pin actual compatible versions rather than assuming API stability.
+
+G0 readback: all435 deployed source files matched the existing snapshot; live CPU/cache-gated driver preserved. Evidence `configs/ops/pr105_g0_readback_20261113.json`, interpretation `docs/ops/PR105_HANDOFF_READBACK_20261113.md`. G1–G6 remain unimplemented in this handoff update; no new runtime/chemical gain claimed.
