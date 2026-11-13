@@ -1,5 +1,5 @@
 {
-  "observed_at": "2026-11-13T21:21:47.392495+08:00",
+  "observed_at": "2026-11-13T21:24:50.083192+08:00",
   "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261113_01",
   "instance": "8b1d89f6a1cfaa4801a1d5100ebd09a6",
   "platform_state": "TRAINING_RESOURCE_WAITING",
@@ -34,5 +34,14 @@
     "gpu_type": "H20",
     "cache_verified": true
   },
-  "pr": "https://github.com/wangyu-sd/MechET/pull/105"
+  "pr": "https://github.com/wangyu-sd/MechET/pull/105",
+  "queue_reason": "H20_account_quota_insufficient_by_one_gpu",
+  "quota": {
+    "limit_h20": 24,
+    "currently_used_h20": 17,
+    "requested_h20": 8,
+    "required_total_h20": 25,
+    "additional_free_h20_needed": 1
+  },
+  "quota_evidence": "Taiji instance_detail common.msg on instance8b1d89f6a1cfaa4801a1d5100ebd09a6; checked2026-11-13 21:22CST"
 }
