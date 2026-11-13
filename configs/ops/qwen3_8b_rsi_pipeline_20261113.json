@@ -1,0 +1,39 @@
+{
+  "schema": "qwen3_8b_rsi_dependency_pipeline_v1",
+  "max_total_h20": 8,
+  "pr": "https://github.com/wangyu-sd/MechET/pull/105",
+  "stages": [
+    {
+      "id": "corrected_sft",
+      "status": "waiting_for_full_cpu_cache",
+      "gpus": 8,
+      "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261113_01",
+      "config": "/aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/qwen3_8b_rsi_8h20_20261113_01/code/configs/agent/qwen3_8b_corrected_continue_8h20_20261113.json"
+    },
+    {
+      "id": "verify_multistep_recovery",
+      "status": "waiting_for_corrected_8b_weights_and_full_TRAIN_trajectories",
+      "gpus": 0,
+      "dataset": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/external_routes/target_only_multistep_v2_20261105_01",
+      "curation_entry": "scripts/curate_route_memory.py",
+      "reference_actions_available": false
+    },
+    {
+      "id": "memory_conditioned_adaptation",
+      "status": "waiting_for_verified_replay_manifest_and_actual_mixture_counts",
+      "gpus": 8,
+      "live_episode": "mechet.route_memory_integration.MemoryTargetOnlyRouteEpisode",
+      "memory_version": "route_experience_memory_v2"
+    },
+    {
+      "id": "route_dr_grpo_iteration",
+      "status": "waiting_for_memory_adapted_8b_actor_and_qwen3_training_runtime_binding",
+      "gpus": 8,
+      "learned_value_model": false,
+      "on_policy": true
+    }
+  ],
+  "stage_transition": "require_completed_real_weight_sha_and_verified_artifact_manifest; never substitute original old8B or0.8B actor",
+  "rollout_allocation": "reuse at most8H20 in separate phases; no additional8GPU service",
+  "benchmark_learning": "R1R2_and_SimpRetro_frozen_evaluation_only"
+}
