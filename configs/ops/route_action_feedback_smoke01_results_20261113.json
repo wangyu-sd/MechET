@@ -1,0 +1,81 @@
+{
+  "scope": "explicit_user_authorized_route_action_feedback_smoke_v1",
+  "checkpoint": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/models/history/checkpoint-89442",
+  "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "behavior_status": "IMPROVED",
+  "actual_gpu_audit_before": {
+    "tensor_count": 372,
+    "active_modules": 186,
+    "exact_cuda_source_equality": true,
+    "source_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453"
+  },
+  "actual_gpu_audit_after": {
+    "tensor_count": 372,
+    "active_modules": 186,
+    "exact_cuda_source_equality": true,
+    "source_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453"
+  },
+  "active_logit_effect": 17.40625,
+  "hardware": "NVIDIA H20",
+  "summaries": {
+    "deployed_full_history_v3": {
+      "episodes": 4,
+      "model_decisions": 65,
+      "repeated_rejected_proposals": 23,
+      "skipped_repeated_executor_calls": 0,
+      "episodes_with_accepted_action_after_failure": 3,
+      "started_reaction_programs": 7,
+      "completed_reactions": 3,
+      "episodes_with_at_least_two_reactions": 1,
+      "maximum_depth": 2,
+      "stock_closed": 0,
+      "reference_verified_closed": 0,
+      "statuses": {
+        "recovery_exhausted": 4
+      },
+      "missing_atom_errors": 0,
+      "rejected_finishes": 24,
+      "supported_reference_edges": 0,
+      "unsupported_edges": 3
+    },
+    "repaired_action_feedback_v8": {
+      "episodes": 4,
+      "model_decisions": 85,
+      "repeated_rejected_proposals": 21,
+      "skipped_repeated_executor_calls": 21,
+      "episodes_with_accepted_action_after_failure": 2,
+      "started_reaction_programs": 10,
+      "completed_reactions": 8,
+      "episodes_with_at_least_two_reactions": 3,
+      "maximum_depth": 3,
+      "stock_closed": 2,
+      "reference_verified_closed": 0,
+      "statuses": {
+        "recovery_exhausted": 2,
+        "stock_solved": 2
+      },
+      "missing_atom_errors": 0,
+      "rejected_finishes": 15,
+      "supported_reference_edges": 0,
+      "unsupported_edges": 8
+    }
+  },
+  "model_decisions": 150,
+  "optimizer_updates": 0,
+  "probability_audit_count": 31,
+  "max_audited_probability_drift": 0.2306985855102539,
+  "numerical_status": "PASS",
+  "multistep_expansion_status": "OBSERVED",
+  "reference_closure_status": "NOT_OBSERVED",
+  "elapsed_seconds": 1054.1699875295162,
+  "limitation": "Two fixed TRAIN roots, two independent replicas per arm. Reference support is hidden reference-edge agreement, not experimental chemical validation. A 64-decision cap is diagnostic censoring, not chemical failure. Fresh v3 and repaired v8 both preserve complete history. v8 scopes past aliases, adds current-state constraints, advertises eligible tools and reuses equivalent rejected execution results. No logits mask or proposal filtering. No MCTS, training, or process-credit deployment.",
+  "source_bond_absent_errors": {
+    "deployed_full_history_v3": 13,
+    "repaired_action_feedback_v8": 0
+  },
+  "unique_root_stock_closed": {
+    "deployed_full_history_v3": 0,
+    "repaired_action_feedback_v8": 1
+  },
+  "remaining_failure_note": "21 repeated model proposals remain; their repeated chemistry executions are reused.15 unoffered FINISH proposals remain.85 model requests vs65 baseline: no GPU-call reduction claim. Both closed trajectories share one of two fixed TRAIN roots; no reference-supported closure."
+}

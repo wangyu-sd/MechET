@@ -2,7 +2,7 @@
 
 The long-route diagnostic exposed stale historical atom aliases, premature FINISH and repeated rejected execution. The original checkpoint's ability to execute local electron-flow programs did not establish whole-route convergence. V8 repairs the decision interface while preserving the original chemistry, stock, reward and complete evidence archive.
 
-**Status: implemented and software-verified; paired H20 behavioral outcome pending. Formal v3 training is unchanged.**
+**Status: the declared limited paired H20 gate passed. Source-bond errors fell13→0, commits3→8 and inventory closure0/4→2/4.21 repeated model proposals and0 reference closures remain; the planner is not fully repaired. Formal v3 training is unchanged.**
 
 ## Findings
 
@@ -37,3 +37,23 @@ Fresh v3/v8 H20 task: meteor_mechet_route_action_smoke_1h20_zjk_20261113_01, ins
 Require actual before/after GPU tensor equality/186 active modules, physical B4 and unchanged0.25 sampled probability audit gate. Behavioral evidence requires fewer repeated rejected semantic proposals, at least fresh-v3 committed reactions and stock closures, zero missing-atom errors and zero resource-censored episodes. Earlier exit alone cannot pass. Report structural closure and reference closure separately, preserve all failed gates, and do not promote formal training solely on software checks.
 
 Previous smoke05 also ended FAIL: native7/8 commits, passive v7 4/8, max probability drift0.3581516743. Its failed report is retained alongside the long smoke; v8 does not rewrite that history.
+
+## Completed H20 outcome
+
+[Aggregate report](../../configs/ops/route_action_feedback_smoke01_results_20261113.json) and [actual prompt/tool/receipt audit](../../configs/ops/route_action_feedback_smoke01_audit_20261113.json). Both fresh arms used the same original actor, roots and request RNG.
+
+| Metric | Fresh v3 | Repaired v8 |
+|---|---:|---:|
+| Policy requests |65|85|
+| Absent source-bond errors |13|0|
+| Reaction commits |3|8|
+| Inventory-closed trajectories |0/4|2/4|
+| Reference-supported closures |0/4|0/4|
+| Repeated rejected proposals |23|21|
+| Reused rejected step executions |0|21|
+
+Both inventory-closed trajectories concern the same one of two fixed TRAIN roots (unique-root closure0/2→1/2). They remain reference-unsupported alternatives, not established chemical successes. There were no64-decision or physical-capacity censored episodes. Two v8 trajectories still ended after8 consecutive rejections.15 FINISH proposals were not in the actual advertised schema; the model can violate a prompt-level tool list.21 repeated proposals are real additional GPU work even though step execution is reused, so this result does not establish reduced GPU calls or total acceleration.
+
+150 recorded proposals replay exactly; all150 actual prompt token sequences were reconstructed from messages plus their actual tool schemas and matched the GPU receipts. Complete prior history and commits were checked. Both arms ran physicalB4. Before/after372 FP32 source-equal adapter tensors and186 active modules passed;31 sampled cached/full probability checks max0.2306985855<0.25.0optimizer updates. Driver1054.17s.
+
+The predeclared repeat/commit/stock gate passes narrowly (21<23,8>=3,2>=0), not a claim that recurrence is eliminated. Reference reward remains0 for all these episodes. No live vLLM engine GPU parity, process-RL benefit, full benchmark gain or formal-job migration is claimed.
