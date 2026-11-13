@@ -1,0 +1,52 @@
+{
+  "status": "PASS",
+  "model_proposals_replayed": 150,
+  "actual_prompt_and_tools_matches": 150,
+  "complete_history_matches": 150,
+  "reused_rejections": 21,
+  "arms": {
+    "deployed_full_history_v3": {
+      "policy_requests": 65,
+      "physical_batch_histogram": {
+        "4": 12,
+        "3": 4,
+        "2": 1,
+        "1": 3
+      },
+      "repeated_failed_model_proposals": 23,
+      "reused_executor_rejections": 0,
+      "unoffered_tool_proposals": 0,
+      "unique_roots_stock_closed": 0,
+      "total_roots": 2,
+      "event_counts": {
+        "gpu-requested": 20,
+        "gpu-returned": 20,
+        "gpu-batch-timing": 20,
+        "behavior-receipt": 65
+      }
+    },
+    "repaired_action_feedback_v8": {
+      "policy_requests": 85,
+      "physical_batch_histogram": {
+        "4": 11,
+        "3": 7,
+        "2": 2,
+        "1": 16
+      },
+      "repeated_failed_model_proposals": 21,
+      "reused_executor_rejections": 21,
+      "unoffered_tool_proposals": 15,
+      "unique_roots_stock_closed": 1,
+      "total_roots": 2,
+      "event_counts": {
+        "gpu-requested": 36,
+        "gpu-returned": 36,
+        "gpu-batch-timing": 36,
+        "behavior-receipt": 85
+      }
+    }
+  },
+  "report_sha256": "af9be9d8702927339148ccbb21711257ce7ec585d029c8125cfbef3208718607",
+  "manifest_sha256": "70c10cd2b385ca272a8995c6c413c6a5ba8cdf31e3100aaec99eb939e4a13043",
+  "scope": "Post-run exact CPU executor replay and independent raw-receipt/token-prefix crosscheck; not additional model inference or chemical correctness certification."
+}

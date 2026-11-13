@@ -1,0 +1,132 @@
+{
+  "current_actor_after_round10_sha256": "4cc70ce395727bab11521e9e45a76e41071131a834eecf601d248412dc848f58",
+  "first10": {
+    "completed_backend_requests": 48876,
+    "completed_reaction_occurrences": 1761,
+    "completed_rounds": 10,
+    "decision_records_including_censor_attempts": 49325,
+    "episodes": 2560,
+    "informative_groups": 15,
+    "optimizer_steps": 10,
+    "planned_rounds": 371,
+    "reference_supported_closed_episodes": 0,
+    "structural_stock_solved_episodes": 101,
+    "targets": 640,
+    "usable_groups": 264,
+    "whole_censored_groups": 376
+  },
+  "parent_adapter_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "protocol": {
+    "candidates": 4,
+    "epochs": 1,
+    "gpus": "4 H20",
+    "loss_batch_size": 1,
+    "max_action_tokens": 2048,
+    "max_consecutive_recoveries": 8,
+    "max_context": 32768,
+    "policy_precision": "bf16_autocast",
+    "public_observation_contract": "full_route_history_feedback_v2",
+    "scalar_reward_changed": false,
+    "seed": 17,
+    "train_targets": 23730,
+    "valid_targets": 2986
+  },
+  "round10": {
+    "action_error_family": {
+      "EXPECTED_ONE_TOOL_CALL": 1,
+      "KeyError": 205,
+      "NONPRODUCTIVE_FINISH": 621,
+      "ROUTE_CYCLE": 23,
+      "TypeError": 1,
+      "ValueError:CHEMICAL_STATE_INVALID": 890,
+      "ValueError:IMPORT_FRAGMENT_INVALID": 13,
+      "ValueError:STATE_CYCLE": 151,
+      "ValueError:destination bond is absent": 348,
+      "ValueError:electron-source bond is absent": 838,
+      "ValueError:event direction must be retrosynthetic": 2,
+      "ValueError:unrecognized natural-language electron destination": 10
+    },
+    "censor_output_caps": {
+      "per_action_2048": 1,
+      "remaining_context_room": 9
+    },
+    "censored_groups": 42,
+    "consecutive_byte_identical_outputs_after_rejection": 1193,
+    "decision_records_including_censor_attempts": 5054,
+    "episode_status": {
+      "recovery_exhausted": 186,
+      "resource_censored": 65,
+      "stock_solved": 5
+    },
+    "groups": 64,
+    "informative_groups": 0,
+    "positive_episodes_in_censored_groups": 3,
+    "positive_episodes_in_usable_groups": 0,
+    "reaction_counts_by_status": {
+      "recovery_exhausted": {
+        "episodes": 186,
+        "max_completed_reactions": 3,
+        "median_completed_reactions": 0.0,
+        "zero_completed_reactions": 100
+      },
+      "resource_censored": {
+        "episodes": 65,
+        "max_completed_reactions": 4,
+        "median_completed_reactions": 1,
+        "zero_completed_reactions": 13
+      },
+      "stock_solved": {
+        "episodes": 5,
+        "max_completed_reactions": 2,
+        "median_completed_reactions": 1,
+        "zero_completed_reactions": 0
+      }
+    },
+    "rejected_records_with_error": 3103,
+    "repeat_definition": "Current record has execution error and is not accepted; preceding record was not accepted; raw model output strings equal. This is an observed repeated output, not proof all executor states were equal.",
+    "resource_censor_details": {
+      "ACTION_OUTPUT_CONTEXT_LIMIT": {
+        "count": 10,
+        "decision_max": 28,
+        "decision_median": 26.5,
+        "decision_min": 22,
+        "history_character_fraction_median": 0.9784491135064919,
+        "output_max": 2048,
+        "prompt_max": 32757,
+        "prompt_min": 28246
+      },
+      "PHYSICAL_CONTEXT_LIMIT": {
+        "count": 55,
+        "decision_max": 33,
+        "decision_median": 27,
+        "decision_min": 21,
+        "history_character_fraction_median": 0.9807776021261484,
+        "output_max": 0,
+        "prompt_max": 37031,
+        "prompt_min": 32783
+      }
+    },
+    "source_scope": "all 256 rewarded episodes, completed round index 9",
+    "source_sha256": {
+      "rank00": "3e4f65a8dc8cd98ae0b08b35836efdaf13f77f2bc0d1578aeaf43a17b3eae6fa",
+      "rank01": "b0ab8bf4b46763650047579abe06129099de4447bf0c3cddc82eb02394306c75",
+      "rank02": "36a87df6858262023b982ccfa01b42e8ffe6ee45279e8b7f6824bfba0581676d",
+      "rank03": "ee8084e48fc2b5735dc7425b419be9fbf7cbcd8f8d7b1f3671667c2915fb2818"
+    },
+    "structural_closed": 5,
+    "supported_reactions": 3,
+    "unsupported_reactions": 101,
+    "verified_closed": 0
+  },
+  "round10_all_ranks_pg_loss_zero": true,
+  "round_metrics_source_sha256": "18541d4cbd823746ba251959beca4cc19bbc1614ebda976a6795f277bf071803",
+  "schema_version": 1,
+  "scope": "Read-only audit of first 10 completed full-protocol training rounds; detailed audit of completed round 10 (directory index 9). Not an evaluation or a completed epoch.",
+  "source_file_sha256": {
+    "src/mechet/external_route_rl.py": "e541b807c43eb3f4b7bd1b4fac357cfa1623f8c9a1aefc5c41a5752384d8776f",
+    "src/mechet/route_policy_episode.py": "565ca3344abacb6628a92ac89d07ca08408c2cce23058f6abb9d2d2276293447",
+    "src/mechet/route_policy_sampling.py": "974ba356325cf597be8f7e0a76aee1f8c4922dcd470b15eda4e6534104419891"
+  },
+  "task": "meteor_mechet_stage2_external_route_drgrpo_4h20_zjk_20261111_hf_profile_02",
+  "training_contract_sha256": "fe59b68b9f6cf48520e64f4e7d9073aaf710ff3877f5d9ba294d53060070a4da"
+}

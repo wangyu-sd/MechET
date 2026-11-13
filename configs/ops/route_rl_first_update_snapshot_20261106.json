@@ -1,0 +1,47 @@
+{
+  "schema": "mechet_route_rl_first_round_evidence_v1",
+  "timestamp_source": "2026-11-06T16:24:00+08:00",
+  "recording_date": "2026-11-11",
+  "evidence_type": "documented_first_batch_only_not_steady_state",
+  "source_repo_ref": "docs/target-only-route-rl-design-20261105",
+  "source_document": "docs/design/2026-11-05-target-only-route-agentic-rl.md",
+  "verified_from_live_logs_in_this_pr": false,
+  "training_condition": "external_stage2_target_only_route_dr_grpo_v2_20261106_03",
+  "initial_policy": "FlowER Qwen3.5-0.8B History-SFT checkpoint-89442",
+  "initial_adapter_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "first_round_checkpoint": "outputs/agent/external_stage2_target_only_route_dr_grpo_v2_20261106_03/checkpoints/round-000001",
+  "witness": "outputs/submissions/external_route_stage2_dr_grpo_20261106_03/first_optimizer_update_witness.json",
+  "full_train_targets": 23730,
+  "full_valid_targets": 2986,
+  "scheduled_rounds": 371,
+  "group_size": 4,
+  "gpu_type": "H20",
+  "gpu_count": 4,
+  "first_round": {
+    "targets": 64,
+    "trajectories": 256,
+    "model_decision_requests": 5030,
+    "completed_reaction_programs": 622,
+    "stock_closed": 74,
+    "reference_supported_and_stock_closed": 9,
+    "nonzero_group_relative_advantage_groups": 12,
+    "groups": 64,
+    "censored_groups": 0,
+    "action_rejection_terminals": 92,
+    "cycle_terminals": 77,
+    "nonproductive_terminals": 13,
+    "wall_seconds_approx": 2888
+  },
+  "derived_ratios_for_context_only": {
+    "stock_closure_rate": 0.2890625,
+    "reference_supported_closure_rate": 0.03515625,
+    "informative_group_fraction": 0.1875
+  },
+  "caveats": [
+    "Data copied from the frozen design document, not re-verified with this PR against private runtime logs.",
+    "Cold first-round wall time contains kernel autotuning and distributed synchronization and cannot be extrapolated as steady throughput.",
+    "Zero group-centered policy gradient is not zero KL gradient; 12/64 is a group-level statistic, not a token-level waste fraction.",
+    "Stock closure is computational; reference agreement is a training supervision label; neither guarantees experimental synthesis."
+  ],
+  "untouched_method": "Original G4 Target-only Route Dr.GRPO"
+}

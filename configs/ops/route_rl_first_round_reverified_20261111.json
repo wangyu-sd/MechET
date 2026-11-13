@@ -1,0 +1,90 @@
+{
+  "schema": "route_rl_private_saved_report_audit_public_summary_v1",
+  "reward_replay_status": "PASS",
+  "verification_scope": "All256 original saved episodes, frozen reward scorer replay; independent executor and auxiliary-role audit pending",
+  "actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "source_contract_sha256": "2433c2d477dd97ba35db3960472df8b1f76809c365943d5e37aafffb75784f11",
+  "counts": {
+    "episodes": 256,
+    "model_decision_records": 5030,
+    "completed_reactions": 622,
+    "stock_solved": 74,
+    "reference_supported_closed": 9,
+    "unsupported_closed": 65,
+    "groups": 64,
+    "informative_groups": 12,
+    "censored_groups": 0,
+    "generated_tokens": 659577,
+    "policy_tokens": 659577,
+    "policy_tokens_in_informative_groups": 144884,
+    "policy_tokens_with_nonzero_advantage": 144884
+  },
+  "informative_group_fraction": 0.1875,
+  "nonzero_advantage_policy_token_fraction": 0.21966199549104956,
+  "reward_histogram": {
+    "0.0": 220,
+    "0.1": 21,
+    "0.06666666666666667": 3,
+    "1.0": 9,
+    "0.05": 3
+  },
+  "terminal_statuses": {
+    "cycle": 77,
+    "rejected_action": 92,
+    "stock_solved": 74,
+    "nonproductive_finish": 13
+  },
+  "witness_agreement": {
+    "targets": true,
+    "sampled_route_episodes": true,
+    "model_decision_requests": true,
+    "completed_reaction_programs": true,
+    "native_stock_solved": true,
+    "verified_stock_solved": true,
+    "effective_groups": true,
+    "censored_groups": true
+  },
+  "categories": {
+    "invalid_route_graph": 79,
+    "completed_reactions_without_trusted_reference_progress": 70,
+    "structural_closure_without_full_reference_support": 65,
+    "trusted_partial_progress_unclosed": 18,
+    "no_completed_reaction": 15,
+    "reference_supported_full_closure": 9
+  },
+  "zero_reward_categories": {
+    "invalid_route_graph": 79,
+    "completed_reactions_without_trusted_reference_progress": 70,
+    "structural_closure_without_full_reference_support": 56,
+    "no_completed_reaction": 15
+  },
+  "training_reward_changed": false,
+  "new_training_reward_enabled": false,
+  "optimizer_updates": 0,
+  "chemistry_executions": 0,
+  "evidence_files": {
+    "original_first_round_audit_reproducible_v3.json": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/datasets/mechet_route_rl_efficiency_audit_20261111/original_first_round_audit_reproducible_v3.json",
+      "sha256": "0766b8cb19ab66203bce61b1d9270ea5296f8e903cf64d91b6e6c6199a62f4f6"
+    },
+    "first_round_scorecards_v4.json": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/datasets/mechet_route_rl_efficiency_audit_20261111/first_round_scorecards_v4.json",
+      "sha256": "7ba7b48e2a07ec400e2354430f3d4b6445c8e818931344dd62e9a84cbe81fd91"
+    }
+  },
+  "code_files_sha256": {
+    "scripts/replay_route_first_round_rewards.py": "c9c2779af6be55c13d6a1881d75594944f46af961da0eaefbe971c2fd7637ff8",
+    "scripts/audit_route_reward_scorecards.py": "b465c9159a4e210208f0eea4ff2cd7b57de64bddaf7d250990832e550fb052d0",
+    "tests/test_route_reward_scorecards.py": "f678ecd471747648c75ea7cca4fcc20c786d800566ccdf47a8baafcef2d70a23"
+  },
+  "unit_tests": {
+    "passed": 14,
+    "log": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/shared_host_storage/tmp/route_scorecards_review_final_1111.log"
+  },
+  "limitations": [
+    "Stored execution receipts are not independent executor reexecution.",
+    "Actual clipped PG gradient and billed backend token totals were not measured by the saved-report audit.",
+    "Zero-advantage groups retain KL tokens; token fraction is not a compute-waste estimate.",
+    "No new formal4H20 training or steady-state phase profile is claimed."
+  ]
+}

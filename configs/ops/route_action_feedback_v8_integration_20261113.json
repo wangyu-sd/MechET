@@ -1,0 +1,30 @@
+{
+  "base_runtime": "/aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/route_scoped_history_smoke_20261112_21",
+  "base_snapshot_sha256": "467dead8c90cee4484e7c88c1d43c03cd080453f866f1cee0148e47bdf164d3a",
+  "candidate_snapshot_sha256": "48664c5192ec2b38af711587a4c281231bb847f35026937404aedf3f716b1138",
+  "patch_sha256": "e8b713fa847d2f55e3af148a1a3b780357b171ff44f4fc95afe6ec07ee132a63",
+  "before": {
+    "src/mechet/route_action_feedback.py": null,
+    "src/mechet/route_event_history.py": "dfc8456ea29b369f86f9c31299beb2e729cd1e46720841e1d4f5bd077f718146",
+    "src/mechet/route_policy_episode.py": "14a6393eacaf4cb63dcaecef500a85db1bd4a02d1a868b24596de19be0b14e44",
+    "src/mechet/route_policy_sampling.py": "974ba356325cf597be8f7e0a76aee1f8c4922dcd470b15eda4e6534104419891",
+    "src/mechet/route_vllm_backend.py": "a80cb06696564f237ac948273e2889806e6062f6cbf8503132c1a59d6c222e74",
+    "tests/test_route_action_feedback.py": null,
+    "tests/test_route_sampler_context_isolation.py": null,
+    "scripts/smoke_route_action_feedback.py": null,
+    "docs/superpowers/specs/2026-11-13-route-action-feedback.md": null,
+    "docs/superpowers/plans/2026-11-13-route-action-feedback.md": null
+  },
+  "after": {
+    "src/mechet/route_action_feedback.py": "73d576ef25a542fbab160f248106e849e0d8c7e315671b2e10df1805b31845ef",
+    "src/mechet/route_event_history.py": "61e076dfb97ebdd92409e946c9e760c0c683b23488e29995cb170bff23ab7c9e",
+    "src/mechet/route_policy_episode.py": "2039481b5cce4891924adad49d797befaf8621d57a580f43e176d36496012074",
+    "src/mechet/route_policy_sampling.py": "b0d0bb25803e8f3987b9b139f482f2ecf4a88ad52888e5b030b50291d293b52c",
+    "src/mechet/route_vllm_backend.py": "13b9f1f8e5506612633cb23138ae148b4e851c29c55c1459dbcf5be4a72725e9",
+    "tests/test_route_action_feedback.py": "69508fe4e5ada3d11418e9affcb06932cbd6a2411003c69ffc5e16d66b7bdaa9",
+    "tests/test_route_sampler_context_isolation.py": "448caa9b3d5381d30109eb53b7d751c1df986d98af058b5a7159f354fa8025e6",
+    "scripts/smoke_route_action_feedback.py": "03cef530b46f3510fa03df1f3ed10819179b06c07d2d62c9338cc11a4b714526",
+    "docs/superpowers/specs/2026-11-13-route-action-feedback.md": "91e696dccf8a270cd55836c3bf6961065603976a2c0239571f20cb8fc7c7ad7b",
+    "docs/superpowers/plans/2026-11-13-route-action-feedback.md": "5464b92dc6c870a7812c4afe9881d737b101e49a6826996fa0538c49aa05ad53"
+  }
+}
