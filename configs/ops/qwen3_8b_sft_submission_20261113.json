@@ -1,0 +1,38 @@
+{
+  "observed_at": "2026-11-13T21:21:47.392495+08:00",
+  "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261113_01",
+  "instance": "8b1d89f6a1cfaa4801a1d5100ebd09a6",
+  "platform_state": "TRAINING_RESOURCE_WAITING",
+  "instance_row": "| 2026-11-13 21:19:22 | 8b1d89f6a1cfaa4801a1d5100ebd09a6 | false     | TRAINING_RESOURCE_WAITING |       145 | 2026-11-13 21:21:43 |",
+  "request": {
+    "hosts": 1,
+    "gpus": 8,
+    "type": "H20",
+    "business_flag": "AI4LSLab_KEMO_ZJK_H20"
+  },
+  "source_commit": "c6d3fb3e6dfd61390284d8ab61eed34f4c8d8766",
+  "source_snapshot_sha256": "ef2e01f034c59182ca329ad5827172c420c6b33180b0861afee36e69df9d4d19",
+  "cache_manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/qwen3_8b_corrected_continue_4h20_20261113_01/tokens/manifest.json",
+  "cache_manifest_sha256": "7c2bb69c5228b1d4dfcb39ded970e5bcce06404e88fa7ecd5ec7ccfc7a7f7b8f",
+  "cache_verified": true,
+  "rows": {
+    "train": 1908035,
+    "validation": 21355
+  },
+  "windowed_source_rows": {
+    "train": 0,
+    "validation": 0
+  },
+  "gpu_training_or_optimizer_update_confirmed": false,
+  "parent": "natural_language_event_history_v2_qwen3_8b_h20_seed17_20260918/checkpoint-31366",
+  "parent_sha256": "a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b",
+  "queue_receipt": {
+    "state": "submitted",
+    "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261113_01",
+    "updated_at": 1794575961.819993,
+    "gpu_count": 8,
+    "gpu_type": "H20",
+    "cache_verified": true
+  },
+  "pr": "https://github.com/wangyu-sd/MechET/pull/105"
+}

@@ -5,10 +5,12 @@
   "stages": [
     {
       "id": "corrected_sft",
-      "status": "waiting_for_full_cpu_cache",
+      "status": "TRAINING_RESOURCE_WAITING",
       "gpus": 8,
       "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261113_01",
-      "config": "/aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/qwen3_8b_rsi_8h20_20261113_01/code/configs/agent/qwen3_8b_corrected_continue_8h20_20261113.json"
+      "config": "/aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/qwen3_8b_rsi_8h20_20261113_01/code/configs/agent/qwen3_8b_corrected_continue_8h20_20261113.json",
+      "instance": "8b1d89f6a1cfaa4801a1d5100ebd09a6",
+      "cache_verified": true
     },
     {
       "id": "verify_multistep_recovery",
