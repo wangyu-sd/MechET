@@ -1,0 +1,809 @@
+diff --git a/src/mechet/route_action_feedback.py b/src/mechet/route_action_feedback.py
+--- /dev/null
++++ b/src/mechet/route_action_feedback.py
+@@ -0,0 +1,94 @@
++"""Current-state action constraints; raw sampling probabilities stay untouched."""
++from copy import deepcopy
++import json
++import re
++
++ACTION_HEADER='\nCURRENT EXECUTION CONSTRAINTS\n'
++NATIVE_LOCAL_HEADER='\nNATIVE CURRENT-DECISION OBSERVATION\n'
++
++
++def semantic_action(raw):
++    """Ignore explanatory prose, never electron-flow ordering or chemical fields."""
++    from .agent_inference import parse_tool_calls
++    try: calls=parse_tool_calls(raw)
++    except Exception:return None
++    if len(calls)!=1:return None
++    call=calls[0];args=deepcopy(call.arguments)
++    if call.name=='apply_electron_flow':
++        for field in ('electron_flow','bond_order_changes','charge_changes'):
++            if not args.get(field):args[field]=[]
++            items=args.get(field)
++            for item in items if isinstance(items,list) else []:
++                if isinstance(item,dict):item.pop('instruction',None)
++                if (field=='bond_order_changes' and isinstance(item,dict)
++                        and isinstance(item.get('atoms'),list)
++                        and all(isinstance(a,str) for a in item['atoms'])):
++                    item['atoms']=sorted(item['atoms'])
++        moves=args.get('electron_flow')
++        for move in moves if isinstance(moves,list) else []:
++            if not isinstance(move,dict):continue
++            for field in ('source','destination'):
++                value=move.get(field)
++                if not isinstance(value,str):continue
++                match=re.fullmatch(r'(the bond (?:to form )?between atoms |a radical pair on atoms )([AB]\d+) and ([AB]\d+)',value)
++                if match:
++                    left,right=sorted(match.group(2,3))
++                    move[field]=match[1]+left+' and '+right
++    action=dict(name=call.name,arguments=args)
++    return json.dumps(action,sort_keys=True,separators=(',',':')),action
++
++
++def state_rejections(ep):
++    """Derive memory from receipts: no second mutable cache to corrupt on restore."""
++    rid=ep.uid+'/r'+str(len(ep.reactions));failures={}
++    for record in ep.records:
++        if (record.get('accepted') is not False or record.get('reaction_id')!=rid
++                or record.get('state_before')!=ep.node.state or not record.get('error')):
++            continue
++        parsed=semantic_action(record.get('raw',''))
++        if parsed is None:continue
++        key,action=parsed
++        previous=failures.get(key)
++        failures[key]=dict(action=action,error=record['error'],count=1+(previous['count'] if previous else 0))
++    return failures
++
++
++def previous_rejection(ep,receipt):
++    parsed=semantic_action(receipt.get('raw',''))
++    return state_rejections(ep).get(parsed[0]) if parsed is not None else None
++
++
++def decision_control(ep):
++    from .natural_language_electron_flow import build_inventory
++    inventory=build_inventory(ep.node.state)
++    bonds=[]
++    for pair in inventory.maps_to_bond:
++        left,right=sorted(inventory.map_to_atom[a] for a in pair)
++        bonds.append('the bond between atoms '+left+' and '+right)
++    reason=ep._finish_guard_error(ep.node)
++    return dict(phase='new_reaction' if not ep.node.actions else 'ongoing_reaction',
++        finish_available=not bool(reason),finish_blocked_reason=reason,
++        source_bond_candidates=sorted(bonds),
++        rejected_actions_current_state=list(state_rejections(ep).values()),
++        instruction=('Use only the current atom inventory. Historical names are not current names. '
++            'An existing bond used as an electron source must be one of source_bond_candidates. '
++            'A rejected action did not change this state; choose a different chemical action, '
++            'not a new explanation of the same action. finish_trace is available only when '
++            'finish_available is true; otherwise continue import/electron-flow reasoning.'))
++
++
++def tools_for_episode(ep):
++    from scripts.build_natural_language_event_sft import TOOLS
++    allowed=not bool(ep._finish_guard_error(ep.node))
++    return deepcopy([t for t in TOOLS if allowed or t['function']['name']!='finish_trace'])
++
++
++def tools_for_request(request):
++    from scripts.build_natural_language_event_sft import TOOLS
++    tools=getattr(request,'tools',None)
++    if tools is None:return TOOLS
++    if not isinstance(tools,list) or not tools:raise ValueError('INVALID_REQUEST_TOOLS')
++    names=[t.get('function',{}).get('name') for t in tools]
++    if len(set(names))!=len(names) or any(n not in {'import_fragments','apply_electron_flow','finish_trace'} for n in names):
++        raise ValueError('INVALID_REQUEST_TOOLS')
++    return tools
+diff --git a/src/mechet/route_event_history.py b/src/mechet/route_event_history.py
+--- a/src/mechet/route_event_history.py
++++ b/src/mechet/route_event_history.py
+@@ -14,6 +14,7 @@
+ NATIVE_ROUTE_HISTORY = 'route_native_history_feedback_v5'
+ NATIVE_LAST_ROUTE_HISTORY = 'route_native_last_history_feedback_v6'
+ PASSIVE_ROUTE_HISTORY = 'route_passive_history_feedback_v7'
++ACTION_ROUTE_HISTORY = 'route_action_feedback_v8'
+ NATIVE_SYSTEM_HEADER = '\nNATIVE CURRENT-DECISION SYSTEM INSTRUCTIONS\n'
+ HISTORY_HEADER = '\nCOMPLETE ROUTE EVENT HISTORY (PAST EVENTS)\n'
+ ACTIVE_HEADER = '\nCURRENT REACTION (AUTHORITATIVE FOR NEXT ACTION)\n'
+diff --git a/src/mechet/route_policy_episode.py b/src/mechet/route_policy_episode.py
+--- a/src/mechet/route_policy_episode.py
++++ b/src/mechet/route_policy_episode.py
+@@ -13,11 +13,11 @@
+ 
+ FULL_ROUTE_HISTORY = 'full_route_history_feedback_v2'
+ from .route_event_history import (EVENT_ROUTE_HISTORY, SCOPED_ROUTE_HISTORY, NATIVE_ROUTE_HISTORY,
+-    NATIVE_LAST_ROUTE_HISTORY, PASSIVE_ROUTE_HISTORY, NATIVE_SYSTEM_HEADER, RouteEventHistory,
++    NATIVE_LAST_ROUTE_HISTORY, PASSIVE_ROUTE_HISTORY, ACTION_ROUTE_HISTORY, NATIVE_SYSTEM_HEADER, RouteEventHistory,
+     HISTORY_HEADER, ACTIVE_HEADER, LOCAL_HEADER, public_json)
+ 
+ EVENT_ROUTE_OBSERVATIONS = (EVENT_ROUTE_HISTORY, SCOPED_ROUTE_HISTORY, NATIVE_ROUTE_HISTORY,
+-                            NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY)
++                            NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY,ACTION_ROUTE_HISTORY)
+ AGENTIC_ROUTE_OBSERVATIONS = (FULL_ROUTE_HISTORY, *EVENT_ROUTE_OBSERVATIONS)
+ 
+ 
+@@ -94,6 +94,7 @@
+     messages: list
+     remaining_tokens: int
+     public_product: str
++    tools: list | None = None
+ 
+ 
+ class RouteEpisode:
+@@ -139,9 +140,10 @@
+             return messages
+         if self.event_history is not None:
+             rid=self.uid+'/r'+str(len(self.reactions))
+-            passive=self.cfg['public_observation_contract']==PASSIVE_ROUTE_HISTORY
++            action_feedback=self.cfg['public_observation_contract']==ACTION_ROUTE_HISTORY
++            passive=self.cfg['public_observation_contract'] in (PASSIVE_ROUTE_HISTORY,ACTION_ROUTE_HISTORY)
+             scoped=self.cfg['public_observation_contract'] in (SCOPED_ROUTE_HISTORY,NATIVE_ROUTE_HISTORY,
+-                                                              NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY)
++                                                              NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY,ACTION_ROUTE_HISTORY)
+             latest=self.event_history.latest_feedback(rid,scope_aliases=scoped,opaque_handles=passive)
+             if scoped:
+                 from .agent_inference import parse_tool_calls
+@@ -171,7 +173,7 @@
+             if passive:
+                 active.pop('instructions')  # Route constraints are executor-owned, not extra action-policy commands.
+             memory=HISTORY_HEADER+public_json(context)+ACTIVE_HEADER+public_json(active)
+-            if self.cfg['public_observation_contract'] in (NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY):
++            if self.cfg['public_observation_contract'] in (NATIVE_LAST_ROUTE_HISTORY,PASSIVE_ROUTE_HISTORY,ACTION_ROUTE_HISTORY):
+                 # Historical route instructions must precede the original
+                 # one-decision policy. Preserve native SYSTEM then USER as
+                 # the final current-decision text, without generated turns.
+@@ -189,6 +191,9 @@
+                     messages.insert(0,dict(role='system',content=memory))
+             else:
+                 messages[-1]['content']=memory+LOCAL_HEADER+messages[-1]['content']
++            if action_feedback:
++                from .route_action_feedback import ACTION_HEADER,NATIVE_LOCAL_HEADER,decision_control
++                messages[-1]['content']=ACTION_HEADER+public_json(decision_control(self))+NATIVE_LOCAL_HEADER+messages[-1]['content']
+             return messages
+         # Each saved observation is LOCAL: embedding a prior complete prompt
+         # here would recursively duplicate the history. Nothing is truncated.
+@@ -271,9 +276,13 @@
+         rid=self.uid+'/r'+str(len(self.reactions))
+         attempt=len(self.records) if self.agentic_feedback else len(self.node.actions)
+         request_id=(self.uid+'/r0' if self.agentic_feedback else rid)+'/a'+str(attempt)
++        tools=None
++        if self.cfg.get('public_observation_contract')==ACTION_ROUTE_HISTORY:
++            from .route_action_feedback import tools_for_episode
++            tools=tools_for_episode(self)
+         return DecisionRequest(request_id,self.uid,rid,
+             self.current['product'],self.cfg['behavior_version'],self._messages(),
+-            self.cfg['episode_token_budget']-self.used_tokens,self.current['public_product'])
++            self.cfg['episode_token_budget']-self.used_tokens,self.current['public_product'],tools)
+ 
+     def accept(self, receipt):
+         request=self.next_decision()
+@@ -286,6 +295,11 @@
+         if 'messages' in receipt and receipt['messages']!=request.messages:
+             raise ValueError('BEHAVIOR_OBSERVATION_MISMATCH')
+         before=self.node.state
++        action_feedback=self.cfg.get('public_observation_contract')==ACTION_ROUTE_HISTORY
++        prior_rejection=None
++        if action_feedback:
++            from .route_action_feedback import previous_rejection
++            prior_rejection=previous_rejection(self,receipt)
+         if 'state_before' in receipt and receipt['state_before']!=before:
+             raise ValueError('RECOVERED_EXECUTION_STATE_BEFORE_MISMATCH')
+         record=dict(receipt, messages=request.messages, reaction_id=request.reaction_id,
+@@ -307,7 +321,11 @@
+             # Do not allow an unsuccessful executor or premature terminal to
+             # mutate the last valid state, imports, visited states or history.
+             candidate=copy.deepcopy(self.node) if self.agentic_feedback else self.node
+-            child,error=self.chemistry.step(candidate,receipt)
++            if prior_rejection is not None:
++                child,error=None,prior_rejection['error']
++                record['executor_skipped']='repeated_rejected_action'
++            else:
++                child,error=self.chemistry.step(candidate,receipt)
+             if child is not None and child.terminal and self.agentic_feedback:
+                 error=self._finish_guard_error(child)
+                 if error:
+@@ -340,6 +358,9 @@
+                 state_changed=state_after!=before,current_state=public_molecule(state_after),
+                 instruction=('Continue from the executor-owned state.' if accepted else
+                     'State was not committed. Correct the error and choose another action.'))
++            if action_feedback:
++                feedback.update(repeated_rejected_action=prior_rejection is not None,
++                    failure_repeat_count=(prior_rejection['count']+1 if prior_rejection else 1) if not accepted else 0)
+             if 'feedback' in receipt and receipt['feedback']!=feedback:
+                 raise ValueError('RECOVERED_EXECUTION_FEEDBACK_MISMATCH')
+             if 'accepted' in receipt and receipt['accepted']!=accepted:
+@@ -433,6 +454,11 @@
+         last={r['reaction_id']:r['request_id'] for r in self.records}
+         for event,record in zip(attempts,self.records):
+             observation=copy.deepcopy(record['messages'])
++            from .route_action_feedback import ACTION_HEADER,NATIVE_LOCAL_HEADER
++            if observation[-1]['content'].startswith(ACTION_HEADER):
++                if NATIVE_LOCAL_HEADER not in observation[-1]['content']:
++                    raise ValueError('HISTORY_CURRENT_OBSERVATION_MISSING')
++                observation[-1]['content']=observation[-1]['content'].split(NATIVE_LOCAL_HEADER,1)[1]
+             if LOCAL_HEADER in observation[-1]['content']:
+                 observation[-1]['content']=observation[-1]['content'].split(LOCAL_HEADER,1)[1]
+             elif (observation[0]['role']=='system'
+diff --git a/src/mechet/route_policy_sampling.py b/src/mechet/route_policy_sampling.py
+--- a/src/mechet/route_policy_sampling.py
++++ b/src/mechet/route_policy_sampling.py
+@@ -199,7 +199,7 @@
+         import torch
+         from transformers import GenerationConfig,LogitsProcessorList
+         from .qwen35_protocol import tool_prefix
+-        from scripts.build_natural_language_event_sft import TOOLS
++        from .route_action_feedback import tools_for_request
+         results=[None]*len(requests)
+         if not requests:
+             return results
+@@ -209,7 +209,7 @@
+         # Measure unpadded histories FIRST: an overlong request must not censor
+         # its shorter batch neighbors or reduce their available output room.
+         with phase(self.cfg,'sampling.render',batch_size=len(requests)):
+-            all_prompts=[tool_prefix(self.tokenizer,r.messages,TOOLS) for r in requests]
++            all_prompts=[tool_prefix(self.tokenizer,r.messages,tools_for_request(r)) for r in requests]
+         with phase(self.cfg,'sampling.encode',batch_size=len(requests)):
+             all_ids=self.tokenizer(all_prompts,padding=False,add_special_tokens=False)['input_ids']
+         with phase(self.cfg,'sampling.batch_plan',batch_size=len(requests)):
+diff --git a/src/mechet/route_vllm_backend.py b/src/mechet/route_vllm_backend.py
+--- a/src/mechet/route_vllm_backend.py
++++ b/src/mechet/route_vllm_backend.py
+@@ -191,8 +191,8 @@
+ 
+     def _generate_one(self,request):
+         from .qwen35_protocol import tool_prefix
+-        from scripts.build_natural_language_event_sft import TOOLS
+-        prompt=tool_prefix(self.tokenizer,request.messages,TOOLS)
++        from .route_action_feedback import tools_for_request
++        prompt=tool_prefix(self.tokenizer,request.messages,tools_for_request(request))
+         ids=self.tokenizer(prompt,add_special_tokens=False)['input_ids']
+         try:wire=build_request(request,ids,dict(self.cfg,eos_token_id=self.tokenizer.eos_token_id))
+         except ValueError as exc:
+diff --git a/tests/test_route_action_feedback.py b/tests/test_route_action_feedback.py
+--- /dev/null
++++ b/tests/test_route_action_feedback.py
+@@ -0,0 +1,150 @@
++"""Executable interface regressions, not model/chemistry benchmark results."""
++from copy import deepcopy
++import json
++import pytest
++
++V8='route_action_feedback_v8'
++
++
++def episode():
++    from mechet.external_route_rl import TargetOnlyRouteEpisode
++    return TargetOnlyRouteEpisode(dict(behavior_version='v8-test',public_observation_contract=V8,
++        max_consecutive_recoveries=8,max_action_tokens=2048),'CO',set(),'repair',17)
++
++
++def send(ep,name,args):
++    req=ep.next_decision()
++    ep.accept(dict(request_id=req.request_id,behavior_version=req.behavior_version,
++        raw='<tool_call>'+json.dumps(dict(name=name,arguments=args))+'</tool_call>',
++        prompt_token_ids=[1],generated_token_ids=[2],behavior_logprobs=[-.2],truncated=False))
++
++
++def names(req):return [t['function']['name'] for t in (getattr(req,'tools',None) or [])]
++
++
++def flow(source='the bond between atoms A01 and A99',instruction='first wording'):
++    return dict(direction='retrosynthetic',electron_flow=[dict(source=source,
++        destination='atom A01',instruction=instruction)],bond_order_changes=[],charge_changes=[])
++
++
++def test_fresh_reaction_does_not_offer_finish_and_rejection_cannot_terminalize():
++    ep=episode();req=ep.next_decision()
++    assert names(req)==['import_fragments','apply_electron_flow']
++    before=deepcopy(vars(ep.node));send(ep,'finish_trace',{})
++    assert ep.status is None and vars(ep.node)==before
++    assert ep.records[-1]['error']=='NONPRODUCTIVE_FINISH'
++
++
++def test_rejected_semantic_action_is_not_executed_again_with_new_explanation():
++    from mechet.route_policy_episode import NativeChemistry
++    class Counting(NativeChemistry):
++        calls=0
++        def step(self,node,output):
++            self.calls+=1
++            return super().step(node,output)
++    ep=episode();ep.chemistry=Counting();ep.next_decision()
++    send(ep,'apply_electron_flow',flow());assert ep.chemistry.calls==1
++    before=deepcopy(vars(ep.node))
++    send(ep,'apply_electron_flow',flow(instruction='different explanation'))
++    assert ep.chemistry.calls==1
++    assert vars(ep.node)==before and len(ep.records)==2
++    assert ep.records[-1]['feedback']['repeated_rejected_action'] is True
++    assert ep.records[-1]['feedback']['failure_repeat_count']==2
++    send(ep,'import_fragments',dict(fragments=[dict(smiles='[Cl-]',count=1,purpose='electron_participant')]))
++    assert ep.chemistry.calls==2
++    send(ep,'apply_electron_flow',flow())
++    assert ep.chemistry.calls==3,'a different chemical state must invalidate cached rejection'
++
++
++def test_productive_current_reaction_offers_finish_and_new_target_resets_it():
++    from mechet.natural_language_electron_flow import build_inventory
++    from rdkit import Chem
++    ep=episode();ep.next_decision();inv=build_inventory(ep.node.state)
++    mol=Chem.MolFromSmiles(ep.node.state)
++    aliases={a.GetSymbol():inv.map_to_atom[a.GetAtomMapNum()] for a in mol.GetAtoms() if a.GetSymbol() in ('C','O')}
++    args=flow(source=f"the bond between atoms {aliases['C']} and {aliases['O']}")
++    args['electron_flow'][0]['destination']='atom '+aliases['O']
++    send(ep,'apply_electron_flow',args)
++    assert ep.records[-1]['accepted'] is True
++    assert 'finish_trace' in names(ep.next_decision())
++    send(ep,'finish_trace',{})
++    assert len(ep.reactions)==1 and ep.status is None
++    assert names(ep.next_decision())==['import_fragments','apply_electron_flow']
++    assert ep.node.actions==[] and ep.node.terminal is False
++
++
++def test_history_is_scoped_but_current_rejected_action_and_feedback_are_grounded():
++    ep=episode();ep.next_decision();send(ep,'apply_electron_flow',flow())
++    request=ep.next_decision()
++    system=request.messages[0]['content']
++    assert 'past_' in system and 'A99' not in system
++    user=request.messages[-1]['content']
++    assert 'A99' in user and 'KeyError' in user
++    assert 'CURRENT STATE SMILES:' in user and 'source_bond_candidates' in user
++    archive=ep.event_history.snapshot()
++    assert archive['output_texts'][0]==ep.records[0]['raw'],'raw evidence must remain verbatim'
++
++
++def test_v8_restore_preserves_tools_messages_and_rejection_memory():
++    from mechet.external_route_rl import TargetOnlyRouteEpisode
++    ep=episode();ep.next_decision();send(ep,'apply_electron_flow',flow())
++    saved=json.loads(json.dumps(ep.snapshot()))
++    restored=TargetOnlyRouteEpisode.restore(saved)
++    assert restored.next_decision()==ep.next_decision()
++    send(restored,'apply_electron_flow',flow(instruction='new explanation'))
++    assert restored.records[-1]['feedback']['repeated_rejected_action'] is True
++    bad=deepcopy(saved);bad['records'][0]['messages'][-1]['content']='forged current state'
++    with pytest.raises(ValueError,match='HISTORY_'):
++        TargetOnlyRouteEpisode.restore(bad)
++
++
++def test_legacy_requests_keep_original_tool_schema():
++    from mechet.external_route_rl import TargetOnlyRouteEpisode
++    ep=TargetOnlyRouteEpisode(dict(behavior_version='old',max_action_tokens=2048,
++        public_observation_contract='route_event_history_feedback_v3',max_consecutive_recoveries=8),
++        'CO',set(),'old',17)
++    assert getattr(ep.next_decision(),'tools',None) is None
++
++
++def test_malformed_flow_array_is_rejected_without_crashing_failure_memory():
++    ep=episode();ep.next_decision()
++    args=flow();args['electron_flow']=123
++    send(ep,'apply_electron_flow',args)
++    assert ep.status is None and ep.records[-1]['accepted'] is False
++    send(ep,'apply_electron_flow',args)
++    assert ep.status is None and ep.records[-1]['feedback']['repeated_rejected_action'] is True
++
++
++def test_identical_state_in_another_reaction_does_not_reuse_sibling_failure():
++    from types import SimpleNamespace
++    from mechet.route_action_feedback import state_rejections
++    raw='<tool_call>'+json.dumps(dict(name='finish_trace',arguments={}))+'</tool_call>'
++    ep=SimpleNamespace(uid='route',reactions=[object()],node=SimpleNamespace(state='same exact mapped state'),
++        records=[dict(reaction_id='route/r0',state_before='same exact mapped state',
++                      accepted=False,error='NONPRODUCTIVE_FINISH',raw=raw)])
++    assert state_rejections(ep)=={}
++
++
++@pytest.mark.parametrize('variant',['bond_pair','radical_pair','empty_defaults'])
++def test_executor_equivalent_rejected_actions_share_one_execution(variant):
++    from mechet.route_policy_episode import NativeChemistry
++    class Counting(NativeChemistry):
++        calls=0
++        def step(self,node,output):
++            self.calls+=1
++            return super().step(node,output)
++    ep=episode();ep.chemistry=Counting();ep.next_decision()
++    first=dict(direction='retrosynthetic',electron_flow=[],
++        bond_order_changes=[dict(atoms=['A01','A02'],delta=5)],charge_changes=[])
++    if variant=='radical_pair':
++        first=flow(source='a radical pair on atoms A01 and A02')
++    second=deepcopy(first)
++    if variant=='bond_pair':second['bond_order_changes'][0]['atoms'].reverse()
++    elif variant=='radical_pair':second['electron_flow'][0]['source']='a radical pair on atoms A02 and A01'
++    else:
++        second.pop('electron_flow');second.pop('charge_changes')
++    send(ep,'apply_electron_flow',first)
++    assert not ep.records[-1]['accepted'] and ep.chemistry.calls==1
++    send(ep,'apply_electron_flow',second)
++    assert not ep.records[-1]['accepted'] and ep.chemistry.calls==1
++    assert ep.records[-1]['feedback']['repeated_rejected_action'] is True
+diff --git a/tests/test_route_sampler_context_isolation.py b/tests/test_route_sampler_context_isolation.py
+--- /dev/null
++++ b/tests/test_route_sampler_context_isolation.py
+@@ -0,0 +1,122 @@
++"""CPU software checks: external generation backend is deliberately synthetic."""
++import sys
++from types import SimpleNamespace
++
++import pytest
++
++
++@pytest.fixture
++def sampler(tmp_path,monkeypatch):
++    import torch
++    from mechet.route_policy_sampling import NativeRouteSampler
++    import mechet.qwen35_protocol as protocol
++    monkeypatch.setitem(sys.modules,'transformers',SimpleNamespace(
++        GenerationConfig=SimpleNamespace,LogitsProcessorList=list))
++    monkeypatch.setattr(protocol,'tool_prefix',lambda tokenizer,messages,tools:messages[-1]['content'])
++
++    class Tokenizer:
++        pad_token_id=0
++        eos_token_id=2
++        def __call__(self,texts,padding=False,**kwargs):
++            rows=[[1]*len(s) for s in texts]
++            return self.pad({'input_ids':rows},return_tensors='pt') if padding else {'input_ids':rows}
++        def pad(self,encoded,**kwargs):
++            rows=encoded['input_ids'];width=max(map(len,rows))
++            return dict(input_ids=torch.tensor([[0]*(width-len(r))+r for r in rows]),
++                        attention_mask=torch.tensor([[0]*(width-len(r))+[1]*len(r) for r in rows]))
++        def decode(self,tokens,**kwargs):
++            return 'EOS' if tokens==[2] else 'unexpected'
++
++    class Actor(torch.nn.Module):
++        def __init__(self):
++            super().__init__();self.anchor=torch.nn.Parameter(torch.zeros(1))
++        def generate(self,input_ids,attention_mask,logits_processor,**kwargs):
++            scores=torch.full((len(input_ids),4),-float('inf'));scores[:,2]=0.
++            for processor in logits_processor:scores=processor(input_ids,scores)
++            return torch.cat([input_ids,scores.argmax(-1)[:,None]],dim=1)
++
++    events=[]
++    backend=NativeRouteSampler(Actor(),Tokenizer(),dict(max_action_tokens=4,max_context=8,
++        generation_batch_size=64,seed=17),tmp_path/'raw.jsonl',receipt_writer=events.append)
++    return backend,events
++
++
++def request(uid,length):
++    return SimpleNamespace(request_id=uid,behavior_version='v0',remaining_tokens=4,
++        messages=[dict(role='user',content='x'*length)])
++
++
++def test_overlong_history_does_not_censor_other_requests(sampler):
++    backend,events=sampler
++    long,short=backend.generate([request('long',9),request('short',3)])
++    assert long['resource_error']=='PHYSICAL_CONTEXT_LIMIT'
++    assert short['generated_token_ids']==[2]
++    assert short['prompt_token_ids']==[1]*3
++    assert short['behavior_logprobs']==[0.]
++    assert [e['requests'][0]['request_id'] for e in events if e['event']=='gpu-requested']==['short']
++
++
++def test_long_history_does_not_reduce_another_requests_completion_room(sampler):
++    backend,events=sampler
++    outputs=backend.generate([request('near-limit',7),request('short',3)])
++    rooms={r['request_id']:e['room'] for e in events if e['event']=='gpu-requested' for r in e['requests']}
++    assert rooms=={'near-limit':1,'short':4}
++    assert all(r['generated_token_ids']==[2] and not r['truncated'] for r in outputs)
++
++
++def test_requests_with_full_room_still_share_a_batch_and_keep_input_order(sampler):
++    backend,events=sampler
++    outputs=backend.generate([request('a',3),request('b',4)])
++    draws=[e for e in events if e['event']=='gpu-requested']
++    assert len(draws)==1 and len(draws[0]['requests'])==2
++    assert [r['request_id'] for r in outputs]==['a','b']
++    assert [r['prompt_token_ids'] for r in outputs]==[[1]*3,[1]*4]
++
++
++def test_context_bins_cannot_hide_mixed_behavior_versions(sampler):
++    backend,_=sampler
++    short=request('short',3);long=request('long',7);long.behavior_version='v1'
++    with pytest.raises(ValueError,match='MIXED_BEHAVIOR_VERSIONS'):
++        backend.generate([short,long])
++
++
++def test_generation_and_durable_journal_times_are_reported_separately(sampler):
++    backend,events=sampler
++    backend.generate([request('a',3)])
++    timing=[e for e in events if e['event']=='gpu-batch-timing']
++    assert len(timing)==1
++    assert timing[0]['generation_seconds']>=0
++    assert timing[0]['request_journal_seconds']>=0
++    assert timing[0]['return_journal_seconds']>=0
++    assert timing[0]['requests']==1
++
++
++def test_hf_sampler_renders_request_tool_availability_into_actual_prompt_ids(sampler,monkeypatch):
++    import mechet.qwen35_protocol as protocol
++    from scripts.build_natural_language_event_sft import TOOLS
++    monkeypatch.setattr(protocol,'tool_prefix',lambda tokenizer,messages,tools:'x'*len(tools))
++    backend,_=sampler
++    restricted=request('restricted',1);restricted.tools=TOOLS[:2]
++    legacy=request('legacy',1)
++    first,second=backend.generate([restricted,legacy])
++    assert first['prompt_token_ids']==[1,1]
++    assert second['prompt_token_ids']==[1,1,1]
++    assert first['generated_token_ids']==second['generated_token_ids']==[2]
++    assert first['behavior_logprobs']==second['behavior_logprobs']==[0.]
++
++
++def test_vllm_sampler_renders_request_tools_before_context_check(monkeypatch):
++    import mechet.qwen35_protocol as protocol
++    from mechet.route_vllm_backend import VllmRouteSampler
++    from scripts.build_natural_language_event_sft import TOOLS
++    monkeypatch.setattr(protocol,'tool_prefix',lambda tokenizer,messages,tools:'x'*len(tools))
++    class Tokenizer:
++        eos_token_id=2
++        def __call__(self,prompt,**kwargs):return {'input_ids':[1]*len(prompt)}
++    # Stop at the real capacity boundary before the external engine is needed.
++    backend=object.__new__(VllmRouteSampler)
++    backend.tokenizer=Tokenizer();backend.cfg=dict(max_action_tokens=4,max_context=1,seed=17)
++    req=request('limited',1);req.tools=TOOLS[:2]
++    result=backend._generate_one(req)
++    assert result['resource_error']=='PHYSICAL_CONTEXT_LIMIT'
++    assert result['prompt_token_ids']==[1,1]
+diff --git a/scripts/smoke_route_action_feedback.py b/scripts/smoke_route_action_feedback.py
+--- /dev/null
++++ b/scripts/smoke_route_action_feedback.py
+@@ -0,0 +1,206 @@
++"""Explicitly authorized whole-route diagnostic; no optimizer or policy changes."""
++from concurrent.futures import ThreadPoolExecutor
++from copy import deepcopy
++from collections import Counter
++import json
++from pathlib import Path
++import time
++from types import SimpleNamespace
++
++
++def partial_report(ep):
++    """Keep the live environment untouched when the diagnostic boundary is reached."""
++    if ep.status is not None:
++        report = ep.finish_report()
++    else:
++        report = dict(episode_id=ep.uid, root=ep.root, public_root=ep.public_root,
++                      status='smoke_decision_cap_censored', error='', reactions=ep.reactions,
++                      records=ep.records, stock_leaves=ep.stock_leaves, pending=ep.pending,
++                      depth=ep.depth, gt_used_for_generation_or_stopping=False)
++        report.update(seed=ep.seed,route_endpoint_contract=ep.cfg['route_endpoint_contract'],
++                      public_observation_contract=ep.cfg['public_observation_contract'])
++    report['environment_status'] = ep.status
++    report['current_obligation'] = deepcopy(ep.current)
++    return report
++
++
++def run(manifest_path):
++    import torch, transformers, peft
++    from peft import PeftModel
++    from safetensors.torch import load_file
++    from mechet.route_vllm_adapter import verify_hashes, sha256
++    from mechet.route_training_contract import atomic_json
++    from mechet.external_route_actor import verify_actor_binding
++    from mechet.external_route_rl import TargetOnlyRouteEpisode, HiddenRouteReward
++    from mechet.route_event_history import EVENT_ROUTE_HISTORY, ACTION_ROUTE_HISTORY
++    from mechet.route_action_feedback import semantic_action, tools_for_request
++    from mechet.route_precision import configure_precision, policy_autocast
++    from mechet.qwen35_protocol import load_language_model, OFFICIAL_REVISION, tool_prefix
++    from mechet.external_route_io import BatchedNativeRouteSampler, ReceiptBatch
++    from scripts.replay_route_hf_precision import source_master_names
++    from scripts.build_natural_language_event_sft import TOOLS
++    from scripts.pr96_earho_contract import token_logps_batch
++    manifest = json.loads(Path(manifest_path).read_text())
++    root = Path(manifest['output_dir']); root.mkdir(parents=True, exist_ok=True)
++    began = time.monotonic()
++    def event(name, **values):
++        value = dict(event=name, elapsed_seconds=time.monotonic()-began, **values)
++        atomic_json(root/'progress.json', value)
++        print(json.dumps(value), flush=True)
++    verify_hashes(manifest['files_sha256'])
++    cfg = json.loads(Path(manifest['learner_contract']).read_text())
++    provenance = verify_actor_binding(cfg)
++    tasks = json.loads(Path(manifest['public_tasks']).read_text())
++    assert len(tasks)==2 and all(set(t)=={'task_id','target'} for t in tasks)
++    assert manifest['arms']==['deployed_full_history_v3','repaired_action_feedback_v8']
++    assert manifest['max_decisions_per_episode']==64 and manifest['replicas_per_target']==2
++    assert cfg['public_observation_contract']==EVENT_ROUTE_HISTORY
++    assert torch.__version__.startswith('2.6.0') and torch.version.cuda=='11.8'
++    assert transformers.__version__=='5.5.0' and peft.__version__=='0.18.1'
++    torch.cuda.set_device(0); torch.set_num_threads(4)
++    assert 'H20' in torch.cuda.get_device_name(0)
++    configure_precision(cfg)
++    event('long-route-loading', checkpoint=cfg['parent'], parent_sha256=cfg['parent_sha256'])
++    tokenizer = transformers.AutoTokenizer.from_pretrained(cfg['base_path'], revision=OFFICIAL_REVISION, local_files_only=True)
++    tokenizer.padding_side = 'left'
++    if tokenizer.pad_token_id is None: tokenizer.pad_token=tokenizer.eos_token
++    actor, _ = load_language_model(cfg['base_path'], dtype=torch.bfloat16)
++    actor = PeftModel.from_pretrained(actor, cfg['parent'], is_trainable=True).cuda().eval()
++    for module in actor.modules():
++        if isinstance(module, torch.nn.Dropout): module.p=0.
++    def audit():
++        source = Path(cfg['parent'])/'adapter_model.safetensors'
++        assert sha256(source)==cfg['parent_sha256']
++        saved=load_file(str(source),device='cpu'); mapping=source_master_names(saved)
++        params=dict(actor.named_parameters())
++        assert {n for n in params if '.lora_' in n}==set(mapping.values())
++        for name,mapped in mapping.items():
++            p=params[mapped]
++            assert p.device.type=='cuda' and p.dtype==torch.float32 and torch.isfinite(p).all()
++            assert p.shape==saved[name].shape and torch.equal(p.detach().cpu(),saved[name])
++        layers=[m for m in actor.modules() if hasattr(m,'lora_A') and len(m.lora_A)]
++        assert len(layers)==186 and all(not m.disable_adapters and 'default' in m.active_adapters for m in layers)
++        return dict(tensor_count=len(mapping),active_modules=len(layers),exact_cuda_source_equality=True,source_sha256=cfg['parent_sha256'])
++    before=audit()
++    dataset=Path(cfg['dataset'])
++    stock=set((dataset/'stock.txt').read_text().splitlines())
++    protected=json.loads((dataset/'training_protected_identities.json').read_text())
++    class NativeEpisode(TargetOnlyRouteEpisode):
++        def _messages(self): return deepcopy(self.chemistry.messages(self.node))
++    def contexts(arm):
++        cls=NativeEpisode if arm=='native_control' else TargetOnlyRouteEpisode
++        ecfg=dict(public_observation_contract=(ACTION_ROUTE_HISTORY if arm=='repaired_action_feedback_v8' else EVENT_ROUTE_HISTORY),max_consecutive_recoveries=cfg['max_consecutive_recoveries'],
++                  behavior_version='long-route-smoke/'+cfg['parent_sha256']+'/'+arm,
++                  max_action_tokens=cfg['max_action_tokens'],protected_identities=protected,concurrent_executors=4)
++        return [dict(task=t,replica=k,ep=cls(ecfg,t['target'],stock,'long_route_smoke_20261113_01/'+t['task_id']+'/'+str(k),17),
++                     last_probability_reaction=None) for t in tasks for k in range(2)]
++    control=contexts('native_control')[0]['ep'].next_decision()
++    ids=tokenizer(tool_prefix(tokenizer,control.messages,TOOLS),return_tensors='pt',add_special_tokens=False)
++    ids={k:v.cuda() for k,v in ids.items()}
++    with torch.inference_mode(),policy_autocast(actor,cfg['policy_precision']):
++        enabled=actor(**ids,use_cache=False,logits_to_keep=1).logits[:,-1].float()
++        with actor.disable_adapter():disabled=actor(**ids,use_cache=False,logits_to_keep=1).logits[:,-1].float()
++    effect=(enabled-disabled).abs().max().item()
++    assert effect>1e-5 and torch.isfinite(enabled).all()
++    del ids,enabled,disabled
++    event('long-route-actual-gpu-verified',audit=before,active_logit_effect=effect)
++    reports={}; probability_audits=[]; decisions=0
++    local=dict(cfg,seed=17,generation_batch_size=4,pad_token_id=tokenizer.pad_token_id,_sha=sha256(manifest_path))
++    for arm in manifest['arms']:
++        ctx=contexts(arm)
++        execution=ReceiptBatch(root/arm/'executed.jsonl',cfg=local)
++        sampler=BatchedNativeRouteSampler(actor,tokenizer,local,root/arm/'raw.jsonl',execution)
++        with ThreadPoolExecutor(max_workers=4) as pool:
++            while True:
++                active=[c for c in ctx if c['ep'].status is None and len(c['ep'].records)<64]
++                pairs=[(c,c['ep'].next_decision()) for c in active]
++                pairs=[(c,r) for c,r in pairs if r is not None]
++                if not pairs:break
++                outputs=sampler.generate([r for c,r in pairs]); decisions+=len(outputs)
++                assert len(outputs)==len(pairs)
++                for (context,request),output in zip(pairs,outputs):
++                    assert output['request_id']==request.request_id and output['behavior_version']==request.behavior_version
++                    output['offered_tool_names']=[t['function']['name'] for t in tools_for_request(request)]
++                    check=(context['last_probability_reaction']!=request.reaction_id or len(context['ep'].records)%8==0)
++                    if check and output.get('generated_token_ids'):
++                        with torch.inference_mode():
++                            actual=token_logps_batch(actor,[(output['prompt_token_ids'],output['generated_token_ids'])],tokenizer.pad_token_id,precision=cfg['policy_precision'])[0]
++                        expected=torch.tensor(output['behavior_logprobs'],device=actual.device,dtype=actual.dtype)
++                        assert len(actual)==len(output['generated_token_ids']) and torch.isfinite(actual).all()
++                        evidence=dict(arm=arm,episode_id=context['ep'].uid,decision=len(context['ep'].records)+1,
++                                      reaction_id=request.reaction_id,max_abs_drift=(actual-expected).abs().max().item())
++                        probability_audits.append(evidence)
++                        output['diagnostic_probability_check']=evidence
++                        context['last_probability_reaction']=request.reaction_id
++                reaction_counts=[len(c['ep'].reactions) for c,r in pairs]
++                futures=[pool.submit(c['ep'].accept,o) for (c,r),o in zip(pairs,outputs)]
++                for future in futures:future.result()
++                for (c,request),output,prior_reactions in zip(pairs,outputs,reaction_counts):
++                    ep=c['ep']; execution.append(ep.records[-1])
++                    # Persist at every reaction boundary and each fourth decision.
++                    if len(ep.reactions)>prior_reactions or ep.status is not None or len(ep.records)%4==0:
++                        atomic_json(root/arm/('target'+str(tasks.index(c['task'])))/('replica'+str(c['replica'])+'.snapshot.json'),ep.snapshot(include_stock=False))
++                event('long-route-continuing',arm=arm,model_decisions=decisions,
++                      episodes=[dict(target=tasks.index(c['task']),replica=c['replica'],decisions=len(c['ep'].records),
++                                     reactions=len(c['ep'].reactions),depth=c['ep'].depth,status=c['ep'].status,
++                                     pending=len(c['ep'].pending)+int(c['ep'].current is not None),stock_leaves=len(c['ep'].stock_leaves)) for c in ctx])
++        execution.flush()
++        # References are opened only AFTER policy generation for this arm is over.
++        results=[]
++        with HiddenRouteReward(dataset/'references.sqlite',stock,split='training') as oracle:
++            for c in ctx:
++                ep=c['ep']; result=partial_report(ep)
++                result.update(task_id=c['task']['task_id'],replica=c['replica'],arm=arm)
++                result['reference_evidence']=oracle.score(c['task']['task_id'],result)
++                atomic_json(root/arm/('target'+str(tasks.index(c['task'])))/('replica'+str(c['replica'])+'.json'),result)
++                results.append(result)
++        repeated=0;skipped=0;recovered_episodes=0
++        for result in results:
++            failed=set();had_failure=False;recovered=False
++            for record in result['records']:
++                parsed_action=semantic_action(record.get('raw',''))
++                key=(record['reaction_id'],record['state_before'],parsed_action[0]) if parsed_action else None
++                if not record['accepted']:
++                    if key is not None:
++                        repeated+=int(key in failed);failed.add(key)
++                    had_failure=True
++                elif had_failure:recovered=True
++                skipped+=int(record.get('executor_skipped')=='repeated_rejected_action')
++            recovered_episodes+=int(recovered)
++        summary=dict(episodes=len(results),model_decisions=sum(len(r['records']) for r in results),
++                     repeated_rejected_proposals=repeated,skipped_repeated_executor_calls=skipped,
++                     episodes_with_accepted_action_after_failure=recovered_episodes,
++                     started_reaction_programs=sum(len({x['reaction_id'] for x in r['records']}) for r in results),
++                     completed_reactions=sum(len(r['reactions']) for r in results),
++                     episodes_with_at_least_two_reactions=sum(len(r['reactions'])>=2 for r in results),
++                     maximum_depth=max(r['depth'] for r in results),
++                     stock_closed=sum(r['reference_evidence'].get('structural_stock_closed',False) for r in results),
++                     reference_verified_closed=sum(r['reference_evidence']['verified_stock_closed'] for r in results),
++                     statuses=dict(Counter(r['status'] for r in results)),
++                     missing_atom_errors=sum(x.get('error','').startswith('KeyError:') for r in results for x in r['records']),
++                     rejected_finishes=sum('FINISH' in x.get('error','') or x.get('error','').startswith('ROUTE_CYCLE:') for r in results for x in r['records']),
++                     supported_reference_edges=sum(r['reference_evidence']['supported_reactions'] for r in results),
++                     unsupported_edges=sum(r['reference_evidence']['unsupported_reactions'] for r in results))
++        reports[arm]=summary; atomic_json(root/arm/'summary.json',summary)
++        event('long-route-arm-complete',arm=arm,summary=summary)
++    after=audit()
++    max_drift=max((r['max_abs_drift'] for r in probability_audits),default=None)
++    baseline=reports['deployed_full_history_v3'];candidate=reports['repaired_action_feedback_v8']
++    behavior_improved=(candidate['repeated_rejected_proposals']<baseline['repeated_rejected_proposals']
++        and candidate['completed_reactions']>=baseline['completed_reactions']
++        and candidate['stock_closed']>=baseline['stock_closed'] and candidate['missing_atom_errors']==0
++        and candidate['statuses'].get('resource_censored',0)==0)
++    result=dict(scope=manifest['scope'],checkpoint=cfg['parent'],parent_sha256=cfg['parent_sha256'],
++                behavior_status='IMPROVED' if behavior_improved else 'NOT_ESTABLISHED',
++                actual_gpu_audit_before=before,actual_gpu_audit_after=after,active_logit_effect=effect,
++                hardware=torch.cuda.get_device_name(0),summaries=reports,model_decisions=decisions,optimizer_updates=0,
++                probability_audit_count=len(probability_audits),max_audited_probability_drift=max_drift,
++                numerical_status='PASS' if max_drift is not None and max_drift<=.25 else 'FAIL',
++                multistep_expansion_status='OBSERVED' if candidate['episodes_with_at_least_two_reactions'] else 'NOT_OBSERVED',
++                reference_closure_status='OBSERVED' if candidate['reference_verified_closed'] else 'NOT_OBSERVED',
++                source_provenance=provenance,elapsed_seconds=time.monotonic()-began,
++                limitation='Two fixed TRAIN roots, two independent replicas per arm. Reference support is hidden reference-edge agreement, not experimental chemical validation. A 64-decision cap is diagnostic censoring, not chemical failure. Fresh v3 and repaired v8 both preserve complete history. v8 scopes past aliases, adds current-state constraints, advertises eligible tools and reuses equivalent rejected execution results. No logits mask or proposal filtering. No MCTS, training, or process-credit deployment.')
++    atomic_json(root/'probability_audits.json',probability_audits)
++    atomic_json(root/'report.json',result)
++    event('long-route-diagnostic-complete',numerical_status=result['numerical_status'],
++          multistep_expansion_status=result['multistep_expansion_status'],reference_closure_status=result['reference_closure_status'],behavior_status=result['behavior_status'])
+diff --git a/docs/superpowers/specs/2026-11-13-route-action-feedback.md b/docs/superpowers/specs/2026-11-13-route-action-feedback.md
+--- /dev/null
++++ b/docs/superpowers/specs/2026-11-13-route-action-feedback.md
+@@ -0,0 +1,11 @@
++# 多步接口与失败反馈修复
++
++用户已要求修复长程审计发现的问题。保持当前模型、化学执行、终止库与隐藏参考奖励定义；新条件独立命名为 `route_action_feedback_v8`。
++
++保留完整历史原始档案，模型视图复用已实现的 v7 按 observation 隔离历史编号、结构化过去动作和当前原生指令置后的表示。当前用户输入增加很小的执行约束块，后接原生当前目标、结构、编号和已接受动作胶囊。列出真实当前图的源键候选、当前 finish 是否可用及原因、同一反应且同一精确映射状态的已失败语义动作。新反应不继承上一反应的失败禁用项。
++
++HF 和 vLLM 两个后端都必须使用请求自身携带的工具 schema；finish 只在既有生产性/无祖先循环检查通过时提供。只改变模型条件输入，不做 logits mask、强制输出、重采样丢弃或伪造概率。所有真实模型提案仍保存并进入现有收据路径。
++
++在同一当前状态再次预测已失败的等价动作时，复用拒绝结果，保留新提案证据并反馈重复次数，不再次调用化学执行。等价动作忽略说明文字但保留实际参数和电子流顺序。任何结构变化后允许重新执行。连续拒绝上限仍只是保险；若 GPU smoke 仍重复或无法闭合，必须报告，不能把更早退出说成收敛修复。
++
++不引入 MCTS 回溯、价值模型、步级奖励或训练任务切换。v3–v7 的历史请求与恢复行为不变。新条件先通过回归、保存失败状态的协议审计、同两个根目标的 H20 长程 smoke，再讨论正式任务迁移。
+diff --git a/docs/superpowers/plans/2026-11-13-route-action-feedback.md b/docs/superpowers/plans/2026-11-13-route-action-feedback.md
+--- /dev/null
++++ b/docs/superpowers/plans/2026-11-13-route-action-feedback.md
+@@ -0,0 +1,37 @@
++# Route action feedback implementation plan
++
++> **For agentic workers:** Use superpowers:executing-plans inline with test-driven-development. User has explicitly authorized this diagnosed repair; do not re-ask approval.
++
++**Goal:** Remove stale historical handles from current action space and prevent re-executing failed actions while preserving truthful on-policy receipts.
++**Architecture:** Opt-in v8, existing passive complete history, current constraints and per-request tools; derive failure memory from original receipts rather than a mutable second archive.
++**Tech Stack:** Python, RDKit, existing HF/vLLM adapters and pytest, pinned shared-storage runtime.
++**Spec:** docs/superpowers/specs/2026-11-13-route-action-feedback.md
++
++## Global constraints
++
++All caches/temp/artifacts on Ceph; original corrected History89442; no model/reward/stock/precision change. No output masks or output substitution. Old observation contracts remain replayable. Do not modify unrelated dirty MCTS or unused FP32 diagnostic code.
++
++## Review focus
++
++- Equivalent rejection with different explanation text must reuse execution result.
++- Same action after state change or in a new reaction must remain eligible.
++- Mixed old/new snapshots must recover native local observations exactly.
++- Both HF and vLLM must render actual request tools and retain original token logprobs.
++- Invalid finish cannot terminalize or alter a state; productive finish remains available.
++
++## Task 1: Integrate v8 decision feedback
++
++Files: new src/mechet/route_action_feedback.py and tests/test_route_action_feedback.py; modify route_event_history.py, route_policy_episode.py, route_policy_sampling.py, route_vllm_backend.py.
++
++- [ ] Write failing real-executor tests for unavailable finish, productive finish, source-bond grounding, instruction-insensitive rejection reuse, state/new-reaction reset and snapshot restoration. Add backend-boundary rendering checks.
++- [ ] Run those tests under the shared pinned host runtime and retain RED log.
++- [ ] Implement state-local failure lookup, current constraints, dynamic tools, v8 complete scoped history and restoration. Keep old defaults and unmasked probability collection.
++- [ ] Run new and existing route/history/sampling/backend tests; run project suite once and report unrelated failures by name.
++- [ ] Review source and freeze only declared deltas on frozen21; do not package dirty unrelated code.
++
++## Task 2: Validate behavior
++
++- [ ] Re-audit the existing saved failure states using v8: source aliases scoped, current graph authoritative, feedback/action cache restored.
++- [ ] Run same-root H20 long smoke with fresh v3 and v8 arms, four trajectories per arm, max64 diagnostic decisions, batch<=4, original actor before/after equality. References only after generation.
++- [ ] Cross-check raw receipts, request tools and complete history; report real repeated actions, execution reuse, structural/reference closure separately. Retain any failed gate.
++- [ ] Independent code review, focused fixes if needed, publish owned changes with exact source evidence and update operational memory.

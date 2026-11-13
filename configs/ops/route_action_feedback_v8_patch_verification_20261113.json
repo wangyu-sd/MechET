@@ -1,0 +1,8 @@
+{
+  "status": "PASS",
+  "dry_run": true,
+  "applied": true,
+  "all_resulting_sha256_match": true,
+  "verified_files": 10,
+  "patch_sha256": "e8b713fa847d2f55e3af148a1a3b780357b171ff44f4fc95afe6ec07ee132a63"
+}

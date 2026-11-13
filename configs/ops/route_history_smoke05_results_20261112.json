@@ -1,0 +1,159 @@
+{
+  "scope": "explicit_user_authorized_passive_history_smoke_v1",
+  "arms": [
+    "native",
+    "v7"
+  ],
+  "candidate_arm": "v7",
+  "status": "FAIL",
+  "software_status": "FAIL",
+  "behavior_status": "NOT_ESTABLISHED",
+  "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "actual_gpu_master_audit_before": {
+    "actor": {
+      "tensor_count": 372,
+      "module_count": 186,
+      "device": "cuda",
+      "dtype": "torch.float32",
+      "requires_grad": true,
+      "exact_source_equality": true,
+      "source_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453"
+    },
+    "reference": {
+      "tensor_count": 372,
+      "module_count": 186,
+      "device": "cuda",
+      "dtype": "torch.float32",
+      "requires_grad": false,
+      "exact_source_equality": true,
+      "source_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453"
+    }
+  },
+  "actual_gpu_master_audit_after": {
+    "actor": {
+      "tensor_count": 372,
+      "module_count": 186,
+      "device": "cuda",
+      "dtype": "torch.float32",
+      "requires_grad": true,
+      "exact_source_equality": true,
+      "source_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453"
+    },
+    "reference": {
+      "tensor_count": 372,
+      "module_count": 186,
+      "device": "cuda",
+      "dtype": "torch.float32",
+      "requires_grad": false,
+      "exact_source_equality": true,
+      "source_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453"
+    }
+  },
+  "active_adapter_logit_effect": 17.40625,
+  "model_calls": 104,
+  "request_attempts": 104,
+  "model_calls_scope": "completed policy sampling requests; excludes receipt/logit verification forwards",
+  "optimizer_updates": 0,
+  "max_teacherforced_logprob_drift": 0.3581516742706299,
+  "logprob_tolerance": 0.25,
+  "behavior_summary_by_arm": {
+    "native": {
+      "continuations": 8,
+      "target_changing_draws": 8,
+      "productive_finishes": 7,
+      "immediate_finish": 0,
+      "missing_atom_errors": 0,
+      "historical_handle_rejections": 0,
+      "rejected_finish": 0,
+      "resource_censored_continuations": 0,
+      "capped_continuations": 1
+    },
+    "v7": {
+      "continuations": 8,
+      "target_changing_draws": 8,
+      "productive_finishes": 4,
+      "immediate_finish": 0,
+      "missing_atom_errors": 0,
+      "historical_handle_rejections": 0,
+      "rejected_finish": 4,
+      "resource_censored_continuations": 0,
+      "capped_continuations": 4
+    }
+  },
+  "padding_probe": [
+    {
+      "arm": "native",
+      "case_id": 0,
+      "same_output": true,
+      "common_prefix_positions": 66,
+      "max_common_prefix_logprob_difference": 0.08657395839691162
+    },
+    {
+      "arm": "native",
+      "case_id": 1,
+      "same_output": true,
+      "common_prefix_positions": 59,
+      "max_common_prefix_logprob_difference": 0.05281466245651245
+    },
+    {
+      "arm": "native",
+      "case_id": 2,
+      "same_output": true,
+      "common_prefix_positions": 59,
+      "max_common_prefix_logprob_difference": 0.05281466245651245
+    },
+    {
+      "arm": "native",
+      "case_id": 3,
+      "same_output": true,
+      "common_prefix_positions": 63,
+      "max_common_prefix_logprob_difference": 0.169746994972229
+    },
+    {
+      "arm": "v7",
+      "case_id": 0,
+      "same_output": true,
+      "common_prefix_positions": 53,
+      "max_common_prefix_logprob_difference": 0.019747912883758545
+    },
+    {
+      "arm": "v7",
+      "case_id": 1,
+      "same_output": true,
+      "common_prefix_positions": 128,
+      "max_common_prefix_logprob_difference": 0.32171428203582764
+    },
+    {
+      "arm": "v7",
+      "case_id": 2,
+      "same_output": true,
+      "common_prefix_positions": 262,
+      "max_common_prefix_logprob_difference": 0.045515209436416626
+    },
+    {
+      "arm": "v7",
+      "case_id": 3,
+      "same_output": false,
+      "common_prefix_positions": 29,
+      "max_common_prefix_logprob_difference": 0.10743451118469238
+    }
+  ],
+  "probe_coverage": {
+    "native": {
+      "physical_batch_sizes": [
+        4
+      ],
+      "nonempty_outputs": 4,
+      "complete": true
+    },
+    "v7": {
+      "physical_batch_sizes": [
+        4
+      ],
+      "nonempty_outputs": 4,
+      "complete": true
+    }
+  },
+  "elapsed_seconds": 953.0028551593423,
+  "limitation": "Four fixed diagnostic contexts, two seeds, eight-decision cap; not full route evaluation or RL improvement. Recorded prefix actions are fixed historical predictions, not fresh samples from each condition."
+}
