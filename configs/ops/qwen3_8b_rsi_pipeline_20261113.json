@@ -1,0 +1,64 @@
+{
+  "schema": "qwen3_8b_rsi_dependency_pipeline_v1",
+  "max_total_h20": 8,
+  "pr": "https://github.com/wangyu-sd/MechET/pull/105",
+  "stages": [
+    {
+      "id": "corrected_sft",
+      "status": "END_STARTUP_FAILED_NO_CONFIRMED_OPTIMIZER_UPDATE",
+      "gpus": 8,
+      "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261113_01",
+      "config": "/aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/qwen3_8b_rsi_8h20_20261113_01/code/configs/agent/qwen3_8b_corrected_continue_8h20_20261113.json",
+      "instance": "8b1d89f6a1cfaa4801a1d5100ebd09a6",
+      "cache_verified": true,
+      "latest_task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261114_03",
+      "latest_instance": "8b1d891ea1cfaab201a1d8e4103c1069",
+      "latest_failure": "PackageNotFoundError: bitsandbytes",
+      "next_gate": "complete configured training dependency audit before any new8B submission",
+      "historical_quota_observation": {
+        "limit_h20": 24,
+        "currently_used_h20": 17,
+        "requested_h20": 8,
+        "required_total_h20": 25,
+        "additional_free_h20_needed": 1
+      }
+    },
+    {
+      "id": "verify_multistep_recovery",
+      "status": "waiting_for_corrected_8b_weights_and_full_TRAIN_trajectories",
+      "gpus": 0,
+      "dataset": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/external_routes/target_only_multistep_v2_20261105_01",
+      "curation_entry": "scripts/curate_route_memory.py",
+      "reference_actions_available": false
+    },
+    {
+      "id": "memory_conditioned_adaptation",
+      "status": "waiting_for_verified_replay_manifest_and_actual_mixture_counts",
+      "gpus": 8,
+      "live_episode": "mechet.route_memory_integration.MemoryTargetOnlyRouteEpisode",
+      "memory_version": "route_experience_memory_v2"
+    },
+    {
+      "id": "route_dr_grpo_iteration",
+      "status": "waiting_for_memory_adapted_8b_actor_and_qwen3_training_runtime_binding",
+      "gpus": 8,
+      "learned_value_model": false,
+      "on_policy": true
+    }
+  ],
+  "stage_transition": "8B stages still require completed real8B weight SHA and verified manifests. User explicitly authorized a separate0.8B track on2026-11-14; its results/checkpoints never count as corrected8B or demonstrate8B RSI gains.",
+  "rollout_allocation": "reuse at most8H20 in separate phases; no additional8GPU service",
+  "benchmark_learning": "R1R2_and_SimpRetro_frozen_evaluation_only",
+  "current_execution_track": "user_authorized_corrected_qwen35_08b_fallback_20261114",
+  "fallback_track": {
+    "model": "Qwen3.5-0.8B",
+    "parent": "corrected History89442",
+    "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+    "condition": "route_action_feedback_v8",
+    "gpus": 4,
+    "train_targets": 23730,
+    "validation_targets": 2986,
+    "status_receipt": "configs/ops/qwen35_08b_fallback_20261114.json",
+    "memory_follow_on": "verify actual TRAIN recovery evidence, then memory adaptation as a separate condition; G1-G6 remain pending"
+  }
+}

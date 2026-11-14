@@ -1,0 +1,21 @@
+{
+  "related_tests_passed": 35,
+  "test_seconds": 40.51,
+  "monitor_tests_passed": 2,
+  "full_config_cpu_entry": {
+    "condition_name": "qwen3_8b_corrected_history_continue_8h20_v1",
+    "model_name_or_path": "Qwen/Qwen3-8B",
+    "n_rows": 1908035,
+    "n_training_windows": 1908035,
+    "n_windowed_source_rows": 0,
+    "max_steps": -1,
+    "num_train_epochs": 1.0,
+    "validation": {
+      "n_rows": 21355,
+      "n_training_windows": 21355,
+      "n_windowed_source_rows": 0
+    }
+  },
+  "model_inference_or_training_performed": false,
+  "source_commit": "c43bba1ad1ba89a4c518ffb8a1d653cfbb53bae5"
+}

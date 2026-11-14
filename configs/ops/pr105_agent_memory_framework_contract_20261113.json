@@ -1,0 +1,93 @@
+{
+  "schema": "mechet_pr105_agent_memory_framework_implementation_contract_v1",
+  "updated_for": "2026-11-13",
+  "status": "G0_verified_G1_G6_not_implemented",
+  "continuation": "preserve_old_qwen3_8b_history_v2_checkpoint_31366_and_existing_8h20_queue",
+  "code_branch": "train/qwen3-8b-rsi-8h20-20261113",
+  "base_pr": 104,
+  "source_refs": [
+    "src/mechet/route_experience_memory.py",
+    "src/mechet/route_memory_integration.py",
+    "src/mechet/route_memory_curation.py",
+    "src/mechet/route_event_history.py"
+  ],
+  "new_observation_contract": "route_memory_observation_v1",
+  "previous_memory_version": "route_experience_memory_v2",
+  "proposed_defaults_not_trained": {
+    "max_optional_memory_tokens": 512,
+    "max_advice_items": 3,
+    "max_current_state_failures": 5
+  },
+  "memory_levels": [
+    "exact_executor_and_failure_receipt",
+    "typed_transferable_evidence_backed_advice"
+  ],
+  "public_views": [
+    "working",
+    "failure",
+    "route_proof",
+    "episodic_experience"
+  ],
+  "training_guards": {
+    "behavior_and_memory_frozen_per_root_group": true,
+    "original_generated_ids_and_logprobs_required": true,
+    "raw_event_ledger_persistent": true,
+    "live_hidden_reference_in_prompt": false,
+    "validation_test_memory_writes": false,
+    "censored_not_failed": true,
+    "no_unverified_executable_memory_transfer": true
+  },
+  "framework": {
+    "agent_graph": "LangGraph StateGraph optional adapter",
+    "checkpoint": "durable and isolated per target group sibling",
+    "rl_framework": "verl AgentLoop optional after numeric gradient parity",
+    "executor": "existing MechET executor is sole authority",
+    "current_live_training_untouched": true
+  },
+  "gates": [
+    {
+      "id": "G0",
+      "status": "source_queue_audit_passed",
+      "require": "verify source versions and live 8H20 queue",
+      "evidence": "configs/ops/pr105_g0_readback_20261113.json"
+    },
+    {
+      "id": "G1",
+      "status": "not_started",
+      "require": "exact and transferable memory with evidence"
+    },
+    {
+      "id": "G2",
+      "status": "not_started",
+      "require": "deterministic working/failure/route projections"
+    },
+    {
+      "id": "G3",
+      "status": "not_started",
+      "require": "bounded tokenizer-counted memory and G4 isolation"
+    },
+    {
+      "id": "G4",
+      "status": "not_started",
+      "require": "LangGraph native transition/replay parity"
+    },
+    {
+      "id": "G5",
+      "status": "not_started",
+      "require": "optional verl token-level and gradient parity"
+    },
+    {
+      "id": "G6",
+      "status": "not_started",
+      "require": "matched full-validation results after actual trained 8B binding"
+    }
+  ],
+  "no_method_change": [
+    "electron executor",
+    "stock closure rules",
+    "hidden reference reward",
+    "independent root G4 DrGRPO",
+    "ReFIT search policy",
+    "protected evaluation splits"
+  ]
+}

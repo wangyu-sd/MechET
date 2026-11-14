@@ -1,0 +1,1146 @@
+diff --git a/configs/agent/qwen3_8b_corrected_continue_8h20_20261113.json b/configs/agent/qwen3_8b_corrected_continue_8h20_20261113.json
+new file mode 100644
+index 0000000..d06d785
+--- /dev/null
++++ b/configs/agent/qwen3_8b_corrected_continue_8h20_20261113.json
+@@ -0,0 +1,90 @@
++{
++  "condition_name": "qwen3_8b_corrected_history_continue_8h20_v1",
++  "model_name_or_path": "Qwen/Qwen3-8B",
++  "initial_adapter_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_8b_h20_seed17_20260918/checkpoint-31366",
++  "train_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/views/history/train.jsonl",
++  "validation_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_mainonly_history_v2_20261023_06/valid.jsonl",
++  "output_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/qwen3_8b_corrected_continue_8h20_20261113_01",
++  "pretokenized_cache_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/qwen3_8b_corrected_continue_4h20_20261113_01/tokens",
++  "pretokenization_world_size": 4,
++  "limit_examples": 0,
++  "qwen3_continuation": {
++    "world_size": 8,
++    "max_gpus": 8,
++    "parent_weight_sha256": "a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b",
++    "reference_approval": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_reference_approval_20261023_06/reference_approval.json",
++    "reference_approval_sha256": "eb92320d9711e85bfcd8281cce8bc90cde496b4b47688405372809280d618ada",
++    "reference_manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_mainonly_source_arrows_v2_20261023_06/manifest.json",
++    "reference_manifest_sha256": "2a203ee08df9a6099f66d554797a72b93750b88cdfe760669431f2b665ff083c",
++    "history_manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_mainonly_history_v2_20261023_06/manifest.json",
++    "history_manifest_sha256": "edd299a832e7f15c53d134b74015097865737837d587c723db4527d2b9290f06",
++    "train_sha256": "0ace674b6ebf6b4ba0a3542de8572c973e0d6a644a6923f651ffab74b2ab4748",
++    "validation_sha256": "0abb938fe0f0205a648ad7ff979fbe9ce217d1947f75ddac9997bb05e535b520",
++    "policy_protocol": "qwen3_tool_span_v1",
++    "policy_model_family": "qwen3",
++    "stage": "corrected_single_reaction_continuation",
++    "memory_replay_status": "separate_future_condition_not_silently_mixed"
++  },
++  "contract": {
++    "require_trace_owned": false,
++    "require_tool_decision": true,
++    "expected_train_rows": 1908035,
++    "expected_validation_rows": 21355,
++    "expected_upstream_endpoint_fallback_rows": 0,
++    "environment_revision": "natural_language_electron_event_history_v2",
++    "executor_revision": "pr95_main_product_only_actual_executor",
++    "stable_id_manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_mainonly_history_v2_20261023_06/manifest.json"
++  },
++  "lora": {
++    "r": 16,
++    "alpha": 32,
++    "dropout": 0.05,
++    "target_modules": [
++      "q_proj",
++      "k_proj",
++      "v_proj",
++      "o_proj"
++    ]
++  },
++  "training": {
++    "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
++    "trust_remote_code": false,
++    "num_train_epochs": 1.0,
++    "max_steps": -1,
++    "max_length": 32768,
++    "window_context_tokens": 0,
++    "encoding_protocol": "qwen3_tool_span_v1",
++    "per_device_train_batch_size": 1,
++    "gradient_accumulation_steps": 8,
++    "per_device_eval_batch_size": 1,
++    "learning_rate": 5e-06,
++    "bf16": true,
++    "fp16": false,
++    "qlora": true,
++    "tf32": true,
++    "attention_implementation": "sdpa",
++    "require_flash_sdp": true,
++    "gradient_checkpointing": true,
++    "assistant_only_loss": true,
++    "packing": false,
++    "group_by_length": true,
++    "validation_limit": 0,
++    "eval_strategy": "epoch",
++    "eval_accumulation_steps": 1,
++    "dataloader_num_workers": 4,
++    "logging_steps": 10,
++    "save_steps": 500,
++    "save_total_limit": 3,
++    "seed": 17,
++    "data_seed": 17,
++    "use_liger_kernel": true,
++    "liger_kernel_config": {
++      "rope": true,
++      "rms_norm": true,
++      "swiglu": true,
++      "cross_entropy": false,
++      "fused_linear_cross_entropy": true
++    },
++    "report_to": []
++  }
++}
+diff --git a/scripts/bootstrap_qwen3_8b_sft.sh b/scripts/bootstrap_qwen3_8b_sft.sh
+new file mode 100755
+index 0000000..2a25761
+--- /dev/null
++++ b/scripts/bootstrap_qwen3_8b_sft.sh
+@@ -0,0 +1,16 @@
++#!/usr/bin/env bash
++set -Eeuo pipefail
++source /aaa/fionafyang/buddy1/whaleywang/MechET/configs/runtime/shared_host_storage.env
++runtime_repo=${MECHET_QWEN3_CODE_ROOT:?frozen code required}
++source /root/miniconda3/etc/profile.d/conda.sh
++conda activate meteor
++export PYTHONNOUSERSITE=1 PYTHONDONTWRITEBYTECODE=1 USE_TF=0 USE_FLAX=0
++export OMP_NUM_THREADS=2 MKL_NUM_THREADS=2 OPENBLAS_NUM_THREADS=1
++export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
++# Bypass unrelated editable-project .pth traversal. This wrapper retains the
++# image's installed dependency versions, rather than pip-installing at startup.
++task_site=$(/root/miniconda3/envs/meteor/bin/python -S -c 'import sysconfig;print(sysconfig.get_path("purelib"))')
++export PYTHONPATH="$runtime_repo/src:$runtime_repo:$task_site"
++# -S is inherited by each worker via this narrow wrapper on shared storage.
++export PATH="$runtime_repo/scripts/qwen3_runtime_bin:$PATH"
++exec bash "$runtime_repo/scripts/run_qwen3_8b_corrected_8h20.sh"
+diff --git a/scripts/curate_route_memory.py b/scripts/curate_route_memory.py
+new file mode 100644
+index 0000000..e494d8f
+--- /dev/null
++++ b/scripts/curate_route_memory.py
+@@ -0,0 +1,99 @@
++#!/usr/bin/env python3
++"""Full input-ledger replay: verified recovery memory and reference-supported SFT.
++
++Input JSONL rows contain task_id and snapshot (RouteEpisode.snapshot()). All rows
++remain in accounting. No sampling limit or gold electron actions are supported.
++"""
++import argparse
++from collections import Counter
++import hashlib
++import json
++from pathlib import Path
++import sys
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path[:0] = [str(ROOT/'src'), str(ROOT)]
++from mechet.external_route_rl import HiddenRouteReward
++from mechet.qwen3_continuation import shared_path, verify_files
++from mechet.route_memory_curation import curate_episode
++from mechet.route_training_contract import atomic_json
++
++DATASET_SHA = 'f11e6909e466c003ce112018db4d07cffa4033dce2984a0a8ff1cae931e8aa79'
++
++
++def sha(path):
++    h = hashlib.sha256()
++    with Path(path).open('rb') as f:
++        for chunk in iter(lambda: f.read(8*1024*1024), b''):
++            h.update(chunk)
++    return h.hexdigest()
++
++
++def main():
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--episodes', type=Path, required=True)
++    p.add_argument('--dataset', type=Path, required=True)
++    p.add_argument('--output', type=Path, required=True)
++    p.add_argument('--executor-version', required=True)
++    args = p.parse_args()
++    dataset, source, output = map(shared_path, (args.dataset, args.episodes, args.output))
++    if sha(dataset/'manifest.json') != DATASET_SHA:
++        raise ValueError('APPROVED_EXTERNAL_TRAIN_MANIFEST_REQUIRED')
++    manifest = json.loads((dataset/'manifest.json').read_text())
++    needed = ('training.jsonl','stock.txt','references.sqlite','training_protected_identities.json')
++    verify_files({str(dataset/name):manifest['artifacts'][name] for name in needed})
++    tasks = {r['task_id']:r['target'] for r in map(json.loads,(dataset/'training.jsonl').read_text().splitlines())}
++    if len(tasks) != 23730:
++        raise ValueError('FULL_EXTERNAL_TRAIN_DENOMINATOR_REQUIRED')
++    stock = set((dataset/'stock.txt').read_text().splitlines())
++    protected = set(json.loads((dataset/'training_protected_identities.json').read_text()))
++    output.mkdir(parents=True, exist_ok=True)
++    binding = dict(stock_version=manifest['artifacts']['stock.txt'], executor_version=args.executor_version)
++    entries, seen, counts = {}, set(), Counter()
++    source_before = source.stat()
++    supervision_path, rejected_path = output/'supervision.jsonl', output/'excluded.jsonl'
++    with HiddenRouteReward(dataset/'references.sqlite', stock, split='training') as oracle, \
++            source.open() as reader, supervision_path.open('w') as supervised, rejected_path.open('w') as excluded:
++        for line_number, line in enumerate(reader, 1):
++            if not line.strip():
++                continue
++            counts['input_episodes'] += 1
++            try:
++                row = json.loads(line)
++                result = curate_episode(row['snapshot'], task_id=row['task_id'], public_tasks=tasks,
++                    protected=protected, output_dir=output/'receipts', oracle=oracle, binding=binding, stock=stock)
++                uid = result['source_snapshot_sha256']
++                if uid in seen:
++                    counts['duplicate_episodes'] += 1
++                    continue
++                seen.add(uid)
++                counts['replayed_episodes'] += 1
++                counts['reference_verified_episodes'] += result['reference_verified']
++                for item in result['memory']['entries']:
++                    entries[item['id']] = item
++                for item in result['supervision']:
++                    supervised.write(json.dumps(item, ensure_ascii=False)+'\n')
++                    counts['supervised_decisions'] += 1
++            except (ValueError, KeyError, TypeError) as error:
++                # Explicit exclusion ledger; never convert failed verification
++                # into a negative chemistry label or an eligible training row.
++                counts['excluded_episodes'] += 1
++                excluded.write(json.dumps(dict(line=line_number, reason=str(error)))+'\n')
++    source_after = source.stat()
++    if (source_before.st_size, source_before.st_mtime_ns) != (source_after.st_size, source_after.st_mtime_ns):
++        raise ValueError('EPISODE_SOURCE_CHANGED_DURING_REPLAY')
++    memory = dict(schema='route_experience_memory_v2', entries=[entries[k] for k in sorted(entries)])
++    atomic_json(output/'memory.json', memory)
++    atomic_json(output/'manifest.json', dict(schema='route_memory_dataset_v1', status='replayed',
++        source_sha256=sha(source), dataset_manifest_sha256=DATASET_SHA, split='training',
++        source_episode_denominator=counts['input_episodes'], counts=dict(counts), memory_entries=len(entries),
++        executor_version=args.executor_version, artifacts={n:sha(output/n) for n in
++            ('supervision.jsonl','excluded.jsonl','memory.json')},
++        memory_adaptation_ready=bool(counts['supervised_decisions']),
++        chemical_validation='hidden_TRAIN_reference_support_only',
++        ratio='not_selected_until_actual_eligible_counts'))
++    print(json.dumps(dict(counts=counts, memory_entries=len(entries), output=str(output))))
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/scripts/prepare_qwen3_8b_continuation.py b/scripts/prepare_qwen3_8b_continuation.py
+index 01f576d..e5c98ad 100644
+--- a/scripts/prepare_qwen3_8b_continuation.py
++++ b/scripts/prepare_qwen3_8b_continuation.py
+@@ -15,8 +15,9 @@ def main():
+     p.add_argument('--output-config', type=Path, required=True)
+     p.add_argument('--verify-inputs', action='store_true')
+     p.add_argument('--verify-cache', action='store_true')
++    p.add_argument('--world-size', type=int, choices=(4,8), default=4)
+     args = p.parse_args()
+-    cfg = continuation_config()
++    cfg = continuation_config(world_size=args.world_size)
+     target = shared_path(args.output_config)
+     if target.exists() and json.loads(target.read_text()) != cfg:
+         raise ValueError('REFUSE_OVERWRITE_DIFFERENT_CONTINUATION_CONFIG')
+diff --git a/scripts/queue_qwen3_8b_corrected.py b/scripts/queue_qwen3_8b_corrected.py
+new file mode 100644
+index 0000000..abdcf9c
+--- /dev/null
++++ b/scripts/queue_qwen3_8b_corrected.py
+@@ -0,0 +1,80 @@
++#!/usr/bin/env python3
++"""Wait on CPU dependencies, then create/start one immutable eight-H20 task."""
++import argparse
++import fcntl
++import hashlib
++import json
++from pathlib import Path
++import re
++import subprocess
++import sys
++import time
++
++sys.path[:0] = [str(Path(__file__).resolve().parents[1]/'src'), str(Path(__file__).resolve().parents[1])]
++from mechet.qwen3_continuation import shared_path, verify_files
++from mechet.qwen3_queue import cache_readiness, validate_submission, waiting_status, submission_inputs
++from mechet.route_training_contract import atomic_json
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--plan', type=Path, required=True)
++    parser.add_argument('--wait', action='store_true')
++    args = parser.parse_args()
++    plan_path = shared_path(args.plan)
++    plan = json.loads(plan_path.read_text())
++    cfg = json.loads(shared_path(plan['training_config']).read_text())
++    task_path = shared_path(plan['task_config'])
++    task = json.loads(task_path.read_text())
++    validate_submission(cfg, task)
++    directory = plan_path.parent
++    with (directory/'queue.lock').open('a+') as lock:
++        fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
++        receipt_path = directory/'queue_status.json'
++        status = json.loads(receipt_path.read_text()) if receipt_path.exists() else {}
++        if status.get('state') == 'submitted':
++            print(json.dumps(status), flush=True)
++            return
++        verify_files(plan['files_sha256'])
++        while True:
++            ready = cache_readiness(cfg)
++            if ready == 'cache_verified':
++                break
++            status = waiting_status(status, task_flag=task['task_flag'])
++            atomic_json(receipt_path, status)
++            print(json.dumps(status), flush=True)
++            if not args.wait:
++                return
++            time.sleep(30)
++        cfg, task = submission_inputs(plan)  # Recheck all bindings AFTER indefinite CPU waiting.
++        client = str(shared_path(plan['taiji_client']))
++        # An interrupted submission must be resolved against the same task flag,
++        # never create a second name or silently allocate another eight GPUs.
++        if status.get('state') in ('submit_intent', 'created', 'submission_uncertain'):
++            listed = subprocess.run([client, 'instance_list', task['task_flag']],
++                                    capture_output=True, text=True, timeout=45)
++            ids = re.findall(r'\b[0-9a-f]{32}\b', listed.stdout)
++            if ids:
++                atomic_json(receipt_path, dict(state='submitted', task_flag=task['task_flag'],
++                    instances=ids, recovered_intent=True, updated_at=time.time()))
++                return
++            raise RuntimeError('RESOLVE_EXISTING_SUBMIT_INTENT_BEFORE_RETRY')
++        atomic_json(receipt_path, dict(state='submit_intent', task_flag=task['task_flag'], updated_at=time.time()))
++        created = subprocess.run([client, 'create', '--type', 'task', '--simple_config', str(task_path)],
++                                 capture_output=True, text=True, timeout=120)
++        if created.returncode or '[error]' in created.stdout.lower():
++            atomic_json(receipt_path, dict(state='submission_uncertain', task_flag=task['task_flag'], updated_at=time.time()))
++            raise RuntimeError('TAIJI_CREATE_NOT_CONFIRMED; inspect task flag, private command output not echoed')
++        atomic_json(receipt_path, dict(state='created', task_flag=task['task_flag'], updated_at=time.time()))
++        started = subprocess.run([client, 'start', '--task_flag', task['task_flag']],
++                                 capture_output=True, text=True, timeout=120)
++        if started.returncode or '[error]' in started.stdout.lower():
++            raise RuntimeError('TAIJI_START_NOT_CONFIRMED; task created, do not recreate')
++        status = dict(state='submitted', task_flag=task['task_flag'], updated_at=time.time(),
++                      gpu_count=8, gpu_type='H20', cache_verified=True)
++        atomic_json(receipt_path, status)
++        print(json.dumps(status), flush=True)
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/scripts/qwen3_runtime_bin/python b/scripts/qwen3_runtime_bin/python
+new file mode 100755
+index 0000000..9427101
+--- /dev/null
++++ b/scripts/qwen3_runtime_bin/python
+@@ -0,0 +1,3 @@
++#!/usr/bin/env bash
++export PYTHON_EXEC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/python"
++exec /root/miniconda3/envs/meteor/bin/python -S "$@"
+diff --git a/scripts/run_qwen3_8b_corrected_8h20.sh b/scripts/run_qwen3_8b_corrected_8h20.sh
+new file mode 100755
+index 0000000..0ab09af
+--- /dev/null
++++ b/scripts/run_qwen3_8b_corrected_8h20.sh
+@@ -0,0 +1,32 @@
++#!/usr/bin/env bash
++# Full corrected continuation only. Use a frozen copy of this source tree in a job.
++set -Eeuo pipefail
++shared_repo=/aaa/fionafyang/buddy1/whaleywang/MechET
++source "$shared_repo/configs/runtime/shared_host_storage.env"
++runtime_repo=${MECHET_QWEN3_CODE_ROOT:?set the frozen source tree for this job}
++training_config=${MECHET_QWEN3_CONFIG:?set the prepared immutable JSON config}
++export HF_HOME=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
++export HF_HUB_CACHE="$HF_HOME"
++export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false PYTHONUNBUFFERED=1
++export PYTHONPATH="$runtime_repo/src:$runtime_repo${PYTHONPATH:+:$PYTHONPATH}"
++export TORCH_NCCL_ASYNC_ERROR_HANDLING=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
++export TORCHINDUCTOR_COMPILE_THREADS=1
++python - "$training_config" <<'PY'
++import json,os,sys,torch
++from mechet.qwen3_continuation import validate_config,shared_path
++cfg=json.load(open(sys.argv[1]))
++validate_config(cfg,world_size=8,gpu_names=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())])
++for key in ('TMPDIR','HF_HOME','HF_HUB_CACHE','TORCHINDUCTOR_CACHE_DIR','TRITON_CACHE_DIR'):
++    shared_path(os.environ[key])
++for key in ('MECHET_OUTPUT_DIR','MECHET_PRETOKENIZED_CACHE_DIR','MECHET_MAX_STEPS','MECHET_RESUME_FROM_CHECKPOINT'):
++    if os.environ.get(key): raise ValueError('UNDECLARED_TRAINING_OVERRIDE:'+key)
++print({'stage':'four-h20-hardware-and-storage-checked','gpu_names':[torch.cuda.get_device_name(i) for i in range(8)]},flush=True)
++PY
++# Require CPU preparation BEFORE GPU allocation. Unchanged files reuse the
++# hash-bound verification receipt; do not occupy eight H20s tokenizing JSONL.
++python "$runtime_repo/scripts/prepare_qwen3_8b_continuation.py" --output-config "$training_config" --world-size 8 --verify-cache
++resume_args=()
++if [[ -n "${MECHET_QWEN3_RESUME:-}" ]]; then
++  resume_args=(--resume-from-checkpoint "$MECHET_QWEN3_RESUME")
++fi
++python -m torch.distributed.run --standalone --nproc_per_node=8 "$runtime_repo/scripts/train_tool_sft.py" --config "$training_config" "${resume_args[@]}"
+diff --git a/scripts/train_external_route_rl.py b/scripts/train_external_route_rl.py
+index fb51470..1b12868 100644
+--- a/scripts/train_external_route_rl.py
++++ b/scripts/train_external_route_rl.py
+@@ -38,12 +38,18 @@ def make_episodes(rows,stock,protected,cfg,version):
+     for key in ('public_observation_contract','max_consecutive_recoveries'):
+         if key in cfg:
+             episode_cfg[key]=cfg[key]
++    if 'route_memory' in cfg:
++        episode_cfg['route_memory'] = cfg['route_memory']
+     episode_type = TargetOnlyRouteEpisode
+     namespace = version
+     if '_validation_rng_namespace' in cfg:
+         from mechet.external_route_validation import ValidationRouteEpisode
+         episode_type = ValidationRouteEpisode
+         namespace = cfg['_validation_rng_namespace']
++    if 'route_memory' in cfg:
++        from mechet.route_memory_integration import MemoryTargetOnlyRouteEpisode, MemoryValidationRouteEpisode
++        episode_type = (MemoryValidationRouteEpisode if '_validation_rng_namespace' in cfg
++                        else MemoryTargetOnlyRouteEpisode)
+     return [episode_type(episode_cfg,row['target'],stock,
+                 namespace+'/'+row['task_id']+'/'+str(k),cfg['seed'])
+             for row in rows for k in range(cfg['candidates'])]
+diff --git a/scripts/train_tool_sft.py b/scripts/train_tool_sft.py
+index d29bb2b..4f9ac7e 100644
+--- a/scripts/train_tool_sft.py
++++ b/scripts/train_tool_sft.py
+@@ -252,8 +252,16 @@ def validate_conversation(
+             "compressed_history_tool_decision_v1",
+             "unified_inventory_tool_decision_v2",
+             "unified_inventory_compressed_history_tool_decision_v2",
++            "agentic_route_memory_decision_v1",
+         }:
+             raise ValueError(f"invalid tool-decision metadata: {identifier}")
++        if decision_contract == 'agentic_route_memory_decision_v1':
++            if (metadata.get('executor_replayed') is not True
++                    or len(metadata.get('source_snapshot_sha256', '')) != 64
++                    or metadata.get('history_contains_failed_actions') is not True
++                    or metadata.get('history_model_visible_gold_horizon') is not False
++                    or len(metadata.get('memory_snapshot_sha256', '')) not in (0,64)):
++                raise ValueError(f"invalid agentic-history metadata: {identifier}")
+         if decision_contract in {
+             "compressed_history_tool_decision_v1",
+             "unified_inventory_compressed_history_tool_decision_v2",
+diff --git a/src/mechet/external_route_schedule.py b/src/mechet/external_route_schedule.py
+index 147cc6a..defd4e5 100644
+--- a/src/mechet/external_route_schedule.py
++++ b/src/mechet/external_route_schedule.py
+@@ -13,7 +13,7 @@ CONDITION_FIELDS=('algorithm','dataset','dataset_manifest_sha256','parent','pare
+     'world_size','gpu_name','candidates','seed','max_action_tokens','max_context',
+     'generation_batch_size','executor_workers_per_rank','products_per_round','partial_reward_weight',
+     'training_gradient_checkpointing','loss_batch_size','training_max_padded_tokens',
+-    'inference_backend','vllm_runtime',
++    'inference_backend','vllm_runtime','route_memory','policy_protocol','policy_model_family',
+     'generation_qkv_channels','generation_max_qkv_elements','generation_attention_budget_bytes',
+     'public_observation_contract','max_consecutive_recoveries','route_endpoint_contract',
+     'executor_coalesce_seconds','fla_kernel_profile','runtime_config_files_sha256',
+diff --git a/src/mechet/qwen3_continuation.py b/src/mechet/qwen3_continuation.py
+index f0988ca..7b3ff5a 100644
+--- a/src/mechet/qwen3_continuation.py
++++ b/src/mechet/qwen3_continuation.py
+@@ -18,15 +18,20 @@ TRAIN_SHA = '0ace674b6ebf6b4ba0a3542de8572c973e0d6a644a6923f651ffab74b2ab4748'
+ VALID_SHA = '0abb938fe0f0205a648ad7ff979fbe9ce217d1947f75ddac9997bb05e535b520'
+ 
+ 
+-def continuation_config():
++def continuation_config(*, world_size=4):
++    if world_size not in (4, 8):
++        raise ValueError('QWEN3_FOUR_OR_EIGHT_H20_REQUIRED')
+     output = ROOT/'outputs/agent/qwen3_8b_corrected_continue_4h20_20261113_01'
+-    return dict(condition_name='qwen3_8b_corrected_history_continue_4h20_v1',
++    cache = output/'tokens'
++    if world_size == 8:
++        output = ROOT/'outputs/agent/qwen3_8b_corrected_continue_8h20_20261113_01'
++    return dict(condition_name=f'qwen3_8b_corrected_history_continue_{world_size}h20_v1',
+         model_name_or_path=OFFICIAL_MODEL, initial_adapter_path=str(PARENT),
+         train_file=str(ROOT/'outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/views/history/train.jsonl'),
+         validation_file=str(HISTORY/'valid.jsonl'), output_dir=str(output),
+-        pretokenized_cache_dir=str(output/'tokens'), pretokenization_world_size=4,
++        pretokenized_cache_dir=str(cache), pretokenization_world_size=4,
+         limit_examples=0,
+-        qwen3_continuation=dict(world_size=4, max_gpus=4, parent_weight_sha256=PARENT_SHA,
++        qwen3_continuation=dict(world_size=world_size, max_gpus=world_size, parent_weight_sha256=PARENT_SHA,
+             reference_approval=str(ROOT/'data/pr96_flower_reference_approval_20261023_06/reference_approval.json'),
+             reference_approval_sha256='eb92320d9711e85bfcd8281cce8bc90cde496b4b47688405372809280d618ada',
+             reference_manifest=str(ROOT/'data/pr96_flower_mainonly_source_arrows_v2_20261023_06/manifest.json'),
+@@ -47,7 +52,7 @@ def continuation_config():
+         training=dict(model_revision=OFFICIAL_REVISION, trust_remote_code=False,
+             num_train_epochs=1., max_steps=-1, max_length=32768, window_context_tokens=0,
+             encoding_protocol=PROTOCOL, per_device_train_batch_size=1,
+-            gradient_accumulation_steps=16, per_device_eval_batch_size=1,
++            gradient_accumulation_steps=64//world_size, per_device_eval_batch_size=1,
+             learning_rate=5e-6, bf16=True, fp16=False, qlora=True, tf32=True,
+             attention_implementation='sdpa', require_flash_sdp=True,
+             gradient_checkpointing=True, assistant_only_loss=True, packing=False,
+@@ -67,7 +72,8 @@ def shared_path(value):
+ 
+ 
+ def validate_config(cfg, *, world_size=None, gpu_names=None):
+-    expected = continuation_config()
++    declared = cfg.get('qwen3_continuation', {}).get('world_size', 4)
++    expected = continuation_config(world_size=declared)
+     for key in ('model_name_or_path', 'initial_adapter_path', 'train_file', 'validation_file',
+                 'limit_examples', 'qwen3_continuation', 'contract', 'lora', 'pretokenization_world_size'):
+         if cfg.get(key) != expected[key]:
+@@ -78,9 +84,9 @@ def validate_config(cfg, *, world_size=None, gpu_names=None):
+             raise ValueError('QWEN3_CONTINUATION_TRAINING_CHANGED:'+key)
+     for key in ('output_dir', 'pretokenized_cache_dir', 'train_file', 'validation_file', 'initial_adapter_path'):
+         shared_path(cfg[key])
+-    if world_size is not None and (world_size != 4 or gpu_names is None or len(gpu_names) != 4
++    if world_size is not None and (world_size != declared or gpu_names is None or len(gpu_names) != declared
+             or not all(re.search(r'\bH20\b', n, re.I) for n in gpu_names)):
+-        raise ValueError('QWEN3_EXACTLY_FOUR_H20_REQUIRED')
++        raise ValueError('QWEN3_EXACTLY_FOUR_H20_REQUIRED' if declared == 4 else 'QWEN3_EXACTLY_EIGHT_H20_REQUIRED')
+ 
+ 
+ def _sha(path):
+@@ -206,7 +212,7 @@ def _checkpoint_identity(cfg):
+ def save_checkpoint_binding(cfg, checkpoint):
+     p = shared_path(checkpoint)
+     names = ['adapter_model.safetensors','adapter_config.json','optimizer.pt',
+-             'scheduler.pt','trainer_state.json', *['rng_state_'+str(i)+'.pth' for i in range(4)]]
++             'scheduler.pt','trainer_state.json', *['rng_state_'+str(i)+'.pth' for i in range(cfg['qwen3_continuation']['world_size'])]]
+     files = {name:_sha(p/name) for name in names}
+     state = json.loads((p/'trainer_state.json').read_text())
+     value = dict(schema='qwen3_corrected_continuation_checkpoint_v1',
+@@ -224,7 +230,7 @@ def verify_resume(cfg, checkpoint):
+     p = shared_path(checkpoint)
+     value = json.loads((p/'qwen3_continuation_manifest.json').read_text())
+     required = {'adapter_model.safetensors','adapter_config.json','optimizer.pt',
+-                'scheduler.pt','trainer_state.json', *{'rng_state_'+str(i)+'.pth' for i in range(4)}}
++                'scheduler.pt','trainer_state.json', *{'rng_state_'+str(i)+'.pth' for i in range(cfg['qwen3_continuation']['world_size'])}}
+     if (value.get('schema') != 'qwen3_corrected_continuation_checkpoint_v1'
+             or value.get('identity') != _checkpoint_identity(cfg)
+             or set(value.get('files',{})) != required):
+diff --git a/src/mechet/qwen3_queue.py b/src/mechet/qwen3_queue.py
+new file mode 100644
+index 0000000..137f982
+--- /dev/null
++++ b/src/mechet/qwen3_queue.py
+@@ -0,0 +1,48 @@
++"""Host-side dependency gate; never reserve GPUs while tokenizing."""
++import json
++import time
++from pathlib import Path
++
++from .qwen3_continuation import validate_cache, validate_config, verify_bindings
++
++
++def waiting_status(prior, *, task_flag):
++    # Readiness and submission lifecycle are different axes. An interrupted
++    # create/start intent must survive a later missing-cache wait.
++    result = dict(prior)
++    result.update(readiness='waiting_for_cpu_cache', task_flag=task_flag, updated_at=time.time())
++    if result.get('state') not in ('submit_intent', 'created', 'submission_uncertain'):
++        result.update(state='waiting_for_cpu_cache', gpu_reserved=False)
++    return result
++
++
++def submission_inputs(plan):
++    from .qwen3_continuation import verify_files, shared_path
++    for key in ('training_config', 'task_config'):
++        if str(shared_path(plan[key])) not in plan['files_sha256']:
++            raise ValueError('QWEN3_SUBMISSION_INPUT_BINDING_REQUIRED')
++    verify_files(plan['files_sha256'])
++    cfg = json.loads(shared_path(plan['training_config']).read_text())
++    task = json.loads(shared_path(plan['task_config']).read_text())
++    validate_submission(cfg, task)
++    return cfg, task
++
++
++def cache_readiness(cfg):
++    validate_config(cfg)
++    manifest = Path(cfg['pretokenized_cache_dir'])/'manifest.json'
++    if not manifest.exists():
++        return 'waiting_for_cpu_cache'
++    cache = json.loads(manifest.read_text())
++    validate_cache(cfg, cache)
++    verify_bindings(cfg, cache)
++    return 'cache_verified'
++
++
++def validate_submission(cfg, task):
++    validate_config(cfg)
++    if (cfg['qwen3_continuation']['world_size'] != 8
++            or task.get('host_num') != 1 or task.get('host_gpu_num') != 8
++            or task.get('business_flag') != 'AI4LSLab_KEMO_ZJK_H20'
++            or task.get('keep_running_after_trainer_finish') is not False):
++        raise ValueError('QWEN3_EIGHT_H20_SUBMISSION_REQUIRED')
+diff --git a/src/mechet/route_memory_curation.py b/src/mechet/route_memory_curation.py
+new file mode 100644
+index 0000000..8460ae4
+--- /dev/null
++++ b/src/mechet/route_memory_curation.py
+@@ -0,0 +1,112 @@
++"""Replay completed TRAIN episodes before constructing memory or supervision."""
++from copy import deepcopy
++import hashlib
++import json
++from pathlib import Path
++
++from .external_route_rl import TargetOnlyRouteEpisode
++from .qwen3_continuation import shared_path
++from .route_experience_memory import ExperienceMemory, scope_key
++from .route_memory_integration import (MemoryTargetOnlyRouteEpisode, execution_scope,
++                                       memory_digest, strategy_for_error)
++from .route_training_contract import atomic_json, chemical_identity
++
++
++def supervised_decision(record, tools, *, source_sha, memory_sha):
++    from .agent_inference import parse_tool_calls
++    if record.get('accepted') is not True:
++        raise ValueError('POSITIVE_SUPERVISION_REQUIRES_ACCEPTED_ACTION')
++    calls = parse_tool_calls(record['raw'])
++    if len(calls) != 1:
++        raise ValueError('REPLAY_REQUIRES_SINGLE_TOOL_ACTION')
++    call = calls[0]
++    call_id = memory_digest([source_sha, record['request_id']])
++    return dict(id=call_id, tools=deepcopy(tools),
++        messages=[*deepcopy(record['messages']),
++            dict(role='assistant', content='', tool_calls=[dict(id=call_id, type='function',
++                 function=dict(name=call.name, arguments=call.arguments))]),
++            dict(role='tool', name=call.name, tool_call_id=call_id, content=json.dumps(record['feedback']))],
++        metadata=dict(decision_contract='agentic_route_memory_decision_v1',
++            executor_replayed=True, source_snapshot_sha256=source_sha,
++            memory_snapshot_sha256=memory_sha, history_contains_failed_actions=True,
++            history_model_visible_gold_horizon=False))
++
++
++def curate_episode(snapshot, *, task_id, public_tasks, protected, output_dir,
++                   split='training', oracle=None, binding=None, stock=None):
++    if split != 'training':
++        raise ValueError('MEMORY_CURATION_REQUIRES_TRAIN')
++    if task_id not in public_tasks or chemical_identity(public_tasks[task_id]) != snapshot['root']:
++        raise ValueError('MEMORY_PUBLIC_TRAIN_TASK_MISMATCH')
++    if snapshot.get('status') is None:
++        raise ValueError('MEMORY_COMPLETE_EPISODE_REQUIRED')
++    if snapshot['status'] in ('resource_censored', 'protected_censored', 'budget_exhausted'):
++        raise ValueError('MEMORY_CENSORED_EPISODE')
++    identities = {snapshot['root']}
++    for edge in snapshot['reactions']:
++        identities.add(edge['product']); identities.update(edge['precursors'])
++    if identities.intersection(protected):
++        raise ValueError('MEMORY_PROTECTED_IDENTITY')
++    directory = shared_path(output_dir)
++    directory.mkdir(parents=True, exist_ok=True)
++    cls = MemoryTargetOnlyRouteEpisode if 'route_memory' in snapshot['cfg'] else TargetOnlyRouteEpisode
++    ep = cls(snapshot['cfg'], snapshot['public_root'],
++             set(snapshot['stock']) if stock is None else stock, snapshot['uid'], snapshot['seed'])
++    binding = binding or snapshot['cfg'].get('route_memory')
++    if not binding:
++        raise ValueError('MEMORY_CURATION_VERSION_BINDING_REQUIRED')
++    recoveries, record_tools = [], {}
++    rejected = None
++    for record in snapshot['records']:
++        request = ep.next_decision()
++        if request is None:
++            raise ValueError('MEMORY_EXTRA_POST_TERMINAL_RECORD')
++        from .route_action_feedback import tools_for_request
++        record_tools[record['request_id']] = tools_for_request(request)
++        scope = execution_scope(ep, binding=binding)
++        ep.accept(deepcopy(record))
++        actual = ep.records[-1]
++        if (actual.get('accepted') and actual['feedback']['state_changed'] and rejected is not None
++                and rejected['occurrence'] == actual['occurrence']
++                and rejected['state_before'] == actual['state_before']):
++            strategy = strategy_for_error(rejected['error'])
++            if strategy:
++                recoveries.append((scope, strategy, actual['request_id']))
++        rejected = actual if actual.get('accepted') is False else None
++    ep.next_decision()
++    if ep.snapshot(include_stock='stock' in snapshot) != snapshot:
++        raise ValueError('MEMORY_EXECUTION_REPLAY_MISMATCH')
++    report = ep.finish_report()
++    committed = {edge['occurrence'] for edge in report['reactions']}
++    recoveries = [item for item in recoveries if item[0]['occurrence'] in committed]
++    verified = bool(oracle.score(task_id, report)['verified_stock_closed']) if oracle is not None else False
++    # Legacy target-only snapshots encode an unlimited episode budget as Infinity.
++    # Bind their exact canonical Python JSON representation; memory content remains strict JSON.
++    source_sha = hashlib.sha256(json.dumps(snapshot, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
++    memory = ExperienceMemory()
++    for scope, strategy, request_id in recoveries:
++        content = dict(strategy_id=strategy)
++        uid = memory_digest(dict(source=source_sha, request=request_id, scope=scope_key(scope), content=content))
++        proof = dict(receipt_id=uid, split='training', episode_complete=True, resource_censored=False,
++                     success=True, signal='executor_recovery', verification='executor_replayed', memory_id=uid,
++                     scope_key=scope_key(scope), content_sha256=memory_digest(content),
++                     source_snapshot_sha256=source_sha, request_id=request_id,
++                     task_id=task_id, route_reference_verified=verified)
++        path = directory/(uid+'.json')
++        if path.exists() and json.loads(path.read_text()) != proof:
++            raise ValueError('MEMORY_EXISTING_RECEIPT_CONFLICT')
++        atomic_json(path, proof)
++        evidence = dict(path=str(path), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
++        memory.add(uid, scope, content, evidence=[evidence])
++        memory.feedback(uid, success=True, evidence=evidence)
++    supervision = []
++    if verified:
++        # Every input is the original pre-action observation, including failures
++        # as history. Rejected assistant outputs never become positive CE labels.
++        for record in report['records']:
++            if record.get('accepted') is True:
++                supervision.append(supervised_decision(record, record_tools[record['request_id']],
++                    source_sha=source_sha, memory_sha=(snapshot['cfg'].get('route_memory') or {}).get('sha256','')))
++    return dict(schema='verified_route_recovery_curation_v1', task_id=task_id,
++                source_snapshot_sha256=source_sha, reference_verified=verified,
++                executor_recovery_count=len(recoveries), memory=memory.snapshot(), supervision=supervision)
+diff --git a/src/mechet/route_memory_integration.py b/src/mechet/route_memory_integration.py
+new file mode 100644
+index 0000000..70a60b6
+--- /dev/null
++++ b/src/mechet/route_memory_integration.py
+@@ -0,0 +1,131 @@
++"""Frozen TRAIN experience in real route observations, with replayable provenance.
++
++Only typed advice is transferred across states. Stored atom handles and tool calls
++are never rendered as current executable actions. Full route history is retained.
++"""
++from copy import deepcopy
++import hashlib
++import json
++
++from .external_route_rl import TargetOnlyRouteEpisode
++from .external_route_validation import ValidationRouteEpisode
++from .route_event_history import ACTION_ROUTE_HISTORY, public_json
++from .route_experience_memory import ExperienceMemory
++
++MEMORY_HEADER = '\nVERIFIED TRAIN EXPERIENCE (ADVICE, NOT CURRENT ACTIONS)\n'
++MEMORY_END = '\nEND VERIFIED TRAIN EXPERIENCE\n'
++STRATEGIES = {
++    'inspect_current_source_bonds': 'Inspect the current source-bond inventory before proposing electron flow.',
++    'continue_before_finish': 'Check current productive-change eligibility before proposing FINISH.',
++    'avoid_route_ancestors': 'Check current branch ancestors before committing a precursor transformation.',
++}
++
++
++def memory_digest(value):
++    return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':'),
++                                     allow_nan=False).encode()).hexdigest()
++
++
++def strategy_for_error(error):
++    if error.startswith('NONPRODUCTIVE_FINISH'):
++        return 'continue_before_finish'
++    if error.startswith('ROUTE_CYCLE'):
++        return 'avoid_route_ancestors'
++    if 'source bond' in error.lower() or ('KeyError' in error and 'bond' in error.lower()):
++        return 'inspect_current_source_bonds'
++    return None
++
++
++def execution_scope(ep, *, binding=None):
++    if ep.node is None or ep.current is None or ep.event_history is None:
++        raise ValueError('MEMORY_ACTIVE_EVENT_EPISODE_REQUIRED')
++    binding = binding or ep.cfg['route_memory']
++    return dict(state=ep.node.state, target=ep.current['product'], route_root=ep.root,
++        next_map=ep.node.next_map, imported=deepcopy(ep.node.imported),
++        visited=sorted(ep.node.visited), accepted_action_types=[a['name'] for a in ep.node.actions],
++        ancestors=list(ep.current['ancestors']), stock_version=binding['stock_version']+'/'+memory_digest(sorted(ep.stock)),
++        executor_version=binding['executor_version'], occurrence=ep.current['occurrence'],
++        event_history_sha256=memory_digest(ep.event_history.snapshot()))
++
++
++def strip_memory(messages):
++    result = deepcopy(messages)
++    text = result[0]['content']
++    if not text.startswith(MEMORY_HEADER) or MEMORY_END not in text:
++        raise ValueError('MEMORY_OBSERVATION_MISSING')
++    payload, remainder = text[len(MEMORY_HEADER):].split(MEMORY_END, 1)
++    json.loads(payload)
++    result[0]['content'] = remainder
++    return result
++
++
++class MemoryEpisodeMixin:
++    def __init__(self, *args, **kwargs):
++        super().__init__(*args, **kwargs)
++        self.cfg = deepcopy(self.cfg)
++        self._load_memory()
++
++    def _load_memory(self):
++        b = self.cfg.get('route_memory', {})
++        if (self.cfg.get('public_observation_contract') != ACTION_ROUTE_HISTORY
++                or not all(isinstance(b.get(k), str) and b[k] for k in ('sha256', 'stock_version', 'executor_version'))
++                or memory_digest(b.get('snapshot')) != b['sha256']):
++            raise ValueError('MEMORY_BINDING_OR_OBSERVATION_MISMATCH')
++        self._memory_store = ExperienceMemory(b['snapshot'])
++
++    def _messages(self):
++        messages = super()._messages()
++        scope = execution_scope(self)
++        exact = self._memory_store.retrieve(scope)
++        latest = self.event_history.latest_feedback(self.uid+'/r'+str(len(self.reactions)))
++        wanted = strategy_for_error(latest['error']) if latest else None
++        transferable = [e for e in self._memory_store.entries.values()
++                        if wanted and e['content'].get('strategy_id') == wanted
++                        and e['scope']['executor_version'] == scope['executor_version']
++                        and e['scope']['stock_version'] == scope['stock_version']]
++        selected = {e['id']: e for e in [*exact, *transferable] if e['content'].get('strategy_id') in STRATEGIES}
++        advice = [dict(id=e['id'], strategy_id=e['content']['strategy_id'],
++                       advice=STRATEGIES[e['content']['strategy_id']], utility=e['utility'], signal=e['signal'],
++                       applicability='exact' if e in exact else 'generic_error_recovery_advice')
++                  for e in sorted(selected.values(), key=lambda e: (-e['utility'], e['id']))[:5]]
++        payload = dict(memory_sha256=self.cfg['route_memory']['sha256'],
++                       scope_sha256=memory_digest(scope), advice=advice)
++        messages[0]['content'] = MEMORY_HEADER+public_json(payload)+MEMORY_END+messages[0]['content']
++        return messages
++
++    def snapshot(self, *, include_stock=True):
++        result = super().snapshot(include_stock=include_stock)
++        result.pop('_memory_store', None)
++        return result
++
++    def _validate_restored_event_history(self):
++        original = self.records
++        try:
++            self.records = [dict(r, messages=strip_memory(r['messages'])) for r in original]
++            super()._validate_restored_event_history()
++        finally:
++            self.records = original
++
++    @classmethod
++    def restore(cls, snapshot, *, stock=None, chemistry=None):
++        result = super().restore(snapshot, stock=stock, chemistry=chemistry)
++        result._load_memory()
++        # Re-render every saved decision against its true historical scope.
++        # Matching only the final graph would miss a forged memory/prompt prefix.
++        replay = cls(result.cfg, result.public_root, result.stock, result.uid, result.seed, chemistry=chemistry)
++        for record in result.records:
++            replay.accept(deepcopy(record))
++        if snapshot.get('current') is not None:
++            replay.next_decision()
++        actual = replay.snapshot(include_stock='stock' in snapshot)
++        if actual != snapshot:
++            raise ValueError('MEMORY_REPLAY_SNAPSHOT_MISMATCH')
++        return result
++
++
++class MemoryTargetOnlyRouteEpisode(MemoryEpisodeMixin, TargetOnlyRouteEpisode):
++    pass
++
++
++class MemoryValidationRouteEpisode(MemoryEpisodeMixin, ValidationRouteEpisode):
++    pass
+diff --git a/tests/test_qwen3_eight_h20.py b/tests/test_qwen3_eight_h20.py
+new file mode 100644
+index 0000000..e2c5db1
+--- /dev/null
++++ b/tests/test_qwen3_eight_h20.py
+@@ -0,0 +1,40 @@
++import json
++
++import pytest
++
++
++def test_eight_h20_reuses_protocol_cache_and_keeps_global_batch():
++    from mechet.qwen3_continuation import continuation_config, validate_config, validate_cache
++    from test_qwen3_continuation import cache
++    old = continuation_config()
++    cfg = continuation_config(world_size=8)
++    assert cfg['training']['gradient_accumulation_steps'] * 8 == 64
++    assert cfg['pretokenized_cache_dir'] == old['pretokenized_cache_dir']
++    assert cfg['pretokenization_world_size'] == 4
++    assert cfg['output_dir'] != old['output_dir']
++    validate_config(cfg, world_size=8, gpu_names=['NVIDIA H20'] * 8)
++    validate_cache(cfg, cache())
++    with pytest.raises(ValueError):
++        validate_config(cfg, world_size=4, gpu_names=['NVIDIA H20'] * 4)
++
++
++def test_eight_rank_resume_requires_all_eight_rng_states(tmp_path):
++    from mechet.qwen3_continuation import continuation_config, save_checkpoint_binding, verify_resume
++    cfg = continuation_config(world_size=8)
++    for name in ['adapter_model.safetensors', 'adapter_config.json', 'optimizer.pt', 'scheduler.pt',
++                 *[f'rng_state_{i}.pth' for i in range(8)]]:
++        (tmp_path / name).write_bytes(b'checkpoint')
++    (tmp_path / 'trainer_state.json').write_text(json.dumps({'global_step': 8}))
++    saved = save_checkpoint_binding(cfg, tmp_path)
++    assert 'rng_state_7.pth' in saved['files']
++    verify_resume(cfg, tmp_path)
++    (tmp_path / 'rng_state_7.pth').unlink()
++    with pytest.raises((ValueError, FileNotFoundError)):
++        verify_resume(cfg, tmp_path)
++
++
++def test_other_gpu_allocations_are_not_new_conditions():
++    from mechet.qwen3_continuation import continuation_config
++    for n in (0, 1, 16):
++        with pytest.raises(ValueError):
++            continuation_config(world_size=n)
+diff --git a/tests/test_qwen3_queue.py b/tests/test_qwen3_queue.py
+new file mode 100644
+index 0000000..c2c27b9
+--- /dev/null
++++ b/tests/test_qwen3_queue.py
+@@ -0,0 +1,51 @@
++import json
++
++import pytest
++
++
++def test_queue_waits_for_actual_cache_and_refuses_wrong_model(tmp_path):
++    from mechet.qwen3_queue import cache_readiness
++    from mechet.qwen3_continuation import continuation_config
++    cfg = continuation_config(world_size=8)
++    cfg['pretokenized_cache_dir'] = str(tmp_path)
++    assert cache_readiness(cfg) == 'waiting_for_cpu_cache'
++    (tmp_path / 'manifest.json').write_text(json.dumps({'model_name_or_path': 'wrong'}))
++    with pytest.raises(ValueError, match='CACHE'):
++        cache_readiness(cfg)
++
++
++def test_resource_manifest_cannot_exceed_eight_or_wait_inside_gpu(tmp_path):
++    from mechet.qwen3_queue import validate_submission
++    from mechet.qwen3_continuation import continuation_config
++    cfg = continuation_config(world_size=8)
++    task = dict(host_num=1, host_gpu_num=8, business_flag='AI4LSLab_KEMO_ZJK_H20',
++                keep_running_after_trainer_finish=False)
++    validate_submission(cfg, task)
++    with pytest.raises(ValueError):
++        validate_submission(cfg, dict(task, host_gpu_num=16))
++    with pytest.raises(ValueError):
++        validate_submission(cfg, dict(task, keep_running_after_trainer_finish=True))
++
++
++def test_waiting_for_cache_cannot_erase_submission_intent():
++    from mechet.qwen3_queue import waiting_status
++    prior = dict(state='submit_intent', task_flag='one-eight-card-task')
++    now = waiting_status(prior, task_flag=prior['task_flag'])
++    assert now['state'] == 'submit_intent'
++    assert now['readiness'] == 'waiting_for_cpu_cache'
++    assert prior['state'] == 'submit_intent'
++
++
++def test_submission_inputs_are_rechecked_after_wait(tmp_path):
++    import hashlib
++    from mechet.qwen3_queue import submission_inputs
++    from mechet.qwen3_continuation import continuation_config
++    cfg = tmp_path/'config.json'; task = tmp_path/'task.json'
++    cfg.write_text(json.dumps(continuation_config(world_size=8)))
++    task.write_text(json.dumps(dict(host_num=1, host_gpu_num=8, business_flag='AI4LSLab_KEMO_ZJK_H20', keep_running_after_trainer_finish=False)))
++    plan = dict(training_config=str(cfg), task_config=str(task),
++                files_sha256={str(f):hashlib.sha256(f.read_bytes()).hexdigest() for f in (cfg,task)})
++    submission_inputs(plan)
++    task.write_text(json.dumps(dict(host_num=1, host_gpu_num=16)))
++    with pytest.raises(ValueError, match='BINDING'):
++        submission_inputs(plan)
+diff --git a/tests/test_qwen3_worker_bootstrap.py b/tests/test_qwen3_worker_bootstrap.py
+new file mode 100644
+index 0000000..142d5ad
+--- /dev/null
++++ b/tests/test_qwen3_worker_bootstrap.py
+@@ -0,0 +1,18 @@
++import json
++import os
++from pathlib import Path
++import subprocess
++import sysconfig
++
++
++def test_torchrun_workers_keep_site_disabled(tmp_path):
++    worker = tmp_path/'worker.py'
++    worker.write_text("import json,os,sys,pathlib;pathlib.Path(os.environ['AUDIT_DIR'],os.environ['RANK']+'.json').write_text(json.dumps({'no_site':sys.flags.no_site}))")
++    wrapper = Path(__file__).resolve().parents[1]/'scripts/qwen3_runtime_bin/python'
++    env = dict(os.environ, PYTHONPATH=sysconfig.get_path('purelib'), AUDIT_DIR=str(tmp_path),
++               CUDA_VISIBLE_DEVICES='-1', OMP_NUM_THREADS='1')
++    env.pop('PYTHON_EXEC', None)
++    result = subprocess.run([str(wrapper), '-m', 'torch.distributed.run', '--standalone',
++                             '--nproc_per_node=2', str(worker)], env=env, capture_output=True, text=True, timeout=60)
++    assert result.returncode == 0, result.stderr[-2000:]
++    assert [json.loads((tmp_path/f'{rank}.json').read_text())['no_site'] for rank in range(2)] == [1, 1]
+diff --git a/tests/test_route_memory_curation.py b/tests/test_route_memory_curation.py
+new file mode 100644
+index 0000000..e94f25e
+--- /dev/null
++++ b/tests/test_route_memory_curation.py
+@@ -0,0 +1,103 @@
++from copy import deepcopy
++
++import pytest
++
++from test_route_memory_integration import episode
++from test_route_action_feedback import send
++
++
++def unresolved_episode():
++    ep = episode()
++    send(ep, 'finish_trace', {})
++    send(ep, 'import_fragments', {'fragments': [dict(smiles='[Cl-]', count=1, purpose='electron_participant')]})
++    for _ in range(8):
++        send(ep, 'finish_trace', {})
++    assert ep.status == 'recovery_exhausted'
++    return ep
++
++
++def recovery_episode():
++    from mechet.route_memory_integration import MemoryTargetOnlyRouteEpisode
++    from mechet.natural_language_electron_flow import build_inventory
++    from mechet.route_training_contract import chemical_identity
++    from rdkit import Chem
++    from test_route_memory_integration import empty_config
++    def args(ep):
++        ep.next_decision(); inv=build_inventory(ep.node.state); mol=Chem.MolFromSmiles(ep.node.state)
++        a={atom.GetSymbol():inv.map_to_atom[atom.GetAtomMapNum()] for atom in mol.GetAtoms() if atom.GetSymbol() in ('C','O')}
++        return dict(direction='retrosynthetic', electron_flow=[dict(source=f"the bond between atoms {a['C']} and {a['O']}",destination='atom '+a['O'],instruction='transfer')],bond_order_changes=[],charge_changes=[])
++    probe=episode(); send(probe,'apply_electron_flow',args(probe))
++    stock=set(chemical_identity(probe.chemistry.precursors(probe.node,probe.initial)).split('.'))
++    ep=MemoryTargetOnlyRouteEpisode(empty_config(),'CO',stock,'recovered',17)
++    send(ep,'finish_trace',{}); send(ep,'apply_electron_flow',args(ep));send(ep,'finish_trace',{})
++    assert ep.status=='stock_solved'
++    return ep
++
++
++def test_actual_replay_builds_recovery_memory_without_claiming_route_success(tmp_path):
++    from mechet.route_memory_curation import curate_episode
++    from mechet.route_experience_memory import ExperienceMemory
++    ep = recovery_episode()
++    result = curate_episode(ep.snapshot(), task_id='train-1', public_tasks={'train-1': 'CO'},
++                            protected=set(), output_dir=tmp_path)
++    assert len(result['memory']['entries']) == 1
++    assert result['supervision'] == []
++    assert result['reference_verified'] is False
++    restored = ExperienceMemory(result['memory'])
++    entry = next(iter(restored.entries.values()))
++    assert entry['content']['strategy_id'] == 'continue_before_finish'
++    assert entry['successes'] == 1
++    second = curate_episode(ep.snapshot(), task_id='train-1', public_tasks={'train-1': 'CO'},
++                            protected=set(), output_dir=tmp_path)
++    assert second == result
++
++
++def test_verifier_rejects_forged_execution_and_heldout_learning(tmp_path):
++    from mechet.route_memory_curation import curate_episode
++    saved = recovery_episode().snapshot()
++    kwargs = dict(task_id='train-1', public_tasks={'train-1': 'CO'}, protected=set(), output_dir=tmp_path)
++    forged = deepcopy(saved); forged['records'][0]['accepted'] = True
++    with pytest.raises(ValueError):
++        curate_episode(forged, **kwargs)
++    with pytest.raises(ValueError, match='TRAIN'):
++        curate_episode(saved, **dict(kwargs, split='validation'))
++    with pytest.raises(ValueError, match='PROTECTED'):
++        curate_episode(saved, **dict(kwargs, protected={'CO'}))
++    with pytest.raises(ValueError, match='PUBLIC_TRAIN'):
++        curate_episode(saved, **dict(kwargs, public_tasks={}))
++
++
++def test_unfinished_or_resource_interrupted_episode_cannot_teach_memory(tmp_path):
++    from mechet.route_memory_curation import curate_episode
++    ep = episode(); ep.next_decision()
++    with pytest.raises(ValueError, match='COMPLETE'):
++        curate_episode(ep.snapshot(), task_id='x', public_tasks={'x': 'CO'}, protected=set(), output_dir=tmp_path)
++
++    req = ep.next_decision()
++    ep.accept(dict(request_id=req.request_id, behavior_version=req.behavior_version,
++                   raw='', prompt_token_ids=[1], generated_token_ids=[], behavior_logprobs=[], resource_error='OOM'))
++    with pytest.raises(ValueError, match='CENSORED'):
++        curate_episode(ep.snapshot(), task_id='x', public_tasks={'x': 'CO'}, protected=set(), output_dir=tmp_path)
++
++
++def test_memory_supervision_is_a_real_paired_tool_row_without_future_input():
++    from mechet.route_memory_curation import supervised_decision
++    from mechet.route_action_feedback import tools_for_request
++    from scripts.train_tool_sft import validate_conversation
++    ep = episode(); req = ep.next_decision()
++    send(ep, 'import_fragments', {'fragments': [dict(smiles='[Cl-]', count=1, purpose='electron_participant')]})
++    row = supervised_decision(ep.records[0], tools_for_request(req), source_sha='a'*64,
++                              memory_sha=ep.cfg['route_memory']['sha256'])
++    counts = validate_conversation(row, require_trace_owned=False, require_tool_decision=True)
++    assert counts['tool_calls'] == counts['tool_results'] == 1
++    assert row['messages'][:-2] == req.messages
++    assert row['messages'][-2]['content'] == ''
++    assert row['metadata']['history_contains_failed_actions'] is True
++
++
++def test_merely_accepted_import_is_not_successful_error_recovery(tmp_path):
++    from mechet.route_memory_curation import curate_episode
++    ep=unresolved_episode()
++    result=curate_episode(ep.snapshot(),task_id='x',public_tasks={'x':'CO'},protected=set(),output_dir=tmp_path)
++    assert result['executor_recovery_count']==0
++    assert result['memory']['entries']==[]
+diff --git a/tests/test_route_memory_integration.py b/tests/test_route_memory_integration.py
+new file mode 100644
+index 0000000..eefc8f1
+--- /dev/null
++++ b/tests/test_route_memory_integration.py
+@@ -0,0 +1,89 @@
++from copy import deepcopy
++import hashlib
++import json
++
++import pytest
++
++from test_route_action_feedback import send, flow
++from test_route_experience_memory import evidence
++
++
++def empty_config():
++    from mechet.route_memory_integration import memory_digest
++    snapshot = {'schema': 'route_experience_memory_v2', 'entries': []}
++    return dict(behavior_version='memory-test', public_observation_contract='route_action_feedback_v8',
++                max_action_tokens=2048, max_consecutive_recoveries=8,
++                route_memory=dict(snapshot=snapshot, sha256=memory_digest(snapshot),
++                                  stock_version='s1', executor_version='e1'))
++
++
++def episode():
++    from mechet.route_memory_integration import MemoryTargetOnlyRouteEpisode
++    return MemoryTargetOnlyRouteEpisode(empty_config(), 'CO', set(), 'memory', 17)
++
++
++def test_live_memory_retains_native_state_and_complete_failed_history(tmp_path):
++    from mechet.route_memory_integration import (execution_scope, memory_digest,
++                                               MemoryTargetOnlyRouteEpisode)
++    from mechet.route_experience_memory import ExperienceMemory
++    ep = episode(); first = ep.next_decision()
++    send(ep, 'apply_electron_flow', flow())
++    scope = execution_scope(ep)
++    content = {'strategy_id': 'inspect_current_source_bonds'}
++    mem = ExperienceMemory()
++    proof = evidence(tmp_path, 'proof', entry='repair', content=content, current=scope)
++    mem.add('repair', scope, content, evidence=[proof])
++    saved = ep.snapshot(); snap = mem.snapshot()
++    saved['cfg']['route_memory'].update(snapshot=snap, sha256=memory_digest(snap))
++    # Install this memory before replaying: the earlier request had no eligible memory.
++    ep = MemoryTargetOnlyRouteEpisode(saved['cfg'], 'CO', set(), 'memory', 17)
++    first2 = ep.next_decision()
++    assert 'CURRENT STATE SMILES:' in first2.messages[-1]['content']
++    send(ep, 'apply_electron_flow', flow())
++    req = ep.next_decision()
++    assert 'inspect_current_source_bonds' in req.messages[0]['content']
++    assert ep.records[0]['raw'] in json.dumps(ep.event_history.snapshot()) or ep.event_history.data['output_texts'][0] == ep.records[0]['raw']
++    assert req.messages[-1]['content'].endswith(first.messages[-1]['content'].split('\nNATIVE CURRENT-DECISION OBSERVATION\n')[-1])
++    restored = MemoryTargetOnlyRouteEpisode.restore(json.loads(json.dumps(ep.snapshot())))
++    assert restored.next_decision() == req
++    forged = deepcopy(ep.snapshot()); forged['records'][0]['messages'][0]['content'] += 'forged'
++    with pytest.raises(ValueError):
++        MemoryTargetOnlyRouteEpisode.restore(forged)
++
++
++def test_memory_snapshot_is_frozen_and_tampering_is_rejected():
++    from mechet.route_memory_integration import MemoryTargetOnlyRouteEpisode
++    cfg = empty_config(); ep = MemoryTargetOnlyRouteEpisode(cfg, 'CO', set(), 'x', 17)
++    cfg['route_memory']['snapshot']['entries'].append({'forged': True})
++    assert ep.next_decision() is not None
++    bad = deepcopy(ep.snapshot()); bad['cfg']['route_memory']['sha256'] = '0' * 64
++    with pytest.raises(ValueError, match='MEMORY'):
++        MemoryTargetOnlyRouteEpisode.restore(bad)
++
++
++def test_unstarted_memory_episode_can_restore_without_starting_a_reaction():
++    from mechet.route_memory_integration import MemoryTargetOnlyRouteEpisode
++    ep = episode(); before = ep.snapshot()
++    assert MemoryTargetOnlyRouteEpisode.restore(before).snapshot() == before
++
++
++def test_frozen_baseline_cannot_change_memory_condition(tmp_path):
++    from mechet.external_route_schedule import _compatible
++    parent = dict(route_memory={'sha256': 'old'}, output_dir=str(tmp_path/'old'),
++                  code_files_sha256={}, code_root=str(tmp_path))
++    cfg = dict(route_memory={'sha256': 'new'}, output_dir=str(tmp_path/'new'), code_files_sha256={})
++    with pytest.raises(ValueError, match='BASELINE_CONDITION_CHANGED:route_memory'):
++        _compatible(cfg, parent, tmp_path)
++
++
++def test_episode_factory_uses_memory_in_train_and_validation():
++    from scripts.train_external_route_rl import make_episodes
++    from mechet.route_memory_integration import MemoryTargetOnlyRouteEpisode, MemoryValidationRouteEpisode
++    cfg = dict(empty_config(), world_size=8, executor_workers_per_rank=2, candidates=2, seed=17)
++    rows = [{'task_id': 'train-1', 'target': 'CO'}]
++    eps = make_episodes(rows, set(), set(), cfg, 'v')
++    assert all(isinstance(e, MemoryTargetOnlyRouteEpisode) for e in eps)
++    cfg['_validation_rng_namespace'] = 'valid'
++    eps = make_episodes(rows, set(), set(), cfg, 'v')
++    assert all(isinstance(e, MemoryValidationRouteEpisode) for e in eps)
++    assert eps[0].next_decision().request_id.startswith('valid/train-1/')

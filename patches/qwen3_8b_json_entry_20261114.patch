@@ -1,0 +1,50 @@
+diff --git a/scripts/train_tool_sft.py b/scripts/train_tool_sft.py
+index 4f9ac7e..49845e5 100644
+--- a/scripts/train_tool_sft.py
++++ b/scripts/train_tool_sft.py
+@@ -31,7 +31,11 @@ from mechet.model_revision import (
+ 
+ 
+ def load_yaml(path: Path) -> dict[str, Any]:
+-    return dict(yaml.safe_load(path.read_text(encoding="utf-8")) or {})
++    text = path.read_text(encoding="utf-8")
++    # JSON scientific notation (5e-06) is a number. YAML1.1 safe_load can
++    # reinterpret the same spelling as a string, breaking strict run contracts.
++    value = json.loads(text) if path.suffix.lower() == '.json' else yaml.safe_load(text)
++    return dict(value or {})
+ 
+ 
+ def file_sha256(path: Path) -> str:
+diff --git a/tests/test_qwen3_json_config.py b/tests/test_qwen3_json_config.py
+new file mode 100644
+index 0000000..104f3d4
+--- /dev/null
++++ b/tests/test_qwen3_json_config.py
+@@ -0,0 +1,27 @@
++import json
++
++import pytest
++
++
++def test_actual_json_training_entry_preserves_scientific_notation(tmp_path):
++    from scripts.train_tool_sft import load_yaml
++    from mechet.qwen3_continuation import continuation_config, validate_config
++    expected=continuation_config(world_size=8)
++    p=tmp_path/'condition.json';p.write_text(json.dumps(expected))
++    actual=load_yaml(p)
++    assert actual['training']['learning_rate']==5e-6
++    assert isinstance(actual['training']['learning_rate'],float)
++    validate_config(actual)
++    assert actual==expected
++
++
++def test_yaml_training_conditions_keep_their_existing_loader(tmp_path):
++    from scripts.train_tool_sft import load_yaml
++    p=tmp_path/'legacy.yaml';p.write_text('training:\n  learning_rate: 5.0e-6\n  bf16: true\n')
++    assert load_yaml(p)=={'training':{'learning_rate':5e-6,'bf16':True}}
++
++
++def test_json_filename_cannot_silently_accept_yaml_content(tmp_path):
++    from scripts.train_tool_sft import load_yaml
++    p=tmp_path/'condition.json';p.write_text('training: {learning_rate: 0.000005}')
++    with pytest.raises(json.JSONDecodeError):load_yaml(p)

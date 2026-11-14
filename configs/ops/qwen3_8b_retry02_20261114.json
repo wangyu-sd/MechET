@@ -1,0 +1,32 @@
+{
+  "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261114_02",
+  "status": "start_confirmed",
+  "created_at": "2026-11-14T14:55:43.511708+08:00",
+  "init_recovered_from": "meteor_mechet_route_action_smoke_1h20_zjk_20261113_01",
+  "private_init_sha256": "31e65d61b81726a78f415a49c7549584be3539203c188edd66cb6048fada4b67",
+  "init_shell_syntax_checked": true,
+  "source_commit": "8d07a41199638f6728ccf484dd07b67db6e262ce",
+  "source_snapshot_sha256": "a58c66de183451231bec9eb76bea2b0c5df26059cfa0a4d8864bbaaa0ed74454",
+  "source_files": 436,
+  "training_config": "/aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/qwen3_8b_rsi_8h20_20261114_retry02/code/configs/agent/qwen3_8b_corrected_continue_8h20_20261113.json",
+  "same_parent": true,
+  "parent_sha256": "a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b",
+  "cache_verified": true,
+  "bound_files": 15,
+  "verification_seconds": 0.4080043211579323,
+  "train_decisions": 1908035,
+  "validation_decisions": 21355,
+  "gpus": 8,
+  "create_confirmed": true,
+  "start_confirmed": true,
+  "instance": "8b1d89c6a1cfaaaf01a1d8d733e10ffc",
+  "platform_state": "END",
+  "model_update_confirmed": false,
+  "tests": {
+    "startup_cache_regressions": 32,
+    "monitor_regressions": 2
+  },
+  "failure_reason_original": "public_redacted_init_used_as_private_Ceph_init",
+  "health": "see live health.json; RUNNING alone is not evidence of optimizer updates",
+  "failure": "JSON_config_read_as_YAML_coerced_learning_rate_to_string"
+}

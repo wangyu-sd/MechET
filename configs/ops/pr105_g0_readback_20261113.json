@@ -1,0 +1,48 @@
+{
+  "observed_at": "2026-11-13T20:52:38.451489+08:00",
+  "pr_head": "83a14fb79984cc1dfc67cb351837026bfdd4176b",
+  "pr104_base": "7ce2e69ab0ff9d4803bf9690e16e27242b8dd620",
+  "source_commit": "c6d3fb3e6dfd61390284d8ab61eed34f4c8d8766",
+  "source_snapshot_sha256": "ef2e01f034c59182ca329ad5827172c420c6b33180b0861afee36e69df9d4d19",
+  "verified_source_files": 435,
+  "source_changes": [],
+  "queue": {
+    "readiness": "waiting_for_cpu_cache",
+    "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261113_01",
+    "updated_at": 1794574345.0534332,
+    "state": "waiting_for_cpu_cache",
+    "gpu_reserved": false
+  },
+  "queue_driver_alive": true,
+  "model": "Qwen/Qwen3-8B",
+  "parent": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_8b_h20_seed17_20260918/checkpoint-31366",
+  "parent_sha256": "a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b",
+  "max_h20": 8,
+  "read_handoff_files": [
+    "docs/ops/PR105_AGENT_MEMORY_FRAMEWORK_CONTRACT_20261113.md",
+    "docs/superpowers/plans/2026-11-13-pr105-agent-memory-framework-execution.md",
+    "configs/ops/pr105_agent_memory_framework_contract_20261113.json"
+  ],
+  "assessment": {
+    "G0": "verified_no_live_source_mutation",
+    "G1": "existing_exact_store_and_3_error_advice; explicit_inventory_eligibility_and_support_aggregation_pending",
+    "G2": "currently_full_ledger_in_prompt; bounded_public_projections_pending",
+    "G3": "no_actual_optional_tokenizer_budget_or_group_policy_binding_yet",
+    "G4": "official_adapter_not_implemented",
+    "G5": "optional_adapter_and_numeric_gradient_parity_not_implemented",
+    "G6": "requires_actual_new_corrected8B_and_full_declared_validation"
+  },
+  "optional_packages": {
+    "langgraph": "not installed",
+    "langgraph-checkpoint": "not installed",
+    "langgraph-checkpoint-sqlite": "not installed",
+    "verl": "not installed",
+    "torch": "2.6.0+cu118",
+    "transformers": "4.55.4"
+  },
+  "official_sources_read": [
+    "https://docs.langchain.com/oss/python/langgraph/persistence",
+    "https://docs.langchain.com/oss/python/langgraph/add-memory",
+    "https://verl.readthedocs.io/en/latest/advance/agent_loop.html"
+  ]
+}

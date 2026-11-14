@@ -1,0 +1,1443 @@
+diff --git a/configs/agent/qwen3_8b_corrected_continue_4h20_20261113.json b/configs/agent/qwen3_8b_corrected_continue_4h20_20261113.json
+new file mode 100644
+index 0000000..f5bc2df
+--- /dev/null
++++ b/configs/agent/qwen3_8b_corrected_continue_4h20_20261113.json
+@@ -0,0 +1,90 @@
++{
++  "condition_name": "qwen3_8b_corrected_history_continue_4h20_v1",
++  "model_name_or_path": "Qwen/Qwen3-8B",
++  "initial_adapter_path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/natural_language_event_history_v2_qwen3_8b_h20_seed17_20260918/checkpoint-31366",
++  "train_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/views/history/train.jsonl",
++  "validation_file": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_mainonly_history_v2_20261023_06/valid.jsonl",
++  "output_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/qwen3_8b_corrected_continue_4h20_20261113_01",
++  "pretokenized_cache_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/qwen3_8b_corrected_continue_4h20_20261113_01/tokens",
++  "pretokenization_world_size": 4,
++  "limit_examples": 0,
++  "qwen3_continuation": {
++    "world_size": 4,
++    "max_gpus": 4,
++    "parent_weight_sha256": "a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b",
++    "reference_approval": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_reference_approval_20261023_06/reference_approval.json",
++    "reference_approval_sha256": "eb92320d9711e85bfcd8281cce8bc90cde496b4b47688405372809280d618ada",
++    "reference_manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_mainonly_source_arrows_v2_20261023_06/manifest.json",
++    "reference_manifest_sha256": "2a203ee08df9a6099f66d554797a72b93750b88cdfe760669431f2b665ff083c",
++    "history_manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_mainonly_history_v2_20261023_06/manifest.json",
++    "history_manifest_sha256": "edd299a832e7f15c53d134b74015097865737837d587c723db4527d2b9290f06",
++    "train_sha256": "0ace674b6ebf6b4ba0a3542de8572c973e0d6a644a6923f651ffab74b2ab4748",
++    "validation_sha256": "0abb938fe0f0205a648ad7ff979fbe9ce217d1947f75ddac9997bb05e535b520",
++    "policy_protocol": "qwen3_tool_span_v1",
++    "policy_model_family": "qwen3",
++    "stage": "corrected_single_reaction_continuation",
++    "memory_replay_status": "separate_future_condition_not_silently_mixed"
++  },
++  "contract": {
++    "require_trace_owned": false,
++    "require_tool_decision": true,
++    "expected_train_rows": 1908035,
++    "expected_validation_rows": 21355,
++    "expected_upstream_endpoint_fallback_rows": 0,
++    "environment_revision": "natural_language_electron_event_history_v2",
++    "executor_revision": "pr95_main_product_only_actual_executor",
++    "stable_id_manifest": "/aaa/fionafyang/buddy1/whaleywang/MechET/data/pr96_flower_mainonly_history_v2_20261023_06/manifest.json"
++  },
++  "lora": {
++    "r": 16,
++    "alpha": 32,
++    "dropout": 0.05,
++    "target_modules": [
++      "q_proj",
++      "k_proj",
++      "v_proj",
++      "o_proj"
++    ]
++  },
++  "training": {
++    "model_revision": "b968826d9c46dd6066d109eabc6255188de91218",
++    "trust_remote_code": false,
++    "num_train_epochs": 1.0,
++    "max_steps": -1,
++    "max_length": 32768,
++    "window_context_tokens": 0,
++    "encoding_protocol": "qwen3_tool_span_v1",
++    "per_device_train_batch_size": 1,
++    "gradient_accumulation_steps": 16,
++    "per_device_eval_batch_size": 1,
++    "learning_rate": 5e-06,
++    "bf16": true,
++    "fp16": false,
++    "qlora": true,
++    "tf32": true,
++    "attention_implementation": "sdpa",
++    "require_flash_sdp": true,
++    "gradient_checkpointing": true,
++    "assistant_only_loss": true,
++    "packing": false,
++    "group_by_length": true,
++    "validation_limit": 0,
++    "eval_strategy": "epoch",
++    "eval_accumulation_steps": 1,
++    "dataloader_num_workers": 4,
++    "logging_steps": 10,
++    "save_steps": 500,
++    "save_total_limit": 3,
++    "seed": 17,
++    "data_seed": 17,
++    "use_liger_kernel": true,
++    "liger_kernel_config": {
++      "rope": true,
++      "rms_norm": true,
++      "swiglu": true,
++      "cross_entropy": false,
++      "fused_linear_cross_entropy": true
++    },
++    "report_to": []
++  }
++}
+diff --git a/docs/ops/QWEN3_8B_FOUR_H20_20261113.md b/docs/ops/QWEN3_8B_FOUR_H20_20261113.md
+new file mode 100644
+index 0000000..80b6759
+--- /dev/null
++++ b/docs/ops/QWEN3_8B_FOUR_H20_20261113.md
+@@ -0,0 +1,37 @@
++# Qwen3-8B 四卡 H20 改造
++
++已实现第一阶段源码：旧8B用修正数据完整续训、训练/推理前缀对齐、独立的可核验记忆API。未提交新的GPU训练任务；未宣称长程RL/记忆混合训练已完成或8B长上下文显存已验证。
++
++## 配置与数据
++
++- 父检查点：`natural_language_event_history_v2_qwen3_8b_h20_seed17_20260918/checkpoint-31366`；权重SHA `a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b`。
++- Qwen3-8B原始底座revision `b968826d9c46dd6066d109eabc6255188de91218`，保留原LoRA rank16/alpha32/qkvo结构。
++- 修正TRAIN243753反应/1908035决策；完整修正VALID2751反应/21355决策。源分母257167/2890/28967及未通过回放记录保持独立，不称未过滤FlowER full。
++- 正好4×H20，QLoRA/NF4/BF16；每卡B1、累积16，有效批量64；完整1epoch、LR5e-6、梯度检查点、长度分组、动态padding。32768为容量上限，不截断当前状态。
++- 新缓存从Qwen3 tokenizer重新构建；不能复用0.8B缓存。真实源payload、manifest、审批、父权重和adapter config共7文件已完整哈希核验，耗时124.73秒。
++
++## 使用顺序
++
++配置：`configs/agent/qwen3_8b_corrected_continue_4h20_20261113.json`。先冻结源码，设置`MECHET_QWEN3_CODE_ROOT`和`MECHET_QWEN3_CONFIG`，并使用包含项目训练依赖的既有运行环境。
++
++1. 在CPU准备端运行`bash scripts/prepare_qwen3_8b_corrected_cpu.sh`，完整编码TRAIN/VALID并核验4个独立分片及实际Arrow行数；该步骤不申请GPU。
++2. 缓存核验完成后，GPU任务调用`bash scripts/run_qwen3_8b_corrected_4h20.sh`。它检查实际可见卡数/卡型以及共享存储，只启动4个训练rank。
++3. 显式断点恢复可设置`MECHET_QWEN3_RESUME`。恢复核验同一配置身份、适配器/优化器/调度器/Trainer状态和4个rank RNG；拒绝别的模型或数据状态。
++
++CPU准备与GPU训练分阶段使用资源，没有额外rollout GPU。文件核验使用共享锁和stat保护的已核验收据，避免四个rank重复扫描Ceph全量源文件。训练结束只由rank0原子发布元数据；适配器身份仅为权重文件SHA，不扫描token缓存或优化器目录。
++
++## 协议与记忆
++
++`qwen3_protocol`重建与旧工具SFT相同的assistant/tool边界，排除模板在末尾assistant插入的额外空think段；未来工具结果不进入输入或监督。HF/vLLM均通过显式`policy_protocol=qwen3_tool_span_v1, policy_model_family=qwen3`选择；旧Qwen3.5默认行为保留。
++
++`route_experience_memory`目前是独立CPU模块，没有伪称接上实时规划。精确适用范围包含当前私有结构、目标/根、导入/编号、visited、祖先、occurrence、执行器/库存版本及包括失败事件的完整历史digest。经验写入/效用反馈/恢复均读取带SHA的已完成TRAIN核验收据，并绑定经验ID、scope和内容digest；资源截尾不学习，不能以任意成功收据给其他经验加分。完整路线事件档案不被摘要替换。
++
++后续独立条件：核验模型自产多步和恢复片段，发布实际有效数量与混合比例；用同一记忆输入契约做适配后，再运行路线RL。外部23730TRAIN/2986VALID目标没有电子动作GT，不能直接编造机理监督；MCTS优胜轨迹可用于独立SFT回放，不直接作为普通on-policy GRPO样本。
++
++## 验证边界
++
++最终受影响回归94PASS，包含真实缓存Qwen3/Qwen3.5 tokenizer、HF/vLLM前缀分派、源/缓存/卡数/断点/实际Arrow行数和记忆适用性/核验收据回归。早期38/82/91等计数有重叠，不相加。独立审查发现的问题均有相应修正，最终未发现Critical/Important剩余项。
++
++完整项目真实包初始化测试尝试180秒未完成（exit124，未产出全套结果），不宣称全仓测试通过。Python语法、shell语法和diff空白检查通过。以上都是软件/输入核验，没有新模型GPU训练、吞吐或化学成功率结论。
++
++详细证据：共享`outputs/shared_host_storage/tmp/qwen3_4h20_*1113.log`及`outputs/diagnostics/corrected_8b_preparation_20261113_01/production_bindings.json`。
+diff --git a/docs/superpowers/plans/2026-11-13-qwen3-8b-four-h20.md b/docs/superpowers/plans/2026-11-13-qwen3-8b-four-h20.md
+new file mode 100644
+index 0000000..38a761e
+--- /dev/null
++++ b/docs/superpowers/plans/2026-11-13-qwen3-8b-four-h20.md
+@@ -0,0 +1,60 @@
++# Qwen3-8B Four-H20 Implementation Plan
++
++> **For agentic workers:** Use superpowers:executing-plans inline; one independent final review.
++
++**Goal:** Deliver a runnable, validated corrected-data 8B continuation within four H20 GPUs, shared tool-prefix selection, and evidence-backed memory primitives.
++
++**Architecture:** Explicit Qwen3 protocol beside unchanged Qwen3.5 protocol; a new corrected-continuation contract and launcher reuse the generic SFT trainer; CPU memory remains independent of policy weights.
++
++**Tech Stack:** Python, Transformers/PEFT, existing NF4 QLoRA, PyTorch DDP, immutable JSONL/Arrow and JSON memory snapshots.
++
++**Spec:** `docs/superpowers/specs/2026-11-13-qwen3-8b-four-h20-design.md`
++
++## Global Constraints
++
++- Exactly four H20 ranks for the new SFT condition; no extra rollout allocation.
++- Original8B History-v2 parent and pinned Qwen3 revision; corrected1908035 TRAIN decisions.
++- Full corrected VALID21355 decisions, no cropped state, no TEST use, no implicit experimental smoke.
++- All data, artifacts, caches and temporary/test files on Ceph; old workflows remain default.
++- Memory utilities are feedback bookkeeping, not chemical feasibility labels or policy advantages.
++
++## Review Focus
++
++- Wrong-model tokenizer/cache accepted under the new encoding name.
++- CLI/env overrides silently replacing full data or exceeding four GPUs.
++- Reference manifest valid while actual payload or parent adapter is changed.
++- Two chemically identical displays with different execution/route contexts sharing negative memory.
++- A memory returned without evidence or a resource error becoming chemistry-negative experience.
++
++### Task1: Matched Qwen3 encoding and sampling
++
++Files: new `src/mechet/qwen3_protocol.py`, new `src/mechet/route_policy_protocol.py`, modify direct/Arrow encoders and both route samplers; new `tests/test_qwen3_route_protocol.py`.
++
++- [x] Write RED tests for cached Qwen3 tokenizer XML/EOS/prefix parity and future-response exclusion, sampler dispatch and invalid model/protocol pairing.
++- [x] Implement explicit Qwen3 encoding with no state cropping; shared route prefix dispatch preserves existing default.
++- [x] Run protocol/sampler regressions and record exact results.
++
++### Task2: Four-H20 corrected continuation
++
++Files: new `src/mechet/qwen3_continuation.py`, config under `configs/agent/`, launcher and preparation CLI under `scripts/`; tests under `tests/test_qwen3_continuation.py`.
++
++- [x] Write RED tests for world-size/card ceiling, immutable lineage, actual payload/parent tampering, full-validation selection, shared paths and forbidden row/step overrides.
++- [x] Implement continuation config/binding verification and invoke it before training; validate fresh cache source hashes/revision/protocol and zero windowing.
++- [x] Prepare config/launcher using4×B1×GA16, QLoRA/BF16/checkpointing, full corrected TRAIN/VALID and independent Ceph cache/output.
++- [x] Run lightweight tests and read-only production binding audit. Do not submit an unverified job.
++
++### Task3: Evidence-backed memory foundation
++
++Files: new `src/mechet/route_experience_memory.py`, tests `tests/test_route_experience_memory.py`.
++
++- [x] Write RED tests for context-isolated applicability, feedback-driven utility ranking/no-match, TRAIN-only evidence and deterministic round-trip.
++- [x] Implement JSON-serializable CPU memory with validated updates, resource exclusion and explicit provenance.
++- [x] Run focused regressions, independent review and fixes; record integration boundary and remaining GPU/mixed-replay work.
++
++### Completion
++
++- [x] Run affected tests, static checks and broader suite as feasible; report each actual limitation/failure.
++- [x] Commit only owned files; leave unrelated dirty MCTS/live sources untouched.
++- [x] Report code/config paths and software evidence separately from new training/chemical results.
++
++Verification: 94 affected tests PASS; full-project real-package attempt timed out180s. Actual7-file production binding check PASS; no new GPU job or GPU fit claim. All three tasks completed within the stated first-delivery boundary.
+diff --git a/docs/superpowers/specs/2026-11-13-qwen3-8b-four-h20-design.md b/docs/superpowers/specs/2026-11-13-qwen3-8b-four-h20-design.md
+new file mode 100644
+index 0000000..14a11c5
+--- /dev/null
++++ b/docs/superpowers/specs/2026-11-13-qwen3-8b-four-h20-design.md
+@@ -0,0 +1,94 @@
++# Qwen3-8B continuation under a four-H20 ceiling
++
++User decisions: continue the existing Qwen3-8B adapter on corrected data; add
++verified multistep/recovery supervision and memory; use at most four H20 GPUs.
++This implements the direction discussed in chat, not a fresh-base retraining.
++
++## Delivery and boundaries
++
++The first executable delivery is a hash-bound, four-GPU corrected-data SFT
++continuation, a shared Qwen3 train/inference tool protocol, and an independently
++testable evidence-backed memory component. Long-route memory adaptation and
++on-policy RL are subsequent conditions: their data cannot be invented from
++endpoint-only references or advertised as already running. No existing job,
++PR96 0.8B guard, unrelated MCTS change, or old checkpoint is modified.
++
++## Approaches and resource choice
++
++Continue the old History-v2 Qwen3-8B checkpoint rather than restart the base,
++as selected by the user. Use four replicated QLoRA learners during SFT, followed
++by rollout/replay phases using the same four-GPU ceiling. A permanent 2+2 split
++would reduce corrective-training throughput; four learners plus a separate
++four-GPU rollout service would violate the ceiling. Neither is the initial
++deployment. Memory indexing/curation uses CPU storage and batched optional
++model calls, not a fifth GPU.
++
++Initial adapter: `natural_language_event_history_v2_qwen3_8b_h20_seed17_20260918/checkpoint-31366`,
++weight SHA256 `a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b`.
++Base: `Qwen/Qwen3-8B@b968826d9c46dd6066d109eabc6255188de91218`.
++Preserve adapter rank16/alpha32 and q/k/v/o targets. NF4/double quantization,
++BF16 compute, non-reentrant gradient checkpointing, dynamic padding and length
++grouping. Microbatch1, accumulation16, four ranks gives effective batch64.
++One complete corrected-data epoch, LR5e-6, no max-step override. These are
++implementation choices, not measured optimal settings. Runtime must assert
++exactly four H20 devices; sequence capacity is32768, with no input cropping.
++Long-context GPU fit and throughput remain unverified until actual hardware.
++
++## Data and approval
++
++Reuse the immutable reviewed corrected source-arrow population `_20261023_06`:
++243753 TRAIN reactions/1908035 decisions;2751 VALID reactions/21355 decisions.
++Use the full reviewed TRAIN/VALID files, not the old409-decision monitoring view.
++The source reaction universe is257167/2890/28967 and retains explicit unresolved
++ledgers. This subset is not unqualified FlowER full(257171/2890/28971).
++No TEST training or implicit smoke/pilot. Hash source/history manifests,
++approval, actual TRAIN/VALID payloads and parent adapter before training.
++The 0.8B token cache and deployed preflight are not 8B authorization receipts;
++generate a fresh Qwen3 cache and require complete input/assistant-prefix parity.
++All caches/output/temp/test paths resolve under `/aaa/fionafyang/buddy1/`.
++
++## Protocol
++
++Qwen3 uses the completed-turn assistant prefix from its SFT template, avoiding
++the extra empty thinking prefix of ordinary generation. A dedicated encoder
++must prove token-prefix parity, supervise one entire tool call through EOS and
++exclude future tool responses. Support this explicitly in both streaming Arrow
++preparation and direct tokenization. HF and vLLM route samplers select the same
++protocol from config; missing selection preserves current Qwen3.5 behavior.
++Reject a Qwen3 configuration paired with a Qwen3.5 protocol. Keep the native
++unwarped behavior probabilities and record every actual proposal.
++
++## Memory contract
++
++Preserve the full current-route event archive; memory does not silently replace
++it with a summary. Exact failures are scoped by the execution/search context,
++including exact private state, local history/visited states, route ancestors,
++stock/executor versions and reaction occurrence. No old Axx names become current
++handles. CPU memory entries record evidence IDs, provenance, applicability,
++success/failure counts and an independently updated utility. Candidate retrieval
++requires scope/eligibility filtering before utility ranking and allows no-match.
++Only completed TRAIN evidence can update cross-task learning memory; runtime
++resource failures are not chemistry negatives. Unsupported inventory closure
++is not reference-supported correctness. Checkpoints serialize and validate the
++memory version and state. This first component supplies an API, not a claim
++that the chemical rollout controller already uses learned memory or backtracking.
++
++## Multistep/self-improvement integration
++
++External23730TRAIN/2986VALID references have no electron-action labels. Verified
++model-generated success and successful recovery continuations can become SFT
++rows; rejected outputs remain context with no positive CE target. Keep corrected
++single-reaction coverage, version the mixed-data manifest, and publish actual
++eligible counts before choosing replay weight. Search winners are offline SFT
++evidence; they do not become independent on-policy GRPO samples automatically.
++Subsequent policy and memory-conditioned SFT must share one rendered observation
++contract. The frozen R1/R2+SimpRetro targets are not self-improvement data.
++
++## Verification
++
++Unit regressions: real cached Qwen3 tokenizer train/inference parity; no future
++response leakage; explicit protocol mismatch; four-rank/hardware and source/parent
++tamper checks; complete full VALID view; memory applicability isolation, utility
++feedback, serialization, resource-failure exclusion and unknown fallback.
++Fresh host checks are software verification, not an 8B GPU training experiment.
++No formal training/rollout speed or chemistry gain is claimed from these tests.
+diff --git a/scripts/prepare_qwen3_8b_continuation.py b/scripts/prepare_qwen3_8b_continuation.py
+new file mode 100644
+index 0000000..01f576d
+--- /dev/null
++++ b/scripts/prepare_qwen3_8b_continuation.py
+@@ -0,0 +1,36 @@
++#!/usr/bin/env python3
++"""Prepare/verify the full corrected Qwen3 continuation, without submitting jobs."""
++import argparse
++import json
++from pathlib import Path
++import sys
++
++ROOT = Path(__file__).resolve().parents[1]
++sys.path[:0] = [str(ROOT/'src'),str(ROOT)]
++
++
++def main():
++    from mechet.qwen3_continuation import continuation_config, shared_path, verify_bindings
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--output-config', type=Path, required=True)
++    p.add_argument('--verify-inputs', action='store_true')
++    p.add_argument('--verify-cache', action='store_true')
++    args = p.parse_args()
++    cfg = continuation_config()
++    target = shared_path(args.output_config)
++    if target.exists() and json.loads(target.read_text()) != cfg:
++        raise ValueError('REFUSE_OVERWRITE_DIFFERENT_CONTINUATION_CONFIG')
++    target.parent.mkdir(parents=True,exist_ok=True)
++    target.write_text(json.dumps(cfg,indent=2)+'\n')
++    if args.verify_inputs or args.verify_cache:
++        cache = (json.loads((Path(cfg['pretokenized_cache_dir'])/'manifest.json').read_text())
++                 if args.verify_cache else None)
++        result = verify_bindings(cfg,cache)
++        print(json.dumps(dict(config=str(target),verified_inputs=len(result['files']),
++                              cache_verified=result['cache_verified'],gpu_training_verified=False)))
++    else:
++        print(json.dumps(dict(config=str(target),status='prepared_not_verified_or_submitted')))
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/scripts/prepare_qwen3_8b_corrected_cpu.sh b/scripts/prepare_qwen3_8b_corrected_cpu.sh
+new file mode 100644
+index 0000000..20e3543
+--- /dev/null
++++ b/scripts/prepare_qwen3_8b_corrected_cpu.sh
+@@ -0,0 +1,13 @@
++#!/usr/bin/env bash
++# Full-data CPU preparation; no CUDA model is loaded and no GPU job is submitted.
++set -Eeuo pipefail
++source /aaa/fionafyang/buddy1/whaleywang/MechET/configs/runtime/shared_host_storage.env
++runtime_repo=${MECHET_QWEN3_CODE_ROOT:?set the frozen source tree}
++training_config=${MECHET_QWEN3_CONFIG:?set the immutable JSON config path}
++export CUDA_VISIBLE_DEVICES=-1 PYTHONUNBUFFERED=1 TOKENIZERS_PARALLELISM=false
++export HF_HOME=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
++export HF_HUB_CACHE="$HF_HOME" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
++export PYTHONPATH="$runtime_repo/src:$runtime_repo${PYTHONPATH:+:$PYTHONPATH}"
++python "$runtime_repo/scripts/prepare_qwen3_8b_continuation.py" --output-config "$training_config" --verify-inputs
++python -m torch.distributed.run --standalone --nproc_per_node=4 "$runtime_repo/scripts/prepare_tool_sft_arrow.py" --config "$training_config"
++python "$runtime_repo/scripts/prepare_qwen3_8b_continuation.py" --output-config "$training_config" --verify-cache
+diff --git a/scripts/prepare_tool_sft_arrow.py b/scripts/prepare_tool_sft_arrow.py
+index 09d87f6..1c7309a 100644
+--- a/scripts/prepare_tool_sft_arrow.py
++++ b/scripts/prepare_tool_sft_arrow.py
+@@ -210,11 +210,15 @@ def tokenize_shard(
+                 require_tool_decision=require_tool_decision,
+                 allow_upstream_endpoint_fallback=allow_fallback,
+             )
+-            if encoding_protocol == "qwen35_tool_span_v1":
+-                from mechet.qwen35_protocol import encode_tool_decision
++            if encoding_protocol in ("qwen35_tool_span_v1", "qwen3_tool_span_v1"):
++                if encoding_protocol == "qwen3_tool_span_v1":
++                    from mechet.qwen3_protocol import encode_tool_decision
++                else:
++                    from mechet.qwen35_protocol import encode_tool_decision
+                 encoded, audit = encode_tool_decision(tokenizer, row, max_length=max_length)
+                 if audit["exceeds_max_length"]:
+-                    raise ValueError(f"QWEN35_STATE_TRUNCATION_FORBIDDEN:{row['id']}:{audit['raw_length']}")
++                    family = 'QWEN3' if encoding_protocol == 'qwen3_tool_span_v1' else 'QWEN35'
++                    raise ValueError(f"{family}_STATE_TRUNCATION_FORBIDDEN:{row['id']}:{audit['raw_length']}")
+                 windows = [encoded]
+             elif encoding_protocol == "legacy_chatml_v1":
+                 encoded, audit = encode_assistant_only_conversation(
+diff --git a/scripts/run_qwen3_8b_corrected_4h20.sh b/scripts/run_qwen3_8b_corrected_4h20.sh
+new file mode 100644
+index 0000000..8e5e576
+--- /dev/null
++++ b/scripts/run_qwen3_8b_corrected_4h20.sh
+@@ -0,0 +1,32 @@
++#!/usr/bin/env bash
++# Full corrected continuation only. Use a frozen copy of this source tree in a job.
++set -Eeuo pipefail
++shared_repo=/aaa/fionafyang/buddy1/whaleywang/MechET
++source "$shared_repo/configs/runtime/shared_host_storage.env"
++runtime_repo=${MECHET_QWEN3_CODE_ROOT:?set the frozen source tree for this job}
++training_config=${MECHET_QWEN3_CONFIG:?set the prepared immutable JSON config}
++export HF_HOME=/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache
++export HF_HUB_CACHE="$HF_HOME"
++export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 TOKENIZERS_PARALLELISM=false PYTHONUNBUFFERED=1
++export PYTHONPATH="$runtime_repo/src:$runtime_repo${PYTHONPATH:+:$PYTHONPATH}"
++export TORCH_NCCL_ASYNC_ERROR_HANDLING=1 PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
++export TORCHINDUCTOR_COMPILE_THREADS=1
++python - "$training_config" <<'PY'
++import json,os,sys,torch
++from mechet.qwen3_continuation import validate_config,shared_path
++cfg=json.load(open(sys.argv[1]))
++validate_config(cfg,world_size=4,gpu_names=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())])
++for key in ('TMPDIR','HF_HOME','HF_HUB_CACHE','TORCHINDUCTOR_CACHE_DIR','TRITON_CACHE_DIR'):
++    shared_path(os.environ[key])
++for key in ('MECHET_OUTPUT_DIR','MECHET_PRETOKENIZED_CACHE_DIR','MECHET_MAX_STEPS','MECHET_RESUME_FROM_CHECKPOINT'):
++    if os.environ.get(key): raise ValueError('UNDECLARED_TRAINING_OVERRIDE:'+key)
++print({'stage':'four-h20-hardware-and-storage-checked','gpu_names':[torch.cuda.get_device_name(i) for i in range(4)]},flush=True)
++PY
++# Require CPU preparation BEFORE GPU allocation. Unchanged files reuse the
++# hash-bound verification receipt; do not occupy four H20s tokenizing JSONL.
++python "$runtime_repo/scripts/prepare_qwen3_8b_continuation.py" --output-config "$training_config" --verify-cache
++resume_args=()
++if [[ -n "${MECHET_QWEN3_RESUME:-}" ]]; then
++  resume_args=(--resume-from-checkpoint "$MECHET_QWEN3_RESUME")
++fi
++python -m torch.distributed.run --standalone --nproc_per_node=4 "$runtime_repo/scripts/train_tool_sft.py" --config "$training_config" "${resume_args[@]}"
+diff --git a/scripts/train_tool_sft.py b/scripts/train_tool_sft.py
+index 469ca59..d29bb2b 100644
+--- a/scripts/train_tool_sft.py
++++ b/scripts/train_tool_sft.py
+@@ -349,6 +349,9 @@ def tokenize_rows(
+         if encoding_protocol == "qwen35_tool_span_v1":
+             from mechet.qwen35_protocol import encode_tool_decision
+             encoder = encode_tool_decision
++        elif encoding_protocol == "qwen3_tool_span_v1":
++            from mechet.qwen3_protocol import encode_tool_decision
++            encoder = encode_tool_decision
+         elif encoding_protocol != "legacy_chatml_v1":
+             raise ValueError(f"unknown encoding_protocol: {encoding_protocol}")
+         encoded, audit = encoder(
+@@ -604,6 +607,20 @@ def main() -> int:
+     env_max_steps = int(os.environ.get("MECHET_MAX_STEPS", "0") or 0)
+     max_steps = int(args.max_steps or env_max_steps or configured_max_steps)
+     pr96 = dict(cfg.get("pr96") or {})
++    if cfg.get('qwen3_continuation'):
++        from mechet.qwen3_continuation import validate_config, verify_bindings
++        # Bind overrides as well as YAML: a CLI limit/step override is not a full run.
++        checked = dict(cfg, training=dict(training, max_steps=max_steps),
++                       limit_examples=args.limit or cfg.get('limit_examples', 0))
++        validate_config(checked)
++        if resume_checkpoint is not None:
++            from mechet.qwen3_continuation import verify_resume
++            verify_resume(checked, resume_checkpoint)
++        if not args.dry_run:
++            import torch
++            validate_config(checked, world_size=int(os.environ.get('WORLD_SIZE', '1')),
++                            gpu_names=[torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())])
++            verify_bindings(checked, cache_manifest)
+     if pr96:
+         from mechet.pr96_trainer import validate_pr96_config
+         validate_pr96_config({**cfg, "training": training}, max_steps=max_steps)
+@@ -989,13 +1006,16 @@ def main() -> int:
+                                                    "training_identity": training_identity({**cfg, "training": training}),
+                                                    "train_file_sha256": report["train_file_sha256"]},
+                                           resume_checkpoint=resume_checkpoint))
++    if cfg.get('qwen3_continuation'):
++        from mechet.qwen3_continuation import checkpoint_callback
++        trainer.add_callback(checkpoint_callback(cfg))
+     trainer.train(
+         resume_from_checkpoint=(
+             str(resume_checkpoint) if resume_checkpoint is not None else None
+         )
+     )
+     trainer.save_model()
+-    if pr96:
++    if pr96 or cfg.get('qwen3_continuation'):
+         if torch.distributed.is_available() and torch.distributed.is_initialized():
+             torch.distributed.barrier()
+         if not trainer.is_world_process_zero():
+@@ -1034,11 +1054,19 @@ def main() -> int:
+             "supervised_tokens_consumed_rank0": trainer.supervised_tokens_consumed,
+             "examples_consumed_rank0": trainer.examples_consumed,
+         }
+-    (output / "data_contract.json").write_text(
+-        json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
+-    )
+-    adapter_hash = (file_sha256(output / "adapter_model.safetensors")
+-                    if pr96 else selected_directory_sha256(output))
++    if cfg.get('qwen3_continuation'):
++        from mechet.route_training_contract import atomic_json
++        atomic_json(output/'data_contract.json',report)
++    else:
++        (output / "data_contract.json").write_text(
++            json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8"
++        )
++    if cfg.get('qwen3_continuation'):
++        from mechet.qwen3_continuation import adapter_identity
++        adapter_hash = adapter_identity(output)
++    else:
++        adapter_hash = (file_sha256(output / "adapter_model.safetensors")
++                        if pr96 else selected_directory_sha256(output))
+     adapter_manifest = {
+         "artifact_type": "trainable_peft_adapter",
+         "adapter_path": str(output),
+@@ -1056,13 +1084,19 @@ def main() -> int:
+         "seed": seed,
+         "data_seed": data_seed,
+     }
+-    if pr96:
++    if pr96 or cfg.get('qwen3_continuation'):
+         adapter_manifest["adapter_hash_kind"] = "adapter_model_safetensors_sha256"
++    if cfg.get('qwen3_continuation'):
++        adapter_manifest['qwen3_continuation'] = cfg['qwen3_continuation']
++    if pr96:
+         adapter_manifest["pr96"] = report["pr96"]
+-    (output / "adapter_manifest.json").write_text(
+-        json.dumps(adapter_manifest, indent=2, ensure_ascii=False),
+-        encoding="utf-8",
+-    )
++    if cfg.get('qwen3_continuation'):
++        atomic_json(output/'adapter_manifest.json',adapter_manifest)
++    else:
++        (output / "adapter_manifest.json").write_text(
++            json.dumps(adapter_manifest, indent=2, ensure_ascii=False),
++            encoding="utf-8",
++        )
+     return 0
+ 
+ 
+diff --git a/src/mechet/qwen3_continuation.py b/src/mechet/qwen3_continuation.py
+new file mode 100644
+index 0000000..f0988ca
+--- /dev/null
++++ b/src/mechet/qwen3_continuation.py
+@@ -0,0 +1,257 @@
++"""Separate, hash-bound Qwen3-8B condition; never weakens PR96 model guards."""
++from concurrent.futures import ThreadPoolExecutor
++from copy import deepcopy
++import hashlib
++import json
++import re
++from pathlib import Path
++
++from .qwen3_protocol import OFFICIAL_MODEL, OFFICIAL_REVISION, PROTOCOL
++
++ROOT = Path('/aaa/fionafyang/buddy1/whaleywang/MechET')
++SHARED = Path('/aaa/fionafyang/buddy1')
++PARENT = ROOT/'outputs/agent/natural_language_event_history_v2_qwen3_8b_h20_seed17_20260918/checkpoint-31366'
++HISTORY = ROOT/'data/pr96_flower_mainonly_history_v2_20261023_06'
++PARENT_SHA = 'a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b'
++PARENT_CONFIG_SHA = 'cc017209968da49db43f898227f5f9e9502bd8107cf90e4c1e257fae999003ff'
++TRAIN_SHA = '0ace674b6ebf6b4ba0a3542de8572c973e0d6a644a6923f651ffab74b2ab4748'
++VALID_SHA = '0abb938fe0f0205a648ad7ff979fbe9ce217d1947f75ddac9997bb05e535b520'
++
++
++def continuation_config():
++    output = ROOT/'outputs/agent/qwen3_8b_corrected_continue_4h20_20261113_01'
++    return dict(condition_name='qwen3_8b_corrected_history_continue_4h20_v1',
++        model_name_or_path=OFFICIAL_MODEL, initial_adapter_path=str(PARENT),
++        train_file=str(ROOT/'outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/views/history/train.jsonl'),
++        validation_file=str(HISTORY/'valid.jsonl'), output_dir=str(output),
++        pretokenized_cache_dir=str(output/'tokens'), pretokenization_world_size=4,
++        limit_examples=0,
++        qwen3_continuation=dict(world_size=4, max_gpus=4, parent_weight_sha256=PARENT_SHA,
++            reference_approval=str(ROOT/'data/pr96_flower_reference_approval_20261023_06/reference_approval.json'),
++            reference_approval_sha256='eb92320d9711e85bfcd8281cce8bc90cde496b4b47688405372809280d618ada',
++            reference_manifest=str(ROOT/'data/pr96_flower_mainonly_source_arrows_v2_20261023_06/manifest.json'),
++            reference_manifest_sha256='2a203ee08df9a6099f66d554797a72b93750b88cdfe760669431f2b665ff083c',
++            history_manifest=str(HISTORY/'manifest.json'),
++            history_manifest_sha256='edd299a832e7f15c53d134b74015097865737837d587c723db4527d2b9290f06',
++            train_sha256=TRAIN_SHA, validation_sha256=VALID_SHA,
++            policy_protocol=PROTOCOL, policy_model_family='qwen3',
++            stage='corrected_single_reaction_continuation',
++            memory_replay_status='separate_future_condition_not_silently_mixed'),
++        contract=dict(require_trace_owned=False, require_tool_decision=True,
++            expected_train_rows=1908035, expected_validation_rows=21355,
++            expected_upstream_endpoint_fallback_rows=0,
++            environment_revision='natural_language_electron_event_history_v2',
++            executor_revision='pr95_main_product_only_actual_executor',
++            stable_id_manifest=str(HISTORY/'manifest.json')),
++        lora=dict(r=16, alpha=32, dropout=.05, target_modules=['q_proj','k_proj','v_proj','o_proj']),
++        training=dict(model_revision=OFFICIAL_REVISION, trust_remote_code=False,
++            num_train_epochs=1., max_steps=-1, max_length=32768, window_context_tokens=0,
++            encoding_protocol=PROTOCOL, per_device_train_batch_size=1,
++            gradient_accumulation_steps=16, per_device_eval_batch_size=1,
++            learning_rate=5e-6, bf16=True, fp16=False, qlora=True, tf32=True,
++            attention_implementation='sdpa', require_flash_sdp=True,
++            gradient_checkpointing=True, assistant_only_loss=True, packing=False,
++            group_by_length=True, validation_limit=0, eval_strategy='epoch',
++            eval_accumulation_steps=1, dataloader_num_workers=4, logging_steps=10,
++            save_steps=500, save_total_limit=3, seed=17, data_seed=17,
++            use_liger_kernel=True, liger_kernel_config=dict(rope=True,rms_norm=True,
++                swiglu=True,cross_entropy=False,fused_linear_cross_entropy=True),
++            report_to=[]))
++
++
++def shared_path(value):
++    path = Path(value).resolve()
++    if not path.is_relative_to(SHARED):
++        raise ValueError('QWEN3_SHARED_STORAGE_REQUIRED:'+str(path))
++    return path
++
++
++def validate_config(cfg, *, world_size=None, gpu_names=None):
++    expected = continuation_config()
++    for key in ('model_name_or_path', 'initial_adapter_path', 'train_file', 'validation_file',
++                'limit_examples', 'qwen3_continuation', 'contract', 'lora', 'pretokenization_world_size'):
++        if cfg.get(key) != expected[key]:
++            raise ValueError('QWEN3_CONTINUATION_CONDITION_CHANGED:'+key)
++    t = cfg['training']
++    for key, value in expected['training'].items():
++        if t.get(key) != value:
++            raise ValueError('QWEN3_CONTINUATION_TRAINING_CHANGED:'+key)
++    for key in ('output_dir', 'pretokenized_cache_dir', 'train_file', 'validation_file', 'initial_adapter_path'):
++        shared_path(cfg[key])
++    if world_size is not None and (world_size != 4 or gpu_names is None or len(gpu_names) != 4
++            or not all(re.search(r'\bH20\b', n, re.I) for n in gpu_names)):
++        raise ValueError('QWEN3_EXACTLY_FOUR_H20_REQUIRED')
++
++
++def _sha(path):
++    h = hashlib.sha256()
++    with Path(path).open('rb') as f:
++        for chunk in iter(lambda: f.read(8*1024*1024), b''):
++            h.update(chunk)
++    return h.hexdigest()
++
++
++def verify_files(bindings):
++    def verify(item):
++        path, expected = item
++        p = shared_path(path)
++        before = p.stat()
++        digest = _sha(p)
++        after = p.stat()
++        if digest != expected or (before.st_mtime_ns, before.st_size) != (after.st_mtime_ns, after.st_size):
++            raise ValueError('QWEN3_FILE_BINDING_MISMATCH:'+str(p))
++        return str(p), dict(sha256=digest, bytes=after.st_size,
++                           mtime_ns=after.st_mtime_ns, ctime_ns=after.st_ctime_ns)
++    with ThreadPoolExecutor(max_workers=min(8, max(1, len(bindings)))) as pool:
++        return dict(pool.map(verify, bindings.items()))
++
++
++def validate_cache(cfg, cache):
++    if (not isinstance(cache, dict) or cache.get('model_name_or_path') != OFFICIAL_MODEL
++            or cache.get('model_revision') != OFFICIAL_REVISION
++            or cache.get('encoding_protocol') != PROTOCOL or cache.get('world_size') != 4
++            or cache.get('max_length') != cfg['training']['max_length']):
++        raise ValueError('QWEN3_CACHE_MODEL_PROTOCOL_MISMATCH')
++    for split, digest, count in [('train', TRAIN_SHA, 1908035), ('validation', VALID_SHA, 21355)]:
++        item = cache['splits'][split]
++        shards = [Path(p).name for p in item.get('arrow_files', [])]
++        expected_shards = [f'{split}.rank{i:02d}.arrow' for i in range(4)]
++        if (cache['sources'][split]['sha256'] != digest or item['n_rows'] != count
++                or sorted(shards) != expected_shards or item.get('n_training_windows') != count
++                or item.get('n_windowed_source_rows', 0) or item.get('truncation_count') != 0
++                or item.get('min_supervised_tokens', 0) < 1
++                or item.get('assistant_mask_methods') != ['qwen3_owned_tool_span_v1']):
++            raise ValueError('QWEN3_CACHE_SOURCE_OR_MASK_MISMATCH:'+split)
++
++
++def verify_arrow_counts(cfg, cache):
++    import pyarrow as pa
++    for split, item in cache['splits'].items():
++        observed = 0
++        for path in item['arrow_files']:
++            p = shared_path(Path(cfg['pretokenized_cache_dir'])/Path(path).name)
++            with pa.memory_map(str(p), 'r') as source:
++                observed += sum(batch.num_rows for batch in pa.ipc.open_stream(source))
++        if observed != item['n_rows']:
++            raise ValueError('QWEN3_CACHE_ACTUAL_ROW_COUNT:'+split)
++
++
++def adapter_identity(output):
++    return _sha(shared_path(output)/'adapter_model.safetensors')
++
++
++def verify_bindings(cfg, cache=None):
++    """Hash actual inputs once under a shared lock, reuse only stat-identical files.
++
++    All four ranks share the receipt. This avoids four parallel full Ceph scans;
++    any input/config/cache metadata change invalidates the receipt and is rehashed.
++    """
++    import fcntl
++    validate_config(cfg)
++    b = cfg['qwen3_continuation']
++    bindings = {cfg['train_file']: TRAIN_SHA, cfg['validation_file']: VALID_SHA,
++                str(PARENT/'adapter_model.safetensors'): PARENT_SHA,
++                str(PARENT/'adapter_config.json'): PARENT_CONFIG_SHA}
++    for name in ('reference_approval', 'reference_manifest', 'history_manifest'):
++        bindings[b[name]] = b[name+'_sha256']
++    if cache is not None:
++        validate_cache(cfg, cache)
++        for item in cache['splits'].values():
++            for file in item['arrow_files']:
++                p = Path(cfg['pretokenized_cache_dir'])/Path(file).name
++                bindings[str(p)] = item['arrow_sha256'][p.name]
++    key = hashlib.sha256(json.dumps(dict(bindings=bindings, cache=cache),sort_keys=True).encode()).hexdigest()
++    directory = shared_path(cfg['output_dir'])/'runtime'
++    directory.mkdir(parents=True, exist_ok=True)
++    receipt = directory/('input-verification-'+key+'.json')
++    with (directory/'input-verification.lock').open('a+') as lock:
++        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
++        if receipt.exists():
++            value = json.loads(receipt.read_text())
++            if value.get('key') == key and set(value.get('files',{})) == set(bindings):
++                unchanged = True
++                for path, record in value['files'].items():
++                    st = Path(path).stat()
++                    unchanged &= ((st.st_size,st.st_mtime_ns,st.st_ctime_ns) ==
++                                  (record['bytes'],record['mtime_ns'],record['ctime_ns']))
++                if unchanged:
++                    return value
++        files = verify_files(bindings)
++        if cache is not None:
++            verify_arrow_counts(cfg, cache)
++        approval = json.loads(Path(b['reference_approval']).read_text())
++        if (approval.get('reference_training_authorized') is not True
++                or approval['reference_manifest_sha256'] != b['reference_manifest_sha256']
++                or approval['history_manifest_sha256'] != b['history_manifest_sha256']):
++            raise ValueError('QWEN3_CORRECTED_REFERENCE_APPROVAL')
++        parent_cfg = json.loads((PARENT/'adapter_config.json').read_text())
++        if parent_cfg.get('base_model_name_or_path') != OFFICIAL_MODEL or parent_cfg.get('r') != 16:
++            raise ValueError('QWEN3_PARENT_ADAPTER_CONFIG')
++        value = dict(key=key, files=files, cache_verified=cache is not None,
++                     condition=cfg['condition_name'], gpu_training_verified=False)
++        temporary = receipt.with_suffix('.partial')
++        with temporary.open('w') as f:
++            json.dump(value,f,sort_keys=True); f.flush()
++            import os
++            os.fsync(f.fileno())
++        temporary.replace(receipt)
++        return value
++
++
++def _checkpoint_identity(cfg):
++    validate_config(cfg)
++    return hashlib.sha256(json.dumps(cfg,sort_keys=True).encode()).hexdigest()
++
++
++def save_checkpoint_binding(cfg, checkpoint):
++    p = shared_path(checkpoint)
++    names = ['adapter_model.safetensors','adapter_config.json','optimizer.pt',
++             'scheduler.pt','trainer_state.json', *['rng_state_'+str(i)+'.pth' for i in range(4)]]
++    files = {name:_sha(p/name) for name in names}
++    state = json.loads((p/'trainer_state.json').read_text())
++    value = dict(schema='qwen3_corrected_continuation_checkpoint_v1',
++                 identity=_checkpoint_identity(cfg), step=state['global_step'], files=files)
++    target = p/'qwen3_continuation_manifest.json'
++    temporary = target.with_suffix('.partial')
++    with temporary.open('w') as f:
++        import os
++        json.dump(value,f,sort_keys=True); f.flush(); os.fsync(f.fileno())
++    temporary.replace(target)
++    return value
++
++
++def verify_resume(cfg, checkpoint):
++    p = shared_path(checkpoint)
++    value = json.loads((p/'qwen3_continuation_manifest.json').read_text())
++    required = {'adapter_model.safetensors','adapter_config.json','optimizer.pt',
++                'scheduler.pt','trainer_state.json', *{'rng_state_'+str(i)+'.pth' for i in range(4)}}
++    if (value.get('schema') != 'qwen3_corrected_continuation_checkpoint_v1'
++            or value.get('identity') != _checkpoint_identity(cfg)
++            or set(value.get('files',{})) != required):
++        raise ValueError('QWEN3_CHECKPOINT_LINEAGE_MISMATCH')
++    verify_files({str(p/name):digest for name,digest in value['files'].items()})
++    if json.loads((p/'trainer_state.json').read_text())['global_step'] != value['step']:
++        raise ValueError('QWEN3_CHECKPOINT_POSITION_MISMATCH')
++    return value
++
++
++def checkpoint_callback(cfg):
++    from transformers import TrainerCallback
++    class BindingCallback(TrainerCallback):
++        def on_save(self, args, state, control, **kwargs):
++            import torch.distributed as dist
++            distributed = dist.is_available() and dist.is_initialized()
++            if distributed:
++                dist.barrier()  # Every rank's RNG file must be durable first.
++            error = [None]
++            if state.is_world_process_zero:
++                try:
++                    save_checkpoint_binding(cfg,Path(args.output_dir)/f'checkpoint-{state.global_step}')
++                except Exception as exc:
++                    error[0] = repr(exc)
++            if distributed:
++                dist.broadcast_object_list(error,src=0)
++            if error[0]:
++                raise ValueError('QWEN3_CHECKPOINT_BINDING_FAILED:'+error[0])
++            return control
++    return BindingCallback()
+diff --git a/src/mechet/qwen3_protocol.py b/src/mechet/qwen3_protocol.py
+new file mode 100644
+index 0000000..993a0ab
+--- /dev/null
++++ b/src/mechet/qwen3_protocol.py
+@@ -0,0 +1,51 @@
++"""Qwen3 SFT-owned tool prefix, shared by continuation and inference."""
++from .assistant_masking import render_chat, render_qwen_sft_tool_prefix, tokenize_text
++
++OFFICIAL_MODEL = 'Qwen/Qwen3-8B'
++OFFICIAL_REVISION = 'b968826d9c46dd6066d109eabc6255188de91218'
++PROTOCOL = 'qwen3_tool_span_v1'
++
++
++def tool_prefix(tokenizer, messages, tools):
++    if not tools or not messages or messages[-1].get('role') != 'user':
++        raise ValueError('QWEN3_EXPECTS_CURRENT_USER_STATE_AND_TOOLS')
++    return render_qwen_sft_tool_prefix(tokenizer, list(messages), tools=list(tools))
++
++
++def encode_tool_decision(tokenizer, row, *, max_length):
++    messages = list(row['messages'])
++    indices = [i for i, m in enumerate(messages) if m.get('role') == 'assistant']
++    if len(indices) != 1:
++        raise ValueError('EXPECTED_ONE_ASSISTANT_TOOL_DECISION')
++    index = indices[0]
++    assistant = messages[index]
++    if assistant.get('content') or len(assistant.get('tool_calls', [])) != 1:
++        raise ValueError('EXPECTED_ONE_EMPTY_CONTENT_TOOL_CALL')
++    prefix = tool_prefix(tokenizer, messages[:index], row['tools'])
++    # Qwen3 inserts an empty <think> block when assistant is the FINAL turn,
++    # but the old tool SFT serialized a paired assistant/tool exchange. Retain
++    # that structural boundary with an EMPTY result, never the future answer.
++    call = assistant['tool_calls'][0].get('function', assistant['tool_calls'][0])
++    paired = messages[:index+1] + [dict(role='tool', name=call['name'], content='')]
++    full = render_chat(tokenizer, paired, tools=row['tools'])
++    if not full.startswith(prefix) or not full[len(prefix):].startswith('<tool_call>'):
++        raise ValueError('QWEN3_TEMPLATE_PREFIX_PARITY_FAILED')
++    ids, prompt_ids = tokenize_text(tokenizer, full), tokenize_text(tokenizer, prefix)
++    if ids[:len(prompt_ids)] != prompt_ids:
++        raise ValueError('QWEN3_TOKEN_PREFIX_PARITY_FAILED')
++    eos = tokenize_text(tokenizer, '<|im_end|>')
++    if len(eos) != 1:
++        raise ValueError('QWEN3_EOS_NOT_SINGLE_TOKEN')
++    start = len(prompt_ids)
++    try:
++        end = ids.index(eos[0], start)+1
++    except ValueError as exc:
++        raise ValueError('QWEN3_TOOL_EOS_MISSING') from exc
++    # Do not include future tool results or truncate the executor-owned state.
++    ids = ids[:end]
++    labels = [-100]*start + ids[start:end]
++    return dict(input_ids=ids, attention_mask=[1]*len(ids), labels=labels), dict(
++        raw_length=len(ids), exceeds_max_length=len(ids)>max_length,
++        assistant_turns=1, assistant_spans=[[start, end]], supervised_tokens=end-start,
++        mask_method='qwen3_owned_tool_span_v1', prefix_token_parity=True,
++        future_tool_response_tokens=0)
+diff --git a/src/mechet/route_experience_memory.py b/src/mechet/route_experience_memory.py
+new file mode 100644
+index 0000000..77a556c
+--- /dev/null
++++ b/src/mechet/route_experience_memory.py
+@@ -0,0 +1,145 @@
++"""CPU memory over complete execution scopes and hash-bound verifier receipts.
++
++Receipts must be produced by the independent offline verifier. This API checks
++provenance and eligibility; it does not independently prove chemical feasibility.
++It never replaces the full route event archive or executes recalled atom handles.
++"""
++from copy import deepcopy
++import hashlib
++import json
++from pathlib import Path
++
++SHARED = Path('/aaa/fionafyang/buddy1')
++_SCOPE_FIELDS = {'state','target','route_root','next_map','imported','visited',
++    'accepted_action_types','ancestors','stock_version','executor_version','occurrence',
++    'event_history_sha256'}
++
++
++def scope_key(scope):
++    if not isinstance(scope, dict) or not _SCOPE_FIELDS.issubset(scope):
++        raise ValueError('MEMORY_COMPLETE_EXECUTION_SCOPE_REQUIRED')
++    for key in ('state','target','route_root','stock_version','executor_version','occurrence',
++                'event_history_sha256'):
++        if not isinstance(scope[key], str) or not scope[key]:
++            raise ValueError('MEMORY_SCOPE_FIELD:'+key)
++    for key in ('visited','ancestors','accepted_action_types'):
++        if not isinstance(scope[key], list) or any(not isinstance(v,str) for v in scope[key]):
++            raise ValueError('MEMORY_SCOPE_FIELD:'+key)
++    if (type(scope['next_map']) is not int or scope['next_map']<1
++            or not isinstance(scope['imported'],dict)):
++        raise ValueError('MEMORY_SCOPE_ATOM_AND_IMPORT_STATE')
++    return hashlib.sha256(json.dumps(scope,sort_keys=True,separators=(',',':'),
++                                     allow_nan=False).encode()).hexdigest()
++
++
++def _training(split):
++    if split != 'training':
++        raise ValueError('MEMORY_LEARNING_REQUIRES_TRAIN')
++
++
++def _evidence(pointer):
++    if (not isinstance(pointer,dict) or set(pointer)!={'path','sha256'}
++            or not isinstance(pointer['sha256'],str) or len(pointer['sha256'])!=64):
++        raise ValueError('MEMORY_HASH_BOUND_EVIDENCE_REQUIRED')
++    path=Path(pointer['path']).resolve()
++    if not path.is_relative_to(SHARED):
++        raise ValueError('MEMORY_SHARED_EVIDENCE_REQUIRED')
++    raw=path.read_bytes()
++    if hashlib.sha256(raw).hexdigest()!=pointer['sha256']:
++        raise ValueError('MEMORY_EVIDENCE_HASH_MISMATCH')
++    data=json.loads(raw)
++    _training(data.get('split'))
++    if (data.get('episode_complete') is not True or data.get('resource_censored') is not False
++            or type(data.get('success')) is not bool
++            or not isinstance(data.get('receipt_id'),str) or not data['receipt_id']
++            or (data.get('signal'),data.get('verification')) not in {
++                ('executor_recovery','executor_replayed'),
++                ('reference_route','reference_and_stock_verified')}):
++        raise ValueError('MEMORY_INELIGIBLE_VERIFIER_EVIDENCE')
++    return data
++
++
++def _bound_evidence(pointer, uid, key, content):
++    proof=_evidence(pointer)
++    digest=hashlib.sha256(json.dumps(content,sort_keys=True,separators=(',',':'),
++                                    allow_nan=False).encode()).hexdigest()
++    if (proof.get('memory_id')!=uid or proof.get('scope_key')!=key
++            or proof.get('content_sha256')!=digest):
++        raise ValueError('MEMORY_EVIDENCE_BINDING_MISMATCH')
++    return proof
++
++
++class ExperienceMemory:
++    def __init__(self, snapshot=None):
++        self.entries={}
++        if snapshot is not None:
++            if snapshot.get('schema')!='route_experience_memory_v2':
++                raise ValueError('MEMORY_SCHEMA_MISMATCH')
++            for entry in snapshot['entries']:
++                item=deepcopy(entry)
++                if item['scope_key']!=scope_key(item['scope']) or item['id'] in self.entries:
++                    raise ValueError('MEMORY_SNAPSHOT_SCOPE_OR_ID')
++                if not item['evidence']:
++                    raise ValueError('MEMORY_EVIDENCE_REQUIRED')
++                for pointer in item['evidence']:
++                    if _bound_evidence(pointer,item['id'],item['scope_key'],item['content'])['signal']!=item['signal']:
++                        raise ValueError('MEMORY_EVIDENCE_SIGNAL')
++                for uid,record in item['feedback'].items():
++                    proof=_bound_evidence(record['evidence'],item['id'],item['scope_key'],item['content'])
++                    if (proof['receipt_id']!=uid or proof['success']!=record['success']
++                            or proof['signal']!=item['signal']):
++                        raise ValueError('MEMORY_SNAPSHOT_FEEDBACK')
++                successes=sum(v['success'] for v in item['feedback'].values())
++                failures=len(item['feedback'])-successes
++                utility=successes/len(item['feedback']) if item['feedback'] else .5
++                if (item['successes'],item['failures'],item['utility'])!=(successes,failures,utility):
++                    raise ValueError('MEMORY_SNAPSHOT_COUNTS')
++                self.entries[item['id']]=item
++
++    def add(self, uid, scope, content, *, evidence=None, split='training', evidence_ids=None):
++        _training(split)
++        key=scope_key(scope)
++        if not isinstance(evidence,list) or not evidence:
++            raise ValueError('MEMORY_HASH_BOUND_EVIDENCE_REQUIRED')
++        proofs=[_bound_evidence(p,uid,key,content) for p in evidence]
++        if len({p['signal'] for p in proofs})!=1:
++            raise ValueError('MEMORY_EVIDENCE_SIGNAL')
++        if not isinstance(uid,str) or not uid or uid in self.entries:
++            raise ValueError('MEMORY_DUPLICATE_OR_INVALID_ID')
++        content=json.loads(json.dumps(content,allow_nan=False))
++        self.entries[uid]=dict(id=uid,scope=deepcopy(scope),scope_key=key,content=content,
++            evidence=deepcopy(evidence),signal=proofs[0]['signal'],
++            feedback={},successes=0,failures=0,utility=.5)
++
++    def feedback(self, uid, *, success, evidence=None, split='training',
++                 resource_censored=False, evidence_id=None):
++        _training(split)
++        if type(success) is not bool or type(resource_censored) is not bool:
++            raise ValueError('MEMORY_FEEDBACK_BOOL_REQUIRED')
++        if resource_censored:
++            return False
++        item=self.entries[uid]
++        proof=_bound_evidence(evidence,uid,item['scope_key'],item['content'])
++        if proof['success']!=success or proof['signal']!=item['signal']:
++            raise ValueError('MEMORY_CONFLICTING_FEEDBACK_EVIDENCE')
++        rid=proof['receipt_id']
++        record=dict(success=success,evidence=deepcopy(evidence))
++        if rid in item['feedback']:
++            if item['feedback'][rid]!=record:
++                raise ValueError('MEMORY_CONFLICTING_FEEDBACK_RECEIPT')
++            return False
++        item['feedback'][rid]=record
++        item['successes']+=int(success);item['failures']+=int(not success)
++        item['utility']=item['successes']/len(item['feedback'])
++        return True
++
++    def retrieve(self, scope, *, limit=5):
++        if type(limit) is not int or limit<1:
++            raise ValueError('MEMORY_POSITIVE_LIMIT_REQUIRED')
++        key=scope_key(scope)
++        items=[v for v in self.entries.values() if v['scope_key']==key]
++        return deepcopy(sorted(items,key=lambda v:(-v['utility'],v['id']))[:limit])
++
++    def snapshot(self):
++        return dict(schema='route_experience_memory_v2',
++                    entries=deepcopy([self.entries[k] for k in sorted(self.entries)]))
+diff --git a/src/mechet/route_policy_protocol.py b/src/mechet/route_policy_protocol.py
+new file mode 100644
+index 0000000..858befd
+--- /dev/null
++++ b/src/mechet/route_policy_protocol.py
+@@ -0,0 +1,17 @@
++"""Explicit model-family dispatch; legacy Qwen3.5 callers keep their prefix."""
++
++
++def route_tool_prefix(tokenizer, messages, tools, cfg):
++    protocol = cfg.get('policy_protocol', 'qwen35_tool_span_v1')
++    family = cfg.get('policy_model_family')
++    if protocol == 'qwen3_tool_span_v1':
++        if family != 'qwen3':
++            raise ValueError('MODEL_PROTOCOL_FAMILY_MISMATCH')
++        from .qwen3_protocol import tool_prefix
++    elif protocol == 'qwen35_tool_span_v1':
++        if family not in (None, 'qwen3_5_text'):
++            raise ValueError('MODEL_PROTOCOL_FAMILY_MISMATCH')
++        from .qwen35_protocol import tool_prefix
++    else:
++        raise ValueError('UNKNOWN_POLICY_PROTOCOL:'+str(protocol))
++    return tool_prefix(tokenizer, messages, tools)
+diff --git a/src/mechet/route_policy_sampling.py b/src/mechet/route_policy_sampling.py
+index 6911eb7..ec2a734 100644
+--- a/src/mechet/route_policy_sampling.py
++++ b/src/mechet/route_policy_sampling.py
+@@ -198,7 +198,7 @@ class NativeRouteSampler:
+     def generate(self,requests):
+         import torch
+         from transformers import GenerationConfig,LogitsProcessorList
+-        from .qwen35_protocol import tool_prefix
++        from .route_policy_protocol import route_tool_prefix
+         from .route_action_feedback import tools_for_request
+         results=[None]*len(requests)
+         if not requests:
+@@ -209,7 +209,7 @@ class NativeRouteSampler:
+         # Measure unpadded histories FIRST: an overlong request must not censor
+         # its shorter batch neighbors or reduce their available output room.
+         with phase(self.cfg,'sampling.render',batch_size=len(requests)):
+-            all_prompts=[tool_prefix(self.tokenizer,r.messages,tools_for_request(r)) for r in requests]
++            all_prompts=[route_tool_prefix(self.tokenizer,r.messages,tools_for_request(r),self.cfg) for r in requests]
+         with phase(self.cfg,'sampling.encode',batch_size=len(requests)):
+             all_ids=self.tokenizer(all_prompts,padding=False,add_special_tokens=False)['input_ids']
+         with phase(self.cfg,'sampling.batch_plan',batch_size=len(requests)):
+diff --git a/src/mechet/route_vllm_backend.py b/src/mechet/route_vllm_backend.py
+index 211ced9..05ecc76 100644
+--- a/src/mechet/route_vllm_backend.py
++++ b/src/mechet/route_vllm_backend.py
+@@ -190,9 +190,9 @@ class VllmRouteSampler:
+     def submit(self,request):return self.pool.submit(self._generate_one,request)
+ 
+     def _generate_one(self,request):
+-        from .qwen35_protocol import tool_prefix
++        from .route_policy_protocol import route_tool_prefix
+         from .route_action_feedback import tools_for_request
+-        prompt=tool_prefix(self.tokenizer,request.messages,tools_for_request(request))
++        prompt=route_tool_prefix(self.tokenizer,request.messages,tools_for_request(request),self.cfg)
+         ids=self.tokenizer(prompt,add_special_tokens=False)['input_ids']
+         try:wire=build_request(request,ids,dict(self.cfg,eos_token_id=self.tokenizer.eos_token_id))
+         except ValueError as exc:
+diff --git a/tests/test_qwen3_continuation.py b/tests/test_qwen3_continuation.py
+new file mode 100644
+index 0000000..091da08
+--- /dev/null
++++ b/tests/test_qwen3_continuation.py
+@@ -0,0 +1,133 @@
++from copy import deepcopy
++import hashlib
++
++import pytest
++
++
++def config():
++    from mechet.qwen3_continuation import continuation_config
++    return continuation_config()
++
++
++def test_four_h20_preserves_global_batch_and_rejects_extra_gpus():
++    from mechet.qwen3_continuation import validate_config
++    cfg = config()
++    validate_config(cfg, world_size=4, gpu_names=['NVIDIA H20']*4)
++    assert 4*cfg['training']['per_device_train_batch_size']*cfg['training']['gradient_accumulation_steps'] == 64
++    for world, names in [(8, ['NVIDIA H20']*8), (4, ['NVIDIA A100']*4), (2, ['NVIDIA H20']*4),
++                         (4, ['NVIDIA H200']*4)]:
++        with pytest.raises(ValueError, match='FOUR_H20'):
++            validate_config(cfg, world_size=world, gpu_names=names)
++
++
++@pytest.mark.parametrize('field,value', [('model_name_or_path', 'Qwen/Qwen3.5-0.8B'),
++    ('initial_adapter_path', '/tmp/other-adapter'), ('limit_examples', 16)])
++def test_wrong_parent_model_or_subset_cannot_be_used(field, value):
++    from mechet.qwen3_continuation import validate_config
++    cfg = config(); cfg[field] = value
++    with pytest.raises(ValueError):
++        validate_config(cfg)
++
++
++@pytest.mark.parametrize('field,value', [('max_steps', 10), ('validation_limit', 64),
++    ('encoding_protocol', 'qwen35_tool_span_v1'), ('qlora', False)])
++def test_new_training_condition_cannot_silently_change_protocol_or_denominator(field, value):
++    from mechet.qwen3_continuation import validate_config
++    cfg = config(); cfg['training'][field] = value
++    with pytest.raises(ValueError):
++        validate_config(cfg)
++
++
++def test_full_valid_and_ceph_paths_are_selected():
++    from mechet.qwen3_continuation import validate_config
++    cfg = config(); validate_config(cfg)
++    assert cfg['contract']['expected_validation_rows'] == 21355
++    assert '/data/pr96_flower_mainonly_history_v2_20261023_06/valid.jsonl' in cfg['validation_file']
++    for key in ('output_dir', 'pretokenized_cache_dir'):
++        assert cfg[key].startswith('/aaa/fionafyang/buddy1/')
++    assert cfg['qwen3_continuation']['parent_weight_sha256'] == 'a0f67c8ab799e5dad18ba97d824a7d4ae2a0280083eeeaca75c48ec903028c9b'
++
++
++def test_payload_tampering_is_detected(tmp_path):
++    from mechet.qwen3_continuation import verify_files
++    p = tmp_path/'weights'; p.write_bytes(b'original')
++    bindings = {str(p): hashlib.sha256(b'original').hexdigest()}
++    verify_files(bindings)
++    p.write_bytes(b'changed')
++    with pytest.raises(ValueError, match='BINDING'):
++        verify_files(bindings)
++
++
++def test_old_token_cache_cannot_be_reused():
++    from mechet.qwen3_continuation import validate_cache
++    with pytest.raises(ValueError, match='CACHE'):
++        validate_cache(config(), {'model_name_or_path': 'Qwen/Qwen3.5-0.8B'})
++
++
++def test_resume_checks_complete_four_rank_checkpoint_lineage(tmp_path):
++    import json
++    from mechet.qwen3_continuation import save_checkpoint_binding, verify_resume
++    p = tmp_path/'checkpoint-1'; p.mkdir()
++    for name in ['adapter_model.safetensors','adapter_config.json','optimizer.pt','scheduler.pt',
++                 *['rng_state_'+str(i)+'.pth' for i in range(4)]]:
++        (p/name).write_bytes(b'checkpoint-data')
++    (p/'trainer_state.json').write_text(json.dumps({'global_step': 1, 'epoch': .1}))
++    save_checkpoint_binding(config(), p)
++    verify_resume(config(), p)
++    (p/'adapter_model.safetensors').write_bytes(b'changed')
++    with pytest.raises(ValueError, match='BINDING'):
++        verify_resume(config(), p)
++    with pytest.raises((ValueError,FileNotFoundError)):
++        verify_resume(config(), tmp_path)
++
++
++def cache():
++    return {'model_name_or_path': 'Qwen/Qwen3-8B',
++        'model_revision': 'b968826d9c46dd6066d109eabc6255188de91218',
++        'encoding_protocol': 'qwen3_tool_span_v1', 'world_size': 4, 'max_length': 32768,
++        'sources': {'train': {'sha256': '0ace674b6ebf6b4ba0a3542de8572c973e0d6a644a6923f651ffab74b2ab4748'},
++                    'validation': {'sha256': '0abb938fe0f0205a648ad7ff979fbe9ce217d1947f75ddac9997bb05e535b520'}},
++        'splits': {s: {'n_rows': n, 'n_training_windows': n, 'n_windowed_source_rows': 0,
++                      'truncation_count': 0, 'min_supervised_tokens': 1,
++                      'assistant_mask_methods': ['qwen3_owned_tool_span_v1'],
++                      'arrow_files': [s+'.rank'+str(i).zfill(2)+'.arrow' for i in range(4)]}
++                   for s,n in [('train',1908035),('validation',21355)]}}
++
++
++def test_cache_cannot_hide_empty_or_duplicated_training_shards():
++    from mechet.qwen3_continuation import validate_cache
++    good=cache(); validate_cache(config(),good)
++    for shards in [[], ['train.rank00.arrow']*4]:
++        bad=deepcopy(good);bad['splits']['train']['arrow_files']=shards
++        with pytest.raises(ValueError,match='CACHE'):
++            validate_cache(config(),bad)
++    bad=deepcopy(good);bad['splits']['train']['n_training_windows']-=1
++    with pytest.raises(ValueError,match='CACHE'):
++        validate_cache(config(),bad)
++
++
++def test_adapter_identity_is_independent_of_token_cache_and_optimizer(tmp_path):
++    from mechet.qwen3_continuation import adapter_identity
++    (tmp_path/'adapter_model.safetensors').write_bytes(b'adapter')
++    original=adapter_identity(tmp_path)
++    (tmp_path/'tokens').mkdir();(tmp_path/'tokens/train.arrow').write_bytes(b'cache')
++    (tmp_path/'optimizer.pt').write_bytes(b'optimizer')
++    assert adapter_identity(tmp_path)==original
++    assert original==hashlib.sha256(b'adapter').hexdigest()
++
++
++def test_actual_arrow_population_must_equal_declared_population(tmp_path):
++    import pyarrow as pa
++    from mechet.qwen3_continuation import verify_arrow_counts
++    names=[]
++    for i in range(4):
++        p=tmp_path/f'train.rank{i:02d}.arrow';names.append(str(p))
++        table=pa.table({'input_ids':[[1,2],[3,4]],'labels':[[-100,2],[-100,4]]})
++        with pa.OSFile(str(p),'wb') as sink:
++            with pa.ipc.new_stream(sink,table.schema) as writer:writer.write_table(table)
++    cfg={'pretokenized_cache_dir':str(tmp_path)}
++    cache={'splits':{'train':{'arrow_files':names,'n_rows':8}}}
++    verify_arrow_counts(cfg,cache)
++    cache['splits']['train']['n_rows']=7
++    with pytest.raises(ValueError,match='ACTUAL_ROW_COUNT'):
++        verify_arrow_counts(cfg,cache)
+diff --git a/tests/test_qwen3_route_protocol.py b/tests/test_qwen3_route_protocol.py
+new file mode 100644
+index 0000000..47cc1be
+--- /dev/null
++++ b/tests/test_qwen3_route_protocol.py
+@@ -0,0 +1,87 @@
++"""Protocol checks against the cached real tokenizer; no model/GPU experiment."""
++import os
++from pathlib import Path
++
++import pytest
++
++
++def test_qwen3_requires_a_current_user_state():
++    from mechet.qwen3_protocol import tool_prefix
++    with pytest.raises(ValueError, match='CURRENT_USER'):
++        tool_prefix(None, [{'role': 'assistant', 'content': 'old'}], [])
++
++
++@pytest.fixture(scope='module')
++def tokenizer():
++    from transformers import AutoTokenizer
++    path = Path(os.environ.get('MECHET_QWEN3_SNAPSHOT',
++        '/aaa/fionafyang/buddy1/whaleywang/OpenEvolveChem/data/hf_cache/models--Qwen--Qwen3-8B/snapshots/b968826d9c46dd6066d109eabc6255188de91218'))
++    if not path.exists():
++        pytest.skip('cached Qwen3 tokenizer unavailable')
++    return AutoTokenizer.from_pretrained(path, local_files_only=True)
++
++
++@pytest.mark.parametrize('name,args', [('finish_trace', {}),
++    ('import_fragments', {'fragments': [{'smiles': '[Cl-]', 'count': 1, 'purpose': 'electron_participant'}]})])
++def test_qwen3_sft_matches_actual_inference_prefix_without_future_response(tokenizer, name, args):
++    from mechet.qwen3_protocol import encode_tool_decision, tool_prefix
++    from scripts.build_natural_language_event_sft import SYSTEM, TOOLS
++    from mechet.agent_inference import parse_tool_calls
++    messages = [{'role': 'system', 'content': SYSTEM}, {'role': 'user', 'content': 'CURRENT STATE SMILES: CO'}]
++    assistant = {'role': 'assistant', 'content': '', 'tool_calls': [
++        {'type': 'function', 'function': {'name': name, 'arguments': args}}]}
++    row = {'tools': TOOLS, 'messages': messages + [assistant,
++        {'role': 'tool', 'name': name, 'content': 'PRIVATE_FUTURE_RESULT'}]}
++    encoded, audit = encode_tool_decision(tokenizer, row, max_length=32768)
++    prefix = tool_prefix(tokenizer, messages, TOOLS)
++    ids = tokenizer(prefix, add_special_tokens=False)['input_ids']
++    assert prefix.endswith('<|im_start|>assistant\n')
++    assert encoded['input_ids'][:len(ids)] == ids
++    assert all(v == -100 for v in encoded['labels'][:len(ids)])
++    text = tokenizer.decode([t for t, l in zip(encoded['input_ids'], encoded['labels']) if l != -100])
++    assert text.startswith('<tool_call>') and text.endswith('<|im_end|>')
++    assert [(c.name, c.arguments) for c in parse_tool_calls(text)] == [(name, args)]
++    assert 'PRIVATE_FUTURE_RESULT' not in tokenizer.decode(encoded['input_ids'])
++    assert audit['mask_method'] == 'qwen3_owned_tool_span_v1'
++    assert audit['prefix_token_parity']
++
++
++def test_qwen3_overlong_state_is_never_cropped(tokenizer):
++    from mechet.qwen3_protocol import encode_tool_decision
++    row = {'tools': [{'type': 'function', 'function': {'name': 'finish_trace', 'parameters': {'type': 'object'}}}],
++           'messages': [{'role': 'user', 'content': 'CURRENT STATE SMILES: CO'},
++               {'role': 'assistant', 'content': '', 'tool_calls': [
++                   {'type': 'function', 'function': {'name': 'finish_trace', 'arguments': {}}}]}]}
++    encoded, audit = encode_tool_decision(tokenizer, row, max_length=1)
++    assert audit['exceeds_max_length'] and len(encoded['input_ids']) > 1
++
++
++def test_qwen3_route_renderer_uses_explicit_protocol_and_rejects_wrong_family(tokenizer):
++    from mechet.route_policy_protocol import route_tool_prefix
++    messages = [{'role': 'user', 'content': 'CURRENT STATE SMILES: CO'}]
++    tools = [{'type': 'function', 'function': {'name': 'finish_trace', 'parameters': {'type': 'object'}}}]
++    cfg = {'policy_protocol': 'qwen3_tool_span_v1', 'policy_model_family': 'qwen3'}
++    assert route_tool_prefix(tokenizer, messages, tools, cfg).endswith('<|im_start|>assistant\n')
++    with pytest.raises(ValueError, match='MODEL_PROTOCOL'):
++        route_tool_prefix(tokenizer, messages, tools, dict(cfg, policy_model_family='qwen3_5_text'))
++
++
++def test_qwen35_default_dispatch_is_preserved(monkeypatch):
++    import mechet.qwen35_protocol as native
++    from mechet.route_policy_protocol import route_tool_prefix
++    monkeypatch.setattr(native, 'tool_prefix', lambda *a: 'existing-native-prefix')
++    assert route_tool_prefix(None, [], [], {}) == 'existing-native-prefix'
++
++
++def test_direct_sft_encoder_selects_qwen3_protocol(tokenizer):
++    from scripts.train_tool_sft import tokenize_rows
++    row = {'id': 'unit', 'tools': [{'type': 'function', 'function': {
++        'name': 'finish_trace', 'parameters': {'type': 'object'}}}], 'messages': [
++        {'role': 'user', 'content': 'CURRENT STATE SMILES: CO'},
++        {'role': 'assistant', 'content': '', 'tool_calls': [{'type': 'function',
++            'function': {'name': 'finish_trace', 'arguments': {}}}]}]}
++    encoded, audit = tokenize_rows([row], tokenizer, max_length=32768,
++                                   encoding_protocol='qwen3_tool_span_v1')
++    assert audit['assistant_mask_methods'] == ['qwen3_owned_tool_span_v1']
++    target = tokenizer.decode([x for x,l in zip(encoded[0]['input_ids'], encoded[0]['labels']) if l!=-100])
++    assert target.startswith('<tool_call>') and '<think>' not in target
+diff --git a/tests/test_route_experience_memory.py b/tests/test_route_experience_memory.py
+new file mode 100644
+index 0000000..c286e75
+--- /dev/null
++++ b/tests/test_route_experience_memory.py
+@@ -0,0 +1,111 @@
++import pytest
++import json
++import hashlib
++
++
++def scope():
++    return {'state':'[CH3:1][OH:2]','target':'CO','route_root':'CO','next_map':3,
++        'imported':{},'visited':['CO'],'accepted_action_types':[], 'ancestors':[],
++        'stock_version':'s1','executor_version':'e1','occurrence':'0','event_history_sha256':'b'*64}
++
++
++def evidence(tmp_path, uid, success=True, *, entry='a', content=None, current=None):
++    p=tmp_path/(uid+'.json')
++    d=dict(receipt_id=uid,split='training',episode_complete=True,resource_censored=False,
++           success=success,signal='executor_recovery',verification='executor_replayed',memory_id=entry,
++           scope_key=hashlib.sha256(json.dumps(current or scope(),sort_keys=True,separators=(',',':')).encode()).hexdigest(),
++           content_sha256=hashlib.sha256(json.dumps(content or {},sort_keys=True,separators=(',',':')).encode()).hexdigest())
++    p.write_text(json.dumps(d))
++    return {'path':str(p),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
++
++
++def test_incomplete_scope_cannot_be_used_as_a_global_negative_cache():
++    from mechet.route_experience_memory import ExperienceMemory
++    with pytest.raises(ValueError,match='SCOPE'):
++        ExperienceMemory().add('bad', {'state': 'CO'}, {}, evidence_ids=['r'], split='training')
++
++
++def test_bare_receipt_ids_are_not_completed_training_evidence():
++    from mechet.route_experience_memory import ExperienceMemory
++    m=ExperienceMemory()
++    # A string and a caller-declared split cannot certify an episode/verifier.
++    with pytest.raises(ValueError,match='EVIDENCE'):
++        m.add('bad', scope(), {},
++            evidence_ids=['r'], split='training')
++
++
++def test_memory_requires_exact_applicability_and_feedback_changes_selection(tmp_path):
++    from mechet.route_experience_memory import ExperienceMemory
++    m = ExperienceMemory()
++    current = scope()
++    m.add('a', current, {'strategy': 'first'}, evidence=[evidence(tmp_path,'receipt-a',content={'strategy':'first'})])
++    m.add('b', current, {'strategy': 'second'}, evidence=[evidence(tmp_path,'receipt-b',entry='b',content={'strategy':'second'})])
++    m.feedback('a', success=False, evidence=evidence(tmp_path,'failed-a',False,content={'strategy':'first'}))
++    m.feedback('b', success=True, evidence=evidence(tmp_path,'passed-b',entry='b',content={'strategy':'second'}))
++    assert [x['id'] for x in m.retrieve(current, limit=1)] == ['b']
++    assert m.retrieve(dict(current, ancestors=['different']), limit=5) == []
++    assert m.retrieve(dict(current, visited=['CO', 'C.O']), limit=5) == []
++    assert m.retrieve(dict(current, executor_version='v2'), limit=5) == []
++
++
++def test_memory_rejects_heldout_or_evidenceless_learning_and_ignores_resources(tmp_path):
++    from mechet.route_experience_memory import ExperienceMemory
++    m = ExperienceMemory()
++    with pytest.raises(ValueError, match='EVIDENCE'):
++        m.add('a', scope(), {}, evidence_ids=[], split='training')
++    with pytest.raises(ValueError, match='TRAIN'):
++        m.add('a', {'state': 'x'}, {}, evidence_ids=['r'], split='validation')
++    m.add('a', scope(), {}, evidence=[evidence(tmp_path,'r')])
++    before = m.snapshot()
++    assert m.feedback('a', success=False, evidence_id='oom', split='training', resource_censored=True) is False
++    assert m.snapshot() == before
++    with pytest.raises(ValueError, match='TRAIN'):
++        m.feedback('a', success=True, evidence_id='eval', split='test')
++
++
++def test_memory_roundtrip_keeps_counts_and_deduplicates_feedback_receipts(tmp_path):
++    from mechet.route_experience_memory import ExperienceMemory
++    m = ExperienceMemory(); current=scope()
++    m.add('a', current, {'lesson': 'recover'}, evidence=[evidence(tmp_path,'source',content={'lesson':'recover'})])
++    proof=evidence(tmp_path,'r2',content={'lesson':'recover'})
++    m.feedback('a', success=True, evidence=proof)
++    m.feedback('a', success=True, evidence=proof)
++    restored = ExperienceMemory(m.snapshot())
++    assert restored.snapshot() == m.snapshot()
++    item = restored.retrieve(current, limit=1)[0]
++    assert item['successes'] == 1 and item['utility'] == 1.0
++    item['content']['lesson'] = 'external mutation'
++    assert restored.retrieve(current, limit=1)[0]['content']['lesson'] == 'recover'
++
++
++def test_evidence_tampering_and_incomplete_episodes_are_rejected(tmp_path):
++    from mechet.route_experience_memory import ExperienceMemory
++    m=ExperienceMemory();proof=evidence(tmp_path,'bad')
++    from pathlib import Path
++    p=Path(proof['path']);d=json.loads(p.read_text());d['episode_complete']=False;p.write_text(json.dumps(d))
++    with pytest.raises(ValueError,match='HASH'):
++        m.add('a',scope(),{},evidence=[proof])
++    proof['sha256']=hashlib.sha256(p.read_bytes()).hexdigest()
++    with pytest.raises(ValueError,match='INELIGIBLE'):
++        m.add('a',scope(),{},evidence=[proof])
++
++
++def test_receipt_cannot_support_an_unrelated_memory_candidate(tmp_path):
++    from mechet.route_experience_memory import ExperienceMemory
++    m=ExperienceMemory();proof=evidence(tmp_path,'belongs-to-a')
++    with pytest.raises(ValueError,match='BINDING'):
++        m.add('unrelated',scope(),{'unverified':'different advice'},evidence=[proof])
++
++
++def test_scope_includes_rejected_event_history(tmp_path):
++    from mechet.route_experience_memory import ExperienceMemory
++    m=ExperienceMemory();current=scope()
++    m.add('a',current,{},evidence=[evidence(tmp_path,'source')])
++    assert m.retrieve(dict(current,event_history_sha256='f'*64))==[]
++
++
++def test_scope_without_history_digest_is_incomplete(tmp_path):
++    from mechet.route_experience_memory import ExperienceMemory
++    current=scope();current.pop('event_history_sha256',None)
++    with pytest.raises(ValueError,match='SCOPE'):
++        ExperienceMemory().add('a',current,{},evidence=[evidence(tmp_path,'source')])
+diff --git a/tests/test_route_sampler_context_isolation.py b/tests/test_route_sampler_context_isolation.py
+index d51c333..02601ee 100644
+--- a/tests/test_route_sampler_context_isolation.py
++++ b/tests/test_route_sampler_context_isolation.py
+@@ -120,3 +120,27 @@ def test_vllm_sampler_renders_request_tools_before_context_check(monkeypatch):
+     result=backend._generate_one(req)
+     assert result['resource_error']=='PHYSICAL_CONTEXT_LIMIT'
+     assert result['prompt_token_ids']==[1,1]
++
++
++def test_hf_sampler_selects_qwen3_prefix(sampler,monkeypatch):
++    import mechet.qwen3_protocol as protocol
++    monkeypatch.setattr(protocol,'tool_prefix',lambda tokenizer,messages,tools:'qwen3')
++    backend,_=sampler
++    backend.cfg.update(policy_protocol='qwen3_tool_span_v1',policy_model_family='qwen3')
++    result=backend.generate([request('qwen3',1)])[0]
++    assert result['prompt_token_ids']==[1]*5
++
++
++def test_vllm_sampler_selects_qwen3_prefix(monkeypatch):
++    import mechet.qwen3_protocol as protocol
++    from mechet.route_vllm_backend import VllmRouteSampler
++    monkeypatch.setattr(protocol,'tool_prefix',lambda tokenizer,messages,tools:'qwen3')
++    class Tokenizer:
++        eos_token_id=2
++        def __call__(self,prompt,**kwargs):return {'input_ids':[1]*len(prompt)}
++    backend=object.__new__(VllmRouteSampler)
++    backend.tokenizer=Tokenizer();backend.cfg=dict(max_action_tokens=4,max_context=1,seed=17,
++        policy_protocol='qwen3_tool_span_v1',policy_model_family='qwen3')
++    result=backend._generate_one(request('qwen3',1))
++    assert result['resource_error']=='PHYSICAL_CONTEXT_LIMIT'
++    assert result['prompt_token_ids']==[1]*5
