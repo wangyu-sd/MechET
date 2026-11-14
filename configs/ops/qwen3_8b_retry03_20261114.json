@@ -31,5 +31,15 @@
     "saved_checkpoint": null,
     "health": "active"
   },
-  "model_update_confirmed": false
+  "model_update_confirmed": false,
+  "latest_observation": {
+    "observed_at": "2026-11-14T15:19:31.078060+08:00",
+    "training_process_exit_time": "2026-11-14T15:14:19+08:00",
+    "training_process_exit_code": 1,
+    "error": "PackageNotFoundError: No package metadata was found for bitsandbytes",
+    "stop_command": "success",
+    "optimizer_updates_confirmed": false,
+    "training_throughput_measured": false,
+    "next_gate": "full configured training dependency audit and hash-bound Ceph overlay before resubmission"
+  }
 }

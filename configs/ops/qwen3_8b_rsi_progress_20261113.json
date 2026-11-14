@@ -1,30 +1,36 @@
 {
-  "observed_at": "2026-11-13T20:32:18.703531+08:00",
-  "source_commit": "c6d3fb3e6dfd61390284d8ab61eed34f4c8d8766",
-  "source_snapshot_sha256": "ef2e01f034c59182ca329ad5827172c420c6b33180b0861afee36e69df9d4d19",
-  "source_files": 435,
+  "observed_at": "2026-11-14T15:42:12.035705+08:00",
+  "source_commit": "c43bba1ad1ba89a4c518ffb8a1d653cfbb53bae5",
+  "source_snapshot_sha256": "be33727cc11b13098217c71d7be484e1fc40e066c57393fadbca9a3fe037ed59",
+  "source_files": 437,
   "tests": {
     "affected_passed": 92,
     "seconds": 88.45,
     "full_project": "timeout180s_exit124_no_full_suite_claim"
   },
   "cpu": {
-    "train_decisions_encoded_lower_bound": 974000,
+    "train_decisions_encoded_lower_bound": 1908035,
     "train_denominator": 1908035,
     "validation_denominator": 21355,
-    "cache_complete": false
+    "cache_complete": true,
+    "validation_decisions_encoded": 21355,
+    "all_15_bindings_verified": true,
+    "source_windowed_rows": 0
   },
   "queue": {
-    "readiness": "waiting_for_cpu_cache",
-    "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261113_01",
-    "updated_at": 1794573133.2569616,
-    "state": "waiting_for_cpu_cache",
-    "gpu_reserved": false
+    "state": "END",
+    "task_flag": "meteor_mechet_qwen3_8b_corrected_continue_8h20_zjk_20261114_03",
+    "instance": "8b1d891ea1cfaab201a1d8e4103c1069",
+    "gpu_reserved": false,
+    "failure": "PackageNotFoundError: bitsandbytes",
+    "next_gate": "complete training dependency audit before new8B submission"
   },
-  "gpu_training_submitted": false,
+  "gpu_training_submitted": true,
   "gpu_fit_verified": false,
   "memory": "live_opt_in_episode_factory_and_replay_curation_implemented; no trained memory-conditioned8B yet",
   "review": "four Important findings and unstarted snapshot regression fixed with reproducing tests",
-  "downstream": "dependency_plan_only; actual new8B weights/replay mixture/backend binding pending",
-  "pr": "https://github.com/wangyu-sd/MechET/pull/105"
+  "downstream": "8B stages still gated on completed corrected8B weights;0.8B fallback never silently satisfies8B lineage gates",
+  "pr": "https://github.com/wangyu-sd/MechET/pull/105",
+  "confirmed_8b_optimizer_update": false,
+  "current_execution_track": "separate user-authorized corrected Qwen3.5-0.8B full v8 condition; see configs/ops/qwen35_08b_fallback_20261114.json"
 }

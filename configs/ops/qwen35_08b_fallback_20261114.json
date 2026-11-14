@@ -1,0 +1,65 @@
+{
+  "schema": "corrected_qwen35_08b_fallback_v1",
+  "observed_at": "2026-11-14T15:41:03.933069+08:00",
+  "status": "TRAINING_RUNNING",
+  "task_flag": "meteor_mechet_stage2_external_route_drgrpo_4h20_zjk_20261114_action_v8_02",
+  "instance": "8b1d8208a1cfaa4801a1d8ff12bb110c",
+  "source_commit": "c43bba1ad1ba89a4c518ffb8a1d653cfbb53bae5",
+  "source_files": 390,
+  "verified_inputs": 447,
+  "parent": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/models/history/checkpoint-89442",
+  "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "model_family": "qwen35",
+  "model_size": "0.8B",
+  "train_targets": 23730,
+  "validation_targets": 2986,
+  "gpus": 4,
+  "gpu_name": "H20",
+  "candidates": 4,
+  "epochs": 1,
+  "seed": 17,
+  "public_observation_contract": "route_action_feedback_v8",
+  "contract_sha256": "07f202555705fcba65ff2b60b8e37a0c9c85aa24fcb5c299340e5fba7ab21262",
+  "output_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/external_stage2_action_v8_route_dr_grpo_20261114_02",
+  "submission_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/route08b_v8_full_20261114_02",
+  "unit_checks": {
+    "passed": 34,
+    "seconds": 94.39,
+    "scope": "CPU software checks only"
+  },
+  "optimizer_updates_confirmed": 0,
+  "training_throughput_measured": false,
+  "held_out_improvement_measured": false,
+  "previous_v3": {
+    "completed_rounds": 21,
+    "scheduled_rounds": 371,
+    "last_round_episodes": 256,
+    "last_round_stock_closed": 19,
+    "last_round_reference_supported_closed": 0,
+    "status": "stopped_by_user_20261113"
+  },
+  "eight_b": {
+    "status": "END_unsuccessful",
+    "cause": "missing_bitsandbytes",
+    "optimizer_updates_confirmed": false,
+    "gpu_fit_established": false
+  },
+  "memory": {
+    "current_condition": "v8 observation and recovery receipts",
+    "G1_G6": "pending",
+    "memory_adaptation": "separate_follow_on_requires_verified_curation"
+  },
+  "full_protocol": true,
+  "smoke_or_pilot": false,
+  "review": {
+    "status": "no_Critical_or_Important_static_findings",
+    "source_files_compared": 390,
+    "gpu_success_claimed": false
+  },
+  "created_request_at": "2026-11-14T15:38:36.983990+08:00",
+  "create_returncode": 0,
+  "start_returncode": 0,
+  "training_config": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/submissions/route08b_v8_full_20261114_02/contract.json",
+  "platform_observed_at": "2026-11-14T15:40:37.562431+08:00",
+  "saved_optimizer_step": null
+}
