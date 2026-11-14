@@ -1,0 +1,201 @@
+diff --git a/src/mechet/qwen3_continuation.py b/src/mechet/qwen3_continuation.py
+index 7b3ff5a..910a865 100644
+--- a/src/mechet/qwen3_continuation.py
++++ b/src/mechet/qwen3_continuation.py
+@@ -167,6 +167,14 @@ def verify_bindings(cfg, cache=None):
+                 p = Path(cfg['pretokenized_cache_dir'])/Path(file).name
+                 bindings[str(p)] = item['arrow_sha256'][p.name]
+     key = hashlib.sha256(json.dumps(dict(bindings=bindings, cache=cache),sort_keys=True).encode()).hexdigest()
++    # verify_files records resolved Ceph paths. Keep the existing raw-path key
++    # (so old valid receipts remain usable), but compare the same path namespace.
++    resolved_bindings = {}
++    for path, digest in bindings.items():
++        canonical = str(shared_path(path))
++        if canonical in resolved_bindings and resolved_bindings[canonical] != digest:
++            raise ValueError('QWEN3_BINDING_ALIAS_CONFLICT')
++        resolved_bindings[canonical] = digest
+     directory = shared_path(cfg['output_dir'])/'runtime'
+     directory.mkdir(parents=True, exist_ok=True)
+     receipt = directory/('input-verification-'+key+'.json')
+@@ -174,11 +182,13 @@ def verify_bindings(cfg, cache=None):
+         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+         if receipt.exists():
+             value = json.loads(receipt.read_text())
+-            if value.get('key') == key and set(value.get('files',{})) == set(bindings):
++            if (value.get('key') == key and set(value.get('files',{})) == set(resolved_bindings)
++                    and value.get('cache_verified') == (cache is not None)):
+                 unchanged = True
+                 for path, record in value['files'].items():
+                     st = Path(path).stat()
+-                    unchanged &= ((st.st_size,st.st_mtime_ns,st.st_ctime_ns) ==
++                    unchanged &= (record.get('sha256') == resolved_bindings[path]
++                                  and (st.st_size,st.st_mtime_ns,st.st_ctime_ns) ==
+                                   (record['bytes'],record['mtime_ns'],record['ctime_ns']))
+                 if unchanged:
+                     return value
+diff --git a/src/mechet/qwen3_queue.py b/src/mechet/qwen3_queue.py
+index 137f982..34f64aa 100644
+--- a/src/mechet/qwen3_queue.py
++++ b/src/mechet/qwen3_queue.py
+@@ -1,6 +1,7 @@
+ """Host-side dependency gate; never reserve GPUs while tokenizing."""
+ import json
+ import time
++import subprocess
+ from pathlib import Path
+ 
+ from .qwen3_continuation import validate_cache, validate_config, verify_bindings
+@@ -46,3 +47,16 @@ def validate_submission(cfg, task):
+             or task.get('business_flag') != 'AI4LSLab_KEMO_ZJK_H20'
+             or task.get('keep_running_after_trainer_finish') is not False):
+         raise ValueError('QWEN3_EIGHT_H20_SUBMISSION_REQUIRED')
++    command = task.get('init_cmd')
++    if (not isinstance(command, str) or not command.strip()
++            or any(marker in command.lower() for marker in ('redacted', 'replace_with_', 'not submittable'))
++            or '/aaa/fionafyang/buddy1' not in command
++            or not any(marker in command for marker in ('mount -t ceph', 'mount.ceph'))):
++        raise ValueError('QWEN3_PRIVATE_CEPH_INIT_REQUIRED')
++    # Parse only: never execute mounts or print command text containing secrets.
++    try:
++        result = subprocess.run(['bash', '-n'], input=command.encode(), capture_output=True, timeout=10)
++    except (OSError, subprocess.TimeoutExpired):
++        raise ValueError('QWEN3_CEPH_INIT_SYNTAX_CHECK_FAILED') from None
++    if result.returncode:
++        raise ValueError('QWEN3_CEPH_INIT_SHELL_SYNTAX_INVALID')
+diff --git a/tests/test_qwen3_queue.py b/tests/test_qwen3_queue.py
+index c2c27b9..9a5d41f 100644
+--- a/tests/test_qwen3_queue.py
++++ b/tests/test_qwen3_queue.py
+@@ -2,6 +2,8 @@ import json
+ 
+ import pytest
+ 
++VALID_TEST_INIT = 'mount -t ceph localhost:/ /aaa/fionafyang/buddy1 -o secretfile=/aaa/fionafyang/buddy1/unit-secret'
++
+ 
+ def test_queue_waits_for_actual_cache_and_refuses_wrong_model(tmp_path):
+     from mechet.qwen3_queue import cache_readiness
+@@ -19,7 +21,7 @@ def test_resource_manifest_cannot_exceed_eight_or_wait_inside_gpu(tmp_path):
+     from mechet.qwen3_continuation import continuation_config
+     cfg = continuation_config(world_size=8)
+     task = dict(host_num=1, host_gpu_num=8, business_flag='AI4LSLab_KEMO_ZJK_H20',
+-                keep_running_after_trainer_finish=False)
++                keep_running_after_trainer_finish=False, init_cmd=VALID_TEST_INIT)
+     validate_submission(cfg, task)
+     with pytest.raises(ValueError):
+         validate_submission(cfg, dict(task, host_gpu_num=16))
+@@ -42,10 +44,47 @@ def test_submission_inputs_are_rechecked_after_wait(tmp_path):
+     from mechet.qwen3_continuation import continuation_config
+     cfg = tmp_path/'config.json'; task = tmp_path/'task.json'
+     cfg.write_text(json.dumps(continuation_config(world_size=8)))
+-    task.write_text(json.dumps(dict(host_num=1, host_gpu_num=8, business_flag='AI4LSLab_KEMO_ZJK_H20', keep_running_after_trainer_finish=False)))
++    task.write_text(json.dumps(dict(host_num=1, host_gpu_num=8, business_flag='AI4LSLab_KEMO_ZJK_H20', keep_running_after_trainer_finish=False, init_cmd=VALID_TEST_INIT)))
+     plan = dict(training_config=str(cfg), task_config=str(task),
+                 files_sha256={str(f):hashlib.sha256(f.read_bytes()).hexdigest() for f in (cfg,task)})
+     submission_inputs(plan)
+     task.write_text(json.dumps(dict(host_num=1, host_gpu_num=16)))
+     with pytest.raises(ValueError, match='BINDING'):
+         submission_inputs(plan)
++
++
++@pytest.mark.parametrize('command', ['<redacted: public copy is not submittable>',
++    'REPLACE_WITH_PRIVATE_INIT_CMD_FROM_SUCCESSFUL_TASK', '', 'echo ready'])
++def test_placeholder_or_non_mount_init_cannot_reach_submission(command):
++    from mechet.qwen3_queue import validate_submission
++    from mechet.qwen3_continuation import continuation_config
++    task = dict(host_num=1, host_gpu_num=8, business_flag='AI4LSLab_KEMO_ZJK_H20',
++                keep_running_after_trainer_finish=False, init_cmd=command)
++    with pytest.raises(ValueError, match='CEPH_INIT'):
++        validate_submission(continuation_config(world_size=8), task)
++
++
++def test_private_init_is_shell_checked_without_executing_or_echoing_secret():
++    from mechet.qwen3_queue import validate_submission
++    from mechet.qwen3_continuation import continuation_config
++    task = dict(host_num=1, host_gpu_num=8, business_flag='AI4LSLab_KEMO_ZJK_H20',
++                keep_running_after_trainer_finish=False,
++                init_cmd=VALID_TEST_INIT+'; if SECRET_SENTINEL')
++    with pytest.raises(ValueError, match='CEPH_INIT') as caught:
++        validate_submission(continuation_config(world_size=8), task)
++    assert 'SECRET_SENTINEL' not in str(caught.value)
++
++
++def test_private_syntax_check_timeout_cannot_disclose_command(monkeypatch):
++    import subprocess
++    import traceback
++    import mechet.qwen3_queue as module
++    from mechet.qwen3_continuation import continuation_config
++    def timeout(*args, **kwargs):
++        raise subprocess.TimeoutExpired(['bash','-n','-c','PRIVATE_SENTINEL'],10)
++    monkeypatch.setattr(module.subprocess,'run',timeout)
++    task=dict(host_num=1,host_gpu_num=8,business_flag='AI4LSLab_KEMO_ZJK_H20',
++              keep_running_after_trainer_finish=False,init_cmd=VALID_TEST_INIT)
++    with pytest.raises(ValueError,match='CEPH_INIT') as caught:
++        module.validate_submission(continuation_config(world_size=8),task)
++    assert 'PRIVATE_SENTINEL' not in ''.join(traceback.format_exception(caught.value))
+diff --git a/tests/test_qwen3_symlink_receipt.py b/tests/test_qwen3_symlink_receipt.py
+new file mode 100644
+index 0000000..ab7a3ce
+--- /dev/null
++++ b/tests/test_qwen3_symlink_receipt.py
+@@ -0,0 +1,60 @@
++import hashlib
++import json
++
++import pytest
++
++
++def fixture_bindings(tmp_path, monkeypatch):
++    from mechet import qwen3_continuation as m
++    def write(name, value):
++        p=tmp_path/name; p.write_text(value); return p, hashlib.sha256(p.read_bytes()).hexdigest()
++    train, ts=write('train-real.jsonl','train payload')
++    link=tmp_path/'train-alias.jsonl'; link.symlink_to(train)
++    valid, vs=write('valid.jsonl','valid payload')
++    parent=tmp_path/'parent';parent.mkdir()
++    weight, ws=write('parent/adapter_model.safetensors','weight payload')
++    pc, ps=write('parent/adapter_config.json',json.dumps({'base_model_name_or_path':'Qwen/Qwen3-8B','r':16}))
++    ref, rs=write('reference.json','{}'); hist, hs=write('history.json','{}')
++    app, aps=write('approval.json',json.dumps(dict(reference_training_authorized=True,
++        reference_manifest_sha256=rs,history_manifest_sha256=hs)))
++    # Business population validation has its own strict tests. These fixtures
++    # exercise the real shared-filesystem hash/receipt logic without full data.
++    monkeypatch.setattr(m,'validate_config',lambda cfg:None)
++    for k,v in dict(PARENT=parent,TRAIN_SHA=ts,VALID_SHA=vs,PARENT_SHA=ws,PARENT_CONFIG_SHA=ps).items():
++        monkeypatch.setattr(m,k,v)
++    b={}
++    for name,p,digest in [('reference_approval',app,aps),('reference_manifest',ref,rs),('history_manifest',hist,hs)]:
++        b[name]=str(p);b[name+'_sha256']=digest
++    cfg=dict(train_file=str(link),validation_file=str(valid),output_dir=str(tmp_path/'out'),
++             qwen3_continuation=b,condition_name='unit')
++    original=m.verify_files;calls=[]
++    def counted(bindings):
++        calls.append(1);return original(bindings)
++    monkeypatch.setattr(m,'verify_files',counted)
++    return m,cfg,train,link,calls
++
++
++def test_verified_symlink_receipt_reuses_hashes(tmp_path,monkeypatch):
++    m,cfg,train,link,calls=fixture_bindings(tmp_path,monkeypatch)
++    first=m.verify_bindings(cfg)
++    assert str(train) in first['files'] and str(link) not in first['files']
++    assert m.verify_bindings(cfg)==first
++    assert len(calls)==1,'unchanged symlink inputs must not trigger repeated full scans'
++
++
++def test_symlink_retarget_cannot_reuse_previous_verification(tmp_path,monkeypatch):
++    m,cfg,train,link,calls=fixture_bindings(tmp_path,monkeypatch)
++    m.verify_bindings(cfg)
++    other=tmp_path/'changed.jsonl';other.write_text('changed payload')
++    link.unlink();link.symlink_to(other)
++    with pytest.raises(ValueError,match='BINDING'):
++        m.verify_bindings(cfg)
++
++
++def test_receipt_digest_mismatch_is_reverified(tmp_path,monkeypatch):
++    m,cfg,train,link,calls=fixture_bindings(tmp_path,monkeypatch)
++    value=m.verify_bindings(cfg);value['files'][str(train)]['sha256']='0'*64
++    p=tmp_path/'out/runtime'/('input-verification-'+value['key']+'.json');p.write_text(json.dumps(value))
++    fixed=m.verify_bindings(cfg)
++    assert fixed['files'][str(train)]['sha256']==hashlib.sha256(train.read_bytes()).hexdigest()
++    assert len(calls)==2
