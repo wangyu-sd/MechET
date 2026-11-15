@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "affected_tests": 96,
+  "affected_tests_seconds": 77.68,
+  "pinned_python311_tests": 19,
+  "pinned_python311_seconds": 104.33,
+  "pinned_python": "3.11",
+  "fixed_training_runtime": true,
+  "model_forward": false,
+  "optimizer_update": false,
+  "scope": "CPU software verification; not experimental results",
+  "source_commit": "bb4d9da2e977aeb2096ba3c8832bd42c82bf4781"
+}
