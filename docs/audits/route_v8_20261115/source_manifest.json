@@ -1,0 +1,759 @@
+{
+  "schema": "read_only_deployed_route_v8_source_audit_v1",
+  "captured_at": "2026-11-15T16:17:21.271516+08:00",
+  "deployed_code_root": "/aaa/fionafyang/buddy1/whaleywang/MechET/artifacts/route08b_v8_full_20261114_02/code",
+  "private_source_commit": "c43bba1ad1ba89a4c518ffb8a1d653cfbb53bae5",
+  "contract_sha256": "07f202555705fcba65ff2b60b8e37a0c9c85aa24fcb5c299340e5fba7ab21262",
+  "deployed_source_inventory_count": 390,
+  "published_source_count": 17,
+  "files_sha256": {
+    "src/mechet/route_policy_episode.py": "2039481b5cce4891924adad49d797befaf8621d57a580f43e176d36496012074",
+    "src/mechet/route_event_history.py": "61e076dfb97ebdd92409e946c9e760c0c683b23488e29995cb170bff23ab7c9e",
+    "src/mechet/route_action_feedback.py": "73d576ef25a542fbab160f248106e849e0d8c7e315671b2e10df1805b31845ef",
+    "src/mechet/route_policy_sampling.py": "a8fc894162b6dc0060ec7e2a0e5c09c5236f33b6120cb704bc24d33cb8db9545",
+    "src/mechet/external_route_io.py": "23f5f677d6f8f5c71fdd45c421b4315a75ea330d53d1afa8019b2d983ab77167",
+    "src/mechet/external_route_rl.py": "e541b807c43eb3f4b7bd1b4fac357cfa1623f8c9a1aefc5c41a5752384d8776f",
+    "src/mechet/route_policy_objective.py": "0170c13c925158fa33b917c52cd2e7a380f1bd11edebdc34edc8d515f4e0319e",
+    "src/mechet/route_memory_integration.py": "82d4275a412530dcae9b3bac64e3f5da33bb8a64eb5cce37d2ba74ea52527c2f",
+    "src/mechet/route_memory_curation.py": "bdbd979c270f500e89696f17b204b2d247c86e57fbe854a3c083eef8ee298a4d",
+    "src/mechet/route_vllm_backend.py": "1b36ea43c592d13af92a141f36c20c44f131083fa53c5999b0783941ebefb5e2",
+    "src/mechet/route_vllm_contract.py": "e01c6a3bb2f3c6bac9535dc5b17d8d2b2d9bf4f7309b179b4071a6579c946f89",
+    "src/mechet/route_vllm_adapter.py": "9ec56f0535b185327261a629a736ecbc5fee07b343d1d263ba8249ae1f5b3b7f",
+    "src/mechet/route_vllm_protocol.py": "843e2b0c52a7003bc2e56164ee37492d6f772faa33131fa738b9e7cf60706f08",
+    "src/mechet/route_generation_capacity.py": "b558a61305b80eea18831a074838d889ec4eb85e75d18fa13f525d444a75de9d",
+    "src/mechet/endpoints.py": "2afdfbdfc828e064fa6cd2ce9dae2c693c38013e0cd47395447b998f3c415d22",
+    "src/mechet/external_route_data.py": "358910be0a303b6423a2d5df0be68cdf65cf65956c90d9f7758920fd1eecd515",
+    "scripts/train_external_route_rl.py": "2a276a109a0f3c91f23dc753ed79dbc0a7f7a6ee85a0fe075380d9be7aa5b599"
+  },
+  "symbols": {
+    "src/mechet/route_policy_episode.py:import_work_bytes": [
+      24,
+      50
+    ],
+    "src/mechet/route_policy_episode.py:NativeChemistry": [
+      53,
+      84
+    ],
+    "src/mechet/route_policy_episode.py:NativeChemistry.__init__": [
+      54,
+      55
+    ],
+    "src/mechet/route_policy_episode.py:NativeChemistry.root": [
+      57,
+      59
+    ],
+    "src/mechet/route_policy_episode.py:NativeChemistry.messages": [
+      61,
+      63
+    ],
+    "src/mechet/route_policy_episode.py:NativeChemistry.step": [
+      65,
+      80
+    ],
+    "src/mechet/route_policy_episode.py:NativeChemistry.precursors": [
+      82,
+      84
+    ],
+    "src/mechet/route_policy_episode.py:DecisionRequest": [
+      88,
+      97
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode": [
+      100,
+      523
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode.__init__": [
+      101,
+      128
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode._end": [
+      130,
+      131
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode.agentic_feedback": [
+      134,
+      135
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode._messages": [
+      137,
+      217
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode._finish_guard_error": [
+      219,
+      231
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode._recover": [
+      233,
+      236
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode.next_decision": [
+      238,
+      285
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode.accept": [
+      287,
+      380
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode._finish_reaction": [
+      382,
+      404
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode.finish_report": [
+      406,
+      418
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode.snapshot": [
+      420,
+      433
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode._validate_restored_event_history": [
+      435,
+      494
+    ],
+    "src/mechet/route_policy_episode.py:RouteEpisode.restore": [
+      497,
+      523
+    ],
+    "src/mechet/route_event_history.py:_history_handle": [
+      33,
+      38
+    ],
+    "src/mechet/route_event_history.py:_past_text": [
+      41,
+      58
+    ],
+    "src/mechet/route_event_history.py:_past_value": [
+      61,
+      85
+    ],
+    "src/mechet/route_event_history.py:public_json": [
+      88,
+      90
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory": [
+      93,
+      303
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.__init__": [
+      94,
+      101
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory._key": [
+      104,
+      105
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory._intern": [
+      107,
+      112
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.intern_observation": [
+      114,
+      127
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.observation": [
+      129,
+      133
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.start": [
+      135,
+      142
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.record": [
+      144,
+      154
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.scoped_feedback": [
+      157,
+      165
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.latest_feedback": [
+      167,
+      175
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.model_view": [
+      177,
+      240
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory.snapshot": [
+      242,
+      243
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory._reference": [
+      245,
+      247
+    ],
+    "src/mechet/route_event_history.py:RouteEventHistory._validate": [
+      249,
+      303
+    ],
+    "src/mechet/route_action_feedback.py:semantic_action": [
+      10,
+      38
+    ],
+    "src/mechet/route_action_feedback.py:state_rejections": [
+      41,
+      53
+    ],
+    "src/mechet/route_action_feedback.py:previous_rejection": [
+      56,
+      58
+    ],
+    "src/mechet/route_action_feedback.py:decision_control": [
+      61,
+      77
+    ],
+    "src/mechet/route_action_feedback.py:tools_for_episode": [
+      80,
+      83
+    ],
+    "src/mechet/route_action_feedback.py:tools_for_request": [
+      86,
+      94
+    ],
+    "src/mechet/route_policy_sampling.py:request_seed": [
+      14,
+      15
+    ],
+    "src/mechet/route_policy_sampling.py:TokenLogprobs": [
+      18,
+      48
+    ],
+    "src/mechet/route_policy_sampling.py:TokenLogprobs.__init__": [
+      19,
+      22
+    ],
+    "src/mechet/route_policy_sampling.py:TokenLogprobs.finish": [
+      24,
+      32
+    ],
+    "src/mechet/route_policy_sampling.py:TokenLogprobs.__call__": [
+      34,
+      40
+    ],
+    "src/mechet/route_policy_sampling.py:TokenLogprobs.values": [
+      42,
+      48
+    ],
+    "src/mechet/route_policy_sampling.py:PrivateSampling": [
+      51,
+      92
+    ],
+    "src/mechet/route_policy_sampling.py:PrivateSampling.__init__": [
+      58,
+      63
+    ],
+    "src/mechet/route_policy_sampling.py:PrivateSampling.__call__": [
+      65,
+      92
+    ],
+    "src/mechet/route_policy_sampling.py:append_receipt": [
+      95,
+      101
+    ],
+    "src/mechet/route_policy_sampling.py:read_owned_journal": [
+      104,
+      133
+    ],
+    "src/mechet/route_policy_sampling.py:recover_behavior_receipts": [
+      136,
+      184
+    ],
+    "src/mechet/route_policy_sampling.py:NativeRouteSampler": [
+      187,
+      307
+    ],
+    "src/mechet/route_policy_sampling.py:NativeRouteSampler.__init__": [
+      188,
+      196
+    ],
+    "src/mechet/route_policy_sampling.py:NativeRouteSampler.generate": [
+      198,
+      307
+    ],
+    "src/mechet/route_policy_sampling.py:collect_route_groups": [
+      310,
+      386
+    ],
+    "src/mechet/external_route_io.py:ReceiptBatch": [
+      10,
+      35
+    ],
+    "src/mechet/external_route_io.py:ReceiptBatch.__init__": [
+      11,
+      15
+    ],
+    "src/mechet/external_route_io.py:ReceiptBatch._write": [
+      17,
+      23
+    ],
+    "src/mechet/external_route_io.py:ReceiptBatch.append": [
+      25,
+      30
+    ],
+    "src/mechet/external_route_io.py:ReceiptBatch.flush": [
+      32,
+      35
+    ],
+    "src/mechet/external_route_io.py:BatchedNativeRouteSampler": [
+      38,
+      49
+    ],
+    "src/mechet/external_route_io.py:BatchedNativeRouteSampler.__init__": [
+      39,
+      42
+    ],
+    "src/mechet/external_route_io.py:BatchedNativeRouteSampler.generate": [
+      44,
+      49
+    ],
+    "src/mechet/external_route_rl.py:route_group_advantages": [
+      18,
+      35
+    ],
+    "src/mechet/external_route_rl.py:HiddenRouteReward": [
+      38,
+      116
+    ],
+    "src/mechet/external_route_rl.py:HiddenRouteReward.__init__": [
+      42,
+      49
+    ],
+    "src/mechet/external_route_rl.py:HiddenRouteReward.__enter__": [
+      51,
+      52
+    ],
+    "src/mechet/external_route_rl.py:HiddenRouteReward.__exit__": [
+      54,
+      55
+    ],
+    "src/mechet/external_route_rl.py:HiddenRouteReward.score": [
+      57,
+      116
+    ],
+    "src/mechet/external_route_rl.py:TargetOnlyRouteEpisode": [
+      119,
+      135
+    ],
+    "src/mechet/external_route_rl.py:TargetOnlyRouteEpisode.__init__": [
+      125,
+      127
+    ],
+    "src/mechet/external_route_rl.py:TargetOnlyRouteEpisode.next_decision": [
+      129,
+      135
+    ],
+    "src/mechet/external_route_rl.py:optimize_routes": [
+      138,
+      266
+    ],
+    "src/mechet/route_policy_objective.py:route_advantages": [
+      8,
+      14
+    ],
+    "src/mechet/route_policy_objective.py:action_loss": [
+      17,
+      27
+    ],
+    "src/mechet/route_policy_objective.py:policy_sequences": [
+      30,
+      39
+    ],
+    "src/mechet/route_policy_objective.py:supervised_sequence": [
+      42,
+      48
+    ],
+    "src/mechet/route_memory_integration.py:memory_digest": [
+      24,
+      26
+    ],
+    "src/mechet/route_memory_integration.py:strategy_for_error": [
+      29,
+      36
+    ],
+    "src/mechet/route_memory_integration.py:execution_scope": [
+      39,
+      48
+    ],
+    "src/mechet/route_memory_integration.py:strip_memory": [
+      51,
+      59
+    ],
+    "src/mechet/route_memory_integration.py:MemoryEpisodeMixin": [
+      62,
+      123
+    ],
+    "src/mechet/route_memory_integration.py:MemoryEpisodeMixin.__init__": [
+      63,
+      66
+    ],
+    "src/mechet/route_memory_integration.py:MemoryEpisodeMixin._load_memory": [
+      68,
+      74
+    ],
+    "src/mechet/route_memory_integration.py:MemoryEpisodeMixin._messages": [
+      76,
+      94
+    ],
+    "src/mechet/route_memory_integration.py:MemoryEpisodeMixin.snapshot": [
+      96,
+      99
+    ],
+    "src/mechet/route_memory_integration.py:MemoryEpisodeMixin._validate_restored_event_history": [
+      101,
+      107
+    ],
+    "src/mechet/route_memory_integration.py:MemoryEpisodeMixin.restore": [
+      110,
+      123
+    ],
+    "src/mechet/route_memory_integration.py:MemoryTargetOnlyRouteEpisode": [
+      126,
+      127
+    ],
+    "src/mechet/route_memory_integration.py:MemoryValidationRouteEpisode": [
+      130,
+      131
+    ],
+    "src/mechet/route_memory_curation.py:supervised_decision": [
+      15,
+      32
+    ],
+    "src/mechet/route_memory_curation.py:curate_episode": [
+      35,
+      112
+    ],
+    "src/mechet/route_vllm_backend.py:DurableGroupCommit": [
+      20,
+      62
+    ],
+    "src/mechet/route_vllm_backend.py:DurableGroupCommit.__init__": [
+      22,
+      26
+    ],
+    "src/mechet/route_vllm_backend.py:DurableGroupCommit.append": [
+      28,
+      32
+    ],
+    "src/mechet/route_vllm_backend.py:DurableGroupCommit._run": [
+      34,
+      56
+    ],
+    "src/mechet/route_vllm_backend.py:DurableGroupCommit.close": [
+      58,
+      60
+    ],
+    "src/mechet/route_vllm_backend.py:DurableGroupCommit.__enter__": [
+      61,
+      61
+    ],
+    "src/mechet/route_vllm_backend.py:DurableGroupCommit.__exit__": [
+      62,
+      62
+    ],
+    "src/mechet/route_vllm_backend.py:recover_native_receipts": [
+      65,
+      83
+    ],
+    "src/mechet/route_vllm_backend.py:VllmProcess": [
+      86,
+      181
+    ],
+    "src/mechet/route_vllm_backend.py:VllmProcess.__init__": [
+      88,
+      105
+    ],
+    "src/mechet/route_vllm_backend.py:VllmProcess._read": [
+      107,
+      117
+    ],
+    "src/mechet/route_vllm_backend.py:VllmProcess._fail_all": [
+      119,
+      122
+    ],
+    "src/mechet/route_vllm_backend.py:VllmProcess._write_loop": [
+      124,
+      131
+    ],
+    "src/mechet/route_vllm_backend.py:VllmProcess._watch": [
+      133,
+      140
+    ],
+    "src/mechet/route_vllm_backend.py:VllmProcess.rpc": [
+      142,
+      159
+    ],
+    "src/mechet/route_vllm_backend.py:VllmProcess.close": [
+      161,
+      181
+    ],
+    "src/mechet/route_vllm_backend.py:VllmRouteSampler": [
+      184,
+      212
+    ],
+    "src/mechet/route_vllm_backend.py:VllmRouteSampler.__init__": [
+      185,
+      188
+    ],
+    "src/mechet/route_vllm_backend.py:VllmRouteSampler.submit": [
+      190,
+      190
+    ],
+    "src/mechet/route_vllm_backend.py:VllmRouteSampler._generate_one": [
+      192,
+      209
+    ],
+    "src/mechet/route_vllm_backend.py:VllmRouteSampler.close": [
+      211,
+      212
+    ],
+    "src/mechet/route_vllm_backend.py:start_vllm_process": [
+      215,
+      235
+    ],
+    "src/mechet/route_vllm_backend.py:bind_rollout_adapter": [
+      238,
+      248
+    ],
+    "src/mechet/route_vllm_contract.py:validate_runtime": [
+      12,
+      111
+    ],
+    "src/mechet/route_vllm_contract.py:configure_runtime": [
+      114,
+      118
+    ],
+    "src/mechet/route_vllm_adapter.py:sha256": [
+      12,
+      16
+    ],
+    "src/mechet/route_vllm_adapter.py:verify_hashes": [
+      19,
+      25
+    ],
+    "src/mechet/route_vllm_adapter.py:prepare_text_adapter": [
+      28,
+      69
+    ],
+    "src/mechet/route_vllm_adapter.py:active_buffer": [
+      72,
+      85
+    ],
+    "src/mechet/route_vllm_adapter.py:expanded_registered_weights": [
+      88,
+      102
+    ],
+    "src/mechet/route_vllm_adapter.py:RouteVllmAuditWorker": [
+      105,
+      168
+    ],
+    "src/mechet/route_vllm_adapter.py:RouteVllmAuditWorker.verify_route_lora": [
+      107,
+      168
+    ],
+    "src/mechet/route_vllm_protocol.py:validate_engine_build": [
+      10,
+      16
+    ],
+    "src/mechet/route_vllm_protocol.py:AdapterLease": [
+      19,
+      37
+    ],
+    "src/mechet/route_vllm_protocol.py:AdapterLease.__init__": [
+      20,
+      21
+    ],
+    "src/mechet/route_vllm_protocol.py:AdapterLease.invalidate": [
+      23,
+      25
+    ],
+    "src/mechet/route_vllm_protocol.py:AdapterLease.commit": [
+      27,
+      29
+    ],
+    "src/mechet/route_vllm_protocol.py:AdapterLease.begin": [
+      31,
+      35
+    ],
+    "src/mechet/route_vllm_protocol.py:AdapterLease.finish": [
+      37,
+      37
+    ],
+    "src/mechet/route_vllm_protocol.py:build_request": [
+      40,
+      55
+    ],
+    "src/mechet/route_vllm_protocol.py:validate_completion": [
+      58,
+      76
+    ],
+    "src/mechet/route_vllm_protocol.py:validate_probe": [
+      79,
+      90
+    ],
+    "src/mechet/route_generation_capacity.py:capacity_kwargs": [
+      8,
+      11
+    ],
+    "src/mechet/route_generation_capacity.py:validate_model_capacity": [
+      14,
+      23
+    ],
+    "src/mechet/route_generation_capacity.py:generation_batches": [
+      26,
+      46
+    ],
+    "src/mechet/endpoints.py:PrecursorEndpoints": [
+      16,
+      34
+    ],
+    "src/mechet/endpoints.py:PrecursorEndpoints.to_dict": [
+      29,
+      34
+    ],
+    "src/mechet/endpoints.py:_mapped_mol": [
+      37,
+      43
+    ],
+    "src/mechet/endpoints.py:_fragment_smiles": [
+      46,
+      51
+    ],
+    "src/mechet/endpoints.py:atom_maps": [
+      54,
+      59
+    ],
+    "src/mechet/endpoints.py:_split_by_target_maps": [
+      62,
+      73
+    ],
+    "src/mechet/endpoints.py:split_precursor_endpoints": [
+      76,
+      78
+    ],
+    "src/mechet/endpoints.py:split_route_precursor_endpoints": [
+      81,
+      92
+    ],
+    "src/mechet/endpoints.py:reference_structural_precursor": [
+      95,
+      117
+    ],
+    "src/mechet/endpoints.py:structural_exact": [
+      120,
+      123
+    ],
+    "src/mechet/endpoints.py:mapped_exact": [
+      126,
+      129
+    ],
+    "src/mechet/external_route_data.py:file_sha": [
+      16,
+      21
+    ],
+    "src/mechet/external_route_data.py:signature": [
+      24,
+      25
+    ],
+    "src/mechet/external_route_data.py:edge_signature": [
+      28,
+      29
+    ],
+    "src/mechet/external_route_data.py:iter_records": [
+      32,
+      80
+    ],
+    "src/mechet/external_route_data.py:parse_route": [
+      83,
+      131
+    ],
+    "src/mechet/external_route_data.py:prune_stock": [
+      134,
+      149
+    ],
+    "src/mechet/external_route_data.py:protected_identities": [
+      152,
+      167
+    ],
+    "src/mechet/external_route_data.py:build_dataset": [
+      170,
+      272
+    ],
+    "src/mechet/external_route_data.py:_frozen_validation": [
+      275,
+      294
+    ],
+    "src/mechet/external_route_data.py:_tree_stats": [
+      297,
+      304
+    ],
+    "src/mechet/external_route_data.py:_provenance_patents": [
+      307,
+      311
+    ],
+    "src/mechet/external_route_data.py:_scaffold": [
+      314,
+      320
+    ],
+    "src/mechet/external_route_data.py:build_dataset_v2": [
+      323,
+      493
+    ],
+    "scripts/train_external_route_rl.py:validate_public_tasks": [
+      18,
+      25
+    ],
+    "scripts/train_external_route_rl.py:training_order": [
+      28,
+      30
+    ],
+    "scripts/train_external_route_rl.py:make_episodes": [
+      33,
+      55
+    ],
+    "scripts/train_external_route_rl.py:score_groups": [
+      58,
+      68
+    ],
+    "scripts/train_external_route_rl.py:sampled_behavior_entropy": [
+      71,
+      85
+    ],
+    "scripts/train_external_route_rl.py:backend_collection_metrics": [
+      88,
+      121
+    ],
+    "scripts/train_external_route_rl.py:collect_round": [
+      124,
+      204
+    ],
+    "scripts/train_external_route_rl.py:full_validation": [
+      207,
+      363
+    ],
+    "scripts/train_external_route_rl.py:collective_checkpoint_publish": [
+      366,
+      378
+    ],
+    "scripts/train_external_route_rl.py:complete_deferred_baseline": [
+      381,
+      418
+    ],
+    "scripts/train_external_route_rl.py:create_phase_profile": [
+      421,
+      426
+    ],
+    "scripts/train_external_route_rl.py:flush_phase_profile": [
+      429,
+      439
+    ],
+    "scripts/train_external_route_rl.py:round_profile_kind": [
+      442,
+      443
+    ],
+    "scripts/train_external_route_rl.py:train": [
+      446,
+      645
+    ]
+  },
+  "purpose": "Read-only deployed code citations; no runtime import or executable source change"
+}
