@@ -1,5 +1,5 @@
 {
-  "status": "SUBMITTED",
+  "status": "ACTOR_READY_FRESH_COLLECTION",
   "task_flag": "meteor_mechet_stage2_native_process_grpo_4h20_zjk_20261115_01",
   "instance": "8b1d8208a1cfaa4801a1defb49e91919",
   "submitted_at": "2026-11-15T11:32:51.977666+00:00",
@@ -83,9 +83,10 @@
   },
   "latest_platform_observation": {
     "platform_state": "TRAINING_RUNNING",
-    "observed_at": "2026-11-15T19:36:49.466740+08:00",
+    "observed_at": "2026-11-15T19:42:53.309582+08:00",
     "saved_optimizer_step": null,
-    "saved_checkpoint": null
+    "saved_checkpoint": null,
+    "training_event": "external-route-train-first"
   },
   "replaced_v8": {
     "task_flag": "meteor_mechet_stage2_external_route_drgrpo_4h20_zjk_20261114_action_v8_02",
@@ -97,5 +98,140 @@
   },
   "configuration_review": "accepted; no critical or important blocker",
   "fresh_policy_gain": null,
-  "full_valid_result": null
+  "full_valid_result": null,
+  "actor_ready": {
+    "verified_actor_ranks": 4,
+    "ranks": [
+      {
+        "event": "external-route-actor-ready",
+        "rank": 0,
+        "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+        "actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+        "algorithm": "external_target_only_route_process_grpo_v1",
+        "contract_sha256": "e53226874e46d83a5fe03d9f77ab1e9064df67f3739a64107e4cb59712f264f1",
+        "gpu_name": "NVIDIA H20",
+        "visible_gpu_count": 4,
+        "train_targets": 23730,
+        "total_rounds": 371,
+        "next_round": 0,
+        "time": 1794742808.5078738,
+        "torch_version": "2.6.0+cu118",
+        "transformers_version": "5.5.0",
+        "peft_version": "0.18.1",
+        "rdkit_version": "2026.03.4",
+        "teacher_action_tokens": 0
+      },
+      {
+        "event": "external-route-actor-ready",
+        "rank": 1,
+        "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+        "actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+        "algorithm": "external_target_only_route_process_grpo_v1",
+        "contract_sha256": "e53226874e46d83a5fe03d9f77ab1e9064df67f3739a64107e4cb59712f264f1",
+        "gpu_name": "NVIDIA H20",
+        "visible_gpu_count": 4,
+        "train_targets": 23730,
+        "total_rounds": 371,
+        "next_round": 0,
+        "time": 1794742808.5208037,
+        "torch_version": "2.6.0+cu118",
+        "transformers_version": "5.5.0",
+        "peft_version": "0.18.1",
+        "rdkit_version": "2026.03.4",
+        "teacher_action_tokens": 0
+      },
+      {
+        "event": "external-route-actor-ready",
+        "rank": 2,
+        "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+        "actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+        "algorithm": "external_target_only_route_process_grpo_v1",
+        "contract_sha256": "e53226874e46d83a5fe03d9f77ab1e9064df67f3739a64107e4cb59712f264f1",
+        "gpu_name": "NVIDIA H20",
+        "visible_gpu_count": 4,
+        "train_targets": 23730,
+        "total_rounds": 371,
+        "next_round": 0,
+        "time": 1794742808.5257409,
+        "torch_version": "2.6.0+cu118",
+        "transformers_version": "5.5.0",
+        "peft_version": "0.18.1",
+        "rdkit_version": "2026.03.4",
+        "teacher_action_tokens": 0
+      },
+      {
+        "event": "external-route-actor-ready",
+        "rank": 3,
+        "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+        "actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+        "algorithm": "external_target_only_route_process_grpo_v1",
+        "contract_sha256": "e53226874e46d83a5fe03d9f77ab1e9064df67f3739a64107e4cb59712f264f1",
+        "gpu_name": "NVIDIA H20",
+        "visible_gpu_count": 4,
+        "train_targets": 23730,
+        "total_rounds": 371,
+        "next_round": 0,
+        "time": 1794742808.5237117,
+        "torch_version": "2.6.0+cu118",
+        "transformers_version": "5.5.0",
+        "peft_version": "0.18.1",
+        "rdkit_version": "2026.03.4",
+        "teacher_action_tokens": 0
+      }
+    ]
+  },
+  "initial_collection": {
+    "observed_at": "2026-11-15T11:42:46.774855+00:00",
+    "scope": "initial fresh collection; no optimizer update or chemistry gain claim",
+    "ranks": [
+      {
+        "rank": "rank00",
+        "event_counts": {
+          "gpu-requested": 3,
+          "gpu-returned": 2,
+          "gpu-batch-timing": 2,
+          "behavior-receipt": 128
+        },
+        "requested_actions": 192,
+        "returned_actions": 128,
+        "behavior_receipts": 128
+      },
+      {
+        "rank": "rank01",
+        "event_counts": {
+          "gpu-requested": 3,
+          "gpu-returned": 2,
+          "gpu-batch-timing": 2,
+          "behavior-receipt": 128
+        },
+        "requested_actions": 189,
+        "returned_actions": 128,
+        "behavior_receipts": 128
+      },
+      {
+        "rank": "rank02",
+        "event_counts": {
+          "gpu-requested": 4,
+          "gpu-returned": 3,
+          "gpu-batch-timing": 3,
+          "behavior-receipt": 191
+        },
+        "requested_actions": 255,
+        "returned_actions": 191,
+        "behavior_receipts": 191
+      },
+      {
+        "rank": "rank03",
+        "event_counts": {
+          "gpu-requested": 4,
+          "gpu-returned": 3,
+          "gpu-batch-timing": 3,
+          "behavior-receipt": 192
+        },
+        "requested_actions": 220,
+        "returned_actions": 192,
+        "behavior_receipts": 192
+      }
+    ]
+  }
 }
