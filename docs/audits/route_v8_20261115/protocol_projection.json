@@ -1,0 +1,53 @@
+{
+  "algorithm": "external_target_only_route_dr_grpo_v2",
+  "dataset_manifest_sha256": "f11e6909e466c003ce112018db4d07cffa4033dce2984a0a8ff1cae931e8aa79",
+  "train_targets": 23730,
+  "validation_targets": 2986,
+  "parent": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr96_flower_qwen35_08b_mainonly_20261023_06/models/history/checkpoint-89442",
+  "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "world_size": 4,
+  "gpu_name": "H20",
+  "candidates": 4,
+  "epochs": 1,
+  "products_per_round": 64,
+  "max_context": 32768,
+  "max_action_tokens": 2048,
+  "episode_token_budget": null,
+  "max_consecutive_recoveries": 8,
+  "generation_batch_size": 64,
+  "loss_batch_size": 1,
+  "public_observation_contract": "route_action_feedback_v8",
+  "reward_contract": "hidden_split_reference_trusted_ancestry_AND_stock_closure_v2",
+  "partial_reward_weight": 0.2,
+  "kl_beta": 0.02,
+  "clip_epsilon": 0.2,
+  "loss_token_normalizer": 1024.0,
+  "scale_rewards": false,
+  "gt_weight": 0.0,
+  "learned_critic": false,
+  "validation_protocol": {
+    "id": "external_native_valid_g4_v2",
+    "seed": 17,
+    "candidates": 4,
+    "temperature": 1.0,
+    "top_p": 1.0,
+    "top_k": 0,
+    "fractions": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0
+    ],
+    "selection_metric": "verified_closed_at_4_lower_bound",
+    "tie_break": [
+      "censored_root_fraction",
+      "decision_requests_per_root",
+      "earlier_checkpoint"
+    ]
+  },
+  "inference_backend_effective": "hf",
+  "route_memory_enabled": false,
+  "original_contract_sha256": "07f202555705fcba65ff2b60b8e37a0c9c85aa24fcb5c299340e5fba7ab21262",
+  "purpose": "Reviewed field projection, not a submittable configuration"
+}

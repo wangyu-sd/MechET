@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "verified_source_files": 17,
+  "verified_code_links": 54,
+  "function_line_links": 37,
+  "full_file_links": 17,
+  "saved_rounds_reproduced": 16,
+  "diagnostic_round": 15,
+  "diagnostic_episode_denominator": 256,
+  "selected_checkpoint_actual_weight_verified": true,
+  "median_collection_seconds": 4326.661968207452,
+  "runtime_modified": false,
+  "new_model_experiment": false,
+  "review_findings_corrected": [
+    "Cumulative censor labels do not infer all-round truncation causes from one round",
+    "Even-size median uses statistics.median"
+  ],
+  "verification_scope": "read-only saved-data reproduction, source SHA, AST line anchors, JSON and aggregate arithmetic; no full project or GPU test claim"
+}
