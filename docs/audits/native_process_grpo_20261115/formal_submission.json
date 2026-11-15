@@ -1,0 +1,101 @@
+{
+  "status": "SUBMITTED",
+  "task_flag": "meteor_mechet_stage2_native_process_grpo_4h20_zjk_20261115_01",
+  "instance": "8b1d8208a1cfaa4801a1defb49e91919",
+  "submitted_at": "2026-11-15T11:32:51.977666+00:00",
+  "create_returncode": 0,
+  "start_returncode": 0,
+  "contract_sha256": "e53226874e46d83a5fe03d9f77ab1e9064df67f3739a64107e4cb59712f264f1",
+  "verified_inputs": 453,
+  "source_files": 392,
+  "source_snapshot_sha256": "18ef06dc7ebcbaca1d98eb5c5229fb0fefcbb307d7572887ecb9cde19e40305e",
+  "condition": {
+    "algorithm": "external_target_only_route_process_grpo_v1",
+    "experimental_condition": "sft_native_process_grpo_v1_full_external_train23730_valid2986",
+    "source_commit": "bb4d9da2e977aeb2096ba3c8832bd42c82bf4781",
+    "world_size": 4,
+    "gpu_name": "H20",
+    "candidates": 4,
+    "epochs": 1,
+    "seed": 17,
+    "train_targets": 23730,
+    "validation_targets": 2986,
+    "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+    "public_observation_contract": "route_sft_aligned_feedback_v9",
+    "process_reward": {
+      "version": "trusted_progress_bounded_validator_cost_v1",
+      "progress_weight": 0.2,
+      "validator_weight": 0.05,
+      "cost_scale": 4.0,
+      "repeat_extra": 1.0,
+      "cycle_cost": 2.0
+    },
+    "advantage_estimator": "centered_action_return_to_go_no_std",
+    "loss_type": "dr_grpo",
+    "scale_rewards": false,
+    "clip_epsilon": 0.2,
+    "kl_beta": 0.02,
+    "loss_token_normalizer": 1024.0,
+    "learning_rate": 2e-06,
+    "policy_precision": "bf16_autocast",
+    "policy_allow_tf32": true,
+    "max_action_tokens": 2048,
+    "max_context": 32768,
+    "partial_reward_weight": 0.2,
+    "dataset_manifest_sha256": "f11e6909e466c003ce112018db4d07cffa4033dce2984a0a8ff1cae931e8aa79",
+    "reward_contract": "trusted_progress_bounded_validator_cost_v1",
+    "validation_protocol": {
+      "id": "external_native_valid_g4_v2",
+      "seed": 17,
+      "candidates": 4,
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "top_k": 0,
+      "fractions": [
+        0.0,
+        0.25,
+        0.5,
+        0.75,
+        1.0
+      ],
+      "selection_metric": "verified_closed_at_4_lower_bound",
+      "tie_break": [
+        "censored_root_fraction",
+        "decision_requests_per_root",
+        "earlier_checkpoint"
+      ]
+    },
+    "initial_baseline": {
+      "timing": "after_training",
+      "kind": "fresh_frozen_initial_actor",
+      "parent_output": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/external_stage2_native_process_grpo_20261115_01",
+      "reference_actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453"
+    },
+    "preflight_software_evidence": {
+      "sft_alignment": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/diagnostics/native_process_grpo_20261115_01/sft_alignment.json",
+      "affected_tests_passed": 96,
+      "pinned_runtime_tests_passed": 19,
+      "saved_v8_rescore": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/diagnostics/native_process_grpo_20261115_01/saved_rescore.json",
+      "experimental_results": false
+    },
+    "entry_archive_sha256": "0c86461f48cfa3b0ad8d6484dfb558a6eaf8d1b6b24fafbb732cb894a2c84f1c",
+    "runtime_archive_sha256": "cf0276843d01faf90fd2c13529c578d464673ab4d756e8d6a289ca295c26d911"
+  },
+  "latest_platform_observation": {
+    "platform_state": "TRAINING_RUNNING",
+    "observed_at": "2026-11-15T19:36:49.466740+08:00",
+    "saved_optimizer_step": null,
+    "saved_checkpoint": null
+  },
+  "replaced_v8": {
+    "task_flag": "meteor_mechet_stage2_external_route_drgrpo_4h20_zjk_20261114_action_v8_02",
+    "optimizer_step": 19,
+    "complete_sha256": "b343ddfa6e405c3af8aa1326b97ec916482b90e4bf5bd435a2c211c7de1b1af0",
+    "verified_payloads": 5,
+    "stop_returncode": 0,
+    "checkpoint_files_retained": true
+  },
+  "configuration_review": "accepted; no critical or important blocker",
+  "fresh_policy_gain": null,
+  "full_valid_result": null
+}
