@@ -1,0 +1,86 @@
+{
+  "status": "FOCUSED_SOFTWARE_AND_DATA_VERIFIED_NOT_EXPERIMENTAL_RESULTS",
+  "private_runtime_base": "6223b1de6494694ea3cbd12e08465bc6b97b4437",
+  "source_commit": "de2371de135fa60ec9752ff5d5a5da6e94b5d7e5",
+  "pr109_head": "3b58162978349783e8024a9ed1d4b53e1e1b1849",
+  "focused_tests": {
+    "complete_suite_passed": 214,
+    "seconds": 285.53,
+    "last_affected_suite_passed": 67,
+    "last_seconds": 110.41,
+    "overlap": true
+  },
+  "independent_review": {
+    "critical": 0,
+    "important_found": 2,
+    "important_fixed": 2,
+    "minors": 0,
+    "fixes": [
+      "pending draw slots and unique monotone namespaces",
+      "atomic retained-node capacity",
+      "durable async predecessor ordering"
+    ]
+  },
+  "starting_actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "datasets": {
+    "D3": {
+      "train_source_rows": 156723,
+      "valid_source_rows": 8250,
+      "reaction_occurrences": 377817,
+      "manifest_sha256": "c4d60caf1cdaed8783805fcc01f39a126297c3a8b3c7c0bfb941d15bcbd56941"
+    },
+    "D2": {
+      "train_source_rows": 160670,
+      "valid_source_rows": 8456,
+      "reaction_occurrences": 460491,
+      "manifest_sha256": "ece2ea94c9322a9696bf6124edf96452d9e0bde26eba1a8d3dd5b33fcf29c04e"
+    }
+  },
+  "benchmark_inputs_manifest_sha256": "9754e96e551f27eac3a4d5dec109c11b80e5fc88a2cc393453a0f8be6d7000e5",
+  "self_distillation": "exporter_and_native_CE_updater_verified_CPU_only_real_training_requires_completed_Standard_actor",
+  "external_baselines": "structure_exporters_prepared_external_model_execution_pending",
+  "candidate01": "DO_NOT_SUBMIT_SUPERSEDED",
+  "files_sha256": {
+    "docs/ops/PR109_BASELINE_READINESS_20261116.md": "9232020dc71fb3909121b96b6923f9ed6052de257f1f028a10fe23ee355f81c3",
+    "docs/ops/PR109_EXECUTION_20261116.md": "4f17090885eef14552cfb5017a755f0b405203afaa897c0ba8f2c0c585bbe57b",
+    "docs/ops/PR109_SELF_DISTILL_20261116.md": "7472a86dff14febf792035564b7217caa0b5e4b5528e4502769fb10412f7c8a7",
+    "docs/superpowers/plans/2026-11-16-pr109-refit-po.md": "7d02317d9cd4ffd266ca4b8a79c36ab40ceef0a1cca691d70d34f6cf953802fd",
+    "docs/audits/pr109_refit_20261116/source/scripts/prepare_external_route_rl.py": "8048ca66a0e1f5a2a5234c3b3c04316e93c3dbe97afc1a6cc19b48703b12143a",
+    "scripts/prepare_route_self_distill.py": "193505adf827cd5233f7582db7e1a9a04fe53cbd1494717e2a7e6dd3fbeac97f",
+    "scripts/prepare_standard_route_data.py": "58a6600fa39d8e464864ade029d4079d7a4466b5c97587b702028596b9dd1c6c",
+    "scripts/prepare_standard_route_rl.py": "c07af1659d6d3c1fd861e96f748dee14ca6f96c2df253634ffcb0877abf39566",
+    "docs/audits/pr109_refit_20261116/source/scripts/train_external_route_rl.py": "cf10b6767a76400a61411e46a969e83ca5a98f868833c088603e4ca08ca2f4d5",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/external_route_rl.py": "b26ac6d99f3069c640656c4c01d73c11f53ef3423058cc13277bce26bc4c4684",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/route_async_collection.py": "6c857020939f7d1b4ec7fab7a730d53cfe1689e0caab908c9fe8535150ec4cd4",
+    "src/mechet/route_baseline_export.py": "4b24602273eb7bd64fb1964b36d92227e6165eac2b61ef3c212cc9623f7fcafc",
+    "src/mechet/route_failure_policy.py": "239936c42ba8e972b145ff7169bee29e184a7d2e407c0419c8b0bd07ca908a32",
+    "src/mechet/route_flow_credit.py": "44478e7189f25c1656c6422538ebe4ed8feb0d8a968cc11764f4ddfe17c0a46f",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/route_policy_episode.py": "c58f544121dc24219a62b4d7fcdf784cbb53e0db6a987ff680d581f66bb6fb2d",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/route_policy_sampling.py": "83136a1eff11c3a01295069dc60b71ce834760f794a92d5893fd31e50434971c",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/route_process_reward.py": "cc496eccc72db414c2305111912c652c773d8966343cb82d7f293b47ce7e95cb",
+    "src/mechet/route_refit.py": "313511a8d75d98de85b5a37086c1f612fc56a2dc243e3d633e7bdab5f268a844",
+    "src/mechet/route_refit_credit.py": "c45cc6fe08f484591f82971f047f43a068a83223f3776d3a39c3a94f0120d7fd",
+    "src/mechet/route_refit_runtime.py": "9d7be011102e8e73846413d0add47bfcfbc64a7924275813f59184b8d6f421ad",
+    "src/mechet/route_self_distill.py": "f3173d0c0040a21396a8921dcfb58410bfa3a060968648db7a5820e99f4d3120",
+    "src/mechet/route_self_distill_runtime.py": "1f2b4154636e221a9ba88d43ef9a5c10144b74f436b7f2c8c13140ed97e2e322",
+    "src/mechet/route_standard_contract.py": "8d9d82a03a0dacc06e51236b8038a72073a2943ff11af8c14ad931df660aba4a",
+    "src/mechet/route_standard_data.py": "37a215e781d7183a976ea7a8a95daf406d48f0fee4c5c36f1058cdab1e3472e1",
+    "docs/audits/pr109_refit_20261116/source/tests/test_route_async_runtime.py": "ee03ab31cc043d3e1588b1a86c0b7787205cb2fd173c0adf7f92add3f01a8369",
+    "tests/test_route_baseline_export.py": "4c6e1652d9e4978d7979b3654cb7aa1073802fee09d8da71c67d2425ffde0766",
+    "tests/test_route_first_rejection.py": "b1bb525fb8ec147c8cc983683f5ad3301ec9b26e6450ee2339010493d33e0fc1",
+    "tests/test_route_flow_credit.py": "9e2055b64fdd7a36f4817cb1a2a6641eefc2a3018507b6c742011379c9d96b5a",
+    "tests/test_route_refit.py": "228a0f0ff791d6c0ee3bf08f8d182cb968e5dca0c185d4c7fb89a835afb0103e",
+    "tests/test_route_refit_credit.py": "4c36ea820b3bf395befdbc1d9c7452da01cf9d11b15ff3e8b16b272e08708ba2",
+    "tests/test_route_self_distill.py": "24b347bf0508c547aea79bba6e84cb89d9a8461348ecaa8eeb9b37aa49c1c3be",
+    "tests/test_route_self_distill_runtime.py": "2615520ecce4f76db88cac6a6e8abf3a30c55f904f380de6b0fb84f25cb0ec55",
+    "tests/test_route_standard_contract.py": "961ad1c49af5850b142b7872abebd9e14c59a3b6abb4c13bbee8bc468f6a18bc",
+    "tests/test_route_standard_data.py": "3a9e2c1bcb832ce2f5fb4c5821760bd6ef13bdd44fa74cef7e34238d9c932214",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/external_route_data.py": "358910be0a303b6423a2d5df0be68cdf65cf65956c90d9f7758920fd1eecd515",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/route_native_observation.py": "bfa09ace7fc9505cb8f0e8a61f024fe452ed863b6d3df2b7ccde636176b24b8e",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/route_materials.py": "080046874e9005d7b12396cc5e467873a4c8b5bd46aff7c669122d2c7abebb85",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/external_route_actor.py": "033b9200fba4871a18ff32569e2e016b257eaf299020ddc366cc7494bfda9cf9",
+    "docs/audits/pr109_refit_20261116/source/src/mechet/route_policy_objective.py": "0170c13c925158fa33b917c52cd2e7a380f1bd11edebdc34edc8d515f4e0319e",
+    "patches/pr109_standard_refit_20261116.patch": "ad5e71629e600c739084463a7503a4e0bee396a2fd9bf7b866f21e5423e691c0",
+    "docs/audits/pr109_refit_20261116/README.md": "000b436c1e03f0c4159c397ae1b2f3fd21d4b3652ec85b20601ab4a50b1efd23"
+  }
+}
