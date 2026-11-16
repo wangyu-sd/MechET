@@ -1,4 +1,8 @@
 # Retro-E: Progressive ReFIT-PO, Forward Verification and Final Search-to-Policy Distillation
+
+> **Community-standard DATA/BENCHMARK authority (2026-11-16):** [PaRoutes/RetroCast standard route training and matched RetroChimera+Syntheseus baselines](RETRO_E_STANDARD_MULTISTEP_TRAIN_AND_BASELINES_20261116.md).
+> The linked addendum supersedes any older statement in this plan that called the project-specific **460 target collection** the main *standard* public benchmark. Main standard training: published RetroCast PaRoutes **reaction-holdout-n1-n5** TRAIN/VALID, with route-holdout ablation; public headline testing: **RetroCast Reference 1,084** then **PaRoutes n5 10,000**, and Retro-E 460 retained as supplementary. The existing frozen 23,730/2,986 TRAIN/VALID remains a historical/legacy route-RL condition and is not renamed as the entire official training release. **Final TRAIN-only ReFIT search-to-policy distillation is unchanged and mandatory.**
+
 **Research and Codex implementation plan | 2026-11-16 | proposal, not completed experiments**
 
 ## 0. Decisions to freeze
