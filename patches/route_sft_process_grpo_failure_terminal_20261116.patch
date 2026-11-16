@@ -1,7 +1,7 @@
 diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_route_rl.py
 --- a/scripts/prepare_external_route_rl.py
 +++ b/scripts/prepare_external_route_rl.py
-@@ -184,49 +184,52 @@
+@@ -184,39 +184,42 @@
      code_root = Path(__file__).resolve().parents[1]
      frozen_sources=source_files(code_root)
      from mechet.route_runtime_efficiency import PROFILE,kernel_config_bindings
@@ -52,7 +52,7 @@ diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_rou
 diff --git a/src/mechet/route_process_reward.py b/src/mechet/route_process_reward.py
 --- a/src/mechet/route_process_reward.py
 +++ b/src/mechet/route_process_reward.py
-@@ -23,7 +23,8 @@
+@@ -23,5 +23,6 @@
      if (cfg.get('process_reward')!=CONFIG or cfg.get('reward_contract')!=VERSION or
              cfg.get('advantage_estimator')!='centered_action_return_to_go_no_std' or
              cfg.get('public_observation_contract')!=NATIVE_SFT_ROUTE or
