@@ -144,17 +144,16 @@ ReFIT 是采样规范，不得把 PUCT 分数、节点访问次数或确定性�
 
 ### 4.1 哪些情况属于失败
 
-当 Executor 对模型生成的 FLOW 返回明确的非资源性拒绝，并且没有产生有效化学状态转移时，该 FLOW 是失败动作。包括但不限于：
+失败必须根据 Executor receipt、当前 occurrence 的有效 FLOW 历史和精确状态判断，至少分别识别：
 
-- 当前状态不存在的电子来源键；
-- 不合法的 source / sink；
-- 不满足当前 BE 状态的电子转移；
-- 不合法的键级/电荷变化；
-- 原子映射或电子容器引用错误；
-- Executor 明确判定的化学非法或无效事件；
-- 明确的循环/非生产性状态转移拒绝。
+- **Invalid FLOW**：Executor 明确拒绝非法 source/sink、BE transition、bond/charge change、atom reference 或其他化学无效操作。
+- **Premature FINISH**：当前 reaction occurrence 尚无任何 accepted、productive、state-changing FLOW，就提交 FINISH。
+- **Repeated FINISH**：同一 occurrence、同一精确状态下重复提出已拒绝的相同语义 FINISH。
+- **Repeated failed FLOW**：同一 occurrence/state 下重复提出已拒绝的相同语义 FLOW。
+- **Other non-resource rejection**：无效 IMPORT、格式错误及其他由环境/Executor 明确拒绝的动作。
+- **Verified non-progressive FLOW**：只有 Executor contract 明确禁止 no-op，且独立状态重建确认没有任何允许的 BE/charge/graph transition 时才可处罚；不得仅凭 canonical SMILES 相同判定。
 
-格式错误、无法解析的动作以及无效 IMPORT / FINISH 也遵循首次非资源性拒绝即终止的 Episode 契约，但本算法的重点统计必须单独报告 FLOW rejection。
+一次有效 FLOW 后 FINISH 可以合法；不得把只需一个 elementary FLOW 的反应误判为 premature FINISH。成功 FINISH 会创建新的 precursor occurrence，新 occurrence 按自己的 FLOW 历史判断。统计必须分开报告上述类别。
 
 ### 4.2 哪些情况不是化学失败
 
@@ -169,17 +168,20 @@ ReFIT 是采样规范，不得把 PUCT 分数、节点访问次数或确定性�
 
 分类不明确时 fail closed：标记为 unknown/censored，不要猜测为化学错误。
 
-### 4.3 首次拒绝即终止
+### 4.3 单条 rollout 首次拒绝即终止；ReFIT 父节点仍可重新展开
 
-对每条采样分支：
+1. 保留失败动作的原始生成文本、token IDs、behavior log-probs、request ID 和真实 Executor error。
+2. 将失败动作 edge 标记为 `REJECTED_TERMINAL`；Executor 未改变状态时，不创建虚假 child chemical state。
+3. 当前 sampled rollout 在首次非资源性拒绝处终止，不在同一个 Episode 中追加失败恢复 Prompt 或连续 RETRY。
+4. 将失败语义动作 key 写入 parent node 的 rejected-action ledger。
+5. **Parent chemical state 不自动变成 FAILED。** 尚有未探索动作时标记 `OPEN_WITH_REJECTIONS`。
+6. ReFIT 可回到失败 edge 的 parent node，从相同保存状态/Observation 独立采样另一个动作；若 parent 已耗尽，则回溯到最近 OPEN ancestor。
+7. 新分支复用已接受的共享前缀，只生成新的 suffix；共享前缀 action receipt 不得复制进入 Policy Loss。
+8. 如果模型再次采样同一已拒绝的语义动作，不重新调用 Executor；保存这次新生成的 tokens/log-probs，记录 duplicate rejected proposal，并使用现有 repeat_extra 产生有界重复成本。
+9. 只有当候选动作或预设 expansion budget 耗尽且没有新动作时，才将 parent node 标记为 `EXHAUSTED`。
+10. 同一树的其他 sibling branches 独立继续。
 
-1. 保留失败 FLOW 的原始生成文本、token IDs、behavior log-probs、request ID 和真实 Executor error。
-2. 记录一次失败事件。
-3. 当前 branch 立即终止，不再发起 RETRY / repair generation。
-4. 不允许通过同一状态下重复生成相同失败动作来获取更多尝试。
-5. 同一 ReFIT 树中的其他兄弟分支继续展开，不因一个 sibling 失败而终止整棵树。
-
-失败 FLOW 必须作为真实的 policy action 保留在训练数据中；不能删掉失败 token，也不能只保存成功分支。
+这不是 failure replay：旧失败不会作为模型可见的恢复示范，也不会在同一 rollout 中反复重试。它是 ReFIT 从保存的 parent state 发起新的 sibling sampling。失败边保留为真实负向训练样本，不能只保留成功分支。详见第 13 节的规范状态机和回溯协议。
 
 ### 4.4 失败奖励：复用现有有界 validator cost，不重复叠加
 
@@ -210,29 +212,27 @@ r_t^{failure}
 
 这是小额、明确、可审计的负向动作奖励。它与失败路线的 route terminal correction 共同起作用；不能仅靠放大惩罚系数解决失败循环。
 
-### 4.5 失败路线撤销未完成的部分路线进展
+### 4.5 失败 rollout 撤销未完成的部分路线进展
 
-若一次完整 Route Episode 在非资源性 FLOW rejection 处终止，则该路线没有完成：
+若一条具体 root-to-leaf rollout 在 Invalid FLOW、Premature FINISH 或其他非资源性拒绝处终止，则该条 rollout 的 route task reward 为 0：
 
-\[
-B_{\mathrm{failed\ route}}=0
-\]
+[
+B_{mathrm{failed rollout}}=0
+]
 
-此前尚未形成完整库存闭合路线的部分 route progress 必须撤销。可以把撤销项作为失败动作处的 terminal correction：
+此前尚未形成完整路线的 partial route progress 必须在该 rollout 的 reward ledger 中撤销：
 
-\[
+[
 r_t^{rollback}=-q_{t-1}
-\]
+]
 
-最终失败 Episode 的奖励和应满足：
+最终失败 rollout 的 reward sum 只保留有界 validator failure cost：
 
-\[
-\sum_u r_u=-\eta C_T
-\]
+[
+sum_u r_u=-eta C_T
+]
 
-也就是说，失败路线不能因为此前 FINISH 过一条参考支持反应边，就仍然拿到正的完整任务奖励。此前的进展记录仍需保留用于诊断，但不能继续形成失败路线的净正 route reward。
-
-**注意分支级语义：** 在同一 ReFIT parent node 下，一个 FLOW sibling 失败只终止这个 sibling；它的失败回报进入这个分支的 suffix return。其他兄弟分支可继续并完成路线。不要把一个 sibling 的失败错误地传播成整棵树的失败。
+这个 rollback 只作用于该条失败 rollout，不能回滚其他已经成功闭合的 sibling route，也不能把失败 sibling 的结果传播成整个 ReFIT tree 的失败。parent node 仍可由 ReFIT 重新展开。
 
 ### 4.6 已有离线证据（不是新训练收益）
 
@@ -539,19 +539,22 @@ r_{i,t}^{route}
 
 不得假设 #108 已合并；先基于最新 #107 代码核对并整合，避免重复实现或覆盖新提交。
 
-### Task 1 — 首次 FLOW 失败终止和负向信用
+### Task 1 — 失败类型识别、负向信用与 ReFIT 回溯
 
 实现并测试：
-- 非资源性 FLOW rejection 立即终止当前 branch；
-- failed FLOW action 保留 token / behavior receipt；
-- route task reward=0；
-- 撤销之前尚未完成路线的 partial route progress；
-- 保留一次现有 bounded validator cost；
-- 不重复叠加新的 FLOW-specific penalty；
-- 资源删失 reward=None；
-- 兄弟分支继续执行。
+- 非资源性 FLOW rejection 立即终止当前 sampled rollout；
+- 无有效、状态改变 FLOW 就 FINISH 时识别并惩罚 premature FINISH；
+- 同一 occurrence/state 下重复 FINISH 或重复已拒绝语义动作，使用现有 repeat_extra；
+- failed action 保留 token / behavior receipt；
+- 失败 rollout 的 route task reward=0，撤销该 rollout 此前未完成路线的 partial progress；
+- 复用现有 bounded validator cost，不重复叠加 FLOW-specific penalty；
+- 资源删失 reward=None，不标记为化学失败；
+- 失败 edge 终止，但 parent node 仍可 OPEN_WITH_REJECTIONS；
+- ReFIT 可回到 parent 或最近 OPEN ancestor 采样其他动作；
+- 同语义失败动作不重新执行 Executor；duplicate proposal 保留 token/log-prob、有界计费；
+- 兄弟分支独立继续。
 
-### Task 2 — 同状态节点识别
+### Task 2 — 同状态节点识别与失败状态机
 
 实现：
 - exact decision context hash；
@@ -559,6 +562,10 @@ r_{i,t}^{route}
 - semantic action key；
 - policy version binding；
 - shared prefix 唯一记录；
+- OPEN、OPEN_WITH_REJECTIONS、EXHAUSTED、SOLVED、EXPANDED、REJECTED_TERMINAL、CENSORED 状态；
+- rejected semantic-action ledger；
+- backtrack target 选择（失败动作 parent 优先，其次最近 OPEN ancestor）；
+- 有界 duplicate proposal / expansion ceiling；
 - 不能把相同 canonical SMILES 但不同 history/context 合并。
 
 ### Task 3 — Branch suffix return 和 conditional Advantage
