@@ -12,11 +12,11 @@ ReFIT-PO 不是新的 RL 框架，不替换 GRPO，不修改 ReFIT 的采样职�
 本轮同时明确 FLOW 失败处理：
 
 - Executor 明确拒绝的非资源性 FLOW 是一个真实失败动作；
-- 失败分支立即终止，不再 RETRY；
+- 单条采样 rollout 在首次非资源性拒绝后立即终止；但 ReFIT 将失败记录在 action edge 上，父节点仍可回溯并重新采样其他动作；
 - 失败 FLOW 动作获得现有有界 validator failure penalty；
-- 失败路线的 route task reward 置零，并撤回此前尚未形成完整路线的部分 route progress；
+- FLOW 失败、无有效 FLOW 的 premature FINISH、同状态 repeated FINISH 均产生有界负向信用；失败 rollout 的 route task reward 置零，并撤回此前未完成路线的部分 progress；
 - 失败分支作为负向样本保留在同状态兄弟分支组中；
-- 同一棵树中的其他兄弟分支继续运行；
+- 失败 edge 不会杀死 parent chemical state；ReFIT 可以从 parent 或最近 OPEN ancestor 重新展开，其他兄弟分支继续运行；
 - GPU、显存、上下文、超时等资源删失不是化学失败，不得处罚。
 
 **FlowER 本轮明确不接入。** FlowER 是后续可选的正向机理验证器；本任务不增加 FlowER 推理服务、依赖、队列、模型加载或训练损失。RetroChimera 保留为当前逆向反应知识来源，可提供已缓存且可可靠映射的分支证据；它不替代真实路线回报。
@@ -710,3 +710,145 @@ Codex 可以实现代码、测试、文档和离线回放，但不得提交或�
 它要解决的问题是：
 
 **在同一个化学状态下，比较不同逆向电子流决策的真实后续路线价值，并明确惩罚 Executor 拒绝的无效 FLOW，从而让长期合成结果更精确地作用于电子流层级的策略决策。**
+
+
+---
+
+## 13. 2026-11-16 clarification — Failure-aware ReFIT backtracking and FINISH penalties (normative)
+
+本节是对前文“失败分支立即终止”“不允许重复尝试”等表述的精确定义；若前文存在歧义，以本节为准。
+
+**Fail-fast applies to one sampled rollout, not to the parent chemical state or the whole ReFIT tree.** 一个被拒绝的动作是失败 edge，不意味着它的 parent state 没有其他合法后继。
+
+### 13.1 必须处罚的动作类型
+
+本轮失败惩罚不局限于 FLOW rejection。至少区分：
+
+1. **Invalid FLOW**：Executor 明确拒绝 source/sink、BE transition、bond/charge change、atom reference 或其他化学非法操作。
+2. **Premature FINISH**：当前 reaction occurrence 尚无任何 accepted、productive、state-changing FLOW，就提交 FINISH。
+3. **Repeated FINISH**：同一 reaction occurrence、同一精确状态下，重复提出此前已拒绝的相同语义 FINISH。
+4. **Repeated failed FLOW**：同一 occurrence/state 下再次提出此前已拒绝的相同语义 FLOW。
+5. **Other non-resource rejection**：无效 IMPORT、格式错误、过早 FINISH 等其他由环境/Executor 明确拒绝的动作。
+6. **Verified non-progressive FLOW**：只有在 Executor contract 明确禁止 no-op，且状态重建确认没有任何允许的 BE/charge/graph transition 时才可处罚；不能仅凭 canonical SMILES 相同判定。
+
+**合法的一次 FLOW 后 FINISH 不受惩罚。** 这里的“一步就 FINISH”专指没有任何有效 FLOW 就立即 FINISH，不是只需要一个 elementary FLOW 的合法反应。
+
+若 FINISH 在新 occurrence 中发生，必须根据新 occurrence 自己的 FLOW 历史判断，不能因前一个 occurrence 已经 FINISH 而处罚。
+
+### 13.2 复用现有有界 validator cost，不叠加重复 penalty
+
+现有 \`route_process_reward.py\` CONFIG 已包含普通错误、重复错误和循环错误的权重规则。Codex 必须先核对最新代码及 PR #108 的合同，再决定如何映射，不得自行发明另一套惩罚系数。
+
+- 首次 Invalid FLOW：按普通非资源性拒绝计一次成本。
+- 首次 Premature FINISH：按普通非资源性拒绝计一次成本。
+- 同一状态/occurrence/semantic action 的重复 FINISH 或重复 FLOW：使用现有 \`repeat_extra\` 增量。
+- 明确循环：使用现有 \`cycle_cost\`。
+- 不额外再加一个 FLOW-specific penalty，以免同一拒绝被重复扣分。
+
+如果当前环境会接受“没有有效 FLOW 的 FINISH”，必须增加环境侧 FINISH precondition guard，生成可审计的 synthetic rejection receipt；保留模型真实生成的 FINISH token 和 behavior log-prob。若 Executor 已经拒绝，则复用其真实 receipt，不能重复处罚。
+
+### 13.3 失败 edge 与 parent node 的状态必须分开
+
+建议的状态机：
+
+| 对象 | 状态 | 含义 |
+|---|---|---|
+| Decision node | \`OPEN\` | 尚有可探索动作 |
+| Decision node | \`OPEN_WITH_REJECTIONS\` | 已有拒绝动作，但仍可探索其他动作 |
+| Decision node | \`EXHAUSTED\` | 候选动作/展开预算耗尽 |
+| Decision node | \`SOLVED\` | 找到满足当前路线目标的有效后续 |
+| Action edge | \`EXPANDED\` | Executor 接受并产生真实 child state |
+| Action edge | \`REJECTED_TERMINAL\` | 非资源性拒绝，只终止这个动作分支 |
+| Action edge | \`CENSORED\` | 资源/基础设施删失，不是化学失败 |
+
+每个 parent node 保存：
+
+\`\`\`python
+node.rejected_actions[semantic_action_key] = {
+    "failure_class": "INVALID_FLOW | PREMATURE_FINISH | REPEATED_FINISH | ...",
+    "failure_receipt_id": "...",
+    "failure_cost_weight": 1.0,
+    "repeat_count": 0,
+}
+\`\`\`
+
+拒绝动作没有改变状态，因此：
+- 失败 edge 设为 \`REJECTED_TERMINAL\`，不创建虚假的 child chemical state；
+- parent node 标记为 \`OPEN_WITH_REJECTIONS\`，而不是全局 FAILED；
+- ReFIT 优先回到该 parent node，使用完全相同的保存状态和 Policy Observation 采样其他候选；
+- 如果该 parent 已无未探索动作，则回溯到最近的 \`OPEN\` / \`OPEN_WITH_REJECTIONS\` ancestor；
+- 只有候选空间或预设 expansion budget 耗尽，才标记 \`EXHAUSTED\`。
+
+### 13.4 “重新采样”与“失败重试”必须严格区分
+
+**允许：**
+- 一条 rollout 在失败动作处结束；
+- ReFIT 把失败动作记录到 parent node 的 rejected-action ledger；
+- 从 parent 或最近 OPEN ancestor 建立一条新的 sibling rollout；
+- 新 rollout 复用已接受的共享前缀，只生成新的 suffix；
+- 同一树中的其他 sibling 独立继续。
+
+**不允许：**
+- 在同一 rollout 里把失败 assistant/tool exchange 拼入下一轮 Prompt 让模型修复；
+- 无上限地在同一状态重复生成同一个失败动作；
+- 将失败轨迹放入成功 replay buffer；
+- 将一个 failed edge 等同于 parent chemical state failed；
+- 因一个 sibling 失败而终止其他 sibling。
+
+如果策略再次采样同一个已拒绝的 semantic action：
+- 保留这次新生成的 token/log-prob；
+- 记录 \`DUPLICATE_REJECTED_PROPOSAL\`，关联此前失败 receipt；
+- 不再次调用 Executor；
+- 按现有 \`repeat_extra\` 增加一次有界重复成本；
+- 达到有限 duplicate-proposal ceiling 后停止该节点的重复采样，并在没有其他候选时标记 \`EXHAUSTED\`。
+
+这不是 failure replay buffer：模型没有看到旧失败作为恢复示范；这是新采样动作被环境依据失败动作账本拒绝。
+
+### 13.5 失败 rollout 的 route reward 与其他 sibling 隔离
+
+对某条具体失败 rollout：
+- terminal route task reward 为 0；
+- 撤回该 rollout 中此前尚未完成完整路线的 partial route progress；
+- 保留失败动作的 bounded validator cost；
+- 因此该失败 rollout 的 reward sum 只保留有界失败成本：
+  \[
+  \sum_t r_t=-\eta C_T
+  \]
+
+这个 rollback 只作用于该条失败 rollout 的 reward ledger。不能回滚其他已经成功闭合的 sibling route，也不能把失败 sibling 的 route failure 传播成整棵 ReFIT tree 的失败。
+
+资源删失标记为 \`CENSORED\`：不施加化学负奖励、不将其当作负 branch Q；如需恢复，只能按资源恢复协议处理，不伪装为化学重新采样。
+
+### 13.6 对 ReFIT-PO 条件 Advantage 的影响
+
+在同一个 parent node 下：
+- 一个有效完成的 sibling 有真实 suffix route return；
+- 一个 Invalid FLOW / Premature FINISH sibling 有负向 terminal return；
+- 一个 repeated failed proposal 有现有 repeat_extra 对应的负向 terminal return；
+- 一个资源删失 sibling 是 unknown，不能当成负值。
+
+若 sibling group 含资源删失或其他未完成、不可比较的分支，第一版整组 mask conditional Advantage，回退到可用的独立 G4 Process GRPO；不得只保留幸存分支后重算均值。
+
+同一 parent node 的失败动作和成功动作可以参与同状态比较；但共享前缀仍然是唯一行为记录，只能进入 Policy Loss 一次。
+
+### 13.7 新增必须报告的失败/回溯统计
+
+至少分别统计：
+- Invalid FLOW count/rate；
+- Premature FINISH count/rate；
+- Repeated FINISH count/rate；
+- Repeated failed FLOW count/rate；
+- Other non-resource rejection；
+- Verified non-progressive FLOW（若该类别在当前 Executor contract 下成立）；
+- resource-censored branch；
+- rejected edges per parent；
+- parent nodes marked OPEN_WITH_REJECTIONS；
+- parent re-expansion count；
+- backtracks to immediate parent；
+- backtracks to earlier OPEN ancestor；
+- exhausted nodes；
+- duplicate proposals blocked from Executor；
+- failure followed by successful alternative sibling；
+- failure penalty sum and rollback amount。
+
+不能把这些全部合并成一个 failure rate。
