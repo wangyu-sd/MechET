@@ -1,0 +1,20 @@
+{
+  "status": "PASS",
+  "scope": "offline rescoring of all saved completed v8 TRAIN rounds only; NOT fresh on-policy gain or model evaluation",
+  "rounds": 18,
+  "files": 72,
+  "counts": {
+    "groups": 1152,
+    "episodes": 4608,
+    "records": 89674,
+    "reference_closed": 30,
+    "censored_groups": 614,
+    "old_nonconstant_groups": 65,
+    "new_nonconstant_reward_groups": 467,
+    "new_nonzero_step_groups": 470,
+    "positive_action_coefficients": 13818,
+    "negative_action_coefficients": 19071
+  },
+  "seconds": 134.11746943742037,
+  "reuse_for_new_training": false
+}

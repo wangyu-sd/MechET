@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "scope": "full frozen correctedSFTVALID interface and teacher-prefix software audit; no model evaluation",
+  "rows": 21355,
+  "reactions": 2751,
+  "system_user_tools_exact": true,
+  "actual_qwen35_tokenizer_prefix_exact": true,
+  "maximum_prompt_ids": 2491,
+  "source_sha256": "0abb938fe0f0205a648ad7ff979fbe9ce217d1947f75ddac9997bb05e535b520",
+  "history_manifest_sha256": "edd299a832e7f15c53d134b74015097865737837d587c723db4527d2b9290f06",
+  "policy_revision": "2fc06364715b967f1860aea9cf38778875588b17",
+  "audited_source_commit": "bb4d9da2e977aeb2096ba3c8832bd42c82bf4781",
+  "native_observation_sha256": "7f55968dcd7c7529cd72a92692e1b607f5a93dc5742b00d700799b26c8e2fc49",
+  "policy_episode_sha256": "f51f68ab115cf867d5f620aaa072be71c2818a9b2bdd299b3d23c57b10e7c967",
+  "seconds": 417.61219895631075,
+  "note": "Gold accepted-prefix execute uses original SFT compiler FINISH setting; route productive/cycle guards remain separate. Failed observations are an explicitly declared extension, not SFT byte-parity cases."
+}

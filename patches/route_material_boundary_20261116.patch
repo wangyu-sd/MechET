@@ -1,0 +1,293 @@
+diff --git a/scripts/eval_pr98_route_policy.py b/scripts/eval_pr98_route_policy.py
+index 97c6992..6950e82 100644
+--- a/scripts/eval_pr98_route_policy.py
++++ b/scripts/eval_pr98_route_policy.py
+@@ -23,6 +23,9 @@ def validate_factorial(conditions):
+         raise ValueError('INCOMPLETE_FACTORIAL_CONDITIONS')
+     if any(c.get('route_endpoint_contract')!=ROUTE_ENDPOINT_CONTRACT for c in conditions.values()):
+         raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
++    from mechet.route_materials import material_contract
++    if len({material_contract(c) for c in conditions.values()})!=1:
++        raise ValueError('UNMATCHED_FACTORIAL:stock_material_contract')
+     for key in ('population_sha','stock_sha','token_budget','executor_sha','prompt_sha'):
+         if len({conditions[name][key] for name in CONDITIONS})!=1:
+             raise ValueError('UNMATCHED_FACTORIAL:'+key)
+@@ -35,6 +38,8 @@ def validate_route_certificate(report,stock):
+     """Reconstruct all occurrences; never trust a self-reported solved flag."""
+     if report.get('pending'):
+         raise ValueError('INCOMPLETE_ROUTE_OBLIGATIONS')
++    from mechet.route_materials import material_contract, validate_material_edge, EXACT_MATERIAL
++    material=material_contract(report)
+     edges={r['occurrence']:r for r in report['reactions']}
+     if len(edges)!=len(report['reactions']):
+         raise ValueError('DUPLICATE_ROUTE_OCCURRENCE')
+@@ -53,10 +58,13 @@ def validate_route_certificate(report,stock):
+         if chemical_identity(edge['product'])!=product or not edge['precursors']:
+             raise ValueError('WRONG_ROUTE_OBLIGATION_EDGE')
+         children=[chemical_identity(c) for c in edge['precursors']]
++        validate_material_edge(edge,stock,material)
+         mixture=chemical_identity('.'.join(children))
+         if mixture==product:
+             raise ValueError('NONPRODUCTIVE_ROUTE_EDGE')
+-        expected=[mixture] if mixture in stock else mixture.split('.')
++        # Material aliases are per original contributor occurrence. Joining
++        # their results must not merge distinct occurrences into a stock salt.
++        expected=children if material!=EXACT_MATERIAL else ([mixture] if mixture in stock else mixture.split('.'))
+         if children!=expected:
+             raise ValueError('ROUTE_SALT_OR_MULTIPLICITY_CHANGED')
+         pending.extend((c,occurrence+'.'+str(i),ancestors|{product},level+1) for i,c in enumerate(children))
+@@ -72,6 +80,8 @@ def replay_complete_route(report):
+     from mechet.endpoints import ROUTE_ENDPOINT_CONTRACT
+     if report.get('route_endpoint_contract') != ROUTE_ENDPOINT_CONTRACT:
+         raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
++    from mechet.route_materials import material_contract
++    material_contract(report)
+     from mechet.route_policy_episode import AGENTIC_ROUTE_OBSERVATIONS,RouteEpisode
+     if report.get('public_observation_contract') in AGENTIC_ROUTE_OBSERVATIONS:
+         # Failed attempts are part of the actual policy trajectory. Replaying
+@@ -80,7 +90,8 @@ def replay_complete_route(report):
+         ep=RouteEpisode(dict(behavior_version=report['behavior_version'],
+             route_endpoint_contract=report['route_endpoint_contract'],
+             episode_token_budget=float('inf'),public_observation_contract=report['public_observation_contract'],
+-            max_consecutive_recoveries=report['max_consecutive_recoveries']),
++            max_consecutive_recoveries=report['max_consecutive_recoveries'],
++            **({k:report[k] for k in ('stock_material_contract',) if k in report})),
+             report['public_root'],stock,report['episode_id'],report['seed'])
+         for output in report['records']:
+             ep.accept(output)
+@@ -116,8 +127,10 @@ def replay_complete_route(report):
+             if child is None:
+                 raise ValueError('ROUTE_ELECTRON_REPLAY:'+error)
+             flow=flow or name=='apply_electron_flow'; node=child
+-        actual=chemical_identity(chemistry.precursors(node,initial))
+-        if not node.terminal or not flow or actual!=chemical_identity('.'.join(edge['precursors'])):
++        from mechet.route_materials import material_contract,project_material_endpoints
++        actual=project_material_endpoints(chemistry.precursors(node,initial),
++            set(report['stock_leaves']),material_contract(report))['precursors']
++        if not node.terminal or not flow or actual!=edge['precursors']:
+             raise ValueError('ROUTE_ELECTRON_ENDPOINT_MISMATCH')
+         if not same_chemical_state(node.state,edge['final_state']):
+             raise ValueError('ROUTE_FINAL_STATE_MISMATCH')
+@@ -130,6 +143,9 @@ def verify_result_bundle(name,condition):
+     if sha(manifest_path)!=condition['result_manifest_sha256']:
+         raise ValueError('RESULT_MANIFEST_ARTIFACT_CHANGED')
+     manifest=json.loads(manifest_path.read_text())
++    from mechet.route_materials import material_contract
++    if material_contract(manifest)!=material_contract(condition):
++        raise ValueError('RESULT_PROVENANCE_MISMATCH:stock_material_contract')
+     for key in ('population_sha','stock_sha','token_budget','executor_sha','prompt_sha','actor_sha256','route_endpoint_contract'):
+         if manifest[key]!=condition[key]:
+             raise ValueError('RESULT_PROVENANCE_MISMATCH:'+key)
+@@ -155,6 +171,8 @@ def verify_result_bundle(name,condition):
+                         raw[uid]=dict(generated_token_ids=tokens,raw=text)
+     rows=json.loads(Path(manifest['results_file']).read_text())
+     for row in rows:
++        if material_contract(row)!=material_contract(condition):
++            raise ValueError('ROW_MATERIAL_PROVENANCE_MISMATCH')
+         if row.get('route_endpoint_contract')!=ROUTE_ENDPOINT_CONTRACT:
+             raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
+         if row['actor_sha256']!=condition['actor_sha256']:
+diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_route_rl.py
+index 2e51005..08f1754 100644
+--- a/scripts/prepare_external_route_rl.py
++++ b/scripts/prepare_external_route_rl.py
+@@ -40,6 +40,8 @@ def verify_contract(path):
+     from mechet.endpoints import ROUTE_ENDPOINT_CONTRACT
+     if cfg.get('route_endpoint_contract') != ROUTE_ENDPOINT_CONTRACT:
+         raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
++    from mechet.route_materials import material_contract
++    material_contract(cfg)
+     from mechet.route_process_reward import ALGORITHM as PROCESS_ALGORITHM, validate_process_protocol
+     validate_process_protocol(cfg)
+     process = cfg.get('algorithm')==PROCESS_ALGORITHM
+@@ -118,7 +120,11 @@ def verify_contract(path):
+ 
+ def prepare_contract(dataset, parent, base_manifest, output, contract_path, *,
+                      expected_protected_records=632, world_size=4, candidates=4, epochs=1,
+-                     approved_protected_sources=None, gpu_name='H20',vllm_runtime=None):
++                     approved_protected_sources=None, gpu_name='H20',vllm_runtime=None,
++                     stock_material_contract=None):
++    from mechet.route_materials import material_contract
++    material_contract({} if stock_material_contract is None else
++                      dict(stock_material_contract=stock_material_contract))
+     dataset, parent, base_manifest = Path(dataset).resolve(), Path(parent).resolve(), Path(base_manifest).resolve()
+     manifest = json.loads((dataset/'manifest.json').read_text())
+     if manifest.get('schema') != 'external_target_only_route_rl_v2' or manifest['reference_action_labels']:
+@@ -220,6 +226,8 @@ def prepare_contract(dataset, parent, base_manifest, output, contract_path, *,
+         censoring='exclude_whole_K_group_and_report_selection_bias',
+         gradient_estimand='mean_target_mean_independent_episode_full_action_token_sum_fixed_normalizer',
+         replay='original_durable_behavior_tokens_only_no_teacher_actions_or_MCTS_winner_replay')
++    if stock_material_contract is not None:
++        cfg['stock_material_contract']=stock_material_contract
+     if vllm_runtime is not None:
+         from mechet.route_vllm_contract import configure_runtime
+         configure_runtime(cfg,vllm_runtime)
+@@ -244,9 +252,12 @@ if __name__ == '__main__':
+     parser.add_argument('--epochs',type=int,default=1)
+     parser.add_argument('--gpu-name',choices=('H20','A100'),default='H20')
+     parser.add_argument('--vllm-runtime-json',type=Path)
++    from mechet.route_materials import EXACT_MATERIAL, PROTIC_MATERIAL
++    parser.add_argument('--stock-material-contract',choices=(EXACT_MATERIAL,PROTIC_MATERIAL))
+     args=parser.parse_args()
+     cfg=prepare_contract(args.dataset,args.parent,args.base_manifest,args.output,args.contract,
+                          world_size=args.world_size,candidates=args.candidates,epochs=args.epochs,gpu_name=args.gpu_name,
+-                         vllm_runtime=json.loads(args.vllm_runtime_json.read_text()) if args.vllm_runtime_json else None)
++                         vllm_runtime=json.loads(args.vllm_runtime_json.read_text()) if args.vllm_runtime_json else None,
++                         stock_material_contract=args.stock_material_contract)
+     print(json.dumps(dict(contract=str(args.contract),train_targets=cfg['train_targets'],
+                          parent_sha256=cfg['parent_sha256']),ensure_ascii=False))
+diff --git a/scripts/train_external_route_rl.py b/scripts/train_external_route_rl.py
+index d885534..f66f754 100644
+--- a/scripts/train_external_route_rl.py
++++ b/scripts/train_external_route_rl.py
+@@ -266,7 +266,9 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
+         version=f'validation{checkpoint_round:06d}:{actor_sha}'
+         rank_dir=directory/f'rank{rank:02d}'
+         with HiddenRouteReward(Path(cfg['dataset'])/'references.sqlite',stock,
+-                               split='validation',partial_weight=cfg['partial_reward_weight']) as oracle:
++                               split='validation',partial_weight=cfg['partial_reward_weight'],
++                               **({'material_contract':cfg['stock_material_contract']}
++                                  if 'stock_material_contract' in cfg else {})) as oracle:
+             for batch_index,start in enumerate(range(0,len(own),chunk_size)):
+                 batch_rows=own[start:start+chunk_size]
+                 batch_dir=rank_dir/f'batch-{batch_index:05d}'
+@@ -507,7 +509,9 @@ def train(contract_path):
+         from mechet.route_process_reward import ProcessRouteReward
+         reward_type=ProcessRouteReward
+     with worker_lease(root,rank), reward_type(dataset/'references.sqlite',stock,
+-                                partial_weight=cfg['partial_reward_weight']) as oracle:
++                                partial_weight=cfg['partial_reward_weight'],
++                                **({'material_contract':cfg['stock_material_contract']}
++                                   if 'stock_material_contract' in cfg else {})) as oracle:
+         checkpoint=discover_checkpoint(root,cfg['_sha'])
+         state=verify_checkpoint(checkpoint,cfg['_sha']) if checkpoint else None
+         if state and state['training_order_sha256'] != order_sha:
+diff --git a/src/mechet/external_route_rl.py b/src/mechet/external_route_rl.py
+index d052de2..7d009ae 100644
+--- a/src/mechet/external_route_rl.py
++++ b/src/mechet/external_route_rl.py
+@@ -40,7 +40,7 @@ class HiddenRouteReward:
+     """Reads only after rollout. Reference-supported closure is not a general oracle
+     of chemical feasibility; unsupported alternatives remain explicitly unverified.
+     """
+-    def __init__(self, database, stock, *, split='training', partial_weight=.2):
++    def __init__(self, database, stock, *, split='training', partial_weight=.2, material_contract=None):
+         if not 0 <= partial_weight < 1:
+             raise ValueError('PARTIAL_REWARD_MUST_BE_BELOW_TERMINAL')
+         # Published reward databases are immutable. Avoid Ceph's costly SQLite
+@@ -48,6 +48,8 @@ class HiddenRouteReward:
+         self.db = sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro&immutable=1',uri=True)
+         self.stock = frozenset(stock)
+         self.split, self.partial_weight = split, partial_weight
++        from .route_materials import material_contract as checked, EXACT_MATERIAL
++        self.material_contract=checked(dict(stock_material_contract=(EXACT_MATERIAL if material_contract is None else material_contract)))
+ 
+     def __enter__(self):
+         return self
+@@ -56,6 +58,9 @@ class HiddenRouteReward:
+         self.db.close()
+ 
+     def score(self, task_id, report, *, include_progress=False):
++        from .route_materials import material_contract, validate_material_edge
++        if material_contract(report) != self.material_contract:
++            raise ValueError('REWARD_STOCK_MATERIAL_CONTRACT_MISMATCH')
+         row = self.db.execute('SELECT target,split,reference_steps FROM tasks WHERE id=?',(task_id,)).fetchone()
+         if row is None or row[1] != self.split:
+             raise ValueError('REWARD_TASK_SPLIT_MISMATCH')
+@@ -77,6 +82,7 @@ class HiddenRouteReward:
+         untrusted_reference_matches = 0
+         progress_events = []
+         for reaction_index, reaction in enumerate(report['reactions']):
++            validate_material_edge(reaction,self.stock,self.material_contract)
+             occurrence = reaction['occurrence']
+             product = chemical_identity(reaction['product'])
+             children = [chemical_identity(v) for v in reaction['precursors']]
+diff --git a/src/mechet/route_policy_episode.py b/src/mechet/route_policy_episode.py
+index 35e5820..25743a7 100644
+--- a/src/mechet/route_policy_episode.py
++++ b/src/mechet/route_policy_episode.py
+@@ -105,6 +105,8 @@ class RouteEpisode:
+         self.cfg.setdefault('route_endpoint_contract',ROUTE_ENDPOINT_CONTRACT)
+         if self.cfg['route_endpoint_contract'] != ROUTE_ENDPOINT_CONTRACT:
+             raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
++        from .route_materials import material_contract
++        material_contract(self.cfg)
+         self.uid, self.seed = uid, seed
+         self.chemistry = chemistry or NativeChemistry(contract.get('concurrent_executors',32))
+         self.public_root = public_molecule(public_root)
+@@ -230,7 +232,9 @@ class RouteEpisode:
+             return 'FINISH_ENDPOINT_INVALID:'+str(exc)
+         if structural==self.current['product']:
+             return 'NONPRODUCTIVE_FINISH'
+-        children=[structural] if structural in self.stock else structural.split('.')
++        from .route_materials import material_contract, project_material_endpoints
++        children=project_material_endpoints(self.chemistry.precursors(child,self.initial),
++            self.stock,material_contract(self.cfg))['precursors']
+         ancestors=set(self.current['ancestors']) | {self.current['product']}
+         cyclic=sorted(set(children) & ancestors)
+         return 'ROUTE_CYCLE:'+','.join(cyclic) if cyclic else ''
+@@ -391,17 +395,21 @@ class RouteEpisode:
+         if not has_flow or structural==self.current['product']:
+             self._end('nonproductive_finish',0.)
+             return
+-        if structural in self.stock:
+-            children,public_children=[structural],[public_structural]
+-        else:
+-            pairs=sorted((chemical_identity(v),v) for v in public_structural.split('.'))
+-            children,public_children=[v[0] for v in pairs],[v[1] for v in pairs]
++        from .route_materials import material_contract, project_material_endpoints, EXACT_MATERIAL
++        material=material_contract(self.cfg)
++        projection=project_material_endpoints(public_structural,self.stock,material)
++        children,public_children=projection['precursors'],projection['public_precursors']
++        if material != EXACT_MATERIAL and any(p in self.current['ancestors']+[self.current['product']] for p in children):
++            self._end('cycle',0.)
++            return
+         depth=self.current['level']+1
+         self.depth=max(self.depth,depth)
+         self.reactions.append(dict(product=self.current['product'],precursors=children,
+             public_product=self.current['public_product'],public_precursors=public_children,
+             occurrence=self.current['occurrence'],depth=depth,final_state=self.node.state,
+             initial_state=self.initial.state,actions=copy.deepcopy(self.node.actions)))
++        if material != EXACT_MATERIAL:
++            self.reactions[-1]['endpoint_materials']=projection['materials']
+         ancestors=self.current['ancestors']+[self.current['product']]
+         self.pending.extend(dict(product=p,public_product=public_children[i],
+                                  occurrence=self.current['occurrence']+'.'+str(i),
+@@ -420,6 +428,8 @@ class RouteEpisode:
+         if self.agentic_feedback:
+             report['public_observation_contract']=self.cfg['public_observation_contract']
+             report['max_consecutive_recoveries']=self.cfg.get('max_consecutive_recoveries',8)
++        if 'stock_material_contract' in self.cfg:
++            report['stock_material_contract']=self.cfg['stock_material_contract']
+         return report
+ 
+     def snapshot(self, *, include_stock=True):
+@@ -503,9 +513,13 @@ class RouteEpisode:
+         from types import SimpleNamespace
+         if snapshot.get('cfg',{}).get('route_endpoint_contract') != ROUTE_ENDPOINT_CONTRACT:
+             raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
+-        if snapshot.get('cfg',{}).get('public_observation_contract')==NATIVE_SFT_ROUTE:
++        from .route_materials import material_contract, EXACT_MATERIAL
++        material=material_contract(snapshot['cfg'])
++        native=snapshot.get('cfg',{}).get('public_observation_contract')==NATIVE_SFT_ROUTE
++        if native or material!=EXACT_MATERIAL:
+             from .route_native_observation import restore_native_episode
+-            return restore_native_episode(cls, snapshot, stock=stock, chemistry=chemistry)
++            return restore_native_episode(cls, snapshot, stock=stock, chemistry=chemistry,
++                error_prefix='SFT_HISTORY' if native else 'MATERIAL_HISTORY')
+         result=object.__new__(cls)
+         result.__dict__.update(copy.deepcopy(snapshot))
+         result.event_history=(RouteEventHistory(snapshot['event_history'])
+diff --git a/tests/test_external_route_dr_objective.py b/tests/test_external_route_dr_objective.py
+index ba29f05..457bb9c 100644
+--- a/tests/test_external_route_dr_objective.py
++++ b/tests/test_external_route_dr_objective.py
+@@ -84,6 +84,8 @@ def test_reward_evidence_labels_training_and_validation_namespaces():
+         oracle=object.__new__(HiddenRouteReward)
+         oracle.db=FrozenDatabase(split);oracle.split=split
+         oracle.stock={'CC','O'};oracle.partial_weight=.2
++        from mechet.route_materials import EXACT_MATERIAL
++        oracle.material_contract=EXACT_MATERIAL
+         result=oracle.score('fixture',report)
+         assert result['chemical_validation']=='hidden_'+label+'_reference_support_only'
+         assert result['reward_status']=='verified_closed'

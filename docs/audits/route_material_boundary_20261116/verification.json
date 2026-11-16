@@ -1,0 +1,100 @@
+{
+  "scope": "route_material_boundary_software_verification_no_policy_experiment",
+  "material_contract": "terminal_heteroanion_protonation_stock_v1",
+  "base_private_commit": "1b5ec65",
+  "affected_cpu_tests": {
+    "passed": 125,
+    "failed": 0
+  },
+  "pinned_python311_tests": {
+    "passed": 48,
+    "failed": 0
+  },
+  "saved_TRAIN_replay": {
+    "cases": 4,
+    "all_original_mapped_states_and_actions_preserved": true,
+    "aliases_per_case": [
+      0,
+      1,
+      0,
+      0
+    ],
+    "thiolate_decisions_before": 11,
+    "thiolate_decisions_after": 8,
+    "thiolate_stock_closed": true,
+    "thiolate_full_route_reference_verified": false,
+    "thiolate_full_route_reward": 0.0,
+    "reason": "upstream_unsupported_edge_retains_untrusted_ancestry"
+  },
+  "review": {
+    "critical": 0,
+    "important_fixed": [
+      "per_atom_map_element_and_isotope_preservation",
+      "opt_in_non_native_restore_replays_original_records"
+    ],
+    "review_regressions_red": 3
+  },
+  "broad_suite_initial": {
+    "passed": 1615,
+    "failed": 22,
+    "errors": 3,
+    "skipped": 6,
+    "fixed_then_retested": [
+      "FAILED tests/test_external_route_dr_objective.py::test_reward_evidence_labels_training_and_validation_namespaces",
+      "FAILED tests/test_external_route_validation.py::test_full_validation_restores_rngs_parameters_and_reuses_completed_receipts",
+      "FAILED tests/test_external_route_validation.py::test_interrupted_full_validation_reuses_finished_batches_without_changing_denominator",
+      "FAILED tests/test_external_route_validation.py::test_validation_original_error_is_saved_before_poisoned_cuda_restore"
+    ],
+    "remaining_unresolved_test_ids": [
+      "FAILED tests/test_external_route_precision.py::test_native_cached_generation_then_dr_grpo_backward_is_supported[float32-1.0]",
+      "FAILED tests/test_external_route_precision.py::test_native_cached_generation_then_dr_grpo_backward_is_supported[bfloat16-1.0]",
+      "FAILED tests/test_external_route_precision.py::test_native_cached_generation_then_dr_grpo_backward_is_supported[bfloat16-32.0]",
+      "FAILED tests/test_external_route_precision.py::test_native_cached_generation_then_dr_grpo_backward_is_supported[bfloat16-128.0]",
+      "FAILED tests/test_pr96_earho_4gpu.py::test_qwen35_linear_and_full_attention_batch_padding_matches_unpadded_scoring",
+      "FAILED tests/test_pr96_performance.py::test_pr96_sampler_keeps_native_order_without_python_token_decoding",
+      "FAILED tests/test_pr96_performance.py::test_actual_resume_with_changed_microbatch_retains_optimizer_schedule_and_data[2]",
+      "FAILED tests/test_pr96_performance.py::test_actual_resume_with_changed_microbatch_retains_optimizer_schedule_and_data[6]",
+      "FAILED tests/test_pr96_trainer.py::test_real_trainer_updates_weights_using_selective_causal_loss",
+      "FAILED tests/test_pr96_trainer.py::test_real_peft_optimizer_rng_and_counters_resume_match_uninterrupted_training",
+      "FAILED tests/test_qwen3_worker_bootstrap.py::test_torchrun_workers_keep_site_disabled",
+      "FAILED tests/test_route_entry_points.py::test_entry_point_cache_preserves_native_groups_distribution_and_isolation",
+      "FAILED tests/test_route_entry_points.py::test_entry_point_cache_skips_shadowed_distribution_properties",
+      "FAILED tests/test_route_fp32_smoke.py::test_real_tiny_qwen_forced_cached_replay_matches_teacher_scoring",
+      "FAILED tests/test_route_policy_sampling.py::test_actual_qwen35_generation_behavior_receipts_match_unpadded_teacher_scoring",
+      "FAILED tests/test_route_source_bundle.py::test_frozen_source_inspection_uses_loaded_module_and_source_indexes[module]",
+      "FAILED tests/test_route_vllm_environment.py::test_long_ceph_cache_path_still_allows_real_unix_socket_binding[None]",
+      "FAILED tests/test_route_vllm_environment.py::test_long_ceph_cache_path_still_allows_real_unix_socket_binding[/tmp/inherited-wrong-location]",
+      "ERROR tests/test_route_training_memory.py::test_checkpoint_preserves_lora_gradients_and_reduces_saved_activations",
+      "ERROR tests/test_route_training_memory.py::test_policy_memory_scope_restores_eval_after_failure",
+      "ERROR tests/test_route_training_memory.py::test_policy_training_scope_rejects_stochastic_dropout"
+    ],
+    "all_project_green": false
+  },
+  "test_logs": {
+    "affected": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/diagnostics/route_material_boundary_20261116_isolated_final.log",
+      "sha256": "72d609cd4fb258dab84cf52e3b87311dfb660f7a711f5a4cb0baf983cf73ae6d"
+    },
+    "pinned": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/diagnostics/route_material_boundary_20261116_pinned.log",
+      "sha256": "8d9f9b10736a28961fa8d6feca94fe9cf357bfb3d423a796129706f27c52bb9b"
+    },
+    "broad": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/diagnostics/route_material_boundary_20261116_fullsuite.log",
+      "sha256": "3a67f64cfd9403538ee749987fbcba0a9e1ea8f05cc3287a36f02f9218319255"
+    },
+    "red": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/diagnostics/route_material_boundary_20261116_red.log",
+      "sha256": "d7dcc232db3e7fa0874c68b8ed29bf7f3cf0af4a284d5ff39024d1aa05fc9c78"
+    },
+    "review_red": {
+      "path": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/diagnostics/route_material_boundary_20261116_review_red.log",
+      "sha256": "45893c205609ad289386a57f2c9a48f2241b513b623f4137d9e9b48b52175778"
+    }
+  },
+  "live_runtime_edited": false,
+  "live_contract_sha256": "e53226874e46d83a5fe03d9f77ab1e9064df67f3739a64107e4cb59712f264f1",
+  "smoke_or_training_job_submitted": false,
+  "patch_dry_run": "PASS",
+  "snapshot_byte_checks": 6
+}
