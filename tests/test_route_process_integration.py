@@ -68,10 +68,12 @@ def test_process_protocol_is_explicit_and_cannot_be_silently_enabled_on_legacy()
     from mechet.route_process_reward import ALGORITHM, CONFIG, VERSION, validate_process_protocol
     cfg=dict(algorithm=ALGORITHM,process_reward=deepcopy(CONFIG),reward_contract=VERSION,
              advantage_estimator='centered_action_return_to_go_no_std',
-             public_observation_contract='route_sft_aligned_feedback_v9',partial_reward_weight=.2)
+             public_observation_contract='route_sft_aligned_feedback_v9',partial_reward_weight=.2,
+             max_consecutive_recoveries=1)
     validate_process_protocol(cfg)
     for key,value in [('reward_contract','legacy'),('partial_reward_weight',.5),
-                      ('public_observation_contract','route_action_feedback_v8')]:
+                      ('public_observation_contract','route_action_feedback_v8'),
+                      ('max_consecutive_recoveries',8)]:
         with pytest.raises(ValueError,match='PROCESS_'):
             validate_process_protocol(dict(cfg,**{key:value}))
     bad=deepcopy(cfg);bad['process_reward']['validator_weight']=10
