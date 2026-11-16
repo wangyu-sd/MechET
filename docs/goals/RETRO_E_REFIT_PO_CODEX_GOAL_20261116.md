@@ -1,4 +1,8 @@
 # Retro-E ReFIT-PO：同状态电子流分支信用分配与失败动作惩罚
+
+> **Research execution authority added 2026-11-16:** [Progressive RL, benchmarking and required final ReFIT search-to-policy distillation](RETRO_E_PROGRESSIVE_RL_BENCHMARK_SEARCH_DISTILLATION_20261116.md).
+> For the **Standard / controlled +F benchmark** conditions, the new plan's explicit **NO RetroChimera** requirement overrides the older optional RetroChimera sections in this document; the optional existing teacher integration described below applies only to a separately labelled **Pro/open-enhanced** condition. Forward FlowER is optional only in +F, and final TRAIN-only search-to-policy distillation is mandatory. PR109 remains docs-only; active training is untouched.
+
 **Codex implementation goal | 2026-11-16**
 
 ## 0. 执行摘要
