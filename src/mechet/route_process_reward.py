@@ -25,7 +25,8 @@ def validate_process_protocol(cfg):
     if (cfg.get('process_reward')!=CONFIG or cfg.get('reward_contract')!=VERSION or
             cfg.get('advantage_estimator')!='centered_action_return_to_go_no_std' or
             cfg.get('public_observation_contract')!=NATIVE_SFT_ROUTE or
-            cfg.get('partial_reward_weight')!=.2):
+            cfg.get('partial_reward_weight')!=.2 or
+            cfg.get('max_consecutive_recoveries')!=1):
         raise ValueError('PROCESS_PROTOCOL_CHANGED')
 
 
