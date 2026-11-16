@@ -878,3 +878,96 @@ node.rejected_actions[semantic_action_key] = {
 14. A resource-censored edge is `CENSORED`, not `REJECTED_TERMINAL`, and does not close the parent node as chemically exhausted.
 15. A failure followed by a valid alternative sibling is represented as one failed edge plus one expanded edge under the same parent.
 16. If the configured behavior policy is deterministic and cannot produce distinct sibling actions, Codex must report this as an interface/coverage limitation. It must not silently change temperature/top-p or fabricate proposal probabilities; any permitted sampling change requires an explicit separately frozen behavior-policy contract.
+
+---
+
+## 14. Penalty scope and causal credit propagation (normative follow-up)
+
+**本节补充第 13 节：局部失败成本、失败 rollout 的路线收益、同状态兄弟分支的价值备份是三种不同量。不得混为“全路径都被处罚”。**
+
+### 14.1 三个层级，三种不同的处理
+
+| 层级 | 对象 | 规则 |
+|---|---|---|
+| Local action / edge | 真实失败的 IMPORT、FLOW、FINISH 或格式错误 | 仅该失败 action edge 记录一次 validator cost；保留全部 generated tokens/logprobs |
+| Sampled rollout | 包含失败 edge 的这一条 root-to-leaf continuation | 该条 rollout 终止；未解决库存义务则完整路线任务收益为 0；用终局 correction 撤销 provisional route progress |
+| ReFIT parent/tree | 共享的有效化学状态、共享前缀、其他兄弟分支 | 不施加失败标签，不回滚共享状态，不提前关闭 parent，不给兄弟分支扣分；从 parent 或其他 OPEN ancestor 继续展开 |
+
+不因为一个后继动作失败，就将此前通过 Executor 的 IMPORT/FLOW/FINISH 重新标成化学非法。只有当后续证据能够直接证明此前的动作本身非法，才能对该动作建立独立错误证据。
+
+### 14.2 数学定义：局部 penalty 与终局 outcome 不同
+
+令该 rollout 在 t_f 的最后一个动作被明确非资源性拒绝；q_t 是 PR107 的参考进展势，c_t 是原有 validator cost 增量。
+
+对沿途动作定义 route-process ledger：
+
+\[
+r_t^{route}=(q_t-q_{t-1})-\eta(C_t-C_{t-1})
++\mathbb 1[t=t_f](B-q_t).
+\]
+
+在失败 rollout 上设 B=0，且拒绝的最后动作不增加 q_t，于是：
+
+\[
+r_{t_f}^{route}=-\eta\Delta C_{t_f}-q_{t_f-1},
+\qquad
+\sum_{t\le t_f}r_t^{route}=-\eta C_{t_f}.
+\]
+
+这里的 \(-q_{t_f-1}\) 是**终局进展冲销**，不是把过去每条已接受边再逐一罚一遍。失败 rollout 的总收益是负向的；而此前有效动作的局部 chemistry receipt 仍然有效。
+
+如果存在尚未兑现的机制/IMPORT 辅助 shaping，必须为每一种新增分量声明 failure-terminal treatment：不得让已知失败 rollout 通过 provisional auxiliary rewards 获得虚假的净正收益；也不得在每个历史动作额外乘一遍失败惩罚。独立 verified local chemical facts 仍可保留为诊断，具体是否进入最终 reward 应以冻结的显式合同定义。
+
+### 14.3 对先前动作的 policy-gradient 信用如何传播？
+
+**局部错误惩罚只记在失败 edge；失败路径的最终低 return 会通过 Return-to-Go 影响该条 rollout 中较早动作的 Advantage。** 这是 RL 的自然长期信用传播，不等于先前每个动作被判定非法。
+
+\[
+G_t=\sum_{u=t}^{t_f}r_u,\qquad
+A_t=G_t-b(s_t).
+\]
+
+对于固定已接受前缀共享的其他成功 sibling，它们有各自的完整 suffix return；它们的 reward ledger 不受失败 sibling 修改。共享前缀只对应一次真实动作 receipt，不允许通过复制失败/成功叶节点的前缀重复计算 policy loss。
+
+若较早状态存在多个合法后续，不能只凭一个失败 continuation 将该状态判定为零价值；正确的 parent value 是其合法后续 rollout 的期望收益。若只有一个失败样本，报告估计不确定性，不声称它证明此前整个路径错误。
+
+### 14.4 FINISH 惩罚边界与实际 Executor
+
+FINISH 判断是 **per occurrence** 的：
+
+1. **没有任何被接受的有效 state-changing FLOW 就请求 FINISH**：明确 nonproductive/premature，按一次普通拒绝处罚；这与仓库已有的 NONPRODUCTIVE_FINISH guard 一致。
+2. **已有一次有效 FLOW 且形成非平凡、合法、非循环的前体**：可以 FINISH；不设置“至少两个 FLOW”门槛。
+3. **虽有 FLOW 但 precursor endpoint 没有净变化**：已有 NONPRODUCTIVE_FINISH / endpoint guard 拒绝；不可仅因工具调用次数大于零就放行。
+4. **先前被拒绝的 FINISH 在同一 occurrence、相同 Executor state 和语义下再次被独立采样**：标记 REPEATED_FINISH；保存新行为 token 作为错误提议，用 rejection ledger 阻止重复 Executor 调用，并按现有有界 repeat cost；不是在原失败 rollout 内附反馈继续生成。
+5. **成功 FINISH 后进入新 occurrence**：计数重置。新 occurrence 第一个 FINISH 仍需检查该 occurrence 自己的有效机理状态，不因其他 occurrence 先前结束而放行。
+6. **目标已在库存**：环境自动闭合，不应产生模型 FINISH 处罚事件。
+
+禁止用“重复了 finish 这个工具名”作为错误条件；必须检查同一精确状态、同一 reaction occurrence 和此前拒绝的语义动作。
+
+### 14.5 Backtracking 是搜索控制，不是 failure-repair rollout
+
+ReFIT 接收到 rejected edge：
+
+    record_failure(edge, error, token_logprobs)
+    mark(edge, REJECTED_TERMINAL)
+    mark(parent, OPEN_WITH_REJECTIONS)
+    # Reject the sampled continuation; preserve the valid parent state.
+    next_parent = parent if has_untried_budget(parent) else nearest_open_ancestor(parent)
+    expand_new_sibling(next_parent, frozen_behavior_policy)
+
+不要在同一 rollout 内通过失败反馈修复并继续采样；另开 sibling continuation，复用已验证的祖先状态与已接受前缀。重复候选可以作为新采样的错误提议计入统计和有界成本，但绝不能把拒绝动作从策略训练证据中静默删除。
+
+如使用 action masks、reject-sampling、去重后的强制不同候选或 PUCT 排序，动作实际 proposal distribution 可能改变。Codex 必须验证 behavior provenance：若无法计算真实 proposal probability，就只允许搜索评估/诊断，不能直接按标准 on-policy GRPO 使用伪造的 token denominator。第一版应优先同一 frozen behavior policy 的真实独立采样，并显式记录被拒绝、重复或未选择的候选。
+
+### 14.6 Codex additional acceptance tests
+
+- One failed FLOW creates exactly one local rejection cost, one failed rollout terminal correction, and does not mutate valid ancestor receipts.
+- A failed suffix gives low/negative return to the specific sampled path, but successful siblings keep their original route returns.
+- For a parent with one failed child and one successful child, branch Q/Advantage reflects both; parent is not FAILED.
+- No FLOW then FINISH is penalized; exactly one productive FLOW then FINISH is not penalized.
+- Same occurrence/state repeated rejected FINISH is blocked from Executor but retains the new proposal log-probs; a FINISH at a distinct occurrence is not automatically duplicate.
+- Truncated/context/resource-censored errors carry reward=None (or matching censor protocol), not a chemical penalty.
+- Shared-prefix tokens appear once in the optimizer input, even if different successors yield success and failure.
+- If auxiliary shaping exists, the sum of rewards on a failed rollout obeys the frozen terminal treatment (no unintentional net positive failure exploitation).
+- Backtracking from a terminal failed edge to the exact parent or nearest OPEN ancestor preserves Executor state, atom mapping, accepted history, and original SFT-native observation.
+- Unknown/masked proposal probabilities are never substituted with plain model log-probs in the on-policy ratio.
