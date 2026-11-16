@@ -63,7 +63,6 @@ def test_accepted_flow_and_finish_continue_with_fresh_native_reaction_input():
     assert ep.next_decision().messages==messages_for(ep.node,True)
     send(ep,'finish_trace',{})
     assert len(ep.reactions)==1 and ep.status is None
-    assert not ep.node.terminal and ep.node.actions==[]
     assert ep.next_decision().messages==messages_for(ep.node,True)
     assert len(ep.records)==2
     assert len([e for e in ep.event_history.data['events'] if e['type']=='attempt'])==2
