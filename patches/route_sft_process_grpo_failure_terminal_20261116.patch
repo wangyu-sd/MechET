@@ -1,0 +1,46 @@
+diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_route_rl.py
+--- a/scripts/prepare_external_route_rl.py
++++ b/scripts/prepare_external_route_rl.py
+@@ -195,7 +195,9 @@
+     code_root = Path(__file__).resolve().parents[1]
+     frozen_sources=source_files(code_root)
+     from mechet.route_runtime_efficiency import PROFILE,kernel_config_bindings
+-    cfg = dict(algorithm=ALGORITHM,dataset=str(dataset),
++    from mechet.route_process_reward import ALGORITHM as PROCESS_ALGORITHM, CONFIG as PROCESS_REWARD_CONFIG, VERSION as PROCESS_REWARD_VERSION
++    from mechet.route_native_observation import NATIVE_SFT_ROUTE
++    cfg = dict(algorithm=PROCESS_ALGORITHM,dataset=str(dataset),
+         route_endpoint_contract='target_heavy_atom_contributors_v1',
+@@ -210,12 +212,13 @@
+         learning_rate=2e-6,clip_epsilon=.2,kl_beta=.02,gt_weight=0.,max_grad_norm=.5,
+         loss_token_normalizer=1024.,behavior_logprob_tolerance=.25,partial_reward_weight=.2,
+         behavior_probability_contract='actual_sampler_denominator_drift_diagnostic_v1',
+         learned_critic=False,test_used=False,seed=17,
+         adam_betas=[0.9,0.999],adam_eps=1e-8,weight_decay=0.0,
+-        advantage_estimator='centered_group_rewards_no_std',
++        advantage_estimator='centered_action_return_to_go_no_std',
+         loss_type='dr_grpo',scale_rewards=False,
+@@ -215,9 +218,10 @@
+         validation_protocol=VALIDATION_PROTOCOL,
+         files_sha256=files,code_files_sha256={name:file_sha(code_root/name) for name in frozen_sources},
+-        public_observation_contract='route_event_history_feedback_v3',
+-        max_consecutive_recoveries=8,
+-        reward_contract='hidden_split_reference_trusted_ancestry_AND_stock_closure_v2',
++        public_observation_contract=NATIVE_SFT_ROUTE,
++        max_consecutive_recoveries=1,
++        reward_contract=PROCESS_REWARD_VERSION,
++        process_reward=PROCESS_REWARD_CONFIG,
+         protected_evaluation_records=expected_protected_records,
+         censoring='exclude_whole_K_group_and_report_selection_bias',
+         gradient_estimand='mean_target_mean_independent_episode_full_action_token_sum_fixed_normalizer',
+         replay='original_durable_behavior_tokens_only_no_teacher_actions_or_MCTS_winner_replay')
+diff --git a/src/mechet/route_process_reward.py b/src/mechet/route_process_reward.py
+--- a/src/mechet/route_process_reward.py
++++ b/src/mechet/route_process_reward.py
+@@ -23,7 +23,8 @@
+     if (cfg.get('process_reward')!=CONFIG or cfg.get('reward_contract')!=VERSION or
+             cfg.get('advantage_estimator')!='centered_action_return_to_go_no_std' or
+             cfg.get('public_observation_contract')!=NATIVE_SFT_ROUTE or
+-            cfg.get('partial_reward_weight')!=.2):
++            cfg.get('partial_reward_weight')!=.2 or
++            cfg.get('max_consecutive_recoveries')!=1):
+         raise ValueError('PROCESS_PROTOCOL_CHANGED')
