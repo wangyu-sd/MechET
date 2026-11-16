@@ -744,12 +744,12 @@ Codex 可以实现代码、测试、文档和离线回放，但不得提交或�
 
 ### 13.2 复用现有有界 validator cost，不叠加重复 penalty
 
-现有 \`route_process_reward.py\` CONFIG 已包含普通错误、重复错误和循环错误的权重规则。Codex 必须先核对最新代码及 PR #108 的合同，再决定如何映射，不得自行发明另一套惩罚系数。
+现有 `route_process_reward.py` CONFIG 已包含普通错误、重复错误和循环错误的权重规则。Codex 必须先核对最新代码及 PR #108 的合同，再决定如何映射，不得自行发明另一套惩罚系数。
 
 - 首次 Invalid FLOW：按普通非资源性拒绝计一次成本。
 - 首次 Premature FINISH：按普通非资源性拒绝计一次成本。
-- 同一状态/occurrence/semantic action 的重复 FINISH 或重复 FLOW：使用现有 \`repeat_extra\` 增量。
-- 明确循环：使用现有 \`cycle_cost\`。
+- 同一状态/occurrence/semantic action 的重复 FINISH 或重复 FLOW：使用现有 `repeat_extra` 增量。
+- 明确循环：使用现有 `cycle_cost`。
 - 不额外再加一个 FLOW-specific penalty，以免同一拒绝被重复扣分。
 
 如果当前环境会接受“没有有效 FLOW 的 FINISH”，必须增加环境侧 FINISH precondition guard，生成可审计的 synthetic rejection receipt；保留模型真实生成的 FINISH token 和 behavior log-prob。若 Executor 已经拒绝，则复用其真实 receipt，不能重复处罚。
@@ -760,31 +760,31 @@ Codex 可以实现代码、测试、文档和离线回放，但不得提交或�
 
 | 对象 | 状态 | 含义 |
 |---|---|---|
-| Decision node | \`OPEN\` | 尚有可探索动作 |
-| Decision node | \`OPEN_WITH_REJECTIONS\` | 已有拒绝动作，但仍可探索其他动作 |
-| Decision node | \`EXHAUSTED\` | 候选动作/展开预算耗尽 |
-| Decision node | \`SOLVED\` | 找到满足当前路线目标的有效后续 |
-| Action edge | \`EXPANDED\` | Executor 接受并产生真实 child state |
-| Action edge | \`REJECTED_TERMINAL\` | 非资源性拒绝，只终止这个动作分支 |
-| Action edge | \`CENSORED\` | 资源/基础设施删失，不是化学失败 |
+| Decision node | `OPEN` | 尚有可探索动作 |
+| Decision node | `OPEN_WITH_REJECTIONS` | 已有拒绝动作，但仍可探索其他动作 |
+| Decision node | `EXHAUSTED` | 候选动作/展开预算耗尽 |
+| Decision node | `SOLVED` | 找到满足当前路线目标的有效后续 |
+| Action edge | `EXPANDED` | Executor 接受并产生真实 child state |
+| Action edge | `REJECTED_TERMINAL` | 非资源性拒绝，只终止这个动作分支 |
+| Action edge | `CENSORED` | 资源/基础设施删失，不是化学失败 |
 
 每个 parent node 保存：
 
-\`\`\`python
+```python
 node.rejected_actions[semantic_action_key] = {
     "failure_class": "INVALID_FLOW | PREMATURE_FINISH | REPEATED_FINISH | ...",
     "failure_receipt_id": "...",
     "failure_cost_weight": 1.0,
     "repeat_count": 0,
 }
-\`\`\`
+```
 
 拒绝动作没有改变状态，因此：
-- 失败 edge 设为 \`REJECTED_TERMINAL\`，不创建虚假的 child chemical state；
-- parent node 标记为 \`OPEN_WITH_REJECTIONS\`，而不是全局 FAILED；
+- 失败 edge 设为 `REJECTED_TERMINAL`，不创建虚假的 child chemical state；
+- parent node 标记为 `OPEN_WITH_REJECTIONS`，而不是全局 FAILED；
 - ReFIT 优先回到该 parent node，使用完全相同的保存状态和 Policy Observation 采样其他候选；
-- 如果该 parent 已无未探索动作，则回溯到最近的 \`OPEN\` / \`OPEN_WITH_REJECTIONS\` ancestor；
-- 只有候选空间或预设 expansion budget 耗尽，才标记 \`EXHAUSTED\`。
+- 如果该 parent 已无未探索动作，则回溯到最近的 `OPEN` / `OPEN_WITH_REJECTIONS` ancestor；
+- 只有候选空间或预设 expansion budget 耗尽，才标记 `EXHAUSTED`。
 
 ### 13.4 “重新采样”与“失败重试”必须严格区分
 
@@ -804,10 +804,10 @@ node.rejected_actions[semantic_action_key] = {
 
 如果策略再次采样同一个已拒绝的 semantic action：
 - 保留这次新生成的 token/log-prob；
-- 记录 \`DUPLICATE_REJECTED_PROPOSAL\`，关联此前失败 receipt；
+- 记录 `DUPLICATE_REJECTED_PROPOSAL`，关联此前失败 receipt；
 - 不再次调用 Executor；
-- 按现有 \`repeat_extra\` 增加一次有界重复成本；
-- 达到有限 duplicate-proposal ceiling 后停止该节点的重复采样，并在没有其他候选时标记 \`EXHAUSTED\`。
+- 按现有 `repeat_extra` 增加一次有界重复成本；
+- 达到有限 duplicate-proposal ceiling 后停止该节点的重复采样，并在没有其他候选时标记 `EXHAUSTED`。
 
 这不是 failure replay buffer：模型没有看到旧失败作为恢复示范；这是新采样动作被环境依据失败动作账本拒绝。
 
@@ -824,7 +824,7 @@ node.rejected_actions[semantic_action_key] = {
 
 这个 rollback 只作用于该条失败 rollout 的 reward ledger。不能回滚其他已经成功闭合的 sibling route，也不能把失败 sibling 的 route failure 传播成整棵 ReFIT tree 的失败。
 
-资源删失标记为 \`CENSORED\`：不施加化学负奖励、不将其当作负 branch Q；如需恢复，只能按资源恢复协议处理，不伪装为化学重新采样。
+资源删失标记为 `CENSORED`：不施加化学负奖励、不将其当作负 branch Q；如需恢复，只能按资源恢复协议处理，不伪装为化学重新采样。
 
 ### 13.6 对 ReFIT-PO 条件 Advantage 的影响
 
@@ -859,3 +859,22 @@ node.rejected_actions[semantic_action_key] = {
 - failure penalty sum and rollback amount。
 
 不能把这些全部合并成一个 failure rate。
+
+### 13.8 Additional required tests for FINISH guards and ReFIT backtracking
+
+1. FINISH as the first action in a new reaction occurrence is rejected as `PREMATURE_FINISH`, retains the sampled FINISH tokens/log-probs, and incurs exactly one ordinary bounded validator cost.
+2. One accepted productive state-changing FLOW followed by FINISH is accepted; do not impose a two-FLOW minimum.
+3. A successful FINISH creates a new occurrence; a FINISH in that new occurrence is not classified as repeated solely because the tool name is unchanged.
+4. A repeated semantic FINISH at the same occurrence/state is classified as `REPEATED_FINISH` and uses the existing `repeat_extra`, without calling Executor a second time.
+5. A repeated semantic failed FLOW at the same occurrence/state is classified as repeated failure and uses the existing `repeat_extra`, without re-executing Executor.
+6. A failed action marks its edge `REJECTED_TERMINAL` and parent `OPEN_WITH_REJECTIONS`; it does not mark the parent `FAILED`.
+7. ReFIT returns to the immediate parent and samples an alternative action; the alternative can be accepted and expanded.
+8. If the immediate parent has no remaining candidates, ReFIT backtracks to the nearest OPEN ancestor.
+9. A node becomes `EXHAUSTED` only after all known semantic candidates / the declared expansion budget are exhausted.
+10. A failed sibling does not terminate or roll back a successful sibling's route reward.
+11. A failed rollout rolls back only its own unfinished partial progress, including its own copy of the shared prefix reward ledger; it must not mutate another sibling's ledger.
+12. Re-sampling an already rejected semantic action creates a duplicate-proposal event with the new behavior tokens/log-probs, applies bounded repeat cost, and does not invoke Executor again.
+13. Duplicate proposal sampling has a finite ceiling; it cannot create an infinite loop.
+14. A resource-censored edge is `CENSORED`, not `REJECTED_TERMINAL`, and does not close the parent node as chemically exhausted.
+15. A failure followed by a valid alternative sibling is represented as one failed edge plus one expanded edge under the same parent.
+16. If the configured behavior policy is deterministic and cannot produce distinct sibling actions, Codex must report this as an interface/coverage limitation. It must not silently change temperature/top-p or fabricate proposal probabilities; any permitted sampling change requires an explicit separately frozen behavior-policy contract.
