@@ -51,7 +51,7 @@ def native_messages(episode, messages):
     return [messages[0], safe_feedback(assistant), safe_feedback(tool), messages[1]]
 
 
-def restore_native_episode(cls, snapshot, *, stock=None, chemistry=None):
+def restore_native_episode(cls, snapshot, *, stock=None, chemistry=None, error_prefix='SFT_HISTORY'):
     """Rerender all past requests; native projection must not weaken replay."""
     try:
         original = deepcopy(snapshot)
@@ -61,14 +61,14 @@ def restore_native_episode(cls, snapshot, *, stock=None, chemistry=None):
         for record in original['records']:
             request = ep.next_decision()
             if request is None or request.messages!=record.get('messages'):
-                raise ValueError('SFT_HISTORY_OBSERVATION_MISMATCH')
+                raise ValueError(error_prefix+'_OBSERVATION_MISMATCH')
             ep.accept(deepcopy(record))
         if (original['records'] or original.get('node') is not None or
                 original.get('status') is not None or
                 original.get('event_history', {}).get('events')):
             ep.next_decision()
         if ep.snapshot(include_stock='stock' in original)!=original:
-            raise ValueError('SFT_HISTORY_SNAPSHOT_MISMATCH')
+            raise ValueError(error_prefix+'_SNAPSHOT_MISMATCH')
         return ep
     except (ValueError, KeyError, TypeError) as error:
-        raise ValueError('SFT_HISTORY_REPLAY_FAILED:'+type(error).__name__) from None
+        raise ValueError(error_prefix+'_REPLAY_FAILED:'+type(error).__name__) from None
