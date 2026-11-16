@@ -1,7 +1,7 @@
 diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_route_rl.py
 --- a/scripts/prepare_external_route_rl.py
 +++ b/scripts/prepare_external_route_rl.py
-@@ -195,7 +195,9 @@
+@@ -184,49 +184,52 @@
      code_root = Path(__file__).resolve().parents[1]
      frozen_sources=source_files(code_root)
      from mechet.route_runtime_efficiency import PROFILE,kernel_config_bindings
@@ -10,7 +10,22 @@ diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_rou
 +    from mechet.route_native_observation import NATIVE_SFT_ROUTE
 +    cfg = dict(algorithm=PROCESS_ALGORITHM,dataset=str(dataset),
          route_endpoint_contract='target_heavy_atom_contributors_v1',
-@@ -210,12 +212,13 @@
+         dataset_manifest_sha256=file_sha(dataset/'manifest.json'),train_targets=len(rows),
+         validation_targets=manifest['validation_targets'],parent=str(parent),
+         parent_sha256=components['adapter_model.safetensors'],base_path=base['snapshot'],
+         base_manifest=str(base_manifest),output_dir=str(Path(output).resolve()),
+         world_size=world_size,gpu_name=gpu_name,candidates=candidates,epochs=epochs,products_per_round=64,
+         collective_timeout_seconds=604800,
+         optimization_passes=1,episode_token_budget=None,max_action_tokens=2048,max_context=32768,
+         generation_batch_size=64,loss_batch_size=1,executor_workers_per_rank=16,cpu_threads_per_rank=4,
+         training_gradient_checkpointing=True,
+         policy_precision='bf16_autocast',policy_allow_tf32=True,
+         phase_profiling=True,
+         training_max_padded_tokens=131072,
+         executor_coalesce_seconds=.25,generation_qkv_channels=6144,
+         generation_max_qkv_elements=2**31-1,generation_attention_budget_bytes=12*1024**3,
+         fla_kernel_profile=PROFILE if gpu_name=='H20' else None,
+         runtime_config_files_sha256=kernel_config_bindings(code_root) if gpu_name=='H20' else {},
          learning_rate=2e-6,clip_epsilon=.2,kl_beta=.02,gt_weight=0.,max_grad_norm=.5,
          loss_token_normalizer=1024.,behavior_logprob_tolerance=.25,partial_reward_weight=.2,
          behavior_probability_contract='actual_sampler_denominator_drift_diagnostic_v1',
@@ -19,7 +34,8 @@ diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_rou
 -        advantage_estimator='centered_group_rewards_no_std',
 +        advantage_estimator='centered_action_return_to_go_no_std',
          loss_type='dr_grpo',scale_rewards=False,
-@@ -215,9 +218,10 @@
+         trl_reference_commit='44809ba3f3a136f3d62859ee981fee2506bce5c9',
+         implementation='native_route_sampler_and_TRL_equivalent_loss_kernel',
          validation_protocol=VALIDATION_PROTOCOL,
          files_sha256=files,code_files_sha256={name:file_sha(code_root/name) for name in frozen_sources},
 -        public_observation_contract='route_event_history_feedback_v3',
