@@ -1,0 +1,614 @@
+diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_route_rl.py
+index 08f1754..14bab76 100644
+--- a/scripts/prepare_external_route_rl.py
++++ b/scripts/prepare_external_route_rl.py
+@@ -66,6 +66,16 @@ def verify_contract(path):
+     expected_advantage=('centered_action_return_to_go_no_std' if process else 'centered_group_rewards_no_std')
+     expected_reward=(PROCESS_REWARD_VERSION if process else
+                      'hidden_split_reference_trusted_ancestry_AND_stock_closure_v2')
++    if cfg.get('route_failure_policy'):
++        from mechet.route_failure_policy import REWARD_VERSION
++        if not process:raise ValueError('FIRST_REJECTION_REQUIRES_PROCESS_OBJECTIVE')
++        expected_reward=REWARD_VERSION
++    if 'refit' in cfg:
++        from mechet.route_refit_runtime import validate_refit
++        from mechet.route_failure_policy import FIRST_REJECTION
++        validate_refit(cfg['refit'])
++        if (not process or cfg.get('route_failure_policy')!=FIRST_REJECTION or 'route_memory' in cfg):
++            raise ValueError('REFIT_REQUIRES_NATIVE_FIRST_REJECTION_PROCESS')
+     if (cfg.get('advantage_estimator') != expected_advantage
+             or cfg.get('loss_type') != 'dr_grpo' or cfg.get('scale_rewards') is not False
+             or cfg.get('reward_contract') != expected_reward
+@@ -121,7 +131,7 @@ def verify_contract(path):
+ def prepare_contract(dataset, parent, base_manifest, output, contract_path, *,
+                      expected_protected_records=632, world_size=4, candidates=4, epochs=1,
+                      approved_protected_sources=None, gpu_name='H20',vllm_runtime=None,
+-                     stock_material_contract=None):
++                     stock_material_contract=None,first_rejection=False,flow_credit_alpha=0.):
+     from mechet.route_materials import material_contract
+     material_contract({} if stock_material_contract is None else
+                       dict(stock_material_contract=stock_material_contract))
+@@ -228,6 +238,15 @@ def prepare_contract(dataset, parent, base_manifest, output, contract_path, *,
+         replay='original_durable_behavior_tokens_only_no_teacher_actions_or_MCTS_winner_replay')
+     if stock_material_contract is not None:
+         cfg['stock_material_contract']=stock_material_contract
++    if first_rejection:
++        from mechet.route_failure_policy import configure_first_rejection
++        from mechet.route_process_reward import ALGORITHM as PROCESS_ALGORITHM
++        from mechet.route_native_observation import NATIVE_SFT_ROUTE
++        cfg.update(algorithm=PROCESS_ALGORITHM,public_observation_contract=NATIVE_SFT_ROUTE,
++                   advantage_estimator='centered_action_return_to_go_no_std')
++        configure_first_rejection(cfg)
++    if flow_credit_alpha:
++        cfg['flow_credit_alpha']=flow_credit_alpha
+     if vllm_runtime is not None:
+         from mechet.route_vllm_contract import configure_runtime
+         configure_runtime(cfg,vllm_runtime)
+@@ -254,10 +273,13 @@ if __name__ == '__main__':
+     parser.add_argument('--vllm-runtime-json',type=Path)
+     from mechet.route_materials import EXACT_MATERIAL, PROTIC_MATERIAL
+     parser.add_argument('--stock-material-contract',choices=(EXACT_MATERIAL,PROTIC_MATERIAL))
++    parser.add_argument('--first-rejection',action='store_true')
++    parser.add_argument('--flow-credit-alpha',type=float,default=0.)
+     args=parser.parse_args()
+     cfg=prepare_contract(args.dataset,args.parent,args.base_manifest,args.output,args.contract,
+                          world_size=args.world_size,candidates=args.candidates,epochs=args.epochs,gpu_name=args.gpu_name,
+                          vllm_runtime=json.loads(args.vllm_runtime_json.read_text()) if args.vllm_runtime_json else None,
+-                         stock_material_contract=args.stock_material_contract)
++                         stock_material_contract=args.stock_material_contract,
++                         first_rejection=args.first_rejection,flow_credit_alpha=args.flow_credit_alpha)
+     print(json.dumps(dict(contract=str(args.contract),train_targets=cfg['train_targets'],
+                          parent_sha256=cfg['parent_sha256']),ensure_ascii=False))
+diff --git a/scripts/train_external_route_rl.py b/scripts/train_external_route_rl.py
+index f66f754..f24b102 100644
+--- a/scripts/train_external_route_rl.py
++++ b/scripts/train_external_route_rl.py
+@@ -11,6 +11,7 @@ import time
+ from mechet.external_route_data import file_sha, iter_records, signature
+ from mechet.route_training_contract import atomic_json
+ from mechet.route_phase_profile import phase
++from mechet.route_failure_policy import reward_kwargs
+ from scripts.train_pr98_route_policy import (worker_lease,publish_checkpoint,
+     discover_checkpoint,verify_checkpoint,emit)
+ 
+@@ -35,12 +36,16 @@ def make_episodes(rows,stock,protected,cfg,version):
+     validate_public_tasks(rows)
+     episode_cfg = dict(behavior_version=version,max_action_tokens=cfg['max_action_tokens'],
+         protected_identities=protected,concurrent_executors=cfg['world_size']*cfg['executor_workers_per_rank'])
+-    for key in ('public_observation_contract','max_consecutive_recoveries'):
++    for key in ('public_observation_contract','max_consecutive_recoveries',
++                'stock_material_contract','route_failure_policy'):
+         if key in cfg:
+             episode_cfg[key]=cfg[key]
+     if 'route_memory' in cfg:
+         episode_cfg['route_memory'] = cfg['route_memory']
+     episode_type = TargetOnlyRouteEpisode
++    if 'refit' in cfg:
++        from mechet.route_refit import RefitRouteEpisode
++        episode_type=RefitRouteEpisode
+     namespace = version
+     if '_validation_rng_namespace' in cfg:
+         from mechet.external_route_validation import ValidationRouteEpisode
+@@ -63,6 +68,12 @@ def score_groups(rows,reports,candidates,oracle):
+         group=[]
+         for report in reports[i*candidates:(i+1)*candidates]:
+             result=oracle.score(row['task_id'],report)
++            if 'refit' in report:
++                from copy import deepcopy
++                report=deepcopy(report)
++                for suffix in report['refit']['suffix_reports']:
++                    scored=oracle.score(row['task_id'],suffix)
++                    suffix.update(task_id=row['task_id'],reward=scored['reward'],reward_evidence=scored)
+             group.append(dict(report,task_id=row['task_id'],reward=result['reward'],reward_evidence=result))
+         groups.append(group)
+     return groups
+@@ -138,12 +149,21 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+     else:
+         atomic_json(path,binding)
+     episodes=make_episodes(rows,stock,protected,cfg,version)
++    refit=None
++    if 'refit' in cfg:
++        from mechet.route_refit_runtime import RefitCollection
++        refit=RefitCollection(episodes,cfg['refit'])
++        episodes=refit.initial
+     indexed={ep.uid:ep for ep in episodes};seen=set();journal=directory/'executed_calls.jsonl'
+     for receipt in read_owned_journal(journal):
+         uid=receipt['request_id'].rsplit('/r',1)[0]
+         if receipt['request_id'] in seen:
+             raise ValueError('DUPLICATE_EXECUTED_BEHAVIOR_RECEIPT')
+-        indexed[uid].accept(receipt);seen.add(receipt['request_id'])
++        if refit:
++            owner=refit.owner(receipt['request_id']);owner.accept(receipt);refit.completed(owner)
++        else:indexed[uid].accept(receipt)
++        seen.add(receipt['request_id'])
++    if refit:episodes=refit.all
+     execution_writer=ReceiptBatch(journal,cfg=cfg)
+     native=cfg.get('inference_backend','hf')=='vllm'
+     if native:
+@@ -173,13 +193,17 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+         now=time.monotonic()
+         if force or now>=next_snapshot:
+             next_snapshot=now+30.
++            counts={}
++            if refit:
++                from mechet.route_refit_runtime import unique_collection_counts
++                counts=unique_collection_counts(episodes)
+             atomic_json(directory/'collection_progress.json',dict(
+                 behavior_version=version,contract_sha256=cfg['_sha'],updated_unix=time.time(),
+                 targets=len(rows),sampled_route_episodes=len(episodes),
+                 completed_route_episodes=sum(ep.status is not None for ep in episodes),
+                 active_route_episodes=sum(ep.status is None for ep in episodes),
+-                model_decision_requests=sum(len(ep.records) for ep in episodes),
+-                completed_reaction_programs=sum(len(ep.reactions) for ep in episodes),
++                model_decision_requests=counts.get('model_decision_requests',sum(len(ep.records) for ep in episodes)),
++                completed_reaction_programs=counts.get('completed_reaction_programs',sum(len(ep.reactions) for ep in episodes)),
+                 native_stock_solved=sum(ep.status=='stock_solved' for ep in episodes),
+                 scheduler_metrics=dict(getattr(sampler,'scheduler_metrics',{})),
+                 censored_route_episodes=sum(ep.status in ('resource_censored','protected_censored') for ep in episodes),
+@@ -187,8 +211,11 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+     snapshot(force=True)
+     try:
+         collector=collect_async_route_groups if native else collect_route_groups
+-        return collector(episodes,sampler,workers=cfg['executor_workers_per_rank'],
+-                                    journal=record,recovered=recovered,snapshot=snapshot)
++        reports=collector(episodes,sampler,workers=cfg['executor_workers_per_rank'],
++                          journal=record,recovered=recovered,snapshot=snapshot,
++                          **({'on_completed_action':refit.completed} if refit else {}),
++                          **({'before_dispatch':execution_writer.flush} if native and refit else {}))
++        return refit.pack(reports) if refit else reports
+     finally:
+         if native:
+             sampler.close()
+@@ -196,7 +223,12 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+         execution_writer.flush()
+         snapshot(force=True)
+         metrics=backend_collection_metrics(sampler.raw_path)
+-        metrics.update(native_decision_request_attempts=sum(len(ep.records) for ep in episodes),
++        attempts=sum(len(ep.records) for ep in episodes)
++        if refit:
++            from mechet.route_refit_runtime import unique_collection_counts
++            counts=unique_collection_counts(episodes);attempts=counts['model_decision_requests']
++            metrics.update(counts,refit_additional_rollouts=len(refit.all)-len(refit.initial))
++        metrics.update(native_decision_request_attempts=attempts,
+                        scheduler_metrics=dict(getattr(sampler,'scheduler_metrics',{})),
+                        decision_request_metric_scope='native_policy_requests_including_physical_censor_attempts',
+                        backend_metric_scope='cumulative_original_durable_gpu_receipts_including_recovered_work')
+@@ -261,14 +293,16 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
+         actor.eval()
+         eval_cfg=dict(cfg,seed=protocol['seed'],candidates=protocol['candidates'],
+             _validation_rng_namespace=protocol['id']+':'+signature(protocol))
++        # Preserve the frozen independent VALID G4 selection protocol. Search
++        # budgets are compared separately on the declared benchmark ladder.
++        eval_cfg.pop('refit',None)
+         own=rows[rank::world]
+         chunk_size=max(1,cfg['products_per_round']//world)
+         version=f'validation{checkpoint_round:06d}:{actor_sha}'
+         rank_dir=directory/f'rank{rank:02d}'
+         with HiddenRouteReward(Path(cfg['dataset'])/'references.sqlite',stock,
+                                split='validation',partial_weight=cfg['partial_reward_weight'],
+-                               **({'material_contract':cfg['stock_material_contract']}
+-                                  if 'stock_material_contract' in cfg else {})) as oracle:
++                               **reward_kwargs(cfg)) as oracle:
+             for batch_index,start in enumerate(range(0,len(own),chunk_size)):
+                 batch_rows=own[start:start+chunk_size]
+                 batch_dir=rank_dir/f'batch-{batch_index:05d}'
+@@ -510,8 +544,7 @@ def train(contract_path):
+         reward_type=ProcessRouteReward
+     with worker_lease(root,rank), reward_type(dataset/'references.sqlite',stock,
+                                 partial_weight=cfg['partial_reward_weight'],
+-                                **({'material_contract':cfg['stock_material_contract']}
+-                                   if 'stock_material_contract' in cfg else {})) as oracle:
++                                **reward_kwargs(cfg,process=cfg['algorithm']==PROCESS_ALGORITHM)) as oracle:
+         checkpoint=discover_checkpoint(root,cfg['_sha'])
+         state=verify_checkpoint(checkpoint,cfg['_sha']) if checkpoint else None
+         if state and state['training_order_sha256'] != order_sha:
+diff --git a/src/mechet/external_route_rl.py b/src/mechet/external_route_rl.py
+index 7d009ae..5ab2e34 100644
+--- a/src/mechet/external_route_rl.py
++++ b/src/mechet/external_route_rl.py
+@@ -40,7 +40,8 @@ class HiddenRouteReward:
+     """Reads only after rollout. Reference-supported closure is not a general oracle
+     of chemical feasibility; unsupported alternatives remain explicitly unverified.
+     """
+-    def __init__(self, database, stock, *, split='training', partial_weight=.2, material_contract=None):
++    def __init__(self, database, stock, *, split='training', partial_weight=.2, material_contract=None,
++                 failure_policy=None):
+         if not 0 <= partial_weight < 1:
+             raise ValueError('PARTIAL_REWARD_MUST_BE_BELOW_TERMINAL')
+         # Published reward databases are immutable. Avoid Ceph's costly SQLite
+@@ -48,6 +49,8 @@ class HiddenRouteReward:
+         self.db = sqlite3.connect(Path(database).resolve().as_uri()+'?mode=ro&immutable=1',uri=True)
+         self.stock = frozenset(stock)
+         self.split, self.partial_weight = split, partial_weight
++        from .route_failure_policy import check_failure_policy
++        self.failure_policy=check_failure_policy(failure_policy)
+         from .route_materials import material_contract as checked, EXACT_MATERIAL
+         self.material_contract=checked(dict(stock_material_contract=(EXACT_MATERIAL if material_contract is None else material_contract)))
+ 
+@@ -58,6 +61,8 @@ class HiddenRouteReward:
+         self.db.close()
+ 
+     def score(self, task_id, report, *, include_progress=False):
++        from .route_failure_policy import validate_failed_rollout, FIRST_REJECTION
++        validate_failed_rollout(report,getattr(self,'failure_policy',None))
+         from .route_materials import material_contract, validate_material_edge
+         if material_contract(report) != self.material_contract:
+             raise ValueError('REWARD_STOCK_MATERIAL_CONTRACT_MISMATCH')
+@@ -117,6 +122,8 @@ class HiddenRouteReward:
+         verified = stock_closed and report['status']=='stock_solved' and not unsupported
+         partial = self.partial_weight*min(len(supported)/max(steps,1),1.)
+         reward = 1. if verified else 0. if invalid else partial
++        if getattr(self,'failure_policy',None)==FIRST_REJECTION and report['status']=='rejected_action':
++            reward=0.
+         reward_status = ('invalid_graph' if invalid else 'verified_closed' if verified
+                          else 'unsupported_closed' if stock_closed and unsupported else 'observed_partial')
+         namespace = {'training':'TRAIN','validation':'VALID'}.get(self.split,self.split.upper())
+@@ -184,12 +191,20 @@ def optimize_routes(actor, reference, optimizer, groups, cfg):
+     sampled_records=policy_tokens=0
+     algorithm=cfg.get('algorithm',DR_GRPO_ALGORITHM)
+     process = algorithm==PROCESS_GRPO_ALGORITHM
++    refit='refit' in cfg
++    refit_entries={}
++    if refit and not process:raise ValueError('REFIT_REQUIRES_PROCESS_OBJECTIVE')
+     error=None
+     try:
+         for group in groups:
+             if 'candidates' in cfg and len(group)!=cfg['candidates']:
+                 raise ValueError('ROUTE_GROUP_SIZE_MISMATCH')
+-            if process:
++            if refit:
++                from .route_refit_credit import training_records
++                entries,credit_stats=training_records(group)
++                refit_entries[id(group)]=(entries,credit_stats)
++                advantages=[] if entries or credit_stats['original_g4_eligible'] else None
++            elif process:
+                 from .route_process_reward import process_group_advantages
+                 advantages=process_group_advantages([
+                     None if r['reward'] is None else r['reward_evidence']['process_credit']['event_rewards']
+@@ -199,6 +214,16 @@ def optimize_routes(actor, reference, optimizer, groups, cfg):
+             if advantages is not None:
+                 usable.append((group,advantages))
+         for group,advantages in usable:
++            if refit:
++                entries,_=refit_entries[id(group)]
++                for record,action_advantage in entries:
++                    p,r,b=(record[k] for k in ('prompt_token_ids','generated_token_ids','behavior_logprobs'))
++                    if any(not math.isfinite(v) or v>0 for v in b):
++                        raise ValueError('INVALID_BEHAVIOR_TOKEN_LOGPROB')
++                    key=(tuple(p),tuple(r),tuple(b),action_advantage,len(group))
++                    compact[key]=compact.get(key,0)+1
++                    sampled_records+=1;policy_tokens+=len(r)
++                continue
+             for report,advantage in zip(group,advantages):
+                 if process:
+                     from .route_process_reward import process_sequences
+@@ -233,7 +258,13 @@ def optimize_routes(actor, reference, optimizer, groups, cfg):
+                  pg_loss=0.,reference_kl=0.)
+     if process:
+         stats['effective_episode_groups']=sum(any(a!=0 for a in
+-            route_group_advantages([r['reward'] for r in group],algorithm)) for group,_ in usable)
++            (route_group_advantages([r['reward'] for r in group],algorithm) or [])) for group,_ in usable)
++    if refit:
++        stats.update(advantage_estimator='same_state_flow_branch_replaces_independent_g4_v1',
++            effective_groups=sum(refit_entries[id(g)][1]['effective'] for g,_ in usable),
++            conditional_groups=sum(s['conditional_groups'] for _,s in refit_entries.values()),
++            masked_conditional_groups=sum(s['masked_conditional_groups'] for _,s in refit_entries.values()),
++            policy_receipt_scope='unique_actual_sampled_receipts_shared_prefix_once')
+     optimizer.zero_grad(set_to_none=True)
+     if denominator == 0:
+         return stats
+diff --git a/src/mechet/route_async_collection.py b/src/mechet/route_async_collection.py
+index 525e18e..a2cf75e 100644
+--- a/src/mechet/route_async_collection.py
++++ b/src/mechet/route_async_collection.py
+@@ -3,14 +3,20 @@ from collections import deque
+ from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+ 
+ 
+-def collect_async_route_groups(episodes,sampler,*,workers,journal,snapshot=None,recovered=None):
+-    ready=deque(e for e in episodes if e.next_decision() is not None)
++def collect_async_route_groups(episodes,sampler,*,workers,journal,snapshot=None,recovered=None,
++                               on_completed_action=None,before_dispatch=None):
++    all_episodes=list(episodes)
++    ready=deque(e for e in all_episodes if e.next_decision() is not None)
+     generating={};executing={}
+     limit=sampler.cfg['generation_batch_size']
+     sampler.scheduler_metrics=dict(dispatch_requests=0,cpu_completed_calls=0,
+                                     max_generation_inflight=0)
+     with ThreadPoolExecutor(max_workers=workers) as pool:
+         while ready or generating or executing:
++            if ready and before_dispatch:
++                # Derived fork IDs must not become durable model requests
++                # before their deterministic execution prefix is durable.
++                before_dispatch()
+             while ready and len(generating)<limit:
+                 ep=ready.popleft();request=ep.next_decision()
+                 value=(recovered or {}).get(request.request_id)
+@@ -34,7 +40,11 @@ def collect_async_route_groups(episodes,sampler,*,workers,journal,snapshot=None,
+                 else:
+                     ep=executing.pop(future);future.result()
+                     journal(ep.records[-1])
++                    if on_completed_action:
++                        added=on_completed_action(ep)
++                        all_episodes.extend(added)
++                        ready.extend(e for e in added if e.next_decision() is not None)
+                     sampler.scheduler_metrics['cpu_completed_calls']+=1
+                     if snapshot:snapshot(ep)
+                     if ep.next_decision() is not None:ready.append(ep)
+-    return [ep.finish_report() for ep in episodes]
++    return [ep.finish_report() for ep in all_episodes]
+diff --git a/src/mechet/route_policy_episode.py b/src/mechet/route_policy_episode.py
+index 25743a7..7710d05 100644
+--- a/src/mechet/route_policy_episode.py
++++ b/src/mechet/route_policy_episode.py
+@@ -107,6 +107,11 @@ class RouteEpisode:
+             raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
+         from .route_materials import material_contract
+         material_contract(self.cfg)
++        from .route_failure_policy import check_failure_policy, FIRST_REJECTION
++        failure=check_failure_policy(self.cfg.get('route_failure_policy'))
++        if failure==FIRST_REJECTION and (not self.agentic_feedback or
++                self.cfg.get('max_consecutive_recoveries')!=1):
++            raise ValueError('FIRST_REJECTION_REQUIRES_NATIVE_TERMINAL_CONTRACT')
+         self.uid, self.seed = uid, seed
+         self.chemistry = chemistry or NativeChemistry(contract.get('concurrent_executors',32))
+         self.public_root = public_molecule(public_root)
+@@ -226,6 +231,18 @@ class RouteEpisode:
+     def _finish_guard_error(self, child):
+         if not any(a['name']=='apply_electron_flow' for a in child.actions):
+             return 'NONPRODUCTIVE_FINISH'
++        if self.cfg.get('route_failure_policy'):
++            from .route_action_feedback import semantic_action
++            from .route_flow_credit import features
++            productive=False
++            for record in self.records:
++                if record.get('accepted') is not True or record.get('occurrence')!=self.current['occurrence']:
++                    continue
++                action=semantic_action(record.get('raw',''))
++                if action and action[1]['name']=='apply_electron_flow':
++                    if features(record['state_before'])!=features(record['state_after']):
++                        productive=True;break
++            if not productive:return 'NONPRODUCTIVE_FINISH'
+         try:
+             structural=chemical_identity(self.chemistry.precursors(child,self.initial))
+         except ValueError as exc:
+@@ -241,6 +258,10 @@ class RouteEpisode:
+ 
+     def _recover(self, error):
+         self.consecutive_recoveries+=1
++        from .route_failure_policy import FIRST_REJECTION
++        if self.cfg.get('route_failure_policy')==FIRST_REJECTION:
++            self._end('rejected_action',0.,error)
++            return
+         if self.consecutive_recoveries >= self.cfg.get('max_consecutive_recoveries',8):
+             self._end('recovery_exhausted',0.,error)
+ 
+@@ -293,6 +314,12 @@ class RouteEpisode:
+             self.current['product'],self.cfg['behavior_version'],self._messages(),
+             self.cfg['episode_token_budget']-self.used_tokens,self.current['public_product'],tools)
+ 
++    def _prior_rejection(self,receipt):
++        if self.cfg.get('public_observation_contract')==ACTION_ROUTE_HISTORY:
++            from .route_action_feedback import previous_rejection
++            return previous_rejection(self,receipt)
++        return None
++
+     def accept(self, receipt):
+         request=self.next_decision()
+         if request is None:
+@@ -305,10 +332,7 @@ class RouteEpisode:
+             raise ValueError('BEHAVIOR_OBSERVATION_MISMATCH')
+         before=self.node.state
+         action_feedback=self.cfg.get('public_observation_contract')==ACTION_ROUTE_HISTORY
+-        prior_rejection=None
+-        if action_feedback:
+-            from .route_action_feedback import previous_rejection
+-            prior_rejection=previous_rejection(self,receipt)
++        prior_rejection=self._prior_rejection(receipt)
+         if 'state_before' in receipt and receipt['state_before']!=before:
+             raise ValueError('RECOVERED_EXECUTION_STATE_BEFORE_MISMATCH')
+         record=dict(receipt, messages=request.messages, reaction_id=request.reaction_id,
+@@ -367,6 +391,8 @@ class RouteEpisode:
+                 state_changed=state_after!=before,current_state=public_molecule(state_after),
+                 instruction=('Continue from the executor-owned state.' if accepted else
+                     'State was not committed. Correct the error and choose another action.'))
++            if self.cfg.get('route_failure_policy') and self.status=='rejected_action':
++                feedback['instruction']='Sampled rollout terminated. State was not committed.'
+             if action_feedback:
+                 feedback.update(repeated_rejected_action=prior_rejection is not None,
+                     failure_repeat_count=(prior_rejection['count']+1 if prior_rejection else 1) if not accepted else 0)
+@@ -430,6 +456,8 @@ class RouteEpisode:
+             report['max_consecutive_recoveries']=self.cfg.get('max_consecutive_recoveries',8)
+         if 'stock_material_contract' in self.cfg:
+             report['stock_material_contract']=self.cfg['stock_material_contract']
++        if 'route_failure_policy' in self.cfg:
++            report['route_failure_policy']=self.cfg['route_failure_policy']
+         return report
+ 
+     def snapshot(self, *, include_stock=True):
+diff --git a/src/mechet/route_policy_sampling.py b/src/mechet/route_policy_sampling.py
+index ec2a734..23cf1ba 100644
+--- a/src/mechet/route_policy_sampling.py
++++ b/src/mechet/route_policy_sampling.py
+@@ -307,7 +307,7 @@ class NativeRouteSampler:
+         return results
+ 
+ 
+-def collect_route_groups(episodes,sampler,*,workers,journal,snapshot=None,recovered=None):
++def collect_route_groups(episodes,sampler,*,workers,journal,snapshot=None,recovered=None,on_completed_action=None):
+     """GPU owner rolls across independent episodes while CPU executes others."""
+     cfg=getattr(sampler,'cfg',None)
+     coalesce=float(sampler.cfg.get('executor_coalesce_seconds',.25))
+@@ -322,7 +322,8 @@ def collect_route_groups(episodes,sampler,*,workers,journal,snapshot=None,recove
+     def accept(ep,receipt):
+         with phase(cfg,'executor.accept'):
+             return ep.accept(receipt)
+-    ready=deque(e for e in episodes if next_decision(e) is not None)
++    all_episodes=list(episodes)
++    ready=deque(e for e in all_episodes if next_decision(e) is not None)
+     jobs={}
+     def harvest(done):
+         for job in done:
+@@ -330,6 +331,10 @@ def collect_route_groups(episodes,sampler,*,workers,journal,snapshot=None,recove
+             job.result()
+             metrics['cpu_completed_calls']+=1
+             journal(ep.records[-1])
++            if on_completed_action:
++                added=on_completed_action(ep)
++                all_episodes.extend(added)
++                ready.extend(e for e in added if next_decision(e) is not None)
+             if snapshot:
+                 with phase(cfg,'collection.snapshot'):
+                     snapshot(ep)
+@@ -383,4 +388,4 @@ def collect_route_groups(episodes,sampler,*,workers,journal,snapshot=None,recove
+                 raise ValueError('SAMPLER_DROPPED_REQUEST')
+             for ep,receipt in zip(batch,outputs):
+                 jobs[pool.submit(accept,ep,receipt)]=ep
+-    return [ep.finish_report() for ep in episodes]
++    return [ep.finish_report() for ep in all_episodes]
+diff --git a/src/mechet/route_process_reward.py b/src/mechet/route_process_reward.py
+index 55250f5..5418f58 100644
+--- a/src/mechet/route_process_reward.py
++++ b/src/mechet/route_process_reward.py
+@@ -22,11 +22,22 @@ def validate_process_protocol(cfg):
+             raise ValueError('PROCESS_REWARD_REQUIRES_EXPLICIT_ALGORITHM')
+         return
+     from .route_native_observation import NATIVE_SFT_ROUTE
+-    if (cfg.get('process_reward')!=CONFIG or cfg.get('reward_contract')!=VERSION or
++    from .route_failure_policy import FIRST_REJECTION, REWARD_VERSION, check_failure_policy
++    policy=check_failure_policy(cfg.get('route_failure_policy'))
++    version=REWARD_VERSION if policy==FIRST_REJECTION else VERSION
++    expected=dict(CONFIG,version=version)
++    if (cfg.get('process_reward')!=expected or cfg.get('reward_contract')!=version or
+             cfg.get('advantage_estimator')!='centered_action_return_to_go_no_std' or
+             cfg.get('public_observation_contract')!=NATIVE_SFT_ROUTE or
+             cfg.get('partial_reward_weight')!=.2):
+         raise ValueError('PROCESS_PROTOCOL_CHANGED')
++    if policy==FIRST_REJECTION and cfg.get('max_consecutive_recoveries')!=1:
++        raise ValueError('PROCESS_PROTOCOL_FIRST_REJECTION_CEILING')
++    if 'flow_credit_alpha' in cfg:
++        from .route_flow_credit import validate_alpha
++        alpha=validate_alpha(cfg['flow_credit_alpha'])
++        if alpha and policy!=FIRST_REJECTION:
++            raise ValueError('PROCESS_PROTOCOL_FLOW_CREDIT_FAILURE_POLICY')
+ 
+ 
+ def digest(value):
+@@ -59,12 +70,22 @@ def process_group_advantages(rewards):
+ 
+ 
+ class ProcessRouteReward(HiddenRouteReward):
++    def __init__(self,*args,flow_credit_alpha=0.,**kwargs):
++        from .route_flow_credit import validate_alpha
++        from .route_failure_policy import FIRST_REJECTION
++        self.flow_credit_alpha=validate_alpha(flow_credit_alpha)
++        if self.flow_credit_alpha and kwargs.get('failure_policy')!=FIRST_REJECTION:
++            raise ValueError('FLOW_CREDIT_REQUIRES_FIRST_REJECTION_CONTRACT')
++        super().__init__(*args,**kwargs)
++
+     def score(self, task_id, report):
++        from .route_failure_policy import FIRST_REJECTION, REWARD_VERSION
++        version=REWARD_VERSION if self.failure_policy==FIRST_REJECTION else VERSION
+         result = super().score(task_id, report, include_progress=True)
+         if result['reward'] is None:
+-            return dict(result, process_reward_version=VERSION, process_credit=None)
++            return dict(result, process_reward_version=version, process_credit=None)
+         records = report['records']
+-        if not records:
++        if not records and report['status']!='already_stock':
+             raise ValueError('PROCESS_OBSERVED_DECISIONS_REQUIRED')
+         ids = [r['request_id'] for r in records]
+         if len(set(ids)) != len(ids):
+@@ -75,15 +96,21 @@ class ProcessRouteReward(HiddenRouteReward):
+         if [o for _, o in commits] != [r['occurrence'] for r in report['reactions']]:
+             raise ValueError('PROCESS_COMMIT_RECEIPT_MISMATCH')
+         events = [0.] * len(records)
++        increments=[]
+         progress = 0.
+         for item in result.pop('progress_events'):
+             supported = item['supported_reactions']
+             next_progress = .2 * min(supported/max(result['reference_steps'], 1), 1.)
+             index = commits[item['reaction_index']][0]
+             events[index] += next_progress-progress
++            increments.append((index,next_progress-progress))
+             progress = next_progress
++        from .route_flow_credit import redistribute_progress
++        events,attribution=redistribute_progress(records,events,increments,alpha=self.flow_credit_alpha)
+         task_reward = (1. if result['verified_stock_closed'] else
+                        0. if result['graph_error'] else progress)
++        if self.failure_policy==FIRST_REJECTION and report['status']=='rejected_action':
++            task_reward=0.
+         error_weight = 0.
+         cost = 0.
+         penalty_scale = .05/max(result['reference_steps'], 1)
+@@ -95,29 +122,33 @@ class ProcessRouteReward(HiddenRouteReward):
+             key = (record['occurrence'], record['state_before'],
+                    action[0] if action else record.get('raw', ''))
+             error_weight += (2. if error.startswith('ROUTE_CYCLE') else 1.)
+-            if seen[key]:
++            if seen[key] or record.get('executor_skipped')=='repeated_rejected_action':
+                 error_weight += 1.
+             seen[key] += 1
+             next_cost = -math.expm1(-error_weight/4.)
+             events[i] -= penalty_scale*(next_cost-cost)
+             cost = next_cost
+-        events[-1] += task_reward-progress
++        if events:events[-1] += task_reward-progress
+         final_reward = task_reward-penalty_scale*cost
+         if not math.isclose(math.fsum(events), final_reward, rel_tol=1e-10, abs_tol=1e-12):
+             raise ValueError('PROCESS_REWARD_CONSERVATION_FAILED')
+-        credit = dict(version=VERSION, request_ids=ids, event_rewards=events,
++        credit = dict(version=version, request_ids=ids, event_rewards=events,
+                       returns=returns_to_go(events), task_reward=task_reward,
+                       validator_cost=cost, validator_error_weight=error_weight,
+                       validator_penalty_scale=penalty_scale)
++        if self.flow_credit_alpha:
++            credit['flow_credit']=dict(alpha=self.flow_credit_alpha,evidence=attribution)
+         credit['sha256'] = digest(credit)
+         return dict(result, base_route_reward=result['reward'], reward=final_reward,
+-                    route_task_reward=task_reward, process_reward_version=VERSION,
++                    route_task_reward=task_reward, process_reward_version=version,
+                     process_credit=credit)
+ 
+ 
+ def process_sequences(report, advantages):
++    from .route_failure_policy import FIRST_REJECTION, REWARD_VERSION
++    version=REWARD_VERSION if report.get('route_failure_policy')==FIRST_REJECTION else VERSION
+     credit = report['reward_evidence'].get('process_credit')
+-    if not isinstance(credit, dict) or credit.get('version') != VERSION:
++    if not isinstance(credit, dict) or credit.get('version') != version:
+         raise ValueError('PROCESS_CREDIT_REQUIRED')
+     payload = {k:v for k,v in credit.items() if k!='sha256'}
+     records = report['records']
+diff --git a/tests/test_route_async_runtime.py b/tests/test_route_async_runtime.py
+index ceb708b..9f8e047 100644
+--- a/tests/test_route_async_runtime.py
++++ b/tests/test_route_async_runtime.py
+@@ -6,6 +6,27 @@ from types import SimpleNamespace
+ import pytest
+ 
+ 
++def test_derived_async_requests_wait_for_durable_execution_prefix():
++    from mechet.route_async_collection import collect_async_route_groups
++    pending=[];durable=[]
++    class Episode:
++        records=[]
++        def next_decision(self):
++            return SimpleNamespace(request_id=str(len(self.records))) if len(self.records)<2 else None
++        def accept(self,receipt):self.records=[*self.records,receipt]
++        def finish_report(self):return self.records
++    class Sampler:
++        cfg={'generation_batch_size':1}
++        def submit(self,request):
++            if request.request_id=='1':assert durable==[{'request_id':'0'}]
++            result=Future();result.set_result({'request_id':request.request_id});return result
++    def flush():
++        durable.extend(pending);pending.clear()
++    result=collect_async_route_groups([Episode()],Sampler(),workers=1,
++        journal=pending.append,before_dispatch=flush)
++    assert len(result[0])==2
++
++
+ def test_slow_sibling_does_not_block_chemistry_or_successor():
+     from mechet.route_async_collection import collect_async_route_groups
+     successor=threading.Event()

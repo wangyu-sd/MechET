@@ -1,0 +1,19 @@
+{
+  "status": "FORMAL_SUBMISSION_VERIFIED_MODEL_RESULTS_PENDING",
+  "task_flag": "meteor_mechet_pr109_standard_d_4h20_20261116",
+  "instance": "8b1d899ca1cfaab101a1e49fc67f2090",
+  "submitted_at": "2026-11-16T13:50:38.988028+00:00",
+  "latest_observed_state": "TRAINING_RUNNING",
+  "last_observed_at": "2026-11-16T21:53:04.252915+08:00",
+  "contract_sha256": "6c62451943ca7cf0f0eccc60d85fe011e50fd4a108287ea32056541690bff9d3",
+  "source_commit": "de2371de135fa60ec9752ff5d5a5da6e94b5d7e5",
+  "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "train_source_row_targets": 156723,
+  "validation_source_row_targets": 8250,
+  "candidates": 4,
+  "world_size": 4,
+  "gpu": "H20",
+  "existing_frozen_job_preserved": true,
+  "aggregate_mechet_h20_upper_bound": 8,
+  "model_results": null
+}
