@@ -1,6 +1,6 @@
 {
-  "observed_at": "2026-11-17T11:40:55.304168+00:00",
-  "status": "SAME_TASK_START_ACCEPTED_PENDING_RUNTIME_VERIFICATION",
+  "observed_at": "2026-11-17T12:13:03.821602+00:00",
+  "status": "RUNTIME_RESUME_VERIFIED_COLLECTING",
   "source_commit": "4fca18b1a2f9f1f38035f8fb096a94a741449654",
   "user_authorization": "Local T4 legality/speed validation then replace accelerated runtime in original D3/D1 tasks from completed checkpoints; supersedes earlier preserve-running/no-replacement restriction.",
   "max_total_h20": 8,
@@ -13,10 +13,10 @@
       "resumed_optimizer_step": 13,
       "output_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_d3_accelerated_resume_20261117_01",
       "requested_at": "2026-11-17T11:38:29.207700+00:00",
-      "status": "START_ACCEPTED_RUNTIME_NOT_YET_VERIFIED",
+      "status": "RUNTIME_RESUME_VERIFIED_COLLECTING",
       "created_at": "2026-11-17 19:38:29",
       "instance_id": "8b1d891ea1cfaab201a1e94d21c428e8",
-      "state": "READY",
+      "state": "TRAINING_RUNNING",
       "static_verification": {
         "status": "STATIC_PASS_NOT_SUBMITTED",
         "condition": "d3",
@@ -41,6 +41,82 @@
         "benchmark_hardware": "Tesla T4",
         "benchmark_precision": "legacy_fp32_lora",
         "experimental_results": false
+      },
+      "runtime_proof": {
+        "actor_ready_ranks": [
+          {
+            "rank": 0,
+            "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+            "next_round": 13,
+            "train_targets": 156723,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 1,
+            "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+            "next_round": 13,
+            "train_targets": 156723,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 2,
+            "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+            "next_round": 13,
+            "train_targets": 156723,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 3,
+            "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+            "next_round": 13,
+            "train_targets": 156723,
+            "gpu_name": "NVIDIA H20"
+          }
+        ],
+        "resumed_optimizer_step": 13,
+        "saved_optimizer_step_now": 13,
+        "round_dirs": [
+          "round-000013"
+        ],
+        "gpu_journal_counts": {
+          "gpu-rank00.jsonl": {
+            "gpu-requested": 7,
+            "gpu-returned": 6,
+            "gpu-batch-timing": 6,
+            "behavior-receipt": 300,
+            "truncated_receipts": 0
+          },
+          "gpu-rank01.jsonl": {
+            "gpu-requested": 7,
+            "gpu-returned": 6,
+            "gpu-batch-timing": 6,
+            "behavior-receipt": 304,
+            "truncated_receipts": 0
+          },
+          "gpu-rank02.jsonl": {
+            "gpu-requested": 8,
+            "gpu-returned": 7,
+            "gpu-batch-timing": 7,
+            "behavior-receipt": 280,
+            "truncated_receipts": 0
+          },
+          "gpu-rank03.jsonl": {
+            "gpu-requested": 7,
+            "gpu-returned": 6,
+            "gpu-batch-timing": 6,
+            "behavior-receipt": 325,
+            "truncated_receipts": 0
+          }
+        },
+        "unique_completed_inference_requests": 1209
       }
     },
     {
@@ -51,10 +127,10 @@
       "resumed_optimizer_step": 83,
       "output_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_d1_accelerated_resume_20261117_01",
       "requested_at": "2026-11-17T11:38:31.407493+00:00",
-      "status": "START_ACCEPTED_RUNTIME_NOT_YET_VERIFIED",
+      "status": "RUNTIME_RESUME_VERIFIED_COLLECTING",
       "created_at": "2026-11-17 19:38:31",
       "instance_id": "8b1d89f6a1cfaa4801a1e94d2a7e28d3",
-      "state": "READY",
+      "state": "TRAINING_RUNNING",
       "static_verification": {
         "status": "STATIC_PASS_NOT_SUBMITTED",
         "condition": "d1",
@@ -79,7 +155,85 @@
         "benchmark_hardware": "Tesla T4",
         "benchmark_precision": "legacy_fp32_lora",
         "experimental_results": false
+      },
+      "runtime_proof": {
+        "actor_ready_ranks": [
+          {
+            "rank": 0,
+            "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+            "next_round": 83,
+            "train_targets": 23730,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 1,
+            "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+            "next_round": 83,
+            "train_targets": 23730,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 2,
+            "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+            "next_round": 83,
+            "train_targets": 23730,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 3,
+            "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+            "next_round": 83,
+            "train_targets": 23730,
+            "gpu_name": "NVIDIA H20"
+          }
+        ],
+        "resumed_optimizer_step": 83,
+        "saved_optimizer_step_now": 83,
+        "round_dirs": [
+          "round-000083"
+        ],
+        "gpu_journal_counts": {
+          "gpu-rank00.jsonl": {
+            "gpu-requested": 4,
+            "gpu-returned": 3,
+            "gpu-batch-timing": 3,
+            "behavior-receipt": 130,
+            "truncated_receipts": 0
+          },
+          "gpu-rank01.jsonl": {
+            "gpu-requested": 5,
+            "gpu-returned": 4,
+            "gpu-batch-timing": 4,
+            "behavior-receipt": 141,
+            "truncated_receipts": 0
+          },
+          "gpu-rank02.jsonl": {
+            "gpu-requested": 4,
+            "gpu-returned": 3,
+            "gpu-batch-timing": 3,
+            "behavior-receipt": 128,
+            "truncated_receipts": 0
+          },
+          "gpu-rank03.jsonl": {
+            "gpu-requested": 5,
+            "gpu-returned": 4,
+            "gpu-batch-timing": 4,
+            "behavior-receipt": 141,
+            "truncated_receipts": 0
+          }
+        },
+        "unique_completed_inference_requests": 540
       }
     }
-  ]
+  ],
+  "runtime_resume_proof": "runtime_resume_proof.json",
+  "post_resume_optimizer_update_observed": false
 }

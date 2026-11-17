@@ -65,6 +65,8 @@ T4 不支持生产 BF16 内核，核验用 FP32/unfused；H20 仍保留原 BF16/
 
 原实例 END、全部源 worker 锁释放、最终 complete/adapter 哈希核对后，复制 actor、optimizer、四 rank RNG、全量顺序和进度；新 complete 显式绑定新合同及源 complete。源输出不变；未提交轮次重新采集。D1 保留8次恢复/原 reward、不增加 ReFIT；D3 保留 first-rejection/ReFIT/原 reward。新增 loss_batch_size4 和显式 acceleration 配置。成功修改同名任务并回读新启动命令后启动，各4H20，总上限8。平台修改 CLI 缺认证字段会返回错误但退出0，已补充私有 Token 配置并以接口输出与配置回读共同核验；凭据不公开。
 
-当前启动回执已接受，PENDING/容器加载/恢复后的新更新分别跟踪，seeded13/83不能算新更新。见[部署回执](../audits/pr111_acceleration_20261117/continuation_deployment.json)。只读监控已启动，无自动重提交。继续全量 RL/VALID → Reference1084/n5-10000 → 最后 TRAIN-only 搜索蒸馏。真实 H20 轮次加速和质量仍需后续同预算数据。
+当前已核实两套四个rank都actor-ready，actor/固定参考哈希、合同和next_round匹配；均进入新轮次采集。D3已有1209条、D1已有540条唯一真实模型回执，八张卡均有已完成请求，观察到0条截断。仍是采集阶段，尚未产生新优化器检查点，seeded13/83不能算新更新。见[部署回执](../audits/pr111_acceleration_20261117/continuation_deployment.json)。只读监控已启动，无自动重提交。继续全量 RL/VALID → Reference1084/n5-10000 → 最后 TRAIN-only 搜索蒸馏。真实 H20 轮次加速和质量仍需后续同预算数据。
 
 独立复审发现准备 CLI 曾把最终停源检查视为可选，会允许旧计时 actor 的准入代替最终断点核验。实际部署使用的 final_admission 已匹配13/83，未受影响。准备工具现强制最终回执并精确比较 actor/complete/path/step/next_round 和完整自由生成数；10项新负例先失败，修复后完整迁移套件42项通过（192.35s，替代前述32项而非累加）。实际两套已部署合同又通过收紧后的只读校验。只加固未来准备工具，不修改运行中的冻结源码。[复审与回归记录](../audits/pr111_acceleration_20261117/continuation_review.json)。
+
+实际恢复证据：[runtime_resume_proof.json](../audits/pr111_acceleration_20261117/runtime_resume_proof.json)。两套 H20 启动内核数值检查各8项通过。冷启动观察到运行库在共享盘上的导入/元数据查询、每rank冻结文件核验（D3输入约3.42GB、D1约2.44GB）和模型加载开销，不能把这段启动时间当作每轮RL耗时；当前启动路径仍有优化空间。本次没有修改运行中的包或绕过哈希校验。
