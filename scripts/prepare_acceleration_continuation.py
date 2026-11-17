@@ -11,6 +11,7 @@ from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import tarfile
 
@@ -77,6 +78,22 @@ def _verified_latest_actor(gate,condition,audit):
     if type(count) is not int or count<1 or type(complete) is not int or complete!=count:
         raise ValueError('LATEST_CHECKPOINT_LEGALITY_BINDING_CHANGED:complete_outputs')
     return final
+
+
+def preserve_runtime_leaves(original,code):
+    """Carry forward explicitly bound vendor dependencies absent from git archives."""
+    for name in ('scripts/_nvml_runtime/pynvml.py',):
+        source=Path(original['code_root'])/name
+        digest=original['files_sha256'].get(str(source))
+        if digest is None:continue
+        if file_sha(source)!=digest:raise ValueError('RUNTIME_LEAF_CHANGED:'+name)
+        destination=Path(code)/name
+        if destination.exists():
+            if file_sha(destination)!=digest:raise ValueError('RUNTIME_LEAF_CHANGED:'+name)
+        else:
+            destination.parent.mkdir(parents=True,exist_ok=True)
+            shutil.copyfile(source,destination)
+            if file_sha(destination)!=digest:raise ValueError('RUNTIME_LEAF_COPY_CHANGED:'+name)
 
 
 def prepare(*,source_contract,source_contract_sha256,source_instance,source_stopped_receipt,
@@ -151,6 +168,7 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
             original_source_commit=original.get('source_commit'),sampler_equivalence='not_claimed_new_condition',
             runtime_precision=original.get('policy_precision'),t4_admission_precision=gate['precision'])
         old_code=Path(original['code_root']);old_archive=original.get('entry_archive')
+        preserve_runtime_leaves(original,code)
         cfg['files_sha256']={path:digest for path,digest in original['files_sha256'].items()
             if not Path(path).is_relative_to(old_code) and path!=old_archive}
         if full_native:

@@ -17,7 +17,7 @@ The earlier deployed HF condition is partial acceleration. It is not the complet
 
 ## What is still not admitted or deployed
 
-The original task flags continue on the v1 HF runtime while full-native software checks and stateful handoff tooling finish. At the latest read during this update, D3 has completed optimizer step17 and D1 step87. These are actual post-resume updates, not seeded checkpoint counts.
+The old HF instances have stopped at fully completed D3 step19 and D1 step89. Their original task flags have been replaced by the full native candidate, with actor/optimizer/per-rank RNG/full order authenticated and preserved. Both new four-H20 instances are running their H20 BF16 admission gate; they have no new optimizer update yet. Seeded19/89 are continuation start points, not native training results.
 
 The initial T4 test used a frozen earlier source snapshot and four actual requests per backend. It is not final full-candidate admission. Its first timing comparison had asymmetric HF warmup; the raw record is preserved and no speedup is claimed from it. A new test uses independent warmups, alternating timing order, per-phase native metrics and an explicit one-token boundary request to prove refill while uncensored neighbors continue. The boundary request is excluded from complete-action timing.
 
@@ -38,3 +38,20 @@ New public helper modules and focused tests are in repository-root paths. Existi
 ### Subsequent T4 attempt02
 
 Actual four-slot/six-request refill passed: the next submission precedes completion of initial long neighbors. Max native/HF logprob difference0.01459074. Balanced four-request timings yielded median HF/native ratio0.8184, so vLLM was slower on this local diagnostic. This is preserved negative speed evidence; no H20 or full-round gain is claimed. Warm-cache native startup302.017s. Source snapshot9a4ef76 excludes later hardware-gate/controller accounting edits, which require final-candidate revalidation. Native metrics snapshots are cumulative within an actor version; do not add them across phases.
+
+## Final local admission and actual handoff (23:20 CST)
+
+Final T4 attempt04 used16 saved requests at8 physical slots, with two queued waves and four alternating, independently warmed backend repeats. HF times[15.2466,17.2709,15.6669,19.4760]s; native[14.1761,17.0674,13.5678,17.1242]s; median ratio1.05423. Max native/teacher-forced logprob difference0.02919769, unchanged0.25 gate. Real10request/8slot refill, exact prompt, cache reuse and actor-switch invalidation passed. This is a local software workload with independently sampled responses, not an H20/full-training throughput or route-quality claim. Earlier4request negative timings remain preserved.
+
+Final combined software suite66PASS71.32s; source-bound NVML packaging regression1RED then46continuationPASS99.68s (overlapping suites). Actual Qwen policy-generation unit passed in pinned TF5.5.0 runtime1PASS4.33s; it had been unsupported by the default host architecture. All generated dependencies/temp/cache data reside on Ceph.
+
+The packaging check discovered the old working environment's explicitly bound NVIDIA pynvml leaf is absent from git archives. The preparer now carries forward that exact SHA before freezing the new inventory. No existing live code or vendor dependency was altered; unused candidate01 is marked DO_NOT_SUBMIT. This packaging-only fix does not change the T4-admitted compute bytes.
+
+| Condition | Same original task flag | New instance | Source checkpoint | New contract |
+|---|---|---|---|---|
+| D3 | `meteor_mechet_pr109_standard_d_4h20_20261116` | `8b1d89f6a1cfaa4801a1ea0e2de229e3` | step19 | `47fcfbf670a6c166b8d1c99e436f98c62777a823e2cdb18293f886009ed52827` |
+| D1 | `meteor_mechet_stage2_native_process_grpo_4h20_zjk_20261115_01` | `8b1d89c6a1cfaaaf01a1ea10ea942910` | step89 | `825912e080a25da69cf4020fa968ec4747c6a2f532ae8e1cf11027b46c652cfa` |
+
+Each requests4 H20, aggregate8. CLI modifications were read back before start; old END receipts and released worker locks were required. Both allocated devices report NVIDIA H20. Read-only monitors distinguish new optimizer updates from seeded progress, and collect five-second device memory/utilization samples; sampled peaks are not exact maxima. Neither monitor automatically submits or restarts a task.
+
+H20 hardware gate remains pending at this timestamp, with both native engines loading. Formal collection starts only after a verified exact-source-actor, contract/code/precision-bound PASS receipt. No native H20 speedup, full-round timing, new update, or matched-budget quality result is claimed yet.

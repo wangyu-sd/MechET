@@ -61,3 +61,16 @@ def test_real_hardware_receipt_is_required_with_exact_compute_actor_and_contract
     (code/'src/mechet/route_work_broker.py').write_text('changed')
     with pytest.raises(ValueError,match='ADMITTED_COMPUTE_CHANGED'):
         require_native_admission(cfg,'contract',code=code)
+
+
+def test_native_preparation_carries_forward_the_bound_nvml_runtime_leaf(tmp_path):
+    from scripts.prepare_acceleration_continuation import preserve_runtime_leaves
+    from mechet.external_route_data import file_sha
+    old=tmp_path/'old';new=tmp_path/'new';new.mkdir()
+    relative='scripts/_nvml_runtime/pynvml.py';source=old/relative;source.parent.mkdir(parents=True)
+    source.write_text('bound NVIDIA dependency')
+    cfg=dict(code_root=str(old),files_sha256={str(source):file_sha(source)})
+    preserve_runtime_leaves(cfg,new)
+    assert (new/relative).read_bytes()==source.read_bytes()
+    source.write_text('changed')
+    with pytest.raises(ValueError,match='RUNTIME_LEAF_CHANGED'):preserve_runtime_leaves(cfg,new)

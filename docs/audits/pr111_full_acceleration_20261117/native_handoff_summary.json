@@ -1,0 +1,34 @@
+{
+  "d3": {
+    "task_flag": "meteor_mechet_pr109_standard_d_4h20_20261116",
+    "new_instance": "8b1d89f6a1cfaa4801a1ea0e2de229e3",
+    "status": "SUBMITTED_H20_ADMISSION_PENDING_NOT_FORMAL_NATIVE_RESULT",
+    "resumed_step": 19,
+    "next_round": 19,
+    "contract_sha256": "47fcfbf670a6c166b8d1c99e436f98c62777a823e2cdb18293f886009ed52827",
+    "source_complete_sha256": "e00a16a0fa3767d8e86c36c852a31136c6df30abfd9c71dc1b918f18dabaac47",
+    "seeded_complete_sha256": "53416b9b37a6af5a39fbf76736926e794ffc360aea11de9e73564ea2f3ee3d9f",
+    "actor_sha256": "66982f899bd79b9f15c00acfe8711d4e943fb75c85f2fb015a1bb58819208664",
+    "train_targets": 156723,
+    "validation_targets": 8250,
+    "original_fixed_reference_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+    "gpu_allocation": "4 H20",
+    "formal_native_new_updates": 0
+  },
+  "d1": {
+    "task_flag": "meteor_mechet_stage2_native_process_grpo_4h20_zjk_20261115_01",
+    "new_instance": "8b1d89c6a1cfaaaf01a1ea10ea942910",
+    "status": "SUBMITTED_H20_ADMISSION_PENDING_NOT_FORMAL_NATIVE_RESULT",
+    "resumed_step": 89,
+    "next_round": 89,
+    "contract_sha256": "825912e080a25da69cf4020fa968ec4747c6a2f532ae8e1cf11027b46c652cfa",
+    "source_complete_sha256": "d4528fb887dbe97993860a450ddc6c49cf16d31addcd07054ea338238c2c2586",
+    "seeded_complete_sha256": "be42eb1691ea8893687559d5265065766df19671c50d81bbf96682d3c449f381",
+    "actor_sha256": "3b65152ebef4538e8899aa92a88b9efff96fe60c05771d07fa92cc06cfac813e",
+    "train_targets": 23730,
+    "validation_targets": 2986,
+    "original_fixed_reference_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+    "gpu_allocation": "4 H20",
+    "formal_native_new_updates": 0
+  }
+}

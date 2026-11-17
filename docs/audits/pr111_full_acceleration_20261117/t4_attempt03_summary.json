@@ -1,0 +1,66 @@
+{
+  "status": "PASS",
+  "engine_start_seconds": 272.7852171435952,
+  "max_native_logprob_difference": 0.02538275718688965,
+  "legal_checks": {
+    "native_probability": "PASS",
+    "prompt_ids": "PASS",
+    "complete_actions": "PASS",
+    "native_cache_hit": "PASS",
+    "global_async_receipts": "PASS",
+    "actual_native_refill_before_long_neighbor": "PASS",
+    "actor_switch_cache_invalidation": "PASS"
+  },
+  "timings": {
+    "hf_complete_action_seconds": [
+      7.6103823855519295,
+      8.735596612095833,
+      8.43161578476429,
+      11.998404264450073
+    ],
+    "native_complete_action_seconds": [
+      6.742496602237225,
+      7.983140550553799,
+      7.550999261438847,
+      11.953056313097477
+    ],
+    "requests_per_backend_per_repeat": 8,
+    "median_speedup": 1.1051279700474124,
+    "qualification": "same prompts and completed-request count; independently sampled responses; t4_fp16"
+  },
+  "refill_probe": {
+    "status": "PASS",
+    "requests": 10,
+    "dedicated_short_request_budget": 1,
+    "short_request_truncated": true,
+    "refill_event_position": 9,
+    "initial_long_completion_positions": [
+      13,
+      18,
+      10,
+      11,
+      17,
+      16,
+      14
+    ],
+    "scope": "explicit one-token resource-boundary software probe; excluded from complete-action timings"
+  },
+  "scope": "T4 software workload only; independently sampled complete responses; no H20/full-training gain claim",
+  "report_sha256": "a4765cd9aa37ba7c7c1812a5d2354c1084bf8414071b64fbe69e29d3f77cf05b",
+  "source_bindings": {
+    "first": {
+      "adapter_sha256": "b9ea5c54bc093e91c929c1252248842388c8600f5d9806327efbdb3db97ce200",
+      "complete_sha256": "804ed2f336d3b4151530eec5a7afb4f9b951de8a77d06ebcaee427e7280b799e",
+      "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+      "optimizer_step": 18,
+      "next_round": 18
+    },
+    "second": {
+      "adapter_sha256": "0e34520159c1663fe476603892ef2fb2f0dabf54f35731a5a750414722dd3f39",
+      "complete_sha256": "ef8c90b5d2d555d76a679e9f725417f19f05148f1d77d3d65995ea4255ad2c77",
+      "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+      "optimizer_step": 88,
+      "next_round": 88
+    }
+  }
+}

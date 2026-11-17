@@ -1,10 +1,10 @@
 {
   "private_base": "9938c63",
-  "private_head": "2917b6f75905b7b65667bafbb743e32f26a46ff0",
+  "private_head": "7b48aa2dc590be6ce12b3416a31822ecd53c8263",
   "files_sha256": {
-    "docs/ops/PR111_FULL_ACCELERATION_STATUS_20261117.md": "bcbd99959ebeb5123ddeafee5e8c4dce75e89aaeb07151ca31b8582bf631a37a",
-    "docs/superpowers/plans/2026-11-17-pr111-full-acceleration.md": "119702f1b9d3e1f7abad5b9fb9acbeb6caa3737e63ba901ef6ad3fd29ae50dfc",
-    "scripts/prepare_acceleration_continuation.py": "2ec4c45d3e9dd2e2dbf751c4678b924cd2c5bf17786607bcb8ec1195737b596d",
+    "docs/ops/PR111_FULL_ACCELERATION_STATUS_20261117.md": "b99f3072922d4d5dd28ab7e32b86aedbe324d8e2217ea84a80d6336e040780a5",
+    "docs/superpowers/plans/2026-11-17-pr111-full-acceleration.md": "d5f907fdf1adfd66c19442f89cd6a7e1be475536ae3c7a730c49ec65597d8185",
+    "scripts/prepare_acceleration_continuation.py": "0083aa7ed1bf18f6ca8f139b7c77622bf7ed7d312b926b3517d7d774b8a0ccb8",
     "scripts/run_route_native_admission.py": "7b70d2b9962cce794d512c8d5156fea1227cda7ec7d43e97197b97aa2d238d2e",
     "docs/audits/pr111_full_acceleration_20261117/source/scripts/serve_route_vllm.py": "4361ce49254d1544d8ca1e8af8ad54241d3bbd1d3e596cc0c93a922624848442",
     "scripts/taiji_external_route_bootstrap.sh": "d65e618aa4e50fb798a636966a712f6d0fa0c2a7dbd5eba3c70c741dee809f6f",
@@ -33,7 +33,7 @@
     "tests/test_route_execution_cache.py": "088f2cfc889762ba8e8253437bd658e1d90637c8e961d6af217cd39f2843cfc1",
     "tests/test_route_global_native.py": "4ecd6d983196c5047e5e6825fa6962ea17bddb0b7c5e699df99f6f34d2b6de88",
     "tests/test_route_native_accounting.py": "7ffece3e9d43fd627b1caa81a3c13c99ae6b837615713ca816c80597c43feaec",
-    "tests/test_route_native_admission.py": "e36cf6a532765a185eab0caca25198a6586cb25b566254367a483a4d2893dfa5",
+    "tests/test_route_native_admission.py": "439d7404f783d8bef0c1715d4faae34c02f2f4790c162a2bf425eb15614bbaa2",
     "tests/test_route_reference_cache.py": "2eab5833901d4c79985cbd2fb2cd2f39fa0ec74946ae9b806a1fdb91ea36983b",
     "tests/test_route_refit_credit.py": "bfa2a968208ad096364d2efffd26603e71acc05434303738d8eb8d4b122e7c21",
     "tests/test_route_refit_lanes_v2.py": "e5595a42781c919bcc84c3179cfc5bcf5c9b99b8b230de3c72847c8e6f8310f8",
