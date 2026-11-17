@@ -28,6 +28,8 @@ def _cpu_worker(rank,rendezvous,root,fault=None):
         def __init__(self,actor,tokenizer,cfg,raw_path,execution_writer):
             if fault=='startup' and rank==1:raise OSError('injected startup failure')
             self.cfg,self.raw_path=cfg,Path(raw_path)
+            self.writer=io.ReceiptBatch(raw_path,cfg=cfg)
+            self.execution_writer=execution_writer
         def generate(self,requests):
             values=[]
             append_receipt(self.raw_path,dict(event='gpu-requested',requests=[vars(r) for r in requests],prompt_token_ids=[[1] for r in requests]))

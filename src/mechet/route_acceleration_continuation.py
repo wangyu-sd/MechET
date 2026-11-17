@@ -17,7 +17,8 @@ REQUIRED_PAYLOADS={'adapter_model.safetensors','adapter_config.json','optimizer.
 # Every other field is immutable, including unrecognized future semantic fields.
 MUTABLE_FIELDS={'output_dir','code_root','code_files_sha256','files_sha256','entry_archive',
     'entry_archive_sha256','source_commit','authorization','experimental_condition',
-    'implementation','acceleration','loss_batch_size','initial_baseline','acceleration_continuation'}
+    'implementation','acceleration','loss_batch_size','initial_baseline','acceleration_continuation',
+    'inference_backend','vllm_runtime','native_admission'}
 COMPUTE_FILES={
     'src/mechet/route_acceleration.py','src/mechet/route_policy_sampling.py',
     'src/mechet/route_counter_sampling.py','src/mechet/route_execution_cache.py',
@@ -125,6 +126,11 @@ def assert_source_unchanged(audit):
 
 
 def validate_conditions(original,new):
+    native=new.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2'
+    if not native and any(original.get(k)!=new.get(k) for k in ('inference_backend','vllm_runtime','native_admission')):
+        raise ValueError('CONTINUATION_NATIVE_BACKEND_CHANGE_REQUIRES_FULL_CONDITION')
+    if native and (new.get('inference_backend')!='vllm' or new.get('native_admission',{}).get('required') is not True):
+        raise ValueError('CONTINUATION_NATIVE_HARDWARE_GATE_REQUIRED')
     for key in original.keys()|new.keys():
         if key not in MUTABLE_FIELDS and (original.get(key)!=new.get(key) or (key in original)!=(key in new)):
             raise ValueError('CONTINUATION_CONDITION_CHANGED:'+key)
@@ -140,7 +146,7 @@ def validate_conditions(original,new):
     if Path(new['output_dir']).resolve()==Path(original['output_dir']).resolve():
         raise ValueError('CONTINUATION_OUTPUT_COLLISION')
     acceleration=new.get('acceleration',{})
-    expected='skip_extra_duplicates_v1' if original.get('refit') else 'disabled'
+    expected=('skip_extra_duplicates_v2' if native else 'skip_extra_duplicates_v1') if original.get('refit') else 'disabled'
     if acceleration.get('duplicate_suffix_policy')!=expected:
         raise ValueError('CONTINUATION_D1_D3_DUPLICATE_POLICY_CHANGED')
     # Never manufacture old VALID results under the changed sampler identity.

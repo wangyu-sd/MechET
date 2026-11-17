@@ -41,8 +41,7 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
     from scripts.train_external_route_rl import collect_round,score_groups,backend_collection_metrics
     from .route_work_broker import WorkBroker
     from .route_global_sampler import broker_server,connect_broker,serve_gpu,LockedTokenizer
-    from .external_route_io import ReceiptBatch,BatchedNativeRouteSampler
-    from .route_policy_sampling import read_owned_journal,recover_behavior_receipts
+    from .route_gpu_backend import make_gpu_sampler,close_gpu_sampler,recover_gpu_journal
     from scripts.pr96_earho_contract import token_logps_batch
     rank,world=dist.get_rank(),dist.get_world_size()
     if int(os.environ.get('LOCAL_WORLD_SIZE',world))!=world:
@@ -51,7 +50,9 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
     server=None;control=[None];error=''
     if rank==0:
         try:
-            state=WorkBroker(rows,actor_version=version,contract_sha=cfg['_sha'],journal_path=directory/'claims.jsonl')
+            from .route_acceleration import dispatch_settings
+            state=WorkBroker(rows,actor_version=version,contract_sha=cfg['_sha'],journal_path=directory/'claims.jsonl',
+                             dispatch=dispatch_settings(cfg))
             # Restore physical GPU work once, regardless of which CPU owner or
             # GPU receives the request after restart. No fresh sample is forged.
             def recompute(p,r):
@@ -60,31 +61,28 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
                     return token_logps_batch(actor,[(p,r)],cfg['pad_token_id'],precision=precision_mode(cfg))[0].tolist()
             for gpu in range(world):
                 path=directory/f'gpu-rank{gpu:02d}.jsonl'
-                recovered=recover_behavior_receipts(path,version,recompute)
-                requests={}
-                for event in read_owned_journal(path):
-                    if event['event']=='gpu-requested':
-                        for request in event['requests']:requests[request['request_id']]=request
-                for uid,value in recovered.items():state.seed_result(requests[uid],value)
+                for request,value in recover_gpu_journal(path,version,cfg,recompute):
+                    state.seed_result(request,value)
+            if cfg.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2':
+                from .route_request_accounting import restore_finished_request_labels
+                restore_finished_request_labels(state,version)
             server,address,key=broker_server(state,host='127.0.0.1')
             control[0]=dict(address=address,key=key,error='')
         except BaseException as exc:control[0]=dict(error=type(exc).__name__+':'+str(exc))
     dist.broadcast_object_list(control,src=0)
     if control[0]['error']:raise RuntimeError('DYNAMIC_BROKER_START_FAILED:'+control[0]['error'])
-    broker=worker=None
+    broker=worker=sampler=None
     try:
         broker=connect_broker(control[0]['address'],control[0]['key'])
         tokenizer=LockedTokenizer(tokenizer)
-        if cfg.get('inference_backend','hf')!='hf':
-            raise ValueError('GLOBAL_NATIVE_ENGINE_REQUIRES_SEPARATE_ADMISSION')
-        gpu_writer=ReceiptBatch(directory/f'gpu-prefix-rank{rank:02d}.jsonl',cfg)
-        sampler=BatchedNativeRouteSampler(actor,tokenizer,cfg,directory/f'gpu-rank{rank:02d}.jsonl',gpu_writer)
+        sampler=make_gpu_sampler(actor,tokenizer,cfg,directory,version,rank)
         worker=Thread(target=serve_gpu,args=(broker,sampler,rank),daemon=True);worker.start()
     except BaseException as exc:error=type(exc).__name__+':'+str(exc)
     startup_errors=[None]*world;dist.all_gather_object(startup_errors,error)
     if any(startup_errors):
         if broker:broker.fail(json.dumps(startup_errors))
         if worker and worker.ident is not None:worker.join(timeout=5)
+        if sampler is not None and (worker is None or not worker.is_alive()):close_gpu_sampler(sampler,cfg)
         if server:server.stop_event.set()
         raise RuntimeError('DYNAMIC_WORKER_START_FAILED:'+json.dumps(startup_errors))
     groups=[]
@@ -112,6 +110,10 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
     worker.join(timeout=cfg.get('collective_timeout_seconds',604800))
     if worker.is_alive():
         error='GPU_OWNER_DID_NOT_STOP_BEFORE_LEARNER';broker.fail(error)
+    else:
+        try:close_gpu_sampler(sampler,cfg)
+        except BaseException as exc:
+            error=type(exc).__name__+':'+str(exc);broker.fail(error)
     # Another worker may have failed after its local CPU work finished.
     observed=broker.snapshot()
     errors=[None]*world;dist.all_gather_object(errors,error)
@@ -128,6 +130,14 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
         raise RuntimeError('DYNAMIC_COLLECTION_FAILED:'+json.dumps([*errors,observed['error']]))
     if observed['complete']!=len(rows):raise ValueError('DYNAMIC_TARGET_DENOMINATOR_MISMATCH')
     metrics=backend_collection_metrics(directory/f'gpu-rank{rank:02d}.jsonl')
+    if '_last_native_engine_metrics' in cfg:
+        metrics['native_engine']=cfg['_last_native_engine_metrics']
+        atomic_json(directory/f'native-engine-rank{rank:02d}.json',cfg['_last_native_engine_metrics'])
+    if '_last_native_journal_metrics' in cfg:
+        metrics['native_journal']=cfg['_last_native_journal_metrics']
+    if 'request_accounting' in observed:metrics['physical_request_accounting']=observed['request_accounting']
+    if cfg.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2':
+        metrics['cache_witness_provenance']=cache.persist_provenance(directory/f'cache-witnesses-rank{rank:02d}.json')
     metrics.update(dynamic_owned_target_groups=len(groups),deterministic_execution_cache=cache.metrics(),
                    global_scheduler=observed['counts'],physical_generation_owner_rank=rank)
     cfg['_last_collection_metrics']=metrics

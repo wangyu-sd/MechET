@@ -80,3 +80,81 @@ def test_history_and_finish_are_not_cloned_from_the_cache():
     finish=dict(r,raw='<tool_call>{"name":"finish_trace","arguments":{}}</tool_call>')
     actual,error=chem.step(y,finish);expected,e=base.step(y,finish)
     assert actual==expected and error==e
+
+
+def test_cache_exposes_producer_and_bound_pure_witness_without_changing_receipt():
+    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
+    from mechet.route_policy_episode import NativeChemistry
+    from mechet.external_route_data import signature
+    from test_route_native_observation import episode,flow
+    ep=episode();ep.next_decision();cache=ExecutionCache();base=NativeChemistry()
+    chem=CachedChemistry(base,cache,{'executor':'frozen'});a=receipt(flow(ep))
+    original=deepcopy(a);x,error=chem.step(ep.node,a)
+    provenance=cache.provenance('r1')
+    assert a==original and not error
+    b=dict(a,request_id='r2',behavior_logprobs=[-.9]);y,error=chem.step(ep.node,b)
+    second=cache.provenance('r2')
+    assert provenance['producer_receipt_id']==second['producer_receipt_id']=='r1'
+    assert provenance['request_id']=='r1' and second['request_id']=='r2'
+    assert provenance['witness_sha']==signature(dict(execution_key=provenance['execution_key'],
+        producer_receipt_id='r1',transition=dict(error='',state=x.state,next_map=x.next_map,
+        imported=x.imported,result=x.actions[-1]['result'])))
+    assert second['witness_sha']==provenance['witness_sha']
+    assert x.actions==y.actions and y.logprob==pytest.approx(ep.node.logprob-.9)
+    assert cache.metrics()['cache_reconstruction_failures']==0
+
+
+def test_corrupted_cached_transition_fails_witness_and_counts_reconstruction_failure():
+    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
+    from mechet.route_policy_episode import NativeChemistry
+    from test_route_native_observation import episode,flow
+    ep=episode();ep.next_decision();cache=ExecutionCache()
+    chem=CachedChemistry(NativeChemistry(),cache,{'executor':'frozen'})
+    output=receipt(flow(ep));chem.step(ep.node,output)
+    # Corrupt a durable pure successor at the cache boundary; consuming it must
+    # propagate rather than return a foreign/forged chemical state.
+    next(iter(cache.entries.values())).result()['transition']['state']='forged'
+    with pytest.raises(ValueError,match='CACHE.*WITNESS'):
+        chem.step(ep.node,dict(output,request_id='r2'))
+    assert cache.metrics()['cache_reconstruction_failures']==1
+
+
+def test_reconstruction_exception_is_counted_and_propagated(monkeypatch):
+    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
+    from mechet.route_policy_episode import NativeChemistry
+    from test_route_native_observation import episode,flow
+    ep=episode();ep.next_decision();cache=ExecutionCache()
+    chem=CachedChemistry(NativeChemistry(),cache,{'executor':'frozen'})
+    output=receipt(flow(ep));chem.step(ep.node,output)
+    import scripts.run_natural_language_value_search as chemistry
+    def broken(*args,**kwargs):raise RuntimeError('reconstruction failed')
+    monkeypatch.setattr(chemistry,'Node',broken)
+    with pytest.raises(RuntimeError,match='reconstruction failed'):
+        chem.step(ep.node,dict(output,request_id='r2'))
+    assert cache.metrics()['cache_reconstruction_failures']==1
+
+
+def test_missing_cached_witness_field_is_counted_and_propagated():
+    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
+    from mechet.route_policy_episode import NativeChemistry
+    from test_route_native_observation import episode,flow
+    ep=episode();ep.next_decision();cache=ExecutionCache()
+    chem=CachedChemistry(NativeChemistry(),cache,{'executor':'frozen'})
+    output=receipt(flow(ep));chem.step(ep.node,output)
+    del next(iter(cache.entries.values())).result()['transition']
+    with pytest.raises((KeyError,ValueError)):
+        chem.step(ep.node,dict(output,request_id='r2'))
+    assert cache.metrics()['cache_reconstruction_failures']==1
+def test_cache_producer_witness_survives_runtime_shutdown(tmp_path):
+    import json
+    from mechet.route_execution_cache import ExecutionCache
+    from mechet.external_route_data import file_sha
+    cache=ExecutionCache()
+    cache.resolve('key','producer',lambda:dict(error='',state='state'))
+    cache.resolve('key','consumer',lambda:(_ for _ in ()).throw(AssertionError('reexecuted')))
+    result=cache.persist_provenance(tmp_path/'cache-witnesses.json')
+    rows=json.loads((tmp_path/'cache-witnesses.json').read_text())
+    assert result['sha256']==file_sha(tmp_path/'cache-witnesses.json')
+    assert rows['consumer']['request_id']=='consumer'
+    assert rows['consumer']['producer_receipt_id']=='producer'
+    assert rows['consumer']['witness_sha']==rows['producer']['witness_sha']

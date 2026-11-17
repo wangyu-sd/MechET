@@ -80,7 +80,8 @@ def _verified_latest_actor(gate,condition,audit):
 
 
 def prepare(*,source_contract,source_contract_sha256,source_instance,source_stopped_receipt,
-            admission,submission,output,source_commit,authorization,task_flag):
+            admission,submission,output,source_commit,authorization,task_flag,
+            full_native=False,second_source_contract=None):
     if not authorization.strip():raise ValueError('EXPLICIT_USER_AUTHORIZATION_REQUIRED')
     code=Path(__file__).resolve().parents[1]
     if not code.is_relative_to(ROOT/'artifacts'):raise ValueError('DEDICATED_FROZEN_CODE_SNAPSHOT_REQUIRED')
@@ -103,18 +104,41 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
         from mechet.route_acceleration import DEFAULT_ACCELERATION,validate_acceleration
         gate=read_json(admission);settings=gate.get('admitted_settings',{})
         accel_settings=settings.get('acceleration',settings)
-        acceleration=dict(DEFAULT_ACCELERATION)
-        acceleration['sampling_kernel']=accel_settings.get('sampling_kernel')
-        acceleration['duplicate_suffix_policy']='skip_extra_duplicates_v1' if original.get('refit') else 'disabled'
+        if full_native:
+            from mechet.route_acceleration import full_acceleration
+            acceleration=full_acceleration(refit=bool(original.get('refit')))
+        else:
+            acceleration=dict(DEFAULT_ACCELERATION)
+            acceleration['sampling_kernel']=accel_settings.get('sampling_kernel')
+            acceleration['duplicate_suffix_policy']='skip_extra_duplicates_v1' if original.get('refit') else 'disabled'
         cfg.update(output_dir=str(output),source_commit=source_commit,acceleration=acceleration,
-            loss_batch_size=settings.get('loss_batch_size'),authorization=authorization,
-            experimental_condition=f'pr111_{condition}_stateful_acceleration_continuation_v1',
+            loss_batch_size=4 if full_native else settings.get('loss_batch_size'),authorization=authorization,
+            experimental_condition=f'pr111_{condition}_stateful_acceleration_continuation_'+('v2_native' if full_native else 'v1'),
             implementation=original['implementation']+'; explicit accelerated continuation')
         cfg['initial_baseline']['parent_output']=str(output)
+        if full_native:
+            if second_source_contract is None:raise ValueError('NATIVE_SECOND_SOURCE_CONTRACT_REQUIRED')
+            second_source_contract=Path(second_source_contract).resolve()
+            from mechet.route_native_admission import validate_local_admission
+            gate=validate_local_admission(admission,code)
+            candidates=[b for b in gate['source_bindings'].values()
+                if b.get('contract_sha256')==source_contract_sha256]
+            if len(candidates)!=1:raise ValueError('NATIVE_LOCAL_ACTOR_BINDING_REQUIRED')
+            benchmark=_verified_benchmark_actor(candidates[0],audit)
+            from mechet.route_vllm_contract import configure_runtime
+            runtime=deepcopy(read_json(ROOT/'outputs/submissions/external_route_vllm_full_20261110_04/contract.json')['vllm_runtime'])
+            runtime.update(cache_root=str(code.parent/'native-cache'),startup_timeout_seconds=3600,
+                shared_triton_cache_root=str(code.parent/'native-cache/shared-triton'))
+            configure_runtime(cfg,runtime)
+            cfg['native_admission']=dict(required=True,actor_sha256=audit['source_payload_sha256']['adapter_model.safetensors'],
+                source_contract_sha256=source_contract_sha256,source_complete_sha256=audit['source_complete_sha256'],
+                second_source_contract=str(second_source_contract),second_source_contract_sha256=file_sha(second_source_contract),
+                status='REQUIRES_REAL_H20_BF16_GATE_BEFORE_TRAINING')
+        else:
+            gate,binding=validate_admission(admission,cfg,code,condition=condition)
+            benchmark=_verified_benchmark_actor(binding,audit)
+            _verified_latest_actor(gate,condition,audit)
         validate_acceleration(cfg)
-        gate,binding=validate_admission(admission,cfg,code,condition=condition)
-        benchmark=_verified_benchmark_actor(binding,audit)
-        _verified_latest_actor(gate,condition,audit)
         cfg['acceleration_continuation']=dict(version='pr111_stateful_acceleration_continuation_v1',
             source_contract=str(source_contract),source_contract_sha256=source_contract_sha256,
             source_output=audit['source_output'],source_checkpoint=audit['source_checkpoint'],
@@ -129,6 +153,9 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
         old_code=Path(original['code_root']);old_archive=original.get('entry_archive')
         cfg['files_sha256']={path:digest for path,digest in original['files_sha256'].items()
             if not Path(path).is_relative_to(old_code) and path!=old_archive}
+        if full_native:
+            for path in (Path(cfg['vllm_runtime']['manifest']),second_source_contract):
+                cfg['files_sha256'][str(path)]=file_sha(path)
         cfg['code_root']=str(code)
         cfg['code_files_sha256']={name:file_sha(code/name) for name in source_files(code)}
         from mechet.route_runtime_efficiency import CONFIG_FILES
@@ -201,6 +228,8 @@ def main():
         prepare_parser.add_argument('--'+name,required=True,type=Path)
     for name in ('source-instance','source-commit','authorization','task-flag'):
         prepare_parser.add_argument('--'+name,required=True)
+    prepare_parser.add_argument('--full-native',action='store_true')
+    prepare_parser.add_argument('--second-source-contract',type=Path)
     args=vars(parser.parse_args());mode=args.pop('mode')
     if mode=='audit':
         output=shared_new_path(args.pop('audit_output'))

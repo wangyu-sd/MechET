@@ -65,5 +65,6 @@ PY
   "$route_python" -S -u "$route_code/scripts/verify_route_fla_kernel_profile.py" --contract "$route_contract" \
     2>&1 | tee "$route_unit_dir/l2norm_gpu_unit.log"
 fi
+"$route_python" -S -u -m scripts.run_route_native_admission --contract "$route_contract"
 exec "$route_python" -S -u -m torch.distributed.run --standalone --nproc_per_node="$route_world" \
   --no-python "$route_python" -S -u -m scripts.train_external_route_rl --contract "$route_contract"

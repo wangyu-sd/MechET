@@ -54,8 +54,17 @@ class RemoteSampler:
             with self.cv:
                 if self.closed:raise RuntimeError('REMOTE_SAMPLER_CLOSED')
                 if request.request_id in self.pending:raise ValueError('REMOTE_REQUEST_ALREADY_PENDING')
-                binding='ids:'+signature(self.prompt_ids(request))
-                self.broker.submit(asdict(request),self.owner,prompt_binding=binding)
+                prompt=self.prompt_ids(request);binding='ids:'+signature(prompt)
+                work=None
+                if self.cfg.get('acceleration',{}).get('scheduling')=='global_length_fair_v2':
+                    room=min(request.remaining_tokens,self.cfg['max_action_tokens'],self.cfg['max_context']-len(prompt))
+                    if room<=0:
+                        future.set_result(dict(request_id=request.request_id,behavior_version=request.behavior_version,
+                            prompt_token_ids=prompt,raw='',generated_token_ids=[],behavior_logprobs=[],
+                            resource_error='PHYSICAL_CONTEXT_LIMIT'))
+                        return future
+                    work=dict(prompt_tokens=len(prompt),max_new_tokens=room)
+                self.broker.submit(asdict(request),self.owner,prompt_binding=binding,**({'work':work} if work else {}))
                 self.pending[request.request_id]=future;self.cv.notify_all()
         except Exception as exc:future.set_exception(exc)
         return future
@@ -103,7 +112,7 @@ def serve_gpu(broker,sampler,gpu):
         while True:
             batch=broker.take(gpu,sampler.cfg['generation_batch_size'],.02)
             if not batch:
-                if broker.snapshot()['stopped']:return
+                if broker.is_stopped():return
                 continue
             requests=[DecisionRequest(**row['request']) for row in batch]
             if hasattr(sampler,'submit'):
