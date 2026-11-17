@@ -82,8 +82,10 @@
     "docs/audits/pr109_refit_20261116/source/src/mechet/route_policy_objective.py": "0170c13c925158fa33b917c52cd2e7a380f1bd11edebdc34edc8d515f4e0319e",
     "patches/pr109_standard_refit_20261116.patch": "ad5e71629e600c739084463a7503a4e0bee396a2fd9bf7b866f21e5423e691c0",
     "docs/audits/pr109_refit_20261116/README.md": "59d19d3b3efc335db0793283d7570cd48de842601118c17c71fccbf5da74dd9a",
-    "docs/ops/PR109_D3_REFIT_PROGRESS_20261117.md": "25385613440117d52502a4bc9b64edd6531f5467129165471300391322571e8f",
-    "docs/audits/pr109_refit_20261116/progress_20261117.json": "cd57e4289834ab5d7e003cd1b3115dc9c937aefaa74e0ce3e33f5a5619e34927"
+    "docs/ops/PR109_D3_REFIT_PROGRESS_20261117.md": "be6ce2a75d17f847417174533ebf236f33710925eee85dda9272c52600e84ee3",
+    "docs/audits/pr109_refit_20261116/progress_20261117.json": "cd57e4289834ab5d7e003cd1b3115dc9c937aefaa74e0ce3e33f5a5619e34927",
+    "docs/ops/PR110_DUPLICATES_AND_GPU_20261117.md": "8d8c5998a27ab82f35d233ef693a393710a6d1266c04e1fb53e90ddaff6591d8",
+    "docs/audits/pr109_refit_20261116/acceleration_20261117.json": "371aa5c22ba463457030ab6ae74bc4e65bedf2ea15579617fe3eee2554a92fb9"
   },
   "formal_submission": {
     "status": "FORMAL_SUBMISSION_VERIFIED_MODEL_RESULTS_PENDING",
@@ -111,5 +113,13 @@
     "optimizer_updates": 10,
     "audited_round": 10,
     "documentation_only_update": true
+  },
+  "acceleration_followup": {
+    "evidence_window_cst": "2026-11-17 15:27–15:28",
+    "report": "docs/ops/PR110_DUPLICATES_AND_GPU_20261117.md",
+    "snapshot": "docs/audits/pr109_refit_20261116/acceleration_20261117.json",
+    "status": "DOCUMENTED_OPEN_ISSUES_NOT_DEPLOYED_FIXES",
+    "new_model_experiments": 0,
+    "runtime_modified": false
   }
 }

@@ -1,0 +1,362 @@
+{
+  "scope": "read-only existing formal D3 runtime audit; no new training/evaluation",
+  "device_sample_interval_cst": [
+    "2026/11/17 15:27:24.877",
+    "2026/11/17 15:27:30.258"
+  ],
+  "device_samples": [
+    {
+      "timestamp": "2026/11/17 15:27:24.877",
+      "gpu": 0,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20829,
+      "memory_total_mib": 97871,
+      "power_w": 116.66,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:24.880",
+      "gpu": 1,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20401,
+      "memory_total_mib": 97871,
+      "power_w": 113.48,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:24.884",
+      "gpu": 2,
+      "gpu_util_percent": 35,
+      "memory_util_percent": 2,
+      "memory_used_mib": 21661,
+      "memory_total_mib": 97871,
+      "power_w": 136.16,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:24.887",
+      "gpu": 3,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 19283,
+      "memory_total_mib": 97871,
+      "power_w": 115.32,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:25.954",
+      "gpu": 0,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20829,
+      "memory_total_mib": 97871,
+      "power_w": 116.85,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:25.957",
+      "gpu": 1,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20401,
+      "memory_total_mib": 97871,
+      "power_w": 113.54,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:25.961",
+      "gpu": 2,
+      "gpu_util_percent": 36,
+      "memory_util_percent": 2,
+      "memory_used_mib": 21661,
+      "memory_total_mib": 97871,
+      "power_w": 138.85,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:25.965",
+      "gpu": 3,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 19283,
+      "memory_total_mib": 97871,
+      "power_w": 115.25,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:27.028",
+      "gpu": 0,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20829,
+      "memory_total_mib": 97871,
+      "power_w": 116.63,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:27.031",
+      "gpu": 1,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20401,
+      "memory_total_mib": 97871,
+      "power_w": 113.6,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:27.034",
+      "gpu": 2,
+      "gpu_util_percent": 42,
+      "memory_util_percent": 4,
+      "memory_used_mib": 21661,
+      "memory_total_mib": 97871,
+      "power_w": 136.75,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:27.038",
+      "gpu": 3,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 19283,
+      "memory_total_mib": 97871,
+      "power_w": 115.35,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:28.103",
+      "gpu": 0,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20829,
+      "memory_total_mib": 97871,
+      "power_w": 116.77,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:28.106",
+      "gpu": 1,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20401,
+      "memory_total_mib": 97871,
+      "power_w": 113.62,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:28.109",
+      "gpu": 2,
+      "gpu_util_percent": 35,
+      "memory_util_percent": 2,
+      "memory_used_mib": 21661,
+      "memory_total_mib": 97871,
+      "power_w": 130.46,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:28.113",
+      "gpu": 3,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 19283,
+      "memory_total_mib": 97871,
+      "power_w": 115.43,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:29.164",
+      "gpu": 0,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20829,
+      "memory_total_mib": 97871,
+      "power_w": 116.83,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:29.167",
+      "gpu": 1,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20401,
+      "memory_total_mib": 97871,
+      "power_w": 113.54,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:29.174",
+      "gpu": 2,
+      "gpu_util_percent": 35,
+      "memory_util_percent": 2,
+      "memory_used_mib": 21661,
+      "memory_total_mib": 97871,
+      "power_w": 129.97,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:29.178",
+      "gpu": 3,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 19283,
+      "memory_total_mib": 97871,
+      "power_w": 115.42,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:30.244",
+      "gpu": 0,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20829,
+      "memory_total_mib": 97871,
+      "power_w": 116.71,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:30.251",
+      "gpu": 1,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 20401,
+      "memory_total_mib": 97871,
+      "power_w": 113.46,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:30.254",
+      "gpu": 2,
+      "gpu_util_percent": 35,
+      "memory_util_percent": 2,
+      "memory_used_mib": 21661,
+      "memory_total_mib": 97871,
+      "power_w": 129.95,
+      "power_limit_w": 500.0
+    },
+    {
+      "timestamp": "2026/11/17 15:27:30.258",
+      "gpu": 3,
+      "gpu_util_percent": 100,
+      "memory_util_percent": 0,
+      "memory_used_mib": 19283,
+      "memory_total_mib": 97871,
+      "power_w": 115.31,
+      "power_limit_w": 500.0
+    }
+  ],
+  "completed_round_profile": {
+    "observed_at": "2026-11-17T15:27:31.435526+08:00",
+    "completed_round": 10,
+    "phases": [
+      {
+        "rank": 0,
+        "window_seconds": 5537.420754757011,
+        "phases_seconds": {
+          "collection.total": 4814.671206224011,
+          "sampling.generate": 4121.796441050479,
+          "learner.total": 589.993006151868,
+          "sync.collective": 202.471518374281,
+          "io.journal_flush": 255.2832640435081
+        },
+        "generation_batches": 298,
+        "decision_requests": 16587,
+        "mean_generation_batch": 55.66107382550336,
+        "mean_training_batch": 1.0
+      },
+      {
+        "rank": 1,
+        "window_seconds": 5537.419256680179,
+        "phases_seconds": {
+          "collection.total": 4912.621256662067,
+          "sampling.generate": 4156.974140258506,
+          "learner.total": 589.9970023138449,
+          "sync.collective": 20.702308632200584,
+          "io.journal_flush": 260.79598760581575
+        },
+        "generation_batches": 302,
+        "decision_requests": 16703,
+        "mean_generation_batch": 55.30794701986755,
+        "mean_training_batch": 1.0
+      },
+      {
+        "rank": 2,
+        "window_seconds": 5537.290090878028,
+        "phases_seconds": {
+          "collection.total": 4051.567563663004,
+          "sampling.generate": 3484.342174505582,
+          "learner.total": 589.990248013055,
+          "sync.collective": 1049.1780717587098,
+          "io.journal_flush": 206.485364590073
+        },
+        "generation_batches": 248,
+        "decision_requests": 13381,
+        "mean_generation_batch": 53.95564516129032,
+        "mean_training_batch": 1.0
+      },
+      {
+        "rank": 3,
+        "window_seconds": 5537.420568492031,
+        "phases_seconds": {
+          "collection.total": 4763.159808170982,
+          "sampling.generate": 4038.053914315533,
+          "learner.total": 589.9984411420301,
+          "sync.collective": 148.32931430009194,
+          "io.journal_flush": 269.10004661092535
+        },
+        "generation_batches": 308,
+        "decision_requests": 17254,
+        "mean_generation_batch": 56.01948051948052,
+        "mean_training_batch": 1.0
+      }
+    ],
+    "warning": "host elapsed phases do not measure SM occupancy or MFU; device samples are short snapshots only",
+    "experiments_launched": 0
+  },
+  "next_round_rank_states_observed_near_20261117_1528_cst": [
+    {
+      "rank": 0,
+      "reward_file_complete": true,
+      "last_model_journal_age_seconds": 1723,
+      "last_model_journal_cst": "2026-11-17T14:59:10.905416+08:00",
+      "reward_finished_cst": "2026-11-17T14:59:37.989045+08:00",
+      "seconds_since_reward_saved": 1696
+    },
+    {
+      "rank": 1,
+      "reward_file_complete": true,
+      "last_model_journal_age_seconds": 2133,
+      "last_model_journal_cst": "2026-11-17T14:52:21.573017+08:00",
+      "reward_finished_cst": "2026-11-17T14:52:45.179694+08:00",
+      "seconds_since_reward_saved": 2109
+    },
+    {
+      "rank": 2,
+      "reward_file_complete": false,
+      "last_model_journal_age_seconds": 5,
+      "last_model_journal_cst": "2026-11-17T15:27:49.581925+08:00"
+    },
+    {
+      "rank": 3,
+      "reward_file_complete": true,
+      "last_model_journal_age_seconds": 1180,
+      "last_model_journal_cst": "2026-11-17T15:08:15.492965+08:00",
+      "reward_finished_cst": "2026-11-17T15:08:42.972589+08:00",
+      "seconds_since_reward_saved": 1152
+    }
+  ],
+  "frozen_runtime_source_sha256": {
+    "src/mechet/route_refit.py": "313511a8d75d98de85b5a37086c1f612fc56a2dc243e3d633e7bdab5f268a844",
+    "src/mechet/route_refit_runtime.py": "9d7be011102e8e73846413d0add47bfcfbc64a7924275813f59184b8d6f421ad",
+    "src/mechet/route_policy_sampling.py": "83136a1eff11c3a01295069dc60b71ce834760f794a92d5893fd31e50434971c",
+    "scripts/train_external_route_rl.py": "cf10b6767a76400a61411e46a969e83ca5a98f868833c088603e4ca08ca2f4d5"
+  },
+  "limitations": [
+    "Short device samples do not measure SM occupancy, Tensor Core utilization or MFU.",
+    "NCCL polling is inferred from completed rank journals, collective source and low-memory-activity/high-util snapshots; no kernel trace was captured.",
+    "Duplicate-action prevalence and avoidable seconds were not quantified in this audit."
+  ],
+  "runtime_changes": false,
+  "new_model_experiments": 0
+}
