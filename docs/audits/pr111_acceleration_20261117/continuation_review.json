@@ -1,0 +1,34 @@
+{
+  "status": "PASS_AFTER_ONE_FIX_PASS",
+  "independent_review": "No other critical/important findings. Actual deployed final_admission matched latest stopped checkpoints.",
+  "finding": "P2 preparation accepted absent final-stopped-actor legality; old benchmark receipt could bypass final handoff verification.",
+  "fix": "Require final legality for condition; exact status, actor hash, complete hash, checkpoint path, optimizer step, next_round and nonzero complete outputs.",
+  "red": {
+    "cases": 10,
+    "log": "final_guard_red_isolated.log",
+    "reason": "missing required validator, ImportError"
+  },
+  "green": {
+    "cases": 42,
+    "seconds": 192.35,
+    "log": "final_guard_green.log"
+  },
+  "actual_deployed_binding": {
+    "d3": {
+      "status": "PASS",
+      "optimizer_step": 13,
+      "next_round": 13,
+      "complete_hash_bound": true,
+      "adapter_hash_bound": true
+    },
+    "d1": {
+      "status": "PASS",
+      "optimizer_step": 83,
+      "next_round": 83,
+      "complete_hash_bound": true,
+      "adapter_hash_bound": true
+    }
+  },
+  "deployment_code_unchanged": "Guard is preparation-only; live frozen training source remains4fca18b. Current contracts were additionally validated read-only using hardened checker.",
+  "deferred_minors": []
+}

@@ -253,3 +253,31 @@ def test_learner_gain_can_admit_flat_generation_but_rejects_regression(tmp_path,
     if accepted:assert validate_admission(path,cfg,tmp_path,condition='d1')[0]['status']=='PASS'
     else:
         with pytest.raises(ValueError,match='GENERATION_REGRESSION'):validate_admission(path,cfg,tmp_path,condition='d1')
+
+
+def latest_legality_fixture(tmp_path):
+    audit=dict(source_checkpoint=str(tmp_path/'round-000013'),source_complete_sha256='complete',
+        source_payload_sha256={'adapter_model.safetensors':'actor'},optimizer_step=13,next_round=13)
+    final=dict(status='PASS',checkpoint=audit['source_checkpoint'],source_complete_sha256='complete',
+        adapter_sha256='actor',optimizer_step=13,next_round=13,requests=2,complete_outputs=2)
+    return audit,dict(latest_checkpoint_legality={'d3':final})
+
+
+def test_final_stopped_actor_legality_required(tmp_path):
+    from scripts.prepare_acceleration_continuation import _verified_latest_actor
+    audit,gate=latest_legality_fixture(tmp_path)
+    assert _verified_latest_actor(gate,'d3',audit)['optimizer_step']==13
+    for missing in [{}, {'latest_checkpoint_legality':{}}]:
+        with pytest.raises(ValueError,match='LATEST_CHECKPOINT_LEGALITY_REQUIRED'):
+            _verified_latest_actor(missing,'d3',audit)
+
+
+@pytest.mark.parametrize('field,value',[
+    ('status','FAIL'),('adapter_sha256','wrong'),('source_complete_sha256','wrong'),
+    ('checkpoint','/aaa/fionafyang/buddy1/wrong'),('optimizer_step',12),('next_round',12),
+    ('optimizer_step',True),('requests',0),('complete_outputs',1)])
+def test_final_stopped_actor_legality_rejects_stale_or_incomplete_binding(tmp_path,field,value):
+    from scripts.prepare_acceleration_continuation import _verified_latest_actor
+    audit,gate=latest_legality_fixture(tmp_path);gate['latest_checkpoint_legality']['d3'][field]=value
+    with pytest.raises(ValueError,match='LATEST_CHECKPOINT_LEGALITY_BINDING_CHANGED'):
+        _verified_latest_actor(gate,'d3',audit)

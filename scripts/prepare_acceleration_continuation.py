@@ -58,6 +58,27 @@ def _verified_benchmark_actor(binding,audit):
     raise ValueError('T4_BENCHMARK_ACTOR_NOT_AUTHENTICATED_SOURCE_CHECKPOINT')
 
 
+def _verified_latest_actor(gate,condition,audit):
+    """Require the final stopped actor's own legality receipt, not an older timing actor."""
+    records=gate.get('latest_checkpoint_legality')
+    final=records.get(condition) if isinstance(records,dict) else None
+    if not isinstance(final,dict):
+        raise ValueError('LATEST_CHECKPOINT_LEGALITY_REQUIRED')
+    expected=dict(status='PASS',checkpoint=audit['source_checkpoint'],
+        source_complete_sha256=audit['source_complete_sha256'],
+        adapter_sha256=audit['source_payload_sha256']['adapter_model.safetensors'],
+        optimizer_step=audit['optimizer_step'],next_round=audit['next_round'])
+    for key,value in expected.items():
+        actual=final.get(key)
+        if type(actual) is not type(value) or actual!=value:
+            raise ValueError('LATEST_CHECKPOINT_LEGALITY_BINDING_CHANGED:'+key)
+    count=final.get('requests')
+    complete=final.get('complete_outputs')
+    if type(count) is not int or count<1 or type(complete) is not int or complete!=count:
+        raise ValueError('LATEST_CHECKPOINT_LEGALITY_BINDING_CHANGED:complete_outputs')
+    return final
+
+
 def prepare(*,source_contract,source_contract_sha256,source_instance,source_stopped_receipt,
             admission,submission,output,source_commit,authorization,task_flag):
     if not authorization.strip():raise ValueError('EXPLICIT_USER_AUTHORIZATION_REQUIRED')
@@ -93,10 +114,7 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
         validate_acceleration(cfg)
         gate,binding=validate_admission(admission,cfg,code,condition=condition)
         benchmark=_verified_benchmark_actor(binding,audit)
-        latest_legality=gate.get('latest_checkpoint_legality',{}).get(condition)
-        if latest_legality is not None and (latest_legality.get('status')!='PASS'
-                or latest_legality.get('adapter_sha256')!=audit['source_payload_sha256']['adapter_model.safetensors']):
-            raise ValueError('LATEST_CHECKPOINT_LEGALITY_BINDING_CHANGED')
+        _verified_latest_actor(gate,condition,audit)
         cfg['acceleration_continuation']=dict(version='pr111_stateful_acceleration_continuation_v1',
             source_contract=str(source_contract),source_contract_sha256=source_contract_sha256,
             source_output=audit['source_output'],source_checkpoint=audit['source_checkpoint'],
