@@ -2,7 +2,7 @@
   "private_base": "9938c63",
   "private_head": "964ee371c1445b5c5d0f1d8fd1211b3bde939cf5",
   "files_sha256": {
-    "docs/ops/PR111_FULL_ACCELERATION_STATUS_20261117.md": "4e56116a5bf5799409285fa787ef78cd3f5b3879b54fcb95a27d7108f37c60fb",
+    "docs/ops/PR111_FULL_ACCELERATION_STATUS_20261117.md": "4ba8c5112f707322d9e2aa24f6898c3035f93467b93aeb199e4d265553502fc9",
     "docs/superpowers/plans/2026-11-17-pr111-full-acceleration.md": "341de2e0cba07df95e1cf141de68f76630d8fa9d0a48b897de57ae9e74cdce45",
     "scripts/prepare_acceleration_continuation.py": "78d9a6373382b087719baf3ffe8a4e9f6afa25600856d85fb7441ed7086d372f",
     "scripts/run_route_native_admission.py": "d0fc2a17c527c2df48df0dfc443466cf38278d59cc8275b219e4dc36c0e10de9",
@@ -45,5 +45,7 @@
     "tests/test_route_vllm_environment.py": "00f51c1bc73e221edbe96cd933eed8175a6edd4e42870b676378e0f82db7fc12",
     "tests/test_route_vllm_prefix.py": "443719bda60edf3225c1b7369f5576e94ea1e431e8cf9eea0d6f31457f4b5f8c"
   },
-  "scope": "Implementation source and software evidence; no formal native deployment or H20 speedup claim"
+  "scope": "Implementation source and software evidence; no formal native deployment or H20 speedup claim",
+  "operational_docs_commit": "0c0a28e",
+  "runtime_source_commit": "9d77c41ddbf9d502c590fe696d44ec64a8509844"
 }

@@ -3,9 +3,9 @@
 The earlier deployed HF condition is partial acceleration. It is not the complete PR111 design. The user's instruction authorizes local T4 software checks and stateful replacement of the original two tasks, superseding the design's original no-restart paragraph.
 
 
-## Current status — 2026-11-18 01:15 CST
+## Current status — 2026-11-18 01:20 CST
 
-Implementation is present; full runtime acceptance is **not complete**. Both native02 instances are END, with **zero new native optimizer updates**. Corrected source actor/optimizer/per-rank RNG and full data order remain D3 step19 / D1 step89. Native03 source is frozen at `9d77c41`; same-task replacement is being prepared, maximum two4-H20 allocations.
+Implementation is present; full runtime acceptance is **not complete**. Both native02 instances are END, with **zero new native optimizer updates**. Corrected source actor/optimizer/per-rank RNG and full data order remain D3 step19 / D1 step89. Native03 source is frozen at `9d77c41`; same-task replacement has passed complete static verification and been submitted, maximum two4-H20 allocations. Both instances are PENDING as of01:19CST. D3 instance `8b1d89f6a1cfaa4801a1ea8432d12a97`, contract `6ca74808401186f119c01c4de7f644ac68ae0ff60180eaf6ebada0d15cca3ecd`; D1 instance `8b1d89f6a1cfaa4801a1ea84666a2a98`, contract `7c2abe52b82d08d9b68a224016d935a4289b8e90ed66f37ac1d8879b9d3af3af`. Submission is not hardware admission or a new optimizer update.
 
 D3 passed the standalone H20 BF16 numerical gate (max logprob difference0.2166711), but four-rank startup failed: `TORCHELASTIC_USE_AGENT_STORE=True` leaked into the independent native child, making rank0 a TCPStore client with no server. Child-only environment isolation now clears the inherited distributed/agent namespace; real pinned Torch2.11 TCPStore and actual T4 native inference under inherited torchrun variables pass (T4 max difference0.01003826). This is not yet proof of a repaired four-H20 launch.
 
@@ -15,7 +15,7 @@ A separate startup stack audit found eager import of37 optional FLA model archit
 
 Latest focused repair suite25PASS56.11s (overlaps earlier suites); final read-only review found no critical/important issue. A minor lost-replay-witness finding received1RED then the passing regression. H20 small-workload timing was negative: D3 HF/native median ratio0.4621 at8 requests/4 slots. No H20 full-round speedup, new update or matched-budget quality gain is claimed. Completion requires successful same-task four-rank native startup, original probability receipts, first complete new optimizer checkpoint, and measured useful work/whole-round timing.
 
-Code: [child isolation](../../src/mechet/route_vllm_environment.py), [FLA import](../../src/mechet/route_fla_import.py), [failed-case scorer/witnesses](../../src/mechet/route_probability_admission.py), [admission entry](../../scripts/run_route_native_admission.py). Existing private controller files are available in the audit source mirrors listed below.
+Code: [child isolation](../audits/pr111_full_acceleration_20261117/source/src/mechet/route_vllm_environment.py), [FLA import](../../src/mechet/route_fla_import.py), [failed-case scorer/witnesses](../../src/mechet/route_probability_admission.py), [admission entry](../../scripts/run_route_native_admission.py). Existing private controller files are available in the audit source mirrors listed below.
 
 ## Implemented in the full native candidate
 
