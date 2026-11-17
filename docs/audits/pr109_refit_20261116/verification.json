@@ -42,7 +42,7 @@
   "candidate01": "DO_NOT_SUBMIT_SUPERSEDED",
   "files_sha256": {
     "docs/ops/PR109_BASELINE_READINESS_20261116.md": "9232020dc71fb3909121b96b6923f9ed6052de257f1f028a10fe23ee355f81c3",
-    "docs/ops/PR109_EXECUTION_20261116.md": "4f17090885eef14552cfb5017a755f0b405203afaa897c0ba8f2c0c585bbe57b",
+    "docs/ops/PR109_EXECUTION_20261116.md": "4c8c6697a693dabe530c3a836d32e775580f94f24fbfea083c1a58ff259c0593",
     "docs/ops/PR109_SELF_DISTILL_20261116.md": "7472a86dff14febf792035564b7217caa0b5e4b5528e4502769fb10412f7c8a7",
     "docs/superpowers/plans/2026-11-16-pr109-refit-po.md": "7d02317d9cd4ffd266ca4b8a79c36ab40ceef0a1cca691d70d34f6cf953802fd",
     "docs/audits/pr109_refit_20261116/source/scripts/prepare_external_route_rl.py": "8048ca66a0e1f5a2a5234c3b3c04316e93c3dbe97afc1a6cc19b48703b12143a",
@@ -81,7 +81,9 @@
     "docs/audits/pr109_refit_20261116/source/src/mechet/external_route_actor.py": "033b9200fba4871a18ff32569e2e016b257eaf299020ddc366cc7494bfda9cf9",
     "docs/audits/pr109_refit_20261116/source/src/mechet/route_policy_objective.py": "0170c13c925158fa33b917c52cd2e7a380f1bd11edebdc34edc8d515f4e0319e",
     "patches/pr109_standard_refit_20261116.patch": "ad5e71629e600c739084463a7503a4e0bee396a2fd9bf7b866f21e5423e691c0",
-    "docs/audits/pr109_refit_20261116/README.md": "000b436c1e03f0c4159c397ae1b2f3fd21d4b3652ec85b20601ab4a50b1efd23"
+    "docs/audits/pr109_refit_20261116/README.md": "59d19d3b3efc335db0793283d7570cd48de842601118c17c71fccbf5da74dd9a",
+    "docs/ops/PR109_D3_REFIT_PROGRESS_20261117.md": "25385613440117d52502a4bc9b64edd6531f5467129165471300391322571e8f",
+    "docs/audits/pr109_refit_20261116/progress_20261117.json": "cd57e4289834ab5d7e003cd1b3115dc9c937aefaa74e0ce3e33f5a5619e34927"
   },
   "formal_submission": {
     "status": "FORMAL_SUBMISSION_VERIFIED_MODEL_RESULTS_PENDING",
@@ -101,5 +103,13 @@
     "existing_frozen_job_preserved": true,
     "aggregate_mechet_h20_upper_bound": 8,
     "model_results": null
+  },
+  "latest_progress": {
+    "document": "docs/ops/PR109_D3_REFIT_PROGRESS_20261117.md",
+    "snapshot": "docs/audits/pr109_refit_20261116/progress_20261117.json",
+    "observed_at": "2026-11-17T15:07:40.363862+08:00",
+    "optimizer_updates": 10,
+    "audited_round": 10,
+    "documentation_only_update": true
   }
 }
