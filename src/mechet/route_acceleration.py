@@ -10,10 +10,14 @@ DEFAULT_ACCELERATION=dict(version='pr111_compute_lanes_dynamic_v1',execution_cac
 def validate_acceleration(cfg):
     value=cfg.get('acceleration')
     if value is None:return
+    expected_duplicate='skip_extra_duplicates_v1' if cfg.get('refit') else 'disabled'
     if (not isinstance(value,dict) or set(value)!=set(DEFAULT_ACCELERATION) or
-            any(value[k]!=v for k,v in DEFAULT_ACCELERATION.items() if k!='execution_cache_capacity') or
+            any(value[k]!=v for k,v in DEFAULT_ACCELERATION.items() if k not in (
+                'execution_cache_capacity','duplicate_suffix_policy','sampling_kernel')) or
             type(value['execution_cache_capacity']) is not int or value['execution_cache_capacity']<1 or
-            not cfg.get('refit') or cfg.get('candidates')!=4 or cfg.get('world_size')!=4 or
+            value['duplicate_suffix_policy']!=expected_duplicate or
+            value['sampling_kernel'] not in ('counter_categorical_v1','private_pinned_argmax_v1') or
+            cfg.get('candidates')!=4 or cfg.get('world_size')!=4 or
             cfg.get('inference_backend','hf')!='hf'):
         raise ValueError('ACCELERATION_EXPLICIT_NEW_CONDITION_REQUIRED')
 

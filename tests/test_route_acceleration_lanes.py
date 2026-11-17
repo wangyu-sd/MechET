@@ -46,3 +46,11 @@ def test_acceleration_contract_rejects_incompatible_or_partial_settings():
     validate_acceleration(c)
     with pytest.raises(ValueError):validate_acceleration(dict(c,refit=None))
     with pytest.raises(ValueError):validate_acceleration(dict(c,acceleration={'version':'pretend'}))
+
+
+def test_d1_compute_acceleration_keeps_no_refit_and_disables_duplicate_pruning():
+    from mechet.route_acceleration import validate_acceleration,DEFAULT_ACCELERATION
+    cfg=dict(world_size=4,candidates=4,inference_backend='hf',
+        acceleration=dict(DEFAULT_ACCELERATION,duplicate_suffix_policy='disabled',sampling_kernel='private_pinned_argmax_v1'))
+    validate_acceleration(cfg)
+    assert 'refit' not in cfg

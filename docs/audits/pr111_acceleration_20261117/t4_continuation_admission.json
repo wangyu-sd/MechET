@@ -1,0 +1,181 @@
+{
+  "status": "PASS",
+  "scope": "user_authorized_T4_small_software_legality_and_fixed_work_timing",
+  "production_updates": 0,
+  "corpus_evaluation": false,
+  "legal_checks": {
+    "d3_actual_draw_probabilities": "PASS",
+    "d1_actual_draw_probabilities": "PASS",
+    "d1_real_adapter_batch1_vs4_gradient": "PASS",
+    "d3_real_adapter_batch1_vs4_gradient": "PASS",
+    "d3_final_stopped_actor": "PASS",
+    "d1_final_stopped_actor": "PASS"
+  },
+  "paired_benchmarks": [
+    {
+      "task": "d3",
+      "stage": "same_prompt_same_complete_response_fixed_replay_generation",
+      "baseline_kernel": "legacy_private_v1",
+      "candidate_kernel": "private_pinned_argmax_v1",
+      "raw_seconds": {
+        "legacy_private_v1": [
+          5.4733400493860245,
+          5.5316331833601
+        ],
+        "counter_categorical_v1": [
+          5.562549345195293,
+          5.561322808265686
+        ],
+        "private_pinned_argmax_v1": [
+          5.520493969321251,
+          5.529084764420986
+        ]
+      },
+      "speedup": 0.9959631491778144,
+      "requests": 4,
+      "response_lengths": [
+        54,
+        54,
+        54,
+        54
+      ],
+      "not_on_policy_samples": true,
+      "interpretation": "generation stage approximately unchanged; no positive total-training speedup inferred"
+    },
+    {
+      "task": "d1",
+      "stage": "same_prompt_same_complete_response_fixed_replay_generation",
+      "baseline_kernel": "legacy_private_v1",
+      "candidate_kernel": "private_pinned_argmax_v1",
+      "raw_seconds": {
+        "legacy_private_v1": [
+          5.709347188472748,
+          5.633529670536518
+        ],
+        "counter_categorical_v1": [
+          5.5295813754200935,
+          5.673019491136074
+        ],
+        "private_pinned_argmax_v1": [
+          5.674457594752312,
+          5.6035603284835815
+        ]
+      },
+      "speedup": 1.0057509161818003,
+      "requests": 4,
+      "response_lengths": [
+        54,
+        54,
+        54,
+        54
+      ],
+      "not_on_policy_samples": true,
+      "interpretation": "generation stage approximately unchanged; no positive total-training speedup inferred"
+    },
+    {
+      "task": "d1",
+      "stage": "same4distinct_saved_inputs_actor_forward_backward",
+      "candidate_kernel": "private_pinned_argmax_v1",
+      "raw_seconds": {
+        "1": [
+          13.549002602696419,
+          13.426480934023857
+        ],
+        "4": [
+          13.221337616443634,
+          13.154344700276852
+        ]
+      },
+      "gradient_relative_difference": 1.7485514035797678e-05,
+      "gradient_norms": {
+        "1": 0.018154021352529526,
+        "4": 0.018153954297304153
+      },
+      "losses": {
+        "1": -8.149072527885437e-10,
+        "4": 0.0
+      },
+      "speedup": 1.0227406901856546,
+      "optimizer_updates": 0,
+      "scope": "actor_forward_backward_only_reference_excluded"
+    },
+    {
+      "task": "d3",
+      "stage": "same4distinct_saved_inputs_actor_forward_backward",
+      "candidate_kernel": "private_pinned_argmax_v1",
+      "raw_seconds": {
+        "1": [
+          13.77599447965622,
+          14.096733093261719
+        ],
+        "4": [
+          13.592550925910473,
+          13.785484358668327
+        ]
+      },
+      "gradient_relative_difference": 1.5066526430018712e-05,
+      "gradient_norms": {
+        "1": 0.017621491104364395,
+        "4": 0.017621532082557678
+      },
+      "losses": {
+        "1": 1.1641532182693481e-09,
+        "4": 0.0
+      },
+      "speedup": 1.0180689477238634,
+      "optimizer_updates": 0,
+      "scope": "actor_forward_backward_only_reference_excluded"
+    }
+  ],
+  "validated_compute_files_sha256": {
+    "src/mechet/route_policy_sampling.py": "1a8d4958d31688ad5a1304ec7dd2802077f7e1df9e0a9e8e66266aca3a9c2564",
+    "src/mechet/route_counter_sampling.py": "9f809c094a8d9e1847b059aa542b6ebb2702a3664391332128dafd56a1de7ab9",
+    "src/mechet/route_execution_cache.py": "b84f3a789bc4b890d0fae4e81503a37ee84e4fdbeeacbecb9d5464b95b5e4842",
+    "src/mechet/route_acceleration.py": "6458d7d4a1a5b1793d3ef144600879928de36411d8b0b780c63449637b82050e",
+    "src/mechet/route_distributed_collection.py": "78e2528858b3ab9df635530a317bc45026674010e1ad8d4de5b1d6b8deecd042",
+    "src/mechet/route_global_sampler.py": "52fd9123784b3d5002f0c056268129afb0ac91d4cb78e5ad0a0e2bc086f0004c",
+    "src/mechet/route_work_broker.py": "1ef46a49d537dbc88ad275e53ca36dcd751bb7e2a5d8c1d8755e71403c30b7c3",
+    "src/mechet/route_async_collection.py": "6c857020939f7d1b4ec7fab7a730d53cfe1689e0caab908c9fe8535150ec4cd4",
+    "src/mechet/route_policy_episode.py": "c58f544121dc24219a62b4d7fcdf784cbb53e0db6a987ff680d581f66bb6fb2d",
+    "src/mechet/route_refit_runtime.py": "f04470f2cf320c3df87526de63b89878f02244a6976bcde16e6138c3afa032b6",
+    "src/mechet/route_refit_credit.py": "486e4d2d48c02eaa63dc98b121573b81d8b8133234057453e6172a9a7dc7bcd1",
+    "src/mechet/route_policy_objective.py": "0170c13c925158fa33b917c52cd2e7a380f1bd11edebdc34edc8d515f4e0319e",
+    "src/mechet/external_route_rl.py": "b26ac6d99f3069c640656c4c01d73c11f53ef3423058cc13277bce26bc4c4684",
+    "src/mechet/external_route_io.py": "23f5f677d6f8f5c71fdd45c421b4315a75ea330d53d1afa8019b2d983ab77167",
+    "src/mechet/route_precision.py": "f10e9f1ab1e5aba39e319d9fab29b6f19b222e2562edc245b0fe4f500f689c82",
+    "src/mechet/route_training_batches.py": "85c2069b3c669d1dcc8dcb9d31074b39aee0832268ea4d84ac27663337b5aa70",
+    "scripts/train_external_route_rl.py": "7dbc4b476b9309468e21e36eba9f2d6de49a3a18e8cc35d7cd8533d3be2197ca"
+  },
+  "hardware": "Tesla T4",
+  "precision": "legacy_fp32_lora",
+  "admitted_settings": {
+    "sampling_kernel": "private_pinned_argmax_v1",
+    "loss_batch_size": 4
+  },
+  "latest_checkpoint_legality": {
+    "d3": {
+      "checkpoint": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr109_standard_d3_refit_20261116_02/checkpoints/round-000013",
+      "adapter_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+      "source_complete_sha256": "893cfb048d4d9672bbc8667c315f08d220b73de96405880f86db531eb95dc883",
+      "optimizer_step": 13,
+      "next_round": 13,
+      "status": "PASS",
+      "requests": 2,
+      "complete_outputs": 2,
+      "max_logprob_drift": 2.3245811462402344e-06
+    },
+    "d1": {
+      "checkpoint": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/external_stage2_native_process_grpo_20261115_01/checkpoints/round-000083",
+      "adapter_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+      "source_complete_sha256": "eb594eac3935622721302b800b0496aed8ab0d9ba1959fc465f9841ff0a048bb",
+      "optimizer_step": 83,
+      "next_round": 83,
+      "status": "PASS",
+      "requests": 2,
+      "complete_outputs": 2,
+      "max_logprob_drift": 1.2218952178955078e-06
+    }
+  },
+  "full_receipt_sha256": "2b20515118d1009f57249069b75ea61e37ae5571a412393c4e60647090f23933",
+  "scope_note": "Local T4 software/short-workload checks; not H20 production or benchmark success rates. No optimizer step during local tests."
+}

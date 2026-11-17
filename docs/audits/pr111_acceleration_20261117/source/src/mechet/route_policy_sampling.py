@@ -262,7 +262,8 @@ class NativeRouteSampler:
                     from .route_counter_sampling import CounterCategorical
                     private=CounterCategorical([r.request_id for _,r in batch],self.cfg['seed'],device,capture,
                         on_failure=sampling_failure,prompt_width=width)
-                generation=GenerationConfig(do_sample=not counter,top_k=0,top_p=1.,temperature=1.,
+                pinned_argmax=self.cfg.get('acceleration',{}).get('sampling_kernel')=='private_pinned_argmax_v1'
+                generation=GenerationConfig(do_sample=not (counter or pinned_argmax),top_k=0,top_p=1.,temperature=1.,
                     repetition_penalty=1.,num_beams=1,renormalize_logits=False,
                     pad_token_id=self.tokenizer.pad_token_id,eos_token_id=self.tokenizer.eos_token_id,
                     use_cache=True)
