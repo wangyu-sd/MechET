@@ -42,6 +42,9 @@ def require_native_admission(cfg,contract_sha,*,code=None):
     record=json.loads(pointer.read_text());path=Path(record['report'])
     if file_sha(path)!=record['sha256']:raise ValueError('NATIVE_HARDWARE_RECEIPT_CHANGED')
     report=json.loads(path.read_text());first=report.get('source_bindings',{}).get('first',{})
+    if (expected.get('previous_probability_failure') and
+            report.get('legal_checks',{}).get('previous_failed_case_replay')!='PASS'):
+        raise ValueError('PREVIOUS_FAILED_CASE_REPLAY_REQUIRED')
     if (report.get('status')!='PASS' or 'H20' not in report.get('hardware','')
             or report.get('hardware_profile')!='h20_bf16'
             or report.get('precision')!=cfg['policy_precision']

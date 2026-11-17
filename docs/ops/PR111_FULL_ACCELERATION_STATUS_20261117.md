@@ -2,6 +2,21 @@
 
 The earlier deployed HF condition is partial acceleration. It is not the complete PR111 design. The user's instruction authorizes local T4 software checks and stateful replacement of the original two tasks, superseding the design's original no-restart paragraph.
 
+
+## Current status — 2026-11-18 01:15 CST
+
+Implementation is present; full runtime acceptance is **not complete**. Both native02 instances are END, with **zero new native optimizer updates**. Corrected source actor/optimizer/per-rank RNG and full data order remain D3 step19 / D1 step89. Native03 source is frozen at `9d77c41`; same-task replacement is being prepared, maximum two4-H20 allocations.
+
+D3 passed the standalone H20 BF16 numerical gate (max logprob difference0.2166711), but four-rank startup failed: `TORCHELASTIC_USE_AGENT_STORE=True` leaked into the independent native child, making rank0 a TCPStore client with no server. Child-only environment isolation now clears the inherited distributed/agent namespace; real pinned Torch2.11 TCPStore and actual T4 native inference under inherited torchrun variables pass (T4 max difference0.01003826). This is not yet proof of a repaired four-H20 launch.
+
+D1's first H20 gate failed at0.30258417 against the unchanged0.25 threshold. All16 original outputs/1067 positions remain preserved. H20 recomputation at batch1 was0.1399969 and batch4 was0.2309947; matching original GPU/workflow/outer autocast reproduced0.1399969 with unchanged LoRA parameters. The original discrepancy is **unexplained**, not relabelled PASS. New D1 admission binds the failed report/outputs by SHA and rechecks every old output at both batch1 and batch4, in addition to fresh native validation. Exact teacher vectors now persist even on failure; unchanged frozen failures block automatic re-admission retries.
+
+A separate startup stack audit found eager import of37 optional FLA model architectures. The new scoped import uses installed FLA0.5.2's supported absent-optional-extension path, leaving actual tensor kernels/modules unchanged. H20 eight forward/gradient cases and official Qwen class load passed, optional registry imports0. Total354.2s includes imports/kernels and is **not a matched startup speed comparison**. Source-bound NVML is retained; owned stopped02 compiled-kernel caches are reused on Ceph.
+
+Latest focused repair suite25PASS56.11s (overlaps earlier suites); final read-only review found no critical/important issue. A minor lost-replay-witness finding received1RED then the passing regression. H20 small-workload timing was negative: D3 HF/native median ratio0.4621 at8 requests/4 slots. No H20 full-round speedup, new update or matched-budget quality gain is claimed. Completion requires successful same-task four-rank native startup, original probability receipts, first complete new optimizer checkpoint, and measured useful work/whole-round timing.
+
+Code: [child isolation](../../src/mechet/route_vllm_environment.py), [FLA import](../../src/mechet/route_fla_import.py), [failed-case scorer/witnesses](../../src/mechet/route_probability_admission.py), [admission entry](../../scripts/run_route_native_admission.py). Existing private controller files are available in the audit source mirrors listed below.
+
 ## Implemented in the full native candidate
 
 | Requirement | Implementation | Verification / deployment boundary |
@@ -9,13 +24,13 @@ The earlier deployed HF condition is partial acceleration. It is not the complet
 | P0 exact chemistry reuse | `route_execution_cache.py`: pure FLOW execution, single flight, per-proposal reconstruction and witness provenance; resource errors uncached | Existing chemistry/cache tests, new reconstruction/provenance regressions |
 | P0 G4 and credit lanes | `route_refit_runtime.py`, `route_refit_credit.py`: original G4 independent; M1 coverage only after the true receipt owner is harvested with an eligible completed return; explicit credit/exploration budgets | 119 affected tests passed; one unsupported host-Qwen architecture test recorded separately, not counted as passed |
 | P1 global CPU/GPU queue | `route_work_broker.py`, `route_global_sampler.py`, `route_distributed_collection.py`: target ownership, bounded request queue, target fairness and estimated prefill/KV admission | Real CPU distributed and exact-recovery tests; native request results retain original IDs/logprobs |
-| P2 continuous engine | `route_gpu_backend.py` connects existing native `VllmRouteSampler` to global workers; completed requests refill independently of long neighbors | Controlled-engine regression passed; actual T4 final-candidate refill probe in progress |
+| P2 continuous engine | `route_gpu_backend.py` connects existing native `VllmRouteSampler` to global workers; completed requests refill independently of long neighbors | Controlled-engine regression passed; actual T4 refill checks passed; H20 four-rank repair still pending |
 | P2 exact prefix reuse | `route_vllm_cache.py`, `serve_route_vllm.py`: exact token cache, actor/tool/tokenizer/precision salt, quiescent LoRA switch and real cache reset | Actual T4 initial native admission passed probability/prompt/cache/switch checks; max logprob drift 0.0152283 < unchanged 0.25 gate |
 | P2 durable receipts and I/O | `route_vllm_backend.py`: original write-ahead requests/completions; fsync group commit; actual bytes/write/fsync metrics | Exact crash recovery and receipt accounting tests; no teacher-forced replacement of native behavior scores |
 | P3 learner | Existing B4 objective path plus new `route_reference_cache.py`, used only for frozen reference outputs on exact ID pairs | Numerical loss/KL/gradient/parameter checks; actor logits/gradients uncached |
 | Telemetry | `route_vllm_metrics.py`, `route_request_accounting.py`: actual native scheduler/cache/work counters and per-GPU/per-target lane joins | Request accounting 3 RED then 13 affected PASS; request latency sums explicitly are not GPU-kernel timing |
 
-## What is still not admitted or deployed
+## Earlier native02 launch record (superseded; both instances END)
 
 The old HF instances have stopped at fully completed D3 step19 and D1 step89. Their original task flags have been replaced by the full native candidate, with actor/optimizer/per-rank RNG/full order authenticated and preserved. Both new four-H20 instances are running their H20 BF16 admission gate; they have no new optimizer update yet. Seeded19/89 are continuation start points, not native training results.
 
@@ -39,7 +54,7 @@ New public helper modules and focused tests are in repository-root paths. Existi
 
 Actual four-slot/six-request refill passed: the next submission precedes completion of initial long neighbors. Max native/HF logprob difference0.01459074. Balanced four-request timings yielded median HF/native ratio0.8184, so vLLM was slower on this local diagnostic. This is preserved negative speed evidence; no H20 or full-round gain is claimed. Warm-cache native startup302.017s. Source snapshot9a4ef76 excludes later hardware-gate/controller accounting edits, which require final-candidate revalidation. Native metrics snapshots are cumulative within an actor version; do not add them across phases.
 
-## Final local admission and actual handoff (23:20 CST)
+## Historical local admission and native02 handoff (2026-11-17 23:20 CST)
 
 Final T4 attempt04 used16 saved requests at8 physical slots, with two queued waves and four alternating, independently warmed backend repeats. HF times[15.2466,17.2709,15.6669,19.4760]s; native[14.1761,17.0674,13.5678,17.1242]s; median ratio1.05423. Max native/teacher-forced logprob difference0.02919769, unchanged0.25 gate. Real10request/8slot refill, exact prompt, cache reuse and actor-switch invalidation passed. This is a local software workload with independently sampled responses, not an H20/full-training throughput or route-quality claim. Earlier4request negative timings remain preserved.
 

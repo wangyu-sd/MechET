@@ -1,0 +1,58 @@
+{
+  "status": "PASS",
+  "engine_start_seconds": 442.17707908153534,
+  "max_native_logprob_difference": 0.010038256645202637,
+  "legal_checks": {
+    "native_probability": "PASS",
+    "prompt_ids": "PASS",
+    "complete_actions": "PASS",
+    "native_cache_hit": "PASS",
+    "global_async_receipts": "PASS",
+    "actual_native_refill_before_long_neighbor": "PASS",
+    "actor_switch_cache_invalidation": "PASS"
+  },
+  "timings": {
+    "hf_complete_action_seconds": [
+      11.058127015829086,
+      10.04729026556015
+    ],
+    "native_complete_action_seconds": [
+      10.94820211082697,
+      13.242452755570412
+    ],
+    "requests_per_backend_per_repeat": 4,
+    "maximum_inflight": 2,
+    "waves": 2,
+    "median_speedup": 0.8724615930388157,
+    "qualification": "same prompts and completed-request count; independently sampled responses; t4_fp16"
+  },
+  "refill_probe": {
+    "status": "PASS",
+    "requests": 4,
+    "dedicated_short_request_budget": 1,
+    "short_request_truncated": true,
+    "refill_event_position": 3,
+    "initial_long_completion_positions": [
+      4
+    ],
+    "scope": "explicit one-token resource-boundary software probe; excluded from complete-action timings"
+  },
+  "scope": "T4 software workload only; independently sampled complete responses; no H20/full-training gain claim",
+  "report_sha256": "307ca3a04896d81620a785268631529e530a8223fe82ebcf9fac9af10303f695",
+  "source_bindings": {
+    "first": {
+      "adapter_sha256": "66982f899bd79b9f15c00acfe8711d4e943fb75c85f2fb015a1bb58819208664",
+      "complete_sha256": "e00a16a0fa3767d8e86c36c852a31136c6df30abfd9c71dc1b918f18dabaac47",
+      "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+      "optimizer_step": 19,
+      "next_round": 19
+    },
+    "second": {
+      "adapter_sha256": "3b65152ebef4538e8899aa92a88b9efff96fe60c05771d07fa92cc06cfac813e",
+      "complete_sha256": "d4528fb887dbe97993860a450ddc6c49cf16d31addcd07054ea338238c2c2586",
+      "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+      "optimizer_step": 89,
+      "next_round": 89
+    }
+  }
+}

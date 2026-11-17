@@ -1,5 +1,5 @@
 diff --git a/scripts/prepare_acceleration_continuation.py b/scripts/prepare_acceleration_continuation.py
-index be5bf81..e731fe7 100644
+index be5bf81..e745a8c 100644
 --- a/scripts/prepare_acceleration_continuation.py
 +++ b/scripts/prepare_acceleration_continuation.py
 @@ -11,6 +11,7 @@ from copy import deepcopy
@@ -33,11 +33,11 @@ index be5bf81..e731fe7 100644
  def prepare(*,source_contract,source_contract_sha256,source_instance,source_stopped_receipt,
 -            admission,submission,output,source_commit,authorization,task_flag):
 +            admission,submission,output,source_commit,authorization,task_flag,
-+            full_native=False,second_source_contract=None):
++            full_native=False,second_source_contract=None,previous_failed_admission=None):
      if not authorization.strip():raise ValueError('EXPLICIT_USER_AUTHORIZATION_REQUIRED')
      code=Path(__file__).resolve().parents[1]
      if not code.is_relative_to(ROOT/'artifacts'):raise ValueError('DEDICATED_FROZEN_CODE_SNAPSHOT_REQUIRED')
-@@ -103,18 +121,41 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
+@@ -103,18 +121,50 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
          from mechet.route_acceleration import DEFAULT_ACCELERATION,validate_acceleration
          gate=read_json(admission);settings=gate.get('admitted_settings',{})
          accel_settings=settings.get('acceleration',settings)
@@ -76,6 +76,15 @@ index be5bf81..e731fe7 100644
 +                source_contract_sha256=source_contract_sha256,source_complete_sha256=audit['source_complete_sha256'],
 +                second_source_contract=str(second_source_contract),second_source_contract_sha256=file_sha(second_source_contract),
 +                status='REQUIRES_REAL_H20_BF16_GATE_BEFORE_TRAINING')
++            if previous_failed_admission is not None:
++                previous_failed_admission=Path(previous_failed_admission).resolve()
++                failed=read_json(previous_failed_admission);prior=failed.get('source_bindings',{}).get('first',{})
++                if (failed.get('status')!='FAIL' or prior.get('contract_sha256')!=source_contract_sha256
++                        or prior.get('adapter_sha256')!=cfg['native_admission']['actor_sha256']):
++                    raise ValueError('PREVIOUS_NATIVE_FAILURE_ACTOR_BINDING_CHANGED')
++                values=previous_failed_admission.parent/'native_outputs.json'
++                cfg['native_admission']['previous_probability_failure']=dict(report=str(previous_failed_admission),
++                    report_sha256=file_sha(previous_failed_admission),outputs=str(values),outputs_sha256=file_sha(values))
 +        else:
 +            gate,binding=validate_admission(admission,cfg,code,condition=condition)
 +            benchmark=_verified_benchmark_actor(binding,audit)
@@ -87,7 +96,7 @@ index be5bf81..e731fe7 100644
          cfg['acceleration_continuation']=dict(version='pr111_stateful_acceleration_continuation_v1',
              source_contract=str(source_contract),source_contract_sha256=source_contract_sha256,
              source_output=audit['source_output'],source_checkpoint=audit['source_checkpoint'],
-@@ -127,8 +168,12 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
+@@ -127,8 +177,15 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
              original_source_commit=original.get('source_commit'),sampler_equivalence='not_claimed_new_condition',
              runtime_precision=original.get('policy_precision'),t4_admission_precision=gate['precision'])
          old_code=Path(original['code_root']);old_archive=original.get('entry_archive')
@@ -97,24 +106,28 @@ index be5bf81..e731fe7 100644
 +        if full_native:
 +            for path in (Path(cfg['vllm_runtime']['manifest']),second_source_contract):
 +                cfg['files_sha256'][str(path)]=file_sha(path)
++            previous=cfg['native_admission'].get('previous_probability_failure')
++            if previous:
++                for key in ('report','outputs'):cfg['files_sha256'][previous[key]]=previous[key+'_sha256']
          cfg['code_root']=str(code)
          cfg['code_files_sha256']={name:file_sha(code/name) for name in source_files(code)}
          from mechet.route_runtime_efficiency import CONFIG_FILES
-@@ -201,6 +246,8 @@ def main():
+@@ -201,6 +258,9 @@ def main():
          prepare_parser.add_argument('--'+name,required=True,type=Path)
      for name in ('source-instance','source-commit','authorization','task-flag'):
          prepare_parser.add_argument('--'+name,required=True)
 +    prepare_parser.add_argument('--full-native',action='store_true')
 +    prepare_parser.add_argument('--second-source-contract',type=Path)
++    prepare_parser.add_argument('--previous-failed-admission',type=Path)
      args=vars(parser.parse_args());mode=args.pop('mode')
      if mode=='audit':
          output=shared_new_path(args.pop('audit_output'))
 diff --git a/scripts/run_route_native_admission.py b/scripts/run_route_native_admission.py
 new file mode 100644
-index 0000000..6f6860c
+index 0000000..9052e61
 --- /dev/null
 +++ b/scripts/run_route_native_admission.py
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,65 @@
 +"""Pre-training numerical software gate on an already allocated H20 (no update)."""
 +import argparse
 +import json
@@ -136,14 +149,43 @@ index 0000000..6f6860c
 +    if file_sha(source['source_contract'])!=expected['source_contract_sha256']:
 +        raise ValueError('NATIVE_SOURCE_CONTRACT_CHANGED')
 +    record=Path(cfg['output_dir'])/'runtime_validation/native_admission.json'
++    latch=record.parent/'native_admission_failure.json'
++    if latch.exists():raise ValueError('FROZEN_NATIVE_FAILURE_REQUIRES_REPAIR:'+str(latch))
 +    if record.exists():
 +        require_native_admission(cfg,file_sha(contract));return
 +    from scripts.validate_pr111_native_runtime import run
 +    output=record.parent/('native-attempt-'+str(time.time_ns()))
-+    run(argparse.Namespace(output=output,source_contract=Path(cfg['acceleration_continuation']['source_contract']),
-+        second_contract=Path(cfg['native_admission']['second_source_contract']),candidate_contract=contract,
-+        profile='h20_bf16',count=4,waves=2,repeats=2,reuse_cache=None))
 +    report=output/'admission.json'
++    from scripts import pr96_earho_contract as probability
++    from mechet.route_probability_admission import ScoreWitnesses,replay_failed_probability_receipts
++    try:
++        # run() requires a fresh output directory. Witnesses start only after
++        # the original score call, once that directory has been created.
++        with ScoreWitnesses(probability,output/'teacher_scores.jsonl') as trace:
++            run(argparse.Namespace(output=output,source_contract=Path(cfg['acceleration_continuation']['source_contract']),
++                second_contract=Path(cfg['native_admission']['second_source_contract']),candidate_contract=contract,
++                profile='h20_bf16',count=4,waves=2,repeats=2,reuse_cache=None))
++        previous=expected.get('previous_probability_failure')
++        if previous:
++            for key in ('report','outputs'):
++                if file_sha(previous[key])!=previous[key+'_sha256']:
++                    raise ValueError('PREVIOUS_NATIVE_FAILURE_BYTES_CHANGED:'+key)
++            import torch
++            with torch.inference_mode(), ScoreWitnesses(probability,output/'previous_teacher_scores.jsonl'):
++                replay=replay_failed_probability_receipts(previous['report'],previous['outputs'],trace.primary_model,
++                    trace.pad_token_id,cfg['policy_precision'],probability.token_logps_batch,
++                    expected_actor=expected['actor_sha256'])
++            atomic_json(output/'previous_failed_case_replay.json',replay)
++            combined=json.loads(report.read_text());combined['legal_checks']['previous_failed_case_replay']='PASS'
++            combined['previous_failed_case_replay_sha256']=file_sha(output/'previous_failed_case_replay.json')
++            atomic_json(report,combined)
++    except BaseException as exc:
++        atomic_json(latch,dict(contract_sha256=file_sha(contract),report=str(report),
++            error=type(exc).__name__+':'+str(exc),retry='do not repeat unchanged frozen conditions; repair and revalidate'))
++        if report.exists():
++            failed=json.loads(report.read_text());failed.update(status='FAIL',hardware_gate_error=type(exc).__name__+':'+str(exc))
++            atomic_json(report,failed)
++        raise
 +    atomic_json(record,dict(report=str(report),sha256=file_sha(report)))
 +    require_native_admission(cfg,file_sha(contract))
 +
@@ -346,10 +388,10 @@ index bbde55f..24d0c39 100644
      cfg['_effective_policy_precision']=configure_precision(cfg)
 diff --git a/scripts/validate_pr111_native_runtime.py b/scripts/validate_pr111_native_runtime.py
 new file mode 100644
-index 0000000..4e53f41
+index 0000000..a936a18
 --- /dev/null
 +++ b/scripts/validate_pr111_native_runtime.py
-@@ -0,0 +1,271 @@
+@@ -0,0 +1,272 @@
 +"""Authorized small real-engine software admission; never an RL or route result.
 +
 +The T4 profile is explicitly FP16/unfused HF versus FP16 native. Formal H20
@@ -463,8 +505,9 @@ index 0000000..4e53f41
 +                    or json.loads((prior/'admission.json').read_text()).get('status')!='PASS'):
 +                raise ValueError('ONLY_OWN_PRIOR_PASSED_CACHE_REUSE_ALLOWED')
 +            runtime['cache_root']=str(prior/'cache')
++            runtime['shared_triton_cache_root']=str(prior/'cache/rank00/triton')
 +            report['cache_reuse']=dict(source=str(prior),prior_receipt_sha256=sha(prior/'admission.json'))
-+        if t4:runtime.pop('shared_triton_cache_root',None)
++        if t4 and not args.reuse_cache:runtime.pop('shared_triton_cache_root',None)
 +        runtime.update(kv_cache_memory_bytes=1024**3 if t4 else runtime['kv_cache_memory_bytes'],
 +            max_num_batched_tokens=8192,gpu_memory_utilization=.45,request_timeout_seconds=600,startup_timeout_seconds=3600)
 +        cfg.update(output_dir=str(output),_sha=sha(args.source_contract),generation_batch_size=args.count,world_size=1,
@@ -936,6 +979,39 @@ index f4af00f..e613869 100644
 +        except Exception:
 +            self.cache.reconstruction_failure()
 +            raise
+diff --git a/src/mechet/route_fla_import.py b/src/mechet/route_fla_import.py
+new file mode 100644
+index 0000000..bb9c496
+--- /dev/null
++++ b/src/mechet/route_fla_import.py
+@@ -0,0 +1,27 @@
++"""Use FLA's supported core-only import without loading optional model zoos.
++
++FLA0.5.2 treats absent fla.layers/models as optional extensions. Qwen imports
++fla.modules and fla.ops directly. Temporarily hiding only those two optional
++registries exercises the ordinary upstream fallback; no tensor code is patched.
++"""
++import importlib
++from importlib.abc import MetaPathFinder
++import sys
++from threading import RLock
++
++_lock=RLock()
++
++
++class _OptionalRegistries(MetaPathFinder):
++    def find_spec(self,fullname,path=None,target=None):
++        if fullname in ('fla.layers','fla.models'):
++            raise ModuleNotFoundError('Optional FLA model registry excluded during core startup',name=fullname)
++        return None
++
++
++def import_core_fla():
++    with _lock:
++        if 'fla' in sys.modules:return sys.modules['fla']
++        blocker=_OptionalRegistries();sys.meta_path.insert(0,blocker)
++        try:return importlib.import_module('fla')
++        finally:sys.meta_path.remove(blocker)
 diff --git a/src/mechet/route_global_sampler.py b/src/mechet/route_global_sampler.py
 index cc5000d..7450279 100644
 --- a/src/mechet/route_global_sampler.py
@@ -1032,10 +1108,10 @@ index 0000000..4e0b231
 +    return [(requests[uid],value) for uid,value in recovered.items()]
 diff --git a/src/mechet/route_native_admission.py b/src/mechet/route_native_admission.py
 new file mode 100644
-index 0000000..044efd8
+index 0000000..a6208a8
 --- /dev/null
 +++ b/src/mechet/route_native_admission.py
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,59 @@
 +"""Bind full native rollout admission to real hardware and the stopped actor."""
 +from pathlib import Path
 +import json
@@ -1080,6 +1156,9 @@ index 0000000..044efd8
 +    record=json.loads(pointer.read_text());path=Path(record['report'])
 +    if file_sha(path)!=record['sha256']:raise ValueError('NATIVE_HARDWARE_RECEIPT_CHANGED')
 +    report=json.loads(path.read_text());first=report.get('source_bindings',{}).get('first',{})
++    if (expected.get('previous_probability_failure') and
++            report.get('legal_checks',{}).get('previous_failed_case_replay')!='PASS'):
++        raise ValueError('PREVIOUS_FAILED_CASE_REPLAY_REQUIRED')
 +    if (report.get('status')!='PASS' or 'H20' not in report.get('hardware','')
 +            or report.get('hardware_profile')!='h20_bf16'
 +            or report.get('precision')!=cfg['policy_precision']
@@ -1092,6 +1171,70 @@ index 0000000..044efd8
 +        raise ValueError('NATIVE_HARDWARE_ADMISSION_BINDING_INVALID')
 +    validate_compute(report,code or Path(__file__).resolve().parents[2])
 +    return report
+diff --git a/src/mechet/route_probability_admission.py b/src/mechet/route_probability_admission.py
+new file mode 100644
+index 0000000..9e8f541
+--- /dev/null
++++ b/src/mechet/route_probability_admission.py
+@@ -0,0 +1,58 @@
++"""Recheck every original failed native receipt; no favorable-draw selection."""
++import json
++import math
++import os
++from pathlib import Path
++
++
++class ScoreWitnesses:
++    """Capture exact teacher outputs without replacing or modifying their values."""
++    def __init__(self,module,path):
++        self.module,self.path=module,Path(path);self.primary_model=None;self.pad_token_id=None
++        self.original=module.token_logps_batch
++
++    def __enter__(self):
++        def observed(model,sequences,pad_token_id=0,**kwargs):
++            values=self.original(model,sequences,pad_token_id,**kwargs)
++            if self.primary_model is None:self.primary_model=model;self.pad_token_id=pad_token_id
++            self.path.parent.mkdir(parents=True,exist_ok=True)
++            with self.path.open('a') as sink:
++                for (prompt,response),value in zip(sequences,values):
++                    array=value.tolist() if hasattr(value,'tolist') else list(value)
++                    sink.write(json.dumps(dict(prompt_token_ids=prompt,generated_token_ids=response,
++                        teacher_logprobs=array,precision=kwargs.get('precision','legacy_fp32_lora')))+'\n')
++                sink.flush();os.fsync(sink.fileno())
++            return values
++        self.module.token_logps_batch=observed
++        return self
++
++    def __exit__(self,*_):self.module.token_logps_batch=self.original
++
++
++def replay_failed_probability_receipts(report_path,values_path,model,pad,precision,score,*,expected_actor,tolerance=.25):
++    report=json.loads(Path(report_path).read_text());rows=json.loads(Path(values_path).read_text())
++    if (report.get('status')!='FAIL' or
++            report.get('source_bindings',{}).get('first',{}).get('adapter_sha256')!=expected_actor):
++        raise ValueError('PREVIOUS_FAILURE_ACTOR_BINDING_CHANGED')
++    if not rows or len({r['request_id'] for r in rows})!=len(rows):raise ValueError('PREVIOUS_FAILURE_RECEIPTS_INVALID')
++    for row in rows:
++        ids=row['generated_token_ids'];lp=row['behavior_logprobs']
++        if not row['prompt_token_ids'] or not ids or len(ids)!=len(lp) or any(not math.isfinite(x) or x>0 for x in lp):
++            raise ValueError('PREVIOUS_FAILURE_RECEIPTS_INVALID')
++    maxima={};witnesses={}
++    for size in (1,4):
++        errors=[];witness=[]
++        for start in range(0,len(rows),size):
++            batch=rows[start:start+size]
++            values=score(model,[(r['prompt_token_ids'],r['generated_token_ids']) for r in batch],pad,precision=precision)
++            if len(values)!=len(batch):raise ValueError('PREVIOUS_FAILURE_SCORE_DENOMINATOR')
++            for row,value in zip(batch,values):
++                actual=value.tolist() if hasattr(value,'tolist') else list(value)
++                if len(actual)!=len(row['generated_token_ids']) or any(not math.isfinite(x) or x>0 for x in actual):
++                    raise ValueError('PREVIOUS_FAILURE_SCORE_INVALID')
++                errors.extend(abs(a-b) for a,b in zip(actual,row['behavior_logprobs']))
++                witness.append(dict(request_id=row['request_id'],teacher_logprobs=actual))
++        maxima['max_error_b'+str(size)]=max(errors);witnesses['b'+str(size)]=witness
++        if max(errors)>tolerance:raise ValueError('PREVIOUS_FAILED_RECEIPT_PARITY_UNCHANGED_025_GATE:b'+str(size))
++    return dict(status='PASS',receipts=len(rows),positions_per_pass=sum(len(r['generated_token_ids']) for r in rows),
++        tolerance=tolerance,**maxima,witnesses=witnesses)
 diff --git a/src/mechet/route_reference_cache.py b/src/mechet/route_reference_cache.py
 new file mode 100644
 index 0000000..5cbb181
@@ -1471,6 +1614,20 @@ index 0000000..7caac24
 +            rejected_duplicate_proposals=duplicate_status['rejected'],
 +            unexecuted_duplicate_proposals=duplicate_status['unexecuted'])
 +    return result
+diff --git a/src/mechet/route_runtime_efficiency.py b/src/mechet/route_runtime_efficiency.py
+index ac8f5a2..410fdd9 100644
+--- a/src/mechet/route_runtime_efficiency.py
++++ b/src/mechet/route_runtime_efficiency.py
+@@ -50,6 +50,9 @@ def configure_profile(cfg,code_root):
+         if mode!=environment['FLA_CACHE_MODE'] or os.environ.get('FLA_CONFIG_DIR')!=environment['FLA_CONFIG_DIR']:
+             raise ValueError('RUNTIME_PROFILE_AFTER_FLA_IMPORT')
+     os.environ.update(environment)
++    if cfg.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2':
++        from .route_fla_import import import_core_fla
++        import_core_fla()
+     return environment
+ 
+ 
 diff --git a/src/mechet/route_vllm_backend.py b/src/mechet/route_vllm_backend.py
 index 05ecc76..20bd402 100644
 --- a/src/mechet/route_vllm_backend.py
@@ -1575,10 +1732,26 @@ index 0000000..e17db24
 +        raise ValueError('VLLM_PREFIX_RESET_FAILED')
 +    return bool(enabled)
 diff --git a/src/mechet/route_vllm_environment.py b/src/mechet/route_vllm_environment.py
-index 6c634d1..22a49e8 100644
+index 6c634d1..8c74a7e 100644
 --- a/src/mechet/route_vllm_environment.py
 +++ b/src/mechet/route_vllm_environment.py
-@@ -37,7 +37,10 @@ def child_environment(cfg,local_rank):
+@@ -28,16 +28,25 @@ def child_environment(cfg,local_rank):
+         if not shared_triton.is_relative_to(root):
+             raise ValueError('TRITON_SHARED_CACHE_OUTSIDE_RUNTIME_ROOT')
+     env=dict(os.environ)
+-    for key in ('PYTHONPATH','PYTHONHOME','RANK','WORLD_SIZE','LOCAL_RANK',
++    for key in ('PYTHONPATH','PYTHONHOME','RANK','WORLD_SIZE','LOCAL_RANK','LOCAL_WORLD_SIZE',
++                'GROUP_RANK','GROUP_WORLD_SIZE','ROLE_RANK','ROLE_WORLD_SIZE','ROLE_NAME',
+                 'MASTER_ADDR','MASTER_PORT','TORCHINDUCTOR_CACHE_DIR','TRITON_CACHE_DIR',
+                 'CUDA_HOME','CUDA_PATH'):
+         env.pop(key,None)
++    # torchrun sets USE_AGENT_STORE=True. A standalone vLLM rank0 must host
++    # its own TCPStore; inheriting this flag turns it into a client waiting
++    # for a nonexistent agent on vLLM's fresh random port (600s timeout).
++    for key in list(env):
++        if key.startswith('TORCHELASTIC_'):env.pop(key)
+     visible=env.get('CUDA_VISIBLE_DEVICES')
+     gpu=visible.split(',')[local_rank] if visible else str(local_rank)
      env.update(CUDA_VISIBLE_DEVICES=gpu,PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1',
                 VLLM_WORKER_MULTIPROC_METHOD='spawn',HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',
                 VLLM_USE_FLASHINFER_SAMPLER='0',PYTHONSAFEPATH='1',
@@ -2106,6 +2279,62 @@ index e056937..2a1e63f 100644
 +    assert rows['consumer']['request_id']=='consumer'
 +    assert rows['consumer']['producer_receipt_id']=='producer'
 +    assert rows['consumer']['witness_sha']==rows['producer']['witness_sha']
+diff --git a/tests/test_route_fla_import.py b/tests/test_route_fla_import.py
+new file mode 100644
+index 0000000..7ffe7dd
+--- /dev/null
++++ b/tests/test_route_fla_import.py
+@@ -0,0 +1,50 @@
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++
++
++def test_optional_model_registry_is_skipped_while_real_core_imports_remain(tmp_path):
++    root=tmp_path/'packages';fla=root/'fla';fla.mkdir(parents=True)
++    (fla/'__init__.py').write_text('''import importlib
++__version__='0.5.2'
++def _import_optional_public_module(name):
++ try:return importlib.import_module(name)
++ except ModuleNotFoundError as e:
++  if e.name==name:return None
++  raise
++_layers=_import_optional_public_module('fla.layers')
++_models=_import_optional_public_module('fla.models')
++''')
++    for name in ['layers','models']:
++        p=fla/name;p.mkdir();(p/'__init__.py').write_text('VALUE=99\n')
++    p=fla/'ops';p.mkdir();(p/'__init__.py').write_text('def original_op(x):return x*x\n')
++    code=Path(__file__).resolve().parents[1]
++    script='import runpy,os\nimport_core_fla=runpy.run_path('+repr(str(code/'src/mechet/route_fla_import.py'))+")[\"import_core_fla\"]\n"+'''import sys,json,importlib
++module=importlib.import_module('fla') if os.environ.get('FLA_IMPORT_BASELINE_CONTROL') else import_core_fla()
++before=[n for n in sys.modules if n in ('fla.layers','fla.models')]
++from fla.ops import original_op
++later=importlib.import_module('fla.models')
++print(json.dumps(dict(version=module.__version__,before=before,value=original_op(7),later=later.VALUE)))
++'''
++    env=dict(os.environ,PYTHONPATH=os.pathsep.join([str(root),str(code/'src')]),PYTHONDONTWRITEBYTECODE='1')
++    result=json.loads(subprocess.check_output([sys.executable,'-S','-c',script],env=env,text=True))
++    assert result==dict(version='0.5.2',before=[],value=49,later=99)
++
++
++def test_failed_core_import_always_removes_temporary_blocker(tmp_path):
++    # A broken core package must raise; it cannot turn into a silent fallback.
++    root=tmp_path/'packages';fla=root/'fla';fla.mkdir(parents=True)
++    (fla/'__init__.py').write_text("raise RuntimeError('broken core')\n")
++    code=Path(__file__).resolve().parents[1]
++    script='import runpy\nimport_core_fla=runpy.run_path('+repr(str(code/'src/mechet/route_fla_import.py'))+")[\"import_core_fla\"]\n"+'''import sys,json
++before=list(sys.meta_path)
++try:import_core_fla()
++except RuntimeError:pass
++else:raise AssertionError('hidden core failure')
++assert sys.meta_path==before
++print('PASS')
++'''
++    env=dict(os.environ,PYTHONPATH=os.pathsep.join([str(root),str(code/'src')]),PYTHONDONTWRITEBYTECODE='1')
++    assert subprocess.check_output([sys.executable,'-S','-c',script],env=env,text=True).strip()=='PASS'
 diff --git a/tests/test_route_global_native.py b/tests/test_route_global_native.py
 new file mode 100644
 index 0000000..baafc88
@@ -2392,6 +2621,114 @@ index 0000000..2bb1612
 +    assert (new/relative).read_bytes()==source.read_bytes()
 +    source.write_text('changed')
 +    with pytest.raises(ValueError,match='RUNTIME_LEAF_CHANGED'):preserve_runtime_leaves(cfg,new)
+diff --git a/tests/test_route_probability_admission.py b/tests/test_route_probability_admission.py
+new file mode 100644
+index 0000000..244c842
+--- /dev/null
++++ b/tests/test_route_probability_admission.py
+@@ -0,0 +1,102 @@
++import json
++
++import pytest
++
++
++def failure_files(tmp_path):
++    report=tmp_path/'failure.json';values=tmp_path/'native_outputs.json'
++    report.write_text(json.dumps(dict(status='FAIL',source_bindings={'first':{'adapter_sha256':'actor'}})))
++    rows=[dict(request_id=str(i),prompt_token_ids=[1,i+2],generated_token_ids=[4,9],
++        behavior_logprobs=[-.1,-.2]) for i in range(5)]
++    values.write_text(json.dumps(rows));return report,values
++
++
++def test_every_failed_receipt_is_rechecked_at_b1_and_b4(tmp_path):
++    from mechet.route_probability_admission import replay_failed_probability_receipts
++    report,values=failure_files(tmp_path);seen=[]
++    def score(model,pairs,pad,**kwargs):
++        seen.extend(p[0][1] for p in pairs);return [[-.11,-.19] for _ in pairs]
++    result=replay_failed_probability_receipts(report,values,None,0,'bf16_autocast',score,expected_actor='actor')
++    assert seen==[2,3,4,5,6]*2
++    assert result['status']=='PASS' and result['receipts']==5 and result['positions_per_pass']==10
++    assert result['max_error_b1']==pytest.approx(.01)
++
++
++@pytest.mark.parametrize('changed_actor,bad_score',[(True,False),(False,True)])
++def test_replay_cannot_admit_wrong_actor_or_bad_old_receipt(tmp_path,changed_actor,bad_score):
++    from mechet.route_probability_admission import replay_failed_probability_receipts
++    report,values=failure_files(tmp_path)
++    def score(model,pairs,pad,**kwargs):return [[-.1,-.6 if bad_score and p[0][1]==4 else -.2] for p in pairs]
++    with pytest.raises(ValueError):
++        replay_failed_probability_receipts(report,values,None,0,'bf16_autocast',score,
++            expected_actor='wrong' if changed_actor else 'actor')
++
++
++def test_teacher_witness_preserves_return_identity_and_restores_after_failure(tmp_path):
++    from types import SimpleNamespace
++    from mechet.route_probability_admission import ScoreWitnesses
++    output=[[-.125,-.25]];actor=object()
++    def original(*args,**kwargs):return output
++    module=SimpleNamespace(token_logps_batch=original)
++    with pytest.raises(RuntimeError):
++        with ScoreWitnesses(module,tmp_path/'teacher.jsonl') as trace:
++            assert module.token_logps_batch(actor,[([1],[2,9])],pad_token_id=77,precision='bf16_autocast') is output
++            assert trace.primary_model is actor and trace.pad_token_id==77
++            raise RuntimeError('diagnostic failure')
++    assert module.token_logps_batch is original
++    row=json.loads((tmp_path/'teacher.jsonl').read_text())
++    assert row['teacher_logprobs']==output[0]
++
++
++def test_hardware_failure_persists_scores_and_blocks_unchanged_automatic_retry(tmp_path,monkeypatch):
++    import scripts.run_route_native_admission as entry
++    import scripts.validate_pr111_native_runtime as native
++    from scripts import pr96_earho_contract as probability
++    from mechet.external_route_data import file_sha
++    source=tmp_path/'source.json';source.write_text('{}')
++    cfg=dict(acceleration={'version':'pr111_full_acceleration_v2'},output_dir=str(tmp_path/'out'),
++        native_admission=dict(second_source_contract=str(source),second_source_contract_sha256=file_sha(source),
++            source_contract_sha256=file_sha(source)),acceleration_continuation={'source_contract':str(source)})
++    contract=tmp_path/'contract.json';contract.write_text(json.dumps(cfg));calls=[]
++    def original(*args,**kwargs):return [[-.125]]
++    monkeypatch.setattr(probability,'token_logps_batch',original)
++    def failed_run(args):
++        calls.append(1);args.output.mkdir(parents=True)
++        probability.token_logps_batch(object(),[([1],[2])],99,precision='bf16_autocast')
++        (args.output/'admission.json').write_text(json.dumps({'status':'FAIL'}))
++        raise ValueError('NATIVE_PROBABILITY_PARITY_UNCHANGED_025_GATE')
++    monkeypatch.setattr(native,'run',failed_run)
++    with pytest.raises(ValueError,match='PARITY'):entry.main(contract)
++    validation=tmp_path/'out/runtime_validation'
++    assert (validation/'native_admission_failure.json').exists()
++    assert not (validation/'native_admission.json').exists()
++    assert list(validation.glob('native-attempt-*/teacher_scores.jsonl'))
++    assert probability.token_logps_batch is original
++    with pytest.raises(ValueError,match='FROZEN_NATIVE_FAILURE_REQUIRES_REPAIR'):entry.main(contract)
++    assert len(calls)==1
++
++
++def test_failed_prior_replay_keeps_teacher_vectors(tmp_path,monkeypatch):
++    import scripts.run_route_native_admission as entry
++    import scripts.validate_pr111_native_runtime as native
++    from scripts import pr96_earho_contract as probability
++    from mechet.external_route_data import file_sha
++    report,outputs=failure_files(tmp_path)
++    source=tmp_path/'source.json';source.write_text('{}')
++    previous={k:str(p) for k,p in [('report',report),('outputs',outputs)]}
++    previous.update({k+'_sha256':file_sha(p) for k,p in [('report',report),('outputs',outputs)]})
++    cfg=dict(acceleration={'version':'pr111_full_acceleration_v2'},output_dir=str(tmp_path/'out'),
++        policy_precision='bf16_autocast',acceleration_continuation={'source_contract':str(source)},
++        native_admission=dict(second_source_contract=str(source),second_source_contract_sha256=file_sha(source),
++            source_contract_sha256=file_sha(source),actor_sha256='actor',previous_probability_failure=previous))
++    contract=tmp_path/'contract.json';contract.write_text(json.dumps(cfg))
++    monkeypatch.setattr(probability,'token_logps_batch',lambda model,pairs,pad,**kw:[[-.1,-.6] for _ in pairs])
++    def run(args):
++        args.output.mkdir(parents=True)
++        probability.token_logps_batch(object(),[([1],[2,9])],77,precision='bf16_autocast')
++        (args.output/'admission.json').write_text(json.dumps({'status':'PASS'}))
++    monkeypatch.setattr(native,'run',run)
++    with pytest.raises(ValueError,match='PREVIOUS_FAILED_RECEIPT_PARITY'):entry.main(contract)
++    receipts=list((tmp_path/'out/runtime_validation').glob('native-attempt-*/previous_teacher_scores.jsonl'))
++    assert len(receipts)==1
++    assert json.loads(receipts[0].read_text().splitlines()[0])['teacher_logprobs']==[-.1,-.6]
 diff --git a/tests/test_route_reference_cache.py b/tests/test_route_reference_cache.py
 new file mode 100644
 index 0000000..f8d518d
@@ -2731,10 +3068,34 @@ index 0000000..7a07a51
 +    counts=packed['refit']['lane_counts']['original_g4']
 +    assert counts['complete']==1 and counts['attempts']==counts['completed_eligible_coverage']==0
 diff --git a/tests/test_route_vllm_environment.py b/tests/test_route_vllm_environment.py
-index 84375f6..da3cef4 100644
+index 84375f6..eaa9fba 100644
 --- a/tests/test_route_vllm_environment.py
 +++ b/tests/test_route_vllm_environment.py
-@@ -117,3 +117,19 @@ def test_shared_triton_cache_cannot_write_outside_owned_runtime_root(tmp_path):
+@@ -32,6 +32,23 @@ def test_unknown_backend_cannot_silently_fall_back_to_hf():
+         validate_runtime({'inference_backend':'vlllm'})
+ 
+ 
++def test_native_child_cannot_inherit_a_torchrun_agent_store(tmp_path,monkeypatch):
++    import json,subprocess,sys
++    from mechet.route_vllm_environment import child_environment
++    compat=tmp_path/'compat';compat.mkdir();(compat/'libcuda.so.1').write_bytes(b'fixture')
++    poison={'TORCHELASTIC_USE_AGENT_STORE':'True','TORCHELASTIC_RUN_ID':'parent',
++        'TORCHELASTIC_ERROR_FILE':'parent-error.json','TORCHELASTIC_RESTART_COUNT':'0',
++        'LOCAL_WORLD_SIZE':'4','GROUP_RANK':'0','GROUP_WORLD_SIZE':'1',
++        'ROLE_RANK':'3','ROLE_WORLD_SIZE':'4','ROLE_NAME':'trainer'}
++    for key,value in poison.items():monkeypatch.setenv(key,value)
++    env=child_environment({'vllm_runtime':{'cache_root':str(tmp_path/'cache'),
++        'cuda_compat':str(compat),'python':str(tmp_path/'venv/bin/python')}},0)
++    leaked=json.loads(subprocess.check_output([sys.executable,'-S','-c',
++        'import os,json;print(json.dumps({k:v for k,v in os.environ.items() if k.startswith("TORCHELASTIC_") or k in '+repr(list(poison))+'}))'],env=env,text=True))
++    assert leaked=={}, 'Native rank0 must create its own TCPStore, rather than connect to a nonexistent parent agent store'
++    assert all(os.environ[k]==v for k,v in poison.items())
++
++
+ @pytest.mark.parametrize('inherited',[None,'/tmp/inherited-wrong-location'])
+ def test_long_ceph_cache_path_still_allows_real_unix_socket_binding(tmp_path,monkeypatch,inherited):
+     from mechet.route_vllm_environment import child_environment
+@@ -117,3 +134,19 @@ def test_shared_triton_cache_cannot_write_outside_owned_runtime_root(tmp_path):
              'cuda_compat':str(compat),'python':str(tmp_path/'venv/bin/python'),
              'shared_triton_cache_root':str(link)}},0)
      assert not outside.exists()

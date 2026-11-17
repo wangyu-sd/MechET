@@ -28,10 +28,16 @@ def child_environment(cfg,local_rank):
         if not shared_triton.is_relative_to(root):
             raise ValueError('TRITON_SHARED_CACHE_OUTSIDE_RUNTIME_ROOT')
     env=dict(os.environ)
-    for key in ('PYTHONPATH','PYTHONHOME','RANK','WORLD_SIZE','LOCAL_RANK',
+    for key in ('PYTHONPATH','PYTHONHOME','RANK','WORLD_SIZE','LOCAL_RANK','LOCAL_WORLD_SIZE',
+                'GROUP_RANK','GROUP_WORLD_SIZE','ROLE_RANK','ROLE_WORLD_SIZE','ROLE_NAME',
                 'MASTER_ADDR','MASTER_PORT','TORCHINDUCTOR_CACHE_DIR','TRITON_CACHE_DIR',
                 'CUDA_HOME','CUDA_PATH'):
         env.pop(key,None)
+    # torchrun sets USE_AGENT_STORE=True. A standalone vLLM rank0 must host
+    # its own TCPStore; inheriting this flag turns it into a client waiting
+    # for a nonexistent agent on vLLM's fresh random port (600s timeout).
+    for key in list(env):
+        if key.startswith('TORCHELASTIC_'):env.pop(key)
     visible=env.get('CUDA_VISIBLE_DEVICES')
     gpu=visible.split(',')[local_rank] if visible else str(local_rank)
     env.update(CUDA_VISIBLE_DEVICES=gpu,PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1',

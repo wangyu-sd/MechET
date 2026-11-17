@@ -1,0 +1,12 @@
+{
+  "source_commit": "9d77c41",
+  "formal_native_new_updates": 0,
+  "torchrun_child_isolation": "real inherited-env T4PASS max LPdiff0.01003826; exact pinnedTorch2.11 TCPStorePASS",
+  "d3_h20": "standalone gatePASS0.2166711; four-rank02 FAILED inherited agent-store; no whole-round gain",
+  "d1_h20": "FAIL0.30258417 retained; all16/1067positions replayB1=0.1399969/B4=0.2309947; original unexplained",
+  "new_admission": "save exact teacher witnesses; block unchanged frozen-failure retries; D1 binds/replays every old failure atB1/B4, unchanged0.25",
+  "fla_startup": "scoped optional-registry skip; actual kernel source unchanged; eight H20 tensor casesPASS; zero optional models; no matched startup gain",
+  "affected_tests": "25PASS56.11s overlaps earlier suites; review no critical/important",
+  "h20_speed": "small8request/4slot HF/native median0.4621, negative evidence preserved",
+  "native03": "same-task preparation from authenticated D3step19/D1step89, max8H20; runtime acceptance pending"
+}

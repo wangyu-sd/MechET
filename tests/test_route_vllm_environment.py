@@ -32,6 +32,23 @@ def test_unknown_backend_cannot_silently_fall_back_to_hf():
         validate_runtime({'inference_backend':'vlllm'})
 
 
+def test_native_child_cannot_inherit_a_torchrun_agent_store(tmp_path,monkeypatch):
+    import json,subprocess,sys
+    from mechet.route_vllm_environment import child_environment
+    compat=tmp_path/'compat';compat.mkdir();(compat/'libcuda.so.1').write_bytes(b'fixture')
+    poison={'TORCHELASTIC_USE_AGENT_STORE':'True','TORCHELASTIC_RUN_ID':'parent',
+        'TORCHELASTIC_ERROR_FILE':'parent-error.json','TORCHELASTIC_RESTART_COUNT':'0',
+        'LOCAL_WORLD_SIZE':'4','GROUP_RANK':'0','GROUP_WORLD_SIZE':'1',
+        'ROLE_RANK':'3','ROLE_WORLD_SIZE':'4','ROLE_NAME':'trainer'}
+    for key,value in poison.items():monkeypatch.setenv(key,value)
+    env=child_environment({'vllm_runtime':{'cache_root':str(tmp_path/'cache'),
+        'cuda_compat':str(compat),'python':str(tmp_path/'venv/bin/python')}},0)
+    leaked=json.loads(subprocess.check_output([sys.executable,'-S','-c',
+        'import os,json;print(json.dumps({k:v for k,v in os.environ.items() if k.startswith("TORCHELASTIC_") or k in '+repr(list(poison))+'}))'],env=env,text=True))
+    assert leaked=={}, 'Native rank0 must create its own TCPStore, rather than connect to a nonexistent parent agent store'
+    assert all(os.environ[k]==v for k,v in poison.items())
+
+
 @pytest.mark.parametrize('inherited',[None,'/tmp/inherited-wrong-location'])
 def test_long_ceph_cache_path_still_allows_real_unix_socket_binding(tmp_path,monkeypatch,inherited):
     from mechet.route_vllm_environment import child_environment

@@ -98,7 +98,7 @@ def preserve_runtime_leaves(original,code):
 
 def prepare(*,source_contract,source_contract_sha256,source_instance,source_stopped_receipt,
             admission,submission,output,source_commit,authorization,task_flag,
-            full_native=False,second_source_contract=None):
+            full_native=False,second_source_contract=None,previous_failed_admission=None):
     if not authorization.strip():raise ValueError('EXPLICIT_USER_AUTHORIZATION_REQUIRED')
     code=Path(__file__).resolve().parents[1]
     if not code.is_relative_to(ROOT/'artifacts'):raise ValueError('DEDICATED_FROZEN_CODE_SNAPSHOT_REQUIRED')
@@ -151,6 +151,15 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
                 source_contract_sha256=source_contract_sha256,source_complete_sha256=audit['source_complete_sha256'],
                 second_source_contract=str(second_source_contract),second_source_contract_sha256=file_sha(second_source_contract),
                 status='REQUIRES_REAL_H20_BF16_GATE_BEFORE_TRAINING')
+            if previous_failed_admission is not None:
+                previous_failed_admission=Path(previous_failed_admission).resolve()
+                failed=read_json(previous_failed_admission);prior=failed.get('source_bindings',{}).get('first',{})
+                if (failed.get('status')!='FAIL' or prior.get('contract_sha256')!=source_contract_sha256
+                        or prior.get('adapter_sha256')!=cfg['native_admission']['actor_sha256']):
+                    raise ValueError('PREVIOUS_NATIVE_FAILURE_ACTOR_BINDING_CHANGED')
+                values=previous_failed_admission.parent/'native_outputs.json'
+                cfg['native_admission']['previous_probability_failure']=dict(report=str(previous_failed_admission),
+                    report_sha256=file_sha(previous_failed_admission),outputs=str(values),outputs_sha256=file_sha(values))
         else:
             gate,binding=validate_admission(admission,cfg,code,condition=condition)
             benchmark=_verified_benchmark_actor(binding,audit)
@@ -174,6 +183,9 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
         if full_native:
             for path in (Path(cfg['vllm_runtime']['manifest']),second_source_contract):
                 cfg['files_sha256'][str(path)]=file_sha(path)
+            previous=cfg['native_admission'].get('previous_probability_failure')
+            if previous:
+                for key in ('report','outputs'):cfg['files_sha256'][previous[key]]=previous[key+'_sha256']
         cfg['code_root']=str(code)
         cfg['code_files_sha256']={name:file_sha(code/name) for name in source_files(code)}
         from mechet.route_runtime_efficiency import CONFIG_FILES
@@ -248,6 +260,7 @@ def main():
         prepare_parser.add_argument('--'+name,required=True)
     prepare_parser.add_argument('--full-native',action='store_true')
     prepare_parser.add_argument('--second-source-contract',type=Path)
+    prepare_parser.add_argument('--previous-failed-admission',type=Path)
     args=vars(parser.parse_args());mode=args.pop('mode')
     if mode=='audit':
         output=shared_new_path(args.pop('audit_output'))

@@ -2,7 +2,7 @@
   "d3": {
     "task_flag": "meteor_mechet_pr109_standard_d_4h20_20261116",
     "new_instance": "8b1d89f6a1cfaa4801a1ea0e2de229e3",
-    "status": "SUBMITTED_H20_ADMISSION_PENDING_NOT_FORMAL_NATIVE_RESULT",
+    "status": "END_NATIVE02_FAILED_ZERO_NATIVE_UPDATES",
     "resumed_step": 19,
     "next_round": 19,
     "contract_sha256": "47fcfbf670a6c166b8d1c99e436f98c62777a823e2cdb18293f886009ed52827",
@@ -18,7 +18,7 @@
   "d1": {
     "task_flag": "meteor_mechet_stage2_native_process_grpo_4h20_zjk_20261115_01",
     "new_instance": "8b1d89c6a1cfaaaf01a1ea10ea942910",
-    "status": "SUBMITTED_H20_ADMISSION_PENDING_NOT_FORMAL_NATIVE_RESULT",
+    "status": "END_NATIVE02_FAILED_ZERO_NATIVE_UPDATES",
     "resumed_step": 89,
     "next_round": 89,
     "contract_sha256": "825912e080a25da69cf4020fa968ec4747c6a2f532ae8e1cf11027b46c652cfa",

@@ -111,8 +111,9 @@ def run(args):
                     or json.loads((prior/'admission.json').read_text()).get('status')!='PASS'):
                 raise ValueError('ONLY_OWN_PRIOR_PASSED_CACHE_REUSE_ALLOWED')
             runtime['cache_root']=str(prior/'cache')
+            runtime['shared_triton_cache_root']=str(prior/'cache/rank00/triton')
             report['cache_reuse']=dict(source=str(prior),prior_receipt_sha256=sha(prior/'admission.json'))
-        if t4:runtime.pop('shared_triton_cache_root',None)
+        if t4 and not args.reuse_cache:runtime.pop('shared_triton_cache_root',None)
         runtime.update(kv_cache_memory_bytes=1024**3 if t4 else runtime['kv_cache_memory_bytes'],
             max_num_batched_tokens=8192,gpu_memory_utilization=.45,request_timeout_seconds=600,startup_timeout_seconds=3600)
         cfg.update(output_dir=str(output),_sha=sha(args.source_contract),generation_batch_size=args.count,world_size=1,
