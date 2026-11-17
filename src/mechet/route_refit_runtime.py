@@ -77,12 +77,16 @@ class ObservedEpisode:
 
 
 class RefitCollection:
-    def __init__(self,episodes,cfg):
+    def __init__(self,episodes,cfg,*,duplicate_policy=None):
+        if duplicate_policy not in (None,'skip_extra_duplicates_v1'):
+            raise ValueError('REFIT_DUPLICATE_POLICY')
+        self.duplicate_policy=duplicate_policy;self.duplicate_pruned=0
         self.cfg=dict(validate_refit(cfg));self.nodes={};self.parents={};self.node_trees={}
         self.conditions={};self.lock=RLock()
         self.forks=Counter();self.initial=[ObservedEpisode(ep,self) for ep in episodes]
         self.pending=Counter();self.draw_serials=Counter()
         self.all=list(self.initial)
+        self.initial_ids={id(e) for e in self.initial}
 
     def can_add_node(self,tree):
         return (self.forks[tree]<self.cfg['max_forks_per_tree'] and
@@ -124,11 +128,20 @@ class RefitCollection:
             self.conditions[key]=conditioning
         event['proposal']='original_policy'
         episode.path.append(event)
+        accepted_duplicate=(node is not None and event['action'] in node.edges and
+                            node.edges[event['action']]['status']=='ACCEPTED' and record.get('accepted') is True)
         if node is not None:
             successor=None if not record.get('accepted') else record.get('state_after')
             node.add(event['action'],event['request_id'],successor=successor,
                 error=record.get('error','') if not record.get('accepted') else '',
                 resource=resource,executor_skipped=bool(record.get('executor_skipped')))
+        if (self.duplicate_policy and accepted_duplicate and id(episode) not in self.initial_ids
+                and event['name']=='apply_electron_flow'):
+            from .route_acceleration import SKIPPED
+            episode.ep._end(SKIPPED,None)
+            record['episode_status_after']=SKIPPED
+            self.duplicate_pruned+=1
+            return []
         if resource or self.forks[tree]>=self.cfg['max_forks_per_tree']:return []
         candidate=key if node is not None and self.available(key) else None
         if candidate is None and episode.ep.status=='rejected_action':
@@ -164,4 +177,6 @@ class RefitCollection:
             report['refit']['node_censored_receipts']={k:list(n.censored_receipts) for k,n in self.nodes.items()
                 if self.node_trees[k]==ep.ep.uid and n.censored_receipts}
             report['refit']['reserved_draws']={k:self.pending[k] for k in self.nodes if self.node_trees[k]==ep.ep.uid}
+            if self.duplicate_policy:
+                report['refit']['duplicate_suffix_policy']=self.duplicate_policy
         return originals

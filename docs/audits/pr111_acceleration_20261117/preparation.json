@@ -1,0 +1,23 @@
+{
+  "status": "PREPARED_NOT_SUBMITTED_PENDING_H20_ADMISSION",
+  "contract_sha256": "ef251f8ae644c9c5cf193c17d7977cc88f88b29bc92e17afbfe587a7020a5155",
+  "requested_gpus": 4,
+  "max_total_mechet_h20": 8,
+  "existing_D3_D1_preserved": true,
+  "automatic_submission": false,
+  "new_training_or_evaluation_jobs": 0,
+  "source_commit": "f1fb6e590f41cf4b618701ab097661d5a42be478",
+  "superseded_candidate01": "DO_NOT_SUBMIT_SUPERSEDED_THREAD_DEVICE_FIX",
+  "next_required": "H20 numerical/throughput admission and capacity for separate full D3; no smoke/subset replacement",
+  "static_preflight": {
+    "status": "STATIC_PASS_NOT_SUBMITTED",
+    "condition": "D",
+    "contract_sha256": "ef251f8ae644c9c5cf193c17d7977cc88f88b29bc92e17afbfe587a7020a5155",
+    "train_targets": 156723,
+    "validation_targets": 8250,
+    "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+    "world_size": 4,
+    "output": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_acceleration_full_d3_20261117_02",
+    "working_initializer_sha256": "31e65d61b81726a78f415a49c7549584be3539203c188edd66cb6048fada4b67"
+  }
+}

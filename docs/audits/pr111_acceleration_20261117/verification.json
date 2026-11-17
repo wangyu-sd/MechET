@@ -1,0 +1,75 @@
+{
+  "status": "IMPLEMENTED_FOCUSED_SOFTWARE_VERIFIED_NOT_H20_SPEEDUP_OR_MODEL_RESULTS",
+  "private_source_commit": "f1fb6e590f41cf4b618701ab097661d5a42be478",
+  "design_pr111_head": "b282d7bed11341e66d2426faaae4e2d70dcffd78",
+  "focused_cpu_tests": {
+    "passed": 74,
+    "seconds": 72.87
+  },
+  "pinned_model_tensor_tests": {
+    "passed": 15,
+    "seconds": 73.04,
+    "transformers": "5.5.0",
+    "torch": "2.6.0+cu118",
+    "scope": "tiny random models/software only, not corpus experiments"
+  },
+  "independent_review": {
+    "reviewer": "pr111_acceleration_final_review",
+    "fixed": [
+      "physical_executor_concurrency undercount",
+      "rank-local startup error coordination",
+      "summary publication collective mismatch",
+      "preparation CLI opt-in",
+      "inference worker thread explicitly binds actor CUDA device; parent final check RED\u2192GREEN"
+    ],
+    "regressions": "RED\u2192GREEN; final focused suite passes",
+    "minor_deferred": []
+  },
+  "initial_failures_retained": [
+    "default-host Transformers lacks Qwen3.5; resolved with pinned runtime",
+    "spawn MKL threading-layer conflict; resolved by explicit GNU setting"
+  ],
+  "undeployed": [
+    "H20 acceleration throughput/distribution admission",
+    "vLLM/continuous decoding/prefix KV",
+    "optional reference-logprob LRU"
+  ],
+  "live_jobs_changed": false,
+  "new_model_experiments": 0,
+  "new_gpu_jobs": 0,
+  "files_sha256": {
+    "src/mechet/route_execution_cache.py": "b84f3a789bc4b890d0fae4e81503a37ee84e4fdbeeacbecb9d5464b95b5e4842",
+    "src/mechet/route_acceleration.py": "a9970e341996d18abc52fb782bbfe1a758db81e50a531ecb911b2285dab471b6",
+    "src/mechet/route_refit_runtime.py": "f04470f2cf320c3df87526de63b89878f02244a6976bcde16e6138c3afa032b6",
+    "src/mechet/route_refit_credit.py": "486e4d2d48c02eaa63dc98b121573b81d8b8133234057453e6172a9a7dc7bcd1",
+    "src/mechet/route_work_broker.py": "1ef46a49d537dbc88ad275e53ca36dcd751bb7e2a5d8c1d8755e71403c30b7c3",
+    "src/mechet/route_global_sampler.py": "52fd9123784b3d5002f0c056268129afb0ac91d4cb78e5ad0a0e2bc086f0004c",
+    "src/mechet/route_distributed_collection.py": "78e2528858b3ab9df635530a317bc45026674010e1ad8d4de5b1d6b8deecd042",
+    "src/mechet/route_counter_sampling.py": "9f809c094a8d9e1847b059aa542b6ebb2702a3664391332128dafd56a1de7ab9",
+    "docs/audits/pr111_acceleration_20261117/source/src/mechet/route_policy_sampling.py": "9f23d2173ebe63c4053e8c014599064def75d29ce8bdcfbede4a6c4dc92a76c5",
+    "docs/audits/pr111_acceleration_20261117/source/src/mechet/external_route_schedule.py": "3ada6972855a537436fe74946aeb463065af621ca4366c118e8153ef188912bf",
+    "docs/audits/pr111_acceleration_20261117/source/scripts/train_external_route_rl.py": "7dbc4b476b9309468e21e36eba9f2d6de49a3a18e8cc35d7cd8533d3be2197ca",
+    "docs/audits/pr111_acceleration_20261117/source/scripts/prepare_external_route_rl.py": "49b1bff702a06f457e03cee5125a8842ed16405ce4dd382eed6f6e1e08ec9f5c",
+    "scripts/prepare_standard_route_rl.py": "92a4ae18225a6af4973c649c90d53ca6f30389dfeb9aaf0db4cc1df7be9812b1",
+    "scripts/audit_refit_compute.py": "8a0ab69f3757e0aa9c4ca6d32d6ed4ff674635adcfc43070bd94904195b5e4e3",
+    "tests/test_route_execution_cache.py": "209543783a6e7e3c453e76b4b5df952d5993dbd2a423c84742f6b5c0f5ece068",
+    "tests/test_route_acceleration_lanes.py": "0984aeabc006e5fa3fcdf5cc0db21078c6d2221a5a3dcbb1f93bbd86f4bd6475",
+    "tests/test_route_work_broker.py": "0ba7e0424718da4fc2138e444e7110740f6c9e147bb510bcc8081d05a7f179c1",
+    "tests/test_route_global_sampler.py": "e6a1107a6b05d4fc2e25304c93612810c4a4fd170e577c9457fc1957a43bd9c3",
+    "tests/test_route_distributed_collection.py": "d03020d8712ec2e7a2959eca81bdc3e0cfc5d4e20b9911cd5a8310bcd9e1f5a0",
+    "tests/test_route_acceleration_distributed_cpu.py": "ba0c709de411cb03f27ede9ad3bd9a7d931706767415f718d275bb8528e6162f",
+    "tests/test_route_counter_sampling.py": "14bc4a2ccc89afe0bb1d0f4fad99fa0450a8b6f7db65fca7826ad568775acce1",
+    "tests/test_route_acceleration_learner.py": "04d2dcc58ac36aa31f1f62667106a88906aa21bfcc608544377a4a3dede25a96",
+    "tests/test_external_route_precision.py": "4723508052b900f34c719113b44447d9fd227fab83ea64604a95377554715179",
+    "docs/superpowers/plans/2026-11-17-pr111-acceleration.md": "d8a166e89f3234a3ac85837560b921a2d1960674f9d2f336f53ce27661b47f06",
+    "docs/ops/PR111_ACCELERATION_IMPLEMENTATION_20261117.md": "efe20834d5ee6f1a461a8c1dbe0d736948cf07d582286092f4e940a140c988c9",
+    "docs/audits/pr111_acceleration_20261117/saved_round_audit.json": "adea96fe701054f57f93b904183ccf0825f3fecf655ebcd286ebb0569aad75db",
+    "docs/audits/pr111_acceleration_20261117/preparation.json": "5c19a3793d2786df3e2b6c84072ab65fa333acc55d2c31779375442f8ca39e1b",
+    "docs/audits/pr111_acceleration_20261117/runtime.patch": "40f7d3d9fe35571cdba68c9260702cf624b5bc8d9621223bb34230699d068daf"
+  },
+  "last_affected_after_device_context_fix": {
+    "passed": 6,
+    "seconds": 39.57,
+    "overlaps_focused_cpu_suite": true
+  }
+}

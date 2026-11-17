@@ -1,0 +1,1933 @@
+diff --git a/docs/ops/REFIT_PO_ACCELERATION_DESIGN_20261117.md b/docs/ops/REFIT_PO_ACCELERATION_DESIGN_20261117.md
+new file mode 100644
+index 0000000..07ec41c
+--- /dev/null
++++ b/docs/ops/REFIT_PO_ACCELERATION_DESIGN_20261117.md
+@@ -0,0 +1,249 @@
++# Retro-E ReFIT-PO: Efficient Inference, Branch Deduplication and GPU Scheduling
++**Implementation design / Codex handoff — 2026-11-17 — DOCS ONLY**
++
++Baseline: PR #110 head \`e3adb319ee881ac8d919593d12a1066383086eb2\`. This document describes a **future separately frozen** accelerated run. The formal Standard-D 4×H20 job currently running must not be stopped, edited, reconfigured, or resumed with new code/contract. No FlowER forward teacher, RetroChimera, new Reward, change in Stage-II initialization or new RL objective is part of acceleration.
++
++## 0. Measured bottlenecks and priority
++
++Source evidence:
++- \`docs/ops/PR109_D3_REFIT_PROGRESS_20261117.md\`
++- \`docs/ops/PR110_DUPLICATES_AND_GPU_20261117.md\`
++- \`docs/audits/pr109_refit_20261116/acceleration_20261117.json\`
++- Actual \`src/mechet/route_refit.py\`, \`src/mechet/route_refit_runtime.py\`, audit-source mirrors \`route_policy_sampling.py\`, \`route_async_collection.py\`, \`train_external_route_rl.py\`, \`external_route_rl.py\`.
++
++Last audited completed TRAIN round: 64 target source rows, 256 original G4 reports + 3,044 extra ReFIT suffixes, 63,925 physically generated tool decisions (5,419 from original G4), 384 valid vs 1,538 masked same-state conditional groups, 92.29 min wall-clock; slowest collection 81.88 min, generation 69.28 min, learner 9.83 min. Exact current search settings: \`max_nodes_per_tree=8\`, \`max_expansions=2\`, \`max_duplicates=2\`, \`max_forks_per_tree=16\`, \`matched_continuations=1\`; generation per rank ~54–56 requests/batch, learner microbatch=1. Other GPUs can be stalled in \`dist.all_gather_object\` while a rank finishes its assigned targets. GPU-util=100% plus memory-util=0% in a short sample on finished ranks is consistent with NCCL polling, NOT proof of useful high compute utilization.
++
++**Priority order**:
++P0. Separate physical computation from reward/behavior receipts and eliminate provably redundant deterministic computation / excess unneeded suffix exploration.
++P1. Dynamic *same-policy-version* work distribution across the four GPUs (coarse target-group work stealing first, global model-request queue to cure tails).
++P2. Continuous refill inference, prefix KV reuse, vectorized sampling, batched journal.
++P3. Larger training minibatches, optional reference-logprob cache, measurable loss-equivalence.
++Do not claim any speedup before measuring. Avoid just setting a smaller max_forks value and calling that an engineering acceleration: changing search budget is an algorithmic condition, requiring explicitly separate matched-budget comparison.
++
++## 1. Nonnegotiable separation: compute reuse != reward merging
++
++One **canonical chemical edge** can have multiple **independent sampled action receipts** and multiple distinct downstream **stochastic continuation results**. Do not merge these three ledgers.
++
++\`\`\`text
++DecisionNode (exact conditioning, tree/occurrence/history/version)
++  ├─ CanonicalSemanticEdge (same actual executor input+semantic action)
++  │    ├─ deterministic execution result / error -> SHAREABLE CACHE
++  │    ├─ ProposalReceipt#1 (request_id, raw tokens, old logprobs, policy version)
++  │    ├─ ProposalReceipt#2 (different REAL draw and its own logprobs)
++  │    └─ Continuation#M (real sampled suffix, full route result, own reward/RTG)
++  └─ Next distinct semantic edge ...
++\`\`\`
++
++- **Executor computation**: share for identical relevant state + grounded action + exact deterministic executor/endpoint/stock/material/route-guard contracts; reconstruct the current receipt's individual action metadata and independently run any route-dependent FINISH/ancestor checks. NEVER blindly clone a cached child object that carries someone else's sampled score, token length, visited set or action history.
++- **Policy generation**: each distinct request is a real draw from the current behavior policy. Do NOT synthesize outputs, copy old sampled tokens/logprobs to a new request, or claim two same-semantic but different raw histories have the same future model conditioning.
++- **Reward**: route outcome, progress, failure rollback, censoring and RTG are per sampled continuation; a parent edge cache must not store or reuse \`reward\`, \`advantage\` or \`Q\` as an intrinsic chemical property. Failed sibling ≠ failed parent or other sibling.
++- **Branch estimator**: \`M=1\` uses the first **declared eligible real continuation** per distinct semantic FLOW action for Q; duplicates do not add votes in sibling baseline. Match the existing exact-conditioning and censor rules. No PUCT visit count treated as a policy-probability denominator.
++- **Optimizer**: preserve all eligible **unique actual** receipts; existing \`unique_credit\` and full key compaction use multiplicity and one action-level Advantage per real sampled record. Shared prefix enters loss once. Different positive/negative advantages or behavior probs must NEVER be compacted as if identical samples.
++
++## 2. P0A — accepted-successor deterministic cache, including concurrent in-flight ownership
++
++Current \`ObservedEpisode.accept()\` executes before \`RefitCollection._completed()\` registers the semantic edge. Thus accepted duplicates still execute and produce full suffixes.
++
++Introduce a cache at the chemistry transition layer that is consulted **before the expensive deterministic step**. It must be separate from the search/credit ledgers.
++
++\`\`\`python
++ExactExecutionKey = sha256({
++  "state_before_mapped": ...,
++  "grounded_semantic_action": ...,
++  "current_reaction_initial_state": ...,
++  "executor_sha": ...,
++  "endpoint_contract": ...,
++  "material_contract": ...,
++  "route_guard_context_sha": ...  # only where route checks are cached
++})
++ExecutionCacheEntry = {
++  "status": "IN_FLIGHT|ACCEPTED|REJECTED|RESOURCE_UNCACHEABLE",
++  "chemical_successor": ...,
++  "deterministic_error": ...,
++  "witness_sha": ...,
++  "producer_receipt_id": ...
++}
++\`\`\`
++
++Use per-key single-flight ownership/futures: one caller executes the real chemistry; concurrent identical proposals subscribe to its result. In-flight deterministic failures are cacheable only with exact matching context. Resource errors/infrastructure failures must never be memoized as chemical failure. Rebuild current sampled receipt's own action metadata/history; recheck local visited, reaction/provenance and route-specific semantics after applying a cached pure chemical successor. On replay/cache hits verify reconstructed state and deterministic receipt equivalence.
++
++A semantic key compiled from ephemeral Axx/Bxx must be grounded under the exact current mapped state; never assume aliases remain stable across observations. FINISH route commitment is context-dependent; first version may cache only accepted FLOW/IMPORT pure chemistry and leave FINISH boundary checks uncached.
++
++Required counters: \`deterministic_execute_calls\`, \`accepted_execution_cache_hits\`, \`rejected_execution_cache_hits\`, \`inflight_waiters\`, \`cache_reconstruction_failures\`. Execution cost savings ≠ new model tokens savings.
++
++## 3. P0B — stop wasting extra ReFIT suffixes without breaking real samples
++
++The current search path mixes two goals:
++- **Conditional-credit data**: M=1 matched continuation for each distinct sibling action.
++- **Extra exploratory search**: more routes/stock closures, including duplicate accepted actions with no additional Q baseline vote.
++
++Implement a two-lane *explicit allocation protocol*, configurable in a new frozen condition:
++- \`credit_lane\`: complete only the declared M continuations for distinct semantic FLOW siblings under one same-state group; full original G4 episodes are ALWAYS retained unmodified.
++- \`exploration_lane\`: remaining tree search budget; report its actual additional source requests, distinct actionable successors and incremental solved targets separately. Search expansions can be useful for final distillation even if not for current GRPO, but must not be miscounted as independent M=1 Q supervision.
++
++For **extra ReFIT-only duplicate semantic draws** when an accepted edge has already reached its declared M and another sibling continuation would supply no new estimator sample:
++- keep the new real proposal receipt and behavior token/logprobs, plus \`duplicate_pruned_no_continuation\` status;
++- **do not generate a new stochastic suffix solely to duplicate existing M=1 evidence**;
++- mark as budget-skipped/unknown, **NOT** rejected chemistry, resource censored, failed route, nor fake success;
++- do not send the incomplete path to ordinary GRPO Policy Loss (no genuine suffix return), do not give it cached Q as if newly sampled; retain for diagnostics/offline selection under a separately declared protocol;
++- retain a future option to spend an explicitly budgeted exploration continuation when diversity, expected added distinct chemistry or complete-route discovery justifies it;
++- original independent G4 trajectories are never pruned, even if semantic duplicates: their true future returns belong to distinct real episodes.
++
++This is **NOT mathematically identical** to the old all-suffix search distribution. Version the new selection/stopping contract and compare at fixed actual model/token budgets; no unsupported claim of unchanged learned estimator due to dropping exploratory samples.
++
++Avoid trying to force "different FLOW" by action masks / rejection sampling while still calling the distribution \`pi_old\`. If conditional proposals are redesigned, explicitly account for the actual sampling distribution; first version keeps original full tool distribution.
++
++Optional next-run fork triage: prioritize parent nodes with (a) pending second distinct FLOW, (b) available unexpanded budget, (c) known nonduplicate exact state, then cap exploratory work. No hidden reference graph or future route reward can be injected into sampling decisions. If too few second distinct FLOW candidates are sampled, record as eligibility/coverage, not silently loosen conditioning.
++
++## 4. P1 — dynamic four-GPU scheduling (this is the largest avoidable idle tail)
++
++### P1a — minimal architecture change: G4-target-level dynamic owner queue
++
++Replace fixed \`own=[byid[k] for k in chunk[rank::world]]\` with rank 0 emitting one ordered list of **target groups** (one source row plus its four original G4 episodes and ReFIT expansions). Ready ranks claim an unowned target group from a centralized in-memory coordinator; claim/finish records are durable with \`round_id, target_id, rank, actor_sha, contract_sha, lease_id, completion_sha\`. Each G4 group is owned by exactly one CPU state owner, reward scorer and local optimizer rank. Rank that finishes claims another target rather than waiting while another rank has a backlog.
++
++- immutable \`policy_version\` across entire collection round; optimizer/checkpoint after ALL expected target groups are fully saved and counted once;
++- preserve original task ordering/seed namespace, deterministic request_id-derived RNG independent of worker/rank, and grouping by original target identity; do not include rank in request identity;
++- keep gradients globally reduced with same fixed \(N \times G \times C\) denominator even when target counts per rank vary;
++- no duplicate target ownership; resume can reclaim only uncommitted leases from verified durable journals;
++- identify and test how a rank with zero eligible groups still participates in collective gradient sync.
++
++This low-risk step alone reduces average load imbalance. It will not fully fix the final pathological target tail: fast GPUs may still wait for a long group on one rank.
++
++### P1b — solve tail too: global inference request queue
++
++Decouple **CPU episode owner** from **GPU inference owner**.
++
++\`\`\`text
++           Immutable round policy snapshot / actor SHA
++                              |
++        Target Group/CPU Episode Owner + Executor threads
++                    | ready prompt token request
++                    v
++        Global version-keyed request dispatcher
++            /       |        |        \
++         GPU0     GPU1     GPU2      GPU3
++            \       |        |       /
++             durable real token/logprob receipts
++                         |
++                 original CPU owner
++             (executor, ReFIT, reward)
++                         |
++                 group post-stop scoring
++                         |
++                 normal DDP learner update
++\`\`\`
++
++All GPU replicas for the round run the **same frozen actor** with identical tokenizer/tool contract; a ready policy request from any CPU owner may execute on any available GPU. Use lightweight async RPC or message queues for prompts and receipts, **not per-token Ceph file polling**. CPU owner remains authoritative for chemical state, AND/OR obligations, journal, route evidence and ReFIT branching. GPU executes only policy forward/sampling and returns its original full receipt.
++
++The dispatch policy can choose a GPU with least **estimated queued token work** and available KV cache; avoid guessing exact job cost from just target count. Scheduler should support length-aware admission/padded-token budget, GPU device memory ceiling, bounded pending queue, fairness among targets and starvation avoidance.
++
++Important invariant: no learner rank begins optimizer update until ALL selected round request receipts are reconciled under the same behavior policy version. Preserve writer ownership, durable idempotent request IDs, recovery and one commit per group. Don't overlap **different actor versions** in the same on-policy round. A cross-device request can have different floating-point sample outputs; require valid recorded sampling logprobs and distribution parity, not assumed bit-for-bit token identity unless the counter-based RNG protocol proves it.
++
++The model can still use 4 H20; **do not steal the other existing 4 H20** assigned to the separate D1 run. The path needs no second training model and no new reward architecture.
++
++## 5. P2 — inference engine throughput (after orchestration)
++
++### P2a — dynamic continuous batching / EOS refill
++
++Current HF \`model.generate\` is synchronous per batch and cannot refill a finished row with a new request until the batch ends. It also groups by **exact remaining token room** and processes room bins in sorted order, fragmenting batches.
++
++Prefer serving one request as:
++\`\`\`text
++(request_id, behavior_actor_sha, prompt_ids, allowed_output_tokens, seed)
++ -> (generated_ids, per-token ORIGINAL distribution logps, eos/truncation, timings)
++\`\`\`
++with asynchronous \`submit/future\` and continuous refill when individual requests hit EOS, respecting independent max_context/max_action_tokens. Preserve original tool-action EOS and prompt ID parity. Guarantee each row's budget independently; no overly long request may force a shorter neighbor to become resource-censored.
++
++Paths:
++- **Choice 1**: adapt existing VllmRouteSampler after validating Qwen3.5 model architecture, FLA/BF16 compatibility, exact native prompt/tokenizer/template, temperature=1/top_p=1/top_k=0/no masks, true per-token behavior logprob capture and seeded per-request distribution. Current vLLM code exists but **is not validated/deployed**.
++- **Choice 2**: implement a GPU-local continuous batching scheduler around HF forward/past_key_values with per-request KV and stop states, then benchmark against existing HF \`generate\`. Do not promise that this is easier than validated vLLM; maintain a golden HF fallback.
++
++### P2b — avoid redundant GPU/CPU work in sampling
++
++The current \`PrivateSampling\` computes softmax, runs a Python \`torch.multinomial(row,generator=g)\` loop across requests every token and synchronizes on \`bool(valid.all())\`; \`TokenLogprobs\` separately computes log_softmax. Investigate a single stable sampling/log-prob kernel or batching backend that:
++- computes correct categorical distribution and selected-token logprob from the SAME original logits, before any token-pinning or sampling masks;
++- retains per-request independent RNG keyed by immutable request ID + decode index;
++- does not silently convert to greedy/top-k/top-p/temperature-changed sampling;
++- exposes invalid probability detection with durable diagnostics;
++- is numerically checked against the existing policy probability distribution and \`token_logps_batch\` for all generated tokens.
++
++Do not sacrifice probability correctness merely to vectorize. Distinguish reduced Python launches, backend GPU time and real throughput.
++
++### P2c — prefix KV
++
++Sibling forks often share the same system/tool prefix and accepted-action-history prefix. Add version-keyed prefix KV caching only where **exact prompt token prefix** matches. Key includes model adapter/version, tokenizer/tool schema, precision, exact prefix token IDs. Full history may diverge even if chemical state is the same; no cross-history KV assumption. Cache is per actor version; invalidate after checkpoint update. Record cache hit/prefill token savings.
++
++### P2d — durable journal I/O
++
++Preserve write-ahead \`gpu-requested\` and immutable \`gpu-returned\` before chemistry execution. Keep per-request behavior receipts; batch fsync at verified batch/transaction barriers where crash recovery still recreates **exact** original tokens, prompt binding and probability receipts. Do not trade crash recovery or tamper detection for apparent speed. Quantify \`io.journal_flush\` and \`decode_receipts\` before optimization. Shared storage Ceph should not be used for high-frequency token-by-token RPC.
++
++## 6. P3 — learning phase optimization
++
++Currently \`loss_batch_size=1\`, with reference + actor forwards and backwards per compacted training entry. Next-run opt-in:
++- bucketing/padding-aware microbatch sizes 2/4/8 conditioned on measured VRAM and max padded token constraints;
++- compare full token-level clipped objective, fixed \`N*G*1024\` normalizer, real behavior logprobs, reference KL, compaction multiplicity and gradient synchronization against the batch=1 version (numerical and parameter-delta checks, including opposing advantage signs);
++- optional frozen-reference logprob LRU keyed on exact (prompt_ids, generated_ids, reference adapter SHA, tokenizer/precision/mask) across rounds; cache exact immutable reference outputs, never actor logits used in gradients;
++- preserve source receipts and each real loss contribution; batching is not reward merging.
++
++Only optimize training after the dominant sampling cost is controlled.
++
++## 7. Required telemetry and comparison
++
++Per physical round AND per target AND per GPU log:
++- physical model generation requests and generated tokens, prefill/decode tokens, realized active decode batch size, padded tokens, time breakdown, throughput requests/s and tokens/s;
++- original G4 requests vs ReFIT credit-lane suffix requests vs exploration-lane suffix requests;
++- distinct decision node IDs, semantic edges, total duplicate proposals, accepted duplicates, rejected duplicates, deterministic cache hits, in-flight shared requests, stopped extra suffixes and completed continuations actually used for M=1 Q;
++- successful closure and reference-supported target counts **at same actual budget**; comparisons with extra search must retain nested-budget labels;
++- conditional groups nonmasked, with nonzero Advantage, zero Advantage, fully failed and censored; measured useful unique receipt counts;
++- CPU step/executor mean and tail latency, scheduler ready depth and queue latency, target/job per GPU, rank collection wall, GPU productive inference time vs collective waiting, learner time, GPU memory peaks, recovery bytes/journal count;
++- checkpoint hash / behavior actor SHA / contract SHA / stock + DATA split and test identities.
++
++Success means: (a) **less real backend work and/or less wait** for equal declared sampling/credit coverage; (b) unchanged reward conservation and same-state Q/Advantage on identical fixed receipts; (c) no fake outcomes, missing failed proposals, censored-to-failure coercions or policy-probability provenance violations; (d) route/VALID results compared on frozen data and matched actual inference budgets. **GPU-util alone is not an acceptance metric.**
++
++## 8. Execution sequence and new-branch contract
++
++**Phase A (lowest risk, highest priority):**
++1. Add immutable read-only benchmark of existing PR110 receipts with duplicate classification: duplicate semantic proposals, expensive repeated *accepted* chemical execution, extra suffixes not used for M=1; measure actual avoidable work before setting expectations.
++2. Build immutable unique proposal vs semantic edge vs continuation/credit ledger, accepted deterministic cache with single-flight, plus deterministic replay tests.
++3. Separate M=1 credit lane from additional exploration, preserve G4 exact rollout; introduce honest \`duplicate_pruned_no_continuation\` state only for extra ReFIT proposals in a newly frozen sampler condition.
++4. Add target-level dynamic queue with single ownership, full-round barrier and unchanged loss normalization.
++5. Compare the new condition with PR110 frozen actor and a matched budget/trace scope; do not spend time on broad unrelated CI.
++
++**Phase B (GPU utilization):**
++6. Add global GPU inference dispatcher with CPU-owner/GPU-worker separation.
++7. Prefer validated continuous serving (possibly vLLM) and exact per-request logprobs/EOS. If unavailable, improve HF sampling kernel/bucketing without changing distribution.
++8. Batch-aware training and frozen reference cache.
++
++**Phase C (research results):**
++9. Reuse the new accelerated condition as a *new independent* D3 Standard-D training job only with explicit authorization; no in-place live updates.
++10. Keep fixed B/C/D comparison, full VALID, public Reference/n5, and mandatory final TRAIN-only search-to-policy distillation, unchanged as scientific objectives.
++
++### Focused tests (minimum)
++
++- Same state/action with two *real* receipt IDs: one pure execution call, two individually provenance-bound proposals; no copied logprob/token or reward.
++- Same chemistry but different accepted history/raw action or route obligations: no false model-suffix cache hit; context-specific FINISH guard still runs.
++- 2 concurrent duplicate accepted actions: single-flight execution resolves and no deadlock; recovery from midflight crash preserves idempotence.
++- Failed duplicate proposal preserves real action receipt and bounded repeat cost without fake child state or repeat Executor call.
++- Extra duplicate-pruned ReFIT proposal never appears as negative chemistry nor as a completed route/GRPO sample. Original G4 unchanged.
++- All sibling Q and original G4 fallback numerically match on identical completed, replayed receipts.
++- Shared-prefix token policy loss once, different behavior probability/Advantage contributions never incorrectly merged.
++- Dynamic target dispatch: all declared targets processed exactly once; no lease leaks on rank interruption; one actor version per round.
++- Dynamic GPU request routing: unique request completion, real per-request logprobs; model output journal reconciliation and actor SHA validation.
++- Variable context lengths and EOS: no neighbor-context censor, per-request stop; replay token/parity tests.
++- Reordered/batch-shuffled requests maintain valid policy distributions and full action-token probability receipts.
++- Learner microbatch 1 vs larger reproduces total loss and gradients to declared numerical tolerance and preserves KL/ref masking.
++- Censored branches do not become failures or contaminate sibling groups.
++
++## 9. Non-goals
++
++- Do not change FlowER Stage-II actor initialization, reference, dataset, Reward/alpha=0.5, Process GRPO/ReFIT-PO formulas or FINISH semantics.
++- Do not introduce RetroChimera, forward FlowER, DPO, Critic, PRM, new objective or unrelated paper rewriting.
++- Do not claim raw duplicate-edge record merging equals suffix recomputation savings.
++- Do not turn cached random suffixes into independent Monte Carlo continuation evidence.
++- Do not use PUCT deterministically selected proposals as native on-policy GRPO.
++- Do not replace actual G4 independent root episodes with synthetic replicas.
++- Do not change/stop/restart the 2026-11-16 frozen D3 formal job or the separate D1 4×H20 job.
++- Do not assume new GPUs are free; this acceleration is designed to reuse the same 4 H20 assigned to the future condition.
++
++**Intended scientific invariants**: exact executable state grounding; route AND/OR outcome and failure semantics; reward and credit provenance; real behavior-policy sample; branch credit replaces G4 only where eligible; TRAIN-only search-to-policy distillation remains the final required study.
++
+diff --git a/docs/superpowers/plans/2026-11-17-pr111-acceleration.md b/docs/superpowers/plans/2026-11-17-pr111-acceleration.md
+new file mode 100644
+index 0000000..8063a6f
+--- /dev/null
++++ b/docs/superpowers/plans/2026-11-17-pr111-acceleration.md
+@@ -0,0 +1,43 @@
++# PR111 acceleration implementation plan
++
++> Execute inline with superpowers:executing-plans. User approved implementation of PR111 and continuation of the original research plan.
++
++**Goal:** Reduce redundant deterministic execution and unused duplicate suffix work; distribute same-version inference across GPUs without altering reward or fabricating behavior receipts.
++
++**Architecture:** Opt-in versioned acceleration configuration. Chemistry cache is distinct from sampled receipts and continuation values. Dynamic target ownership and global model transport keep CPU route ownership while sharing immutable GPU actors. Existing HF and vLLM paths remain fallbacks.
++
++**Spec:** docs/ops/REFIT_PO_ACCELERATION_DESIGN_20261117.md (PR111 b282d7bed11341e66d2426faaae4e2d70dcffd78).
++
++## Global constraints
++
++- Keep current frozen D3 and D1 jobs unchanged; no automatic new GPU job submission. Full protocols only, no unrequested smoke/subset experiments.
++- Same corrected Stage-II initialization, dataset/VALID, reward, alpha=.5, M=1/equal-semantic advantages and final TRAIN-only distillation.
++- All host data/cache/test outputs on Ceph; unique real receipts and original sampling probabilities survive all optimizations.
++
++## Review focus
++
++- Cache must rebuild per-draw metadata and recheck cycles, not reuse another route's provenance.
++- Pruned extra duplicates stay unknown and cannot invalidate original G4 or fabricate branch Q.
++- Lease recovery and request replay reject mismatched actor/prompt bindings and double completion.
++- Empty learner ranks participate with zero gradients, without changing global normalization.
++- Dynamic inference workers stop before learner touches their actor; failures propagate without deadlocks.
++
++### Task 1: Read-only baseline audit and deterministic execution cache
++
++Files: new route_execution_cache.py, route_acceleration.py, audit script and tests; integrate NativeChemistry opt-in. Counters split draws, deterministic executions, cache/inflight reuse. Tests first: concurrent FLOW, different history/raw text, local cycles, resource errors, reconstruction/provenance; run red then green and existing route tests.
++
++### Task 2: Explicit credit/exploration lane and unknown duplicate stop
++
++Files: route_refit_runtime.py, route_refit_credit.py, reward scoring integration, tests. Keep original G4 complete. Preserve sampled duplicate receipt but stop extra credit-only suffix with unknown status, exclude its path from Q/loss, no chemical penalty; replay follows same decision. Tests cover Q/fallback conservation, async/rolling, declarations and censoring.
++
++### Task 3: Dynamic group ownership and cross-GPU request broker
++
++Files: route_work_broker.py, route_distributed_collection.py, training entry integration and tests. Durable per-target claims/results; same-version in-memory RPC for requests/results with single completion, actor binding, bounded admission, GPU worker serving batches from any CPU owner. Recovery consumes durable GPU journals; no token RPC over Ceph. Test ownership, interruption, invalid identities, zero-work ranks and worker failure.
++
++### Task 4: Sampling and learner efficiency
++
++Files: sampling precision/batching helpers and learner options. Preserve per-request RNG/distribution; remove redundant original-distribution scans when enabled, length bucket HF admissions, reuse existing validated async vLLM interface only behind its gate; golden HF fallback. Length-aware learner microbatch option with full real tensor loss/gradient parity; optional reference cache only if useful. No claim of continuous HF decoding without real independent KV/EOS implementation.
++
++### Task 5: Integration, review and preparation for the next frozen condition
++
++Run focused suites, CPU distributed routing/learner tests, read-only saved-receipt classification, source/contract/hash checks. Independent whole-change review; fix important findings with regressions. Publish implementation/evidence and current deployment limits to PR. Prepare separate full-D3 accelerated contract/queue plan; preserve existing jobs and research sequence. Performance acceptance requires measured work/wait reductions, not GPU-util alone.
+diff --git a/scripts/audit_refit_compute.py b/scripts/audit_refit_compute.py
+new file mode 100644
+index 0000000..d998711
+--- /dev/null
++++ b/scripts/audit_refit_compute.py
+@@ -0,0 +1,59 @@
++"""Read-only classification of an entire saved round; no model calls or hidden labels."""
++import argparse
++from collections import Counter
++import hashlib
++import json
++from pathlib import Path
++
++
++def classify(paths):
++    totals=Counter();bindings=[];seen=set();edges={}
++    for path in paths:
++        path=Path(path);raw=path.read_bytes()
++        bindings.append(dict(path=str(path),sha256=hashlib.sha256(raw).hexdigest(),bytes=len(raw)))
++        groups=json.loads(raw);del raw
++        for group in groups:
++            totals['source_row_groups']+=1
++            for original in group:
++                reports=[original,*original.get('refit',{}).get('suffix_reports',[])]
++                totals['original_g4_reports']+=1;totals['extra_suffix_reports']+=len(reports)-1
++                retained=set(original.get('refit',{}).get('conditioning',{}))
++                for i,report in enumerate(reports):
++                    totals['reports']+=1
++                    if i:totals['extra_completed_suffixes']+=report['status'] not in ('resource_censored','protected_censored','duplicate_pruned_no_continuation')
++                    for event in report.get('refit_path',[]):
++                        uid=event['request_id']
++                        if uid in seen:continue
++                        seen.add(uid);record=report['records'][event['index']]
++                        key=(event['node_id'],event['action'])
++                        if key in edges:
++                            totals['duplicate_semantic_proposals']+=1
++                            if record.get('accepted') is True:
++                                totals['accepted_duplicate_proposals']+=1
++                                totals['repeated_accepted_executor_calls_lower_bound']+=not record.get('executor_skipped')
++                            elif record.get('accepted') is False:totals['rejected_duplicate_proposals']+=1
++                            # Counts only actual complete observed duplicate-root
++                            # continuations; not a counterfactual speedup estimate.
++                            if event['name']=='apply_electron_flow' and i:
++                                totals['duplicate_flow_events_in_extra_reports']+=1
++                                totals['retained_node_duplicate_flow_proposals']+=event['node_id'] in retained
++                        else:edges[key]=uid
++        del groups
++    totals['distinct_exact_condition_action_edges']=len(edges)
++    totals['unique_action_receipts']=len(seen)
++    return dict(scope='complete saved round read-only exact-conditioning classification',counts=dict(totals),
++        input_bindings=bindings,model_calls=0,
++        limitations=['Decision identities cover all events, including nodes not retained for Q; these conservative exact-conditioning duplicates are a lower bound on shareable chemical transitions.',
++            'Repeated semantic draws are not independent successful route outcomes.',
++            'No wall-time speedup or unchanged old/new search distribution is inferred.'])
++
++
++if __name__=='__main__':
++    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--round',type=Path,required=True)
++    p.add_argument('--ranks',type=int,default=4);p.add_argument('--output',type=Path,required=True)
++    a=p.parse_args();shared=Path('/aaa/fionafyang/buddy1').resolve()
++    if not a.output.resolve().is_relative_to(shared):raise ValueError('SHARED_OUTPUT_REQUIRED')
++    paths=[a.round/f'rank{i:02d}/rewarded_episodes.json' for i in range(a.ranks)]
++    if not all(x.is_file() for x in paths):raise ValueError('FULL_SAVED_ROUND_REQUIRED')
++    result=classify(paths);a.output.parent.mkdir(parents=True,exist_ok=True)
++    a.output.write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result['counts']))
+diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_route_rl.py
+index 14bab76..d93b349 100644
+--- a/scripts/prepare_external_route_rl.py
++++ b/scripts/prepare_external_route_rl.py
+@@ -42,6 +42,8 @@ def verify_contract(path):
+         raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
+     from mechet.route_materials import material_contract
+     material_contract(cfg)
++    from mechet.route_acceleration import validate_acceleration
++    validate_acceleration(cfg)
+     from mechet.route_process_reward import ALGORITHM as PROCESS_ALGORITHM, validate_process_protocol
+     validate_process_protocol(cfg)
+     process = cfg.get('algorithm')==PROCESS_ALGORITHM
+diff --git a/scripts/prepare_standard_route_rl.py b/scripts/prepare_standard_route_rl.py
+index 875461c..b03f736 100644
+--- a/scripts/prepare_standard_route_rl.py
++++ b/scripts/prepare_standard_route_rl.py
+@@ -21,8 +21,9 @@ from scripts.prepare_external_route_rl import source_files,verify_contract,ROOT
+ 
+ 
+ def prepare(*,template,template_sha256,dataset,dataset_manifest_sha256,data_verification,
+-            submission,output,condition,source_commit):
++            submission,output,condition,source_commit,acceleration=False):
+     if condition not in ('B','C','D'):raise ValueError('STANDARD_CONDITION_REQUIRED')
++    if acceleration and condition!='D':raise ValueError('PR111_REQUIRES_STANDARD_D')
+     template=Path(template).resolve();submission=Path(submission).resolve();output=Path(output).resolve()
+     code=Path(__file__).resolve().parents[1]
+     if not code.is_relative_to(ROOT/'artifacts'):raise ValueError('DEDICATED_FROZEN_CODE_SNAPSHOT_REQUIRED')
+@@ -61,6 +62,13 @@ def prepare(*,template,template_sha256,dataset,dataset_manifest_sha256,data_veri
+         cfg.update(censoring='exclude_whole_original_G4_and_whole_conditional_node_independently',
+             gradient_estimand='mean_source_row_G4_fixedC1024_unique_receipt_branch_substitution')
+     cfg['implementation']='native_process_DrGRPO_with_optional_exact_state_refit_v1'
++    if acceleration:
++        from mechet.route_acceleration import DEFAULT_ACCELERATION,validate_acceleration
++        cfg['acceleration']=dict(DEFAULT_ACCELERATION)
++        cfg['loss_batch_size']=4
++        cfg['experimental_condition']='pr111_standard_D_accelerated_complete_source_rows_v1'
++        cfg['implementation']='native_process_DrGRPO_refit_compute_lanes_global_requests_v1'
++        validate_acceleration(cfg)
+     cfg['standard_data']['independent_verification_sha256']=file_sha(verification)
+     cfg['files_sha256'][str(verification)]=file_sha(verification)
+     cfg['initial_baseline']=dict(timing='after_training',kind='fresh_frozen_initial_actor',
+@@ -86,6 +94,12 @@ def prepare(*,template,template_sha256,dataset,dataset_manifest_sha256,data_veri
+         readable_name=f'MechET PR109 Standard {condition} complete source TRAIN/VALID (4H20)',
+         task_description=f'PR109 teacher-free Standard {condition}; complete source-row TRAIN {cfg["train_targets"]}, VALID {cfg["validation_targets"]}; corrected History89442 start and fixed reference; declared source overlap and project URSA training-stock condition; native DrGRPO C1024; first rejection/rollback and conserved FLOW credit only C/D; exact-state branching only D. No external teacher, no hidden route action labels, no aggregate episode cap. Full frozen independent VALID G4 selection. Aggregate allocation ceiling8 H20; existing frozen jobs unchanged.')
+     payload['start_cmd']=payload['start_cmd'].replace(old_flag,payload['task_flag'])
++    if acceleration:
++        prior_flag=payload['task_flag']
++        payload['task_flag']='meteor_mechet_pr111_standard_d_accelerated_4h20_20261117'
++        payload['readable_name']='MechET PR111 accelerated full-D3 Standard-D (4H20)'
++        payload['start_cmd']=payload['start_cmd'].replace(prior_flag,payload['task_flag'])
++        payload['task_description']+=' Separate PR111 compute/credit-lane sampler and dynamic GPU queue; not an in-place resume or exact old search equivalence. Admission and explicit launch authorization required; preserve existing D3/D1 jobs.'
+     # Reuse the known working mount/image initializer, never expose it in the
+     # public packet or logs. Preparation does not execute that initializer.
+     launch=template.parent/'task_config.private.json'
+@@ -113,4 +127,5 @@ if __name__=='__main__':
+     for name in ('template-sha256','dataset-manifest-sha256','source-commit'):
+         parser.add_argument('--'+name,required=True)
+     parser.add_argument('--condition',required=True,choices=('B','C','D'))
++    parser.add_argument('--acceleration',action='store_true',help='Freeze separate PR111 Standard-D condition; does not submit')
+     print(json.dumps(prepare(**vars(parser.parse_args()))),flush=True)
+diff --git a/scripts/train_external_route_rl.py b/scripts/train_external_route_rl.py
+index f24b102..bbde55f 100644
+--- a/scripts/train_external_route_rl.py
++++ b/scripts/train_external_route_rl.py
+@@ -35,7 +35,8 @@ def make_episodes(rows,stock,protected,cfg,version):
+     from mechet.external_route_rl import TargetOnlyRouteEpisode
+     validate_public_tasks(rows)
+     episode_cfg = dict(behavior_version=version,max_action_tokens=cfg['max_action_tokens'],
+-        protected_identities=protected,concurrent_executors=cfg['world_size']*cfg['executor_workers_per_rank'])
++        protected_identities=protected,concurrent_executors=cfg.get('physical_executor_concurrency',
++            cfg['world_size']*cfg['executor_workers_per_rank']))
+     for key in ('public_observation_contract','max_consecutive_recoveries',
+                 'stock_material_contract','route_failure_policy'):
+         if key in cfg:
+@@ -72,7 +73,8 @@ def score_groups(rows,reports,candidates,oracle):
+                 from copy import deepcopy
+                 report=deepcopy(report)
+                 for suffix in report['refit']['suffix_reports']:
+-                    scored=oracle.score(row['task_id'],suffix)
++                    from mechet.route_acceleration import SKIPPED,skipped_reward
++                    scored=(skipped_reward(suffix) if suffix.get('status')==SKIPPED else oracle.score(row['task_id'],suffix))
+                     suffix.update(task_id=row['task_id'],reward=scored['reward'],reward_evidence=scored)
+             group.append(dict(report,task_id=row['task_id'],reward=result['reward'],reward_evidence=result))
+         groups.append(group)
+@@ -149,10 +151,12 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+     else:
+         atomic_json(path,binding)
+     episodes=make_episodes(rows,stock,protected,cfg,version)
++    from mechet.route_acceleration import attach_execution_cache
++    attach_execution_cache(episodes,cfg)
+     refit=None
+     if 'refit' in cfg:
+         from mechet.route_refit_runtime import RefitCollection
+-        refit=RefitCollection(episodes,cfg['refit'])
++        refit=RefitCollection(episodes,cfg['refit'],duplicate_policy=cfg.get('acceleration',{}).get('duplicate_suffix_policy'))
+         episodes=refit.initial
+     indexed={ep.uid:ep for ep in episodes};seen=set();journal=directory/'executed_calls.jsonl'
+     for receipt in read_owned_journal(journal):
+@@ -165,8 +169,19 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+         seen.add(receipt['request_id'])
+     if refit:episodes=refit.all
+     execution_writer=ReceiptBatch(journal,cfg=cfg)
++    remote=cfg.get('_policy_broker') is not None
+     native=cfg.get('inference_backend','hf')=='vllm'
+-    if native:
++    if remote:
++        from mechet.route_global_sampler import RemoteSampler
++        from mechet.route_async_collection import collect_async_route_groups
++        from mechet.route_policy_protocol import route_tool_prefix
++        from mechet.route_action_feedback import tools_for_request
++        def prompt_ids(request):
++            prompt=route_tool_prefix(tokenizer,request.messages,tools_for_request(request),cfg)
++            return tokenizer(prompt,add_special_tokens=False)['input_ids']
++        sampler=RemoteSampler(cfg['_policy_broker'],version+'/'+rows[0]['task_id'],cfg,prompt_ids=prompt_ids)
++        sampler.raw_path=directory/'raw_generation.jsonl'
++    elif native:
+         from mechet.route_vllm_backend import (VllmRouteSampler,recover_native_receipts,
+                                                bind_rollout_adapter)
+         from mechet.route_async_collection import collect_async_route_groups
+@@ -181,7 +196,7 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+             precision_kwargs=({'precision':precision_mode(cfg)} if 'policy_precision' in cfg else {})
+             return token_logps_batch(actor,[(prompt,response)],tokenizer.pad_token_id,
+                                     **precision_kwargs)[0].tolist()
+-    recovered=(recover_native_receipts(sampler.raw_path,version) if native
++    recovered=({} if remote else recover_native_receipts(sampler.raw_path,version) if native
+                else recover_behavior_receipts(sampler.raw_path,version,recompute))
+     def record(receipt):
+         if receipt['request_id'] in seen:
+@@ -210,14 +225,15 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+                 max_decisions_inflight=max((len(ep.records) for ep in episodes if ep.status is None),default=0)))
+     snapshot(force=True)
+     try:
+-        collector=collect_async_route_groups if native else collect_route_groups
++        collector=collect_async_route_groups if native or remote else collect_route_groups
+         reports=collector(episodes,sampler,workers=cfg['executor_workers_per_rank'],
+                           journal=record,recovered=recovered,snapshot=snapshot,
+                           **({'on_completed_action':refit.completed} if refit else {}),
+-                          **({'before_dispatch':execution_writer.flush} if native and refit else {}))
++                          **({'before_dispatch':execution_writer.flush} if (native or remote) and refit else {}))
+         return refit.pack(reports) if refit else reports
+     finally:
+-        if native:
++        if remote:sampler.close()
++        elif native:
+             sampler.close()
+             cfg['_vllm_process'].rpc('drain',{}).result(timeout=cfg['_vllm_process'].timeout)
+         execution_writer.flush()
+@@ -228,6 +244,9 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+             from mechet.route_refit_runtime import unique_collection_counts
+             counts=unique_collection_counts(episodes);attempts=counts['model_decision_requests']
+             metrics.update(counts,refit_additional_rollouts=len(refit.all)-len(refit.initial))
++            if cfg.get('acceleration'):
++                metrics.update(duplicate_pruned_no_continuation=refit.duplicate_pruned,
++                    deterministic_execution_cache=cfg['_execution_cache'].metrics())
+         metrics.update(native_decision_request_attempts=attempts,
+                        scheduler_metrics=dict(getattr(sampler,'scheduler_metrics',{})),
+                        decision_request_metric_scope='native_policy_requests_including_physical_censor_attempts',
+@@ -620,10 +639,17 @@ def train(contract_path):
+                 # The oracle is deliberately absent from the collection API.
+                 from mechet.external_route_runtime import run_recorded
+                 with phase(cfg,'collection.total',targets=len(own)):
+-                    reports=run_recorded(contract_path,
+-                        lambda _:collect_round(own,stock,protected,actor,tokenizer,cfg,directory,version),rank=rank)
++                    if cfg.get('acceleration'):
++                        from mechet.route_distributed_collection import collect_distributed_round
++                        groups=run_recorded(contract_path,lambda _:collect_distributed_round(
++                            [byid[k] for k in chunk],stock,protected,actor,tokenizer,cfg,
++                            root/f'round-{index:06d}',version,oracle),rank=rank)
++                        reports=None
++                    else:
++                        reports=run_recorded(contract_path,
++                            lambda _:collect_round(own,stock,protected,actor,tokenizer,cfg,directory,version),rank=rank)
+                 with phase(cfg,'reward.score',groups=len(own)):
+-                    groups=score_groups(own,reports,cfg['candidates'],oracle)
++                    if reports is not None:groups=score_groups(own,reports,cfg['candidates'],oracle)
+                 with phase(cfg,'reward.persist'):
+                     atomic_json(directory/'rewarded_episodes.json',groups)
+             except Exception as exc:
+diff --git a/src/mechet/external_route_schedule.py b/src/mechet/external_route_schedule.py
+index defd4e5..debd9cf 100644
+--- a/src/mechet/external_route_schedule.py
++++ b/src/mechet/external_route_schedule.py
+@@ -13,7 +13,7 @@ CONDITION_FIELDS=('algorithm','dataset','dataset_manifest_sha256','parent','pare
+     'world_size','gpu_name','candidates','seed','max_action_tokens','max_context',
+     'generation_batch_size','executor_workers_per_rank','products_per_round','partial_reward_weight',
+     'training_gradient_checkpointing','loss_batch_size','training_max_padded_tokens',
+-    'inference_backend','vllm_runtime','route_memory','policy_protocol','policy_model_family',
++    'inference_backend','vllm_runtime','route_memory','policy_protocol','policy_model_family','acceleration',
+     'generation_qkv_channels','generation_max_qkv_elements','generation_attention_budget_bytes',
+     'public_observation_contract','max_consecutive_recoveries','route_endpoint_contract',
+     'executor_coalesce_seconds','fla_kernel_profile','runtime_config_files_sha256',
+diff --git a/src/mechet/route_acceleration.py b/src/mechet/route_acceleration.py
+new file mode 100644
+index 0000000..7a8ae85
+--- /dev/null
++++ b/src/mechet/route_acceleration.py
+@@ -0,0 +1,37 @@
++"""Explicit new sampling condition; defaults never mutate frozen PR110 jobs."""
++from copy import deepcopy
++
++SKIPPED='duplicate_pruned_no_continuation'
++DEFAULT_ACCELERATION=dict(version='pr111_compute_lanes_dynamic_v1',execution_cache_capacity=8192,
++    duplicate_suffix_policy='skip_extra_duplicates_v1',scheduling='global_requests_v1',
++    hf_length_bucketing=True,sampling_kernel='counter_categorical_v1')
++
++
++def validate_acceleration(cfg):
++    value=cfg.get('acceleration')
++    if value is None:return
++    if (not isinstance(value,dict) or set(value)!=set(DEFAULT_ACCELERATION) or
++            any(value[k]!=v for k,v in DEFAULT_ACCELERATION.items() if k!='execution_cache_capacity') or
++            type(value['execution_cache_capacity']) is not int or value['execution_cache_capacity']<1 or
++            not cfg.get('refit') or cfg.get('candidates')!=4 or cfg.get('world_size')!=4 or
++            cfg.get('inference_backend','hf')!='hf'):
++        raise ValueError('ACCELERATION_EXPLICIT_NEW_CONDITION_REQUIRED')
++
++
++def skipped_reward(report):
++    if report.get('status')!=SKIPPED:raise ValueError('NOT_A_BUDGET_SKIPPED_REPORT')
++    return dict(reward=None,process_credit=None,budget_skipped=True,censored=False,
++        verified_stock_closed=False,structural_stock_closed=False,reward_status=SKIPPED,
++        supported_reactions=0,unsupported_reactions=0,
++        chemical_validation='not_evaluated_no_genuine_suffix_return')
++
++
++def attach_execution_cache(episodes,cfg):
++    if not cfg.get('acceleration'):return
++    from .route_execution_cache import ExecutionCache,CachedChemistry
++    cache=cfg.setdefault('_execution_cache',ExecutionCache(cfg['acceleration']['execution_cache_capacity']))
++    from .external_route_data import signature
++    contracts=dict(executor_sources_sha=signature(cfg.get('code_files_sha256',{})),
++        endpoint=cfg['route_endpoint_contract'],material=cfg.get('stock_material_contract'),
++        failure=cfg.get('route_failure_policy'))
++    for ep in episodes:ep.chemistry=CachedChemistry(ep.chemistry,cache,contracts)
+diff --git a/src/mechet/route_counter_sampling.py b/src/mechet/route_counter_sampling.py
+new file mode 100644
+index 0000000..248dc40
+--- /dev/null
++++ b/src/mechet/route_counter_sampling.py
+@@ -0,0 +1,37 @@
++"""Opt-in categorical draws with request/decode-counter RNG and one GPU search.
++
++This changes the RNG realization, not temperature/top-p/tool distribution.
++The HF outer loop selects the pinned token with argmax; it must not sample a
++second categorical distribution over the pin. Original logprobs are captured
++before pinning. Golden PrivateSampling remains the default.
++"""
++import hashlib
++
++
++class CounterCategorical:
++    def __init__(self,uids,seed,device,capture,*,on_failure=None,prompt_width=0):
++        self.uids=list(uids);self.seed=seed;self.device=device;self.capture=capture;self.step=0
++        self.on_failure,self.prompt_width=on_failure,prompt_width
++
++    def __call__(self,input_ids,scores):
++        import torch
++        logps=self.capture.previous
++        if logps is None:logps=scores.float().log_softmax(-1)
++        probabilities=logps.exp()
++        valid=torch.isfinite(probabilities).all(-1)&(probabilities.sum(-1)>0)
++        if not bool(valid.all()):
++            from .route_sampling_diagnostics import describe_distribution_failure
++            report=describe_distribution_failure(scores,input_ids,bad_rows=(~valid).nonzero().flatten().tolist(),
++                request_ids=self.uids,finished=self.capture.done,decode_step=self.step,prompt_width=self.prompt_width)
++            if self.on_failure:self.on_failure(dict(event='policy-distribution-failure',**report))
++            raise ValueError('INVALID_COUNTER_POLICY_DISTRIBUTION')
++        # 52 bits give strictly interior exactly representable FP64 uniforms.
++        uniforms=[((int.from_bytes(hashlib.sha256(
++            f'{self.seed}:{uid}:{self.step}'.encode()).digest()[:8],'big')>>12)+.5)/2**52
++            for uid in self.uids]
++        u=torch.tensor(uniforms,device=scores.device,dtype=torch.float64)[:,None]
++        cdf=probabilities.cumsum(-1,dtype=torch.float64)
++        cdf=cdf/cdf[:,-1:]
++        chosen=torch.searchsorted(cdf.contiguous(),u,right=True).clamp_max(scores.shape[-1]-1)
++        self.step+=1
++        return torch.full_like(scores,-float('inf')).scatter(1,chosen,0.)
+diff --git a/src/mechet/route_distributed_collection.py b/src/mechet/route_distributed_collection.py
+new file mode 100644
+index 0000000..3a65967
+--- /dev/null
++++ b/src/mechet/route_distributed_collection.py
+@@ -0,0 +1,134 @@
++"""Dynamic whole-target leases plus same-version GPU inference for all owners."""
++from concurrent.futures import ThreadPoolExecutor
++from dataclasses import asdict
++import json
++import os
++from pathlib import Path
++from threading import Thread
++
++from .external_route_data import file_sha,signature
++from .route_training_contract import atomic_json
++
++
++def owner_collection_config(cfg,broker,cache):
++    return dict(cfg,_policy_broker=broker,_execution_cache=cache,executor_workers_per_rank=1,
++                physical_executor_concurrency=cfg['world_size']*cfg['executor_workers_per_rank'])
++
++
++def collect_owned_targets(broker,rank,directory,collect,*,workers=16):
++    directory=Path(directory)
++    def work():
++        while True:
++            job=broker.claim(rank)
++            if job is None:return
++            row=job['task'];target_dir=directory/'groups'/signature(row['task_id'])
++            try:
++                groups=collect(row,target_dir)
++                if len(groups)!=1 or len(groups[0])!=4:raise ValueError('DYNAMIC_GROUP_NOT_FULL_G4')
++                path=target_dir/'scored_group.json';atomic_json(path,groups[0])
++                broker.finish(job['lease_id'],rank,str(path),file_sha(path))
++            except BaseException as exc:
++                broker.fail(type(exc).__name__+':'+str(exc));raise
++    with ThreadPoolExecutor(workers) as pool:
++        futures=[pool.submit(work) for _ in range(workers)]
++        for future in futures:future.result()
++    return [json.loads(Path(r['result_path']).read_text()) for r in broker.results() if r['rank']==rank]
++
++
++def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory,version,oracle):
++    import torch
++    import torch.distributed as dist
++    from scripts.train_external_route_rl import collect_round,score_groups,backend_collection_metrics
++    from .route_work_broker import WorkBroker
++    from .route_global_sampler import broker_server,connect_broker,serve_gpu,LockedTokenizer
++    from .external_route_io import ReceiptBatch,BatchedNativeRouteSampler
++    from .route_policy_sampling import read_owned_journal,recover_behavior_receipts
++    from scripts.pr96_earho_contract import token_logps_batch
++    rank,world=dist.get_rank(),dist.get_world_size()
++    if int(os.environ.get('LOCAL_WORLD_SIZE',world))!=world:
++        raise ValueError('PR111_FIRST_VERSION_REQUIRES_SINGLE_FOUR_GPU_HOST')
++    directory=Path(directory);directory.mkdir(parents=True,exist_ok=True)
++    server=None;control=[None];error=''
++    if rank==0:
++        try:
++            state=WorkBroker(rows,actor_version=version,contract_sha=cfg['_sha'],journal_path=directory/'claims.jsonl')
++            # Restore physical GPU work once, regardless of which CPU owner or
++            # GPU receives the request after restart. No fresh sample is forged.
++            def recompute(p,r):
++                from .route_precision import precision_mode
++                with torch.no_grad():
++                    return token_logps_batch(actor,[(p,r)],cfg['pad_token_id'],precision=precision_mode(cfg))[0].tolist()
++            for gpu in range(world):
++                path=directory/f'gpu-rank{gpu:02d}.jsonl'
++                recovered=recover_behavior_receipts(path,version,recompute)
++                requests={}
++                for event in read_owned_journal(path):
++                    if event['event']=='gpu-requested':
++                        for request in event['requests']:requests[request['request_id']]=request
++                for uid,value in recovered.items():state.seed_result(requests[uid],value)
++            server,address,key=broker_server(state,host='127.0.0.1')
++            control[0]=dict(address=address,key=key,error='')
++        except BaseException as exc:control[0]=dict(error=type(exc).__name__+':'+str(exc))
++    dist.broadcast_object_list(control,src=0)
++    if control[0]['error']:raise RuntimeError('DYNAMIC_BROKER_START_FAILED:'+control[0]['error'])
++    broker=worker=None
++    try:
++        broker=connect_broker(control[0]['address'],control[0]['key'])
++        tokenizer=LockedTokenizer(tokenizer)
++        if cfg.get('inference_backend','hf')!='hf':
++            raise ValueError('GLOBAL_NATIVE_ENGINE_REQUIRES_SEPARATE_ADMISSION')
++        gpu_writer=ReceiptBatch(directory/f'gpu-prefix-rank{rank:02d}.jsonl',cfg)
++        sampler=BatchedNativeRouteSampler(actor,tokenizer,cfg,directory/f'gpu-rank{rank:02d}.jsonl',gpu_writer)
++        worker=Thread(target=serve_gpu,args=(broker,sampler,rank),daemon=True);worker.start()
++    except BaseException as exc:error=type(exc).__name__+':'+str(exc)
++    startup_errors=[None]*world;dist.all_gather_object(startup_errors,error)
++    if any(startup_errors):
++        if broker:broker.fail(json.dumps(startup_errors))
++        if worker and worker.ident is not None:worker.join(timeout=5)
++        if server:server.stop_event.set()
++        raise RuntimeError('DYNAMIC_WORKER_START_FAILED:'+json.dumps(startup_errors))
++    groups=[]
++    try:
++        from .route_execution_cache import ExecutionCache
++        cache=ExecutionCache(cfg['acceleration']['execution_cache_capacity'])
++        def collect(row,target_dir):
++            local=owner_collection_config(cfg,broker,cache)
++            reports=collect_round([row],stock,protected,actor,tokenizer,local,target_dir,version)
++            # SQLite connections are thread-owned; never use the main learner's
++            # hidden-reference connection from a target worker.
++            from .route_failure_policy import reward_kwargs
++            from .route_process_reward import ALGORITHM
++            with type(oracle)(Path(cfg['dataset'])/'references.sqlite',stock,
++                    partial_weight=cfg['partial_reward_weight'],
++                    **reward_kwargs(cfg,process=cfg['algorithm']==ALGORITHM)) as own_oracle:
++                return score_groups([row],reports,cfg['candidates'],own_oracle)
++        groups=collect_owned_targets(broker,rank,directory,collect,workers=cfg['executor_workers_per_rank'])
++        # Waiting is CPU RPC, not an NCCL polling kernel competing with a GPU
++        # that is still serving other owners' requests.
++        while not broker.wait_collection(.25):pass
++        if rank==0:broker.stop()
++    except BaseException as exc:
++        error=type(exc).__name__+':'+str(exc);broker.fail(error)
++    worker.join(timeout=cfg.get('collective_timeout_seconds',604800))
++    if worker.is_alive():
++        error='GPU_OWNER_DID_NOT_STOP_BEFORE_LEARNER';broker.fail(error)
++    # Another worker may have failed after its local CPU work finished.
++    observed=broker.snapshot()
++    errors=[None]*world;dist.all_gather_object(errors,error)
++    publication_error=''
++    try:
++        if rank==0:atomic_json(directory/'scheduler_summary.json',observed)
++    except BaseException as exc:publication_error=type(exc).__name__+':'+str(exc)
++    try:
++        publication_errors=[None]*world;dist.all_gather_object(publication_errors,publication_error)
++    finally:
++        if server:server.stop_event.set()
++    if any(publication_errors):raise RuntimeError('DYNAMIC_SUMMARY_PUBLICATION_FAILED:'+json.dumps(publication_errors))
++    if any(errors) or observed['error']:
++        raise RuntimeError('DYNAMIC_COLLECTION_FAILED:'+json.dumps([*errors,observed['error']]))
++    if observed['complete']!=len(rows):raise ValueError('DYNAMIC_TARGET_DENOMINATOR_MISMATCH')
++    metrics=backend_collection_metrics(directory/f'gpu-rank{rank:02d}.jsonl')
++    metrics.update(dynamic_owned_target_groups=len(groups),deterministic_execution_cache=cache.metrics(),
++                   global_scheduler=observed['counts'],physical_generation_owner_rank=rank)
++    cfg['_last_collection_metrics']=metrics
++    return groups
+diff --git a/src/mechet/route_execution_cache.py b/src/mechet/route_execution_cache.py
+new file mode 100644
+index 0000000..f4af00f
+--- /dev/null
++++ b/src/mechet/route_execution_cache.py
+@@ -0,0 +1,87 @@
++"""Share deterministic FLOW chemistry, never sampled history or route returns."""
++from collections import Counter, OrderedDict
++from concurrent.futures import Future
++from copy import deepcopy
++from threading import RLock
++
++from .external_route_data import signature
++
++
++class ExecutionCache:
++    def __init__(self, capacity=8192):
++        if type(capacity) is not int or capacity<1:raise ValueError('EXECUTION_CACHE_CAPACITY')
++        self.capacity=capacity;self.lock=RLock();self.entries=OrderedDict();self.counts=Counter()
++
++    def metrics(self):
++        with self.lock:return dict(self.counts)
++
++    def resolve(self,key,receipt_id,compute):
++        with self.lock:
++            future=self.entries.get(key)
++            owner=future is None
++            if owner:
++                future=Future();self.entries[key]=future
++                self.counts['deterministic_execute_calls']+=1
++            else:
++                self.entries.move_to_end(key)
++                self.counts['inflight_waiters']+=not future.done()
++        if owner:
++            try:
++                value=deepcopy(compute())
++                with self.lock:
++                    error=value.get('error','')
++                    cacheable=not error or error.startswith(('ValueError:','KeyError:','TypeError:'))
++                    if not cacheable:
++                        self.entries.pop(key,None)
++                    future.set_result(value)
++                    # Never evict in-flight entries and create a second producer.
++                    for old in list(self.entries):
++                        if len(self.entries)<=self.capacity:break
++                        if self.entries[old].done():del self.entries[old]
++            except BaseException as exc:
++                with self.lock:self.entries.pop(key,None);future.set_exception(exc)
++                raise
++        value=deepcopy(future.result())
++        if not owner and (not value.get('error') or value['error'].startswith(('ValueError:','KeyError:','TypeError:'))):
++            with self.lock:
++                label='rejected_execution_cache_hits' if value.get('error') else 'accepted_execution_cache_hits'
++                self.counts[label]+=1
++        return value
++
++
++class CachedChemistry:
++    """First version caches FLOW only. IMPORT memory and FINISH guards stay live.
++
++    Only state/next_map/imported/result are cached. Each caller reconstructs
++    actions/scores/visited from its own node and real proposal metadata.
++    """
++    def __init__(self,base,cache,contracts):
++        self.base,self.cache,self.contracts=base,cache,deepcopy(contracts)
++
++    def __getattr__(self,name):return getattr(self.base,name)
++
++    def step(self,node,output):
++        from .pr96_evaluation import parsed
++        from .route_refit import grounded_action_key
++        from scripts.run_natural_language_value_search import visible,Node
++        name,arguments,error=parsed(output)
++        if error or name!='apply_electron_flow':return self.base.step(node,output)
++        key=signature(dict(state=node.state,target=node.target,next_map=node.next_map,
++            imported=node.imported,action=grounded_action_key(node.state,output['raw']),
++            contracts=self.contracts))
++        def compute():
++            pure=deepcopy(node);pure.actions=[];pure.visited=set();pure.logprob=0.;pure.tokens=0;pure.pointer_score=0.
++            child,error=self.base.step(pure,output)
++            if child is None:return dict(error=error)
++            if child.terminal:raise ValueError('CACHE_FLOW_TERMINAL_RECONSTRUCTION')
++            return dict(error='',state=child.state,next_map=child.next_map,imported=child.imported,
++                        result=child.actions[-1]['result'])
++        value=self.cache.resolve(key,output['request_id'],compute)
++        if value.get('error'):return None,value['error']
++        if visible(value['state']) in node.visited:return None,'ValueError:STATE_CYCLE'
++        record=dict(state_before=node.state,name=name,arguments=deepcopy(arguments),result=deepcopy(value['result']))
++        return Node(target=node.target,state=value['state'],next_map=value['next_map'],
++            actions=node.actions+[record],visited=set(node.visited)|{visible(value['state'])},
++            imported=deepcopy(value['imported']),logprob=node.logprob+sum(output['behavior_logprobs']),
++            tokens=node.tokens+len(output['generated_token_ids']),pointer_score=node.pointer_score,
++            terminal=False),''
+diff --git a/src/mechet/route_global_sampler.py b/src/mechet/route_global_sampler.py
+new file mode 100644
+index 0000000..cc5000d
+--- /dev/null
++++ b/src/mechet/route_global_sampler.py
+@@ -0,0 +1,127 @@
++"""Round-scoped request RPC: CPU owners hold chemistry; GPUs hold actors."""
++from concurrent.futures import Future
++from dataclasses import asdict
++from multiprocessing.managers import BaseManager
++from threading import Condition,Thread
++import secrets
++
++from .external_route_data import signature
++from .route_policy_episode import DecisionRequest
++
++
++def broker_server(broker,host):
++    # A thread, not a fork after CUDA initialization. Only the allocated job's
++    # workers receive the ephemeral authenticated socket address.
++    class Manager(BaseManager):pass
++    Manager.register('broker',callable=lambda:broker)
++    key=secrets.token_bytes(32);manager=Manager(address=(host,0),authkey=key)
++    server=manager.get_server()
++    def serve():
++        try:server.serve_forever()
++        except SystemExit:pass
++    Thread(target=serve,daemon=True).start()
++    return server,server.address,key
++
++
++def connect_broker(address,key):
++    class Manager(BaseManager):pass
++    Manager.register('broker')
++    manager=Manager(address=address,authkey=key);manager.connect()
++    return manager.broker()
++
++
++class LockedTokenizer:
++    """Fast-tokenizer padding configuration is mutable, even in encode calls."""
++    def __init__(self,tokenizer):
++        from threading import RLock
++        self.tokenizer=tokenizer;self.lock=RLock()
++    def __getattr__(self,name):return getattr(self.tokenizer,name)
++    def __call__(self,*args,**kwargs):
++        with self.lock:return self.tokenizer(*args,**kwargs)
++    def pad(self,*args,**kwargs):
++        with self.lock:return self.tokenizer.pad(*args,**kwargs)
++
++
++class RemoteSampler:
++    def __init__(self,broker,owner,cfg,*,prompt_ids):
++        self.broker,self.owner,self.cfg,self.prompt_ids=broker,owner,cfg,prompt_ids
++        self.cv=Condition();self.pending={};self.closed=False
++        self.thread=Thread(target=self._receive,daemon=True);self.thread.start()
++
++    def submit(self,request):
++        future=Future()
++        try:
++            with self.cv:
++                if self.closed:raise RuntimeError('REMOTE_SAMPLER_CLOSED')
++                if request.request_id in self.pending:raise ValueError('REMOTE_REQUEST_ALREADY_PENDING')
++                binding='ids:'+signature(self.prompt_ids(request))
++                self.broker.submit(asdict(request),self.owner,prompt_binding=binding)
++                self.pending[request.request_id]=future;self.cv.notify_all()
++        except Exception as exc:future.set_exception(exc)
++        return future
++
++    def _receive(self):
++        while True:
++            with self.cv:
++                while not self.pending and not self.closed:self.cv.wait()
++                if self.closed and not self.pending:return
++                ids=list(self.pending)
++            try:
++                values=self.broker.wait_many(self.owner,ids,.25)
++                with self.cv:
++                    for uid,value in values:self.pending.pop(uid).set_result(value)
++            except BaseException as exc:
++                with self.cv:
++                    for future in self.pending.values():future.set_exception(exc)
++                    self.pending.clear();self.closed=True;return
++
++    def close(self):
++        with self.cv:
++            self.closed=True
++            # Collection must reconcile outstanding draws before leaving.
++            if self.pending:
++                for future in self.pending.values():future.set_exception(RuntimeError('REMOTE_REQUEST_UNRECONCILED'))
++                self.pending.clear()
++            self.cv.notify_all()
++        self.thread.join(timeout=5)
++        if self.thread.is_alive():raise RuntimeError('REMOTE_RECEIVER_SHUTDOWN_TIMEOUT')
++
++    def __enter__(self):return self
++    def __exit__(self,*_):self.close()
++
++
++def serve_gpu(broker,sampler,gpu):
++    try:
++        model=getattr(sampler,'model',None)
++        if model is not None:
++            device=next(model.parameters()).device
++            if device.type=='cuda':
++                # CUDA current-device is thread-local, unlike model placement.
++                # Triton/FLA scratch allocations must use this replica's GPU.
++                import torch
++                torch.cuda.set_device(device)
++        while True:
++            batch=broker.take(gpu,sampler.cfg['generation_batch_size'],.02)
++            if not batch:
++                if broker.snapshot()['stopped']:return
++                continue
++            requests=[DecisionRequest(**row['request']) for row in batch]
++            if hasattr(sampler,'submit'):
++                # Native continuous engines keep one Future per request; do
++                # not block refill on the longest member of an artificial batch.
++                from concurrent.futures import wait,FIRST_COMPLETED
++                active={sampler.submit(r):r for r in requests}
++                while active:
++                    done,_=wait(active,timeout=.01,return_when=FIRST_COMPLETED)
++                    for future in done:
++                        request=active.pop(future)
++                        broker.complete(gpu,request.request_id,future.result())
++                    extra=broker.take(gpu,sampler.cfg['generation_batch_size']-len(active),0.) if len(active)<sampler.cfg['generation_batch_size'] else []
++                    for row in extra:
++                        r=DecisionRequest(**row['request']);active[sampler.submit(r)]=r
++            else:
++                values=sampler.generate(requests)
++                if len(values)!=len(requests):raise ValueError('GLOBAL_BACKEND_DROPPED_REQUEST')
++                for request,value in zip(requests,values):broker.complete(gpu,request.request_id,value)
++    except BaseException as exc:
++        broker.fail(type(exc).__name__+':'+str(exc))
+diff --git a/src/mechet/route_policy_sampling.py b/src/mechet/route_policy_sampling.py
+index 23cf1ba..178860d 100644
+--- a/src/mechet/route_policy_sampling.py
++++ b/src/mechet/route_policy_sampling.py
+@@ -223,6 +223,8 @@ class NativeRouteSampler:
+                 else:
+                     bins.setdefault(int(room),[]).append((i,r))
+         for allowed,items in sorted(bins.items()):
++            if self.cfg.get('acceleration',{}).get('hf_length_bucketing'):
++                items.sort(key=lambda item:(len(all_ids[item[0]]),item[0]))
+             from .route_generation_capacity import generation_batches,capacity_kwargs
+             with phase(self.cfg,'sampling.batch_plan',batch_size=len(items)):
+                 parts=generation_batches([len(all_ids[i]) for i,_ in items],
+@@ -255,7 +257,12 @@ class NativeRouteSampler:
+                         prompt_lengths=[len(p) for p in prompt_ids]))
+                 private=PrivateSampling([r.request_id for _,r in batch],self.cfg['seed'],device,
+                     finished=lambda:capture.done,on_failure=sampling_failure,prompt_width=width)
+-                generation=GenerationConfig(do_sample=True,top_k=0,top_p=1.,temperature=1.,
++                counter=self.cfg.get('acceleration',{}).get('sampling_kernel')=='counter_categorical_v1'
++                if counter:
++                    from .route_counter_sampling import CounterCategorical
++                    private=CounterCategorical([r.request_id for _,r in batch],self.cfg['seed'],device,capture,
++                        on_failure=sampling_failure,prompt_width=width)
++                generation=GenerationConfig(do_sample=not counter,top_k=0,top_p=1.,temperature=1.,
+                     repetition_penalty=1.,num_beams=1,renormalize_logits=False,
+                     pad_token_id=self.tokenizer.pad_token_id,eos_token_id=self.tokenizer.eos_token_id,
+                     use_cache=True)
+diff --git a/src/mechet/route_refit_credit.py b/src/mechet/route_refit_credit.py
+index d8c4e14..8c69669 100644
+--- a/src/mechet/route_refit_credit.py
++++ b/src/mechet/route_refit_credit.py
+@@ -20,6 +20,12 @@ def training_records(group):
+         conditions=refit.get('conditioning',{})
+         rows=defaultdict(list);seen=set()
+         for report in reports:
++            from .route_acceleration import SKIPPED
++            if report.get('status')==SKIPPED:
++                # A real proposal was observed, but its future return was not.
++                # Do not replace it by cached Q or censor other genuine draws.
++                if report.get('reward') is not None:raise ValueError('SKIPPED_SUFFIX_HAS_REWARD')
++                continue
+             credit=report.get('reward_evidence',{}).get('process_credit')
+             if report['reward'] is not None:
+                 list(process_sequences(report,[0.]*len(report['records'])))
+diff --git a/src/mechet/route_refit_runtime.py b/src/mechet/route_refit_runtime.py
+index 532a44b..4ddd9e1 100644
+--- a/src/mechet/route_refit_runtime.py
++++ b/src/mechet/route_refit_runtime.py
+@@ -77,12 +77,16 @@ class ObservedEpisode:
+ 
+ 
+ class RefitCollection:
+-    def __init__(self,episodes,cfg):
++    def __init__(self,episodes,cfg,*,duplicate_policy=None):
++        if duplicate_policy not in (None,'skip_extra_duplicates_v1'):
++            raise ValueError('REFIT_DUPLICATE_POLICY')
++        self.duplicate_policy=duplicate_policy;self.duplicate_pruned=0
+         self.cfg=dict(validate_refit(cfg));self.nodes={};self.parents={};self.node_trees={}
+         self.conditions={};self.lock=RLock()
+         self.forks=Counter();self.initial=[ObservedEpisode(ep,self) for ep in episodes]
+         self.pending=Counter();self.draw_serials=Counter()
+         self.all=list(self.initial)
++        self.initial_ids={id(e) for e in self.initial}
+ 
+     def can_add_node(self,tree):
+         return (self.forks[tree]<self.cfg['max_forks_per_tree'] and
+@@ -124,11 +128,20 @@ class RefitCollection:
+             self.conditions[key]=conditioning
+         event['proposal']='original_policy'
+         episode.path.append(event)
++        accepted_duplicate=(node is not None and event['action'] in node.edges and
++                            node.edges[event['action']]['status']=='ACCEPTED' and record.get('accepted') is True)
+         if node is not None:
+             successor=None if not record.get('accepted') else record.get('state_after')
+             node.add(event['action'],event['request_id'],successor=successor,
+                 error=record.get('error','') if not record.get('accepted') else '',
+                 resource=resource,executor_skipped=bool(record.get('executor_skipped')))
++        if (self.duplicate_policy and accepted_duplicate and id(episode) not in self.initial_ids
++                and event['name']=='apply_electron_flow'):
++            from .route_acceleration import SKIPPED
++            episode.ep._end(SKIPPED,None)
++            record['episode_status_after']=SKIPPED
++            self.duplicate_pruned+=1
++            return []
+         if resource or self.forks[tree]>=self.cfg['max_forks_per_tree']:return []
+         candidate=key if node is not None and self.available(key) else None
+         if candidate is None and episode.ep.status=='rejected_action':
+@@ -164,4 +177,6 @@ class RefitCollection:
+             report['refit']['node_censored_receipts']={k:list(n.censored_receipts) for k,n in self.nodes.items()
+                 if self.node_trees[k]==ep.ep.uid and n.censored_receipts}
+             report['refit']['reserved_draws']={k:self.pending[k] for k in self.nodes if self.node_trees[k]==ep.ep.uid}
++            if self.duplicate_policy:
++                report['refit']['duplicate_suffix_policy']=self.duplicate_policy
+         return originals
+diff --git a/src/mechet/route_work_broker.py b/src/mechet/route_work_broker.py
+new file mode 100644
+index 0000000..dd971b6
+--- /dev/null
++++ b/src/mechet/route_work_broker.py
+@@ -0,0 +1,177 @@
++"""Round-local CPU ownership and shared GPU requests; no per-token disk RPC."""
++from collections import Counter,deque
++from copy import deepcopy
++import math
++from pathlib import Path
++from threading import Condition
++import time
++import uuid
++
++from .external_route_data import file_sha,signature
++from .route_policy_sampling import append_receipt,read_owned_journal
++
++
++class WorkBroker:
++    def __init__(self,rows,*,actor_version,contract_sha,journal_path,max_pending=4096,request_timeout=1800.):
++        self.cv=Condition();self.rows={r['task_id']:deepcopy(r) for r in rows}
++        if len(self.rows)!=len(rows):raise ValueError('DUPLICATE_TARGET_GROUP')
++        self.version=actor_version;self.contract=contract_sha;self.path=Path(journal_path)
++        self.path.parent.mkdir(parents=True,exist_ok=True)
++        self.epoch=uuid.uuid4().hex;self.leases={};self.done={};self.error='';self.stopped=False
++        self.requests={};self.ready=deque();self.max_pending=max_pending;self.counts=Counter()
++        if not math.isfinite(request_timeout) or request_timeout<=0:raise ValueError('GPU_REQUEST_TIMEOUT_INVALID')
++        self.request_timeout=request_timeout
++        binding=dict(event='binding',actor_version=actor_version,contract_sha=contract_sha,
++                     task_ids_sha=signature(rows))
++        old=read_owned_journal(self.path)
++        if old and old[0]!=binding:raise ValueError('WORK_BROKER_BINDING_CHANGED')
++        if not old:append_receipt(self.path,binding)
++        for row in old[1:]:
++            if row['event']=='finished':
++                if row['task_id'] not in self.rows:raise ValueError('UNEXPECTED_FINISHED_TARGET')
++                p=self._owned_path(row['result_path'])
++                if file_sha(p)!=row['result_sha']:raise ValueError('GROUP_RESULT_HASH_CHANGED')
++                previous=self.done.get(row['task_id'])
++                if previous and previous['result_sha']!=row['result_sha']:raise ValueError('DOUBLE_GROUP_COMMIT')
++                self.done[row['task_id']]=row
++        self.unclaimed=deque(k for k in self.rows if k not in self.done)
++
++    def _check(self):
++        if self.error:raise RuntimeError('ROUND_BROKER_FAILED:'+self.error)
++
++    def _request_deadline(self,entry):
++        if entry['result'] is None and entry.get('deadline',float('inf'))<time.monotonic():
++            self.error='GPU_REQUEST_DEADLINE:'+entry['request']['request_id'];self.cv.notify_all();self._check()
++
++    def _owned_path(self,path):
++        p=Path(path).resolve()
++        if not p.is_relative_to(self.path.parent.resolve()):raise ValueError('GROUP_RESULT_OUTSIDE_ROUND')
++        return p
++
++    def claim(self,rank):
++        with self.cv:
++            self._check()
++            if not self.unclaimed:return None
++            key=self.unclaimed.popleft();lease=signature([self.epoch,key,rank])
++            row=dict(event='claimed',task_id=key,rank=rank,lease_id=lease,
++                     actor_version=self.version,contract_sha=self.contract)
++            append_receipt(self.path,row);self.leases[lease]=row
++            return dict(task=deepcopy(self.rows[key]),lease_id=lease)
++
++    def finish(self,lease,rank,path,digest):
++        with self.cv:
++            self._check();owner=self.leases.get(lease)
++            if not owner or owner['rank']!=rank:raise ValueError('GROUP_LEASE_OWNER_MISMATCH')
++            if owner['task_id'] in self.done:raise ValueError('DOUBLE_GROUP_COMMIT')
++            if file_sha(self._owned_path(path))!=digest:raise ValueError('GROUP_RESULT_HASH_CHANGED')
++            row=dict(owner,event='finished',result_path=str(Path(path).resolve()),result_sha=digest)
++            append_receipt(self.path,row);self.done[owner['task_id']]=row;self.cv.notify_all()
++
++    def results(self):
++        with self.cv:
++            self._check()
++            return [deepcopy(self.done[k]) for k in self.rows if k in self.done]
++
++    def snapshot(self):
++        with self.cv:
++            return dict(expected=len(self.rows),complete=len(self.done),unclaimed=len(self.unclaimed),
++                        ready=len(self.ready),counts=dict(self.counts),error=self.error,stopped=self.stopped)
++
++    def wait_collection(self,timeout):
++        with self.cv:
++            self._check()
++            if len(self.done)<len(self.rows):self.cv.wait(timeout)
++            self._check()
++            return len(self.done)==len(self.rows)
++
++    def _valid_result(self,request,value,binding=None):
++        if value.get('request_id')!=request['request_id'] or value.get('behavior_version')!=self.version:
++            raise ValueError('GLOBAL_RECEIPT_IDENTITY_MISMATCH')
++        ids=value.get('generated_token_ids',[]);lp=value.get('behavior_logprobs',[])
++        if len(ids)!=len(lp) or any(not math.isfinite(x) or x>0 for x in lp):
++            raise ValueError('GLOBAL_RECEIPT_PROBABILITY_INVALID')
++        if binding and binding.startswith('ids:') and binding!='ids:'+signature(value.get('prompt_token_ids')):
++            raise ValueError('GLOBAL_RECEIPT_PROMPT_MISMATCH')
++
++    def seed_result(self,request,value):
++        with self.cv:
++            self._valid_result(request,value)
++            uid=request['request_id']
++            if uid in self.requests:raise ValueError('DUPLICATE_RECOVERED_GLOBAL_REQUEST')
++            self.requests[uid]=dict(request=deepcopy(request),owner=None,binding=None,
++                                    result=deepcopy(value),gpu=None)
++
++    def submit(self,request,owner,prompt_binding):
++        with self.cv:
++            self._check()
++            if self.stopped or request.get('behavior_version')!=self.version:raise ValueError('GLOBAL_POLICY_VERSION_MISMATCH')
++            uid=request['request_id'];prior=self.requests.get(uid)
++            if prior:
++                if prior['request']!=request or prior['owner'] not in (None,owner):raise ValueError('GLOBAL_REQUEST_REBOUND')
++                if prior['binding'] not in (None,prompt_binding):raise ValueError('GLOBAL_REQUEST_PROMPT_REBOUND')
++                prior.update(owner=owner,binding=prompt_binding)
++                if prior['result'] is not None:self._valid_result(request,prior['result'],prompt_binding)
++                return
++            pending=sum(r['result'] is None for r in self.requests.values())
++            if pending>=self.max_pending:raise RuntimeError('GLOBAL_QUEUE_ADMISSION_CAPACITY')
++            self.requests[uid]=dict(request=deepcopy(request),owner=owner,binding=prompt_binding,
++                                    result=None,gpu=None,submitted=time.monotonic())
++            self.ready.append(uid);self.counts['physical_requests_submitted']+=1;self.cv.notify_all()
++
++    def take(self,gpu,limit,timeout):
++        deadline=time.monotonic()+timeout
++        with self.cv:
++            self._check()
++            while len(self.ready)<limit and not self.stopped:
++                remaining=deadline-time.monotonic()
++                if remaining<=0:break
++                self.cv.wait(remaining);self._check()
++            self._check();batch=[]
++            while self.ready and len(batch)<limit:
++                uid=self.ready.popleft();entry=self.requests[uid];entry['gpu']=gpu
++                entry['deadline']=time.monotonic()+self.request_timeout
++                self.counts['queue_wait_microseconds']+=int((time.monotonic()-entry['submitted'])*1e6)
++                batch.append(dict(request=deepcopy(entry['request']),prompt_binding=entry['binding']))
++            self.counts['gpu'+str(gpu)+'_requests']+=len(batch)
++            return batch
++
++    def complete(self,gpu,uid,value):
++        with self.cv:
++            self._check();entry=self.requests[uid]
++            if entry['gpu']!=gpu:raise ValueError('GLOBAL_COMPLETION_OWNER_MISMATCH')
++            self._valid_result(entry['request'],value,entry['binding'])
++            if entry['result'] is not None:raise ValueError('GLOBAL_DUPLICATE_COMPLETION')
++            entry['result']=deepcopy(value);self.counts['completed_requests']+=1;self.cv.notify_all()
++
++    def wait_result(self,owner,uid,timeout):
++        deadline=time.monotonic()+timeout
++        with self.cv:
++            while True:
++                self._check();entry=self.requests[uid]
++                self._request_deadline(entry)
++                if entry['owner']!=owner:raise ValueError('GLOBAL_RESULT_OWNER_MISMATCH')
++                if entry['result'] is not None:return deepcopy(entry['result'])
++                remaining=deadline-time.monotonic()
++                if remaining<=0:return None
++                self.cv.wait(remaining)
++
++    def wait_many(self,owner,uids,timeout):
++        deadline=time.monotonic()+timeout
++        with self.cv:
++            while True:
++                self._check();values=[]
++                for uid in uids:
++                    entry=self.requests[uid]
++                    self._request_deadline(entry)
++                    if entry['owner']!=owner:raise ValueError('GLOBAL_RESULT_OWNER_MISMATCH')
++                    if entry['result'] is not None:values.append((uid,deepcopy(entry['result'])))
++                if values:return values
++                remaining=deadline-time.monotonic()
++                if remaining<=0:return []
++                self.cv.wait(remaining)
++
++    def fail(self,message):
++        with self.cv:self.error=str(message);self.cv.notify_all()
++
++    def stop(self):
++        with self.cv:self.stopped=True;self.cv.notify_all()
+diff --git a/tests/test_external_route_precision.py b/tests/test_external_route_precision.py
+new file mode 100644
+index 0000000..04175b4
+--- /dev/null
++++ b/tests/test_external_route_precision.py
+@@ -0,0 +1,63 @@
++"""End-to-end tensor regression with tiny random Qwen3.5+LoRA; no corpus/model experiment."""
++from copy import deepcopy
++import math
++
++import pytest
++
++
++@pytest.mark.parametrize('counter',[False,True])
++@pytest.mark.parametrize('dtype_name,scale',[('float32',1.),('bfloat16',1.),('bfloat16',32.),('bfloat16',128.)])
++def test_native_cached_generation_then_dr_grpo_backward_is_supported(monkeypatch,dtype_name,scale,counter):
++    import torch
++    # This is a CPU tensor regression. Select upstream's CPU fallback before
++    # importing the model, rather than importing unused GPU-only FLA kernels.
++    from transformers.utils import import_utils
++    monkeypatch.setattr(import_utils,'is_flash_linear_attention_available',lambda:False)
++    monkeypatch.setattr(import_utils,'is_causal_conv1d_available',lambda:False)
++    from transformers import Qwen3_5TextConfig,Qwen3_5ForCausalLM,GenerationConfig,LogitsProcessorList
++    from transformers.models.qwen3_5 import modeling_qwen3_5 as upstream
++    from peft import LoraConfig,get_peft_model
++    from mechet.route_policy_sampling import TokenLogprobs,PrivateSampling
++    from mechet.external_route_rl import optimize_routes,DR_GRPO_ALGORITHM
++    for name in ('FusedRMSNormGated','chunk_gated_delta_rule','fused_recurrent_gated_delta_rule',
++                 'causal_conv1d_fn','causal_conv1d_update'):
++        monkeypatch.setattr(upstream,name,None)
++    torch.set_num_threads(1);torch.manual_seed(19)
++    config=Qwen3_5TextConfig(vocab_size=19,hidden_size=16,intermediate_size=24,
++        num_hidden_layers=2,num_attention_heads=2,num_key_value_heads=2,head_dim=8,
++        linear_num_key_heads=2,linear_num_value_heads=2,linear_key_head_dim=8,linear_value_head_dim=8,
++        layer_types=['linear_attention','full_attention'],max_position_embeddings=128,
++        rope_parameters=dict(rope_type='default',rope_theta=10000.,partial_rotary_factor=1.,mrope_section=[1,1,2]))
++    base=Qwen3_5ForCausalLM(config).to(getattr(torch,dtype_name))
++    with torch.no_grad():base.lm_head.weight.mul_(scale)
++    actor=get_peft_model(base,LoraConfig(task_type='CAUSAL_LM',r=2,lora_alpha=4,
++        target_modules=['q_proj','v_proj','in_proj_qkv'],lora_dropout=0.)).eval()
++    reference=deepcopy(actor).eval()
++    for p in reference.parameters():p.requires_grad_(False)
++    prompts=[list(range(1,2+i%6)) for i in range(64)]
++    ids=torch.zeros((64,6),dtype=torch.long);mask=torch.zeros_like(ids)
++    for i,p in enumerate(prompts):ids[i,-len(p):]=torch.tensor(p);mask[i,-len(p):]=1
++    capture=TokenLogprobs(18)
++    processor=PrivateSampling([str(i) for i in range(64)],17,'cpu')
++    if counter:
++        from mechet.route_counter_sampling import CounterCategorical
++        processor=CounterCategorical([str(i) for i in range(64)],17,'cpu',capture)
++    generation=GenerationConfig(do_sample=not counter,top_k=0,top_p=1.,temperature=1.,
++        pad_token_id=0,eos_token_id=18,use_cache=True)
++    with torch.inference_mode():
++        output=actor.generate(input_ids=ids,attention_mask=mask,max_new_tokens=4,generation_config=generation,
++            logits_processor=LogitsProcessorList([capture,processor]))
++    capture.finish(output[:,-1]);logps=capture.values();reports=[]
++    for i,row in enumerate(output):
++        response=row[6:].tolist()
++        if 18 in response:response=response[:response.index(18)+1]
++        reports.append(dict(reward=[0.,1.,0.,.2][i%4],records=[dict(prompt_token_ids=prompts[i],
++            generated_token_ids=response,behavior_logprobs=logps[i])]))
++    groups=[reports[i:i+4] for i in range(0,64,4)]
++    optimizer=torch.optim.AdamW([p for p in actor.parameters() if p.requires_grad],lr=2e-6)
++    cfg=dict(algorithm=DR_GRPO_ALGORITHM,candidates=4,loss_batch_size=2,pad_token_id=0,
++        clip_epsilon=.2,kl_beta=.02,loss_token_normalizer=1024.,max_grad_norm=.5,
++        behavior_logprob_tolerance=.25)
++    result=optimize_routes(actor,reference,optimizer,groups,cfg)
++    assert result['optimizer_updated'] and math.isfinite(result['grad_norm'])
++    assert result['sampled_action_records']==64
+diff --git a/tests/test_route_acceleration_distributed_cpu.py b/tests/test_route_acceleration_distributed_cpu.py
+new file mode 100644
+index 0000000..6da0372
+--- /dev/null
++++ b/tests/test_route_acceleration_distributed_cpu.py
+@@ -0,0 +1,135 @@
++"""Two-process transport and real chemistry unit integration, no model experiment."""
++from pathlib import Path
++
++
++def _cpu_worker(rank,rendezvous,root,fault=None):
++    import json
++    import sqlite3
++    from types import SimpleNamespace
++    import torch
++    import torch.distributed as dist
++    import mechet.external_route_io as io
++    from mechet.route_policy_sampling import append_receipt
++    from mechet.route_policy_protocol import route_tool_prefix
++    from mechet.route_process_reward import ProcessRouteReward,ALGORITHM
++    from mechet.route_failure_policy import configure_first_rejection
++    from mechet.route_refit_runtime import DEFAULTS
++    from mechet.route_acceleration import DEFAULT_ACCELERATION
++    from mechet.endpoints import ROUTE_ENDPOINT_CONTRACT
++    from test_route_native_observation import episode,flow
++    root=Path(root);torch.set_num_threads(1)
++    dist.init_process_group('gloo',init_method='file://'+rendezvous,rank=rank,world_size=2)
++    args=flow((lambda ep:(ep.next_decision(),ep)[1])(episode()))
++    class Tokenizer:
++        pad_token_id=0;pad_token='pad';padding_side='left'
++        def apply_chat_template(self,*a,**kw):return 'prompt'
++        def __call__(self,*a,**kw):return {'input_ids':[1]}
++    class StubBackend:
++        def __init__(self,actor,tokenizer,cfg,raw_path,execution_writer):
++            if fault=='startup' and rank==1:raise OSError('injected startup failure')
++            self.cfg,self.raw_path=cfg,Path(raw_path)
++        def generate(self,requests):
++            values=[]
++            append_receipt(self.raw_path,dict(event='gpu-requested',requests=[vars(r) for r in requests],prompt_token_ids=[[1] for r in requests]))
++            for r in requests:
++                name='apply_electron_flow' if r.request_id.endswith('/a0') else 'finish_trace'
++                values.append(dict(request_id=r.request_id,behavior_version=r.behavior_version,prompt_token_ids=[1],
++                    generated_token_ids=[2],behavior_logprobs=[-.2],raw='<tool_call>'+json.dumps(
++                    dict(name=name,arguments=args if name=='apply_electron_flow' else {}))+'</tool_call>',truncated=False))
++            for value in values:append_receipt(self.raw_path,dict(event='behavior-receipt',**value))
++            return values
++    io.BatchedNativeRouteSampler=StubBackend
++    cfg=dict(_sha='contract',world_size=2,candidates=4,seed=17,max_action_tokens=2048,
++        max_context=32768,generation_batch_size=8,executor_workers_per_rank=2,
++        algorithm=ALGORITHM,dataset=str(root),partial_reward_weight=.2,
++        route_endpoint_contract=ROUTE_ENDPOINT_CONTRACT,stock_material_contract='exact_material_stock_v1',
++        public_observation_contract='route_sft_aligned_feedback_v9',inference_backend='hf',
++        refit=DEFAULTS,acceleration=DEFAULT_ACCELERATION,collective_timeout_seconds=30,
++        pad_token_id=0,policy_precision='fp32')
++    configure_first_rejection(cfg)
++    rows=[{'task_id':str(i),'target':'CO'} for i in range(6)]
++    from mechet.route_distributed_collection import collect_distributed_round
++    if fault=='summary' and rank==0:
++        import mechet.route_distributed_collection as module
++        original=module.atomic_json
++        def publish(path,value):
++            if Path(path).name=='scheduler_summary.json':raise OSError('injected summary failure')
++            return original(path,value)
++        module.atomic_json=publish
++    stock={'[CH3+]','[OH-]'}
++    with ProcessRouteReward(root/'references.sqlite',stock,failure_policy=cfg['route_failure_policy']) as oracle:
++        try:groups=collect_distributed_round(rows,stock,set(),torch.nn.Linear(1,1),Tokenizer(),cfg,root/'round','v1',oracle)
++        except RuntimeError as exc:
++            if not fault:raise
++            (root/f'failure{rank}.txt').write_text(str(exc));dist.destroy_process_group();return
++        if fault:raise AssertionError('injected failure was lost')
++    torch.save([g[0]['task_id'] for g in groups],root/f'owned{rank}.pt')
++    # A rank with zero eligible groups must still join the same gradient sum.
++    from copy import deepcopy
++    from mechet.external_route_rl import optimize_routes,DR_GRPO_ALGORITHM
++    from scripts.pr96_earho_contract import token_logps_batch
++    class Tiny(torch.nn.Module):
++        def __init__(self):
++            super().__init__();self.emb=torch.nn.Embedding(5,3);self.head=torch.nn.Linear(3,5)
++        def forward(self,input_ids,attention_mask,logits_to_keep,use_cache,position_ids=None):
++            return SimpleNamespace(logits=self.head((self.emb(input_ids)*attention_mask[...,None]).cumsum(1)[:,logits_to_keep]))
++    torch.manual_seed(73);tiny=Tiny();ref=deepcopy(tiny)
++    old=token_logps_batch(tiny,[([1],[2,3])])[0].detach().tolist()
++    record=dict(prompt_token_ids=[1],generated_token_ids=[2,3],behavior_logprobs=old)
++    training=[[dict(reward=r,records=[record]) for r in [0.,1.,0.,0.]]] if rank==0 else []
++    stats=optimize_routes(tiny,ref,torch.optim.SGD(tiny.parameters(),lr=.1),training,
++        dict(algorithm=DR_GRPO_ALGORITHM,candidates=4,loss_batch_size=4,pad_token_id=0,
++             clip_epsilon=.2,kl_beta=.02,loss_token_normalizer=1024.,max_grad_norm=1.,behavior_logprob_tolerance=.25))
++    assert stats['global_policy_groups']==1 and stats['optimizer_updated']
++    torch.save(tiny.state_dict(),root/f'updated{rank}.pt')
++    dist.destroy_process_group()
++
++
++def _database(tmp_path):
++    import sqlite3
++    from mechet.external_route_data import edge_signature
++    with sqlite3.connect(tmp_path/'references.sqlite') as db:
++        db.execute('CREATE TABLE tasks (id TEXT,target TEXT,split TEXT,reference_steps INTEGER)')
++        db.execute('CREATE TABLE edges (task_id TEXT,signature TEXT)')
++        for i in range(6):
++            db.execute('INSERT INTO tasks VALUES (?,?,?,?)',(str(i),'CO','training',1))
++            db.execute('INSERT INTO edges VALUES (?,?)',(str(i),edge_signature('CO',['[CH3+]','[OH-]'])))
++
++
++def test_two_process_global_collection_routes_real_chemistry_and_preserves_denominator(tmp_path,monkeypatch):
++    monkeypatch.setenv('MKL_THREADING_LAYER','GNU')
++    import json
++    import torch
++    import torch.multiprocessing as mp
++    _database(tmp_path)
++    mp.spawn(_cpu_worker,args=(str(tmp_path/'rendezvous'),str(tmp_path)),nprocs=2,join=True)
++    owned=[x for r in range(2) for x in torch.load(tmp_path/f'owned{r}.pt',weights_only=True)]
++    assert sorted(owned)==list(map(str,range(6)))
++    summary=json.loads((tmp_path/'round/scheduler_summary.json').read_text())
++    assert summary['complete']==summary['expected']==6 and not summary['error']
++    assert summary['counts']['completed_requests']>0
++    a=torch.load(tmp_path/'updated0.pt',weights_only=True);b=torch.load(tmp_path/'updated1.pt',weights_only=True)
++    for key in a:torch.testing.assert_close(a[key],b[key],rtol=0,atol=0)
++
++
++def test_single_rank_startup_error_reaches_both_ranks(tmp_path,monkeypatch):
++    _check_fault(tmp_path,monkeypatch,'startup')
++
++
++def test_summary_publication_error_reaches_both_ranks(tmp_path,monkeypatch):
++    _check_fault(tmp_path,monkeypatch,'summary')
++
++
++def _check_fault(tmp_path,monkeypatch,kind):
++    monkeypatch.setenv('MKL_THREADING_LAYER','GNU')
++    import time
++    import torch.multiprocessing as mp
++    _database(tmp_path)
++    ctx=mp.spawn(_cpu_worker,args=(str(tmp_path/'rendezvous'),str(tmp_path),kind),nprocs=2,join=False)
++    deadline=time.monotonic()+40
++    while time.monotonic()<deadline:
++        if ctx.join(timeout=1):break
++    else:
++        for p in ctx.processes:p.terminate();p.join(5)
++        raise AssertionError('collective failure caused a hang')
++    for rank in range(2):assert 'injected '+kind+' failure' in (tmp_path/f'failure{rank}.txt').read_text()
+diff --git a/tests/test_route_acceleration_lanes.py b/tests/test_route_acceleration_lanes.py
+new file mode 100644
+index 0000000..3324b8f
+--- /dev/null
++++ b/tests/test_route_acceleration_lanes.py
+@@ -0,0 +1,48 @@
++from copy import deepcopy
++
++
++def test_extra_accepted_duplicate_stops_unknown_but_original_keeps_running():
++    from mechet.route_refit_runtime import RefitCollection,DEFAULTS
++    from mechet.route_refit import RefitRouteEpisode
++    from test_route_first_rejection import episode
++    from test_route_native_observation import flow,send
++    base=episode();ep=RefitRouteEpisode(base.cfg,'CO',set(),'root',17)
++    c=RefitCollection([ep],DEFAULTS,duplicate_policy='skip_extra_duplicates_v1')
++    original=c.initial[0];original.next_decision();args=flow(original)
++    send(original,'apply_electron_flow',args);sibling=c.completed(original)[0]
++    send(sibling,'apply_electron_flow',args)
++    assert c.completed(sibling)==[]
++    assert sibling.status=='duplicate_pruned_no_continuation' and sibling.reward is None
++    assert sibling.next_decision() is None and original.next_decision() is not None
++    assert sibling.records[-1]['accepted'] is True
++    assert len(sibling.records[-1]['behavior_logprobs'])==1
++
++
++def test_budget_skipped_duplicate_never_masks_valid_branch_or_enters_loss():
++    from mechet.route_refit_credit import training_records
++    from test_route_refit_credit import fixture
++    group=fixture();expected,_=training_records(group)
++    pruned=deepcopy(group[0]);pruned.pop('refit');pruned.update(status='duplicate_pruned_no_continuation',reward=None,
++        reward_evidence=dict(process_credit=None,budget_skipped=True))
++    pruned['records'][-1]['request_id']='pruned-real-draw'
++    group[0]['refit']['suffix_reports'].append(pruned)
++    actual,stats=training_records(group)
++    assert actual==expected and stats['conditional_groups']==1
++
++
++def test_skip_reward_is_unknown_without_querying_private_reference():
++    from mechet.route_acceleration import skipped_reward
++    result=skipped_reward({'status':'duplicate_pruned_no_continuation'})
++    assert result['reward'] is None and result['process_credit'] is None
++    assert result['budget_skipped'] is True and result['censored'] is False
++
++
++def test_acceleration_contract_rejects_incompatible_or_partial_settings():
++    import pytest
++    from mechet.route_acceleration import validate_acceleration,DEFAULT_ACCELERATION
++    from mechet.route_refit_runtime import DEFAULTS
++    c=dict(acceleration=dict(DEFAULT_ACCELERATION),refit=DEFAULTS,candidates=4,world_size=4,
++           inference_backend='hf')
++    validate_acceleration(c)
++    with pytest.raises(ValueError):validate_acceleration(dict(c,refit=None))
++    with pytest.raises(ValueError):validate_acceleration(dict(c,acceleration={'version':'pretend'}))
+diff --git a/tests/test_route_acceleration_learner.py b/tests/test_route_acceleration_learner.py
+new file mode 100644
+index 0000000..961dab4
+--- /dev/null
++++ b/tests/test_route_acceleration_learner.py
+@@ -0,0 +1,33 @@
++from copy import deepcopy
++from types import SimpleNamespace
++
++
++def test_microbatch_four_matches_one_real_forward_gradients_and_parameter_update():
++    import torch
++    from mechet.external_route_rl import optimize_routes,DR_GRPO_ALGORITHM
++    from scripts.pr96_earho_contract import token_logps_batch
++    class Tiny(torch.nn.Module):
++        def __init__(self):
++            super().__init__();self.emb=torch.nn.Embedding(19,5);self.head=torch.nn.Linear(5,19)
++        def forward(self,input_ids,attention_mask,logits_to_keep,use_cache,position_ids=None):
++            hidden=(self.emb(input_ids)*attention_mask[...,None]).cumsum(1)
++            return SimpleNamespace(logits=self.head(hidden[:,logits_to_keep]))
++    torch.manual_seed(21);initial=Tiny();reference=deepcopy(initial)
++    with torch.no_grad():reference.head.bias.add_(torch.linspace(-.3,.3,19))
++    pairs=[([1,2],[3,4,18]),([5],[6,18]),([7,8,9],[10,18]),([11,12],[13,18])]
++    old=token_logps_batch(initial,pairs)
++    records=[dict(prompt_token_ids=p,generated_token_ids=r,behavior_logprobs=b.detach().tolist())
++             for (p,r),b in zip(pairs,old)]
++    groups=[[dict(reward=y,records=[records[i]]) for i,y in enumerate([0.,1.,.2,0.])],
++            [dict(reward=y,records=[records[i]]) for i,y in enumerate([1.,0.,0.,.2])]]
++    results=[]
++    for size in [1,4]:
++        actor=deepcopy(initial);optimizer=torch.optim.SGD(actor.parameters(),lr=.01)
++        stats=optimize_routes(actor,reference,optimizer,groups,dict(algorithm=DR_GRPO_ALGORITHM,
++            candidates=4,loss_batch_size=size,pad_token_id=0,clip_epsilon=.2,kl_beta=.02,
++            loss_token_normalizer=1024.,max_grad_norm=100.,behavior_logprob_tolerance=.25))
++        results.append((actor,stats))
++    for x,y in zip(results[0][0].parameters(),results[1][0].parameters()):
++        torch.testing.assert_close(x.grad,y.grad,rtol=2e-5,atol=1e-8)
++        torch.testing.assert_close(x,y,rtol=1e-6,atol=1e-8)
++    assert results[0][1]['global_policy_groups']==results[1][1]['global_policy_groups']==2
+diff --git a/tests/test_route_counter_sampling.py b/tests/test_route_counter_sampling.py
+new file mode 100644
+index 0000000..2fcab41
+--- /dev/null
++++ b/tests/test_route_counter_sampling.py
+@@ -0,0 +1,51 @@
++import pytest
++
++
++def test_counter_sampler_preserves_distribution_and_selected_original_logprob():
++    import torch
++    from mechet.route_counter_sampling import CounterCategorical
++    from mechet.route_policy_sampling import TokenLogprobs
++    logits=torch.tensor([[0.,1.,-2.],[2.,-.5,0.]])
++    capture=TokenLogprobs(99);sample=CounterCategorical(['a','b'],17,'cpu',capture)
++    ids=torch.tensor([[1],[1]])
++    capture(ids,logits);pinned=sample(ids,logits);chosen=pinned.argmax(-1)
++    capture.finish(chosen)
++    values=capture.values()
++    expected=logits.log_softmax(-1).gather(1,chosen[:,None]).flatten()
++    torch.testing.assert_close(torch.tensor([v[0] for v in values]),expected)
++    assert torch.isfinite(pinned).sum().item()==2
++    reordered=CounterCategorical(['b','a'],17,'cpu',TokenLogprobs(99))
++    assert reordered(ids,logits.flip(0)).argmax(-1).flip(0).tolist()==chosen.tolist()
++
++
++def test_counter_categorical_frequency_and_zero_mass():
++    import torch
++    from mechet.route_counter_sampling import CounterCategorical
++    from mechet.route_policy_sampling import TokenLogprobs
++    n=12000;uids=[str(i) for i in range(n)]
++    scores=torch.tensor([0.,1.,-float('inf')]).repeat(n,1)
++    sampler=CounterCategorical(uids,17,'cpu',TokenLogprobs(99))
++    result=sampler(torch.ones(n,1,dtype=torch.long),scores).argmax(-1)
++    observed=(result==1).float().mean().item()
++    assert abs(observed-torch.softmax(scores[0],-1)[1].item())<.02
++    assert (result==2).sum().item()==0
++
++
++def test_counter_sampler_rejects_invalid_logits():
++    import torch
++    from mechet.route_counter_sampling import CounterCategorical
++    from mechet.route_policy_sampling import TokenLogprobs
++    sampler=CounterCategorical(['a'],17,'cpu',TokenLogprobs(99))
++    with pytest.raises(ValueError,match='DISTRIBUTION'):
++        sampler(torch.tensor([[1]]),torch.tensor([[float('nan'),0.]]))
++
++
++def test_invalid_distribution_diagnostics_keep_request_and_decode_binding():
++    import torch
++    from mechet.route_counter_sampling import CounterCategorical
++    from mechet.route_policy_sampling import TokenLogprobs
++    events=[]
++    sampler=CounterCategorical(['real-request'],17,'cpu',TokenLogprobs(99),on_failure=events.append,prompt_width=1)
++    with pytest.raises(ValueError):sampler(torch.tensor([[1,2]]),torch.tensor([[float('nan'),0.]]))
++    assert events[0]['event']=='policy-distribution-failure'
++    assert events[0]['rows'][0]['request_id']=='real-request' and events[0]['decode_step']==0
+diff --git a/tests/test_route_distributed_collection.py b/tests/test_route_distributed_collection.py
+new file mode 100644
+index 0000000..32a2905
+--- /dev/null
++++ b/tests/test_route_distributed_collection.py
+@@ -0,0 +1,40 @@
++from concurrent.futures import ThreadPoolExecutor
++import json
++import threading
++
++
++def test_target_workers_keep_full_g4_ownership_and_result_normalization(tmp_path):
++    from mechet.route_distributed_collection import collect_owned_targets
++    from mechet.route_work_broker import WorkBroker
++    rows=[{'task_id':str(i),'target':'C'} for i in range(9)]
++    b=WorkBroker(rows,actor_version='v',contract_sha='c',journal_path=tmp_path/'claims')
++    def collect(row,directory):
++        directory.mkdir(parents=True,exist_ok=True)
++        return [[dict(task_id=row['task_id'],reward=float(k)) for k in range(4)]]
++    with ThreadPoolExecutor(3) as pool:
++        outputs=list(pool.map(lambda rank:collect_owned_targets(b,rank,tmp_path,collect,workers=2),range(3)))
++    groups=[g for owned in outputs for g in owned]
++    assert sorted(g[0]['task_id'] for g in groups)==list(map(str,range(9)))
++    assert all(len(g)==4 for g in groups) and len(b.results())==9
++    # Same declared source rows; load balance never changes the group denominator.
++    assert sum(len(x) for x in outputs)==9
++
++
++def test_recovered_target_uses_verified_result_without_running_actor(tmp_path):
++    from mechet.route_distributed_collection import collect_owned_targets
++    from mechet.route_work_broker import WorkBroker
++    rows=[{'task_id':'one','target':'C'}]
++    def make():return WorkBroker(rows,actor_version='v',contract_sha='c',journal_path=tmp_path/'claims')
++    groups=collect_owned_targets(make(),0,tmp_path,lambda row,path:[[{'task_id':'one'}]*4],workers=1)
++    actual=collect_owned_targets(make(),0,tmp_path,lambda *a:(_ for _ in ()).throw(AssertionError('replayed model')),workers=1)
++    assert actual==groups
++
++
++def test_physical_memory_admission_counts_all_target_workers_not_local_pool():
++    from mechet.route_distributed_collection import owner_collection_config
++    from scripts.train_external_route_rl import make_episodes
++    cfg=dict(world_size=4,executor_workers_per_rank=16,max_action_tokens=2048,candidates=4,seed=17)
++    local=owner_collection_config(cfg,object(),object())
++    episodes=make_episodes([{'task_id':'t','target':'CO'}],set(),set(),local,'version')
++    assert local['executor_workers_per_rank']==1
++    assert all(ep.chemistry.memory_divisor==64 for ep in episodes)
+diff --git a/tests/test_route_execution_cache.py b/tests/test_route_execution_cache.py
+new file mode 100644
+index 0000000..e056937
+--- /dev/null
++++ b/tests/test_route_execution_cache.py
+@@ -0,0 +1,82 @@
++from concurrent.futures import ThreadPoolExecutor
++from copy import deepcopy
++import json
++import threading
++import time
++
++import pytest
++
++
++def receipt(arguments, uid='r1', lp=-.3):
++    return dict(request_id=uid,raw='<tool_call>'+json.dumps(dict(name='apply_electron_flow',arguments=arguments))+'</tool_call>',
++                generated_token_ids=[2],behavior_logprobs=[lp])
++
++
++def test_singleflight_rebuilds_each_proposals_metadata_and_scores():
++    from mechet.route_execution_cache import CachedChemistry, ExecutionCache
++    from mechet.route_policy_episode import NativeChemistry
++    from test_route_native_observation import episode, flow
++    ep=episode();ep.next_decision();args=flow(ep);base=NativeChemistry();original=base.step
++    calls=[]
++    def step(node, output):
++        calls.append(1);time.sleep(.05);return original(node,output)
++    base.step=step;cache=ExecutionCache();chem=CachedChemistry(base,cache,{'executor':'frozen'})
++    a=receipt(args);b=receipt(args,'r2',-.7)
++    bargs=deepcopy(args);bargs['electron_flow'][0]['instruction']='another explanation'
++    b=receipt(bargs,'r2',-.7)
++    with ThreadPoolExecutor(2) as pool:
++        f=pool.submit(chem.step,deepcopy(ep.node),a);g=pool.submit(chem.step,deepcopy(ep.node),b)
++        x,e=f.result();y,e2=g.result()
++    assert e==e2=='' and x.state==y.state and len(calls)==1
++    assert x.logprob==pytest.approx(ep.node.logprob-.3)
++    assert y.logprob==pytest.approx(ep.node.logprob-.7)
++    assert x.actions[-1]['arguments']==args and y.actions[-1]['arguments']==bargs
++    assert cache.metrics()['accepted_execution_cache_hits']==1
++    assert cache.metrics()['inflight_waiters']==1
++
++
++def test_cached_flow_still_checks_each_nodes_visited_states():
++    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
++    from mechet.route_policy_episode import NativeChemistry
++    from scripts.run_natural_language_value_search import visible
++    from test_route_native_observation import episode,flow
++    ep=episode();ep.next_decision();chem=CachedChemistry(NativeChemistry(),ExecutionCache(),{'executor':'frozen'})
++    output=receipt(flow(ep));child,error=chem.step(ep.node,output);assert not error
++    node=deepcopy(ep.node);node.visited.add(visible(child.state))
++    child,error=chem.step(node,dict(output,request_id='r2'))
++    assert child is None and error=='ValueError:STATE_CYCLE'
++
++
++def test_cache_never_memoizes_resource_errors_or_infrastructure_exceptions():
++    from mechet.route_execution_cache import ExecutionCache
++    cache=ExecutionCache();calls=[]
++    def resource():
++        calls.append(1);return {'error':'RESOURCE_CENSORED:MEMORY'}
++    cache.resolve('k','r1',resource);cache.resolve('k','r2',resource)
++    assert len(calls)==2
++    with pytest.raises(RuntimeError):cache.resolve('e','r1',lambda:(_ for _ in ()).throw(RuntimeError('transport')))
++    assert cache.resolve('e','r2',lambda:{'state':'ok'})['state']=='ok'
++
++
++def test_returned_infrastructure_error_is_not_a_cached_chemical_rejection():
++    from mechet.route_execution_cache import ExecutionCache
++    cache=ExecutionCache();calls=[]
++    def memory():
++        calls.append(1);return {'error':'MemoryError:allocation failed'}
++    cache.resolve('k','r1',memory);cache.resolve('k','r2',memory)
++    assert len(calls)==2
++
++
++def test_history_and_finish_are_not_cloned_from_the_cache():
++    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
++    from mechet.route_policy_episode import NativeChemistry
++    from test_route_native_observation import episode,flow
++    ep=episode();ep.next_decision();base=NativeChemistry();chem=CachedChemistry(base,ExecutionCache(),{'executor':'frozen'})
++    r=receipt(flow(ep));x,_=chem.step(ep.node,r)
++    n=deepcopy(ep.node);n.actions=[{'name':'old','arguments':{},'result':{}}];n.tokens=9;n.logprob=-4
++    y,_=chem.step(n,dict(r,request_id='r2'))
++    assert y.actions[:-1]==n.actions and y.tokens==10 and y.logprob==pytest.approx(-4.3)
++    assert x.actions[:-1]==ep.node.actions
++    finish=dict(r,raw='<tool_call>{"name":"finish_trace","arguments":{}}</tool_call>')
++    actual,error=chem.step(y,finish);expected,e=base.step(y,finish)
++    assert actual==expected and error==e
+diff --git a/tests/test_route_global_sampler.py b/tests/test_route_global_sampler.py
+new file mode 100644
+index 0000000..0cf07a1
+--- /dev/null
++++ b/tests/test_route_global_sampler.py
+@@ -0,0 +1,56 @@
++from concurrent.futures import ThreadPoolExecutor
++from dataclasses import dataclass
++import threading
++from types import SimpleNamespace
++
++import pytest
++
++
++def test_remote_sampler_uses_other_gpu_and_preserves_real_tokens(tmp_path,monkeypatch):
++    import torch
++    selected=[];monkeypatch.setattr(torch.cuda,'set_device',lambda device:selected.append(device))
++    from mechet.route_global_sampler import RemoteSampler,serve_gpu
++    from mechet.route_work_broker import WorkBroker
++    b=WorkBroker([],actor_version='v1',contract_sha='c',journal_path=tmp_path/'journal')
++    class Sampler:
++        cfg={'generation_batch_size':4}
++        model=SimpleNamespace(parameters=lambda:iter([SimpleNamespace(device=torch.device('cuda:3'))]))
++        def generate(self,requests):
++            assert selected==[torch.device('cuda:3')]
++            return [dict(request_id=r.request_id,behavior_version='v1',prompt_token_ids=[1],
++                generated_token_ids=[2,3],behavior_logprobs=[-.2,-.3],raw='real',truncated=False) for r in requests]
++    from mechet.route_policy_episode import DecisionRequest
++    r=DecisionRequest('cpu0/r','e','rx','C','v1',[],7,'C')
++    worker=threading.Thread(target=serve_gpu,args=(b,Sampler(),3),daemon=True);worker.start()
++    with RemoteSampler(b,'cpu0',{'generation_batch_size':4},prompt_ids=lambda r:[1]) as client:
++        value=client.submit(r).result(timeout=5)
++        assert value['generated_token_ids']==[2,3] and value['behavior_logprobs']==[-.2,-.3]
++    b.stop();worker.join(5);assert not worker.is_alive()
++    assert b.snapshot()['counts']['gpu3_requests']==1
++
++
++def test_sampler_worker_exception_completes_request_with_error(tmp_path):
++    from mechet.route_global_sampler import RemoteSampler,serve_gpu
++    from mechet.route_work_broker import WorkBroker
++    from mechet.route_policy_episode import DecisionRequest
++    b=WorkBroker([],actor_version='v1',contract_sha='c',journal_path=tmp_path/'journal')
++    class Broken:
++        cfg={'generation_batch_size':4}
++        def generate(self,requests):raise RuntimeError('backend failed')
++    t=threading.Thread(target=serve_gpu,args=(b,Broken(),1),daemon=True);t.start()
++    with RemoteSampler(b,'owner',{'generation_batch_size':4},prompt_ids=lambda r:[1]) as client:
++        f=client.submit(DecisionRequest('r','e','rx','C','v1',[],7,'C'))
++        with pytest.raises(RuntimeError,match='backend failed'):f.result(timeout=5)
++    t.join(5);assert not t.is_alive()
++
++
++def test_manager_transport_shares_coordinator_without_filesystem_rpc(tmp_path):
++    from mechet.route_global_sampler import broker_server,connect_broker
++    from mechet.route_work_broker import WorkBroker
++    b=WorkBroker([{'task_id':'t','target':'C'}],actor_version='v1',contract_sha='c',journal_path=tmp_path/'j')
++    server,address,key=broker_server(b,host='127.0.0.1')
++    try:
++        proxy=connect_broker(address,key)
++        assert proxy.claim(2)['task']['task_id']=='t'
++        assert b.snapshot()['unclaimed']==0
++    finally:server.stop_event.set()
+diff --git a/tests/test_route_work_broker.py b/tests/test_route_work_broker.py
+new file mode 100644
+index 0000000..b3694e1
+--- /dev/null
++++ b/tests/test_route_work_broker.py
+@@ -0,0 +1,81 @@
++from concurrent.futures import ThreadPoolExecutor
++from pathlib import Path
++import pytest
++
++
++def broker(tmp_path,rows=None):
++    from mechet.route_work_broker import WorkBroker
++    return WorkBroker(rows or [{'task_id':str(i),'target':'C'} for i in range(8)],
++        actor_version='v1',contract_sha='c1',journal_path=tmp_path/'claims.jsonl')
++
++
++def test_dynamic_claims_are_unique_and_completed_results_recover(tmp_path):
++    from mechet.external_route_data import file_sha
++    from mechet.route_work_broker import WorkBroker
++    b=broker(tmp_path);claimed=[]
++    def worker(rank):
++        while True:
++            job=b.claim(rank)
++            if job is None:return
++            claimed.append(job['task']['task_id'])
++            p=tmp_path/('result-'+job['task']['task_id']);p.write_text(job['task']['task_id'])
++            b.finish(job['lease_id'],rank,str(p),file_sha(p))
++    with ThreadPoolExecutor(4) as pool:list(pool.map(worker,range(4)))
++    assert sorted(claimed)==list(map(str,range(8))) and b.snapshot()['complete']==8
++    recovered=broker(tmp_path);assert recovered.claim(0) is None
++    assert len(recovered.results())==8
++
++
++def test_lease_owner_and_actor_binding_cannot_be_spoofed(tmp_path):
++    b=broker(tmp_path);j=b.claim(0)
++    with pytest.raises(ValueError,match='LEASE'):b.finish(j['lease_id'],1,'bad','bad')
++    r=dict(request_id='r',behavior_version='v1',messages=[],remaining_tokens=7)
++    b.submit(r,'owner',prompt_binding='p')
++    with pytest.raises(ValueError):b.submit(dict(r,behavior_version='v2'),'owner',prompt_binding='p')
++    with pytest.raises(ValueError):b.submit(dict(r,remaining_tokens=8),'owner',prompt_binding='p')
++
++
++def test_global_requests_keep_original_identity_and_route_back_to_cpu_owner(tmp_path):
++    b=broker(tmp_path)
++    r=dict(request_id='cpu0/request',behavior_version='v1',remaining_tokens=7)
++    b.submit(r,'cpu0',prompt_binding='p');batch=b.take(3,64,.01)
++    assert batch[0]['request']==r
++    result=dict(request_id=r['request_id'],behavior_version='v1',prompt_token_ids=[1],
++                generated_token_ids=[2,3],behavior_logprobs=[-.2,-.4],truncated=False)
++    b.complete(3,r['request_id'],result)
++    assert b.wait_result('cpu0',r['request_id'],.1)==result
++    assert b.wait_result('cpu0',r['request_id'],.1)==result
++    with pytest.raises(ValueError):b.wait_result('cpu1',r['request_id'],.1)
++    with pytest.raises(ValueError):b.complete(2,r['request_id'],result)
++
++
++def test_inflight_target_is_reclaimed_only_by_new_broker_epoch(tmp_path):
++    b=broker(tmp_path);j=b.claim(0)
++    other=broker(tmp_path);j2=other.claim(1)
++    assert j2['task']==j['task'] and j2['lease_id']!=j['lease_id']
++
++
++def test_worker_failure_unblocks_every_waiter(tmp_path):
++    b=broker(tmp_path);r=dict(request_id='r',behavior_version='v1')
++    b.submit(r,'cpu0',prompt_binding='p');b.fail('worker exploded')
++    with pytest.raises(RuntimeError,match='exploded'):b.wait_result('cpu0','r',.1)
++    with pytest.raises(RuntimeError,match='exploded'):b.claim(0)
++
++
++def test_completed_request_can_be_replayed_but_never_rebound(tmp_path):
++    b=broker(tmp_path);r=dict(request_id='r',behavior_version='v1')
++    v=dict(request_id='r',behavior_version='v1',prompt_token_ids=[1],generated_token_ids=[2],behavior_logprobs=[-.2])
++    b.seed_result(r,v)
++    b.submit(r,'cpu1',prompt_binding='p')
++    assert b.take(2,8,.01)==[] and b.wait_result('cpu1','r',.1)==v
++    with pytest.raises(ValueError):b.submit(dict(r,product='other'),'cpu1',prompt_binding='p')
++
++
++def test_lost_gpu_request_times_out_as_infrastructure_not_chemical_failure(tmp_path):
++    import time
++    from mechet.route_work_broker import WorkBroker
++    b=WorkBroker([],actor_version='v1',contract_sha='c1',journal_path=tmp_path/'j',request_timeout=.01)
++    b.submit(dict(request_id='r',behavior_version='v1'),'cpu',prompt_binding='p')
++    b.take(2,1,0);time.sleep(.02)
++    with pytest.raises(RuntimeError,match='GPU_REQUEST_DEADLINE'):b.wait_result('cpu','r',.1)
++    assert b.snapshot()['counts'].get('completed_requests',0)==0

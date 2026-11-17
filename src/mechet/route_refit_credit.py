@@ -20,6 +20,12 @@ def training_records(group):
         conditions=refit.get('conditioning',{})
         rows=defaultdict(list);seen=set()
         for report in reports:
+            from .route_acceleration import SKIPPED
+            if report.get('status')==SKIPPED:
+                # A real proposal was observed, but its future return was not.
+                # Do not replace it by cached Q or censor other genuine draws.
+                if report.get('reward') is not None:raise ValueError('SKIPPED_SUFFIX_HAS_REWARD')
+                continue
             credit=report.get('reward_evidence',{}).get('process_credit')
             if report['reward'] is not None:
                 list(process_sequences(report,[0.]*len(report['records'])))

@@ -21,8 +21,9 @@ from scripts.prepare_external_route_rl import source_files,verify_contract,ROOT
 
 
 def prepare(*,template,template_sha256,dataset,dataset_manifest_sha256,data_verification,
-            submission,output,condition,source_commit):
+            submission,output,condition,source_commit,acceleration=False):
     if condition not in ('B','C','D'):raise ValueError('STANDARD_CONDITION_REQUIRED')
+    if acceleration and condition!='D':raise ValueError('PR111_REQUIRES_STANDARD_D')
     template=Path(template).resolve();submission=Path(submission).resolve();output=Path(output).resolve()
     code=Path(__file__).resolve().parents[1]
     if not code.is_relative_to(ROOT/'artifacts'):raise ValueError('DEDICATED_FROZEN_CODE_SNAPSHOT_REQUIRED')
@@ -61,6 +62,13 @@ def prepare(*,template,template_sha256,dataset,dataset_manifest_sha256,data_veri
         cfg.update(censoring='exclude_whole_original_G4_and_whole_conditional_node_independently',
             gradient_estimand='mean_source_row_G4_fixedC1024_unique_receipt_branch_substitution')
     cfg['implementation']='native_process_DrGRPO_with_optional_exact_state_refit_v1'
+    if acceleration:
+        from mechet.route_acceleration import DEFAULT_ACCELERATION,validate_acceleration
+        cfg['acceleration']=dict(DEFAULT_ACCELERATION)
+        cfg['loss_batch_size']=4
+        cfg['experimental_condition']='pr111_standard_D_accelerated_complete_source_rows_v1'
+        cfg['implementation']='native_process_DrGRPO_refit_compute_lanes_global_requests_v1'
+        validate_acceleration(cfg)
     cfg['standard_data']['independent_verification_sha256']=file_sha(verification)
     cfg['files_sha256'][str(verification)]=file_sha(verification)
     cfg['initial_baseline']=dict(timing='after_training',kind='fresh_frozen_initial_actor',
@@ -86,6 +94,12 @@ def prepare(*,template,template_sha256,dataset,dataset_manifest_sha256,data_veri
         readable_name=f'MechET PR109 Standard {condition} complete source TRAIN/VALID (4H20)',
         task_description=f'PR109 teacher-free Standard {condition}; complete source-row TRAIN {cfg["train_targets"]}, VALID {cfg["validation_targets"]}; corrected History89442 start and fixed reference; declared source overlap and project URSA training-stock condition; native DrGRPO C1024; first rejection/rollback and conserved FLOW credit only C/D; exact-state branching only D. No external teacher, no hidden route action labels, no aggregate episode cap. Full frozen independent VALID G4 selection. Aggregate allocation ceiling8 H20; existing frozen jobs unchanged.')
     payload['start_cmd']=payload['start_cmd'].replace(old_flag,payload['task_flag'])
+    if acceleration:
+        prior_flag=payload['task_flag']
+        payload['task_flag']='meteor_mechet_pr111_standard_d_accelerated_4h20_20261117'
+        payload['readable_name']='MechET PR111 accelerated full-D3 Standard-D (4H20)'
+        payload['start_cmd']=payload['start_cmd'].replace(prior_flag,payload['task_flag'])
+        payload['task_description']+=' Separate PR111 compute/credit-lane sampler and dynamic GPU queue; not an in-place resume or exact old search equivalence. Admission and explicit launch authorization required; preserve existing D3/D1 jobs.'
     # Reuse the known working mount/image initializer, never expose it in the
     # public packet or logs. Preparation does not execute that initializer.
     launch=template.parent/'task_config.private.json'
@@ -113,4 +127,5 @@ if __name__=='__main__':
     for name in ('template-sha256','dataset-manifest-sha256','source-commit'):
         parser.add_argument('--'+name,required=True)
     parser.add_argument('--condition',required=True,choices=('B','C','D'))
+    parser.add_argument('--acceleration',action='store_true',help='Freeze separate PR111 Standard-D condition; does not submit')
     print(json.dumps(prepare(**vars(parser.parse_args()))),flush=True)
