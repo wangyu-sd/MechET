@@ -97,6 +97,7 @@ def attach_joint_evidence(groups,cfg):
     else:report_errors[0]=report_error
     if any(report_errors):raise ValueError('cannot bind forward scores to route credit: '+str(report_errors))
     return dict(query_count=len(observations),global_distinct=len(scores),available=sum(v['score'] is not None for v in scores.values()),
+                global_input_sha256=content_key([pool[key] for key in ids]),
                 mask_reasons=dict(mask),eligible_finish_appearances=eligible_finishes,scored_finish_appearances=scored_finishes,
                 observed_route_reward_sum=sum(route_rewards),observed_teacher_reward_sum=sum(teacher_rewards),
                 scored_reports=len(route_rewards),global_executed_queries=metrics['executed_queries'],

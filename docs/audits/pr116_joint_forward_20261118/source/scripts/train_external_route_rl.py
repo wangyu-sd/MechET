@@ -688,6 +688,15 @@ def train(contract_path):
              peft_version=peft.__version__,rdkit_version=rdkit.__version__,
              train_targets=len(ids),total_rounds=len(schedule),next_round=start,teacher_action_tokens=0)
         flush_phase_profile(cfg,root,rank,'startup',start)
+        if cfg.get('profile_replay'):
+            if start or actor_sha != cfg['parent_sha256']:
+                raise ValueError('teacher profile must start from the frozen parent')
+            from mechet.route_joint_profile import run_profile
+            verdict=run_profile(cfg,actor,reference,optimizer,local,root)
+            emit(root,rank,'teacher-profile-complete',status=verdict)
+            if '_vllm_process' in cfg:cfg['_vllm_process'].close()
+            dist.barrier();dist.destroy_process_group()
+            return
         # A checkpoint can have been published immediately before an interrupted
         # scheduled validation. Complete that validation before the next update.
         prior_error=''
