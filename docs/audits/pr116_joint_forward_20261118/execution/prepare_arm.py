@@ -17,7 +17,9 @@ def sha(f):
     return h.hexdigest()
 def write(path,value):
     path.write_text(json.dumps(value,indent=2,sort_keys=True)+'\n')
-def freeze(arm):
+def freeze(arm,profile=None):
+    if profile is not None and (arm=='R' or profile not in ('time_slice','colocated')):
+        raise ValueError('select teacher profile only for JR or J')
     if arm not in ('R','JR','J'):raise ValueError('unknown arm')
     cfg=json.loads((old/'contract.json').read_bytes())
     label=f'pr116_{arm.lower()}_64x32_4h20_20261118_01'
@@ -55,7 +57,10 @@ def freeze(arm):
             raise ValueError('teacher runtime mismatch')
         opts=json.loads(Path(teacher['teacher_config']).read_bytes())
         if sha(opts['checkpoint'])!=opts['checkpoint_sha256']:raise ValueError('official weight mismatch')
-        cfg['joint_forward'].update(teacher)
+        snapshot=code/'scripts/pr116_flow_teacher.py'
+        if sha(snapshot)!=teacher['teacher_protocol']['script_sha256']:raise ValueError('teacher adapter changed since admission')
+        cfg['joint_forward'].update(teacher,teacher_script=str(snapshot),profile=profile or 'colocated')
+        cfg['files_sha256'][teacher['teacher_config']]=teacher['teacher_protocol']['config_sha256']
     cfg.update(step_budget=dict(arm=arm,roots=str(base/'root_stream.jsonl'),valid=str(base/'clean_valid.jsonl'),
                     baseline_contract=str(stage0/'contract.json'),baseline_sha256=sha(stage0/'contract.json')),
         experimental_condition='PR116_'+arm,authorization='PR116 fresh History-89442, four independent H20',
@@ -80,4 +85,10 @@ def freeze(arm):
     with os.fdopen(os.open(folder/'task_config.private.json',os.O_CREAT|os.O_WRONLY|os.O_TRUNC,0o600),'w') as f:json.dump(job,f)
     write(folder/'manifest.json',dict(flag=flag,stage=arm,contract_sha256=sha(conf),device='H20',world=4,targets=2048))
     return folder
-if __name__=='__main__':print(freeze(sys.argv[1]))
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('arm',choices=('R','JR','J'))
+    parser.add_argument('--profile',choices=('colocated','time_slice'))
+    args=parser.parse_args()
+    print(freeze(args.arm,args.profile))

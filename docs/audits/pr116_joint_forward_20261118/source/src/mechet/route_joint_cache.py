@@ -5,10 +5,13 @@ from pathlib import Path
 def content_key(data):
     return hashlib.sha256(json.dumps(data,separators=(',',':'),sort_keys=True,allow_nan=False).encode()).hexdigest()
 
+def score_key(protocol,query):
+    return content_key([protocol,query['teacher_reactants_mapped'],query['target_product'],query['target_heavy_teacher_maps']])
+
 def get_scores(inputs,protocol,storage,score_batch):
     storage=Path(storage)
     storage.mkdir(parents=True,exist_ok=True)
-    keys=[content_key([protocol,q['teacher_reactants_mapped'],q['target_product'],q['target_heavy_teacher_maps']]) for q in inputs]
+    keys=[score_key(protocol,q) for q in inputs]
     pending=dict(zip(keys,inputs))
     evidence={}
     # Stable ordering prevents lock inversion when two ranks request overlapping batches.

@@ -100,3 +100,29 @@ class PhaseTest(unittest.TestCase):
         self.assertEqual(result['global_distinct'],1)
         self.assertEqual(result['eligible_finish_appearances'],2)
         self.assertEqual(result['scored_finish_appearances'],0)
+
+class DeviceSchedulingTest(unittest.TestCase):
+    def test_teacher_slots_restore_input_order_and_count(self):
+        from mechet.route_joint_devices import sample_on_devices
+        calls=[]
+        def score(device,rows):
+            calls.append((device,len(rows)))
+            return [r['value'] for r in rows]
+        inputs=[dict(teacher_reactants_mapped='C'*i,value=i) for i in (2,10,1,3,11,4,9)]
+        values,device_seconds=sample_on_devices(inputs,[0,1,2,3],score)
+        self.assertEqual(values,[2,10,1,3,11,4,9])
+        self.assertEqual(sum(count for _,count in calls),7)
+        self.assertEqual({d for d,_ in calls},{0,1,2,3})
+        self.assertEqual(set(device_seconds),{0,1,2,3})
+
+    def test_local_colocation_keeps_engine_time_slice_releases_once(self):
+        from unittest.mock import Mock
+        from mechet.route_joint_devices import release_for_teacher
+        engine=Mock()
+        config={'_vllm_process':engine}
+        release_for_teacher(config,'colocated',True)
+        release_for_teacher(config,'time_slice',False)
+        engine.close.assert_not_called()
+        release_for_teacher(config,'time_slice',True)
+        self.assertNotIn('_vllm_process',config)
+        engine.close.assert_called_once()
