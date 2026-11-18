@@ -26,17 +26,8 @@ def native_dpo_trainer():
 
 
 def train(manifest_path, manifest_sha256, output):
-    from datasets import Dataset
-    import torch
-    from accelerate import PartialState
-    from peft import PeftModel
-    from transformers import AutoTokenizer
-    from transformers.trainer_utils import get_last_checkpoint
-    from trl import DPOConfig
-    from mechet.qwen35_protocol import OFFICIAL_REVISION, load_language_model
     from mechet.route_joint_schedule import ACTOR_SHA
 
-    trainer_type = native_dpo_trainer()
     if file_sha(manifest_path) != manifest_sha256:
         raise ValueError('PR116 offline DPO corpus binding changed')
     manifest = json.loads(manifest_path.read_bytes())
@@ -47,6 +38,22 @@ def train(manifest_path, manifest_sha256, output):
     pairs_path = manifest_path.parent/'pairs.jsonl'
     if file_sha(pairs_path) != manifest['pairs_sha256']:
         raise ValueError('PR116 offline DPO preference payload changed')
+    source = Path(manifest['source_contract'])
+    if file_sha(source) != manifest['source_contract_sha256']:
+        raise ValueError('PR116 offline DPO source contract changed')
+
+    from mechet.route_transformers_import import import_transformers_indexed
+    import_transformers_indexed(json.loads(source.read_bytes()))
+    from datasets import Dataset
+    import torch
+    from accelerate import PartialState
+    from peft import PeftModel
+    from transformers import AutoTokenizer
+    from transformers.trainer_utils import get_last_checkpoint
+    from trl import DPOConfig
+    from mechet.qwen35_protocol import OFFICIAL_REVISION, load_language_model
+
+    trainer_type = native_dpo_trainer()
     if int(os.environ.get('WORLD_SIZE', '0')) != 4 or 'A100' not in torch.cuda.get_device_name(
             int(os.environ['LOCAL_RANK'])):
         raise ValueError('PR116 offline DPO requires four independent A100 ranks')
