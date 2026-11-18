@@ -1,0 +1,16 @@
+{
+  "condition": "teacher_free_refit_po",
+  "optimizer_step": 1,
+  "contract_sha256": "0671327714bcb787d74799fa5499150360e55d6c2cab40ae91583e563ecafb99",
+  "actor_sha256": "9b0cc66e8731c78a4a273225cf8e63b3597f8e9e34c0af16138de03531ae6621",
+  "committed_at": "2026-11-19T01:38:38.128590+08:00",
+  "root_only_metrics": {
+    "targets": 32,
+    "sampled_route_episodes": 128,
+    "model_decision_requests": 3262,
+    "native_stock_solved": 14,
+    "verified_stock_solved": 0
+  },
+  "all_lane_gpu_requests": 9641,
+  "next_round_started": true
+}
