@@ -18,11 +18,19 @@ def sha(f):
 def write(path,value):
     path.write_text(json.dumps(value,indent=2,sort_keys=True)+'\n')
 def freeze(arm,profile=None):
-    if profile is not None and (arm=='R' or profile not in ('time_slice','colocated')):
+    if profile is not None and (arm not in ('JR', 'J') or profile not in ('time_slice', 'colocated')):
         raise ValueError('select teacher profile only for JR or J')
-    if arm not in ('R','JR','J'):raise ValueError('unknown arm')
+    if arm not in ('R', 'JR', 'J', 'J-distill'):
+        raise ValueError('unknown arm')
+    distill = arm == 'J-distill'
+    if distill:
+        sys.path.insert(0, str(release/'code'))
+        sys.path.insert(0, str(release/'code/src'))
+        from mechet.route_joint_distillation import bind_distillation_source
+        source = bind_distillation_source(sub/'pr116_j_64x32_4h20_20261118_01/contract.json')
     cfg=json.loads((old/'contract.json').read_bytes())
-    label=f'pr116_{arm.lower()}_64x32_4h20_20261118_01'
+    arm_slug = arm.lower().replace('-', '_')
+    label=f'pr116_{arm_slug}_64x32_4h20_20261118_01'
     folder=sub/label;folder.mkdir(exist_ok=True)
     global code
     import shutil
@@ -46,9 +54,9 @@ def freeze(arm,profile=None):
     with ThreadPoolExecutor(max_workers=12) as ex:
         cfg['code_files_sha256']=dict(zip([str(p.relative_to(code)) for p in source],ex.map(sha,source)))
     for k in ('acceleration_continuation','initial_baseline'):cfg.pop(k,None)
-    cap=(.1 if arm!='R' else 0.);lam=(.1 if arm=='J' else 0.)
+    cap=(.1 if arm in ('JR','J') else 0.);lam=(.1 if arm=='J' else 0.)
     cfg['joint_forward']=dict(lambda_f=cap,lambda_d=lam,beta_d=.1,margin=.25)
-    if arm!='R':
+    if arm in ('JR', 'J'):
         teacher=json.loads((release/'teacher/bound_runtime.json').read_bytes())
         admission=json.loads((release/'teacher/forward_execution.json').read_bytes())
         if admission['protocol']!=teacher['teacher_protocol'] or not admission['scores']:
@@ -68,6 +76,11 @@ def freeze(arm,profile=None):
         products_per_round=32,validation_targets=512,epochs=1,entry_archive=str(archive),
         entry_archive_sha256=sha(archive),code_root=str(code),output_dir=str(root/'outputs/agent'/label),
         native_admission=dict(required=True,mode='fresh_stage2_native_baseline'))
+    if distill:
+        cfg['distill_source'] = source
+        cfg['files_sha256'][source['source_contract']] = source['source_contract_sha256']
+        cfg['implementation'] = 'frozen Joint actor ReFIT search and native weighted sequence CE'
+        cfg['authorization'] = 'PR116 final TRAIN-only search-to-policy distillation, four H20'
     cfg['validation_protocol']['id']='pr116_clean_stage2_g4_seed17_v1'
     cfg['acceleration']['refit_lanes']=dict(credit_forks_per_tree=2,exploration_forks_per_tree=0)
     cfg['refit']['max_forks_per_tree']=2
@@ -76,8 +89,9 @@ def freeze(arm,profile=None):
     conf=folder/'contract.json';write(conf,cfg)
     job=json.loads((old/'task_config.private.json').read_bytes())
     flag='meteor_mechet_'+label
-    job.update(task_flag=flag,readable_name=f'MechET PR116 {arm} 64 updates 32 roots 4 H20',
-               task_description=f'Fresh History-89442 fixed TRAIN root stream. Four GPUs, arm {arm}.',
+    rounds = '64 TRAIN batches' if distill else '64 updates'
+    job.update(task_flag=flag,readable_name=f'MechET PR116 {arm} {rounds} 32 roots 4 H20',
+               task_description=f'Fixed TRAIN root stream. Four GPUs, arm {arm}.',
                host_num=1,host_gpu_num=4,keep_running_after_trainer_finish=False,
                start_cmd=f"bash -lc 'TAIJI_HEARTBEAT_LABEL={flag} TAIJI_HEARTBEAT_SECONDS=45 TAIJI_MIRROR_PID1_STDOUT=1 exec bash {code}/scripts/taiji_run_with_heartbeat.sh bash {code}/scripts/taiji_external_route_bootstrap.sh {conf}'")
     token=json.loads(Path('/root/.taijiconfig').read_bytes())['user']['token']
@@ -88,7 +102,7 @@ def freeze(arm,profile=None):
 if __name__=='__main__':
     import argparse
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('arm',choices=('R','JR','J'))
+    parser.add_argument('arm',choices=('R','JR','J','J-distill'))
     parser.add_argument('--profile',choices=('colocated','time_slice'))
     args=parser.parse_args()
     print(freeze(args.arm,args.profile))

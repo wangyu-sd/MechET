@@ -12,7 +12,9 @@ ACTOR_SHA = '2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453'
 def validate(cfg):
     spec=cfg['step_budget']
     opts=cfg['joint_forward']
-    arms={'R':(0.,0.),'JR':(.1,0.),'J':(.1,.1)}
+    arms={'R':(0.,0.),'JR':(.1,0.),'J':(.1,.1),'J-distill':(0.,0.)}
+    if (spec['arm']=='J-distill') != bool(cfg.get('distill_source')):
+        raise ValueError('PR116 distillation source binding missing or unexpected')
     if arms.get(spec['arm'])!=(opts['lambda_f'],opts['lambda_d']):
         raise ValueError('joint arm coefficients changed')
     if (cfg['parent_sha256']!=ACTOR_SHA or cfg['products_per_round']!=32
@@ -23,7 +25,7 @@ def validate(cfg):
             or cfg.get('acceleration_continuation') or file_sha(spec['roots'])!=TRAIN_SHA
             or file_sha(spec['valid'])!=VALID_SHA):
         raise ValueError('PR116 frozen protocol changed')
-    if spec['arm']!='R':
+    if spec['arm'] in ('JR','J'):
         protocol=opts['teacher_protocol']
         if not protocol or file_sha(opts['teacher_script'])!=protocol['script_sha256']:
             raise ValueError('forward replay teacher identity changed')

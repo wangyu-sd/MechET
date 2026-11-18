@@ -534,6 +534,13 @@ def train(contract_path):
     cfg=verify_contract(contract_path);cfg['_sha']=file_sha(contract_path)
     from mechet.route_native_admission import require_native_admission
     require_native_admission(cfg,cfg['_sha'])
+    distill = cfg.get('distill_source')
+    if distill:
+        from mechet.route_joint_distillation import bind_distillation_source
+        if cfg['step_budget']['arm'] != 'J-distill' or bind_distillation_source(distill['source_contract']) != distill:
+            raise ValueError('PR116 distillation source changed')
+        cfg['parent'] = distill['actor_directory']
+        cfg['parent_sha256'] = distill['actor_sha256']
     if profiler is not None:cfg['_phase_profile']=profiler
     from mechet.route_precision import configure_precision
     cfg['_effective_policy_precision']=configure_precision(cfg)
@@ -653,7 +660,7 @@ def train(contract_path):
             emit(root,rank,'external-route-train-first',initial_baseline='deferred_after_training',
                  prior_validation_output=cfg['initial_baseline']['parent_output'],optimizer_step=step)
         if validation_due(cfg,boundaries,start):
-            if start==0 and 'step_budget' in cfg:
+            if start==0 and 'step_budget' in cfg and not distill:
                 from mechet.route_joint_schedule import common_baseline
                 message=[None]
                 if rank==0:
@@ -664,7 +671,11 @@ def train(contract_path):
             else:evaluate(start,actor_sha)
         for index in range(start,len(schedule)):
             epoch,chunk=schedule[index];own=[byid[k] for k in chunk[rank::world]]
-            version=f'round{index:06d}:{actor_sha}';directory=root/f'round-{index:06d}'/f'rank{rank:02d}'
+            collector = reference if distill else actor
+            if distill:
+                cfg['_rollout_adapter_path'] = distill['actor_directory']
+            version=f'round{index:06d}:{cfg["parent_sha256"] if distill else actor_sha}'
+            directory=root/f'round-{index:06d}'/f'rank{rank:02d}'
             began=time.monotonic();error='';groups=[]
             try:
                 # The oracle is deliberately absent from the collection API.
@@ -673,12 +684,12 @@ def train(contract_path):
                     if cfg.get('acceleration'):
                         from mechet.route_distributed_collection import collect_distributed_round
                         groups=run_recorded(contract_path,lambda _:collect_distributed_round(
-                            [byid[k] for k in chunk],stock,protected,actor,tokenizer,cfg,
+                            [byid[k] for k in chunk],stock,protected,collector,tokenizer,cfg,
                             root/f'round-{index:06d}',version,oracle),rank=rank)
                         reports=None
                     else:
                         reports=run_recorded(contract_path,
-                            lambda _:collect_round(own,stock,protected,actor,tokenizer,cfg,directory,version),rank=rank)
+                            lambda _:collect_round(own,stock,protected,collector,tokenizer,cfg,directory,version),rank=rank)
                 with phase(cfg,'reward.score',groups=len(own)):
                     if reports is not None:groups=score_groups(own,reports,cfg['candidates'],oracle)
                 with phase(cfg,'reward.persist'):
@@ -690,16 +701,37 @@ def train(contract_path):
                 dist.all_gather_object(errors,error)
             if any(errors):raise RuntimeError('COLLECTIVE_ROUTE_COLLECTION_FAILED:'+json.dumps(errors))
             sampling_seconds=time.monotonic()-began
-            joint_metrics={}
-            if cfg.get('joint_forward'):
-                from mechet.route_joint_phase import attach_joint_evidence
-                joint_metrics=attach_joint_evidence(groups,cfg)
-                atomic_json(directory/'joint_rewarded_episodes.json',groups)
-            with phase(cfg,'learner.total',groups=len(groups)):
-                stats=optimize_routes(actor,reference,optimizer,groups,cfg)
-            if joint_metrics:stats['joint_teacher']=joint_metrics
-            from mechet.external_route_runtime import require_route_update
-            require_route_update(stats)
+            if distill:
+                from mechet.route_joint_distillation import prepare_distill_examples
+                from mechet.route_self_distill_runtime import distillation_update
+                prep_error = ''
+                try:
+                    targets, coverage = prepare_distill_examples(
+                        groups, cfg, [byid[k] for k in chunk], version, tokenizer.eos_token_id, oracle)
+                    atomic_json(directory/'distillation_targets.json', dict(
+                        source_actor_sha=distill['actor_sha256'], coverage=coverage, targets=targets))
+                except Exception as exc:
+                    prep_error = type(exc).__name__ + ':' + str(exc)
+                prep_errors = [None] * world
+                dist.all_gather_object(prep_errors, prep_error)
+                if any(prep_errors):
+                    raise RuntimeError('COLLECTIVE_DISTILLATION_PREPARATION_FAILED:' + json.dumps(prep_errors))
+                with phase(cfg, 'learner.distillation', groups=len(groups)):
+                    stats = distillation_update(actor, optimizer, targets, dict(
+                        cfg, actual_actor_sha=distill['actor_sha256'],
+                        source_actor_sha=distill['actor_sha256'], eos_token_id=tokenizer.eos_token_id))
+                stats['distillation_coverage'] = coverage
+            else:
+                joint_metrics={}
+                if cfg.get('joint_forward'):
+                    from mechet.route_joint_phase import attach_joint_evidence
+                    joint_metrics=attach_joint_evidence(groups,cfg)
+                    atomic_json(directory/'joint_rewarded_episodes.json',groups)
+                with phase(cfg,'learner.total',groups=len(groups)):
+                    stats=optimize_routes(actor,reference,optimizer,groups,cfg)
+                if joint_metrics:stats['joint_teacher']=joint_metrics
+                from mechet.external_route_runtime import require_route_update
+                require_route_update(stats)
             step+=int(stats['optimizer_updated'])
             stats.update(sampled_behavior_entropy(groups))
             stats.update(cfg.get('_last_collection_metrics',{}))
@@ -730,16 +762,20 @@ def train(contract_path):
             flush_phase_profile(cfg,root,rank,round_profile_kind(index,start),index+1)
             if validation_due(cfg,boundaries,index+1):
                 evaluate(index+1,actor_sha)
+        if distill and not step:
+            raise RuntimeError('NO_ELIGIBLE_DISTILLATION_TARGETS_IN_TRAIN_POPULATION')
         if deferred(cfg):
             complete_deferred_baseline(validation_rows,stock,validation_protected,reference,tokenizer,cfg,root)
         completion_error=[None]
         if rank==0:
             try:
+                extra = dict(optimizer_updates=step, distill_source=distill,
+                             distilled_checkpoint=str(root/'checkpoints'/f'round-{len(schedule):06d}')) if distill else {}
                 atomic_json(root/'completion.json',dict(contract_sha256=cfg['_sha'],train_targets=len(ids),
                     epochs=cfg['epochs'],visited_target_episodes=len(ids)*cfg['epochs'],actor_sha256=actor_sha,
                     validation_targets=len(validation_rows),
                     selected_checkpoint=json.loads((root/'validation'/'best_checkpoint.json').read_text()),
-                    chemical_benchmark_improvement='NOT_EVALUATED'))
+                    chemical_benchmark_improvement='NOT_EVALUATED', **extra))
             except Exception as exc:
                 completion_error[0]=type(exc).__name__+':'+str(exc)
         dist.broadcast_object_list(completion_error,src=0)
