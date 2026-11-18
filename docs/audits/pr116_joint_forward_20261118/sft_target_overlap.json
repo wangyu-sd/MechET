@@ -1,0 +1,12 @@
+{
+  "actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "history_train_rows": 1908035,
+  "history_train_sha256": "0ace674b6ebf6b4ba0a3542de8572c973e0d6a644a6923f651ffab74b2ab4748",
+  "history_train_source_ids": 243753,
+  "history_train_unique_products": 202620,
+  "matched_count": 83,
+  "scope": "Stage-II TRAIN target_smiles vs PR116 clean validation final target; canonical stereo-preserving identity",
+  "unmatched_count": 429,
+  "valid_denominator": 512,
+  "valid_file_sha256": "664b05acc2c6ee1e66ba613b911ad54e0de98abba75b7f0ac5a85c8fa615e7f3"
+}
