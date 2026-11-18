@@ -1,0 +1,43 @@
+{
+  "time": "2026-11-19T00:56:20.108764+08:00",
+  "all_targets": {
+    "denominator": 512,
+    "published": 512,
+    "stock_closed": 124,
+    "reference_verified": 22,
+    "censored": 0,
+    "decisions": 47290
+  },
+  "seen_in_history_sft": {
+    "denominator": 83,
+    "published": 83,
+    "stock_closed": 24,
+    "reference_verified": 9,
+    "censored": 0,
+    "decisions": 8017
+  },
+  "unseen_in_history_sft": {
+    "denominator": 429,
+    "published": 429,
+    "stock_closed": 100,
+    "reference_verified": 13,
+    "censored": 0,
+    "decisions": 39273
+  },
+  "reaction_disjoint": {
+    "denominator": 506,
+    "published": 506,
+    "stock_closed": 122,
+    "reference_verified": 22,
+    "censored": 0,
+    "decisions": 46860
+  },
+  "reaction_and_patent_disjoint": {
+    "denominator": 492,
+    "published": 492,
+    "stock_closed": 119,
+    "reference_verified": 22,
+    "censored": 0,
+    "decisions": 45559
+  }
+}
