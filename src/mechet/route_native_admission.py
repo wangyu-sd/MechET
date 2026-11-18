@@ -11,6 +11,7 @@ NATIVE_FILES={'src/mechet/route_gpu_backend.py','src/mechet/route_vllm_backend.p
     'scripts/serve_route_vllm.py','scripts/validate_pr111_native_runtime.py'}
 REQUIRED_CHECKS={'native_probability','prompt_ids','complete_actions','native_cache_hit',
     'global_async_receipts','actual_native_refill_before_long_neighbor','actor_switch_cache_invalidation'}
+TRAIN_WITH_DRIFT_TELEMETRY = 'train_with_drift_telemetry'
 
 
 def validate_compute(report,code):
@@ -37,6 +38,17 @@ def require_native_admission(cfg,contract_sha,*,code=None):
     if cfg.get('acceleration',{}).get('version')!='pr111_full_acceleration_v2':return
     expected=cfg.get('native_admission',{})
     if expected.get('required') is not True:raise ValueError('NATIVE_HARDWARE_ADMISSION_REQUIRED')
+    if expected.get('mode') == TRAIN_WITH_DRIFT_TELEMETRY:
+        source = cfg.get('acceleration_continuation', {})
+        bindings = {
+            'actor_sha256': source.get('source_payload_sha256', {}).get('adapter_model.safetensors'),
+            'source_contract_sha256': source.get('source_contract_sha256'),
+            'source_complete_sha256': source.get('source_complete_sha256'),
+        }
+        if (cfg.get('inference_backend') != 'vllm' or expected.get('previous_probability_failure')
+                or any(not value or expected.get(key) != value for key, value in bindings.items())):
+            raise ValueError('NATIVE_TRAIN_FIRST_SOURCE_BINDING')
+        return
     pointer=Path(cfg['output_dir'])/'runtime_validation/native_admission.json'
     if not pointer.is_file():raise ValueError('NATIVE_HARDWARE_ADMISSION_REQUIRED')
     record=json.loads(pointer.read_text());path=Path(record['report'])

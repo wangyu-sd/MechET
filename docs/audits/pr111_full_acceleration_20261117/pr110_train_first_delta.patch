@@ -1,0 +1,138 @@
+diff --git a/scripts/prepare_acceleration_continuation.py b/scripts/prepare_acceleration_continuation.py
+index e745a8c..285f471 100644
+--- a/scripts/prepare_acceleration_continuation.py
++++ b/scripts/prepare_acceleration_continuation.py
+@@ -98,8 +98,11 @@ def preserve_runtime_leaves(original,code):
+ 
+ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stopped_receipt,
+             admission,submission,output,source_commit,authorization,task_flag,
+-            full_native=False,second_source_contract=None,previous_failed_admission=None):
++            full_native=False,second_source_contract=None,previous_failed_admission=None,
++            train_with_drift_telemetry=False):
+     if not authorization.strip():raise ValueError('EXPLICIT_USER_AUTHORIZATION_REQUIRED')
++    if train_with_drift_telemetry and (not full_native or previous_failed_admission is not None):
++        raise ValueError('TRAIN_FIRST_REQUIRES_NATIVE_WITHOUT_SEPARATE_PROBE')
+     code=Path(__file__).resolve().parents[1]
+     if not code.is_relative_to(ROOT/'artifacts'):raise ValueError('DEDICATED_FROZEN_CODE_SNAPSHOT_REQUIRED')
+     source_contract=Path(source_contract).resolve();source_stopped_receipt=Path(source_stopped_receipt).resolve()
+@@ -136,7 +139,7 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
+         if full_native:
+             if second_source_contract is None:raise ValueError('NATIVE_SECOND_SOURCE_CONTRACT_REQUIRED')
+             second_source_contract=Path(second_source_contract).resolve()
+-            from mechet.route_native_admission import validate_local_admission
++            from mechet.route_native_admission import TRAIN_WITH_DRIFT_TELEMETRY, validate_local_admission
+             gate=validate_local_admission(admission,code)
+             candidates=[b for b in gate['source_bindings'].values()
+                 if b.get('contract_sha256')==source_contract_sha256]
+@@ -151,6 +154,9 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
+                 source_contract_sha256=source_contract_sha256,source_complete_sha256=audit['source_complete_sha256'],
+                 second_source_contract=str(second_source_contract),second_source_contract_sha256=file_sha(second_source_contract),
+                 status='REQUIRES_REAL_H20_BF16_GATE_BEFORE_TRAINING')
++            if train_with_drift_telemetry:
++                cfg['native_admission'].update(
++                    mode=TRAIN_WITH_DRIFT_TELEMETRY, status='MONITOR_DRIFT_ON_FORMAL_TRAINING_RECEIPTS')
+             if previous_failed_admission is not None:
+                 previous_failed_admission=Path(previous_failed_admission).resolve()
+                 failed=read_json(previous_failed_admission);prior=failed.get('source_bindings',{}).get('first',{})
+@@ -261,6 +267,7 @@ def main():
+     prepare_parser.add_argument('--full-native',action='store_true')
+     prepare_parser.add_argument('--second-source-contract',type=Path)
+     prepare_parser.add_argument('--previous-failed-admission',type=Path)
++    prepare_parser.add_argument('--train-with-drift-telemetry',action='store_true')
+     args=vars(parser.parse_args());mode=args.pop('mode')
+     if mode=='audit':
+         output=shared_new_path(args.pop('audit_output'))
+diff --git a/scripts/run_route_native_admission.py b/scripts/run_route_native_admission.py
+index 9052e61..d87c17a 100644
+--- a/scripts/run_route_native_admission.py
++++ b/scripts/run_route_native_admission.py
+@@ -5,7 +5,7 @@ from pathlib import Path
+ import time
+ 
+ from mechet.external_route_data import file_sha
+-from mechet.route_native_admission import require_native_admission
++from mechet.route_native_admission import TRAIN_WITH_DRIFT_TELEMETRY, require_native_admission
+ from mechet.route_training_contract import atomic_json
+ 
+ 
+@@ -13,6 +13,10 @@ def main(contract):
+     cfg=json.loads(contract.read_text())
+     if cfg.get('acceleration',{}).get('version')!='pr111_full_acceleration_v2':return
+     expected=cfg['native_admission']
++    if expected.get('mode') == TRAIN_WITH_DRIFT_TELEMETRY:
++        require_native_admission(cfg, file_sha(contract))
++        print(json.dumps({'event': 'native-training-with-drift-telemetry'}), flush=True)
++        return
+     if file_sha(expected['second_source_contract'])!=expected['second_source_contract_sha256']:
+         raise ValueError('NATIVE_SECOND_SOURCE_CONTRACT_CHANGED')
+     source=cfg['acceleration_continuation']
+diff --git a/src/mechet/route_native_admission.py b/src/mechet/route_native_admission.py
+index a6208a8..3762f81 100644
+--- a/src/mechet/route_native_admission.py
++++ b/src/mechet/route_native_admission.py
+@@ -11,6 +11,7 @@ NATIVE_FILES={'src/mechet/route_gpu_backend.py','src/mechet/route_vllm_backend.p
+     'scripts/serve_route_vllm.py','scripts/validate_pr111_native_runtime.py'}
+ REQUIRED_CHECKS={'native_probability','prompt_ids','complete_actions','native_cache_hit',
+     'global_async_receipts','actual_native_refill_before_long_neighbor','actor_switch_cache_invalidation'}
++TRAIN_WITH_DRIFT_TELEMETRY = 'train_with_drift_telemetry'
+ 
+ 
+ def validate_compute(report,code):
+@@ -37,6 +38,17 @@ def require_native_admission(cfg,contract_sha,*,code=None):
+     if cfg.get('acceleration',{}).get('version')!='pr111_full_acceleration_v2':return
+     expected=cfg.get('native_admission',{})
+     if expected.get('required') is not True:raise ValueError('NATIVE_HARDWARE_ADMISSION_REQUIRED')
++    if expected.get('mode') == TRAIN_WITH_DRIFT_TELEMETRY:
++        source = cfg.get('acceleration_continuation', {})
++        bindings = {
++            'actor_sha256': source.get('source_payload_sha256', {}).get('adapter_model.safetensors'),
++            'source_contract_sha256': source.get('source_contract_sha256'),
++            'source_complete_sha256': source.get('source_complete_sha256'),
++        }
++        if (cfg.get('inference_backend') != 'vllm' or expected.get('previous_probability_failure')
++                or any(not value or expected.get(key) != value for key, value in bindings.items())):
++            raise ValueError('NATIVE_TRAIN_FIRST_SOURCE_BINDING')
++        return
+     pointer=Path(cfg['output_dir'])/'runtime_validation/native_admission.json'
+     if not pointer.is_file():raise ValueError('NATIVE_HARDWARE_ADMISSION_REQUIRED')
+     record=json.loads(pointer.read_text());path=Path(record['report'])
+diff --git a/tests/test_route_native_admission.py b/tests/test_route_native_admission.py
+index 2bb1612..13639a5 100644
+--- a/tests/test_route_native_admission.py
++++ b/tests/test_route_native_admission.py
+@@ -4,6 +4,35 @@ import json
+ import pytest
+ 
+ 
++def test_train_first_continues_without_separate_probe_but_checks_source_binding(tmp_path):
++    from mechet.route_native_admission import require_native_admission
++    from scripts.run_route_native_admission import main
++
++    cfg = {
++        'output_dir': str(tmp_path / 'output'),
++        'inference_backend': 'vllm',
++        'acceleration': {'version': 'pr111_full_acceleration_v2'},
++        'native_admission': {
++            'required': True, 'mode': 'train_with_drift_telemetry',
++            'actor_sha256': 'actor', 'source_contract_sha256': 'source',
++            'source_complete_sha256': 'complete',
++        },
++        'acceleration_continuation': {
++            'source_contract_sha256': 'source', 'source_complete_sha256': 'complete',
++            'source_payload_sha256': {'adapter_model.safetensors': 'actor'},
++        },
++    }
++    contract = tmp_path / 'contract.json'
++    contract.write_text(json.dumps(cfg))
++    main(contract)
++    require_native_admission(cfg, 'contract')
++    assert not (tmp_path / 'output').exists()
++
++    cfg['native_admission']['actor_sha256'] = 'wrong'
++    with pytest.raises(ValueError, match='NATIVE_TRAIN_FIRST_SOURCE_BINDING'):
++        require_native_admission(cfg, 'contract')
++
++
+ def test_native_training_refuses_missing_failed_or_stale_hardware_gate(tmp_path):
+     from mechet.route_native_admission import require_native_admission
+     cfg=dict(output_dir=str(tmp_path),inference_backend='vllm',policy_precision='bf16_autocast',

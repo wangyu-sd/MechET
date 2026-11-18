@@ -98,8 +98,11 @@ def preserve_runtime_leaves(original,code):
 
 def prepare(*,source_contract,source_contract_sha256,source_instance,source_stopped_receipt,
             admission,submission,output,source_commit,authorization,task_flag,
-            full_native=False,second_source_contract=None,previous_failed_admission=None):
+            full_native=False,second_source_contract=None,previous_failed_admission=None,
+            train_with_drift_telemetry=False):
     if not authorization.strip():raise ValueError('EXPLICIT_USER_AUTHORIZATION_REQUIRED')
+    if train_with_drift_telemetry and (not full_native or previous_failed_admission is not None):
+        raise ValueError('TRAIN_FIRST_REQUIRES_NATIVE_WITHOUT_SEPARATE_PROBE')
     code=Path(__file__).resolve().parents[1]
     if not code.is_relative_to(ROOT/'artifacts'):raise ValueError('DEDICATED_FROZEN_CODE_SNAPSHOT_REQUIRED')
     source_contract=Path(source_contract).resolve();source_stopped_receipt=Path(source_stopped_receipt).resolve()
@@ -136,7 +139,7 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
         if full_native:
             if second_source_contract is None:raise ValueError('NATIVE_SECOND_SOURCE_CONTRACT_REQUIRED')
             second_source_contract=Path(second_source_contract).resolve()
-            from mechet.route_native_admission import validate_local_admission
+            from mechet.route_native_admission import TRAIN_WITH_DRIFT_TELEMETRY, validate_local_admission
             gate=validate_local_admission(admission,code)
             candidates=[b for b in gate['source_bindings'].values()
                 if b.get('contract_sha256')==source_contract_sha256]
@@ -151,6 +154,9 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
                 source_contract_sha256=source_contract_sha256,source_complete_sha256=audit['source_complete_sha256'],
                 second_source_contract=str(second_source_contract),second_source_contract_sha256=file_sha(second_source_contract),
                 status='REQUIRES_REAL_H20_BF16_GATE_BEFORE_TRAINING')
+            if train_with_drift_telemetry:
+                cfg['native_admission'].update(
+                    mode=TRAIN_WITH_DRIFT_TELEMETRY, status='MONITOR_DRIFT_ON_FORMAL_TRAINING_RECEIPTS')
             if previous_failed_admission is not None:
                 previous_failed_admission=Path(previous_failed_admission).resolve()
                 failed=read_json(previous_failed_admission);prior=failed.get('source_bindings',{}).get('first',{})
@@ -261,6 +267,7 @@ def main():
     prepare_parser.add_argument('--full-native',action='store_true')
     prepare_parser.add_argument('--second-source-contract',type=Path)
     prepare_parser.add_argument('--previous-failed-admission',type=Path)
+    prepare_parser.add_argument('--train-with-drift-telemetry',action='store_true')
     args=vars(parser.parse_args());mode=args.pop('mode')
     if mode=='audit':
         output=shared_new_path(args.pop('audit_output'))

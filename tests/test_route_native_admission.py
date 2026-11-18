@@ -4,6 +4,35 @@ import json
 import pytest
 
 
+def test_train_first_continues_without_separate_probe_but_checks_source_binding(tmp_path):
+    from mechet.route_native_admission import require_native_admission
+    from scripts.run_route_native_admission import main
+
+    cfg = {
+        'output_dir': str(tmp_path / 'output'),
+        'inference_backend': 'vllm',
+        'acceleration': {'version': 'pr111_full_acceleration_v2'},
+        'native_admission': {
+            'required': True, 'mode': 'train_with_drift_telemetry',
+            'actor_sha256': 'actor', 'source_contract_sha256': 'source',
+            'source_complete_sha256': 'complete',
+        },
+        'acceleration_continuation': {
+            'source_contract_sha256': 'source', 'source_complete_sha256': 'complete',
+            'source_payload_sha256': {'adapter_model.safetensors': 'actor'},
+        },
+    }
+    contract = tmp_path / 'contract.json'
+    contract.write_text(json.dumps(cfg))
+    main(contract)
+    require_native_admission(cfg, 'contract')
+    assert not (tmp_path / 'output').exists()
+
+    cfg['native_admission']['actor_sha256'] = 'wrong'
+    with pytest.raises(ValueError, match='NATIVE_TRAIN_FIRST_SOURCE_BINDING'):
+        require_native_admission(cfg, 'contract')
+
+
 def test_native_training_refuses_missing_failed_or_stale_hardware_gate(tmp_path):
     from mechet.route_native_admission import require_native_admission
     cfg=dict(output_dir=str(tmp_path),inference_backend='vllm',policy_precision='bf16_autocast',

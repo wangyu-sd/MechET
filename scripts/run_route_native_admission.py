@@ -5,7 +5,7 @@ from pathlib import Path
 import time
 
 from mechet.external_route_data import file_sha
-from mechet.route_native_admission import require_native_admission
+from mechet.route_native_admission import TRAIN_WITH_DRIFT_TELEMETRY, require_native_admission
 from mechet.route_training_contract import atomic_json
 
 
@@ -13,6 +13,10 @@ def main(contract):
     cfg=json.loads(contract.read_text())
     if cfg.get('acceleration',{}).get('version')!='pr111_full_acceleration_v2':return
     expected=cfg['native_admission']
+    if expected.get('mode') == TRAIN_WITH_DRIFT_TELEMETRY:
+        require_native_admission(cfg, file_sha(contract))
+        print(json.dumps({'event': 'native-training-with-drift-telemetry'}), flush=True)
+        return
     if file_sha(expected['second_source_contract'])!=expected['second_source_contract_sha256']:
         raise ValueError('NATIVE_SECOND_SOURCE_CONTRACT_CHANGED')
     source=cfg['acceleration_continuation']
