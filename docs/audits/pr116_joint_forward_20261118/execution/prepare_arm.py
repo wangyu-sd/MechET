@@ -34,10 +34,13 @@ def freeze(arm,profile=None):
     with_teacher = arm in ('JR', 'J', 'J-profile')
     profile_files = {}
     if with_teacher:
+        from check_forward_model import verify_full_batch_receipt
+
+        input_manifest = base/'full_first_train_batch_teacher_inputs/manifest.json'
+        admission_path = release/'teacher/forward_full_batch_execution.json'
         teacher=json.loads((release/'teacher/bound_runtime.json').read_bytes())
-        admission=json.loads((release/'teacher/forward_execution.json').read_bytes())
-        if admission['protocol']!=teacher['teacher_protocol'] or not admission['scores']:
-            raise ValueError('no actual forward run bound to this checkpoint and protocol')
+        verify_full_batch_receipt(admission_path,teacher['teacher_protocol'],input_manifest)
+        profile_files[str(admission_path)] = sha(admission_path)
         if sha(teacher['teacher_config'])!=teacher['teacher_protocol']['config_sha256']:
             raise ValueError('teacher runtime mismatch')
         opts=json.loads(Path(teacher['teacher_config']).read_bytes())
@@ -45,8 +48,7 @@ def freeze(arm,profile=None):
             raise ValueError('official weight mismatch')
         sys.path.insert(0, str(release/'code/src'))
         from mechet.route_joint_profile import MODES, bind_profile_source, choose_profile
-        replay = bind_profile_source(sub/'pr116_r_64x32_4h20_20261118_01/contract.json',
-            base/'full_first_train_batch_teacher_inputs/manifest.json')
+        replay = bind_profile_source(sub/'pr116_r_64x32_4h20_20261118_01/contract.json',input_manifest)
         if profile_trial:
             profile_files.update(replay['group_files_sha256'])
             profile_files[replay['manifest']] = replay['manifest_sha256']

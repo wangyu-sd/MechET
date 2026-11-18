@@ -18,7 +18,23 @@ def score_counts(scores, expected, *, allow_unavailable=False):
     return dict(observed_scores=len(observed), unavailable_scores=expected-len(observed))
 
 
-def verify(config,sample,device,batch_manifest=None):
+def verify_full_batch_receipt(receipt, protocol, batch_manifest):
+    report = json.loads(receipt.read_bytes())
+    batch = json.loads(batch_manifest.read_bytes())
+    elapsed = report['elapsed_seconds']
+    if (batch['source_round'] != 0 or batch['train_targets'] != 32 or report['train_targets'] != 32
+            or report['protocol'] != protocol or report['device']['devices'] != 1
+            or not math.isfinite(elapsed) or elapsed <= 0
+            or report['train_batch_manifest_sha256'] != file_sha(batch_manifest)
+            or report['real_input_sha256'] != batch['queries_sha256']):
+        raise ValueError('forward receipt does not match the frozen single-device TRAIN execution')
+    counts = score_counts(report['scores'], batch['distinct_teacher_queries'], allow_unavailable=True)
+    if any(report[name] != count for name, count in counts.items()):
+        raise ValueError('forward receipt score counts changed')
+    return report
+
+
+def verify(config,sample,device,batch_manifest=None,*,gpu_kind=None):
     opts=json.loads(config.read_bytes()); protocol=opts['teacher_protocol']
     scorer=Path(opts['teacher_script']); config_file=Path(opts['teacher_config']); wd=Path(opts['work_dir'])
     if protocol['script_sha256']!=file_sha(scorer) or protocol['config_sha256']!=file_sha(config_file):
@@ -30,10 +46,14 @@ def verify(config,sample,device,batch_manifest=None):
         if (batch['source_round'] != 0 or batch['train_targets'] != 32
                 or batch['distinct_teacher_queries'] != len(inputs) or batch['queries_sha256'] != input_digest):
             raise ValueError('profile inputs do not match the frozen 32-target TRAIN batch')
-    env=dict(os.environ,PYTHONPATH=opts['teacher_pythonpath'],CUDA_VISIBLE_DEVICES=device,PYTHONDONTWRITEBYTECODE='1')
+    env=dict(os.environ,PYTHONPATH=opts['teacher_pythonpath'],PYTHONDONTWRITEBYTECODE='1')
+    if device is not None:
+        env['CUDA_VISIBLE_DEVICES'] = device
     gpu=json.loads(subprocess.check_output([opts['teacher_python'],'-B','-c',
         "import json,torch; print(json.dumps({'devices':torch.cuda.device_count(),'gpu':torch.cuda.get_device_name(0)}))"],env=env))
     if gpu['devices']!=1:raise ValueError('a single visible test device must be selected')
+    if gpu_kind is not None and gpu_kind not in gpu['gpu']:
+        raise ValueError('allocated teacher hardware differs from the Taiji contract')
     start=time.monotonic()
     with tempfile.TemporaryDirectory(dir=wd) as temp:
         answer=Path(temp)/'observed.json'
@@ -49,10 +69,33 @@ def verify(config,sample,device,batch_manifest=None):
                       scope='single-device teacher execution on the complete frozen TRAIN input batch')
         filename='forward_full_batch_execution.json'
     out=config.parent/filename
-    tmp=out.with_suffix('.building');tmp.write_text(json.dumps(report,indent=2)+'\n');tmp.replace(out)
+    with tempfile.NamedTemporaryFile(mode='w', dir=out.parent, prefix=out.name+'.', delete=False) as tmp:
+        json.dump(report,tmp,indent=2)
+        tmp.write('\n')
+    Path(tmp.name).replace(out)
     print(out)
+
+
+def run_frozen(contract):
+    cfg = json.loads(contract.read_bytes())
+    for name, expected in cfg['files_sha256'].items():
+        if file_sha(Path(name)) != expected:
+            raise ValueError('forward admission file changed: '+name)
+    if cfg['gpu_kind'] not in ('A100', 'H20') or cfg['world_size'] != 1:
+        raise ValueError('forward admission requires one compatible Taiji GPU')
+    verify(Path(cfg['bound_config']), Path(cfg['queries']), None, Path(cfg['batch_manifest']),
+           gpu_kind=cfg['gpu_kind'])
+
+
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__)
-    p.add_argument('bound_config',type=Path);p.add_argument('real_input',type=Path);p.add_argument('--device',required=True)
+    p.add_argument('bound_config',type=Path,nargs='?');p.add_argument('real_input',type=Path,nargs='?');p.add_argument('--device')
     p.add_argument('--full-train-batch-manifest',type=Path)
-    a=p.parse_args();verify(a.bound_config,a.real_input,a.device,a.full_train_batch_manifest)
+    p.add_argument('--frozen-contract',type=Path)
+    a=p.parse_args()
+    if a.frozen_contract:
+        run_frozen(a.frozen_contract)
+    elif a.bound_config and a.real_input and a.device is not None:
+        verify(a.bound_config,a.real_input,a.device,a.full_train_batch_manifest)
+    else:
+        p.error('provide --frozen-contract or bound config, inputs and --device')
