@@ -49,8 +49,8 @@ def make_episodes(rows,stock,protected,cfg,version):
         episode_type=RefitRouteEpisode
     namespace = version
     if '_validation_rng_namespace' in cfg:
-        from mechet.external_route_validation import ValidationRouteEpisode
-        episode_type = ValidationRouteEpisode
+        from mechet.external_route_validation import RefitValidationRouteEpisode, ValidationRouteEpisode
+        episode_type = RefitValidationRouteEpisode if 'refit' in cfg else ValidationRouteEpisode
         namespace = cfg['_validation_rng_namespace']
     if 'route_memory' in cfg:
         from mechet.route_memory_integration import MemoryTargetOnlyRouteEpisode, MemoryValidationRouteEpisode
@@ -263,7 +263,8 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
         cfg['_last_collection_metrics']=metrics
 
 
-def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_round,actor_sha,fractions):
+def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_round,actor_sha,fractions,
+                    *, search=None):
     """Complete fixed VALID, then select by the declared root-level criterion.
 
     Each rank collects independently. The only collectives are at checkpoint
@@ -280,11 +281,26 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
     if len(rows)!=cfg['validation_targets']:
         raise ValueError('FULL_VALIDATION_DENOMINATOR_CHANGED')
     validate_public_tasks(rows)
-    directory=root/'validation'/f'checkpoint-{checkpoint_round:06d}'
+    checkpoint_name=f'checkpoint-{checkpoint_round:06d}'
+    directory=root/'validation'/checkpoint_name
     binding=dict(contract_sha256=cfg['_sha'],actor_sha256=actor_sha,
         checkpoint_round=checkpoint_round,protocol_sha256=signature(protocol),
         task_ids_sha256=signature([r['task_id'] for r in rows]),
         denominator=len(rows),fractions=fractions)
+    checkpoint_path=cfg['parent'] if checkpoint_round==0 else str(root/'checkpoints'/f'round-{checkpoint_round:06d}')
+    max_forks=0
+    if search is not None:
+        from mechet.route_refit_runtime import DEFAULTS
+        cohort, mode=search
+        nodes, max_forks={'small': (4, 2), 'full': (8, 16)}[mode]
+        if cohort not in ('intermediate', 'joint', 'distilled') or cfg.get('route_memory'):
+            raise ValueError('UNSUPPORTED_REFIT_VALIDATION_CONDITION')
+        directory=root/'validation'/'refit'/cohort/mode/checkpoint_name
+        refit_budget=dict(DEFAULTS,max_nodes_per_tree=nodes,max_forks_per_tree=max_forks)
+        binding['refit_budget']=refit_budget
+        binding['refit_lanes']=dict(credit_forks_per_tree=max_forks,exploration_forks_per_tree=0)
+        binding['checkpoint_path']=checkpoint_path
+    select=search is None and ('step_budget' not in cfg or len(rows)==512)
     summary_path=directory/'summary.json'
     cached=[None,None]
     if rank==0:
@@ -294,12 +310,8 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
                 saved=json.loads(summary_path.read_text())
                 if saved['binding']!=binding or not saved['complete']:
                     raise ValueError('VALIDATION_COMPLETION_BINDING_CHANGED')
-                best_path=root/'validation'/'best_checkpoint.json'
-                best=json.loads(best_path.read_text()) if best_path.exists() else None
-                if best is not None and best['binding']['contract_sha256']!=cfg['_sha']:
-                    raise ValueError('BEST_CHECKPOINT_CONTRACT_MISMATCH')
-                if ('step_budget' not in cfg or len(rows)==512) and (best is None or selection_key(saved)<selection_key(best)):
-                    atomic_json(best_path,saved)
+                if select:
+                    update_validation_best(root,cfg['_sha'],saved,selection_key)
                 cached[0]=saved
         except Exception as exc:
             cached[1]=type(exc).__name__+':'+str(exc)
@@ -320,9 +332,11 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
         actor.eval()
         eval_cfg=dict(cfg,seed=protocol['seed'],candidates=protocol['candidates'],
             _validation_rng_namespace=protocol['id']+':'+signature(protocol))
-        # Preserve the frozen independent VALID G4 selection protocol. Search
-        # budgets are compared separately on the declared benchmark ladder.
-        eval_cfg.pop('refit',None)
+        if search is None:
+            eval_cfg.pop('refit',None)
+        else:
+            eval_cfg['refit']=refit_budget
+            eval_cfg['acceleration']=dict(cfg['acceleration'],refit_lanes=binding['refit_lanes'])
         own=rows[rank::world]
         chunk_size=max(1,cfg['products_per_round']//world)
         version=f'validation{checkpoint_round:06d}:{actor_sha}'
@@ -355,7 +369,7 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
                         backend=backend_collection_metrics(batch_dir/'raw_generation.jsonl')
                     groups=score_groups(batch_rows,reports,protocol['candidates'],oracle)
                     atomic_json(batch_dir/'rewarded_episodes.json',groups)
-                    outcomes=validation_outcomes(batch_rows,groups,protocol['candidates'])
+                    outcomes=validation_outcomes(batch_rows,groups,protocol['candidates'],max_forks=max_forks)
                     seconds=time.monotonic()-began
                     atomic_json(completion,dict(binding=batch_binding,outcomes=outcomes,seconds=seconds,backend_metrics=backend))
                 local_outcomes.extend(outcomes);observed_seconds+=seconds
@@ -392,13 +406,19 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
             summary=summarize_validation([r['task_id'] for r in rows],outcomes,protocol['candidates'])
             if not summary['complete']:
                 raise ValueError('FULL_VALIDATION_COVERAGE_INCOMPLETE')
+            if search is not None:
+                summary['verified_closed_at_4_with_refit_lower_bound']=summary.pop('verified_closed_at_4_lower_bound')
+                summary['search_budget']=mode
+                summary['native_stock_closed_rate']=summary['native_stock_closed_roots']/len(rows)
+                routes=summary['sampled_route_episodes']+summary['refit_suffix_episodes']
+                summary['decision_requests_per_route_attempt']=summary['model_decision_requests']/routes
             for part in parts:
                 for key,value in part['backend_metrics'].items():
                     summary[key]=summary.get(key,0)+value
             summary.update(binding=binding,checkpoint_round=checkpoint_round,actor_sha256=actor_sha,
                 decision_request_metric_scope='native_policy_requests_including_physical_censor_attempts',
                 backend_metric_scope='cumulative_original_durable_gpu_receipts_including_recovered_work',
-                checkpoint_path=cfg['parent'] if checkpoint_round==0 else str(root/'checkpoints'/f'round-{checkpoint_round:06d}'),
+                checkpoint_path=checkpoint_path,
                 protocol=protocol,validation_reference_split='validation',
                 optimizer_updates_during_validation=0,
                 worker_gpu_hours_observed=sum(v['seconds'] for v in parts)/3600.,
@@ -406,12 +426,8 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
                 timing_scope='completed_batch_worker_wall; interrupted_unpublished_batch_time_not_included')
             atomic_json(directory/'root_outcomes.json',sorted(outcomes,key=lambda v:v['task_id']))
             atomic_json(summary_path,summary)
-            best_path=root/'validation'/'best_checkpoint.json'
-            best=json.loads(best_path.read_text()) if best_path.exists() else None
-            if best is not None and best['binding']['contract_sha256']!=cfg['_sha']:
-                raise ValueError('BEST_CHECKPOINT_CONTRACT_MISMATCH')
-            if ('step_budget' not in cfg or len(rows)==512) and (best is None or selection_key(summary)<selection_key(best)):
-                atomic_json(best_path,summary)
+            if select:
+                update_validation_best(root,cfg['_sha'],summary,selection_key)
             result[0]=summary
         except Exception as exc:
             result[1]=type(exc).__name__+':'+str(exc)
@@ -424,6 +440,36 @@ def full_validation(rows,stock,protected,actor,tokenizer,cfg,root,checkpoint_rou
          model_decision_requests=result[0]['model_decision_requests'])
     flush_phase_profile(cfg,root,rank,'validation',checkpoint_round)
     return result[0]
+
+
+def update_validation_best(root, contract_sha, summary, selection_key):
+    path=root/'validation'/'best_checkpoint.json'
+    best=json.loads(path.read_text()) if path.exists() else None
+    if best is not None and best['binding']['contract_sha256']!=contract_sha:
+        raise ValueError('BEST_CHECKPOINT_CONTRACT_MISMATCH')
+    if best is None or selection_key(summary)<selection_key(best):
+        atomic_json(path,summary)
+
+
+def compare_distillation(rows, stock, protected, actor, reference, tokenizer, cfg, root,
+                         final_round, final_sha, boundaries):
+    """Pair the selected Joint actor and the new distilled actor on the frozen VALID roots."""
+    if len(rows) != 512:
+        raise ValueError('DISTILLATION_COMPARISON_REQUIRES_FULL_VALIDATION')
+    parent_path = cfg['parent']
+    final_path = str(root/'checkpoints'/f'round-{final_round:06d}')
+    groups = {}
+    for label, model, step, digest, path in (
+            ('joint', reference, 0, cfg['parent_sha256'], parent_path),
+            ('distilled', actor, final_round, final_sha, final_path)):
+        eval_cfg = dict(cfg, _rollout_adapter_path=path)
+        groups[label] = {
+            mode: full_validation(rows, stock, protected, model, tokenizer, eval_cfg, root,
+                                  step, digest, boundaries[step], search=search)
+            for mode, search in (('policy_only', None), ('small', (label, 'small')),
+                                 ('full', (label, 'full')))
+        }
+    return groups
 
 
 def collective_checkpoint_publish(root,version,state,writer):
@@ -585,8 +631,12 @@ def train(contract_path):
         return VALIDATION_COUNTS[step] if 'step_budget' in cfg else len(validation_rows)
     def evaluate(step,actor_sha):
         count=validation_count(step)
-        return full_validation(validation_rows[:count],stock,validation_protected,actor,tokenizer,
-            dict(cfg,validation_targets=count),root,step,actor_sha,boundaries[step])
+        args=(validation_rows[:count],stock,validation_protected,actor,tokenizer,
+              dict(cfg,validation_targets=count),root,step,actor_sha,boundaries[step])
+        result=full_validation(*args)
+        if step==16 and cfg.get('step_budget',{}).get('arm') in ('JR','J'):
+            full_validation(*args,search=('intermediate','small'))
+        return result
     reward_type=HiddenRouteReward
     from mechet.route_process_reward import ALGORITHM as PROCESS_ALGORITHM
     if cfg['algorithm']==PROCESS_ALGORITHM:
@@ -764,12 +814,15 @@ def train(contract_path):
                 evaluate(index+1,actor_sha)
         if distill and not step:
             raise RuntimeError('NO_ELIGIBLE_DISTILLATION_TARGETS_IN_TRAIN_POPULATION')
+        comparison=compare_distillation(validation_rows,stock,validation_protected,
+            actor,reference,tokenizer,cfg,root,len(schedule),actor_sha,boundaries) if distill else None
         if deferred(cfg):
             complete_deferred_baseline(validation_rows,stock,validation_protected,reference,tokenizer,cfg,root)
         completion_error=[None]
         if rank==0:
             try:
                 extra = dict(optimizer_updates=step, distill_source=distill,
+                             paired_validation=comparison,
                              distilled_checkpoint=str(root/'checkpoints'/f'round-{len(schedule):06d}')) if distill else {}
                 atomic_json(root/'completion.json',dict(contract_sha256=cfg['_sha'],train_targets=len(ids),
                     epochs=cfg['epochs'],visited_target_episodes=len(ids)*cfg['epochs'],actor_sha256=actor_sha,

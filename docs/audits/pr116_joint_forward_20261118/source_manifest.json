@@ -14,8 +14,9 @@
   "source/scripts/pr116_flow_teacher.py": "ca40d176b5e58553d923c71790a58958557cb7574d839889613c1959d6ff68a5",
   "source/scripts/prepare_external_route_rl.py": "30e685326b418f642e378414462df556e7093c98523236f9cba4140420ec2986",
   "source/scripts/run_route_native_admission.py": "557f6855faf965c7c04a96a55d10ade7a620606fad6ce8ec2ed16eeed5593023",
-  "source/scripts/train_external_route_rl.py": "73a88ac1fbcb1316ca5f0cb5d405e2159a0461f6145c6f96abb6c0cb1cb99c6f",
+  "source/scripts/train_external_route_rl.py": "1f65a4dbcb140da1bf5f7bfa3f3a06d006cfa519245377272e9bee821e72cb2f",
   "source/src/mechet/external_route_rl.py": "df5daeae55aa11184ab98f71a170aa093a2531a0014999d3a999f29fa077f1e1",
+  "source/src/mechet/external_route_validation.py": "c3824bd5b9a9d99c7dfa055fbdf9178cfb8ec6ef85e69a8d1b3d631d2e4e4975",
   "source/src/mechet/route_joint_cache.py": "bb22d97f06ef66b22cbbfb2f4ef99eb4255150ded87bd87d9e53dddbc5ae90be",
   "source/src/mechet/route_joint_devices.py": "7bcdaeb29103c761a984ada12f10ecb1e4028c19b38be77e13009a73504ff1e8",
   "source/src/mechet/route_joint_distillation.py": "8be4fd70886511f3e4f7ecb38c9d14d32785458cf140e7b8d65a88b1a257c9df",
@@ -28,5 +29,6 @@
   "source/tests/test_forward_inventory.py": "ddb96708705b9b1ce9765c70522a820b90d63bb0fdafe1a3451168bd93470d7c",
   "source/tests/test_pr116_distill_source.py": "57316bdf508bbf9fe4be158b5a7edc742ecf628489d5012fac21dd5a90ffd869",
   "source/tests/test_pr116_joint.py": "a529571f0b140e0b1fa65d054092522e137de8f70bfc407164c34051584b8e4c",
+  "source/tests/test_pr116_search_validation.py": "188167584671d1bc88e37a23cf5f3d4710aba9321635833ca56f303abedf95a5",
   "source/tests/test_route_self_distill_runtime.py": "1252e8f380bb6276cd760c2c26922e6c03ae20d5b9a8612dc00bace84b1cfa5b"
 }
