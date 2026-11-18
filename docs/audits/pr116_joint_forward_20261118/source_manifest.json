@@ -13,6 +13,7 @@
   "execution/summarize_stage0.py": "d1dc8c59dfaa9ec8977a425f7233b7ecd3fe25da950554ce64c295c6f6007119",
   "source/scripts/pr116_flow_teacher.py": "ca40d176b5e58553d923c71790a58958557cb7574d839889613c1959d6ff68a5",
   "source/scripts/prepare_external_route_rl.py": "30e685326b418f642e378414462df556e7093c98523236f9cba4140420ec2986",
+  "source/scripts/run_pr116_offline_dpo.py": "dacaa60c6aca81133d7d318fae5170fa6bf190a1011a347b8d9cf5e8b6c4e7f6",
   "source/scripts/run_route_native_admission.py": "557f6855faf965c7c04a96a55d10ade7a620606fad6ce8ec2ed16eeed5593023",
   "source/scripts/train_external_route_rl.py": "1f65a4dbcb140da1bf5f7bfa3f3a06d006cfa519245377272e9bee821e72cb2f",
   "source/src/mechet/external_route_rl.py": "df5daeae55aa11184ab98f71a170aa093a2531a0014999d3a999f29fa077f1e1",
@@ -22,6 +23,7 @@
   "source/src/mechet/route_joint_distillation.py": "8be4fd70886511f3e4f7ecb38c9d14d32785458cf140e7b8d65a88b1a257c9df",
   "source/src/mechet/route_joint_forward.py": "e683af9cdc12ea113e83e6f36a746373a38c13315163a154ad3426718ff63e0b",
   "source/src/mechet/route_joint_inventory.py": "ec68c14b9e92f97c37f41f7bddc0886b54010f8d956fd4ad57b59c79594cacbd",
+  "source/src/mechet/route_joint_offline_dpo.py": "e1e7226aa8c02c05d664dbc691bc8f9729aea247a5aa5bd07cd86748194b8f7f",
   "source/src/mechet/route_joint_phase.py": "6474f4c331d0f644bf3050dd27c2733a2d8a53f5aaed7ee0b75683873c961cf3",
   "source/src/mechet/route_joint_schedule.py": "7de870f3de90ffa1252bed789db81ed025a155ea4ed30c3778a3c9ed56a1e0bf",
   "source/src/mechet/route_native_admission.py": "6d736ce1af17451ce7290806e69959128fa49909eb1b59a01affc47b58115fd8",
@@ -29,6 +31,7 @@
   "source/tests/test_forward_inventory.py": "ddb96708705b9b1ce9765c70522a820b90d63bb0fdafe1a3451168bd93470d7c",
   "source/tests/test_pr116_distill_source.py": "57316bdf508bbf9fe4be158b5a7edc742ecf628489d5012fac21dd5a90ffd869",
   "source/tests/test_pr116_joint.py": "a529571f0b140e0b1fa65d054092522e137de8f70bfc407164c34051584b8e4c",
+  "source/tests/test_pr116_offline_dpo.py": "6ace3febf00ffb2c0c42026469238344e013f84b5876cf1ac2e6ba41292dd6eb",
   "source/tests/test_pr116_search_validation.py": "188167584671d1bc88e37a23cf5f3d4710aba9321635833ca56f303abedf95a5",
   "source/tests/test_route_self_distill_runtime.py": "1252e8f380bb6276cd760c2c26922e6c03ae20d5b9a8612dc00bace84b1cfa5b"
 }
