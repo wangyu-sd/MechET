@@ -45,7 +45,7 @@ def bind(archive):
     config=dest/'scoring.json';write(config,cfg)
     protocol=dict(upstream='00b93aa7f46c266a94d249066edfb1ee833cb1bc',figshare_file=55904912,
         config_sha256=sha(config),script_sha256=sha(score_script),weights_sha256=cfg['checkpoint_sha256'],
-        samples=4,max_elementary_steps=15,seed=17,normalization='full_mapped_dense_H_mask_stereo_and_isotopes_v1',
+        samples=4,max_elementary_steps=15,seed=17,normalization='full_mapped_dense_H_project_stereo_mask_isotopes_v2',
         recovery='terminal_self_loop_product_component_heavy_maps_charge_preserved')
     write(dest/'bound_runtime.json',dict(teacher_protocol=protocol,teacher_python='/root/miniconda3/envs/meteor/bin/python',
           teacher_local_rank=3,teacher_config=str(config),teacher_script=str(score_script),

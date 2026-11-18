@@ -97,12 +97,33 @@ def test_corrupt_or_unsupported_executor_evidence_fails_closed(mistake):
     assert out['status'] == 'unavailable' and out['reason']
 
 
-@pytest.mark.parametrize('initial,public', [
-    ('[13CH3:10][OH:20]', '[13CH3]O'),
-    ('[F:1][C@@H:2]([Cl:3])[Br:4]', 'F[C@@H](Cl)Br'),
-    ('[F:1]/[CH:2]=[CH:3]/[F:4]', 'F/C=C/F'),
-])
-def test_nonisomeric_teacher_unsupported_features_are_named(initial, public):
+def test_teacher_excludes_isotopes():
     report = receipt_fixture()
-    report['reactions'][0].update(initial_state=initial,public_product=public)
-    assert extract_forward_input(report, 0)['reason'] == 'teacher_stereo_or_isotope_unsupported'
+    report['reactions'][0].update(initial_state='[13CH3:10][OH:20]', public_product='[13CH3]O')
+    assert extract_forward_input(report, 0)['reason'] == 'teacher_isotope_unsupported'
+
+
+def test_stereo_survives_receipt_validation_but_does_not_change_teacher_input():
+    result = []
+    for chirality in ('@', '@@'):
+        report = receipt_fixture()
+        old_initial = report['reactions'][0]['initial_state']
+        before = f'[H:41][O:20][C{chirality}H:10]([F:5])[Br:7]'
+        after = f'[Cl:99][C{chirality}H:10]([F:5])[Br:7]'
+        edge = report['reactions'][0]
+        edge['initial_state'] = before
+        edge['public_product'] = f'O[C{chirality}H](F)Br'
+        for action in edge['actions']:
+            action['state_before'] = (action['state_before']
+                                      .replace(old_initial, before)
+                                      .replace('[CH3:10][Cl:99]', after))
+        for record in report['records']:
+            for key in ('state_before', 'state_after'):
+                record[key] = record[key].replace(old_initial, before).replace('[CH3:10][Cl:99]', after)
+        edge['final_state'] = report['records'][-1]['state_after']
+        outcome = extract_forward_input(report, 0)
+        assert outcome['status'] == 'eligible', outcome
+        assert chirality in outcome['full_reactants_mapped']
+        result.append(tuple(outcome[k] for k in ('target_product', 'teacher_reactants_mapped',
+                                                 'target_heavy_teacher_maps')))
+    assert result[0] == result[1]

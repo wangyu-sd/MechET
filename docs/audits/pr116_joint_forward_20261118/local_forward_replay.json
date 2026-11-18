@@ -1,0 +1,61 @@
+{
+  "source_sha256": "a59601c921bcc71c130652ea1d7a3993a5bf8d8542dede72b8f4b7e64263a2f9",
+  "protocol": {
+    "checkpoint_sha256": "dd17053516325565dce181ba31c0ddac03a7fe55bca7fee9e946ef486622bed3",
+    "config_sha256": "faf66af58f110db7fcfe501cdcfd69d16a76bfea55ed4e752a855232447d8e96",
+    "max_elementary_steps": 15,
+    "origin": "local ReFLoW forward FlowER, locally trained 30k",
+    "samples": 4,
+    "script_sha256": "ca40d176b5e58553d923c71790a58958557cb7574d839889613c1959d6ff68a5",
+    "seed": 17,
+    "normalization": "full_mapped_dense_H_project_stereo_mask_isotopes_v2"
+  },
+  "rounds": [
+    {
+      "mode": "first",
+      "stats": {
+        "query_count": 85,
+        "global_distinct": 85,
+        "available": 85,
+        "mask_reasons": {},
+        "eligible_finish_appearances": 92,
+        "scored_finish_appearances": 92,
+        "observed_route_reward_sum": -0.183941909925154,
+        "observed_teacher_reward_sum": 0.0,
+        "scored_reports": 46,
+        "global_executed_queries": 85,
+        "teacher_profile": "colocated",
+        "student_engine_restarted": false,
+        "teacher_device_seconds": {
+          "0": 114.17261575162411
+        },
+        "global_cache_hits": 0,
+        "global_model_seconds": 114.17372391372919,
+        "teacher_seconds": 173.72479800134897
+      },
+      "pairs": 0
+    },
+    {
+      "mode": "replay",
+      "stats": {
+        "query_count": 85,
+        "global_distinct": 85,
+        "available": 85,
+        "mask_reasons": {},
+        "eligible_finish_appearances": 92,
+        "scored_finish_appearances": 92,
+        "observed_route_reward_sum": -0.183941909925154,
+        "observed_teacher_reward_sum": 0.0,
+        "scored_reports": 46,
+        "global_executed_queries": 0,
+        "teacher_profile": "colocated",
+        "student_engine_restarted": false,
+        "teacher_device_seconds": {},
+        "global_cache_hits": 85,
+        "global_model_seconds": 0.0,
+        "teacher_seconds": 32.275250516831875
+      },
+      "pairs": 0
+    }
+  ]
+}

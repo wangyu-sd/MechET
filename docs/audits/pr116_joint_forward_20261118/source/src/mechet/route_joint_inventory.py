@@ -12,7 +12,7 @@ import json
 from rdkit import Chem
 from mechet.agent_inference import parse_tool_calls
 
-CONTRACT = "pr116_pr112_full_endpoint_explicit_h_dense_maps_strict_v1"
+CONTRACT = "pr116_pr112_full_endpoint_dense_h_project_stereo_v2"
 
 
 def _require(ok, why):
@@ -44,10 +44,12 @@ def _unmapped(mol, collapse_h=False):
     return Chem.MolToSmiles(mol, isomericSmiles=True)
 
 
-def _applicable(mol):
-    tagged = any(a.GetIsotope() or int(a.GetChiralTag()) for a in mol.GetAtoms())
-    stereo = any(int(b.GetStereo()) for b in mol.GetBonds()) or mol.GetStereoGroups()
-    _require(not tagged and not stereo, "teacher_stereo_or_isotope_unsupported")
+def _teacher_projection(mol):
+    _require(not any(atom.GetIsotope() for atom in mol.GetAtoms()),
+             "teacher_isotope_unsupported")
+    projected = Chem.Mol(mol)
+    Chem.RemoveStereochemistry(projected)
+    return projected
 
 
 def _digest(value):
@@ -149,10 +151,10 @@ def _extract(report, index):
     _require(all(a.GetAtomMapNum() == 0 for a in target.GetAtoms()) and
              len(Chem.GetMolFrags(target)) == 1, "invalid_public_main_product")
     _require(_unmapped(initial, True) == _unmapped(target, True), "initial_public_product_mismatch")
-    _applicable(initial)
+    projected_target = _teacher_projection(target)
     records, additions = _accepted_chain(report, edge)
     final = _molecule(edge["final_state"])
-    _applicable(final)
+    projected_final = _teacher_projection(final)
     maps_initial, maps_final = _maps(initial), _maps(final)
     assembled = _molecule(".".join([edge["initial_state"], *additions]))
     _require(_maps(assembled) == maps_final, "net_map_inventory_mismatch")
@@ -160,14 +162,17 @@ def _extract(report, index):
     _require(Chem.MolToSmiles(assembled, isomericSmiles=True) != full, "no_net_edit")
     heavy = sorted(a.GetAtomMapNum() for a in initial.GetAtoms() if a.GetAtomicNum() > 1)
     _require(heavy, "missing_target_heavy_maps")
-    teacher, lut, generated = _prepare_teacher(full)
+    projected = Chem.MolToSmiles(projected_final, isomericSmiles=True)
+    projected_start = Chem.MolToSmiles(_teacher_projection(assembled), isomericSmiles=True)
+    _require(projected_start != projected, "no_net_constitutional_edit")
+    teacher, lut, generated = _prepare_teacher(projected)
     index_finish, finish = records[-1]
     transaction = [{k: row[k] for k in ("request_id", "raw", "state_before", "state_after",
                                          "occurrence", "accepted", "behavior_version")}
                    for _, row in records]
     return dict(
         status="eligible", contract=CONTRACT, full_reactants_mapped=full,
-        target_product=_unmapped(target, True), teacher_reactants_mapped=teacher,
+        target_product=_unmapped(projected_target, True), teacher_reactants_mapped=teacher,
         executor_to_teacher_map=lut, target_heavy_teacher_maps=sorted(lut[m] for m in heavy),
         generated_hydrogen_parents=generated, finish_index=index_finish,
         finish_request_id=finish["request_id"],
