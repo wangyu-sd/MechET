@@ -1,0 +1,164 @@
+{
+  "completed_updates": 10,
+  "cumulative_train_targets": 320,
+  "maximum_sampling_seconds": 932.8124105269089,
+  "median_sampling_seconds": 748.8224013375584,
+  "minimum_sampling_seconds": 674.5556614839006,
+  "planned_updates": 64,
+  "records": [
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "e3758009aed012ff547e9ea79b6de90e86c9d2f1068c82dfb7e4ca2f07901e22",
+      "matched_groups_with_nonzero_credit": 7,
+      "physical_requests_by_lane": {
+        "credit": 6379,
+        "original_g4": 3262
+      },
+      "physically_completed_policy_requests": 9641,
+      "sampling_seconds": 778.7827725489624,
+      "train_targets": 32,
+      "update": 1
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "03513409cbb0e3f5a5ff4da1f0ebfbf402d792a07974aabaf3c62bd786c9dbf9",
+      "matched_groups_with_nonzero_credit": 7,
+      "physical_requests_by_lane": {
+        "credit": 5714,
+        "original_g4": 2744
+      },
+      "physically_completed_policy_requests": 8458,
+      "sampling_seconds": 932.8124105269089,
+      "train_targets": 32,
+      "update": 2
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "c03e779632ddfe3c01b02f55c2b5755d2df7495524822efdd8d148655d2c516f",
+      "matched_groups_with_nonzero_credit": 11,
+      "physical_requests_by_lane": {
+        "credit": 5130,
+        "original_g4": 2807
+      },
+      "physically_completed_policy_requests": 7937,
+      "sampling_seconds": 809.7518616800662,
+      "train_targets": 32,
+      "update": 3
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "fed14c141511ee83125206ac25193de020e4caf5368f0908500f63012a8a52bb",
+      "matched_groups_with_nonzero_credit": 9,
+      "physical_requests_by_lane": {
+        "credit": 5393,
+        "original_g4": 2568
+      },
+      "physically_completed_policy_requests": 7961,
+      "sampling_seconds": 726.6612771749496,
+      "train_targets": 32,
+      "update": 4
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "7ba4f737c8dbb333604d786aa3353138c0fea83ffe5324f1e6f977f589da54a8",
+      "matched_groups_with_nonzero_credit": 18,
+      "physical_requests_by_lane": {
+        "credit": 4963,
+        "original_g4": 2751
+      },
+      "physically_completed_policy_requests": 7714,
+      "sampling_seconds": 732.2376922650728,
+      "train_targets": 32,
+      "update": 5
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "c8bf811ad793800d435ba5abaad7f721da3dc5786c28c2ad565c6b4ed57a9fb1",
+      "matched_groups_with_nonzero_credit": 10,
+      "physical_requests_by_lane": {
+        "credit": 6261,
+        "original_g4": 3162
+      },
+      "physically_completed_policy_requests": 9423,
+      "sampling_seconds": 675.5862782020122,
+      "train_targets": 32,
+      "update": 6
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "82e132ede5a3128e686140e8d74f7f342c1cdc80a58e996ec60f5a125db73d54",
+      "matched_groups_with_nonzero_credit": 20,
+      "physical_requests_by_lane": {
+        "credit": 6137,
+        "original_g4": 3198
+      },
+      "physically_completed_policy_requests": 9335,
+      "sampling_seconds": 832.1619074230548,
+      "train_targets": 32,
+      "update": 7
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "a398330345fdc3a0aabce9846b6ff6990ccdbff73b59859348cb35022065054a",
+      "matched_groups_with_nonzero_credit": 14,
+      "physical_requests_by_lane": {
+        "credit": 5261,
+        "original_g4": 2604
+      },
+      "physically_completed_policy_requests": 7865,
+      "sampling_seconds": 743.6534097620752,
+      "train_targets": 32,
+      "update": 8
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "7e1e3733b8c4338051bb76f4d4a33236c0566bb6c38179da39024c403187a12a",
+      "matched_groups_with_nonzero_credit": 12,
+      "physical_requests_by_lane": {
+        "credit": 5725,
+        "original_g4": 3056
+      },
+      "physically_completed_policy_requests": 8781,
+      "sampling_seconds": 674.5556614839006,
+      "train_targets": 32,
+      "update": 9
+    },
+    {
+      "censored_target_groups": 0,
+      "checkpoint_receipt_sha256": "511b97beedc0e8cc57029449847dc4c5dcf45cda208fb35d90964c65bcaca720",
+      "last_checkpoint_time": "2026-11-19T04:55:43.487883+08:00",
+      "learner_collective_seconds_each_rank": [
+        81.70315908594057,
+        46.25412778835744,
+        0.011005715001374483,
+        33.487137449672446
+      ],
+      "matched_groups_with_nonzero_credit": 16,
+      "native_journal_flush_seconds_each_rank": [
+        72.59150796546601,
+        128.9701333164703,
+        166.13639761321247,
+        129.85557822254486
+      ],
+      "peer_wall_seconds": {
+        "checkpoint.publish": 6.056955720996484,
+        "collection.total": 750.5627578250133,
+        "learner.total": 158.91019455110654
+      },
+      "physical_requests_by_lane": {
+        "credit": 5588,
+        "original_g4": 3399
+      },
+      "physically_completed_policy_requests": 8987,
+      "sampling_seconds": 753.9913929130416,
+      "train_targets": 32,
+      "update": 10
+    }
+  ],
+  "scope": "Ten committed TRAIN batches of the unchanged PR116 teacher-free four-H20 ReFIT control.",
+  "total_policy_requests": 86102,
+  "total_requests_by_lane": {
+    "credit": 56551,
+    "original_g4": 29551
+  }
+}
