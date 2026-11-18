@@ -1,0 +1,11 @@
+{
+  "counts": {
+    "no_signature": 585,
+    "not_checkpoint_size": 14723,
+    "recognized": 38
+  },
+  "original_step_or_archive_candidates": 0,
+  "scope": "Rechecked priority checkpoint, ZIP, and chemistry project files using the publisher Args header reader; independent of the broader live index",
+  "scoped_artifacts": 15346,
+  "source_receipt_sha256": "b71c01ce7d2c26f8528a41b838a0319073e8294f6bc33e3f124391e7ab711cb6"
+}
