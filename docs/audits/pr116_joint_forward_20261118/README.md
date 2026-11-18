@@ -15,3 +15,5 @@ At 23:17 CST on November 18, the A100 engineering run had completed 8 targets an
 - [Joint objective in the learner](source/src/mechet/external_route_rl.py)
 - [Fixed root stream and validation protocol](source/src/mechet/route_joint_schedule.py)
 - [Public checkpoint verification and binding](execution/bind_teacher.py)
+
+The frozen 2,048 training draws share zero canonical targets and zero complete reference routes with clean validation. Eight canonical reaction signatures occur in both cohorts, affecting six validation targets. Forty-two source patents are shared, affecting 17 validation targets. The fixed validation cohort therefore also supports a 506-target reaction-disjoint analysis and a 492-target reaction-and-patent-disjoint analysis. The 512-target primary denominator stays fixed. These counts compare the actual online-training draws to the clean validation cohort. [Counts and input digests](cohort_overlap.json)

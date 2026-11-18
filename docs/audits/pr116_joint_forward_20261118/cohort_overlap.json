@@ -1,0 +1,79 @@
+{
+  "arm_training_draws": 2048,
+  "cohort_file_sha256": {
+    "clean_valid.jsonl": "664b05acc2c6ee1e66ba613b911ad54e0de98abba75b7f0ac5a85c8fa615e7f3",
+    "references.sqlite": "c4d7b8092f952acb60a4c3257de373f78e8c202b03050bd62b1fb223be90ae80",
+    "root_stream.jsonl": "497a6dc0d97b29f29002a1fd16a83fd08243335fa0ad745f7e7dc85c9839acef"
+  },
+  "full": {
+    "denominator": 512,
+    "overlap": {
+      "patent": {
+        "affected_valid_targets": 17,
+        "distinct_train": 1229,
+        "distinct_valid": 1188,
+        "shared": 42,
+        "unknown_valid_targets": 0
+      },
+      "product": {
+        "affected_valid_targets": 0,
+        "distinct_train": 2048,
+        "distinct_valid": 512,
+        "shared": 0,
+        "unknown_valid_targets": 0
+      },
+      "reaction": {
+        "affected_valid_targets": 6,
+        "distinct_train": 4068,
+        "distinct_valid": 1151,
+        "shared": 8,
+        "unknown_valid_targets": 0
+      },
+      "route": {
+        "affected_valid_targets": 0,
+        "distinct_train": 2048,
+        "distinct_valid": 512,
+        "shared": 0,
+        "unknown_valid_targets": 0
+      }
+    },
+    "reaction_and_patent_disjoint_count": 492,
+    "reaction_disjoint_count": 506
+  },
+  "nested": {
+    "denominator": 256,
+    "overlap": {
+      "patent": {
+        "affected_valid_targets": 7,
+        "distinct_train": 1229,
+        "distinct_valid": 619,
+        "shared": 18,
+        "unknown_valid_targets": 0
+      },
+      "product": {
+        "affected_valid_targets": 0,
+        "distinct_train": 2048,
+        "distinct_valid": 256,
+        "shared": 0,
+        "unknown_valid_targets": 0
+      },
+      "reaction": {
+        "affected_valid_targets": 3,
+        "distinct_train": 4068,
+        "distinct_valid": 573,
+        "shared": 4,
+        "unknown_valid_targets": 0
+      },
+      "route": {
+        "affected_valid_targets": 0,
+        "distinct_train": 2048,
+        "distinct_valid": 256,
+        "shared": 0,
+        "unknown_valid_targets": 0
+      }
+    },
+    "reaction_and_patent_disjoint_count": 248,
+    "reaction_disjoint_count": 253
+  },
+  "subset_sha256": "2cf308259ebad9ddd1e88278526b67580bef8e0b228a3e2052119caebba673fa"
+}
