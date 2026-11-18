@@ -1,0 +1,46 @@
+{
+  "scope": "complete saved round read-only exact-conditioning classification",
+  "counts": {
+    "source_row_groups": 64,
+    "original_g4_reports": 256,
+    "extra_suffix_reports": 3044,
+    "reports": 3300,
+    "extra_completed_suffixes": 3044,
+    "duplicate_semantic_proposals": 9201,
+    "accepted_duplicate_proposals": 9087,
+    "repeated_accepted_executor_calls_lower_bound": 9087,
+    "duplicate_flow_events_in_extra_reports": 6174,
+    "retained_node_duplicate_flow_proposals": 4038,
+    "rejected_duplicate_proposals": 114,
+    "distinct_exact_condition_action_edges": 54724,
+    "unique_action_receipts": 63925
+  },
+  "input_bindings": [
+    {
+      "path": "round-000009/rank00/rewarded_episodes.json",
+      "sha256": "5830a28b164326b883efe483fde77466221ddc8c494b12c53abcacfca705350d",
+      "bytes": 290948196
+    },
+    {
+      "path": "round-000009/rank01/rewarded_episodes.json",
+      "sha256": "ed4789f23fd9b0486c58e432b725d04cc076ae4b35b33819c3dce361ef25aa4f",
+      "bytes": 299186949
+    },
+    {
+      "path": "round-000009/rank02/rewarded_episodes.json",
+      "sha256": "7d682b8e1a2c808552dcc3a64f22b7bb83799074c9b16769f0812f37bc8ab99b",
+      "bytes": 242917422
+    },
+    {
+      "path": "round-000009/rank03/rewarded_episodes.json",
+      "sha256": "2fc2e67c87c23ab825f985bda076f3b4883f0d14eebc0fe30f71eaf95cf1a173",
+      "bytes": 300360213
+    }
+  ],
+  "model_calls": 0,
+  "limitations": [
+    "Decision identities cover all events, including nodes not retained for Q; these conservative exact-conditioning duplicates are a lower bound on shareable chemical transitions.",
+    "Repeated semantic draws are not independent successful route outcomes.",
+    "No wall-time speedup or unchanged old/new search distribution is inferred."
+  ]
+}

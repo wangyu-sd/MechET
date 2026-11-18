@@ -1,0 +1,46 @@
+{
+  "status": "PASS",
+  "engine_start_seconds": 302.0172131359577,
+  "max_native_logprob_difference": 0.014590740203857422,
+  "legal_checks": {
+    "native_probability": "PASS",
+    "prompt_ids": "PASS",
+    "complete_actions": "PASS",
+    "native_cache_hit": "PASS",
+    "global_async_receipts": "PASS",
+    "actual_native_refill_before_long_neighbor": "PASS",
+    "actor_switch_cache_invalidation": "PASS"
+  },
+  "timings": {
+    "hf_complete_action_seconds": [
+      5.860903836786747,
+      5.826921418309212,
+      6.531337320804596,
+      10.870084799826145
+    ],
+    "native_complete_action_seconds": [
+      8.406986862421036,
+      5.939863249659538,
+      6.734360292553902,
+      10.887151703238487
+    ],
+    "requests_per_backend_per_repeat": 4,
+    "median_speedup": 0.8184371595706839,
+    "qualification": "same prompts and completed-request count; independently sampled responses; T4 only"
+  },
+  "refill_probe": {
+    "status": "PASS",
+    "requests": 6,
+    "dedicated_short_request_budget": 1,
+    "short_request_truncated": true,
+    "refill_event_position": 5,
+    "initial_long_completion_positions": [
+      8,
+      10,
+      6
+    ],
+    "scope": "explicit one-token resource-boundary software probe; excluded from complete-action timings"
+  },
+  "scope": "T4 software attempt02; negative speed evidence; not final candidate/H20 admission",
+  "report_sha256": "6481ace3ae27ae62fe34c930d376a07c1b097e35cd6890f654af55e46925019a"
+}

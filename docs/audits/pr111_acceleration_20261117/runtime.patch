@@ -1,0 +1,172 @@
+diff --git a/scripts/prepare_external_route_rl.py b/scripts/prepare_external_route_rl.py
+index 14bab76..d93b349 100644
+--- a/scripts/prepare_external_route_rl.py
++++ b/scripts/prepare_external_route_rl.py
+@@ -42,6 +42,8 @@ def verify_contract(path):
+         raise ValueError('UNRECOGNIZED_ROUTE_ENDPOINT_CONTRACT')
+     from mechet.route_materials import material_contract
+     material_contract(cfg)
++    from mechet.route_acceleration import validate_acceleration
++    validate_acceleration(cfg)
+     from mechet.route_process_reward import ALGORITHM as PROCESS_ALGORITHM, validate_process_protocol
+     validate_process_protocol(cfg)
+     process = cfg.get('algorithm')==PROCESS_ALGORITHM
+diff --git a/scripts/train_external_route_rl.py b/scripts/train_external_route_rl.py
+index f24b102..bbde55f 100644
+--- a/scripts/train_external_route_rl.py
++++ b/scripts/train_external_route_rl.py
+@@ -35,7 +35,8 @@ def make_episodes(rows,stock,protected,cfg,version):
+     from mechet.external_route_rl import TargetOnlyRouteEpisode
+     validate_public_tasks(rows)
+     episode_cfg = dict(behavior_version=version,max_action_tokens=cfg['max_action_tokens'],
+-        protected_identities=protected,concurrent_executors=cfg['world_size']*cfg['executor_workers_per_rank'])
++        protected_identities=protected,concurrent_executors=cfg.get('physical_executor_concurrency',
++            cfg['world_size']*cfg['executor_workers_per_rank']))
+     for key in ('public_observation_contract','max_consecutive_recoveries',
+                 'stock_material_contract','route_failure_policy'):
+         if key in cfg:
+@@ -72,7 +73,8 @@ def score_groups(rows,reports,candidates,oracle):
+                 from copy import deepcopy
+                 report=deepcopy(report)
+                 for suffix in report['refit']['suffix_reports']:
+-                    scored=oracle.score(row['task_id'],suffix)
++                    from mechet.route_acceleration import SKIPPED,skipped_reward
++                    scored=(skipped_reward(suffix) if suffix.get('status')==SKIPPED else oracle.score(row['task_id'],suffix))
+                     suffix.update(task_id=row['task_id'],reward=scored['reward'],reward_evidence=scored)
+             group.append(dict(report,task_id=row['task_id'],reward=result['reward'],reward_evidence=result))
+         groups.append(group)
+@@ -149,10 +151,12 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+     else:
+         atomic_json(path,binding)
+     episodes=make_episodes(rows,stock,protected,cfg,version)
++    from mechet.route_acceleration import attach_execution_cache
++    attach_execution_cache(episodes,cfg)
+     refit=None
+     if 'refit' in cfg:
+         from mechet.route_refit_runtime import RefitCollection
+-        refit=RefitCollection(episodes,cfg['refit'])
++        refit=RefitCollection(episodes,cfg['refit'],duplicate_policy=cfg.get('acceleration',{}).get('duplicate_suffix_policy'))
+         episodes=refit.initial
+     indexed={ep.uid:ep for ep in episodes};seen=set();journal=directory/'executed_calls.jsonl'
+     for receipt in read_owned_journal(journal):
+@@ -165,8 +169,19 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+         seen.add(receipt['request_id'])
+     if refit:episodes=refit.all
+     execution_writer=ReceiptBatch(journal,cfg=cfg)
++    remote=cfg.get('_policy_broker') is not None
+     native=cfg.get('inference_backend','hf')=='vllm'
+-    if native:
++    if remote:
++        from mechet.route_global_sampler import RemoteSampler
++        from mechet.route_async_collection import collect_async_route_groups
++        from mechet.route_policy_protocol import route_tool_prefix
++        from mechet.route_action_feedback import tools_for_request
++        def prompt_ids(request):
++            prompt=route_tool_prefix(tokenizer,request.messages,tools_for_request(request),cfg)
++            return tokenizer(prompt,add_special_tokens=False)['input_ids']
++        sampler=RemoteSampler(cfg['_policy_broker'],version+'/'+rows[0]['task_id'],cfg,prompt_ids=prompt_ids)
++        sampler.raw_path=directory/'raw_generation.jsonl'
++    elif native:
+         from mechet.route_vllm_backend import (VllmRouteSampler,recover_native_receipts,
+                                                bind_rollout_adapter)
+         from mechet.route_async_collection import collect_async_route_groups
+@@ -181,7 +196,7 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+             precision_kwargs=({'precision':precision_mode(cfg)} if 'policy_precision' in cfg else {})
+             return token_logps_batch(actor,[(prompt,response)],tokenizer.pad_token_id,
+                                     **precision_kwargs)[0].tolist()
+-    recovered=(recover_native_receipts(sampler.raw_path,version) if native
++    recovered=({} if remote else recover_native_receipts(sampler.raw_path,version) if native
+                else recover_behavior_receipts(sampler.raw_path,version,recompute))
+     def record(receipt):
+         if receipt['request_id'] in seen:
+@@ -210,14 +225,15 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+                 max_decisions_inflight=max((len(ep.records) for ep in episodes if ep.status is None),default=0)))
+     snapshot(force=True)
+     try:
+-        collector=collect_async_route_groups if native else collect_route_groups
++        collector=collect_async_route_groups if native or remote else collect_route_groups
+         reports=collector(episodes,sampler,workers=cfg['executor_workers_per_rank'],
+                           journal=record,recovered=recovered,snapshot=snapshot,
+                           **({'on_completed_action':refit.completed} if refit else {}),
+-                          **({'before_dispatch':execution_writer.flush} if native and refit else {}))
++                          **({'before_dispatch':execution_writer.flush} if (native or remote) and refit else {}))
+         return refit.pack(reports) if refit else reports
+     finally:
+-        if native:
++        if remote:sampler.close()
++        elif native:
+             sampler.close()
+             cfg['_vllm_process'].rpc('drain',{}).result(timeout=cfg['_vllm_process'].timeout)
+         execution_writer.flush()
+@@ -228,6 +244,9 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+             from mechet.route_refit_runtime import unique_collection_counts
+             counts=unique_collection_counts(episodes);attempts=counts['model_decision_requests']
+             metrics.update(counts,refit_additional_rollouts=len(refit.all)-len(refit.initial))
++            if cfg.get('acceleration'):
++                metrics.update(duplicate_pruned_no_continuation=refit.duplicate_pruned,
++                    deterministic_execution_cache=cfg['_execution_cache'].metrics())
+         metrics.update(native_decision_request_attempts=attempts,
+                        scheduler_metrics=dict(getattr(sampler,'scheduler_metrics',{})),
+                        decision_request_metric_scope='native_policy_requests_including_physical_censor_attempts',
+@@ -620,10 +639,17 @@ def train(contract_path):
+                 # The oracle is deliberately absent from the collection API.
+                 from mechet.external_route_runtime import run_recorded
+                 with phase(cfg,'collection.total',targets=len(own)):
+-                    reports=run_recorded(contract_path,
+-                        lambda _:collect_round(own,stock,protected,actor,tokenizer,cfg,directory,version),rank=rank)
++                    if cfg.get('acceleration'):
++                        from mechet.route_distributed_collection import collect_distributed_round
++                        groups=run_recorded(contract_path,lambda _:collect_distributed_round(
++                            [byid[k] for k in chunk],stock,protected,actor,tokenizer,cfg,
++                            root/f'round-{index:06d}',version,oracle),rank=rank)
++                        reports=None
++                    else:
++                        reports=run_recorded(contract_path,
++                            lambda _:collect_round(own,stock,protected,actor,tokenizer,cfg,directory,version),rank=rank)
+                 with phase(cfg,'reward.score',groups=len(own)):
+-                    groups=score_groups(own,reports,cfg['candidates'],oracle)
++                    if reports is not None:groups=score_groups(own,reports,cfg['candidates'],oracle)
+                 with phase(cfg,'reward.persist'):
+                     atomic_json(directory/'rewarded_episodes.json',groups)
+             except Exception as exc:
+diff --git a/src/mechet/external_route_schedule.py b/src/mechet/external_route_schedule.py
+index defd4e5..debd9cf 100644
+--- a/src/mechet/external_route_schedule.py
++++ b/src/mechet/external_route_schedule.py
+@@ -13,7 +13,7 @@ CONDITION_FIELDS=('algorithm','dataset','dataset_manifest_sha256','parent','pare
+     'world_size','gpu_name','candidates','seed','max_action_tokens','max_context',
+     'generation_batch_size','executor_workers_per_rank','products_per_round','partial_reward_weight',
+     'training_gradient_checkpointing','loss_batch_size','training_max_padded_tokens',
+-    'inference_backend','vllm_runtime','route_memory','policy_protocol','policy_model_family',
++    'inference_backend','vllm_runtime','route_memory','policy_protocol','policy_model_family','acceleration',
+     'generation_qkv_channels','generation_max_qkv_elements','generation_attention_budget_bytes',
+     'public_observation_contract','max_consecutive_recoveries','route_endpoint_contract',
+     'executor_coalesce_seconds','fla_kernel_profile','runtime_config_files_sha256',
+diff --git a/src/mechet/route_policy_sampling.py b/src/mechet/route_policy_sampling.py
+index 23cf1ba..ce40fda 100644
+--- a/src/mechet/route_policy_sampling.py
++++ b/src/mechet/route_policy_sampling.py
+@@ -223,6 +223,8 @@ class NativeRouteSampler:
+                 else:
+                     bins.setdefault(int(room),[]).append((i,r))
+         for allowed,items in sorted(bins.items()):
++            if self.cfg.get('acceleration',{}).get('hf_length_bucketing'):
++                items.sort(key=lambda item:(len(all_ids[item[0]]),item[0]))
+             from .route_generation_capacity import generation_batches,capacity_kwargs
+             with phase(self.cfg,'sampling.batch_plan',batch_size=len(items)):
+                 parts=generation_batches([len(all_ids[i]) for i,_ in items],
+@@ -255,7 +257,13 @@ class NativeRouteSampler:
+                         prompt_lengths=[len(p) for p in prompt_ids]))
+                 private=PrivateSampling([r.request_id for _,r in batch],self.cfg['seed'],device,
+                     finished=lambda:capture.done,on_failure=sampling_failure,prompt_width=width)
+-                generation=GenerationConfig(do_sample=True,top_k=0,top_p=1.,temperature=1.,
++                counter=self.cfg.get('acceleration',{}).get('sampling_kernel')=='counter_categorical_v1'
++                if counter:
++                    from .route_counter_sampling import CounterCategorical
++                    private=CounterCategorical([r.request_id for _,r in batch],self.cfg['seed'],device,capture,
++                        on_failure=sampling_failure,prompt_width=width)
++                pinned_argmax=self.cfg.get('acceleration',{}).get('sampling_kernel')=='private_pinned_argmax_v1'
++                generation=GenerationConfig(do_sample=not (counter or pinned_argmax),top_k=0,top_p=1.,temperature=1.,
+                     repetition_penalty=1.,num_beams=1,renormalize_logits=False,
+                     pad_token_id=self.tokenizer.pad_token_id,eos_token_id=self.tokenizer.eos_token_id,
+                     use_cache=True)

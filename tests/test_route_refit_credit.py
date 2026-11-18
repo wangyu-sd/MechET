@@ -41,6 +41,9 @@ def test_branch_replaces_g4_and_prefix_is_trained_once():
     values={r['request_id']:a for r,a in records}
     assert values==pytest.approx({'p':.105,'a':.11,'b':-.11,'other':-.105})
     assert stats['conditional_groups']==1 and stats['unique_receipts']==4
+    assert stats['conditional_nonzero_advantage_groups']==1
+    assert stats['conditional_zero_advantage_groups']==0
+    assert stats['conditional_m1_completed_used']==2
 
 
 def test_censored_suffix_masks_comparison_and_preserves_original_g4():
@@ -51,6 +54,7 @@ def test_censored_suffix_masks_comparison_and_preserves_original_g4():
     records,stats=training_records(group)
     assert {r['request_id']:a for r,a in records}==pytest.approx({'p':.105,'a':.1,'other':-.105})
     assert stats['conditional_groups']==0
+    assert stats['conditional_m1_completed_used']==0
 
 
 def test_censored_unparsed_proposal_masks_whole_conditional_node():

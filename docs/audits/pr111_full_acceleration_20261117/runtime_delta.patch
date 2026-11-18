@@ -1,0 +1,3228 @@
+diff --git a/scripts/prepare_acceleration_continuation.py b/scripts/prepare_acceleration_continuation.py
+index be5bf81..e745a8c 100644
+--- a/scripts/prepare_acceleration_continuation.py
++++ b/scripts/prepare_acceleration_continuation.py
+@@ -11,6 +11,7 @@ from copy import deepcopy
+ import hashlib
+ import json
+ from pathlib import Path
++import shutil
+ import subprocess
+ import tarfile
+ 
+@@ -79,8 +80,25 @@ def _verified_latest_actor(gate,condition,audit):
+     return final
+ 
+ 
++def preserve_runtime_leaves(original,code):
++    """Carry forward explicitly bound vendor dependencies absent from git archives."""
++    for name in ('scripts/_nvml_runtime/pynvml.py',):
++        source=Path(original['code_root'])/name
++        digest=original['files_sha256'].get(str(source))
++        if digest is None:continue
++        if file_sha(source)!=digest:raise ValueError('RUNTIME_LEAF_CHANGED:'+name)
++        destination=Path(code)/name
++        if destination.exists():
++            if file_sha(destination)!=digest:raise ValueError('RUNTIME_LEAF_CHANGED:'+name)
++        else:
++            destination.parent.mkdir(parents=True,exist_ok=True)
++            shutil.copyfile(source,destination)
++            if file_sha(destination)!=digest:raise ValueError('RUNTIME_LEAF_COPY_CHANGED:'+name)
++
++
+ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stopped_receipt,
+-            admission,submission,output,source_commit,authorization,task_flag):
++            admission,submission,output,source_commit,authorization,task_flag,
++            full_native=False,second_source_contract=None,previous_failed_admission=None):
+     if not authorization.strip():raise ValueError('EXPLICIT_USER_AUTHORIZATION_REQUIRED')
+     code=Path(__file__).resolve().parents[1]
+     if not code.is_relative_to(ROOT/'artifacts'):raise ValueError('DEDICATED_FROZEN_CODE_SNAPSHOT_REQUIRED')
+@@ -103,18 +121,50 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
+         from mechet.route_acceleration import DEFAULT_ACCELERATION,validate_acceleration
+         gate=read_json(admission);settings=gate.get('admitted_settings',{})
+         accel_settings=settings.get('acceleration',settings)
+-        acceleration=dict(DEFAULT_ACCELERATION)
+-        acceleration['sampling_kernel']=accel_settings.get('sampling_kernel')
+-        acceleration['duplicate_suffix_policy']='skip_extra_duplicates_v1' if original.get('refit') else 'disabled'
++        if full_native:
++            from mechet.route_acceleration import full_acceleration
++            acceleration=full_acceleration(refit=bool(original.get('refit')))
++        else:
++            acceleration=dict(DEFAULT_ACCELERATION)
++            acceleration['sampling_kernel']=accel_settings.get('sampling_kernel')
++            acceleration['duplicate_suffix_policy']='skip_extra_duplicates_v1' if original.get('refit') else 'disabled'
+         cfg.update(output_dir=str(output),source_commit=source_commit,acceleration=acceleration,
+-            loss_batch_size=settings.get('loss_batch_size'),authorization=authorization,
+-            experimental_condition=f'pr111_{condition}_stateful_acceleration_continuation_v1',
++            loss_batch_size=4 if full_native else settings.get('loss_batch_size'),authorization=authorization,
++            experimental_condition=f'pr111_{condition}_stateful_acceleration_continuation_'+('v2_native' if full_native else 'v1'),
+             implementation=original['implementation']+'; explicit accelerated continuation')
+         cfg['initial_baseline']['parent_output']=str(output)
++        if full_native:
++            if second_source_contract is None:raise ValueError('NATIVE_SECOND_SOURCE_CONTRACT_REQUIRED')
++            second_source_contract=Path(second_source_contract).resolve()
++            from mechet.route_native_admission import validate_local_admission
++            gate=validate_local_admission(admission,code)
++            candidates=[b for b in gate['source_bindings'].values()
++                if b.get('contract_sha256')==source_contract_sha256]
++            if len(candidates)!=1:raise ValueError('NATIVE_LOCAL_ACTOR_BINDING_REQUIRED')
++            benchmark=_verified_benchmark_actor(candidates[0],audit)
++            from mechet.route_vllm_contract import configure_runtime
++            runtime=deepcopy(read_json(ROOT/'outputs/submissions/external_route_vllm_full_20261110_04/contract.json')['vllm_runtime'])
++            runtime.update(cache_root=str(code.parent/'native-cache'),startup_timeout_seconds=3600,
++                shared_triton_cache_root=str(code.parent/'native-cache/shared-triton'))
++            configure_runtime(cfg,runtime)
++            cfg['native_admission']=dict(required=True,actor_sha256=audit['source_payload_sha256']['adapter_model.safetensors'],
++                source_contract_sha256=source_contract_sha256,source_complete_sha256=audit['source_complete_sha256'],
++                second_source_contract=str(second_source_contract),second_source_contract_sha256=file_sha(second_source_contract),
++                status='REQUIRES_REAL_H20_BF16_GATE_BEFORE_TRAINING')
++            if previous_failed_admission is not None:
++                previous_failed_admission=Path(previous_failed_admission).resolve()
++                failed=read_json(previous_failed_admission);prior=failed.get('source_bindings',{}).get('first',{})
++                if (failed.get('status')!='FAIL' or prior.get('contract_sha256')!=source_contract_sha256
++                        or prior.get('adapter_sha256')!=cfg['native_admission']['actor_sha256']):
++                    raise ValueError('PREVIOUS_NATIVE_FAILURE_ACTOR_BINDING_CHANGED')
++                values=previous_failed_admission.parent/'native_outputs.json'
++                cfg['native_admission']['previous_probability_failure']=dict(report=str(previous_failed_admission),
++                    report_sha256=file_sha(previous_failed_admission),outputs=str(values),outputs_sha256=file_sha(values))
++        else:
++            gate,binding=validate_admission(admission,cfg,code,condition=condition)
++            benchmark=_verified_benchmark_actor(binding,audit)
++            _verified_latest_actor(gate,condition,audit)
+         validate_acceleration(cfg)
+-        gate,binding=validate_admission(admission,cfg,code,condition=condition)
+-        benchmark=_verified_benchmark_actor(binding,audit)
+-        _verified_latest_actor(gate,condition,audit)
+         cfg['acceleration_continuation']=dict(version='pr111_stateful_acceleration_continuation_v1',
+             source_contract=str(source_contract),source_contract_sha256=source_contract_sha256,
+             source_output=audit['source_output'],source_checkpoint=audit['source_checkpoint'],
+@@ -127,8 +177,15 @@ def prepare(*,source_contract,source_contract_sha256,source_instance,source_stop
+             original_source_commit=original.get('source_commit'),sampler_equivalence='not_claimed_new_condition',
+             runtime_precision=original.get('policy_precision'),t4_admission_precision=gate['precision'])
+         old_code=Path(original['code_root']);old_archive=original.get('entry_archive')
++        preserve_runtime_leaves(original,code)
+         cfg['files_sha256']={path:digest for path,digest in original['files_sha256'].items()
+             if not Path(path).is_relative_to(old_code) and path!=old_archive}
++        if full_native:
++            for path in (Path(cfg['vllm_runtime']['manifest']),second_source_contract):
++                cfg['files_sha256'][str(path)]=file_sha(path)
++            previous=cfg['native_admission'].get('previous_probability_failure')
++            if previous:
++                for key in ('report','outputs'):cfg['files_sha256'][previous[key]]=previous[key+'_sha256']
+         cfg['code_root']=str(code)
+         cfg['code_files_sha256']={name:file_sha(code/name) for name in source_files(code)}
+         from mechet.route_runtime_efficiency import CONFIG_FILES
+@@ -201,6 +258,9 @@ def main():
+         prepare_parser.add_argument('--'+name,required=True,type=Path)
+     for name in ('source-instance','source-commit','authorization','task-flag'):
+         prepare_parser.add_argument('--'+name,required=True)
++    prepare_parser.add_argument('--full-native',action='store_true')
++    prepare_parser.add_argument('--second-source-contract',type=Path)
++    prepare_parser.add_argument('--previous-failed-admission',type=Path)
+     args=vars(parser.parse_args());mode=args.pop('mode')
+     if mode=='audit':
+         output=shared_new_path(args.pop('audit_output'))
+diff --git a/scripts/run_route_native_admission.py b/scripts/run_route_native_admission.py
+new file mode 100644
+index 0000000..9052e61
+--- /dev/null
++++ b/scripts/run_route_native_admission.py
+@@ -0,0 +1,65 @@
++"""Pre-training numerical software gate on an already allocated H20 (no update)."""
++import argparse
++import json
++from pathlib import Path
++import time
++
++from mechet.external_route_data import file_sha
++from mechet.route_native_admission import require_native_admission
++from mechet.route_training_contract import atomic_json
++
++
++def main(contract):
++    cfg=json.loads(contract.read_text())
++    if cfg.get('acceleration',{}).get('version')!='pr111_full_acceleration_v2':return
++    expected=cfg['native_admission']
++    if file_sha(expected['second_source_contract'])!=expected['second_source_contract_sha256']:
++        raise ValueError('NATIVE_SECOND_SOURCE_CONTRACT_CHANGED')
++    source=cfg['acceleration_continuation']
++    if file_sha(source['source_contract'])!=expected['source_contract_sha256']:
++        raise ValueError('NATIVE_SOURCE_CONTRACT_CHANGED')
++    record=Path(cfg['output_dir'])/'runtime_validation/native_admission.json'
++    latch=record.parent/'native_admission_failure.json'
++    if latch.exists():raise ValueError('FROZEN_NATIVE_FAILURE_REQUIRES_REPAIR:'+str(latch))
++    if record.exists():
++        require_native_admission(cfg,file_sha(contract));return
++    from scripts.validate_pr111_native_runtime import run
++    output=record.parent/('native-attempt-'+str(time.time_ns()))
++    report=output/'admission.json'
++    from scripts import pr96_earho_contract as probability
++    from mechet.route_probability_admission import ScoreWitnesses,replay_failed_probability_receipts
++    try:
++        # run() requires a fresh output directory. Witnesses start only after
++        # the original score call, once that directory has been created.
++        with ScoreWitnesses(probability,output/'teacher_scores.jsonl') as trace:
++            run(argparse.Namespace(output=output,source_contract=Path(cfg['acceleration_continuation']['source_contract']),
++                second_contract=Path(cfg['native_admission']['second_source_contract']),candidate_contract=contract,
++                profile='h20_bf16',count=4,waves=2,repeats=2,reuse_cache=None))
++        previous=expected.get('previous_probability_failure')
++        if previous:
++            for key in ('report','outputs'):
++                if file_sha(previous[key])!=previous[key+'_sha256']:
++                    raise ValueError('PREVIOUS_NATIVE_FAILURE_BYTES_CHANGED:'+key)
++            import torch
++            with torch.inference_mode(), ScoreWitnesses(probability,output/'previous_teacher_scores.jsonl'):
++                replay=replay_failed_probability_receipts(previous['report'],previous['outputs'],trace.primary_model,
++                    trace.pad_token_id,cfg['policy_precision'],probability.token_logps_batch,
++                    expected_actor=expected['actor_sha256'])
++            atomic_json(output/'previous_failed_case_replay.json',replay)
++            combined=json.loads(report.read_text());combined['legal_checks']['previous_failed_case_replay']='PASS'
++            combined['previous_failed_case_replay_sha256']=file_sha(output/'previous_failed_case_replay.json')
++            atomic_json(report,combined)
++    except BaseException as exc:
++        atomic_json(latch,dict(contract_sha256=file_sha(contract),report=str(report),
++            error=type(exc).__name__+':'+str(exc),retry='do not repeat unchanged frozen conditions; repair and revalidate'))
++        if report.exists():
++            failed=json.loads(report.read_text());failed.update(status='FAIL',hardware_gate_error=type(exc).__name__+':'+str(exc))
++            atomic_json(report,failed)
++        raise
++    atomic_json(record,dict(report=str(report),sha256=file_sha(report)))
++    require_native_admission(cfg,file_sha(contract))
++
++
++if __name__=='__main__':
++    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--contract',type=Path,required=True)
++    main(parser.parse_args().contract)
+diff --git a/scripts/serve_route_vllm.py b/scripts/serve_route_vllm.py
+index 7ee2c14..0184fde 100644
+--- a/scripts/serve_route_vllm.py
++++ b/scripts/serve_route_vllm.py
+@@ -5,6 +5,7 @@ import json
+ import os
+ from pathlib import Path
+ import sys
++import time
+ 
+ 
+ def engine_kwargs(cfg):
+@@ -12,16 +13,23 @@ def engine_kwargs(cfg):
+     runtime=cfg['vllm_runtime']
+     if runtime.get('execution_profile','eager_triton_v1')!='eager_triton_v1':
+         raise ValueError('VLLM_UNRECOGNIZED_EXECUTION_PROFILE')
+-    return dict(model=cfg['base_path'],dtype='bfloat16',tensor_parallel_size=1,
++    dtype=runtime.get('diagnostic_dtype','bfloat16')
++    if dtype!='bfloat16' and (not runtime.get('software_replay') or dtype!='float16'):
++        raise ValueError('VLLM_EXPLICIT_SOFTWARE_PROFILE_REQUIRED')
++    prefix=cfg.get('acceleration',{}).get('prefix_cache',False)
++    args=dict(model=cfg['base_path'],dtype=dtype,tensor_parallel_size=1,
+         max_model_len=cfg['max_context'],max_num_seqs=cfg['generation_batch_size'],
+         max_num_batched_tokens=runtime['max_num_batched_tokens'],
+         kv_cache_memory_bytes=runtime['kv_cache_memory_bytes'],
+         gpu_memory_utilization=runtime['gpu_memory_utilization'],
+-        enable_lora=True,max_lora_rank=16,max_loras=1,max_cpu_loras=1,lora_dtype='bfloat16',
++        enable_lora=True,max_lora_rank=16,max_loras=1,max_cpu_loras=1,lora_dtype=dtype,
+         generation_config='vllm',logprobs_mode='processed_logprobs',
+-        language_model_only=True,enable_prefix_caching=False,
++        language_model_only=True,enable_prefix_caching=prefix,
+         enforce_eager=True,additional_config={'gdn_prefill_backend':'triton'},
+         worker_extension_cls='scripts.route_vllm_worker.RouteVllmAuditWorker')
++    if prefix:args.update(mamba_cache_mode='align',enable_chunked_prefill=True)
++    if dtype=='float16':args['attention_config']={'backend':'TRITON_ATTN'}
++    return args
+ 
+ 
+ async def serve(cfg,output):
+@@ -35,12 +43,22 @@ async def serve(cfg,output):
+     from vllm.v1.engine.async_llm import AsyncLLM
+     from vllm.lora.request import LoRARequest
+     from vllm.sampling_params import RequestOutputKind
++    from vllm.v1.metrics.loggers import StatLoggerBase
++    from mechet.route_vllm_metrics import NativeEngineMetrics
++    from mechet.route_vllm_cache import prefix_namespace,invalidate_prefix
+     from mechet.route_vllm_protocol import (PROBABILITY_RECEIPT,validate_completion,
+                                            validate_probe,AdapterLease)
+     from mechet.route_vllm_adapter import sha256
+     runtime=cfg['vllm_runtime']
++    metrics=NativeEngineMetrics()
++    class Logger(StatLoggerBase):
++        def __init__(self,vllm_config,engine_index=0):self.engine_index=engine_index
++        def record(self,scheduler_stats,iteration_stats,mm_cache_stats=None,engine_idx=0):
++            metrics.record(scheduler_stats,iteration_stats)
++        def log_engine_initialized(self):pass
++        def log(self):pass
+     args=AsyncEngineArgs(**engine_kwargs(cfg))
+-    engine=AsyncLLM.from_engine_args(args)
++    engine=AsyncLLM.from_engine_args(args,stat_loggers=[Logger])
+     adapter=None;counter=0;lease=AdapterLease(cfg['generation_batch_size'])
+     output_lock=asyncio.Lock()
+     async def reply(uid,*,result=None,error=None):
+@@ -52,11 +70,17 @@ async def serve(cfg,output):
+         async with output_lock:await asyncio.to_thread(write)
+     async def generate(message):
+         wire=message['payload'];uid=message['rpc_id']
++        began=time.monotonic()
+         try:
+             params=SamplingParams(**wire['sampling'],seed=wire['seed'],
+                 max_tokens=wire['max_new_tokens'],output_kind=RequestOutputKind.FINAL_ONLY)
+             result=None
+-            async for result in engine.generate(dict(prompt_token_ids=wire['prompt_token_ids']),
++            prompt=dict(prompt_token_ids=wire['prompt_token_ids'])
++            if cfg.get('acceleration',{}).get('prefix_cache'):
++                if wire.get('prefix_namespace')!=prefix_namespace(cfg,wire['behavior_version']):
++                    raise ValueError('VLLM_PREFIX_NAMESPACE_MISMATCH')
++                prompt['cache_salt']=wire['prefix_namespace']
++            async for result in engine.generate(prompt,
+                     params,wire['request_id'],lora_request=adapter):pass
+             if result is None or not result.finished or len(result.outputs)!=1:
+                 raise ValueError('VLLM_INCOMPLETE_OUTPUT')
+@@ -64,10 +88,18 @@ async def serve(cfg,output):
+             if completion.logprobs is None or len(ids)!=len(completion.logprobs):
+                 raise ValueError('VLLM_NATIVE_LOGPROBS_MISSING')
+             logps=[float(row[token].logprob) for row,token in zip(completion.logprobs,ids)]
+-            receipt=validate_completion(dict(request_id=wire['request_id'],
++            value=dict(request_id=wire['request_id'],
+                 behavior_version=wire['behavior_version'],prompt_token_ids=wire['prompt_token_ids'],
+                 eos_token_id=wire['eos_token_id'],generated_token_ids=ids,behavior_logprobs=logps,
+-                probability_receipt=PROBABILITY_RECEIPT,finish_reason=completion.finish_reason),wire)
++                probability_receipt=PROBABILITY_RECEIPT,finish_reason=completion.finish_reason)
++            cached=getattr(result,'num_cached_tokens',None)
++            timings=metrics.take_finished(wire['request_id'])
++            value['engine_telemetry']=dict(num_cached_tokens=0 if cached is None else cached,
++                cache_counter_observed=cached is not None,
++                elapsed_seconds=time.monotonic()-began,request_timings=timings,
++                physical_gpu_rank=cfg.get('physical_gpu_rank',0))
++            if 'prefix_namespace' in wire:value['prefix_namespace']=wire['prefix_namespace']
++            receipt=validate_completion(value,wire)
+             await reply(uid,result=receipt)
+         except Exception as exc:await reply(uid,error=type(exc).__name__+':'+str(exc))
+         finally:lease.finish(wire['request_id'])
+@@ -89,16 +121,20 @@ async def serve(cfg,output):
+                 if sha256(path/'adapter_model.safetensors')!=mapping['mapped_sha256']:
+                     raise ValueError('VLLM_ADAPTER_MAPPED_SHA')
+                 if lease.version!=payload['version'] or lease.sha!=payload['source_sha256']:
+-                    lease.invalidate()
++                    await invalidate_prefix(engine,lease,args.enable_prefix_caching)
+                     if adapter:await engine.remove_lora(adapter.lora_int_id)
+-                    counter+=1;adapter=LoRARequest('route-'+str(counter),counter,str(path))
++                    from mechet.external_route_data import signature
++                    counter+=1;adapter=LoRARequest('route-'+signature([payload['version'],payload['source_sha256']])[:24]
++                                                  +'-'+str(counter),counter,str(path))
+                     if not await engine.add_lora(adapter):raise ValueError('VLLM_ADAPTER_LOAD_FAILED')
+                     result=await engine.collective_rpc('verify_route_lora',args=(counter,str(path)))
+                     lease.commit(payload['version'],payload['source_sha256'])
++                    metrics.start_version(payload['version'])
+                 else:result=dict(already_loaded=True,source_sha256=lease.sha)
+             elif op=='drain':
+                 if tasks:await asyncio.gather(*tasks)
+-                result=dict(inflight=len(lease.inflight),behavior_version=lease.version)
++                result=dict(inflight=len(lease.inflight),behavior_version=lease.version,engine_metrics=metrics.snapshot())
++            elif op=='metrics':result=metrics.snapshot()
+             elif op=='probe_logprobs':
+                 # Numerical replay only: teacher-force the SAME saved next token
+                 # with adapter disabled/enabled. Never return a policy receipt.
+diff --git a/scripts/taiji_external_route_bootstrap.sh b/scripts/taiji_external_route_bootstrap.sh
+index 156d2ca..9a8019d 100644
+--- a/scripts/taiji_external_route_bootstrap.sh
++++ b/scripts/taiji_external_route_bootstrap.sh
+@@ -65,5 +65,6 @@ PY
+   "$route_python" -S -u "$route_code/scripts/verify_route_fla_kernel_profile.py" --contract "$route_contract" \
+     2>&1 | tee "$route_unit_dir/l2norm_gpu_unit.log"
+ fi
++"$route_python" -S -u -m scripts.run_route_native_admission --contract "$route_contract"
+ exec "$route_python" -S -u -m torch.distributed.run --standalone --nproc_per_node="$route_world" \
+   --no-python "$route_python" -S -u -m scripts.train_external_route_rl --contract "$route_contract"
+diff --git a/scripts/train_external_route_rl.py b/scripts/train_external_route_rl.py
+index bbde55f..24d0c39 100644
+--- a/scripts/train_external_route_rl.py
++++ b/scripts/train_external_route_rl.py
+@@ -156,7 +156,9 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+     refit=None
+     if 'refit' in cfg:
+         from mechet.route_refit_runtime import RefitCollection
+-        refit=RefitCollection(episodes,cfg['refit'],duplicate_policy=cfg.get('acceleration',{}).get('duplicate_suffix_policy'))
++        refit=RefitCollection(episodes,cfg['refit'],
++            duplicate_policy=cfg.get('acceleration',{}).get('duplicate_suffix_policy'),
++            lane_config=cfg.get('acceleration',{}).get('refit_lanes'))
+         episodes=refit.initial
+     indexed={ep.uid:ep for ep in episodes};seen=set();journal=directory/'executed_calls.jsonl'
+     for receipt in read_owned_journal(journal):
+@@ -222,7 +224,8 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+                 native_stock_solved=sum(ep.status=='stock_solved' for ep in episodes),
+                 scheduler_metrics=dict(getattr(sampler,'scheduler_metrics',{})),
+                 censored_route_episodes=sum(ep.status in ('resource_censored','protected_censored') for ep in episodes),
+-                max_decisions_inflight=max((len(ep.records) for ep in episodes if ep.status is None),default=0)))
++                max_decisions_inflight=max((len(ep.records) for ep in episodes if ep.status is None),default=0),
++                **({'refit_lane_counts':refit.lane_metrics()} if refit and refit.v2 else {})))
+     snapshot(force=True)
+     try:
+         collector=collect_async_route_groups if native or remote else collect_route_groups
+@@ -230,7 +233,11 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+                           journal=record,recovered=recovered,snapshot=snapshot,
+                           **({'on_completed_action':refit.completed} if refit else {}),
+                           **({'before_dispatch':execution_writer.flush} if (native or remote) and refit else {}))
+-        return refit.pack(reports) if refit else reports
++        packed=refit.pack(reports) if refit else reports
++        if remote and cfg.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2':
++            from mechet.route_request_accounting import request_labels
++            cfg['_policy_broker'].register_request_labels(version+'/'+rows[0]['task_id'],request_labels(packed))
++        return packed
+     finally:
+         if remote:sampler.close()
+         elif native:
+@@ -244,6 +251,7 @@ def collect_round(rows,stock,protected,actor,tokenizer,cfg,directory,version):
+             from mechet.route_refit_runtime import unique_collection_counts
+             counts=unique_collection_counts(episodes);attempts=counts['model_decision_requests']
+             metrics.update(counts,refit_additional_rollouts=len(refit.all)-len(refit.initial))
++            if refit.v2:metrics['refit_lane_counts']=refit.lane_metrics()
+             if cfg.get('acceleration'):
+                 metrics.update(duplicate_pruned_no_continuation=refit.duplicate_pruned,
+                     deterministic_execution_cache=cfg['_execution_cache'].metrics())
+@@ -524,6 +532,8 @@ def train(contract_path):
+         from mechet.external_route_rl import HiddenRouteReward,optimize_routes
+         from scripts.prepare_external_route_rl import verify_contract
+     cfg=verify_contract(contract_path);cfg['_sha']=file_sha(contract_path)
++    from mechet.route_native_admission import require_native_admission
++    require_native_admission(cfg,cfg['_sha'])
+     if profiler is not None:cfg['_phase_profile']=profiler
+     from mechet.route_precision import configure_precision
+     cfg['_effective_policy_precision']=configure_precision(cfg)
+diff --git a/scripts/validate_pr111_native_runtime.py b/scripts/validate_pr111_native_runtime.py
+new file mode 100644
+index 0000000..a936a18
+--- /dev/null
++++ b/scripts/validate_pr111_native_runtime.py
+@@ -0,0 +1,272 @@
++"""Authorized small real-engine software admission; never an RL or route result.
++
++The T4 profile is explicitly FP16/unfused HF versus FP16 native. Formal H20
++admission must separately use the production BF16 forward and frozen checkpoint.
++"""
++import argparse
++from concurrent.futures import as_completed
++from contextlib import ExitStack
++from copy import deepcopy
++from dataclasses import replace
++import hashlib
++import json
++from pathlib import Path
++import statistics
++import threading
++import time
++
++ROOT=Path('/aaa/fionafyang/buddy1/whaleywang/MechET')
++
++
++def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
++
++
++def inputs(count):
++    path=ROOT/'outputs/agent/pr109_standard_d3_refit_20261116_02/round-000009/rank00/raw_generation.jsonl'
++    from mechet.route_policy_episode import DecisionRequest
++    with path.open() as source:
++        row=next(json.loads(s) for s in source if '"gpu-requested"' in s)
++    indices=[4*i for i in range(count)]
++    if max(indices)>=len(row['requests']):raise ValueError('DIAGNOSTIC_INPUT_COUNT')
++    return [DecisionRequest(**row['requests'][i]) for i in indices],\
++        [row['prompt_token_ids'][i] for i in indices],dict(source=str(path),indices=indices,
++            source_event_sha256=hashlib.sha256(json.dumps(row,sort_keys=True).encode()).hexdigest())
++
++
++def checkpoint(contract):
++    cfg=json.loads(contract.read_text());pointer=json.loads((Path(cfg['output_dir'])/'latest.json').read_text())
++    p=Path(pointer['path']);state=json.loads((p/'complete.json').read_text())
++    if sha(p/'complete.json')!=pointer['complete_sha256'] or state['contract_sha256']!=sha(contract):
++        raise ValueError('SOURCE_COMPLETE_BINDING_CHANGED')
++    if sha(p/'adapter_model.safetensors')!=state['payload_sha256']['adapter_model.safetensors']:
++        raise ValueError('SOURCE_ACTOR_BYTES_CHANGED')
++    return p,dict(checkpoint=str(p),adapter_sha256=state['payload_sha256']['adapter_model.safetensors'],
++        complete_sha256=pointer['complete_sha256'],contract_sha256=sha(contract),
++        optimizer_step=state['optimizer_step'],next_round=state['next_round'])
++
++
++def run(args):
++    from mechet.route_training_contract import atomic_json
++    output=args.output.resolve()
++    if not output.is_relative_to('/aaa/fionafyang/buddy1') or output.exists():
++        raise ValueError('NEW_OWNED_CEPH_DIAGNOSTIC_DIRECTORY_REQUIRED')
++    output.mkdir(parents=True)
++    report=dict(status='RUNNING',scope='user_authorized_small_native_engine_software_admission',
++        production_updates=0,route_evaluation=False,hardware_profile=args.profile,
++        legal_checks={},timings={},source_bindings={})
++    def event(stage,**values):
++        report.update(stage=stage,**values);atomic_json(output/'admission.json',report)
++        print(json.dumps(dict(stage=stage,**values)),flush=True)
++    process=None
++    try:
++        cfg=json.loads((args.candidate_contract or args.source_contract).read_text())
++        t4=args.profile=='t4_fp16'
++        if not t4:
++            from mechet.route_runtime_efficiency import configure_profile
++            configure_profile(cfg,Path(__file__).resolve().parents[1])
++        from mechet.route_transformers_import import import_transformers_indexed
++        event('import-learner-runtime');import_transformers_indexed(cfg)
++        import torch
++        from transformers.utils import import_utils
++        if t4:
++            import_utils.is_flash_linear_attention_available=lambda:False
++            import_utils.is_causal_conv1d_available=lambda:False
++        from transformers import AutoTokenizer
++        from transformers.models.qwen3_5 import modeling_qwen3_5 as upstream
++        if t4:
++            for name in ('FusedRMSNormGated','chunk_gated_delta_rule','fused_recurrent_gated_delta_rule',
++                         'causal_conv1d_fn','causal_conv1d_update'):setattr(upstream,name,None)
++        from peft import PeftModel
++        from mechet.qwen35_protocol import load_language_model,OFFICIAL_REVISION
++        from mechet.route_acceleration import full_acceleration,DEFAULT_ACCELERATION,dispatch_settings
++        from mechet.route_vllm_contract import configure_runtime
++        from mechet.route_vllm_backend import start_vllm_process
++        from mechet.route_gpu_backend import make_gpu_sampler,close_gpu_sampler
++        from mechet.route_global_sampler import RemoteSampler,serve_gpu,LockedTokenizer
++        from mechet.route_work_broker import WorkBroker
++        from mechet.route_policy_protocol import route_tool_prefix
++        from mechet.route_action_feedback import tools_for_request
++        from mechet.external_route_io import BatchedNativeRouteSampler,ReceiptBatch
++        from scripts.pr96_earho_contract import token_logps_batch
++        torch.cuda.set_device(0);torch.set_num_threads(4)
++        required_gpu='T4' if t4 else 'H20'
++        if required_gpu not in torch.cuda.get_device_name(0):raise ValueError('ADMISSION_HARDWARE_PROFILE_MISMATCH')
++        dtype=torch.float16 if t4 else torch.bfloat16
++        precision='legacy_fp32_lora' if t4 else cfg['policy_precision']
++        if not t4:
++            from mechet.route_precision import configure_precision
++            configure_precision(cfg)
++        report['hardware']=torch.cuda.get_device_name(0)
++        report['precision']=precision
++        report['candidate_contract_sha256']=sha(args.candidate_contract) if args.candidate_contract else None
++        first,binding=checkpoint(args.source_contract);second,other=checkpoint(args.second_contract)
++        report['source_bindings']={'first':binding,'second':other}
++        requests,prompt_ids,source=inputs(args.count*args.waves);report['input_binding']=source
++        old=json.loads((ROOT/'outputs/submissions/external_route_vllm_full_20261110_04/contract.json').read_text())
++        runtime=deepcopy(cfg.get('vllm_runtime',old['vllm_runtime']))
++        if t4:runtime['cache_root']=str(output/'cache')
++        if args.reuse_cache:
++            prior=args.reuse_cache.resolve()
++            if (not prior.is_relative_to(ROOT/'outputs/diagnostics/pr111_full_acceleration_20261117_01')
++                    or json.loads((prior/'admission.json').read_text()).get('status')!='PASS'):
++                raise ValueError('ONLY_OWN_PRIOR_PASSED_CACHE_REUSE_ALLOWED')
++            runtime['cache_root']=str(prior/'cache')
++            runtime['shared_triton_cache_root']=str(prior/'cache/rank00/triton')
++            report['cache_reuse']=dict(source=str(prior),prior_receipt_sha256=sha(prior/'admission.json'))
++        if t4 and not args.reuse_cache:runtime.pop('shared_triton_cache_root',None)
++        runtime.update(kv_cache_memory_bytes=1024**3 if t4 else runtime['kv_cache_memory_bytes'],
++            max_num_batched_tokens=8192,gpu_memory_utilization=.45,request_timeout_seconds=600,startup_timeout_seconds=3600)
++        cfg.update(output_dir=str(output),_sha=sha(args.source_contract),generation_batch_size=args.count,world_size=1,
++            max_context=8192 if t4 else cfg['max_context'],policy_precision=precision,
++            acceleration=full_acceleration(refit=bool(cfg.get('refit'))),
++            _rollout_adapter_path=str(first))
++        configure_runtime(cfg,runtime)
++        if t4:cfg['vllm_runtime'].update(software_replay=True,diagnostic_dtype='float16')
++        event('load-real-actor',checkpoint=str(first))
++        tokenizer=AutoTokenizer.from_pretrained(cfg['base_path'],revision=OFFICIAL_REVISION,local_files_only=True)
++        tokenizer.padding_side='left'
++        if tokenizer.pad_token_id is None:tokenizer.pad_token=tokenizer.eos_token
++        actor,_=load_language_model(cfg['base_path'],dtype=dtype)
++        actor=PeftModel.from_pretrained(actor,first,is_trainable=False).cuda().eval()
++        reference=None
++        if not t4:
++            reference,_=load_language_model(cfg['base_path'],dtype=dtype)
++            reference=PeftModel.from_pretrained(reference,cfg['parent'],is_trainable=False).cuda().eval()
++            report['reference_residency']=dict(adapter_sha256=sha(Path(cfg['parent'])/'adapter_model.safetensors'),
++                allocated_bytes=torch.cuda.memory_allocated())
++        tokenizer=LockedTokenizer(tokenizer)
++        def ids(request):
++            return tokenizer(route_tool_prefix(tokenizer,request.messages,tools_for_request(request),cfg),
++                             add_special_tokens=False)['input_ids']
++        for request,want in zip(requests,prompt_ids):
++            if ids(request)!=want:raise ValueError('SAVED_PROMPT_TOOL_TOKENIZER_PARITY')
++        event('start-real-native-engine')
++        started=time.monotonic();process=start_vllm_process(cfg)
++        report['engine_start_seconds']=time.monotonic()-started
++        report['phase_metrics']={}
++        code=Path(__file__).resolve().parents[1]
++        from mechet.route_acceleration_continuation import COMPUTE_FILES
++        names=set(COMPUTE_FILES)|{'src/mechet/route_gpu_backend.py','src/mechet/route_vllm_backend.py',
++            'src/mechet/route_vllm_protocol.py','src/mechet/route_vllm_cache.py',
++            'src/mechet/route_vllm_metrics.py','src/mechet/route_vllm_environment.py',
++            'src/mechet/route_reference_cache.py','src/mechet/route_request_accounting.py','scripts/serve_route_vllm.py',
++            'scripts/validate_pr111_native_runtime.py'}
++        report['validated_compute_files_sha256']={name:sha(code/name) for name in sorted(names)}
++        version='software-native:'+binding['adapter_sha256']
++        def native(tag,rows,version):
++            directory=output/tag;directory.mkdir()
++            sampler=make_gpu_sampler(None,tokenizer,cfg,directory,version,0)
++            broker=WorkBroker([],actor_version=version,contract_sha=cfg['_sha'],journal_path=directory/'claims.jsonl',
++                dispatch=dispatch_settings(cfg))
++            worker=threading.Thread(target=serve_gpu,args=(broker,sampler,0),daemon=True);worker.start()
++            began=time.monotonic();results=[]
++            try:
++                with ExitStack() as stack:
++                    remotes={r.episode_id:stack.enter_context(RemoteSampler(broker,tag+'/'+r.episode_id,cfg,prompt_ids=ids))
++                        for r in rows}
++                    pending={remotes[r.episode_id].submit(r):i for i,r in enumerate(rows)}
++                    for f in as_completed(pending):results.append((pending[f],f.result(timeout=600)))
++            finally:
++                broker.stop();worker.join(30)
++                if worker.is_alive():raise RuntimeError('DIAGNOSTIC_NATIVE_WORKER_STILL_RUNNING')
++                close_gpu_sampler(sampler,cfg)
++            report['phase_metrics'][tag]=dict(engine=deepcopy(cfg.get('_last_native_engine_metrics')),
++                broker=broker.snapshot())
++            atomic_json(directory/'metrics.json',report['phase_metrics'][tag])
++            return time.monotonic()-began,[v for _,v in sorted(results)]
++        def rows(tag,version,count=None):
++            return [replace(r,request_id='software/'+tag+'/'+str(i),behavior_version=version)
++                    for i,r in enumerate(requests[:count])]
++        event('native-global-warmup')
++        warm_seconds,warm=native('native-warmup',rows('warm',version),version)
++        atomic_json(output/'native_warm.json',warm)
++        hf_cfg=dict(cfg,inference_backend='hf',acceleration=dict(DEFAULT_ACCELERATION,
++            duplicate_suffix_policy='disabled',sampling_kernel='private_pinned_argmax_v1'))
++        hf=BatchedNativeRouteSampler(actor,tokenizer,hf_cfg,output/'hf.jsonl',ReceiptBatch(output/'hf-tools.jsonl'))
++        event('hf-independent-warmup')
++        with torch.inference_mode(),torch.autocast('cuda',dtype=dtype):
++            hf.generate(rows('hf-warmup',version))
++        torch.cuda.synchronize()
++        native_timings=[];hf_timings=[];all_native=[]
++        for repeat in range(args.repeats):
++            group=rows('paired-'+str(repeat),version)
++            event('paired-complete-actions',repeat=repeat)
++            def timed_hf():
++                torch.cuda.synchronize();began=time.monotonic()
++                with torch.inference_mode(),torch.autocast('cuda',dtype=dtype):values=hf.generate(group)
++                torch.cuda.synchronize();return time.monotonic()-began,values
++            if repeat%2:
++                seconds,native_values=native('native-paired-'+str(repeat),group,version)
++                hf_seconds,hf_values=timed_hf()
++            else:
++                hf_seconds,hf_values=timed_hf()
++                seconds,native_values=native('native-paired-'+str(repeat),group,version)
++            hf_timings.append(hf_seconds);native_timings.append(seconds);all_native.extend(native_values)
++            if any(v['truncated'] for v in hf_values+native_values):raise ValueError('DIAGNOSTIC_ACTION_TRUNCATED')
++        differences=[]
++        for value in all_native:
++            with torch.inference_mode(),torch.autocast('cuda',dtype=dtype):
++                expected=token_logps_batch(actor,[(value['prompt_token_ids'],value['generated_token_ids'])],
++                                          tokenizer.pad_token_id,precision=precision)[0]
++            differences.extend(abs(a-b) for a,b in zip(expected.tolist(),value['behavior_logprobs']))
++        atomic_json(output/'native_outputs.json',all_native)
++        report['max_native_logprob_difference']=max(differences)
++        if max(differences)>.25:raise ValueError('NATIVE_PROBABILITY_PARITY_UNCHANGED_025_GATE')
++        if not any(v['engine_telemetry']['num_cached_tokens']>0 for v in all_native):
++            raise ValueError('ACTUAL_PREFIX_CACHE_HIT_NOT_OBSERVED')
++        report['legal_checks'].update(native_probability='PASS',prompt_ids='PASS',
++            complete_actions='PASS',native_cache_hit='PASS',global_async_receipts='PASS')
++        report['timings']=dict(hf_complete_action_seconds=hf_timings,native_complete_action_seconds=native_timings,
++            requests_per_backend_per_repeat=len(requests),maximum_inflight=args.count,waves=args.waves,
++            median_speedup=statistics.median(hf_timings)/statistics.median(native_timings),
++            qualification='same prompts and completed-request count; independently sampled responses; '+args.profile)
++        event('actual-native-eos-refill-probe')
++        probe=[replace(requests[i%len(requests)],request_id='software/refill/'+str(i),
++            episode_id='software-refill-owner-'+str(i),behavior_version=version,
++            remaining_tokens=1 if i==0 else requests[i%len(requests)].remaining_tokens)
++            for i in range(args.count+2)]
++        _,refilled=native('native-refill',probe,version)
++        events=[json.loads(line) for line in (output/'native-refill/gpu-rank00.jsonl').read_text().splitlines()]
++        submitted=[(i,e['request']['request_id']) for i,e in enumerate(events) if e['event']=='vllm-submitted']
++        completed={e['request']['request_id']:i for i,e in enumerate(events) if e['event']=='vllm-completed'}
++        refill_position=submitted[args.count][0]
++        long_initial=[uid for _,uid in submitted[:args.count] if uid!=probe[0].request_id]
++        if not any(refill_position<completed[uid] for uid in long_initial):
++            raise ValueError('REAL_NATIVE_REFILL_NOT_OBSERVED_BEFORE_LONG_NEIGHBOR')
++        if len(refilled)!=len(probe) or any(v.get('truncated') or v.get('resource_error') for v in refilled[1:]):
++            raise ValueError('REAL_NATIVE_REFILL_NEIGHBOR_CENSORED')
++        report['refill_probe']=dict(status='PASS',requests=len(probe),dedicated_short_request_budget=1,
++            short_request_truncated=refilled[0].get('truncated'),
++            refill_event_position=refill_position,initial_long_completion_positions=[completed[u] for u in long_initial],
++            scope='explicit one-token resource-boundary software probe; excluded from complete-action timings')
++        report['legal_checks']['actual_native_refill_before_long_neighbor']='PASS'
++        cfg['_rollout_adapter_path']=str(second);version2='software-switch:'+other['adapter_sha256']
++        event('switch-real-actor-and-reset-cache')
++        _,switched=native('native-after-switch',rows('switch',version2,1),version2)
++        if switched[0]['engine_telemetry']['num_cached_tokens']!=0:
++            raise ValueError('OLD_ACTOR_PREFIX_SURVIVED_SWITCH')
++        _,cached=native('native-after-switch-repeat',rows('switch-repeat',version2,1),version2)
++        if cached[0]['engine_telemetry']['num_cached_tokens']<=0:
++            raise ValueError('NEW_ACTOR_PREFIX_NOT_REUSED')
++        report['legal_checks']['actor_switch_cache_invalidation']='PASS'
++        report['native_engine_metrics']=cfg.get('_last_native_engine_metrics')
++        report['status']='PASS';event('software-admission-passed')
++    except BaseException as exc:
++        report.update(status='FAIL',error=type(exc).__name__+':'+str(exc));event('software-admission-failed')
++        raise
++    finally:
++        if process is not None:process.close()
++
++
++if __name__=='__main__':
++    parser=argparse.ArgumentParser(description=__doc__)
++    parser.add_argument('--output',required=True,type=Path)
++    parser.add_argument('--source-contract',type=Path,default=ROOT/'outputs/submissions/pr111_d3_accelerated_resume_20261117_01/contract.json')
++    parser.add_argument('--second-contract',type=Path,default=ROOT/'outputs/submissions/pr111_d1_accelerated_resume_20261117_01/contract.json')
++    parser.add_argument('--count',type=int,default=4)
++    parser.add_argument('--waves',type=int,default=2)
++    parser.add_argument('--repeats',type=int,default=4)
++    parser.add_argument('--reuse-cache',type=Path)
++    parser.add_argument('--profile',choices=['t4_fp16','h20_bf16'],default='t4_fp16')
++    parser.add_argument('--candidate-contract',type=Path)
++    run(parser.parse_args())
+diff --git a/src/mechet/external_route_rl.py b/src/mechet/external_route_rl.py
+index 5ab2e34..55b5bc4 100644
+--- a/src/mechet/external_route_rl.py
++++ b/src/mechet/external_route_rl.py
+@@ -260,6 +260,9 @@ def optimize_routes(actor, reference, optimizer, groups, cfg):
+         stats['effective_episode_groups']=sum(any(a!=0 for a in
+             (route_group_advantages([r['reward'] for r in group],algorithm) or [])) for group,_ in usable)
+     if refit:
++        for name in ('conditional_nonzero_advantage_groups','conditional_zero_advantage_groups',
++                     'conditional_all_failed_groups','conditional_m1_completed_used'):
++            stats[name]=sum(s[name] for _,s in refit_entries.values())
+         stats.update(advantage_estimator='same_state_flow_branch_replaces_independent_g4_v1',
+             effective_groups=sum(refit_entries[id(g)][1]['effective'] for g,_ in usable),
+             conditional_groups=sum(s['conditional_groups'] for _,s in refit_entries.values()),
+@@ -269,6 +272,15 @@ def optimize_routes(actor, reference, optimizer, groups, cfg):
+     if denominator == 0:
+         return stats
+     actor.eval(); reference.eval()
++    reference_cache=None;reference_cache_before=None
++    capacity=cfg.get('acceleration',{}).get('reference_cache_capacity',0)
++    if capacity:
++        from .route_reference_cache import ReferenceLogprobCache,reference_identity
++        reference_key=reference_identity(cfg)
++        reference_cache=cfg.get('_reference_logprob_cache')
++        if reference_cache is None or reference_cache.capacity!=capacity:
++            reference_cache=ReferenceLogprobCache(capacity);cfg['_reference_logprob_cache']=reference_cache
++        reference_cache_before=reference_cache.snapshot()
+     entries = list(compact.items())
+     size = cfg['loss_batch_size']
+     from .route_training_batches import training_batches
+@@ -280,7 +292,11 @@ def optimize_routes(actor, reference, optimizer, groups, cfg):
+             for batch in training_batches(entries,size,padded_capacity):
+                 pairs = [(list(k[0]),list(k[1])) for k,_ in batch]
+                 with torch.no_grad(),phase(cfg,'learner.reference_forward',batch_size=len(pairs)):
+-                    refs = token_logps_batch(reference,pairs,cfg['pad_token_id'],**precision_kwargs)
++                    if reference_cache is None:
++                        refs=token_logps_batch(reference,pairs,cfg['pad_token_id'],**precision_kwargs)
++                    else:
++                        refs=reference_cache.lookup(pairs,identity=reference_key,device=device,
++                            compute=lambda missing:token_logps_batch(reference,missing,cfg['pad_token_id'],**precision_kwargs))
+                 with phase(cfg,'learner.actor_forward',batch_size=len(pairs)):
+                     news = token_logps_batch(actor,pairs,cfg['pad_token_id'],**precision_kwargs)
+                 loss = None
+@@ -308,6 +324,10 @@ def optimize_routes(actor, reference, optimizer, groups, cfg):
+                     loss.backward()
+     except Exception as exc:
+         error=exc
++    if reference_cache is not None:
++        after=reference_cache.snapshot()
++        stats['reference_cache']={k:(after[k] if k in ('entries','capacity','bytes')
++            else after[k]-reference_cache_before[k]) for k in after}
+     collective_check(error)
+     if distributed:
+         with phase(cfg,'learner.gradient_reduce'):
+diff --git a/src/mechet/route_acceleration.py b/src/mechet/route_acceleration.py
+index fa5d51d..449e6d3 100644
+--- a/src/mechet/route_acceleration.py
++++ b/src/mechet/route_acceleration.py
+@@ -7,9 +7,46 @@ DEFAULT_ACCELERATION=dict(version='pr111_compute_lanes_dynamic_v1',execution_cac
+     hf_length_bucketing=True,sampling_kernel='counter_categorical_v1')
+ 
+ 
++def full_acceleration(*,refit):
++    """Explicit native condition; the frozen HF version remains independently valid."""
++    return dict(version='pr111_full_acceleration_v2',execution_cache_capacity=8192,
++        duplicate_suffix_policy='skip_extra_duplicates_v2' if refit else 'disabled',
++        scheduling='global_length_fair_v2',hf_length_bucketing=False,
++        sampling_kernel='vllm_native_v1',prefix_cache=True,
++        dispatch_max_prefill_tokens=8192,dispatch_max_estimated_tokens=131072,
++        dispatch_max_pending=4096,reference_cache_capacity=512,
++        refit_lanes=dict(credit_forks_per_tree=16,exploration_forks_per_tree=0) if refit else None)
++
++
++def dispatch_settings(cfg):
++    value=cfg.get('acceleration',{})
++    if value.get('scheduling')!='global_length_fair_v2':return None
++    return dict(max_prefill_tokens=value['dispatch_max_prefill_tokens'],
++        max_estimated_tokens=value['dispatch_max_estimated_tokens'],
++        max_pending=value['dispatch_max_pending'],gpu_count=cfg['world_size'])
++
++
+ def validate_acceleration(cfg):
+     value=cfg.get('acceleration')
+     if value is None:return
++    if isinstance(value,dict) and value.get('version')=='pr111_full_acceleration_v2':
++        expected=full_acceleration(refit=bool(cfg.get('refit')))
++        variable={'execution_cache_capacity','dispatch_max_prefill_tokens',
++                  'dispatch_max_estimated_tokens','dispatch_max_pending','reference_cache_capacity','refit_lanes'}
++        if (set(value)!=set(expected) or any(value[k]!=v for k,v in expected.items() if k not in variable)
++                or cfg.get('inference_backend','hf')!='vllm' or cfg.get('candidates')!=4 or cfg.get('world_size')!=4
++                or any(type(value[k]) is not int or value[k]<(0 if k=='reference_cache_capacity' else 1)
++                       for k in variable-{'refit_lanes'})):
++            raise ValueError('FULL_ACCELERATION_EXPLICIT_NATIVE_CONDITION_REQUIRED')
++        lanes=value['refit_lanes']
++        if cfg.get('refit'):
++            if (not isinstance(lanes,dict) or set(lanes)!=set(expected['refit_lanes'])
++                    or any(type(v) is not int or v<0 for v in lanes.values())
++                    or lanes['credit_forks_per_tree']<1
++                    or sum(lanes.values())>cfg['refit']['max_forks_per_tree']):
++                raise ValueError('FULL_ACCELERATION_REFIT_LANE_BUDGETS')
++        elif lanes is not None:raise ValueError('FULL_ACCELERATION_D1_WITH_REFIT_LANES')
++        return
+     expected_duplicate='skip_extra_duplicates_v1' if cfg.get('refit') else 'disabled'
+     if (not isinstance(value,dict) or set(value)!=set(DEFAULT_ACCELERATION) or
+             any(value[k]!=v for k,v in DEFAULT_ACCELERATION.items() if k not in (
+diff --git a/src/mechet/route_acceleration_continuation.py b/src/mechet/route_acceleration_continuation.py
+index 54252f6..3f1de6e 100644
+--- a/src/mechet/route_acceleration_continuation.py
++++ b/src/mechet/route_acceleration_continuation.py
+@@ -17,7 +17,8 @@ REQUIRED_PAYLOADS={'adapter_model.safetensors','adapter_config.json','optimizer.
+ # Every other field is immutable, including unrecognized future semantic fields.
+ MUTABLE_FIELDS={'output_dir','code_root','code_files_sha256','files_sha256','entry_archive',
+     'entry_archive_sha256','source_commit','authorization','experimental_condition',
+-    'implementation','acceleration','loss_batch_size','initial_baseline','acceleration_continuation'}
++    'implementation','acceleration','loss_batch_size','initial_baseline','acceleration_continuation',
++    'inference_backend','vllm_runtime','native_admission'}
+ COMPUTE_FILES={
+     'src/mechet/route_acceleration.py','src/mechet/route_policy_sampling.py',
+     'src/mechet/route_counter_sampling.py','src/mechet/route_execution_cache.py',
+@@ -125,6 +126,11 @@ def assert_source_unchanged(audit):
+ 
+ 
+ def validate_conditions(original,new):
++    native=new.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2'
++    if not native and any(original.get(k)!=new.get(k) for k in ('inference_backend','vllm_runtime','native_admission')):
++        raise ValueError('CONTINUATION_NATIVE_BACKEND_CHANGE_REQUIRES_FULL_CONDITION')
++    if native and (new.get('inference_backend')!='vllm' or new.get('native_admission',{}).get('required') is not True):
++        raise ValueError('CONTINUATION_NATIVE_HARDWARE_GATE_REQUIRED')
+     for key in original.keys()|new.keys():
+         if key not in MUTABLE_FIELDS and (original.get(key)!=new.get(key) or (key in original)!=(key in new)):
+             raise ValueError('CONTINUATION_CONDITION_CHANGED:'+key)
+@@ -140,7 +146,7 @@ def validate_conditions(original,new):
+     if Path(new['output_dir']).resolve()==Path(original['output_dir']).resolve():
+         raise ValueError('CONTINUATION_OUTPUT_COLLISION')
+     acceleration=new.get('acceleration',{})
+-    expected='skip_extra_duplicates_v1' if original.get('refit') else 'disabled'
++    expected=('skip_extra_duplicates_v2' if native else 'skip_extra_duplicates_v1') if original.get('refit') else 'disabled'
+     if acceleration.get('duplicate_suffix_policy')!=expected:
+         raise ValueError('CONTINUATION_D1_D3_DUPLICATE_POLICY_CHANGED')
+     # Never manufacture old VALID results under the changed sampler identity.
+diff --git a/src/mechet/route_distributed_collection.py b/src/mechet/route_distributed_collection.py
+index 3a65967..bf8c4c7 100644
+--- a/src/mechet/route_distributed_collection.py
++++ b/src/mechet/route_distributed_collection.py
+@@ -41,8 +41,7 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
+     from scripts.train_external_route_rl import collect_round,score_groups,backend_collection_metrics
+     from .route_work_broker import WorkBroker
+     from .route_global_sampler import broker_server,connect_broker,serve_gpu,LockedTokenizer
+-    from .external_route_io import ReceiptBatch,BatchedNativeRouteSampler
+-    from .route_policy_sampling import read_owned_journal,recover_behavior_receipts
++    from .route_gpu_backend import make_gpu_sampler,close_gpu_sampler,recover_gpu_journal
+     from scripts.pr96_earho_contract import token_logps_batch
+     rank,world=dist.get_rank(),dist.get_world_size()
+     if int(os.environ.get('LOCAL_WORLD_SIZE',world))!=world:
+@@ -51,7 +50,9 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
+     server=None;control=[None];error=''
+     if rank==0:
+         try:
+-            state=WorkBroker(rows,actor_version=version,contract_sha=cfg['_sha'],journal_path=directory/'claims.jsonl')
++            from .route_acceleration import dispatch_settings
++            state=WorkBroker(rows,actor_version=version,contract_sha=cfg['_sha'],journal_path=directory/'claims.jsonl',
++                             dispatch=dispatch_settings(cfg))
+             # Restore physical GPU work once, regardless of which CPU owner or
+             # GPU receives the request after restart. No fresh sample is forged.
+             def recompute(p,r):
+@@ -60,31 +61,28 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
+                     return token_logps_batch(actor,[(p,r)],cfg['pad_token_id'],precision=precision_mode(cfg))[0].tolist()
+             for gpu in range(world):
+                 path=directory/f'gpu-rank{gpu:02d}.jsonl'
+-                recovered=recover_behavior_receipts(path,version,recompute)
+-                requests={}
+-                for event in read_owned_journal(path):
+-                    if event['event']=='gpu-requested':
+-                        for request in event['requests']:requests[request['request_id']]=request
+-                for uid,value in recovered.items():state.seed_result(requests[uid],value)
++                for request,value in recover_gpu_journal(path,version,cfg,recompute):
++                    state.seed_result(request,value)
++            if cfg.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2':
++                from .route_request_accounting import restore_finished_request_labels
++                restore_finished_request_labels(state,version)
+             server,address,key=broker_server(state,host='127.0.0.1')
+             control[0]=dict(address=address,key=key,error='')
+         except BaseException as exc:control[0]=dict(error=type(exc).__name__+':'+str(exc))
+     dist.broadcast_object_list(control,src=0)
+     if control[0]['error']:raise RuntimeError('DYNAMIC_BROKER_START_FAILED:'+control[0]['error'])
+-    broker=worker=None
++    broker=worker=sampler=None
+     try:
+         broker=connect_broker(control[0]['address'],control[0]['key'])
+         tokenizer=LockedTokenizer(tokenizer)
+-        if cfg.get('inference_backend','hf')!='hf':
+-            raise ValueError('GLOBAL_NATIVE_ENGINE_REQUIRES_SEPARATE_ADMISSION')
+-        gpu_writer=ReceiptBatch(directory/f'gpu-prefix-rank{rank:02d}.jsonl',cfg)
+-        sampler=BatchedNativeRouteSampler(actor,tokenizer,cfg,directory/f'gpu-rank{rank:02d}.jsonl',gpu_writer)
++        sampler=make_gpu_sampler(actor,tokenizer,cfg,directory,version,rank)
+         worker=Thread(target=serve_gpu,args=(broker,sampler,rank),daemon=True);worker.start()
+     except BaseException as exc:error=type(exc).__name__+':'+str(exc)
+     startup_errors=[None]*world;dist.all_gather_object(startup_errors,error)
+     if any(startup_errors):
+         if broker:broker.fail(json.dumps(startup_errors))
+         if worker and worker.ident is not None:worker.join(timeout=5)
++        if sampler is not None and (worker is None or not worker.is_alive()):close_gpu_sampler(sampler,cfg)
+         if server:server.stop_event.set()
+         raise RuntimeError('DYNAMIC_WORKER_START_FAILED:'+json.dumps(startup_errors))
+     groups=[]
+@@ -112,6 +110,10 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
+     worker.join(timeout=cfg.get('collective_timeout_seconds',604800))
+     if worker.is_alive():
+         error='GPU_OWNER_DID_NOT_STOP_BEFORE_LEARNER';broker.fail(error)
++    else:
++        try:close_gpu_sampler(sampler,cfg)
++        except BaseException as exc:
++            error=type(exc).__name__+':'+str(exc);broker.fail(error)
+     # Another worker may have failed after its local CPU work finished.
+     observed=broker.snapshot()
+     errors=[None]*world;dist.all_gather_object(errors,error)
+@@ -128,6 +130,14 @@ def collect_distributed_round(rows,stock,protected,actor,tokenizer,cfg,directory
+         raise RuntimeError('DYNAMIC_COLLECTION_FAILED:'+json.dumps([*errors,observed['error']]))
+     if observed['complete']!=len(rows):raise ValueError('DYNAMIC_TARGET_DENOMINATOR_MISMATCH')
+     metrics=backend_collection_metrics(directory/f'gpu-rank{rank:02d}.jsonl')
++    if '_last_native_engine_metrics' in cfg:
++        metrics['native_engine']=cfg['_last_native_engine_metrics']
++        atomic_json(directory/f'native-engine-rank{rank:02d}.json',cfg['_last_native_engine_metrics'])
++    if '_last_native_journal_metrics' in cfg:
++        metrics['native_journal']=cfg['_last_native_journal_metrics']
++    if 'request_accounting' in observed:metrics['physical_request_accounting']=observed['request_accounting']
++    if cfg.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2':
++        metrics['cache_witness_provenance']=cache.persist_provenance(directory/f'cache-witnesses-rank{rank:02d}.json')
+     metrics.update(dynamic_owned_target_groups=len(groups),deterministic_execution_cache=cache.metrics(),
+                    global_scheduler=observed['counts'],physical_generation_owner_rank=rank)
+     cfg['_last_collection_metrics']=metrics
+diff --git a/src/mechet/route_execution_cache.py b/src/mechet/route_execution_cache.py
+index f4af00f..e613869 100644
+--- a/src/mechet/route_execution_cache.py
++++ b/src/mechet/route_execution_cache.py
+@@ -11,6 +11,23 @@ class ExecutionCache:
+     def __init__(self, capacity=8192):
+         if type(capacity) is not int or capacity<1:raise ValueError('EXECUTION_CACHE_CAPACITY')
+         self.capacity=capacity;self.lock=RLock();self.entries=OrderedDict();self.counts=Counter()
++        self.counts['cache_reconstruction_failures']=0
++        self.receipt_provenance={}
++
++    def provenance(self,receipt_id):
++        with self.lock:return deepcopy(self.receipt_provenance[receipt_id])
++
++    def persist_provenance(self,path):
++        """Round barrier snapshot; GPU/execution journals remain crash authority."""
++        from .route_training_contract import atomic_json
++        from .external_route_data import file_sha
++        with self.lock:records=deepcopy(self.receipt_provenance)
++        atomic_json(path,records)
++        return dict(path=str(path),sha256=file_sha(path),receipts=len(records),
++            scope='completed round cache producer/witness mapping; not a replacement for execution journals')
++
++    def reconstruction_failure(self):
++        with self.lock:self.counts['cache_reconstruction_failures']+=1
+ 
+     def metrics(self):
+         with self.lock:return dict(self.counts)
+@@ -33,7 +50,8 @@ class ExecutionCache:
+                     cacheable=not error or error.startswith(('ValueError:','KeyError:','TypeError:'))
+                     if not cacheable:
+                         self.entries.pop(key,None)
+-                    future.set_result(value)
++                    witness=dict(execution_key=key,producer_receipt_id=receipt_id,transition=value)
++                    future.set_result(dict(witness,witness_sha=signature(witness)))
+                     # Never evict in-flight entries and create a second producer.
+                     for old in list(self.entries):
+                         if len(self.entries)<=self.capacity:break
+@@ -41,7 +59,18 @@ class ExecutionCache:
+             except BaseException as exc:
+                 with self.lock:self.entries.pop(key,None);future.set_exception(exc)
+                 raise
+-        value=deepcopy(future.result())
++        entry=deepcopy(future.result())
++        try:
++            witness={k:entry[k] for k in ('execution_key','producer_receipt_id','transition')}
++            if entry['execution_key']!=key or signature(witness)!=entry['witness_sha']:
++                raise ValueError('CACHE_TRANSITION_WITNESS_MISMATCH')
++        except Exception:
++            self.reconstruction_failure()
++            raise
++        with self.lock:
++            self.receipt_provenance[receipt_id]=dict(request_id=receipt_id,execution_key=key,
++                producer_receipt_id=entry['producer_receipt_id'],witness_sha=entry['witness_sha'])
++        value=entry['transition']
+         if not owner and (not value.get('error') or value['error'].startswith(('ValueError:','KeyError:','TypeError:'))):
+             with self.lock:
+                 label='rejected_execution_cache_hits' if value.get('error') else 'accepted_execution_cache_hits'
+@@ -78,10 +107,18 @@ class CachedChemistry:
+                         result=child.actions[-1]['result'])
+         value=self.cache.resolve(key,output['request_id'],compute)
+         if value.get('error'):return None,value['error']
+-        if visible(value['state']) in node.visited:return None,'ValueError:STATE_CYCLE'
+-        record=dict(state_before=node.state,name=name,arguments=deepcopy(arguments),result=deepcopy(value['result']))
+-        return Node(target=node.target,state=value['state'],next_map=value['next_map'],
+-            actions=node.actions+[record],visited=set(node.visited)|{visible(value['state'])},
+-            imported=deepcopy(value['imported']),logprob=node.logprob+sum(output['behavior_logprobs']),
+-            tokens=node.tokens+len(output['generated_token_ids']),pointer_score=node.pointer_score,
+-            terminal=False),''
++        try:
++            if visible(value['state']) in node.visited:return None,'ValueError:STATE_CYCLE'
++            record=dict(state_before=node.state,name=name,arguments=deepcopy(arguments),result=deepcopy(value['result']))
++            child=Node(target=node.target,state=value['state'],next_map=value['next_map'],
++                actions=node.actions+[record],visited=set(node.visited)|{visible(value['state'])},
++                imported=deepcopy(value['imported']),logprob=node.logprob+sum(output['behavior_logprobs']),
++                tokens=node.tokens+len(output['generated_token_ids']),pointer_score=node.pointer_score,
++                terminal=False)
++            if (child.state!=value['state'] or child.next_map!=value['next_map'] or
++                    child.imported!=value['imported'] or child.actions[-1]!=record or child.terminal):
++                raise ValueError('CACHE_FLOW_RECONSTRUCTION_MISMATCH')
++            return child,''
++        except Exception:
++            self.cache.reconstruction_failure()
++            raise
+diff --git a/src/mechet/route_fla_import.py b/src/mechet/route_fla_import.py
+new file mode 100644
+index 0000000..bb9c496
+--- /dev/null
++++ b/src/mechet/route_fla_import.py
+@@ -0,0 +1,27 @@
++"""Use FLA's supported core-only import without loading optional model zoos.
++
++FLA0.5.2 treats absent fla.layers/models as optional extensions. Qwen imports
++fla.modules and fla.ops directly. Temporarily hiding only those two optional
++registries exercises the ordinary upstream fallback; no tensor code is patched.
++"""
++import importlib
++from importlib.abc import MetaPathFinder
++import sys
++from threading import RLock
++
++_lock=RLock()
++
++
++class _OptionalRegistries(MetaPathFinder):
++    def find_spec(self,fullname,path=None,target=None):
++        if fullname in ('fla.layers','fla.models'):
++            raise ModuleNotFoundError('Optional FLA model registry excluded during core startup',name=fullname)
++        return None
++
++
++def import_core_fla():
++    with _lock:
++        if 'fla' in sys.modules:return sys.modules['fla']
++        blocker=_OptionalRegistries();sys.meta_path.insert(0,blocker)
++        try:return importlib.import_module('fla')
++        finally:sys.meta_path.remove(blocker)
+diff --git a/src/mechet/route_global_sampler.py b/src/mechet/route_global_sampler.py
+index cc5000d..7450279 100644
+--- a/src/mechet/route_global_sampler.py
++++ b/src/mechet/route_global_sampler.py
+@@ -54,8 +54,17 @@ class RemoteSampler:
+             with self.cv:
+                 if self.closed:raise RuntimeError('REMOTE_SAMPLER_CLOSED')
+                 if request.request_id in self.pending:raise ValueError('REMOTE_REQUEST_ALREADY_PENDING')
+-                binding='ids:'+signature(self.prompt_ids(request))
+-                self.broker.submit(asdict(request),self.owner,prompt_binding=binding)
++                prompt=self.prompt_ids(request);binding='ids:'+signature(prompt)
++                work=None
++                if self.cfg.get('acceleration',{}).get('scheduling')=='global_length_fair_v2':
++                    room=min(request.remaining_tokens,self.cfg['max_action_tokens'],self.cfg['max_context']-len(prompt))
++                    if room<=0:
++                        future.set_result(dict(request_id=request.request_id,behavior_version=request.behavior_version,
++                            prompt_token_ids=prompt,raw='',generated_token_ids=[],behavior_logprobs=[],
++                            resource_error='PHYSICAL_CONTEXT_LIMIT'))
++                        return future
++                    work=dict(prompt_tokens=len(prompt),max_new_tokens=room)
++                self.broker.submit(asdict(request),self.owner,prompt_binding=binding,**({'work':work} if work else {}))
+                 self.pending[request.request_id]=future;self.cv.notify_all()
+         except Exception as exc:future.set_exception(exc)
+         return future
+@@ -103,7 +112,7 @@ def serve_gpu(broker,sampler,gpu):
+         while True:
+             batch=broker.take(gpu,sampler.cfg['generation_batch_size'],.02)
+             if not batch:
+-                if broker.snapshot()['stopped']:return
++                if broker.is_stopped():return
+                 continue
+             requests=[DecisionRequest(**row['request']) for row in batch]
+             if hasattr(sampler,'submit'):
+diff --git a/src/mechet/route_gpu_backend.py b/src/mechet/route_gpu_backend.py
+new file mode 100644
+index 0000000..4e0b231
+--- /dev/null
++++ b/src/mechet/route_gpu_backend.py
+@@ -0,0 +1,55 @@
++"""GPU backend lifecycle and exact durable recovery for the global dispatcher.
++
++Only the selected backend is constructed. Native probabilities always come from
++the original engine completion; interrupted native draws are never regenerated.
++"""
++from pathlib import Path
++
++
++def make_gpu_sampler(actor,tokenizer,cfg,directory,version,rank):
++    directory=Path(directory);path=directory/f'gpu-rank{rank:02d}.jsonl'
++    if cfg.get('inference_backend','hf')=='vllm':
++        from .route_vllm_backend import bind_rollout_adapter,VllmRouteSampler
++        bind_rollout_adapter(cfg,version)
++        return VllmRouteSampler(cfg['_vllm_process'],tokenizer,cfg,path)
++    from .external_route_io import ReceiptBatch,BatchedNativeRouteSampler
++    writer=ReceiptBatch(directory/f'gpu-prefix-rank{rank:02d}.jsonl',cfg)
++    return BatchedNativeRouteSampler(actor,tokenizer,cfg,path,writer)
++
++
++def close_gpu_sampler(sampler,cfg):
++    if cfg.get('inference_backend','hf')=='vllm':
++        sampler.close()
++        cfg['_last_native_journal_metrics']=sampler.writer.metrics()
++        process=cfg['_vllm_process']
++        result=process.rpc('drain',{}).result(timeout=process.timeout)
++        if result.get('inflight')!=0:raise ValueError('GLOBAL_NATIVE_REQUESTS_NOT_DRAINED')
++        if 'engine_metrics' in result:cfg['_last_native_engine_metrics']=result['engine_metrics']
++    else:
++        sampler.writer.flush();sampler.execution_writer.flush()
++
++
++def recover_gpu_journal(path,version,cfg,recompute):
++    from .route_policy_sampling import read_owned_journal,recover_behavior_receipts
++    events=read_owned_journal(path);requests={}
++    native=cfg.get('inference_backend','hf')=='vllm'
++    if native:
++        from .route_vllm_backend import recover_native_receipts
++        recovered=recover_native_receipts(path,version,events=events)
++        for event in events:
++            if event['event']=='vllm-submitted':
++                decision=event.get('decision_request');wire=event['request']
++                if (not isinstance(decision,dict) or decision.get('request_id')!=wire['request_id']
++                        or decision.get('behavior_version')!=version):
++                    raise ValueError('GLOBAL_NATIVE_RECOVERY_DECISION_BINDING')
++                prior=requests.get(wire['request_id'])
++                if prior is not None and prior!=decision:
++                    raise ValueError('GLOBAL_NATIVE_RECOVERY_DECISION_REBOUND')
++                requests[wire['request_id']]=decision
++    else:
++        recovered=recover_behavior_receipts(path,version,recompute)
++        for event in events:
++            if event['event']=='gpu-requested':
++                for request in event['requests']:requests[request['request_id']]=request
++    if set(recovered)-set(requests):raise ValueError('GLOBAL_RECOVERY_MISSING_ORIGINAL_REQUEST')
++    return [(requests[uid],value) for uid,value in recovered.items()]
+diff --git a/src/mechet/route_native_admission.py b/src/mechet/route_native_admission.py
+new file mode 100644
+index 0000000..a6208a8
+--- /dev/null
++++ b/src/mechet/route_native_admission.py
+@@ -0,0 +1,59 @@
++"""Bind full native rollout admission to real hardware and the stopped actor."""
++from pathlib import Path
++import json
++
++from .external_route_data import file_sha
++
++NATIVE_FILES={'src/mechet/route_gpu_backend.py','src/mechet/route_vllm_backend.py',
++    'src/mechet/route_vllm_protocol.py','src/mechet/route_vllm_cache.py',
++    'src/mechet/route_vllm_metrics.py','src/mechet/route_vllm_environment.py',
++    'src/mechet/route_reference_cache.py','src/mechet/route_request_accounting.py',
++    'scripts/serve_route_vllm.py','scripts/validate_pr111_native_runtime.py'}
++REQUIRED_CHECKS={'native_probability','prompt_ids','complete_actions','native_cache_hit',
++    'global_async_receipts','actual_native_refill_before_long_neighbor','actor_switch_cache_invalidation'}
++
++
++def validate_compute(report,code):
++    from .route_acceleration_continuation import COMPUTE_FILES
++    hashes=report.get('validated_compute_files_sha256',{})
++    if not (COMPUTE_FILES|NATIVE_FILES)<=hashes.keys():raise ValueError('NATIVE_COMPUTE_COVERAGE_INCOMPLETE')
++    for name,digest in hashes.items():
++        if Path(name).is_absolute() or '..' in Path(name).parts or file_sha(code/name)!=digest:
++            raise ValueError('NATIVE_ADMITTED_COMPUTE_CHANGED:'+name)
++
++
++def validate_local_admission(path,code):
++    report=json.loads(Path(path).read_text())
++    if (report.get('status')!='PASS' or report.get('hardware_profile')!='t4_fp16'
++            or not REQUIRED_CHECKS<=report.get('legal_checks',{}).keys()
++            or any(v!='PASS' for v in report['legal_checks'].values())):
++        raise ValueError('REAL_T4_NATIVE_LEGALITY_REQUIRED')
++    validate_compute(report,code)
++    # T4 speed is recorded, never substituted for actual H20 gain/admission.
++    return report
++
++
++def require_native_admission(cfg,contract_sha,*,code=None):
++    if cfg.get('acceleration',{}).get('version')!='pr111_full_acceleration_v2':return
++    expected=cfg.get('native_admission',{})
++    if expected.get('required') is not True:raise ValueError('NATIVE_HARDWARE_ADMISSION_REQUIRED')
++    pointer=Path(cfg['output_dir'])/'runtime_validation/native_admission.json'
++    if not pointer.is_file():raise ValueError('NATIVE_HARDWARE_ADMISSION_REQUIRED')
++    record=json.loads(pointer.read_text());path=Path(record['report'])
++    if file_sha(path)!=record['sha256']:raise ValueError('NATIVE_HARDWARE_RECEIPT_CHANGED')
++    report=json.loads(path.read_text());first=report.get('source_bindings',{}).get('first',{})
++    if (expected.get('previous_probability_failure') and
++            report.get('legal_checks',{}).get('previous_failed_case_replay')!='PASS'):
++        raise ValueError('PREVIOUS_FAILED_CASE_REPLAY_REQUIRED')
++    if (report.get('status')!='PASS' or 'H20' not in report.get('hardware','')
++            or report.get('hardware_profile')!='h20_bf16'
++            or report.get('precision')!=cfg['policy_precision']
++            or report.get('candidate_contract_sha256')!=contract_sha
++            or first.get('adapter_sha256')!=expected.get('actor_sha256')
++            or first.get('contract_sha256')!=expected.get('source_contract_sha256')
++            or first.get('complete_sha256')!=expected.get('source_complete_sha256')
++            or not REQUIRED_CHECKS<=report.get('legal_checks',{}).keys()
++            or any(v!='PASS' for v in report['legal_checks'].values())):
++        raise ValueError('NATIVE_HARDWARE_ADMISSION_BINDING_INVALID')
++    validate_compute(report,code or Path(__file__).resolve().parents[2])
++    return report
+diff --git a/src/mechet/route_probability_admission.py b/src/mechet/route_probability_admission.py
+new file mode 100644
+index 0000000..9e8f541
+--- /dev/null
++++ b/src/mechet/route_probability_admission.py
+@@ -0,0 +1,58 @@
++"""Recheck every original failed native receipt; no favorable-draw selection."""
++import json
++import math
++import os
++from pathlib import Path
++
++
++class ScoreWitnesses:
++    """Capture exact teacher outputs without replacing or modifying their values."""
++    def __init__(self,module,path):
++        self.module,self.path=module,Path(path);self.primary_model=None;self.pad_token_id=None
++        self.original=module.token_logps_batch
++
++    def __enter__(self):
++        def observed(model,sequences,pad_token_id=0,**kwargs):
++            values=self.original(model,sequences,pad_token_id,**kwargs)
++            if self.primary_model is None:self.primary_model=model;self.pad_token_id=pad_token_id
++            self.path.parent.mkdir(parents=True,exist_ok=True)
++            with self.path.open('a') as sink:
++                for (prompt,response),value in zip(sequences,values):
++                    array=value.tolist() if hasattr(value,'tolist') else list(value)
++                    sink.write(json.dumps(dict(prompt_token_ids=prompt,generated_token_ids=response,
++                        teacher_logprobs=array,precision=kwargs.get('precision','legacy_fp32_lora')))+'\n')
++                sink.flush();os.fsync(sink.fileno())
++            return values
++        self.module.token_logps_batch=observed
++        return self
++
++    def __exit__(self,*_):self.module.token_logps_batch=self.original
++
++
++def replay_failed_probability_receipts(report_path,values_path,model,pad,precision,score,*,expected_actor,tolerance=.25):
++    report=json.loads(Path(report_path).read_text());rows=json.loads(Path(values_path).read_text())
++    if (report.get('status')!='FAIL' or
++            report.get('source_bindings',{}).get('first',{}).get('adapter_sha256')!=expected_actor):
++        raise ValueError('PREVIOUS_FAILURE_ACTOR_BINDING_CHANGED')
++    if not rows or len({r['request_id'] for r in rows})!=len(rows):raise ValueError('PREVIOUS_FAILURE_RECEIPTS_INVALID')
++    for row in rows:
++        ids=row['generated_token_ids'];lp=row['behavior_logprobs']
++        if not row['prompt_token_ids'] or not ids or len(ids)!=len(lp) or any(not math.isfinite(x) or x>0 for x in lp):
++            raise ValueError('PREVIOUS_FAILURE_RECEIPTS_INVALID')
++    maxima={};witnesses={}
++    for size in (1,4):
++        errors=[];witness=[]
++        for start in range(0,len(rows),size):
++            batch=rows[start:start+size]
++            values=score(model,[(r['prompt_token_ids'],r['generated_token_ids']) for r in batch],pad,precision=precision)
++            if len(values)!=len(batch):raise ValueError('PREVIOUS_FAILURE_SCORE_DENOMINATOR')
++            for row,value in zip(batch,values):
++                actual=value.tolist() if hasattr(value,'tolist') else list(value)
++                if len(actual)!=len(row['generated_token_ids']) or any(not math.isfinite(x) or x>0 for x in actual):
++                    raise ValueError('PREVIOUS_FAILURE_SCORE_INVALID')
++                errors.extend(abs(a-b) for a,b in zip(actual,row['behavior_logprobs']))
++                witness.append(dict(request_id=row['request_id'],teacher_logprobs=actual))
++        maxima['max_error_b'+str(size)]=max(errors);witnesses['b'+str(size)]=witness
++        if max(errors)>tolerance:raise ValueError('PREVIOUS_FAILED_RECEIPT_PARITY_UNCHANGED_025_GATE:b'+str(size))
++    return dict(status='PASS',receipts=len(rows),positions_per_pass=sum(len(r['generated_token_ids']) for r in rows),
++        tolerance=tolerance,**maxima,witnesses=witnesses)
+diff --git a/src/mechet/route_reference_cache.py b/src/mechet/route_reference_cache.py
+new file mode 100644
+index 0000000..5cbb181
+--- /dev/null
++++ b/src/mechet/route_reference_cache.py
+@@ -0,0 +1,59 @@
++"""Bounded immutable-reference scores; actor outputs and gradients never enter.
++
++Entries live as detached CPU tensors. Every consumer receives its own tensor;
++only exact prompt/response IDs under the same frozen numerical contract reuse a
++reference forward. A restart simply recomputes these immutable reference scores.
++"""
++from collections import OrderedDict,Counter
++
++from .external_route_data import signature
++
++
++def reference_identity(cfg):
++    if not cfg.get('parent_sha256') or not cfg.get('base_manifest'):
++        raise ValueError('REFERENCE_CACHE_IMMUTABLE_IDENTITY_REQUIRED')
++    return dict(reference_sha256=cfg['parent_sha256'],tokenizer_manifest=cfg['base_manifest'],
++        precision=cfg.get('policy_precision','legacy_fp32_lora'),tf32=cfg.get('policy_allow_tf32'),
++        pad_token_id=cfg.get('pad_token_id'),mask='left_prompt_right_response_nonpadding_v1')
++
++
++class ReferenceLogprobCache:
++    def __init__(self,capacity):
++        if type(capacity) is not int or capacity<1:raise ValueError('REFERENCE_CACHE_CAPACITY')
++        self.capacity=capacity;self.entries=OrderedDict()
++        self.counts=Counter(dict.fromkeys(('cache_hits','cache_misses','coalesced_pairs',
++            'evictions','physical_sequences','physical_batches'),0))
++
++    def snapshot(self):
++        return dict(self.counts,entries=len(self.entries),capacity=self.capacity,
++            bytes=sum(v.numel()*v.element_size() for v in self.entries.values()))
++
++    def lookup(self,pairs,*,identity,compute,device):
++        import torch
++        if identity is None:raise ValueError('REFERENCE_CACHE_IMMUTABLE_IDENTITY_REQUIRED')
++        keys=[];values={};missing=OrderedDict()
++        for p,r in pairs:
++            if not p or not r:raise ValueError('REFERENCE_CACHE_EMPTY_SEQUENCE')
++            key=signature([identity,p,r]);keys.append(key)
++            if key in values or key in missing:
++                self.counts['coalesced_pairs']+=1;continue
++            if key in self.entries:
++                self.counts['cache_hits']+=1;self.entries.move_to_end(key);values[key]=self.entries[key]
++            else:
++                self.counts['cache_misses']+=1;missing[key]=(p,r)
++        if missing:
++            computed=compute(list(missing.values()))
++            if len(computed)!=len(missing):raise ValueError('REFERENCE_CACHE_FORWARD_LENGTH')
++            material=[]
++            for value,(_,response) in zip(computed,missing.values()):
++                detached=value.detach().to('cpu').clone()
++                if (detached.ndim!=1 or len(detached)!=len(response)
++                        or not bool(torch.isfinite(detached).all()) or bool((detached>0).any())):
++                    raise ValueError('REFERENCE_CACHE_INVALID_PROBABILITIES')
++                material.append(detached)
++            self.counts['physical_sequences']+=len(material);self.counts['physical_batches']+=1
++            for key,value in zip(missing,material):
++                values[key]=value;self.entries[key]=value
++                while len(self.entries)>self.capacity:
++                    self.entries.popitem(last=False);self.counts['evictions']+=1
++        return [values[k].to(device=device,copy=True) for k in keys]
+diff --git a/src/mechet/route_refit_credit.py b/src/mechet/route_refit_credit.py
+index 8c69669..06c00cf 100644
+--- a/src/mechet/route_refit_credit.py
++++ b/src/mechet/route_refit_credit.py
+@@ -13,7 +13,7 @@ def training_records(group):
+         for report,advantages in zip(group,fallback_adv):
+             list(process_sequences(report,advantages))
+             fallback.update((r['request_id'],a) for r,a in zip(report['records'],advantages))
+-    candidates=[];branch={};conditional=0;masked=0
++    candidates=[];branch={};conditional=0;masked=0;nonzero=zero=all_failed=m1_used=0
+     for root in group:
+         refit=root.get('refit',{})
+         reports=[root,*refit.get('suffix_reports',[])]
+@@ -30,6 +30,7 @@ def training_records(group):
+             if report['reward'] is not None:
+                 list(process_sequences(report,[0.]*len(report['records'])))
+             candidates.extend((record,fallback.get(record['request_id'])) for record in report['records'])
++            if report.get('refit_lane')=='exploration':continue
+             for event in report.get('refit_path',[]):
+                 if event['name']!='apply_electron_flow' or event['node_id'] not in conditions:continue
+                 index=event['index']
+@@ -55,7 +56,7 @@ def training_records(group):
+                 rows[event['node_id']].append(dict(action=event['action'],receipt_id=uid,
+                     value=None if credit is None else credit['returns'][index],
+                     complete=report.get('status') not in (None,'resource_censored','protected_censored'),
+-                    proposal=event['proposal']))
++                    proposal=event['proposal'],terminal_status=report.get('status')))
+         for node,values in rows.items():
+             advantages=(None if refit.get('node_censored_receipts',{}).get(node) else
+                 branch_advantages(values,matched_continuations=refit['config']['matched_continuations']))
+@@ -63,7 +64,13 @@ def training_records(group):
+             else:
+                 if set(branch)&set(advantages):raise ValueError('REFIT_RECEIPT_MULTIPLE_BRANCH_CREDITS')
+                 branch.update(advantages);conditional+=1
++                informative=any(a!=0 for a in advantages.values())
++                nonzero+=informative;zero+=not informative
++                all_failed+=all(v['terminal_status'] not in ('stock_solved','already_stock') for v in values)
++                m1_used+=len({v['action'] for v in values})*refit['config']['matched_continuations']
+     records=unique_credit(candidates,branch)
+     return records,dict(conditional_groups=conditional,masked_conditional_groups=masked,
+         original_g4_eligible=fallback_adv is not None,unique_receipts=len(records),
+-        effective=any(a!=0 for _,a in records))
++        effective=any(a!=0 for _,a in records),conditional_nonzero_advantage_groups=nonzero,
++        conditional_zero_advantage_groups=zero,conditional_all_failed_groups=all_failed,
++        conditional_m1_completed_used=m1_used)
+diff --git a/src/mechet/route_refit_runtime.py b/src/mechet/route_refit_runtime.py
+index 4ddd9e1..5a7b8c4 100644
+--- a/src/mechet/route_refit_runtime.py
++++ b/src/mechet/route_refit_runtime.py
+@@ -36,10 +36,13 @@ def unique_collection_counts(episodes):
+ 
+ 
+ class ObservedEpisode:
+-    def __init__(self,ep,controller,path=(),reserved_from=None):
++    def __init__(self,ep,controller,path=(),reserved_from=None,*,continuation_id=None,
++                 lane='original_g4',creation_order=0):
+         self.ep,self.controller=ep,controller
+         self.path=deepcopy(list(path));self.completed_action=None
+         self.reserved_from=reserved_from
++        self.continuation_id=ep.uid if continuation_id is None else continuation_id
++        self.lane,self.creation_order=lane,creation_order
+ 
+     def __getattr__(self,key):return getattr(self.ep,key)
+ 
+@@ -77,16 +80,33 @@ class ObservedEpisode:
+ 
+ 
+ class RefitCollection:
+-    def __init__(self,episodes,cfg,*,duplicate_policy=None):
+-        if duplicate_policy not in (None,'skip_extra_duplicates_v1'):
++    def __init__(self,episodes,cfg,*,duplicate_policy=None,lane_config=None):
++        if duplicate_policy not in (None,'skip_extra_duplicates_v1','skip_extra_duplicates_v2'):
+             raise ValueError('REFIT_DUPLICATE_POLICY')
+         self.duplicate_policy=duplicate_policy;self.duplicate_pruned=0
+         self.cfg=dict(validate_refit(cfg));self.nodes={};self.parents={};self.node_trees={}
++        self.v2=duplicate_policy=='skip_extra_duplicates_v2'
++        if self.v2:
++            if (not isinstance(lane_config,dict) or
++                    set(lane_config)!={'credit_forks_per_tree','exploration_forks_per_tree'} or
++                    any(type(v) is not int or v<0 for v in lane_config.values()) or
++                    lane_config['credit_forks_per_tree']<1 or
++                    sum(lane_config.values())>min(16,self.cfg['max_forks_per_tree'])):
++                raise ValueError('REFIT_EXPLICIT_FINITE_LANE_BUDGETS_REQUIRED')
++        elif lane_config is not None:
++            raise ValueError('REFIT_LANE_CONFIG_REQUIRES_V2')
++        self.lane_config=deepcopy(lane_config)
++        self.lane_forks=Counter();self.receipt_owner={};self.completed_eligible={}
++        self.harvest_order=0;self.harvested_status={}
+         self.conditions={};self.lock=RLock()
+-        self.forks=Counter();self.initial=[ObservedEpisode(ep,self) for ep in episodes]
++        self.forks=Counter();self.initial=[ObservedEpisode(ep,self,creation_order=i) for i,ep in enumerate(episodes)]
+         self.pending=Counter();self.draw_serials=Counter()
+         self.all=list(self.initial)
+         self.initial_ids={id(e) for e in self.initial}
++        if self.v2:
++            # Initial terminal states predate executor ownership and have no
++            # sampled receipt to harvest or to promote as M1 coverage.
++            self.harvested_status.update((e.continuation_id,e.ep.status) for e in self.initial)
+ 
+     def can_add_node(self,tree):
+         return (self.forks[tree]<self.cfg['max_forks_per_tree'] and
+@@ -127,6 +147,13 @@ class RefitCollection:
+             self.node_trees[key]=tree
+             self.conditions[key]=conditioning
+         event['proposal']='original_policy'
++        if self.v2:
++            if event['request_id'] in self.receipt_owner:
++                raise ValueError('REFIT_DUPLICATE_OWNED_RECEIPT')
++            self.receipt_owner[event['request_id']]=episode.continuation_id
++            event.update(receipt_owner=episode.continuation_id,lane=episode.lane,
++                         declaration_order=episode.creation_order,harvest_order=self.harvest_order)
++            self.harvest_order+=1
+         episode.path.append(event)
+         accepted_duplicate=(node is not None and event['action'] in node.edges and
+                             node.edges[event['action']]['status']=='ACCEPTED' and record.get('accepted') is True)
+@@ -135,14 +162,25 @@ class RefitCollection:
+             node.add(event['action'],event['request_id'],successor=successor,
+                 error=record.get('error','') if not record.get('accepted') else '',
+                 resource=resource,executor_skipped=bool(record.get('executor_skipped')))
+-        if (self.duplicate_policy and accepted_duplicate and id(episode) not in self.initial_ids
++        if self.v2:
++            # Only this harvested continuation may become eligible. Worker
++            # statuses elsewhere in all are deliberately never scanned here.
++            self.harvested_status[episode.continuation_id]=episode.ep.status
++            self._promote_completed(episode)
++        if ((self.duplicate_policy=='skip_extra_duplicates_v1' or
++                (self.v2 and episode.lane=='credit' and episode.ep.status is None and
++                 len(self.coverage(key,event['action']))>=self.cfg['matched_continuations']))
++                and accepted_duplicate and id(episode) not in self.initial_ids
+                 and event['name']=='apply_electron_flow'):
+             from .route_acceleration import SKIPPED
+             episode.ep._end(SKIPPED,None)
+             record['episode_status_after']=SKIPPED
+             self.duplicate_pruned+=1
++            if self.v2:self.harvested_status[episode.continuation_id]=SKIPPED
+             return []
+         if resource or self.forks[tree]>=self.cfg['max_forks_per_tree']:return []
++        lane=self._next_lane(tree) if self.v2 else 'credit'
++        if lane is None:return []
+         candidate=key if node is not None and self.available(key) else None
+         if candidate is None and episode.ep.status=='rejected_action':
+             candidate=next((e['node_id'] for e in reversed(episode.path[:-1])
+@@ -156,17 +194,72 @@ class RefitCollection:
+         draw=self.draw_serials[candidate]
+         from .external_route_data import signature
+         namespace=tree+'/fork-'+signature([candidate,draw])[:20]
+-        fork=ObservedEpisode(parent.fork(namespace),self,path,reserved_from=candidate)
+-        self.forks[tree]+=1;self.all.append(fork)
++        fork=ObservedEpisode(parent.fork(namespace),self,path,reserved_from=candidate,
++            continuation_id=namespace,lane=lane,creation_order=len(self.all))
++        self.forks[tree]+=1
++        if self.v2:self.lane_forks[tree,lane]+=1
++        self.all.append(fork)
+         return [fork]
+ 
++    def _next_lane(self,tree):
++        for lane in ('credit','exploration'):
++            if self.lane_forks[tree,lane]<self.lane_config[lane+'_forks_per_tree']:
++                return lane
++        return None
++
++    def _promote_completed(self,episode):
++        if (episode.lane=='exploration' or episode.ep.status in
++                (None,'resource_censored','protected_censored','duplicate_pruned_no_continuation')):
++            return
++        for event in episode.path:
++            if (event['name']!='apply_electron_flow' or
++                    event['receipt_owner']!=episode.continuation_id):continue
++            key=(event['node_id'],event['action'])
++            ledger=self.completed_eligible.setdefault(key,[])
++            if any(r['request_id']==event['request_id'] for r in ledger):continue
++            ledger.append(dict(request_id=event['request_id'],continuation_id=episode.continuation_id,
++                lane=episode.lane,tree_id=episode.ep.uid,declaration_order=event['declaration_order'],
++                harvest_order=event['harvest_order'],completion_order=self.harvest_order-1))
++            ledger.sort(key=lambda r:(r['declaration_order'],r['harvest_order']))
++
++    def coverage(self,node_id,action):
++        with self.lock:return deepcopy(self.completed_eligible.get((node_id,action),[]))
++
++    def lane_metrics(self,tree=None):
++        """Harvested counters only: executor threads may still own live states."""
++        with self.lock:
++            counts={lane:dict(attempts=0,forks=0,complete=0,failed=0,censored=0,skipped=0,
++                completed_eligible_coverage=0) for lane in ('original_g4','credit','exploration')}
++            for ep in self.all:
++                if tree is not None and ep.ep.uid!=tree:continue
++                row=counts[ep.lane]
++                row['forks']+=ep.lane!='original_g4'
++                row['attempts']+=sum(e.get('receipt_owner')==ep.continuation_id for e in ep.path)
++                status=self.harvested_status.get(ep.continuation_id)
++                if status in ('resource_censored','protected_censored'):row['censored']+=1
++                elif status=='duplicate_pruned_no_continuation':row['skipped']+=1
++                elif status is not None:
++                    row['complete']+=1
++                    row['failed']+=status not in ('stock_solved','already_stock')
++            # This is online eligibility, never a claim about the post-score
++            # estimator's actual M1 use (which may still censor-mask a group).
++            for ledger in self.completed_eligible.values():
++                for entry in ledger:
++                    if tree is None or entry['tree_id']==tree:
++                        counts[entry['lane']]['completed_eligible_coverage']+=1
++            return counts
++
+     def replay(self,receipts):
+         for receipt in receipts:
+             owner=self.owner(receipt['request_id']);owner.accept(deepcopy(receipt));self.completed(owner)
+ 
+     def pack(self,reports):
+         if len(reports)!=len(self.all):raise ValueError('REFIT_REPORT_DENOMINATOR')
+-        for report,ep in zip(reports,self.all):report['refit_path']=deepcopy(ep.path)
++        for report,ep in zip(reports,self.all):
++            report['refit_path']=deepcopy(ep.path)
++            if self.v2:
++                report.update(refit_lane=ep.lane,continuation_id=ep.continuation_id,
++                              continuation_declaration_order=ep.creation_order)
+         originals=reports[:len(self.initial)]
+         for report,ep in zip(originals,self.initial):
+             report['refit']=dict(version='exact_state_flow_siblings_v1',config=self.cfg,
+@@ -179,4 +272,22 @@ class RefitCollection:
+             report['refit']['reserved_draws']={k:self.pending[k] for k in self.nodes if self.node_trees[k]==ep.ep.uid}
+             if self.duplicate_policy:
+                 report['refit']['duplicate_suffix_policy']=self.duplicate_policy
++            if self.v2:
++                exploration_ids={e['request_id'] for continuation in self.all
++                    if continuation.ep.uid==ep.ep.uid for e in continuation.path
++                    if e['lane']=='exploration'}
++                # Exploration outcomes remain visible, but only original/credit
++                # censoring may mask the conditional-credit estimator.
++                censored=report['refit']['node_censored_receipts']
++                report['refit']['exploration_node_censored_receipts']={k:[r for r in ids if r in exploration_ids]
++                    for k,ids in censored.items() if any(r in exploration_ids for r in ids)}
++                report['refit']['node_censored_receipts']={k:[r for r in ids if r not in exploration_ids]
++                    for k,ids in censored.items() if any(r not in exploration_ids for r in ids)}
++                report['refit'].update(lane_config=deepcopy(self.lane_config),
++                    lane_counts=self.lane_metrics(ep.ep.uid),
++                    completed_eligible_coverage=[dict(node_id=node,action=action,receipts=deepcopy(ledger))
++                        for (node,action),ledger in self.completed_eligible.items()
++                        if ledger[0]['tree_id']==ep.ep.uid],
++                    receipt_owner={e['request_id']:e['receipt_owner'] for continuation in self.all
++                        if continuation.ep.uid==ep.ep.uid for e in continuation.path})
+         return originals
+diff --git a/src/mechet/route_request_accounting.py b/src/mechet/route_request_accounting.py
+new file mode 100644
+index 0000000..7caac24
+--- /dev/null
++++ b/src/mechet/route_request_accounting.py
+@@ -0,0 +1,67 @@
++"""Post-collection receipt accounting; never consulted by sampling or credit."""
++from collections import Counter,defaultdict
++import json
++from pathlib import Path
++
++from .external_route_data import signature
++
++
++def restore_finished_request_labels(broker,version):
++    """Finished leases skip CPU replay; join their authenticated scored receipts."""
++    for finished in broker.results():
++        reports=json.loads(Path(finished['result_path']).read_text())
++        broker.register_request_labels(version+'/'+finished['task_id'],request_labels(reports))
++
++
++def request_labels(roots):
++    labels={}
++    for root in roots:
++        for report in [root,*root.get('refit',{}).get('suffix_reports',[])]:
++            events={e['request_id']:e for e in report.get('refit_path',[])
++                if e.get('receipt_owner')==report.get('continuation_id')}
++            for record in report['records']:
++                uid=record['request_id']
++                if uid in labels:continue  # copied prefix retains its producer
++                event=events.get(uid,{})
++                node=event.get('node_id');edge=event.get('action')
++                if node is None and record.get('prompt_token_ids'):
++                    node=signature([record.get('behavior_version'),record['prompt_token_ids']])
++                    from .route_refit import grounded_action_key
++                    if record.get('state_before'):
++                        edge=grounded_action_key(record['state_before'],record.get('raw',''))
++                labels[uid]=dict(lane=event.get('lane',report.get('refit_lane','original_g4')),
++                    node_id=node,semantic_edge=edge,accepted=record.get('accepted'))
++    return labels
++
++
++def summarize_requests(requests):
++    groups=defaultdict(list);unlabelled=0
++    for uid,entry in requests.items():
++        label=entry.get('accounting_label')
++        if label is None:unlabelled+=1;continue
++        value=entry['result'] or {}
++        gpu=entry['gpu']
++        if gpu is None:gpu=value.get('engine_telemetry',{}).get('physical_gpu_rank','unknown_recovered')
++        row=(uid,label,entry,value)
++        groups['per_gpu',str(gpu)].append(row);groups['per_target',entry['owner']].append(row)
++    result=dict(per_gpu={},per_target={},unlabelled_requests=unlabelled)
++    for (kind,key),rows in groups.items():
++        duplicate_status=Counter();seen=set()
++        for _,label,_,_ in rows:
++            edge=(label['node_id'],label['semantic_edge'])
++            if None in edge:continue
++            if edge in seen:duplicate_status['accepted' if label['accepted'] is True else
++                'rejected' if label['accepted'] is False else 'unexecuted']+=1
++            seen.add(edge)
++        edges=Counter((r[1]['node_id'],r[1]['semantic_edge']) for r in rows
++            if r[1]['node_id'] is not None and r[1]['semantic_edge'] is not None)
++        result[kind][key]=dict(requests=len(rows),lanes=dict(Counter(r[1]['lane'] for r in rows)),
++            completed=sum(r[2]['result'] is not None for r in rows),
++            recovered=sum(r[2]['gpu'] is None for r in rows),
++            generated_tokens=sum(len(r[3].get('generated_token_ids',[])) for r in rows),
++            distinct_decision_nodes=len({r[1]['node_id'] for r in rows if r[1]['node_id'] is not None}),
++            distinct_semantic_edges=len(edges),duplicate_semantic_proposals=sum(n-1 for n in edges.values()),
++            accepted_duplicate_proposals=duplicate_status['accepted'],
++            rejected_duplicate_proposals=duplicate_status['rejected'],
++            unexecuted_duplicate_proposals=duplicate_status['unexecuted'])
++    return result
+diff --git a/src/mechet/route_runtime_efficiency.py b/src/mechet/route_runtime_efficiency.py
+index ac8f5a2..410fdd9 100644
+--- a/src/mechet/route_runtime_efficiency.py
++++ b/src/mechet/route_runtime_efficiency.py
+@@ -50,6 +50,9 @@ def configure_profile(cfg,code_root):
+         if mode!=environment['FLA_CACHE_MODE'] or os.environ.get('FLA_CONFIG_DIR')!=environment['FLA_CONFIG_DIR']:
+             raise ValueError('RUNTIME_PROFILE_AFTER_FLA_IMPORT')
+     os.environ.update(environment)
++    if cfg.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2':
++        from .route_fla_import import import_core_fla
++        import_core_fla()
+     return environment
+ 
+ 
+diff --git a/src/mechet/route_vllm_backend.py b/src/mechet/route_vllm_backend.py
+index 05ecc76..20bd402 100644
+--- a/src/mechet/route_vllm_backend.py
++++ b/src/mechet/route_vllm_backend.py
+@@ -3,6 +3,8 @@
+ No Torch/vLLM import is permitted here: this module lives in the HF learner.
+ """
+ from concurrent.futures import Future, ThreadPoolExecutor
++from dataclasses import asdict,is_dataclass
++from copy import deepcopy
+ import json
+ import math
+ import os
+@@ -23,6 +25,8 @@ class DurableGroupCommit:
+         self.path=Path(path);self.path.parent.mkdir(parents=True,exist_ok=True)
+         self.delay,self.max_rows=delay,max_rows
+         self.queue=queue.Queue();self.error=None;self.closed=False
++        self.stats_lock=threading.Lock()
++        self.stats=dict(rows=0,bytes=0,fsync_barriers=0,write_seconds=0.,fsync_seconds=0.)
+         self.thread=threading.Thread(target=self._run,daemon=True);self.thread.start()
+ 
+     def append(self,value):
+@@ -45,9 +49,15 @@ class DurableGroupCommit:
+                 batch.append(item)
+             try:
+                 if self.error:raise self.error
++                began=time.monotonic()
++                payload=''.join(json.dumps(value,ensure_ascii=False)+'\n' for value,_ in batch)
+                 with self.path.open('a') as sink:
+-                    for value,_ in batch:sink.write(json.dumps(value,ensure_ascii=False)+'\n')
+-                    sink.flush();os.fsync(sink.fileno())
++                    sink.write(payload);sink.flush();written=time.monotonic()
++                    os.fsync(sink.fileno());durable=time.monotonic()
++                with self.stats_lock:
++                    self.stats['rows']+=len(batch);self.stats['bytes']+=len(payload.encode('utf-8'))
++                    self.stats['fsync_barriers']+=1;self.stats['write_seconds']+=written-began
++                    self.stats['fsync_seconds']+=durable-written
+             except Exception as exc:
+                 self.error=exc
+                 for _,future in batch:future.set_exception(exc)
+@@ -58,13 +68,15 @@ class DurableGroupCommit:
+     def close(self):
+         if not self.closed:
+             self.closed=True;self.queue.put(None);self.thread.join()
++    def metrics(self):
++        with self.stats_lock:return dict(self.stats)
+     def __enter__(self):return self
+     def __exit__(self,*_):self.close()
+ 
+ 
+-def recover_native_receipts(path,version):
++def recover_native_receipts(path,version,*,events=None):
+     requests={};receipts={}
+-    for event in read_owned_journal(path):
++    for event in read_owned_journal(path) if events is None else events:
+         if event['event'] not in ('vllm-submitted','vllm-completed'):
+             raise ValueError('NON_NATIVE_EVENT_IN_VLLM_JOURNAL')
+         request=event['request'];uid=request['request_id']
+@@ -200,7 +212,8 @@ class VllmRouteSampler:
+             return dict(request_id=request.request_id,behavior_version=request.behavior_version,
+                 prompt_token_ids=ids,raw='',generated_token_ids=[],behavior_logprobs=[],
+                 resource_error='PHYSICAL_CONTEXT_LIMIT')
+-        self.writer.append(dict(event='vllm-submitted',request=wire)).result()
++        self.writer.append(dict(event='vllm-submitted',request=wire,
++            decision_request=asdict(request) if is_dataclass(request) else deepcopy(vars(request)))).result()
+         result=self.process.rpc('generate',wire).result(timeout=self.process.timeout)
+         value=validate_completion(result,wire)
+         value['raw']=self.tokenizer.decode(value['generated_token_ids'],skip_special_tokens=False)
+@@ -222,7 +235,11 @@ def start_vllm_process(cfg):
+     directory=Path(cfg['output_dir'])/'runtime'/f'vllm-rank{rank:02d}'
+     directory.mkdir(parents=True,exist_ok=True)
+     path=directory/'engine.json'
+-    atomic_json(path,{k:cfg[k] for k in ('base_path','max_context','generation_batch_size','vllm_runtime')})
++    engine_cfg={k:cfg[k] for k in ('base_path','max_context','generation_batch_size','vllm_runtime')}
++    engine_cfg.update({k:cfg[k] for k in ('base_manifest','_sha','policy_precision',
++                         'public_observation_contract','acceleration') if k in cfg})
++    engine_cfg['physical_gpu_rank']=rank
++    atomic_json(path,engine_cfg)
+     environment=child_environment(cfg,rank)
+     environment['MECHET_ROUTE_VLLM_CONFIG']=str(path)
+     process=VllmProcess([cfg['vllm_runtime']['python'],
+diff --git a/src/mechet/route_vllm_cache.py b/src/mechet/route_vllm_cache.py
+new file mode 100644
+index 0000000..e17db24
+--- /dev/null
++++ b/src/mechet/route_vllm_cache.py
+@@ -0,0 +1,16 @@
++"""Exact engine-prefix identity and quiescent adapter invalidation."""
++from .external_route_data import signature
++
++
++def prefix_namespace(cfg,version):
++    return signature(dict(version=version,model=cfg.get('base_path'),
++        tokenizer_manifest=cfg.get('base_manifest'),contract=cfg.get('_sha'),
++        tools=cfg.get('public_observation_contract'),precision=cfg.get('policy_precision'),
++        engine_dtype=cfg.get('vllm_runtime',{}).get('diagnostic_dtype','bfloat16')))
++
++
++async def invalidate_prefix(engine,lease,enabled):
++    lease.invalidate()  # Refuses active requests before touching the engine.
++    if enabled and await engine.reset_prefix_cache() is not True:
++        raise ValueError('VLLM_PREFIX_RESET_FAILED')
++    return bool(enabled)
+diff --git a/src/mechet/route_vllm_environment.py b/src/mechet/route_vllm_environment.py
+index 6c634d1..8c74a7e 100644
+--- a/src/mechet/route_vllm_environment.py
++++ b/src/mechet/route_vllm_environment.py
+@@ -28,16 +28,25 @@ def child_environment(cfg,local_rank):
+         if not shared_triton.is_relative_to(root):
+             raise ValueError('TRITON_SHARED_CACHE_OUTSIDE_RUNTIME_ROOT')
+     env=dict(os.environ)
+-    for key in ('PYTHONPATH','PYTHONHOME','RANK','WORLD_SIZE','LOCAL_RANK',
++    for key in ('PYTHONPATH','PYTHONHOME','RANK','WORLD_SIZE','LOCAL_RANK','LOCAL_WORLD_SIZE',
++                'GROUP_RANK','GROUP_WORLD_SIZE','ROLE_RANK','ROLE_WORLD_SIZE','ROLE_NAME',
+                 'MASTER_ADDR','MASTER_PORT','TORCHINDUCTOR_CACHE_DIR','TRITON_CACHE_DIR',
+                 'CUDA_HOME','CUDA_PATH'):
+         env.pop(key,None)
++    # torchrun sets USE_AGENT_STORE=True. A standalone vLLM rank0 must host
++    # its own TCPStore; inheriting this flag turns it into a client waiting
++    # for a nonexistent agent on vLLM's fresh random port (600s timeout).
++    for key in list(env):
++        if key.startswith('TORCHELASTIC_'):env.pop(key)
+     visible=env.get('CUDA_VISIBLE_DEVICES')
+     gpu=visible.split(',')[local_rank] if visible else str(local_rank)
+     env.update(CUDA_VISIBLE_DEVICES=gpu,PYTHONNOUSERSITE='1',PYTHONDONTWRITEBYTECODE='1',
+                VLLM_WORKER_MULTIPROC_METHOD='spawn',HF_HUB_OFFLINE='1',TRANSFORMERS_OFFLINE='1',
+                VLLM_USE_FLASHINFER_SAMPLER='0',PYTHONSAFEPATH='1',
++               VLLM_USE_V2_MODEL_RUNNER='0',
+                TRITON_CACHE_AUTOTUNING='1')
++    if cfg.get('acceleration',{}).get('version')=='pr111_full_acceleration_v2':
++        env['TRITON_STORE_BINARY_ONLY']='1'
+     env['PYTHONPATH']=runtime.get('bootstrap','')
+     env['PATH']=str(Path(runtime['python']).parent)+':'+env.get('PATH','')
+     # Linux AF_UNIX permits at most 107 pathname bytes. vLLM appends a UUID;
+diff --git a/src/mechet/route_vllm_metrics.py b/src/mechet/route_vllm_metrics.py
+new file mode 100644
+index 0000000..8a0f231
+--- /dev/null
++++ b/src/mechet/route_vllm_metrics.py
+@@ -0,0 +1,92 @@
++"""Native-engine observations, distinct from application Future concurrency.
++
++Prefill/decode times are summed request latencies, not nonoverlapping GPU kernel
++time. Running/decode batches come from native SchedulerStats/IterationStats.
++"""
++from collections import Counter,deque,OrderedDict
++import math
++from threading import RLock
++
++
++def _number(value,name,*,integer=False):
++    if (type(value) not in ((int,) if integer else (int,float))
++            or not math.isfinite(value) or value<0):
++        raise ValueError('VLLM_ENGINE_STAT_INVALID:'+name)
++    return value
++
++
++class NativeEngineMetrics:
++    def __init__(self):
++        self.lock=RLock();self.start_version(None)
++
++    def start_version(self,version):
++        with self.lock:
++            self.version=version
++            self.totals=Counter(dict.fromkeys(('native_output_observations','native_iteration_observations',
++                'actual_running_requests_peak','actual_running_requests_sum','actual_waiting_requests_peak',
++                'kv_cache_usage_peak','prefix_tokens_queried','prefix_tokens_hit','prefill_tokens_total',
++                'prefill_tokens_computed','prefill_tokens_cached','generated_tokens','actual_decode_batch_sum',
++                'actual_decode_batch_peak','actual_prefill_requests','request_prefill_seconds',
++                'request_decode_seconds','request_queue_seconds','finished_requests',
++                'unconsumed_finished_stats_evicted'),0))
++            self.finished=OrderedDict()
++            self.decode_samples=deque(maxlen=4096);self.running_samples=deque(maxlen=4096)
++
++    def record(self,scheduler,iteration):
++        with self.lock:
++            self.totals['native_output_observations']+=1
++            if scheduler is not None:
++                running=_number(getattr(scheduler,'num_running_reqs',0),'running',integer=True)
++                waiting=_number(getattr(scheduler,'num_waiting_reqs',0),'waiting',integer=True)
++                kv=_number(getattr(scheduler,'kv_cache_usage',0.),'kv_usage')
++                if kv>1:raise ValueError('VLLM_ENGINE_STAT_INVALID:kv_usage')
++                self.totals['actual_running_requests_peak']=max(self.totals['actual_running_requests_peak'],running)
++                self.totals['actual_running_requests_sum']+=running
++                self.totals['actual_waiting_requests_peak']=max(self.totals['actual_waiting_requests_peak'],waiting)
++                self.totals['kv_cache_usage_peak']=max(self.totals['kv_cache_usage_peak'],kv)
++                self.running_samples.append(running)
++                prefix=getattr(scheduler,'prefix_cache_stats',None)
++                if prefix is not None:
++                    queries=_number(prefix.queries,'prefix_queries',integer=True)
++                    hits=_number(prefix.hits,'prefix_hits',integer=True)
++                    if hits>queries:raise ValueError('VLLM_ENGINE_STAT_INVALID:prefix_hits')
++                    self.totals['prefix_tokens_queried']+=queries;self.totals['prefix_tokens_hit']+=hits
++            if iteration is None:return
++            self.totals['native_iteration_observations']+=1
++            prompt=iteration.prompt_token_stats
++            for name,field in [('prefill_tokens_total','total'),('prefill_tokens_computed','computed'),
++                               ('prefill_tokens_cached','cached_tokens')]:
++                self.totals[name]+=_number(getattr(prompt,field),field,integer=True)
++            if prompt.computed+prompt.cached_tokens!=prompt.total:
++                raise ValueError('VLLM_ENGINE_STAT_INVALID:prefill_conservation')
++            self.totals['generated_tokens']+=_number(iteration.num_generation_tokens,'generated',integer=True)
++            decode=len(iteration.inter_token_latencies_iter)
++            self.totals['actual_decode_batch_sum']+=decode
++            self.totals['actual_decode_batch_peak']=max(self.totals['actual_decode_batch_peak'],decode)
++            self.totals['actual_prefill_requests']+=len(iteration.time_to_first_tokens_iter)
++            self.decode_samples.append(decode)
++            for request in iteration.finished_requests:
++                values={k:_number(getattr(request,k),k) for k in
++                        ('prefill_time','decode_time','queued_time','e2e_latency')}
++                self.totals['request_prefill_seconds']+=values['prefill_time']
++                self.totals['request_decode_seconds']+=values['decode_time']
++                self.totals['request_queue_seconds']+=values['queued_time']
++                self.totals['finished_requests']+=1
++                uid=getattr(request,'request_id',None)
++                if uid:
++                    self.finished[uid]=values
++                    if len(self.finished)>8192:
++                        self.finished.popitem(last=False);self.totals['unconsumed_finished_stats_evicted']+=1
++
++    def take_finished(self,uid):
++        with self.lock:return self.finished.pop(uid,None)
++
++    def snapshot(self):
++        with self.lock:
++            result=dict(self.totals,behavior_version=self.version,
++                scope='native engine observations; request latency sums are not GPU kernel time',
++                decode_batch_observation='non-prefill outputs in each native engine output interval',
++                quantile_sample_limit=4096)
++            n=self.totals['native_iteration_observations']
++            result['actual_decode_batch_mean']=self.totals['actual_decode_batch_sum']/n if n else 0.
++            return result
+diff --git a/src/mechet/route_vllm_protocol.py b/src/mechet/route_vllm_protocol.py
+index 3998788..d4fbc1a 100644
+--- a/src/mechet/route_vllm_protocol.py
++++ b/src/mechet/route_vllm_protocol.py
+@@ -47,18 +47,30 @@ def build_request(request, prompt_token_ids, cfg):
+     eos=cfg['eos_token_id']
+     if type(eos) is not int or eos < 0:
+         raise ValueError('VLLM_EOS_ID_INVALID')
+-    return dict(request_id=request.request_id,behavior_version=request.behavior_version,
++    value=dict(request_id=request.request_id,behavior_version=request.behavior_version,
+         prompt_token_ids=ids,max_new_tokens=int(room),eos_token_id=eos,
+         seed=request_seed(request.request_id,cfg['seed']),
+         sampling=dict(temperature=1.,top_p=1.,top_k=-1,repetition_penalty=1.,
+             presence_penalty=0.,frequency_penalty=0.,logprobs=0,
+             ignore_eos=True,stop_token_ids=[eos],detokenize=False))
++    if cfg.get('acceleration',{}).get('prefix_cache'):
++        from .route_vllm_cache import prefix_namespace
++        value['prefix_namespace']=prefix_namespace(cfg,request.behavior_version)
++    return value
+ 
+ 
+ def validate_completion(value, request):
+     for name in ('request_id','behavior_version','prompt_token_ids','eos_token_id'):
+         if value.get(name)!=request[name]:
+             raise ValueError('VLLM_COMPLETION_BINDING:'+name)
++    if 'prefix_namespace' in request:
++        if value.get('prefix_namespace')!=request['prefix_namespace']:
++            raise ValueError('VLLM_COMPLETION_PREFIX_BINDING')
++        telemetry=value.get('engine_telemetry',{})
++        cached=telemetry.get('num_cached_tokens')
++        if (telemetry.get('cache_counter_observed') is not True
++                or type(cached) is not int or not 0<=cached<=len(request['prompt_token_ids'])):
++            raise ValueError('VLLM_COMPLETION_CACHE_RECEIPT')
+     ids=value.get('generated_token_ids',[])
+     if not ids or any(type(v) is not int or v < 0 for v in ids) or len(ids)>request['max_new_tokens']:
+         raise ValueError('VLLM_GENERATED_IDS_INVALID')
+diff --git a/src/mechet/route_work_broker.py b/src/mechet/route_work_broker.py
+index dd971b6..f769e9d 100644
+--- a/src/mechet/route_work_broker.py
++++ b/src/mechet/route_work_broker.py
+@@ -1,5 +1,5 @@
+ """Round-local CPU ownership and shared GPU requests; no per-token disk RPC."""
+-from collections import Counter,deque
++from collections import Counter,deque,OrderedDict,defaultdict
+ from copy import deepcopy
+ import math
+ from pathlib import Path
+@@ -12,17 +12,28 @@ from .route_policy_sampling import append_receipt,read_owned_journal
+ 
+ 
+ class WorkBroker:
+-    def __init__(self,rows,*,actor_version,contract_sha,journal_path,max_pending=4096,request_timeout=1800.):
++    def __init__(self,rows,*,actor_version,contract_sha,journal_path,max_pending=4096,request_timeout=1800.,dispatch=None):
+         self.cv=Condition();self.rows={r['task_id']:deepcopy(r) for r in rows}
+         if len(self.rows)!=len(rows):raise ValueError('DUPLICATE_TARGET_GROUP')
+         self.version=actor_version;self.contract=contract_sha;self.path=Path(journal_path)
+         self.path.parent.mkdir(parents=True,exist_ok=True)
+         self.epoch=uuid.uuid4().hex;self.leases={};self.done={};self.error='';self.stopped=False
+         self.requests={};self.ready=deque();self.max_pending=max_pending;self.counts=Counter()
++        self.dispatch=deepcopy(dispatch)
++        self.owner_ready={};self.owner_turns=deque();self.gpu_load={}
++        self.owner_stats=defaultdict(Counter);self.gpu_stats=defaultdict(Counter)
++        self.queue_samples=defaultdict(lambda:deque(maxlen=1024))
++        if dispatch is not None:
++            if (set(dispatch)!={'max_prefill_tokens','max_estimated_tokens','max_pending','gpu_count'}
++                    or any(type(v) is not int or v<1 for v in dispatch.values())):
++                raise ValueError('GLOBAL_DISPATCH_SETTINGS_INVALID')
++            self.ready=OrderedDict();self.max_pending=dispatch['max_pending']
++            self.gpu_load={i:0 for i in range(dispatch['gpu_count'])}
+         if not math.isfinite(request_timeout) or request_timeout<=0:raise ValueError('GPU_REQUEST_TIMEOUT_INVALID')
+         self.request_timeout=request_timeout
+         binding=dict(event='binding',actor_version=actor_version,contract_sha=contract_sha,
+                      task_ids_sha=signature(rows))
++        if self.dispatch is not None:binding['dispatch']=self.dispatch
+         old=read_owned_journal(self.path)
+         if old and old[0]!=binding:raise ValueError('WORK_BROKER_BINDING_CHANGED')
+         if not old:append_receipt(self.path,binding)
+@@ -74,8 +85,40 @@ class WorkBroker:
+ 
+     def snapshot(self):
+         with self.cv:
+-            return dict(expected=len(self.rows),complete=len(self.done),unclaimed=len(self.unclaimed),
++            result=dict(expected=len(self.rows),complete=len(self.done),unclaimed=len(self.unclaimed),
+                         ready=len(self.ready),counts=dict(self.counts),error=self.error,stopped=self.stopped)
++            if any('accounting_label' in r for r in self.requests.values()):
++                from .route_request_accounting import summarize_requests
++                result['request_accounting']=summarize_requests(self.requests)
++            if self.dispatch is not None:
++                result.update(dispatch=self.dispatch,estimated_gpu_tokens=dict(self.gpu_load),
++                    gpu_metrics={str(k):dict(v) for k,v in self.gpu_stats.items()},
++                    target_metrics={k:dict(v) for k,v in self.owner_stats.items()})
++                for owner,values in self.queue_samples.items():
++                    samples=sorted(values)
++                    result['target_metrics'][owner]['queue_wait_p95_seconds']=samples[int(.95*(len(samples)-1))] if samples else 0.
++                    result['target_metrics'][owner]['queue_quantile_sample_limit']=1024
++            return result
++
++    def register_request_labels(self,owner,labels):
++        """Join harvested receipt ownership only; labels cannot affect dispatch."""
++        with self.cv:
++            physical=missing=0
++            for uid,label in labels.items():
++                if (set(label)!={'lane','node_id','semantic_edge','accepted'}
++                        or label['lane'] not in ('original_g4','credit','exploration')):
++                    raise ValueError('GLOBAL_ACCOUNTING_LABEL_INVALID')
++                entry=self.requests.get(uid)
++                if entry is None:
++                    missing+=1;continue  # CPU-side physical context limit, never dispatched
++                if entry['owner'] not in (None,owner):raise ValueError('GLOBAL_ACCOUNTING_OWNER_MISMATCH')
++                if 'accounting_label' in entry and entry['accounting_label']!=label:
++                    raise ValueError('GLOBAL_ACCOUNTING_LABEL_REBOUND')
++                entry.update(owner=owner,accounting_label=deepcopy(label));physical+=1
++            return dict(physical_requests=physical,undispatched_capacity_attempts=missing)
++
++    def is_stopped(self):
++        with self.cv:self._check();return self.stopped
+ 
+     def wait_collection(self,timeout):
+         with self.cv:
+@@ -99,24 +142,72 @@ class WorkBroker:
+             uid=request['request_id']
+             if uid in self.requests:raise ValueError('DUPLICATE_RECOVERED_GLOBAL_REQUEST')
+             self.requests[uid]=dict(request=deepcopy(request),owner=None,binding=None,
+-                                    result=deepcopy(value),gpu=None)
++                                    result=deepcopy(value),gpu=None,work=None)
++            self.counts['recovered_request_receipts']+=1
+ 
+-    def submit(self,request,owner,prompt_binding):
++    def _work(self,work):
++        if self.dispatch is None:return None
++        if (not isinstance(work,dict) or set(work)!={'prompt_tokens','max_new_tokens'}
++                or type(work['prompt_tokens']) is not int or work['prompt_tokens']<1
++                or type(work['max_new_tokens']) is not int or work['max_new_tokens']<0):
++            raise ValueError('GLOBAL_REQUEST_WORK_REQUIRED')
++        if work['prompt_tokens']+work['max_new_tokens']>self.dispatch['max_estimated_tokens']:
++            raise ValueError('GLOBAL_REQUEST_EXCEEDS_DISPATCH_CAPACITY')
++        return deepcopy(work)
++
++    def submit(self,request,owner,prompt_binding,work=None):
+         with self.cv:
+             self._check()
+             if self.stopped or request.get('behavior_version')!=self.version:raise ValueError('GLOBAL_POLICY_VERSION_MISMATCH')
+             uid=request['request_id'];prior=self.requests.get(uid)
++            work=self._work(work)
+             if prior:
+                 if prior['request']!=request or prior['owner'] not in (None,owner):raise ValueError('GLOBAL_REQUEST_REBOUND')
+                 if prior['binding'] not in (None,prompt_binding):raise ValueError('GLOBAL_REQUEST_PROMPT_REBOUND')
++                if prior.get('work') not in (None,work):raise ValueError('GLOBAL_REQUEST_WORK_REBOUND')
+                 prior.update(owner=owner,binding=prompt_binding)
++                prior['work']=work
+                 if prior['result'] is not None:self._valid_result(request,prior['result'],prompt_binding)
+                 return
+             pending=sum(r['result'] is None for r in self.requests.values())
+             if pending>=self.max_pending:raise RuntimeError('GLOBAL_QUEUE_ADMISSION_CAPACITY')
+             self.requests[uid]=dict(request=deepcopy(request),owner=owner,binding=prompt_binding,
+-                                    result=None,gpu=None,submitted=time.monotonic())
+-            self.ready.append(uid);self.counts['physical_requests_submitted']+=1;self.cv.notify_all()
++                                    result=None,gpu=None,submitted=time.monotonic(),work=work)
++            if self.dispatch is None:
++                self.ready.append(uid);self.counts['physical_requests_submitted']+=1
++            else:
++                self.ready[uid]=None;queue=self.owner_ready.setdefault(owner,deque())
++                if not queue:self.owner_turns.append(owner)
++                queue.append(uid);self.counts['policy_requests_submitted']+=1
++                self.owner_stats[owner]['submitted_requests']+=1
++            self.cv.notify_all()
++
++    def _fair_uids(self,gpu,limit):
++        if gpu not in self.gpu_load:raise ValueError('GLOBAL_UNKNOWN_GPU')
++        if self.gpu_load[gpu]>min(self.gpu_load.values()):return []
++        idle=sum(v==0 for v in self.gpu_load.values())
++        if idle>1:limit=min(limit,max(1,math.ceil(len(self.ready)/idle)))
++        selected=[];prefill=0;width=0;reserved=self.gpu_load[gpu];misses=0
++        while self.owner_turns and len(selected)<limit:
++            owner=self.owner_turns.popleft();queue=self.owner_ready[owner];uid=queue[0]
++            work=self.requests[uid]['work'];length=work['prompt_tokens']
++            quantum=min(length,self.dispatch['max_prefill_tokens']);cost=length+work['max_new_tokens']
++            fits=(prefill+quantum<=self.dispatch['max_prefill_tokens']
++                  and reserved+cost<=self.dispatch['max_estimated_tokens']
++                  and max(width,length)*(len(selected)+1)<=self.dispatch['max_estimated_tokens'])
++            if fits:
++                queue.popleft();self.ready.pop(uid);selected.append(uid)
++                prefill+=quantum;reserved+=cost;width=max(width,length);misses=0
++                if queue:self.owner_turns.append(owner)
++            else:
++                self.owner_turns.append(owner);misses+=1
++                if misses>=len(self.owner_turns):break
++        self.gpu_load[gpu]=reserved
++        stats=self.gpu_stats[gpu]
++        stats['estimated_tokens_peak']=max(stats['estimated_tokens_peak'],reserved)
++        stats['dispatch_prefill_quanta']+=prefill
++        stats['estimated_padded_tokens']+=width*len(selected)
++        return selected
+ 
+     def take(self,gpu,limit,timeout):
+         deadline=time.monotonic()+timeout
+@@ -127,10 +218,17 @@ class WorkBroker:
+                 if remaining<=0:break
+                 self.cv.wait(remaining);self._check()
+             self._check();batch=[]
+-            while self.ready and len(batch)<limit:
+-                uid=self.ready.popleft();entry=self.requests[uid];entry['gpu']=gpu
+-                entry['deadline']=time.monotonic()+self.request_timeout
+-                self.counts['queue_wait_microseconds']+=int((time.monotonic()-entry['submitted'])*1e6)
++            selected=(self._fair_uids(gpu,limit) if self.dispatch is not None else
++                      [self.ready.popleft() for _ in range(min(len(self.ready),limit))])
++            for uid in selected:
++                entry=self.requests[uid];entry['gpu']=gpu;entry['dispatched']=time.monotonic()
++                entry['deadline']=entry['dispatched']+self.request_timeout
++                waited=entry['dispatched']-entry['submitted']
++                self.counts['queue_wait_microseconds']+=int(waited*1e6)
++                if self.dispatch is not None:
++                    self.queue_samples[entry['owner']].append(waited)
++                    self.owner_stats[entry['owner']]['queue_wait_seconds']+=waited
++                    self.gpu_stats[gpu]['assigned_requests']+=1
+                 batch.append(dict(request=deepcopy(entry['request']),prompt_binding=entry['binding']))
+             self.counts['gpu'+str(gpu)+'_requests']+=len(batch)
+             return batch
+@@ -141,6 +239,11 @@ class WorkBroker:
+             if entry['gpu']!=gpu:raise ValueError('GLOBAL_COMPLETION_OWNER_MISMATCH')
+             self._valid_result(entry['request'],value,entry['binding'])
+             if entry['result'] is not None:raise ValueError('GLOBAL_DUPLICATE_COMPLETION')
++            if self.dispatch is not None:
++                work=entry['work'];self.gpu_load[gpu]-=work['prompt_tokens']+work['max_new_tokens']
++                self.owner_stats[entry['owner']]['completed_requests']+=1
++                self.owner_stats[entry['owner']]['dispatch_to_return_seconds']+=time.monotonic()-entry['dispatched']
++                self.gpu_stats[gpu]['completed_requests']+=1
+             entry['result']=deepcopy(value);self.counts['completed_requests']+=1;self.cv.notify_all()
+ 
+     def wait_result(self,owner,uid,timeout):
+diff --git a/tests/test_route_acceleration_distributed_cpu.py b/tests/test_route_acceleration_distributed_cpu.py
+index 6da0372..d0bf1c0 100644
+--- a/tests/test_route_acceleration_distributed_cpu.py
++++ b/tests/test_route_acceleration_distributed_cpu.py
+@@ -28,6 +28,8 @@ def _cpu_worker(rank,rendezvous,root,fault=None):
+         def __init__(self,actor,tokenizer,cfg,raw_path,execution_writer):
+             if fault=='startup' and rank==1:raise OSError('injected startup failure')
+             self.cfg,self.raw_path=cfg,Path(raw_path)
++            self.writer=io.ReceiptBatch(raw_path,cfg=cfg)
++            self.execution_writer=execution_writer
+         def generate(self,requests):
+             values=[]
+             append_receipt(self.raw_path,dict(event='gpu-requested',requests=[vars(r) for r in requests],prompt_token_ids=[[1] for r in requests]))
+diff --git a/tests/test_route_dispatch_fairness.py b/tests/test_route_dispatch_fairness.py
+new file mode 100644
+index 0000000..d300b31
+--- /dev/null
++++ b/tests/test_route_dispatch_fairness.py
+@@ -0,0 +1,84 @@
++"""Target fairness and measured work admission without changing policy draws."""
++import pytest
++
++
++def broker(tmp_path,**changes):
++    from mechet.route_work_broker import WorkBroker
++    dispatch=dict(max_prefill_tokens=100,max_estimated_tokens=1000,max_pending=100,gpu_count=1)
++    dispatch.update(changes)
++    return WorkBroker([],actor_version='v',contract_sha='c',journal_path=tmp_path/'claims',dispatch=dispatch)
++
++
++def submit(b,uid,owner,prompt=3,output=2):
++    b.submit(dict(request_id=uid,behavior_version='v',remaining_tokens=output),owner,'binding',
++             work=dict(prompt_tokens=prompt,max_new_tokens=output))
++
++
++def test_target_fairness_does_not_let_many_a_requests_starve_b(tmp_path):
++    b=broker(tmp_path)
++    for i in range(5):submit(b,'A'+str(i),'targetA')
++    submit(b,'B','targetB');submit(b,'C','targetC')
++    batch=b.take(0,4,0)
++    assert [x['request']['request_id'] for x in batch]==['A0','B','C','A1']
++    assert b.snapshot()['counts']['policy_requests_submitted']==7
++
++
++def test_prefill_admission_preserves_long_request_and_refunds_kv_estimate(tmp_path):
++    b=broker(tmp_path,max_prefill_tokens=8,max_estimated_tokens=20)
++    submit(b,'A','a',prompt=6,output=4);submit(b,'B','b',prompt=6,output=4)
++    first=b.take(0,4,0)
++    assert [x['request']['request_id'] for x in first]==['A']
++    second=b.take(0,4,0)
++    assert [x['request']['request_id'] for x in second]==['B']
++    assert b.take(0,4,0)==[]
++    b.complete(0,'A',dict(request_id='A',behavior_version='v',prompt_token_ids=[1],
++        generated_token_ids=[9],behavior_logprobs=[-.2]))
++    # An individual long prefill is chunkable by the native engine, not rejected
++    # merely because its prompt exceeds the dispatch prefill quantum.
++    submit(b,'long','long',prompt=9,output=1)
++    assert b.take(0,4,0)[0]['request']['request_id']=='long'
++
++
++def test_gpu_with_lower_reserved_work_receives_next_request(tmp_path):
++    b=broker(tmp_path,gpu_count=2)
++    submit(b,'A','a',prompt=8,output=2)
++    assert len(b.take(0,1,0))==1
++    submit(b,'B','b',prompt=1,output=1)
++    assert b.take(0,1,0)==[]
++    assert b.take(1,1,0)[0]['request']['request_id']=='B'
++
++
++def test_work_identity_and_oversized_dispatch_are_explicit(tmp_path):
++    b=broker(tmp_path,max_estimated_tokens=10)
++    submit(b,'A','a')
++    with pytest.raises(ValueError,match='WORK_REBOUND'):submit(b,'A','a',prompt=4)
++    with pytest.raises(ValueError,match='DISPATCH_CAPACITY'):submit(b,'large','large',prompt=20)
++
++
++def test_recovered_draw_is_not_reserved_or_resubmitted_as_new_gpu_work(tmp_path):
++    b=broker(tmp_path)
++    request=dict(request_id='saved',behavior_version='v',remaining_tokens=2)
++    value=dict(request_id='saved',behavior_version='v',prompt_token_ids=[1],
++               generated_token_ids=[9],behavior_logprobs=[-.2])
++    b.seed_result(request,value)
++    b.submit(request,'owner','binding',work=dict(prompt_tokens=1,max_new_tokens=2))
++    assert b.take(0,10,0)==[]
++    assert b.snapshot()['estimated_gpu_tokens']=={0:0}
++    assert b.wait_result('owner','saved',0)['behavior_logprobs']==[-.2]
++    assert b.snapshot()['counts']['recovered_request_receipts']==1
++
++
++def test_overlong_request_does_not_censor_short_neighbor(tmp_path):
++    from mechet.route_global_sampler import RemoteSampler
++    from mechet.route_policy_episode import DecisionRequest
++    b=broker(tmp_path)
++    cfg=dict(acceleration={'scheduling':'global_length_fair_v2'},max_action_tokens=8,max_context=5)
++    def request(uid):return DecisionRequest(uid,uid,'rx','CO','v',[],8,'CO')
++    with RemoteSampler(b,'owner',cfg,prompt_ids=lambda r:[1]*(6 if r.request_id=='long' else 2)) as sampler:
++        long=sampler.submit(request('long'));short=sampler.submit(request('short'))
++        assert long.result(timeout=2)['resource_error']=='PHYSICAL_CONTEXT_LIMIT'
++        assert b.take(0,2,0)[0]['request']['request_id']=='short'
++        b.complete(0,'short',dict(request_id='short',behavior_version='v',prompt_token_ids=[1,1],
++            generated_token_ids=[9],behavior_logprobs=[-.2]))
++        assert short.result(timeout=2)['generated_token_ids']==[9]
++    assert b.snapshot()['counts']['policy_requests_submitted']==1
+diff --git a/tests/test_route_execution_cache.py b/tests/test_route_execution_cache.py
+index e056937..2a1e63f 100644
+--- a/tests/test_route_execution_cache.py
++++ b/tests/test_route_execution_cache.py
+@@ -80,3 +80,81 @@ def test_history_and_finish_are_not_cloned_from_the_cache():
+     finish=dict(r,raw='<tool_call>{"name":"finish_trace","arguments":{}}</tool_call>')
+     actual,error=chem.step(y,finish);expected,e=base.step(y,finish)
+     assert actual==expected and error==e
++
++
++def test_cache_exposes_producer_and_bound_pure_witness_without_changing_receipt():
++    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
++    from mechet.route_policy_episode import NativeChemistry
++    from mechet.external_route_data import signature
++    from test_route_native_observation import episode,flow
++    ep=episode();ep.next_decision();cache=ExecutionCache();base=NativeChemistry()
++    chem=CachedChemistry(base,cache,{'executor':'frozen'});a=receipt(flow(ep))
++    original=deepcopy(a);x,error=chem.step(ep.node,a)
++    provenance=cache.provenance('r1')
++    assert a==original and not error
++    b=dict(a,request_id='r2',behavior_logprobs=[-.9]);y,error=chem.step(ep.node,b)
++    second=cache.provenance('r2')
++    assert provenance['producer_receipt_id']==second['producer_receipt_id']=='r1'
++    assert provenance['request_id']=='r1' and second['request_id']=='r2'
++    assert provenance['witness_sha']==signature(dict(execution_key=provenance['execution_key'],
++        producer_receipt_id='r1',transition=dict(error='',state=x.state,next_map=x.next_map,
++        imported=x.imported,result=x.actions[-1]['result'])))
++    assert second['witness_sha']==provenance['witness_sha']
++    assert x.actions==y.actions and y.logprob==pytest.approx(ep.node.logprob-.9)
++    assert cache.metrics()['cache_reconstruction_failures']==0
++
++
++def test_corrupted_cached_transition_fails_witness_and_counts_reconstruction_failure():
++    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
++    from mechet.route_policy_episode import NativeChemistry
++    from test_route_native_observation import episode,flow
++    ep=episode();ep.next_decision();cache=ExecutionCache()
++    chem=CachedChemistry(NativeChemistry(),cache,{'executor':'frozen'})
++    output=receipt(flow(ep));chem.step(ep.node,output)
++    # Corrupt a durable pure successor at the cache boundary; consuming it must
++    # propagate rather than return a foreign/forged chemical state.
++    next(iter(cache.entries.values())).result()['transition']['state']='forged'
++    with pytest.raises(ValueError,match='CACHE.*WITNESS'):
++        chem.step(ep.node,dict(output,request_id='r2'))
++    assert cache.metrics()['cache_reconstruction_failures']==1
++
++
++def test_reconstruction_exception_is_counted_and_propagated(monkeypatch):
++    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
++    from mechet.route_policy_episode import NativeChemistry
++    from test_route_native_observation import episode,flow
++    ep=episode();ep.next_decision();cache=ExecutionCache()
++    chem=CachedChemistry(NativeChemistry(),cache,{'executor':'frozen'})
++    output=receipt(flow(ep));chem.step(ep.node,output)
++    import scripts.run_natural_language_value_search as chemistry
++    def broken(*args,**kwargs):raise RuntimeError('reconstruction failed')
++    monkeypatch.setattr(chemistry,'Node',broken)
++    with pytest.raises(RuntimeError,match='reconstruction failed'):
++        chem.step(ep.node,dict(output,request_id='r2'))
++    assert cache.metrics()['cache_reconstruction_failures']==1
++
++
++def test_missing_cached_witness_field_is_counted_and_propagated():
++    from mechet.route_execution_cache import CachedChemistry,ExecutionCache
++    from mechet.route_policy_episode import NativeChemistry
++    from test_route_native_observation import episode,flow
++    ep=episode();ep.next_decision();cache=ExecutionCache()
++    chem=CachedChemistry(NativeChemistry(),cache,{'executor':'frozen'})
++    output=receipt(flow(ep));chem.step(ep.node,output)
++    del next(iter(cache.entries.values())).result()['transition']
++    with pytest.raises((KeyError,ValueError)):
++        chem.step(ep.node,dict(output,request_id='r2'))
++    assert cache.metrics()['cache_reconstruction_failures']==1
++def test_cache_producer_witness_survives_runtime_shutdown(tmp_path):
++    import json
++    from mechet.route_execution_cache import ExecutionCache
++    from mechet.external_route_data import file_sha
++    cache=ExecutionCache()
++    cache.resolve('key','producer',lambda:dict(error='',state='state'))
++    cache.resolve('key','consumer',lambda:(_ for _ in ()).throw(AssertionError('reexecuted')))
++    result=cache.persist_provenance(tmp_path/'cache-witnesses.json')
++    rows=json.loads((tmp_path/'cache-witnesses.json').read_text())
++    assert result['sha256']==file_sha(tmp_path/'cache-witnesses.json')
++    assert rows['consumer']['request_id']=='consumer'
++    assert rows['consumer']['producer_receipt_id']=='producer'
++    assert rows['consumer']['witness_sha']==rows['producer']['witness_sha']
+diff --git a/tests/test_route_fla_import.py b/tests/test_route_fla_import.py
+new file mode 100644
+index 0000000..7ffe7dd
+--- /dev/null
++++ b/tests/test_route_fla_import.py
+@@ -0,0 +1,50 @@
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++
++
++def test_optional_model_registry_is_skipped_while_real_core_imports_remain(tmp_path):
++    root=tmp_path/'packages';fla=root/'fla';fla.mkdir(parents=True)
++    (fla/'__init__.py').write_text('''import importlib
++__version__='0.5.2'
++def _import_optional_public_module(name):
++ try:return importlib.import_module(name)
++ except ModuleNotFoundError as e:
++  if e.name==name:return None
++  raise
++_layers=_import_optional_public_module('fla.layers')
++_models=_import_optional_public_module('fla.models')
++''')
++    for name in ['layers','models']:
++        p=fla/name;p.mkdir();(p/'__init__.py').write_text('VALUE=99\n')
++    p=fla/'ops';p.mkdir();(p/'__init__.py').write_text('def original_op(x):return x*x\n')
++    code=Path(__file__).resolve().parents[1]
++    script='import runpy,os\nimport_core_fla=runpy.run_path('+repr(str(code/'src/mechet/route_fla_import.py'))+")[\"import_core_fla\"]\n"+'''import sys,json,importlib
++module=importlib.import_module('fla') if os.environ.get('FLA_IMPORT_BASELINE_CONTROL') else import_core_fla()
++before=[n for n in sys.modules if n in ('fla.layers','fla.models')]
++from fla.ops import original_op
++later=importlib.import_module('fla.models')
++print(json.dumps(dict(version=module.__version__,before=before,value=original_op(7),later=later.VALUE)))
++'''
++    env=dict(os.environ,PYTHONPATH=os.pathsep.join([str(root),str(code/'src')]),PYTHONDONTWRITEBYTECODE='1')
++    result=json.loads(subprocess.check_output([sys.executable,'-S','-c',script],env=env,text=True))
++    assert result==dict(version='0.5.2',before=[],value=49,later=99)
++
++
++def test_failed_core_import_always_removes_temporary_blocker(tmp_path):
++    # A broken core package must raise; it cannot turn into a silent fallback.
++    root=tmp_path/'packages';fla=root/'fla';fla.mkdir(parents=True)
++    (fla/'__init__.py').write_text("raise RuntimeError('broken core')\n")
++    code=Path(__file__).resolve().parents[1]
++    script='import runpy\nimport_core_fla=runpy.run_path('+repr(str(code/'src/mechet/route_fla_import.py'))+")[\"import_core_fla\"]\n"+'''import sys,json
++before=list(sys.meta_path)
++try:import_core_fla()
++except RuntimeError:pass
++else:raise AssertionError('hidden core failure')
++assert sys.meta_path==before
++print('PASS')
++'''
++    env=dict(os.environ,PYTHONPATH=os.pathsep.join([str(root),str(code/'src')]),PYTHONDONTWRITEBYTECODE='1')
++    assert subprocess.check_output([sys.executable,'-S','-c',script],env=env,text=True).strip()=='PASS'
+diff --git a/tests/test_route_global_native.py b/tests/test_route_global_native.py
+new file mode 100644
+index 0000000..baafc88
+--- /dev/null
++++ b/tests/test_route_global_native.py
+@@ -0,0 +1,121 @@
++"""The global dispatcher must serve and recover original native engine draws."""
++from concurrent.futures import Future
++from dataclasses import asdict
++import json
++import threading
++from types import SimpleNamespace
++
++import pytest
++
++
++def test_full_native_condition_is_accepted_without_enabling_hf_fallback():
++    from mechet.route_acceleration import full_acceleration,validate_acceleration
++    cfg=dict(acceleration=full_acceleration(refit=False),inference_backend='vllm',
++             world_size=4,candidates=4)
++    validate_acceleration(cfg)
++    assert cfg['acceleration']['sampling_kernel']=='vllm_native_v1'
++    with pytest.raises(ValueError):validate_acceleration(dict(cfg,inference_backend='hf'))
++
++
++def test_global_native_recovery_reuses_exact_original_receipt(tmp_path):
++    from mechet.route_gpu_backend import recover_gpu_journal
++    from mechet.route_policy_episode import DecisionRequest
++    from mechet.route_vllm_protocol import build_request,PROBABILITY_RECEIPT
++    from mechet.route_policy_sampling import append_receipt
++    request=DecisionRequest('real-request','episode','reaction','CO','round:actor',[],7,'CO')
++    wire=build_request(request,[3,4],dict(seed=17,max_action_tokens=7,max_context=32,eos_token_id=9))
++    result=dict(request_id='real-request',behavior_version='round:actor',prompt_token_ids=[3,4],
++        eos_token_id=9,generated_token_ids=[5,9],behavior_logprobs=[-.123,-.456],
++        probability_receipt=PROBABILITY_RECEIPT,finish_reason='stop',raw='native')
++    path=tmp_path/'native.jsonl'
++    append_receipt(path,dict(event='vllm-submitted',request=wire,decision_request=asdict(request)))
++    append_receipt(path,dict(event='vllm-completed',request=wire,receipt=result))
++    def forbidden(*_):raise AssertionError('Native recovery recomputed behavior probabilities')
++    rows=recover_gpu_journal(path,'round:actor',{'inference_backend':'vllm'},forbidden)
++    assert rows[0][0]==asdict(request)
++    assert rows[0][1]['generated_token_ids']==[5,9]
++    assert rows[0][1]['behavior_logprobs']==[-.123,-.456]
++    with pytest.raises(ValueError):recover_gpu_journal(path,'round:other',{'inference_backend':'vllm'},forbidden)
++
++
++def test_global_native_eos_refills_before_long_neighbor_finishes(tmp_path,monkeypatch):
++    from mechet.route_gpu_backend import make_gpu_sampler,close_gpu_sampler
++    from mechet.route_global_sampler import RemoteSampler,serve_gpu
++    from mechet.route_policy_episode import DecisionRequest
++    from mechet.route_work_broker import WorkBroker
++    from mechet.route_vllm_protocol import PROBABILITY_RECEIPT
++    import mechet.route_vllm_backend as backend
++    import mechet.route_policy_protocol as protocol
++    monkeypatch.setattr(protocol,'route_tool_prefix',lambda *args:'native-prompt')
++    bound=[];monkeypatch.setattr(backend,'bind_rollout_adapter',lambda cfg,version:bound.append(version))
++    class Tokenizer:
++        eos_token_id=9
++        def __call__(self,*args,**kwargs):return {'input_ids':[1,2]}
++        def decode(self,ids,**kwargs):return 'generated'
++    class Engine:
++        timeout=5
++        def __init__(self):self.pending={};self.cv=threading.Condition();self.drained=False
++        def rpc(self,operation,wire):
++            f=Future()
++            if operation=='drain':self.drained=True;f.set_result({'inflight':0});return f
++            assert operation=='generate'
++            with self.cv:self.pending[wire['request_id']]=(wire,f);self.cv.notify_all()
++            return f
++        def submitted(self,n):
++            with self.cv:return self.cv.wait_for(lambda:len(self.pending)>=n,timeout=5)
++        def finish(self,uid):
++            wire,f=self.pending[uid]
++            f.set_result(dict(request_id=uid,behavior_version='round:actor',prompt_token_ids=[1,2],
++                eos_token_id=9,generated_token_ids=[7,9],behavior_logprobs=[-.2,-.3],
++                probability_receipt=PROBABILITY_RECEIPT,finish_reason='stop'))
++    engine=Engine();cfg=dict(inference_backend='vllm',_vllm_process=engine,generation_batch_size=2,
++        seed=17,max_action_tokens=8,max_context=32,_sha='contract')
++    sampler=make_gpu_sampler(None,Tokenizer(),cfg,tmp_path,'round:actor',0)
++    assert bound==['round:actor']
++    broker=WorkBroker([],actor_version='round:actor',contract_sha='contract',journal_path=tmp_path/'claims')
++    worker=threading.Thread(target=serve_gpu,args=(broker,sampler,0),daemon=True);worker.start()
++    def request(uid):return DecisionRequest(uid,uid,'reaction','CO','round:actor',[],8,'CO')
++    try:
++        with RemoteSampler(broker,'owner',cfg,prompt_ids=lambda r:[1,2]) as owner:
++            long=owner.submit(request('long'));short=owner.submit(request('short'))
++            assert engine.submitted(2)
++            engine.finish('short');assert short.result(timeout=5)['generated_token_ids']==[7,9]
++            third=owner.submit(request('third'));assert engine.submitted(3)
++            assert not long.done(), 'A completed row must refill while its long neighbor is pending'
++            engine.finish('third');assert third.result(timeout=5)['behavior_logprobs']==[-.2,-.3]
++            engine.finish('long');assert long.result(timeout=5)['generated_token_ids']==[7,9]
++    finally:
++        broker.stop();worker.join(5);close_gpu_sampler(sampler,cfg)
++    assert not worker.is_alive() and engine.drained
++    # Durable evidence retains each original request, including full replay identity.
++    events=[json.loads(line) for line in (tmp_path/'gpu-rank00.jsonl').read_text().splitlines()]
++    submitted=[e for e in events if e['event']=='vllm-submitted']
++    assert {e['decision_request']['request_id'] for e in submitted}=={'long','short','third'}
++    assert sum(e['event']=='vllm-completed' for e in events)==3
++
++
++def test_native_sampler_accepts_saved_namespace_request_and_preserves_identity(tmp_path,monkeypatch):
++    from mechet.route_vllm_backend import VllmRouteSampler
++    from mechet.route_vllm_protocol import PROBABILITY_RECEIPT
++    import mechet.route_policy_protocol as protocol
++    monkeypatch.setattr(protocol,'route_tool_prefix',lambda *args:'prompt')
++    class Tokenizer:
++        eos_token_id=9
++        def __call__(self,*a,**kw):return {'input_ids':[1,2]}
++        def decode(self,*a,**kw):return 'native'
++    class Process:
++        timeout=5
++        def rpc(self,op,wire):
++            assert op=='generate'
++            f=Future();f.set_result(dict(request_id=wire['request_id'],behavior_version='round:actor',
++                prompt_token_ids=[1,2],eos_token_id=9,generated_token_ids=[7,9],
++                behavior_logprobs=[-.2,-.3],probability_receipt=PROBABILITY_RECEIPT,finish_reason='stop'))
++            return f
++    cfg=dict(seed=17,max_action_tokens=8,max_context=32,generation_batch_size=2)
++    request=SimpleNamespace(request_id='saved',episode_id='ep',reaction_id='rx',product='CO',
++        public_product='CO',behavior_version='round:actor',messages=[],remaining_tokens=8,tools=None)
++    sampler=VllmRouteSampler(Process(),Tokenizer(),cfg,tmp_path/'raw.jsonl')
++    try:assert sampler.submit(request).result(timeout=5)['behavior_logprobs']==[-.2,-.3]
++    finally:sampler.close()
++    event=json.loads((tmp_path/'raw.jsonl').read_text().splitlines()[0])
++    assert event['decision_request']==vars(request)
+diff --git a/tests/test_route_native_accounting.py b/tests/test_route_native_accounting.py
+new file mode 100644
+index 0000000..1e13f83
+--- /dev/null
++++ b/tests/test_route_native_accounting.py
+@@ -0,0 +1,71 @@
++import json
++
++import pytest
++
++
++def test_physical_lane_counts_reconcile_without_copied_prefix(tmp_path):
++    from mechet.route_work_broker import WorkBroker
++    b=WorkBroker([],actor_version='v',contract_sha='c',journal_path=tmp_path/'claims')
++    for uid in ('a','b','c'):
++        b.submit(dict(request_id=uid,behavior_version='v'),'target','binding')
++    for row in b.take(0,3,0):
++        uid=row['request']['request_id']
++        b.complete(0,uid,dict(request_id=uid,behavior_version='v',generated_token_ids=[2],behavior_logprobs=[-.2]))
++    labels={uid:dict(lane=lane,node_id='node',semantic_edge='edge',accepted=True)
++        for uid,lane in zip(('a','b','c'),('original_g4','original_g4','credit'))}
++    b.register_request_labels('target',labels)
++    s=b.snapshot()['request_accounting']
++    assert s['unlabelled_requests']==0
++    assert s['per_gpu']['0']['lanes']=={'original_g4':2,'credit':1}
++    assert s['per_target']['target']['distinct_decision_nodes']==1
++    assert s['per_target']['target']['duplicate_semantic_proposals']==2
++    assert s['per_target']['target']['accepted_duplicate_proposals']==2
++    assert s['per_target']['target']['rejected_duplicate_proposals']==0
++    with pytest.raises(ValueError):b.register_request_labels('wrong',labels)
++
++
++def test_labels_keep_original_receipt_ownership_in_suffixes():
++    from mechet.route_request_accounting import request_labels
++    original=dict(records=[dict(request_id='a',accepted=True)],continuation_id='root',
++        refit_path=[dict(request_id='a',receipt_owner='root',lane='original_g4',node_id='n',action='e')])
++    suffix=dict(records=[dict(request_id='a',accepted=True),dict(request_id='b',accepted=False)],
++        continuation_id='fork',refit_path=[*original['refit_path'],
++            dict(request_id='b',receipt_owner='fork',lane='credit',node_id='n',action='e')])
++    original['refit']={'suffix_reports':[suffix]}
++    labels=request_labels([original])
++    assert labels['a']['lane']=='original_g4'
++    assert labels['b']['lane']=='credit'
++    assert len(labels)==2
++
++
++def test_native_durable_io_metrics_are_actual_bytes_and_fsync_barriers(tmp_path):
++    from mechet.route_vllm_backend import DurableGroupCommit
++    path=tmp_path/'journal'
++    with DurableGroupCommit(path,delay=.01) as writer:
++        futures=[writer.append({'receipt':i}) for i in range(3)]
++        for f in futures:f.result(timeout=5)
++    metrics=writer.metrics()
++    assert metrics['rows']==3 and metrics['bytes']==len(path.read_bytes())
++    assert 1<=metrics['fsync_barriers']<=3
++    assert metrics['fsync_seconds']>=0 and metrics['write_seconds']>=0
++    assert [json.loads(line) for line in path.read_text().splitlines()]==[{'receipt':i} for i in range(3)]
++
++
++def test_finished_target_recovery_restores_physical_lane_labels(tmp_path):
++    from mechet.route_work_broker import WorkBroker
++    from mechet.route_request_accounting import restore_finished_request_labels
++    from mechet.external_route_data import file_sha
++    path=tmp_path/'scored.json'
++    path.write_text(json.dumps([dict(records=[dict(request_id='a',accepted=True,
++        prompt_token_ids=[1],state_before='[CH4:1]',raw='')])]))
++    args=dict(actor_version='v',contract_sha='c',journal_path=tmp_path/'claims')
++    first=WorkBroker([dict(task_id='target')],**args)
++    lease=first.claim(0);first.finish(lease['lease_id'],0,str(path),file_sha(path))
++    restarted=WorkBroker([dict(task_id='target')],**args)
++    restarted.seed_result(dict(request_id='a',behavior_version='v'),dict(request_id='a',behavior_version='v',
++        generated_token_ids=[2],behavior_logprobs=[-.1],engine_telemetry={'physical_gpu_rank':1}))
++    restore_finished_request_labels(restarted,'v')
++    metrics=restarted.snapshot()['request_accounting']
++    assert metrics['unlabelled_requests']==0
++    assert metrics['per_target']['v/target']['recovered']==1
++    assert metrics['per_gpu']['1']['lanes']=={'original_g4':1}
+diff --git a/tests/test_route_native_admission.py b/tests/test_route_native_admission.py
+new file mode 100644
+index 0000000..2bb1612
+--- /dev/null
++++ b/tests/test_route_native_admission.py
+@@ -0,0 +1,76 @@
++from copy import deepcopy
++import json
++
++import pytest
++
++
++def test_native_training_refuses_missing_failed_or_stale_hardware_gate(tmp_path):
++    from mechet.route_native_admission import require_native_admission
++    cfg=dict(output_dir=str(tmp_path),inference_backend='vllm',policy_precision='bf16_autocast',
++        acceleration={'version':'pr111_full_acceleration_v2'},
++        native_admission=dict(required=True,actor_sha256='actor',source_contract_sha256='old'))
++    with pytest.raises(ValueError,match='NATIVE_HARDWARE_ADMISSION_REQUIRED'):
++        require_native_admission(cfg,'contract')
++    p=tmp_path/'runtime_validation/native_admission.json';p.parent.mkdir()
++    report=tmp_path/'report.json'
++    value=dict(status='PASS',hardware='NVIDIA H20',hardware_profile='h20_bf16',precision='bf16_autocast',
++        candidate_contract_sha256='contract',source_bindings={'first':dict(adapter_sha256='actor',contract_sha256='old')},
++        legal_checks={'native_probability':'PASS'},validated_compute_files_sha256={})
++    from mechet.external_route_data import file_sha
++    for changed in [dict(status='FAIL'),dict(hardware_profile='t4_fp16'),dict(candidate_contract_sha256='wrong'),
++                    dict(precision='legacy_fp32_lora'),dict(legal_checks={})]:
++        report.write_text(json.dumps(dict(value,**changed)))
++        p.write_text(json.dumps(dict(report=str(report),sha256=file_sha(report))))
++        with pytest.raises(ValueError):require_native_admission(cfg,'contract')
++
++
++def test_full_native_continuation_keeps_semantics_and_explicit_backend_change(tmp_path):
++    from test_acceleration_continuation import fixture_source,new_config
++    from mechet.route_acceleration_continuation import validate_conditions
++    from mechet.route_acceleration import full_acceleration
++    _,old,_=fixture_source(tmp_path,refit=True)
++    new=new_config(old,tmp_path)
++    new.update(acceleration=full_acceleration(refit=True),inference_backend='vllm',vllm_runtime={'frozen':True},
++        native_admission={'required':True})
++    validate_conditions(old,new)
++    bad=deepcopy(new);bad['max_consecutive_recoveries']=8
++    with pytest.raises(ValueError,match='CONDITION_CHANGED:max_consecutive_recoveries'):validate_conditions(old,bad)
++    bad=deepcopy(new);bad['acceleration']['version']='old'
++    with pytest.raises(ValueError):validate_conditions(old,bad)
++
++
++def test_real_hardware_receipt_is_required_with_exact_compute_actor_and_contract(tmp_path):
++    from mechet.route_native_admission import require_native_admission,NATIVE_FILES,REQUIRED_CHECKS
++    from mechet.route_acceleration_continuation import COMPUTE_FILES
++    from mechet.external_route_data import file_sha
++    code=tmp_path/'code'
++    for name in COMPUTE_FILES|NATIVE_FILES:
++        p=code/name;p.parent.mkdir(parents=True,exist_ok=True);p.write_text(name)
++    cfg=dict(output_dir=str(tmp_path),policy_precision='bf16_autocast',
++        acceleration={'version':'pr111_full_acceleration_v2'},native_admission=dict(required=True,
++            actor_sha256='actor',source_contract_sha256='old',source_complete_sha256='complete'))
++    report=tmp_path/'report.json'
++    value=dict(status='PASS',hardware='NVIDIA H20',hardware_profile='h20_bf16',precision='bf16_autocast',
++        candidate_contract_sha256='contract',source_bindings={'first':dict(adapter_sha256='actor',
++            contract_sha256='old',complete_sha256='complete')},legal_checks={k:'PASS' for k in REQUIRED_CHECKS},
++        validated_compute_files_sha256={name:file_sha(code/name) for name in COMPUTE_FILES|NATIVE_FILES})
++    report.write_text(json.dumps(value))
++    pointer=tmp_path/'runtime_validation/native_admission.json';pointer.parent.mkdir()
++    pointer.write_text(json.dumps(dict(report=str(report),sha256=file_sha(report))))
++    assert require_native_admission(cfg,'contract',code=code)['status']=='PASS'
++    (code/'src/mechet/route_work_broker.py').write_text('changed')
++    with pytest.raises(ValueError,match='ADMITTED_COMPUTE_CHANGED'):
++        require_native_admission(cfg,'contract',code=code)
++
++
++def test_native_preparation_carries_forward_the_bound_nvml_runtime_leaf(tmp_path):
++    from scripts.prepare_acceleration_continuation import preserve_runtime_leaves
++    from mechet.external_route_data import file_sha
++    old=tmp_path/'old';new=tmp_path/'new';new.mkdir()
++    relative='scripts/_nvml_runtime/pynvml.py';source=old/relative;source.parent.mkdir(parents=True)
++    source.write_text('bound NVIDIA dependency')
++    cfg=dict(code_root=str(old),files_sha256={str(source):file_sha(source)})
++    preserve_runtime_leaves(cfg,new)
++    assert (new/relative).read_bytes()==source.read_bytes()
++    source.write_text('changed')
++    with pytest.raises(ValueError,match='RUNTIME_LEAF_CHANGED'):preserve_runtime_leaves(cfg,new)
+diff --git a/tests/test_route_probability_admission.py b/tests/test_route_probability_admission.py
+new file mode 100644
+index 0000000..244c842
+--- /dev/null
++++ b/tests/test_route_probability_admission.py
+@@ -0,0 +1,102 @@
++import json
++
++import pytest
++
++
++def failure_files(tmp_path):
++    report=tmp_path/'failure.json';values=tmp_path/'native_outputs.json'
++    report.write_text(json.dumps(dict(status='FAIL',source_bindings={'first':{'adapter_sha256':'actor'}})))
++    rows=[dict(request_id=str(i),prompt_token_ids=[1,i+2],generated_token_ids=[4,9],
++        behavior_logprobs=[-.1,-.2]) for i in range(5)]
++    values.write_text(json.dumps(rows));return report,values
++
++
++def test_every_failed_receipt_is_rechecked_at_b1_and_b4(tmp_path):
++    from mechet.route_probability_admission import replay_failed_probability_receipts
++    report,values=failure_files(tmp_path);seen=[]
++    def score(model,pairs,pad,**kwargs):
++        seen.extend(p[0][1] for p in pairs);return [[-.11,-.19] for _ in pairs]
++    result=replay_failed_probability_receipts(report,values,None,0,'bf16_autocast',score,expected_actor='actor')
++    assert seen==[2,3,4,5,6]*2
++    assert result['status']=='PASS' and result['receipts']==5 and result['positions_per_pass']==10
++    assert result['max_error_b1']==pytest.approx(.01)
++
++
++@pytest.mark.parametrize('changed_actor,bad_score',[(True,False),(False,True)])
++def test_replay_cannot_admit_wrong_actor_or_bad_old_receipt(tmp_path,changed_actor,bad_score):
++    from mechet.route_probability_admission import replay_failed_probability_receipts
++    report,values=failure_files(tmp_path)
++    def score(model,pairs,pad,**kwargs):return [[-.1,-.6 if bad_score and p[0][1]==4 else -.2] for p in pairs]
++    with pytest.raises(ValueError):
++        replay_failed_probability_receipts(report,values,None,0,'bf16_autocast',score,
++            expected_actor='wrong' if changed_actor else 'actor')
++
++
++def test_teacher_witness_preserves_return_identity_and_restores_after_failure(tmp_path):
++    from types import SimpleNamespace
++    from mechet.route_probability_admission import ScoreWitnesses
++    output=[[-.125,-.25]];actor=object()
++    def original(*args,**kwargs):return output
++    module=SimpleNamespace(token_logps_batch=original)
++    with pytest.raises(RuntimeError):
++        with ScoreWitnesses(module,tmp_path/'teacher.jsonl') as trace:
++            assert module.token_logps_batch(actor,[([1],[2,9])],pad_token_id=77,precision='bf16_autocast') is output
++            assert trace.primary_model is actor and trace.pad_token_id==77
++            raise RuntimeError('diagnostic failure')
++    assert module.token_logps_batch is original
++    row=json.loads((tmp_path/'teacher.jsonl').read_text())
++    assert row['teacher_logprobs']==output[0]
++
++
++def test_hardware_failure_persists_scores_and_blocks_unchanged_automatic_retry(tmp_path,monkeypatch):
++    import scripts.run_route_native_admission as entry
++    import scripts.validate_pr111_native_runtime as native
++    from scripts import pr96_earho_contract as probability
++    from mechet.external_route_data import file_sha
++    source=tmp_path/'source.json';source.write_text('{}')
++    cfg=dict(acceleration={'version':'pr111_full_acceleration_v2'},output_dir=str(tmp_path/'out'),
++        native_admission=dict(second_source_contract=str(source),second_source_contract_sha256=file_sha(source),
++            source_contract_sha256=file_sha(source)),acceleration_continuation={'source_contract':str(source)})
++    contract=tmp_path/'contract.json';contract.write_text(json.dumps(cfg));calls=[]
++    def original(*args,**kwargs):return [[-.125]]
++    monkeypatch.setattr(probability,'token_logps_batch',original)
++    def failed_run(args):
++        calls.append(1);args.output.mkdir(parents=True)
++        probability.token_logps_batch(object(),[([1],[2])],99,precision='bf16_autocast')
++        (args.output/'admission.json').write_text(json.dumps({'status':'FAIL'}))
++        raise ValueError('NATIVE_PROBABILITY_PARITY_UNCHANGED_025_GATE')
++    monkeypatch.setattr(native,'run',failed_run)
++    with pytest.raises(ValueError,match='PARITY'):entry.main(contract)
++    validation=tmp_path/'out/runtime_validation'
++    assert (validation/'native_admission_failure.json').exists()
++    assert not (validation/'native_admission.json').exists()
++    assert list(validation.glob('native-attempt-*/teacher_scores.jsonl'))
++    assert probability.token_logps_batch is original
++    with pytest.raises(ValueError,match='FROZEN_NATIVE_FAILURE_REQUIRES_REPAIR'):entry.main(contract)
++    assert len(calls)==1
++
++
++def test_failed_prior_replay_keeps_teacher_vectors(tmp_path,monkeypatch):
++    import scripts.run_route_native_admission as entry
++    import scripts.validate_pr111_native_runtime as native
++    from scripts import pr96_earho_contract as probability
++    from mechet.external_route_data import file_sha
++    report,outputs=failure_files(tmp_path)
++    source=tmp_path/'source.json';source.write_text('{}')
++    previous={k:str(p) for k,p in [('report',report),('outputs',outputs)]}
++    previous.update({k+'_sha256':file_sha(p) for k,p in [('report',report),('outputs',outputs)]})
++    cfg=dict(acceleration={'version':'pr111_full_acceleration_v2'},output_dir=str(tmp_path/'out'),
++        policy_precision='bf16_autocast',acceleration_continuation={'source_contract':str(source)},
++        native_admission=dict(second_source_contract=str(source),second_source_contract_sha256=file_sha(source),
++            source_contract_sha256=file_sha(source),actor_sha256='actor',previous_probability_failure=previous))
++    contract=tmp_path/'contract.json';contract.write_text(json.dumps(cfg))
++    monkeypatch.setattr(probability,'token_logps_batch',lambda model,pairs,pad,**kw:[[-.1,-.6] for _ in pairs])
++    def run(args):
++        args.output.mkdir(parents=True)
++        probability.token_logps_batch(object(),[([1],[2,9])],77,precision='bf16_autocast')
++        (args.output/'admission.json').write_text(json.dumps({'status':'PASS'}))
++    monkeypatch.setattr(native,'run',run)
++    with pytest.raises(ValueError,match='PREVIOUS_FAILED_RECEIPT_PARITY'):entry.main(contract)
++    receipts=list((tmp_path/'out/runtime_validation').glob('native-attempt-*/previous_teacher_scores.jsonl'))
++    assert len(receipts)==1
++    assert json.loads(receipts[0].read_text().splitlines()[0])['teacher_logprobs']==[-.1,-.6]
+diff --git a/tests/test_route_reference_cache.py b/tests/test_route_reference_cache.py
+new file mode 100644
+index 0000000..f8d518d
+--- /dev/null
++++ b/tests/test_route_reference_cache.py
+@@ -0,0 +1,64 @@
++"""Only immutable reference scores may reuse a forward; actor gradients stay real."""
++from copy import deepcopy
++from types import SimpleNamespace
++
++import pytest
++
++
++def test_reference_cache_deduplicates_exact_pairs_and_isolates_identity(tmp_path):
++    import torch
++    from mechet.route_reference_cache import ReferenceLogprobCache
++    cache=ReferenceLogprobCache(2);calls=[]
++    def compute(pairs):
++        calls.extend(pairs);return [torch.tensor([-float(len(p))]*len(r)) for p,r in pairs]
++    a=([1,2],[3]);b=([1],[4,5])
++    values=cache.lookup([a,a,b],identity=('ref','tok','bf16','mask'),compute=compute,device='cpu')
++    assert len(calls)==2 and values[0].tolist()==[-2.]
++    values[0].add_(99.)
++    assert cache.lookup([a],identity=('ref','tok','bf16','mask'),compute=compute,device='cpu')[0].tolist()==[-2.]
++    cache.lookup([a],identity=('other-ref','tok','bf16','mask'),compute=compute,device='cpu')
++    cache.lookup([a],identity=('other-ref','tok','fp32','mask'),compute=compute,device='cpu')
++    assert len(calls)==4
++    assert cache.snapshot()['coalesced_pairs']==1 and cache.snapshot()['cache_hits']==1
++
++
++def test_reference_lru_eviction_never_loses_current_batch_outputs():
++    import torch
++    from mechet.route_reference_cache import ReferenceLogprobCache
++    cache=ReferenceLogprobCache(1)
++    values=cache.lookup([([1],[2]),([3],[4,5])],identity='frozen',
++        compute=lambda pairs:[torch.tensor([-.1]*len(r)) for p,r in pairs],device='cpu')
++    assert [len(v) for v in values]==[1,2]
++    assert cache.snapshot()['entries']==1 and cache.snapshot()['evictions']==1
++    assert all(not v.requires_grad for v in values)
++
++
++def test_cached_reference_preserves_opposing_advantages_kl_and_parameter_update():
++    import torch
++    from scripts.pr96_earho_contract import token_logps_batch
++    from mechet.external_route_rl import optimize_routes,DR_GRPO_ALGORITHM
++    class Tiny(torch.nn.Module):
++        def __init__(self):
++            super().__init__();self.emb=torch.nn.Embedding(7,4);self.head=torch.nn.Linear(4,7);self.observed_rows=0
++        def forward(self,input_ids,attention_mask,logits_to_keep,use_cache,position_ids=None):
++            self.observed_rows+=len(input_ids)
++            hidden=(self.emb(input_ids)*attention_mask[...,None]).cumsum(1)
++            return SimpleNamespace(logits=self.head(hidden[:,logits_to_keep]))
++    torch.manual_seed(31);initial=Tiny();reference=deepcopy(initial)
++    with torch.no_grad():reference.head.bias[0]+=.2
++    pairs=[([1],[2,3]),([1],[2,3]),([4],[5]),([4],[5])]
++    old=[v.detach().tolist() for v in token_logps_batch(initial,pairs)]
++    reports=[dict(reward=reward,records=[dict(prompt_token_ids=p,generated_token_ids=r,behavior_logprobs=lp)])
++             for (p,r),lp,reward in zip(pairs,old,[1.,0.,0.,0.])]
++    cfg=dict(algorithm=DR_GRPO_ALGORITHM,candidates=4,loss_batch_size=4,pad_token_id=0,
++        clip_epsilon=.2,kl_beta=.02,loss_token_normalizer=1024.,max_grad_norm=1.,behavior_logprob_tolerance=.25,
++        parent_sha256='frozen-reference',base_manifest='frozen-tokenizer')
++    plain=deepcopy(initial);cached=deepcopy(initial);ref1=deepcopy(reference);ref2=deepcopy(reference)
++    ref1.observed_rows=ref2.observed_rows=0
++    a=optimize_routes(plain,ref1,torch.optim.SGD(plain.parameters(),lr=.2),[deepcopy(reports)],cfg)
++    b=optimize_routes(cached,ref2,torch.optim.SGD(cached.parameters(),lr=.2),[deepcopy(reports)],
++        dict(cfg,acceleration={'reference_cache_capacity':8}))
++    assert ref2.observed_rows==2<ref1.observed_rows
++    for p,q in zip(plain.parameters(),cached.parameters()):torch.testing.assert_close(p,q,rtol=2e-6,atol=2e-7)
++    assert a['reference_kl']==pytest.approx(b['reference_kl'],rel=2e-6,abs=2e-7)
++    assert b['reference_cache']['physical_sequences']==2
+diff --git a/tests/test_route_refit_credit.py b/tests/test_route_refit_credit.py
+index 5087753..3206b29 100644
+--- a/tests/test_route_refit_credit.py
++++ b/tests/test_route_refit_credit.py
+@@ -41,6 +41,9 @@ def test_branch_replaces_g4_and_prefix_is_trained_once():
+     values={r['request_id']:a for r,a in records}
+     assert values==pytest.approx({'p':.105,'a':.11,'b':-.11,'other':-.105})
+     assert stats['conditional_groups']==1 and stats['unique_receipts']==4
++    assert stats['conditional_nonzero_advantage_groups']==1
++    assert stats['conditional_zero_advantage_groups']==0
++    assert stats['conditional_m1_completed_used']==2
+ 
+ 
+ def test_censored_suffix_masks_comparison_and_preserves_original_g4():
+@@ -51,6 +54,7 @@ def test_censored_suffix_masks_comparison_and_preserves_original_g4():
+     records,stats=training_records(group)
+     assert {r['request_id']:a for r,a in records}==pytest.approx({'p':.105,'a':.1,'other':-.105})
+     assert stats['conditional_groups']==0
++    assert stats['conditional_m1_completed_used']==0
+ 
+ 
+ def test_censored_unparsed_proposal_masks_whole_conditional_node():
+diff --git a/tests/test_route_refit_lanes_v2.py b/tests/test_route_refit_lanes_v2.py
+new file mode 100644
+index 0000000..7a07a51
+--- /dev/null
++++ b/tests/test_route_refit_lanes_v2.py
+@@ -0,0 +1,240 @@
++"""Real chemistry receipts exercise owner-completion and deterministic lane publication."""
++from copy import deepcopy
++import json
++
++import pytest
++
++POLICY='skip_extra_duplicates_v2'
++LANES=dict(credit_forks_per_tree=16,exploration_forks_per_tree=0)
++
++
++def collection(*,lanes=None,count=1,budget=None,max_nodes=8,recoveries=None):
++    from mechet.route_refit_runtime import RefitCollection,DEFAULTS
++    from mechet.route_refit import RefitRouteEpisode
++    from test_route_first_rejection import episode
++    cfg=episode().cfg
++    if recoveries is not None:
++        cfg=dict(cfg,max_consecutive_recoveries=recoveries);cfg.pop('route_failure_policy')
++    episodes=[RefitRouteEpisode(cfg,'CO',set(),'root'+str(i),17) for i in range(count)]
++    # Exercise RouteEpisode's legacy finite-budget terminal boundary directly;
++    # target-only production intentionally has no aggregate episode ceiling.
++    if budget is not None:
++        for ep in episodes:ep.cfg['episode_token_budget']=budget
++    return RefitCollection(episodes,dict(DEFAULTS,max_nodes_per_tree=max_nodes),
++                           duplicate_policy=POLICY,lane_config=LANES if lanes is None else lanes)
++
++
++def send(ep,name,args,**extra):
++    request=ep.next_decision()
++    ep.accept(dict(request_id=request.request_id,behavior_version=request.behavior_version,
++        raw='<tool_call>'+json.dumps(dict(name=name,arguments=args))+'</tool_call>',
++        prompt_token_ids=[1],generated_token_ids=[2],behavior_logprobs=[-.2],truncated=False,**extra))
++
++
++def first(c):
++    from test_route_native_observation import flow
++    root=c.initial[0];root.next_decision();args=flow(root)
++    send(root,'apply_electron_flow',args)
++    return root,args,c.completed(root)[0]
++
++
++@pytest.mark.parametrize('owner_state',['pending','resource','protected','terminal_unharvested'])
++def test_only_serialized_completed_eligible_owner_covers_m1(owner_state):
++    c=collection();root,args,fork=first(c)
++    if owner_state!='pending':
++        if owner_state=='protected':
++            root.ep.protected.add('[CH3+]');send(root,'finish_trace',{})
++            assert root.status=='protected_censored'
++        else:
++            send(root,'unknown',{},**({'resource_error':'RESOURCE_CENSORED:test'} if owner_state!='terminal_unharvested' else {}))
++        if owner_state!='terminal_unharvested':c.completed(root)
++    send(fork,'apply_electron_flow',args);c.completed(fork)
++    assert fork.status is None
++    assert c.coverage(root.path[0]['node_id'],root.path[0]['action'])==[]
++    if owner_state=='terminal_unharvested':
++        c.completed(root)
++        assert [r['request_id'] for r in c.coverage(root.path[0]['node_id'],root.path[0]['action'])]==['root0/r0/a0']
++
++
++def test_completed_failure_covers_m1_and_stopped_draw_keeps_actual_receipt():
++    c=collection();root,args,fork=first(c)
++    send(root,'unknown',{});c.completed(root)
++    # Selection must never inspect a route reward or hidden reference evidence.
++    root.ep.reward=object()
++    send(fork,'apply_electron_flow',args);assert c.completed(fork)==[]
++    assert fork.status=='duplicate_pruned_no_continuation' and fork.reward is None
++    assert fork.records[-1]['accepted'] is True
++    assert fork.records[-1]['generated_token_ids']==[2] and fork.records[-1]['behavior_logprobs']==[-.2]
++    assert c.coverage(root.path[0]['node_id'],root.path[0]['action'])[0]['continuation_id']=='root0'
++
++
++def test_completed_descendant_prefix_cannot_rescue_censored_owner():
++    c=collection(recoveries=2);root,args,_=first(c)
++    # A recovering invalid FLOW opens a descendant point whose saved prefix
++    # belongs to the original continuation; then that original is censored.
++    send(root,'apply_electron_flow',{});descendant=c.completed(root)[0]
++    send(root,'unknown',{},resource_error='RESOURCE_CENSORED:test');c.completed(root)
++    assert descendant.path[0]['receipt_owner']=='root0'
++    for _ in range(2):
++        send(descendant,'unknown',{});c.completed(descendant)
++    assert descendant.status=='recovery_exhausted'
++    event=root.path[0]
++    assert c.coverage(event['node_id'],event['action'])==[]
++    assert c.receipt_owner['root0/r0/a0']=='root0'
++
++
++def test_already_terminal_accepted_duplicate_retains_genuine_budget_outcome():
++    c=collection(budget=1);root,args,fork=first(c)
++    assert root.status=='budget_exhausted'
++    send(fork,'apply_electron_flow',args);c.completed(fork)
++    assert fork.status=='budget_exhausted' and fork.reward==0.
++    assert c.duplicate_pruned==0
++
++
++def test_four_original_semantic_duplicates_keep_independent_full_outcomes():
++    from test_route_native_observation import flow
++    c=collection(count=4)
++    for root in c.initial:
++        root.next_decision();send(root,'apply_electron_flow',flow(root));c.completed(root)
++        send(root,'unknown',{});c.completed(root)
++    assert [e.status for e in c.initial]==['rejected_action']*4
++    assert len({r['request_id'] for e in c.initial for r in e.records})==8
++    assert all(e.lane=='original_g4' and len(e.records)==2 for e in c.initial)
++    assert c.duplicate_pruned==0
++
++
++def test_credit_exploration_budgets_and_owner_coverage_replay_exactly():
++    from test_route_native_observation import flow
++    c=collection(lanes=dict(credit_forks_per_tree=2,exploration_forks_per_tree=1))
++    journal=[]
++    # Deterministic harvester order: finish root, then each published fork.
++    index=0
++    while index<len(c.all):
++        ep=c.all[index]
++        while ep.next_decision() is not None:
++            if not ep.records:send(ep,'apply_electron_flow',flow(ep))
++            else:send(ep,'unknown',{})
++            c.completed(ep);journal.append(deepcopy(ep.records[-1]))
++        index+=1
++    assert len(c.all)==4
++    assert [e.lane for e in c.all]==['original_g4','credit','credit','exploration']
++    assert len({e.continuation_id for e in c.all})==4
++    assert all(e.uid=='root0' for e in c.all)
++    assert [e.creation_order for e in c.all]==[0,1,2,3]
++    assert c.all[1].status=='duplicate_pruned_no_continuation'
++    packed=c.pack([e.finish_report() for e in c.all])
++    counts=packed[0]['refit']['lane_counts']
++    assert counts['credit']['forks']==2 and counts['exploration']['forks']==1
++    assert counts['credit']['skipped']==1 and counts['exploration']['failed']==1
++    assert counts['original_g4']['completed_eligible_coverage']==1
++    assert 'actually_used_M1' not in packed[0]['refit']
++    replay=collection(lanes=dict(credit_forks_per_tree=2,exploration_forks_per_tree=1))
++    replay.replay(journal)
++    assert replay.pack([e.finish_report() for e in replay.all])==packed
++    assert replay.completed_eligible==c.completed_eligible and replay.receipt_owner==c.receipt_owner
++
++
++def test_exploration_duplicate_continues_after_credit_coverage():
++    from test_route_native_observation import flow
++    c=collection(lanes=dict(credit_forks_per_tree=1,exploration_forks_per_tree=1))
++    root,args,credit=first(c)
++    # Pending credit repeats, publishes exploration before root's real failure.
++    send(credit,'apply_electron_flow',args);explore=c.completed(credit)[0]
++    send(root,'unknown',{});c.completed(root)
++    assert explore.lane=='exploration'
++    send(explore,'apply_electron_flow',args);c.completed(explore)
++    assert explore.status is None
++    assert c.lane_metrics()['exploration']['attempts']==1
++
++
++@pytest.mark.parametrize('bad',[None,{}, {'credit_forks_per_tree':1},
++    {'credit_forks_per_tree':True,'exploration_forks_per_tree':0},
++    {'credit_forks_per_tree':0,'exploration_forks_per_tree':1},
++    {'credit_forks_per_tree':16,'exploration_forks_per_tree':1},
++    {'credit_forks_per_tree':1,'exploration_forks_per_tree':-1}])
++def test_v2_requires_complete_finite_lane_config(bad):
++    from mechet.route_refit_runtime import RefitCollection,DEFAULTS
++    with pytest.raises(ValueError,match='LANE'):
++        RefitCollection([],DEFAULTS,duplicate_policy=POLICY,lane_config=bad)
++
++
++def test_exploration_large_return_cannot_change_conditional_q_or_advantages():
++    from test_route_refit_credit import fixture
++    from mechet.route_refit_credit import training_records
++    from mechet.route_process_reward import digest,returns_to_go
++    group=fixture();extra=deepcopy(group[0]['refit']['suffix_reports'][0])
++    extra['refit_lane']='exploration'
++    rec=extra['records'][-1];rec['request_id']='exploration-c'
++    rec['raw']=rec['raw'].replace('"b"','"c"')
++    from mechet.route_refit import grounded_action_key
++    extra['refit_path'][-1].update(request_id='exploration-c',action=grounded_action_key(rec['state_before'],rec['raw']))
++    credit=extra['reward_evidence']['process_credit'];credit.update(request_ids=['p','exploration-c'],event_rewards=[0.,100.],returns=returns_to_go([0.,100.]))
++    credit.pop('sha256');credit['sha256']=digest(credit);extra['reward']=100.
++    group[0]['refit']['suffix_reports'].append(extra)
++    records,stats=training_records(group);values={r['request_id']:a for r,a in records}
++    assert values==pytest.approx({'p':.105,'a':.11,'b':-.11,'other':-.105})
++    assert stats['conditional_groups']==1
++
++
++def test_genuine_duplicate_negative_return_adds_no_second_semantic_q_vote():
++    from test_route_refit_credit import fixture
++    from mechet.route_refit_credit import training_records
++    from mechet.route_process_reward import digest
++    group=fixture();extra=deepcopy(group[0]);extra.pop('refit')
++    extra['records'][-1]['request_id']='duplicate-a'
++    extra['refit_path'][-1]['request_id']='duplicate-a'
++    credit=extra['reward_evidence']['process_credit'];credit.update(request_ids=['p','duplicate-a'],event_rewards=[0.,-9.],returns=[-9.,-9.])
++    credit.pop('sha256');credit['sha256']=digest(credit);extra['reward']=-9.
++    group[0]['refit']['suffix_reports'].append(extra)
++    records,stats=training_records(group)
++    assert {r['request_id']:a for r,a in records}==pytest.approx({'p':.105,'a':.11,'b':-.11,'other':-.105,'duplicate-a':.11})
++    assert stats['conditional_groups']==1
++
++
++def test_exploration_censor_is_diagnostic_and_cannot_mask_credit_node():
++    c=collection(lanes=dict(credit_forks_per_tree=1,exploration_forks_per_tree=1))
++    root,args,credit=first(c)
++    send(credit,'apply_electron_flow',args);explore=c.completed(credit)[0]
++    send(explore,'unknown',{},resource_error='RESOURCE_CENSORED:test');c.completed(explore)
++    for ep in c.all:
++        while ep.next_decision() is not None:
++            send(ep,'unknown',{});c.completed(ep)
++    packed=c.pack([e.finish_report() for e in c.all])[0]['refit']
++    uid=explore.records[-1]['request_id'];node=root.path[0]['node_id']
++    assert uid not in packed['node_censored_receipts'].get(node,[])
++    assert packed['exploration_node_censored_receipts'][node]==[uid]
++    assert packed['lane_counts']['exploration']['censored']==1
++
++
++def test_original_and_credit_censor_still_mask_credit_node():
++    c=collection();root,args,credit=first(c)
++    send(credit,'unknown',{},resource_error='RESOURCE_CENSORED:test');c.completed(credit)
++    for ep in c.all:
++        while ep.next_decision() is not None:
++            send(ep,'unknown',{});c.completed(ep)
++    packed=c.pack([e.finish_report() for e in c.all])[0]['refit']
++    assert packed['node_censored_receipts'][root.path[0]['node_id']]==[credit.records[-1]['request_id']]
++
++
++def test_coverage_diagnostics_keep_owned_flow_after_retained_node_ceiling():
++    c=collection(max_nodes=1);root,args,_=first(c)
++    send(root,'apply_electron_flow',{});c.completed(root)
++    assert root.status=='rejected_action' and len(c.nodes)==1
++    assert c.lane_metrics('root0')['original_g4']['completed_eligible_coverage']==2
++    for ep in c.all:
++        while ep.next_decision() is not None:
++            send(ep,'unknown',{});c.completed(ep)
++    packed=c.pack([e.finish_report() for e in c.all])[0]['refit']
++    assert len(packed['completed_eligible_coverage'])==2
++
++
++def test_already_stock_original_has_complete_lane_count_without_fabricated_receipt():
++    from mechet.route_refit import RefitRouteEpisode
++    from mechet.route_refit_runtime import RefitCollection,DEFAULTS
++    from test_route_first_rejection import episode
++    ep=RefitRouteEpisode(episode().cfg,'CO',{'CO'},'stock-root',17)
++    c=RefitCollection([ep],DEFAULTS,duplicate_policy=POLICY,lane_config=LANES)
++    packed=c.pack([e.finish_report() for e in c.all])[0]
++    assert packed['status']=='already_stock' and packed['records']==[]
++    counts=packed['refit']['lane_counts']['original_g4']
++    assert counts['complete']==1 and counts['attempts']==counts['completed_eligible_coverage']==0
+diff --git a/tests/test_route_vllm_environment.py b/tests/test_route_vllm_environment.py
+index 84375f6..eaa9fba 100644
+--- a/tests/test_route_vllm_environment.py
++++ b/tests/test_route_vllm_environment.py
+@@ -32,6 +32,23 @@ def test_unknown_backend_cannot_silently_fall_back_to_hf():
+         validate_runtime({'inference_backend':'vlllm'})
+ 
+ 
++def test_native_child_cannot_inherit_a_torchrun_agent_store(tmp_path,monkeypatch):
++    import json,subprocess,sys
++    from mechet.route_vllm_environment import child_environment
++    compat=tmp_path/'compat';compat.mkdir();(compat/'libcuda.so.1').write_bytes(b'fixture')
++    poison={'TORCHELASTIC_USE_AGENT_STORE':'True','TORCHELASTIC_RUN_ID':'parent',
++        'TORCHELASTIC_ERROR_FILE':'parent-error.json','TORCHELASTIC_RESTART_COUNT':'0',
++        'LOCAL_WORLD_SIZE':'4','GROUP_RANK':'0','GROUP_WORLD_SIZE':'1',
++        'ROLE_RANK':'3','ROLE_WORLD_SIZE':'4','ROLE_NAME':'trainer'}
++    for key,value in poison.items():monkeypatch.setenv(key,value)
++    env=child_environment({'vllm_runtime':{'cache_root':str(tmp_path/'cache'),
++        'cuda_compat':str(compat),'python':str(tmp_path/'venv/bin/python')}},0)
++    leaked=json.loads(subprocess.check_output([sys.executable,'-S','-c',
++        'import os,json;print(json.dumps({k:v for k,v in os.environ.items() if k.startswith("TORCHELASTIC_") or k in '+repr(list(poison))+'}))'],env=env,text=True))
++    assert leaked=={}, 'Native rank0 must create its own TCPStore, rather than connect to a nonexistent parent agent store'
++    assert all(os.environ[k]==v for k,v in poison.items())
++
++
+ @pytest.mark.parametrize('inherited',[None,'/tmp/inherited-wrong-location'])
+ def test_long_ceph_cache_path_still_allows_real_unix_socket_binding(tmp_path,monkeypatch,inherited):
+     from mechet.route_vllm_environment import child_environment
+@@ -117,3 +134,19 @@ def test_shared_triton_cache_cannot_write_outside_owned_runtime_root(tmp_path):
+             'cuda_compat':str(compat),'python':str(tmp_path/'venv/bin/python'),
+             'shared_triton_cache_root':str(link)}},0)
+     assert not outside.exists()
++
++
++@pytest.mark.parametrize('full,expected',[(False,'0'),(True,'1')])
++def test_only_full_engine_child_skips_intermediate_ir_persistence(tmp_path,monkeypatch,full,expected):
++    import subprocess,sys
++    from mechet.route_vllm_environment import child_environment
++    compat=tmp_path/'compat';compat.mkdir();(compat/'libcuda.so.1').write_bytes(b'fixture')
++    monkeypatch.setenv('TRITON_STORE_BINARY_ONLY','0')
++    cfg={'vllm_runtime':{'cache_root':str(tmp_path/'cache'),'cuda_compat':str(compat),
++                         'python':str(tmp_path/'venv/bin/python')}}
++    if full:cfg['acceleration']={'version':'pr111_full_acceleration_v2'}
++    env=child_environment(cfg,0)
++    actual=subprocess.check_output([sys.executable,'-S','-c',
++        'import os;print(os.environ["TRITON_STORE_BINARY_ONLY"])'],env=env,text=True).strip()
++    assert actual==expected
++    assert os.environ['TRITON_STORE_BINARY_ONLY']=='0'
+diff --git a/tests/test_route_vllm_prefix.py b/tests/test_route_vllm_prefix.py
+new file mode 100644
+index 0000000..a327c43
+--- /dev/null
++++ b/tests/test_route_vllm_prefix.py
+@@ -0,0 +1,105 @@
++"""Version-scoped cache reuse must not substitute a different conditioning."""
++import asyncio
++from copy import deepcopy
++from types import SimpleNamespace
++
++import pytest
++
++
++def config():
++    return dict(base_path='frozen-base',base_manifest='frozen-tokenizer-manifest',
++        _sha='frozen-contract',policy_precision='bf16_autocast',public_observation_contract='native-tools-v1',
++        max_context=32768,generation_batch_size=64,acceleration={'prefix_cache':True},
++        vllm_runtime=dict(max_num_batched_tokens=8192,kv_cache_memory_bytes=32*1024**3,
++                          gpu_memory_utilization=.5))
++
++
++def test_full_engine_enables_aligned_prefix_cache_and_chunked_prefill():
++    from scripts.serve_route_vllm import engine_kwargs
++    args=engine_kwargs(config())
++    assert args['enable_prefix_caching'] is True
++    assert args['mamba_cache_mode']=='align' and args['enable_chunked_prefill'] is True
++
++
++@pytest.mark.parametrize('field,value',[
++    ('base_path','other-model'),('base_manifest','other-tokenizer'),
++    ('public_observation_contract','other-tools'),('policy_precision','other-precision'),
++    ('_sha','other-frozen-contract')])
++def test_prefix_namespace_binds_actor_tokenizer_tools_and_precision(field,value):
++    from mechet.route_vllm_cache import prefix_namespace
++    cfg=config();a=prefix_namespace(cfg,'round0:sha')
++    changed=deepcopy(cfg);changed[field]=value
++    assert prefix_namespace(changed,'round0:sha')!=a
++    assert prefix_namespace(cfg,'round1:sha')!=a
++    assert prefix_namespace(cfg,'round0:other-sha')!=a
++    assert prefix_namespace(cfg,'round0:sha')==a
++
++
++def test_prefix_invalidation_requires_quiescent_engine_and_successful_reset():
++    from mechet.route_vllm_cache import invalidate_prefix
++    from mechet.route_vllm_protocol import AdapterLease
++    class Engine:
++        def __init__(self,success):self.success=success;self.calls=0
++        async def reset_prefix_cache(self):self.calls+=1;return self.success
++    lease=AdapterLease(2);lease.commit('old','sha');lease.begin('request','old')
++    engine=Engine(True)
++    with pytest.raises(ValueError,match='INFLIGHT'):asyncio.run(invalidate_prefix(engine,lease,True))
++    assert engine.calls==0
++    lease.finish('request')
++    with pytest.raises(ValueError,match='PREFIX_RESET_FAILED'):
++        asyncio.run(invalidate_prefix(Engine(False),lease,True))
++    assert lease.version is None
++    assert asyncio.run(invalidate_prefix(engine,lease,True)) is True
++
++
++def test_software_fp16_is_explicit_and_never_changes_formal_bf16():
++    from scripts.serve_route_vllm import engine_kwargs
++    cfg=config();cfg['vllm_runtime']['diagnostic_dtype']='float16'
++    with pytest.raises(ValueError,match='SOFTWARE_PROFILE'):engine_kwargs(cfg)
++    cfg['vllm_runtime']['software_replay']=True
++    args=engine_kwargs(cfg)
++    assert args['dtype']==args['lora_dtype']=='float16'
++    assert args['attention_config']=={'backend':'TRITON_ATTN'}
++    assert engine_kwargs(config())['dtype']=='bfloat16'
++
++
++def test_actual_engine_iteration_counters_do_not_use_submitted_futures():
++    from mechet.route_vllm_metrics import NativeEngineMetrics
++    m=NativeEngineMetrics();m.start_version('round:sha')
++    scheduler=SimpleNamespace(num_running_reqs=5,num_waiting_reqs=3,kv_cache_usage=.25,
++        prefix_cache_stats=SimpleNamespace(queries=100,hits=60,reset=False))
++    request=SimpleNamespace(request_id='actual',prefill_time=.2,decode_time=.5,queued_time=.1,e2e_latency=.8)
++    iteration=SimpleNamespace(num_generation_tokens=5,
++        prompt_token_stats=SimpleNamespace(total=100,computed=40,cached_tokens=60),
++        time_to_first_tokens_iter=[.2,.3],inter_token_latencies_iter=[.01,.02,.03],
++        finished_requests=[request])
++    m.record(scheduler,iteration)
++    result=m.snapshot()
++    assert result['actual_running_requests_peak']==5
++    assert result['actual_decode_batch_peak']==3
++    assert result['prefill_tokens_computed']==40 and result['prefill_tokens_cached']==60
++    assert result['prefix_tokens_queried']==100 and result['prefix_tokens_hit']==60
++    assert result['request_prefill_seconds']==pytest.approx(.2)
++    assert result['request_decode_seconds']==pytest.approx(.5)
++    assert m.take_finished('actual')['queued_time']==.1
++    m.start_version('next:sha');assert m.snapshot()['prefill_tokens_cached']==0
++
++
++def test_invalid_engine_statistics_are_rejected_without_fabricating_activity():
++    from mechet.route_vllm_metrics import NativeEngineMetrics
++    m=NativeEngineMetrics()
++    with pytest.raises(ValueError):m.record(SimpleNamespace(num_running_reqs=-1),None)
++
++
++def test_native_prefix_completion_requires_observed_counter_not_inferred():
++    from mechet.route_vllm_protocol import build_request,validate_completion,PROBABILITY_RECEIPT
++    cfg=dict(config(),seed=17,max_action_tokens=7,eos_token_id=9)
++    request=SimpleNamespace(request_id='r',behavior_version='round:sha',remaining_tokens=7)
++    wire=build_request(request,[1,2,3],cfg)
++    value=dict(request_id='r',behavior_version='round:sha',prompt_token_ids=[1,2,3],
++        eos_token_id=9,generated_token_ids=[4,9],behavior_logprobs=[-.2,-.3],finish_reason='stop',
++        prefix_namespace=wire['prefix_namespace'],probability_receipt=PROBABILITY_RECEIPT,
++        engine_telemetry={'num_cached_tokens':0,'cache_counter_observed':False})
++    with pytest.raises(ValueError,match='CACHE_RECEIPT'):validate_completion(value,wire)
++    value['engine_telemetry']['cache_counter_observed']=True
++    assert validate_completion(value,wire)['behavior_logprobs']==[-.2,-.3]

@@ -1,0 +1,24 @@
+{
+  "d3": {
+    "task_flag": "meteor_mechet_pr109_standard_d_4h20_20261116",
+    "instance": "8b1d89f6a1cfaa4801a1ea8432d12a97",
+    "platform_state": "PENDING",
+    "contract_sha256": "6ca74808401186f119c01c4de7f644ac68ae0ff60180eaf6ebada0d15cca3ecd",
+    "source_optimizer_step": 19,
+    "actor_sha256": "66982f899bd79b9f15c00acfe8711d4e943fb75c85f2fb015a1bb58819208664",
+    "train": 156723,
+    "valid": 8250,
+    "formal_new_updates": 0
+  },
+  "d1": {
+    "task_flag": "meteor_mechet_stage2_native_process_grpo_4h20_zjk_20261115_01",
+    "instance": "8b1d89f6a1cfaa4801a1ea84666a2a98",
+    "platform_state": "PENDING",
+    "contract_sha256": "7c2abe52b82d08d9b68a224016d935a4289b8e90ed66f37ac1d8879b9d3af3af",
+    "source_optimizer_step": 89,
+    "actor_sha256": "3b65152ebef4538e8899aa92a88b9efff96fe60c05771d07fa92cc06cfac813e",
+    "train": 23730,
+    "valid": 2986,
+    "formal_new_updates": 0
+  }
+}

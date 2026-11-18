@@ -1,0 +1,239 @@
+{
+  "observed_at": "2026-11-17T12:13:03.821602+00:00",
+  "status": "RUNTIME_RESUME_VERIFIED_COLLECTING",
+  "source_commit": "4fca18b1a2f9f1f38035f8fb096a94a741449654",
+  "user_authorization": "Local T4 legality/speed validation then replace accelerated runtime in original D3/D1 tasks from completed checkpoints; supersedes earlier preserve-running/no-replacement restriction.",
+  "max_total_h20": 8,
+  "conditions": [
+    {
+      "condition": "d3",
+      "task_flag": "meteor_mechet_pr109_standard_d_4h20_20261116",
+      "source_instance_id": "8b1d899ca1cfaab101a1e49fc67f2090",
+      "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+      "resumed_optimizer_step": 13,
+      "output_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_d3_accelerated_resume_20261117_01",
+      "requested_at": "2026-11-17T11:38:29.207700+00:00",
+      "status": "RUNTIME_RESUME_VERIFIED_COLLECTING",
+      "created_at": "2026-11-17 19:38:29",
+      "instance_id": "8b1d891ea1cfaab201a1e94d21c428e8",
+      "state": "TRAINING_RUNNING",
+      "static_verification": {
+        "status": "STATIC_PASS_NOT_SUBMITTED",
+        "condition": "d3",
+        "task_flag": "meteor_mechet_pr109_standard_d_4h20_20261116",
+        "source_instance_id": "8b1d899ca1cfaab101a1e49fc67f2090",
+        "source_contract_sha256": "6c62451943ca7cf0f0eccc60d85fe011e50fd4a108287ea32056541690bff9d3",
+        "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+        "entry_archive_sha256": "2a83365a6487664fe6b6792cf33d32bee9c1585c183324ae9f1365f6b46f9303",
+        "source_complete_sha256": "893cfb048d4d9672bbc8667c315f08d220b73de96405880f86db531eb95dc883",
+        "seeded_checkpoint": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_d3_accelerated_resume_20261117_01/checkpoints/round-000013",
+        "seeded_complete_sha256": "66c3659475241828b764f5cbc2bc64249912c7b47ecf59132276d71a80fbd6e6",
+        "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+        "optimizer_step": 13,
+        "next_round": 13,
+        "train_targets": 156723,
+        "validation_targets": 8250,
+        "working_initializer_sha256": "31e65d61b81726a78f415a49c7549584be3539203c188edd66cb6048fada4b67",
+        "admission_sha256": "2b20515118d1009f57249069b75ea61e37ae5571a412393c4e60647090f23933",
+        "source_stop_sha256": "eb0058ec3f7eefc1f2393ebf16e28e49facd46a904ab54b6bd3715bf720558d5",
+        "output": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_d3_accelerated_resume_20261117_01",
+        "runtime_precision": "bf16_autocast",
+        "benchmark_hardware": "Tesla T4",
+        "benchmark_precision": "legacy_fp32_lora",
+        "experimental_results": false
+      },
+      "runtime_proof": {
+        "actor_ready_ranks": [
+          {
+            "rank": 0,
+            "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+            "next_round": 13,
+            "train_targets": 156723,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 1,
+            "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+            "next_round": 13,
+            "train_targets": 156723,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 2,
+            "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+            "next_round": 13,
+            "train_targets": 156723,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 3,
+            "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+            "next_round": 13,
+            "train_targets": 156723,
+            "gpu_name": "NVIDIA H20"
+          }
+        ],
+        "resumed_optimizer_step": 13,
+        "saved_optimizer_step_now": 13,
+        "round_dirs": [
+          "round-000013"
+        ],
+        "gpu_journal_counts": {
+          "gpu-rank00.jsonl": {
+            "gpu-requested": 7,
+            "gpu-returned": 6,
+            "gpu-batch-timing": 6,
+            "behavior-receipt": 300,
+            "truncated_receipts": 0
+          },
+          "gpu-rank01.jsonl": {
+            "gpu-requested": 7,
+            "gpu-returned": 6,
+            "gpu-batch-timing": 6,
+            "behavior-receipt": 304,
+            "truncated_receipts": 0
+          },
+          "gpu-rank02.jsonl": {
+            "gpu-requested": 8,
+            "gpu-returned": 7,
+            "gpu-batch-timing": 7,
+            "behavior-receipt": 280,
+            "truncated_receipts": 0
+          },
+          "gpu-rank03.jsonl": {
+            "gpu-requested": 7,
+            "gpu-returned": 6,
+            "gpu-batch-timing": 6,
+            "behavior-receipt": 325,
+            "truncated_receipts": 0
+          }
+        },
+        "unique_completed_inference_requests": 1209
+      }
+    },
+    {
+      "condition": "d1",
+      "task_flag": "meteor_mechet_stage2_native_process_grpo_4h20_zjk_20261115_01",
+      "source_instance_id": "8b1d8208a1cfaa4801a1defb49e91919",
+      "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+      "resumed_optimizer_step": 83,
+      "output_dir": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_d1_accelerated_resume_20261117_01",
+      "requested_at": "2026-11-17T11:38:31.407493+00:00",
+      "status": "RUNTIME_RESUME_VERIFIED_COLLECTING",
+      "created_at": "2026-11-17 19:38:31",
+      "instance_id": "8b1d89f6a1cfaa4801a1e94d2a7e28d3",
+      "state": "TRAINING_RUNNING",
+      "static_verification": {
+        "status": "STATIC_PASS_NOT_SUBMITTED",
+        "condition": "d1",
+        "task_flag": "meteor_mechet_stage2_native_process_grpo_4h20_zjk_20261115_01",
+        "source_instance_id": "8b1d8208a1cfaa4801a1defb49e91919",
+        "source_contract_sha256": "e53226874e46d83a5fe03d9f77ab1e9064df67f3739a64107e4cb59712f264f1",
+        "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+        "entry_archive_sha256": "157a3c90b268ce3c322b28fac16e071e53d26818d49c92bd82e4277db2baebe8",
+        "source_complete_sha256": "eb594eac3935622721302b800b0496aed8ab0d9ba1959fc465f9841ff0a048bb",
+        "seeded_checkpoint": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_d1_accelerated_resume_20261117_01/checkpoints/round-000083",
+        "seeded_complete_sha256": "127a8aa4361a17f359e176cd50870fb19ca851c0692bd6d9d0ca85f02dbaa632",
+        "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+        "optimizer_step": 83,
+        "next_round": 83,
+        "train_targets": 23730,
+        "validation_targets": 2986,
+        "working_initializer_sha256": "31e65d61b81726a78f415a49c7549584be3539203c188edd66cb6048fada4b67",
+        "admission_sha256": "2b20515118d1009f57249069b75ea61e37ae5571a412393c4e60647090f23933",
+        "source_stop_sha256": "edff95213ee162d2e20de35b1d5d202106194e547178198d0b876a5e3dedab64",
+        "output": "/aaa/fionafyang/buddy1/whaleywang/MechET/outputs/agent/pr111_d1_accelerated_resume_20261117_01",
+        "runtime_precision": "bf16_autocast",
+        "benchmark_hardware": "Tesla T4",
+        "benchmark_precision": "legacy_fp32_lora",
+        "experimental_results": false
+      },
+      "runtime_proof": {
+        "actor_ready_ranks": [
+          {
+            "rank": 0,
+            "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+            "next_round": 83,
+            "train_targets": 23730,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 1,
+            "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+            "next_round": 83,
+            "train_targets": 23730,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 2,
+            "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+            "next_round": 83,
+            "train_targets": 23730,
+            "gpu_name": "NVIDIA H20"
+          },
+          {
+            "rank": 3,
+            "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+            "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+            "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+            "next_round": 83,
+            "train_targets": 23730,
+            "gpu_name": "NVIDIA H20"
+          }
+        ],
+        "resumed_optimizer_step": 83,
+        "saved_optimizer_step_now": 83,
+        "round_dirs": [
+          "round-000083"
+        ],
+        "gpu_journal_counts": {
+          "gpu-rank00.jsonl": {
+            "gpu-requested": 4,
+            "gpu-returned": 3,
+            "gpu-batch-timing": 3,
+            "behavior-receipt": 130,
+            "truncated_receipts": 0
+          },
+          "gpu-rank01.jsonl": {
+            "gpu-requested": 5,
+            "gpu-returned": 4,
+            "gpu-batch-timing": 4,
+            "behavior-receipt": 141,
+            "truncated_receipts": 0
+          },
+          "gpu-rank02.jsonl": {
+            "gpu-requested": 4,
+            "gpu-returned": 3,
+            "gpu-batch-timing": 3,
+            "behavior-receipt": 128,
+            "truncated_receipts": 0
+          },
+          "gpu-rank03.jsonl": {
+            "gpu-requested": 5,
+            "gpu-returned": 4,
+            "gpu-batch-timing": 4,
+            "behavior-receipt": 141,
+            "truncated_receipts": 0
+          }
+        },
+        "unique_completed_inference_requests": 540
+      }
+    }
+  ],
+  "runtime_resume_proof": "runtime_resume_proof.json",
+  "post_resume_optimizer_update_observed": false
+}

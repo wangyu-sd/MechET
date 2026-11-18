@@ -1,0 +1,57 @@
+{
+  "d3": {
+    "stats": {
+      "native_vs_hf_cached": {
+        "positions": 1870,
+        "max": 0.20443880558013916,
+        "mean": 0.0008582422880561419,
+        "over025": 0
+      },
+      "hf_cached_vs_teacher_full": {
+        "positions": 1870,
+        "max": 0.3715195655822754,
+        "mean": 0.0011094943085324187,
+        "over025": 1
+      },
+      "native_vs_teacher_full": {
+        "positions": 1870,
+        "max": 0.2474665641784668,
+        "mean": 0.0011915006170561831,
+        "over025": 0
+      }
+    },
+    "gate_failure_position": []
+  },
+  "d1": {
+    "stats": {
+      "native_vs_hf_cached": {
+        "positions": 1914,
+        "max": 0.12432622909545898,
+        "mean": 0.0012093657763862877,
+        "over025": 0
+      },
+      "hf_cached_vs_teacher_full": {
+        "positions": 1914,
+        "max": 0.28708505630493164,
+        "mean": 0.0021058595768277157,
+        "over025": 6
+      },
+      "native_vs_teacher_full": {
+        "positions": 1914,
+        "max": 0.30280983448028564,
+        "mean": 0.0017954541767782443,
+        "over025": 1
+      }
+    },
+    "gate_failure_position": [
+      {
+        "native_row": 7,
+        "hf_row": 10,
+        "position": 23,
+        "native": -1.5034074783325195,
+        "hf_cached": -1.6019607782363892,
+        "teacher_full": -1.8062173128128052
+      }
+    ]
+  }
+}

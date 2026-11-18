@@ -1,0 +1,159 @@
+{
+  "observed_at": "2026-11-17T12:13:03.821602+00:00",
+  "production_quality_claim": false,
+  "post_resume_optimizer_update_claim": false,
+  "conditions": {
+    "d3": {
+      "actor_ready_ranks": [
+        {
+          "rank": 0,
+          "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+          "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+          "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+          "next_round": 13,
+          "train_targets": 156723,
+          "gpu_name": "NVIDIA H20"
+        },
+        {
+          "rank": 1,
+          "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+          "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+          "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+          "next_round": 13,
+          "train_targets": 156723,
+          "gpu_name": "NVIDIA H20"
+        },
+        {
+          "rank": 2,
+          "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+          "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+          "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+          "next_round": 13,
+          "train_targets": 156723,
+          "gpu_name": "NVIDIA H20"
+        },
+        {
+          "rank": 3,
+          "actor_sha256": "976d01fde95730e72d534fef5ff41dd42067cdcaac7308d6ed31afc939198a29",
+          "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+          "contract_sha256": "8729515f846582b408dd6538134758952f39b0898a7ba7dc6d448443d4ebe552",
+          "next_round": 13,
+          "train_targets": 156723,
+          "gpu_name": "NVIDIA H20"
+        }
+      ],
+      "resumed_optimizer_step": 13,
+      "saved_optimizer_step_now": 13,
+      "round_dirs": [
+        "round-000013"
+      ],
+      "gpu_journal_counts": {
+        "gpu-rank00.jsonl": {
+          "gpu-requested": 7,
+          "gpu-returned": 6,
+          "gpu-batch-timing": 6,
+          "behavior-receipt": 300,
+          "truncated_receipts": 0
+        },
+        "gpu-rank01.jsonl": {
+          "gpu-requested": 7,
+          "gpu-returned": 6,
+          "gpu-batch-timing": 6,
+          "behavior-receipt": 304,
+          "truncated_receipts": 0
+        },
+        "gpu-rank02.jsonl": {
+          "gpu-requested": 8,
+          "gpu-returned": 7,
+          "gpu-batch-timing": 7,
+          "behavior-receipt": 280,
+          "truncated_receipts": 0
+        },
+        "gpu-rank03.jsonl": {
+          "gpu-requested": 7,
+          "gpu-returned": 6,
+          "gpu-batch-timing": 6,
+          "behavior-receipt": 325,
+          "truncated_receipts": 0
+        }
+      },
+      "unique_completed_inference_requests": 1209
+    },
+    "d1": {
+      "actor_ready_ranks": [
+        {
+          "rank": 0,
+          "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+          "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+          "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+          "next_round": 83,
+          "train_targets": 23730,
+          "gpu_name": "NVIDIA H20"
+        },
+        {
+          "rank": 1,
+          "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+          "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+          "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+          "next_round": 83,
+          "train_targets": 23730,
+          "gpu_name": "NVIDIA H20"
+        },
+        {
+          "rank": 2,
+          "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+          "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+          "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+          "next_round": 83,
+          "train_targets": 23730,
+          "gpu_name": "NVIDIA H20"
+        },
+        {
+          "rank": 3,
+          "actor_sha256": "11a047f6692fad67f8f0ed3a075b4e438dc650a49c6577a776e61b9813b20d8d",
+          "parent_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+          "contract_sha256": "82e0ca6c0f0039aadce79090b0d9727779956f721633a79b373ae3b7b81db132",
+          "next_round": 83,
+          "train_targets": 23730,
+          "gpu_name": "NVIDIA H20"
+        }
+      ],
+      "resumed_optimizer_step": 83,
+      "saved_optimizer_step_now": 83,
+      "round_dirs": [
+        "round-000083"
+      ],
+      "gpu_journal_counts": {
+        "gpu-rank00.jsonl": {
+          "gpu-requested": 4,
+          "gpu-returned": 3,
+          "gpu-batch-timing": 3,
+          "behavior-receipt": 130,
+          "truncated_receipts": 0
+        },
+        "gpu-rank01.jsonl": {
+          "gpu-requested": 5,
+          "gpu-returned": 4,
+          "gpu-batch-timing": 4,
+          "behavior-receipt": 141,
+          "truncated_receipts": 0
+        },
+        "gpu-rank02.jsonl": {
+          "gpu-requested": 4,
+          "gpu-returned": 3,
+          "gpu-batch-timing": 3,
+          "behavior-receipt": 128,
+          "truncated_receipts": 0
+        },
+        "gpu-rank03.jsonl": {
+          "gpu-requested": 5,
+          "gpu-returned": 4,
+          "gpu-batch-timing": 4,
+          "behavior-receipt": 141,
+          "truncated_receipts": 0
+        }
+      },
+      "unique_completed_inference_requests": 540
+    }
+  }
+}

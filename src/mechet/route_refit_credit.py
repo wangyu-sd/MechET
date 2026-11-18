@@ -13,17 +13,24 @@ def training_records(group):
         for report,advantages in zip(group,fallback_adv):
             list(process_sequences(report,advantages))
             fallback.update((r['request_id'],a) for r,a in zip(report['records'],advantages))
-    candidates=[];branch={};conditional=0;masked=0
+    candidates=[];branch={};conditional=0;masked=0;nonzero=zero=all_failed=m1_used=0
     for root in group:
         refit=root.get('refit',{})
         reports=[root,*refit.get('suffix_reports',[])]
         conditions=refit.get('conditioning',{})
         rows=defaultdict(list);seen=set()
         for report in reports:
+            from .route_acceleration import SKIPPED
+            if report.get('status')==SKIPPED:
+                # A real proposal was observed, but its future return was not.
+                # Do not replace it by cached Q or censor other genuine draws.
+                if report.get('reward') is not None:raise ValueError('SKIPPED_SUFFIX_HAS_REWARD')
+                continue
             credit=report.get('reward_evidence',{}).get('process_credit')
             if report['reward'] is not None:
                 list(process_sequences(report,[0.]*len(report['records'])))
             candidates.extend((record,fallback.get(record['request_id'])) for record in report['records'])
+            if report.get('refit_lane')=='exploration':continue
             for event in report.get('refit_path',[]):
                 if event['name']!='apply_electron_flow' or event['node_id'] not in conditions:continue
                 index=event['index']
@@ -49,7 +56,7 @@ def training_records(group):
                 rows[event['node_id']].append(dict(action=event['action'],receipt_id=uid,
                     value=None if credit is None else credit['returns'][index],
                     complete=report.get('status') not in (None,'resource_censored','protected_censored'),
-                    proposal=event['proposal']))
+                    proposal=event['proposal'],terminal_status=report.get('status')))
         for node,values in rows.items():
             advantages=(None if refit.get('node_censored_receipts',{}).get(node) else
                 branch_advantages(values,matched_continuations=refit['config']['matched_continuations']))
@@ -57,7 +64,13 @@ def training_records(group):
             else:
                 if set(branch)&set(advantages):raise ValueError('REFIT_RECEIPT_MULTIPLE_BRANCH_CREDITS')
                 branch.update(advantages);conditional+=1
+                informative=any(a!=0 for a in advantages.values())
+                nonzero+=informative;zero+=not informative
+                all_failed+=all(v['terminal_status'] not in ('stock_solved','already_stock') for v in values)
+                m1_used+=len({v['action'] for v in values})*refit['config']['matched_continuations']
     records=unique_credit(candidates,branch)
     return records,dict(conditional_groups=conditional,masked_conditional_groups=masked,
         original_g4_eligible=fallback_adv is not None,unique_receipts=len(records),
-        effective=any(a!=0 for _,a in records))
+        effective=any(a!=0 for _,a in records),conditional_nonzero_advantage_groups=nonzero,
+        conditional_zero_advantage_groups=zero,conditional_all_failed_groups=all_failed,
+        conditional_m1_completed_used=m1_used)
