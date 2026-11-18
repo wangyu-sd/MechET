@@ -1,0 +1,59 @@
+{
+  "measured_updates": [
+    {
+      "nonzero_matched_credit_groups": 7,
+      "physical_policy_requests": 9641,
+      "reference_verified_original_routes": 0,
+      "sampling_wall_seconds": 778.7827725489624,
+      "stock_closed_original_routes": 14,
+      "train_goals": 32,
+      "update": 1
+    },
+    {
+      "nonzero_matched_credit_groups": 7,
+      "physical_policy_requests": 8458,
+      "reference_verified_original_routes": 0,
+      "sampling_wall_seconds": 932.8124105269089,
+      "stock_closed_original_routes": 12,
+      "train_goals": 64,
+      "update": 2
+    },
+    {
+      "nonzero_matched_credit_groups": 11,
+      "physical_policy_requests": 7937,
+      "reference_verified_original_routes": 0,
+      "sampling_wall_seconds": 809.7518616800662,
+      "stock_closed_original_routes": 10,
+      "train_goals": 96,
+      "update": 3
+    },
+    {
+      "nonzero_matched_credit_groups": 9,
+      "physical_policy_requests": 7961,
+      "reference_verified_original_routes": 4,
+      "sampling_wall_seconds": 726.6612771749496,
+      "stock_closed_original_routes": 18,
+      "train_goals": 128,
+      "update": 4
+    },
+    {
+      "nonzero_matched_credit_groups": 18,
+      "physical_policy_requests": 7714,
+      "reference_verified_original_routes": 1,
+      "sampling_wall_seconds": 732.2376922650728,
+      "stock_closed_original_routes": 19,
+      "train_goals": 160,
+      "update": 5
+    },
+    {
+      "nonzero_matched_credit_groups": 10,
+      "physical_policy_requests": 9423,
+      "reference_verified_original_routes": 3,
+      "sampling_wall_seconds": 675.5862782020122,
+      "stock_closed_original_routes": 12,
+      "train_goals": 192,
+      "update": 6
+    }
+  ],
+  "scope": "Disjoint frozen TRAIN batches of teacher-free ReFIT control; closure counts are individual original routes"
+}
