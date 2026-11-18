@@ -3,7 +3,13 @@
 The earlier deployed HF condition is partial acceleration. It is not the complete PR111 design. The user's instruction authorizes local T4 software checks and stateful replacement of the original two tasks, superseding the design's original no-restart paragraph.
 
 
-## Current status — 2026-11-18 01:20 CST
+## Current result — 2026-11-18 12:18 CST
+
+Native03 has ended without a new optimizer update. D3 END01:47:43, D1 END01:49:48CST. Source complete checkpoints remain19/89, both verified by completeSHA and contract. Both H20 kernel units passed, then native probability gates failed: D3 max0.32203484 and D1 max0.30280983 against unchanged0.25. Formal four-rank collection was never reached. Engine startup was649.86/673.87s; no whole-round speed or route-quality gain. Failure latches prevent unchanged re-admission retries.
+
+Saved exact teacher witnesses allow a new CPU-only common-context audit. Across matching prompts and identical generated prefixes, native-vs-HF incremental max is0.20444(D3)/0.12433(D1), while HF incremental-vs-HF full teacher forcing is0.37152/0.28709. The latter also exceeds the admission threshold. D1 actual failure position: native−1.5034075, HF incremental−1.6019608, HF full−1.8062173. Repeated matching pairs are not independent evaluation samples; no benchmark denominator is inferred. This establishes a scoring-path self-consistency issue as well; it does not establish the numerical kernel cause or justify relaxing the gate. Investigate cached/recurrent vs full/chunk and projection precision before resubmitting.
+
+## Historical status — 2026-11-18 01:20 CST
 
 Implementation is present; full runtime acceptance is **not complete**. Both native02 instances are END, with **zero new native optimizer updates**. Corrected source actor/optimizer/per-rank RNG and full data order remain D3 step19 / D1 step89. Native03 source is frozen at `9d77c41`; same-task replacement has passed complete static verification and been submitted, maximum two4-H20 allocations. Both instances are PENDING as of01:19CST. D3 instance `8b1d89f6a1cfaa4801a1ea8432d12a97`, contract `6ca74808401186f119c01c4de7f644ac68ae0ff60180eaf6ebada0d15cca3ecd`; D1 instance `8b1d89f6a1cfaa4801a1ea84666a2a98`, contract `7c2abe52b82d08d9b68a224016d935a4289b8e90ed66f37ac1d8879b9d3af3af`. Submission is not hardware admission or a new optimizer update.
 
