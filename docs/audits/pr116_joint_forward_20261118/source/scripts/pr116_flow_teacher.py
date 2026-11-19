@@ -24,7 +24,10 @@ def run(cfg, queries):
     from settings import Args
     if torch.cuda.device_count()!=1:raise ValueError('forward worker requires exactly one visible GPU')
     device=torch.device('cuda:0')
-    checkpoint=torch.load(cfg['checkpoint'],map_location='cpu',weights_only=False)
+    with torch.serialization.safe_globals([Args]):
+        checkpoint=torch.load(cfg['checkpoint'],map_location='cpu',weights_only=True)
+    if checkpoint['total_step'] != 2880000:
+        raise ValueError('FlowER teacher training step changed')
     args=checkpoint['args']
     args.local_rank=-1;args.device=device;args.load_from=None;args.model_path=cfg['work_dir']
     model,flow,_=init_model(args)
