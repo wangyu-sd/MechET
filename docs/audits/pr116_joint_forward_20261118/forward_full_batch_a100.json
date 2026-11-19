@@ -1,0 +1,46 @@
+{
+  "device": {
+    "devices": 1,
+    "gpu": "NVIDIA A100-SXM4-40GB"
+  },
+  "distinct_queries": 882,
+  "elapsed_seconds": 1691.1368491863832,
+  "full_receipt_sha256": "70d030a914f3c560af3035f09e745e292e9e3527d02034b82277684138ea855d",
+  "observed_scores": 878,
+  "platform": {
+    "created_at": "2026-11-19 12:52:57",
+    "instance": "8b1d89c6a1cfaaaf01a1f226937235ff",
+    "observed_at": "2026-11-19T13:22:30.727577+08:00",
+    "platform_state": "END",
+    "platform_time": "2026-11-19 13:22:12",
+    "success": true,
+    "task_flag": "meteor_mechet_pr116_forward_admission_1a100_20261119_01"
+  },
+  "positive_scores": 569,
+  "protocol": {
+    "checkpoint_source": {
+      "archive_verified": false,
+      "path": "FlowER.pt",
+      "repository": "LunHsin/EZSolver",
+      "revision": "1f8647f17d117fd1bedd94d6342e2bbb45b2f988",
+      "training_step": 2880000
+    },
+    "config_sha256": "d09d99d088abfc1ef215385472ae65bbb95ea2be1bd63f79b74f99b1e3e89b63",
+    "figshare_file": 55904912,
+    "max_elementary_steps": 15,
+    "normalization": "full_mapped_dense_H_project_stereo_mask_isotopes_v2",
+    "recovery": "terminal_self_loop_product_component_heavy_maps_charge_preserved",
+    "samples": 4,
+    "script_sha256": "c40bb529ac5ac9625f1eb34325d26461de9fc6be8acde7e4a8a5901eb228827f",
+    "seed": 17,
+    "upstream": "00b93aa7f46c266a94d249066edfb1ee833cb1bc",
+    "weights_sha256": "d3461570cda0483f10befb713537d855f3851622e1a666241e97847287376f30"
+  },
+  "real_input_sha256": "902457b07b599a5342f6337f45bffe00dbe212678b56171b5aaa13f6ac5d7873",
+  "scope": "single-device teacher execution on the complete frozen TRAIN input batch",
+  "task_contract_sha256": "0e6e5a635d4c8a2ec10f6c3b6738997d2613b0458cd580fae2a03594c72ea024",
+  "train_batch_manifest_sha256": "a2ab72d3e388c133adb9db223458989fb34e48c891ba34edc074bbc7ba4ce864",
+  "train_targets": 32,
+  "unavailable_scores": 4,
+  "zero_scores": 309
+}

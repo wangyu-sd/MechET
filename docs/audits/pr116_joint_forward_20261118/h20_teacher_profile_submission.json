@@ -1,0 +1,46 @@
+{
+  "profiles": {
+    "colocated": {
+      "manifest": {
+        "contract_sha256": "3852819b2c239b0c45c8a1fdc8f8bd9c0eec5f3ae0dc96e1c586f66c1005e34e",
+        "device": "H20",
+        "flag": "meteor_mechet_pr116_teacher_profile_colocated_4h20_20261119_01",
+        "stage": "J-profile",
+        "targets": 32,
+        "world": 4
+      },
+      "platform": {
+        "created_at": "2026-11-19 13:26:21",
+        "instance": "8b1d89a6a1cfaa4001a1f245281a3756",
+        "observed_at": "2026-11-19T13:30:57.582334+08:00",
+        "platform_state": "TRAINING_RUNNING",
+        "platform_time": "2026-11-19 13:27:51",
+        "success": false,
+        "task_flag": "meteor_mechet_pr116_teacher_profile_colocated_4h20_20261119_01"
+      }
+    },
+    "time_slice": {
+      "manifest": {
+        "contract_sha256": "7974d3bd7ec82bad396094dff6342cc19a04a450dae6efb4210464492de2d55d",
+        "device": "H20",
+        "flag": "meteor_mechet_pr116_teacher_profile_time_slice_4h20_20261119_01",
+        "stage": "J-profile",
+        "targets": 32,
+        "world": 4
+      },
+      "platform": {
+        "instance": null,
+        "observed_at": "2026-11-19T13:28:07.029605+08:00",
+        "platform_state": "REGISTERED_WITHOUT_INSTANCE",
+        "success": null,
+        "task_flag": "meteor_mechet_pr116_teacher_profile_time_slice_4h20_20261119_01"
+      }
+    }
+  },
+  "sequential_launcher": {
+    "instance": "8b1d89a6a1cfaa4001a1f245281a3756",
+    "platform_state": "TRAINING_RUNNING",
+    "stage": "waiting_for_task",
+    "task": "pr116_teacher_profile_colocated_4h20_20261119_01"
+  }
+}

@@ -107,6 +107,8 @@ def freeze(arm,profile=None):
         snapshot=code/'scripts/pr116_flow_teacher.py'
         if sha(snapshot)!=teacher['teacher_protocol']['script_sha256']:raise ValueError('teacher adapter changed since admission')
         cfg['joint_forward'].update(teacher,teacher_script=str(snapshot),profile=profile)
+        # The full single-device batch took 28.2 minutes before engine co-location.
+        cfg['joint_forward']['timeout_seconds'] = max(3600, teacher['timeout_seconds'])
         cfg['files_sha256'].update(profile_files)
         cfg['files_sha256'][teacher['teacher_config']]=teacher['teacher_protocol']['config_sha256']
     cfg.update(step_budget=dict(arm=arm,roots=str(base/'root_stream.jsonl'),valid=str(base/'clean_valid.jsonl'),

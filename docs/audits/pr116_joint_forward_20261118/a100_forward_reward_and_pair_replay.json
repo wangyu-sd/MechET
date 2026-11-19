@@ -1,0 +1,60 @@
+{
+  "distinct_teacher_queries": 882,
+  "full_a100_receipt_sha256": "70d030a914f3c560af3035f09e745e292e9e3527d02034b82277684138ea855d",
+  "rank_breakdown": [
+    {
+      "eligible_finish_appearances": 103,
+      "mined_pairs": 0,
+      "observed_finish_appearances": 103,
+      "rank": "rank00",
+      "reports_with_positive_terminal_teacher_progress": 1,
+      "roots_with_mined_pairs": 0,
+      "train_root_groups": 3
+    },
+    {
+      "eligible_finish_appearances": 180,
+      "mined_pairs": 3,
+      "observed_finish_appearances": 179,
+      "rank": "rank01",
+      "reports_with_positive_terminal_teacher_progress": 2,
+      "roots_with_mined_pairs": 2,
+      "train_root_groups": 7
+    },
+    {
+      "eligible_finish_appearances": 361,
+      "mined_pairs": 2,
+      "observed_finish_appearances": 359,
+      "rank": "rank02",
+      "reports_with_positive_terminal_teacher_progress": 4,
+      "roots_with_mined_pairs": 2,
+      "train_root_groups": 11
+    },
+    {
+      "eligible_finish_appearances": 404,
+      "mined_pairs": 0,
+      "observed_finish_appearances": 403,
+      "rank": "rank03",
+      "reports_with_positive_terminal_teacher_progress": 12,
+      "roots_with_mined_pairs": 0,
+      "train_root_groups": 11
+    }
+  ],
+  "scope": "CPU replay of actual single-A100 evidence and the complete archived TRAIN batch; no learner update",
+  "score_histogram": {
+    "0.0": 309,
+    "0.25": 153,
+    "0.5": 141,
+    "0.75": 153,
+    "1.0": 122,
+    "None": 4
+  },
+  "totals": {
+    "eligible_finish_appearances": 1048,
+    "mined_pairs": 5,
+    "observed_finish_appearances": 1044,
+    "reports_with_positive_terminal_teacher_progress": 19,
+    "roots_with_mined_pairs": 4,
+    "train_root_groups": 32
+  },
+  "train_batch_manifest_sha256": "a2ab72d3e388c133adb9db223458989fb34e48c891ba34edc074bbc7ba4ce864"
+}
