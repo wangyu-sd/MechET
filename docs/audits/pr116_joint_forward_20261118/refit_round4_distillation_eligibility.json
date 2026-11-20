@@ -1,0 +1,21 @@
+{
+  "actor_sha256": "8609245160b2c76e9331b38ebb28ca2d18b954b420592de50f5c92296923cfd7",
+  "coverage": {
+    "checked_reports": 374,
+    "eligible_states": 0,
+    "exported_decision_states": 151,
+    "exported_receipts": 405,
+    "masked_matched_nodes": 0,
+    "skipped_duplicate_reports": 2,
+    "skipped_states": {
+      "all_ineligible": 147,
+      "insufficient_distinct_actions": 4
+    },
+    "unique_journal_requests": 7961
+  },
+  "groups": 32,
+  "optimizer_updates": 0,
+  "round": 4,
+  "source_scope": "TRAIN-only receipt replay from the teacher-free control, with no new policy decisions",
+  "weighted_examples": 0
+}

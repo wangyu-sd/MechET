@@ -1,0 +1,21 @@
+{
+  "counts": {
+    "actions_advantage_changed": 2333,
+    "actions_common": 3286,
+    "baseline_conditional_groups": 19,
+    "baseline_conditional_nonzero_advantage_groups": 7,
+    "baseline_conditional_zero_advantage_groups": 12,
+    "baseline_effective": 29,
+    "learner_eligible_pairs": 5,
+    "mined_pairs": 5,
+    "roots": 32,
+    "roots_with_learner_eligible_pairs": 4,
+    "teacher_conditional_groups": 19,
+    "teacher_conditional_nonzero_advantage_groups": 10,
+    "teacher_conditional_zero_advantage_groups": 9,
+    "teacher_effective": 31
+  },
+  "full_teacher_receipt_sha256": "70d030a914f3c560af3035f09e745e292e9e3527d02034b82277684138ea855d",
+  "scope": "CPU learner-input accounting using real frozen A100 scores; no model gradient",
+  "train_batch_manifest_sha256": "a2ab72d3e388c133adb9db223458989fb34e48c891ba34edc074bbc7ba4ce864"
+}

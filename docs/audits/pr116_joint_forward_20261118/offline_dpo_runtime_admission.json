@@ -1,0 +1,24 @@
+{
+  "prefetch": {
+    "bytes_read": 14945825,
+    "elapsed_seconds": 4.142031103372574,
+    "files_read": 1290,
+    "workers": 8
+  },
+  "qwen35_text_model_import": "Qwen3_5ForCausalLM",
+  "raw_native_tokens_preserved": true,
+  "scope": "CPU imports and native completion mask verification with indexed Transformers in the shared Python 3.11 runtime; no trainer updates",
+  "versions": {
+    "accelerate": "1.9.0",
+    "datasets": "4.7.0",
+    "peft": "0.18.1",
+    "pyarrow": "21.0.0",
+    "torch": "2.6.0+cu118",
+    "transformers": "5.5.0",
+    "trl": "1.9.2"
+  },
+  "wheels": {
+    "datasets-4.7.0-py3-none-any.whl": "d5fe3025ec6acc3b5649f10d5576dff5e054134927604e6913c1467a04adc3c2",
+    "trl-1.9.2-py3-none-any.whl": "27847cd9b429af83365b311bb9d93e24bc8cdcc80a54973a6c6cb18a084bce75"
+  }
+}
