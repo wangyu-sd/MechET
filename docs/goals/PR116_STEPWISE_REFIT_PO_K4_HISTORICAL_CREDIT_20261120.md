@@ -1,3 +1,5 @@
+> **SUPERSEDED SCHEDULING NOTE (2026-11-20):** This file preserves the earlier fixed K=4-at-every-electron-state proposal for research provenance. The **current approved PR116 execution plan** is [FINISH-Anchored Adaptive ReFIT-PO with ONLINE bidirectional CRN-JEPA](PR116_FINISH_ANCHORED_ADAPTIVE_REFIT_ONLINE_BIDIRECTIONAL_CRN_JEPA_20261120.md): ordinary K=1, escalate to K=2 and rarely K=4, **real-time PR18 scoring in both inverse and chemical-forward directions before FLOW selection**, immediate per-FINISH TRAIN reference reward, and mixed short-segment + genuine full multi-step RL. The older fixed-K4 rules below are **not** the active sampler specification. Prior measured experiments and source artefacts are unaffected.
+
 # PR116 — Stepwise ReFIT-PO: K=4 electron candidates, historical path credit, and low-cost route RL
 
 **Status: USER-SELECTED NEXT METHOD / IMPLEMENTATION HANDOFF (2026-11-20). DESIGN ONLY; NO NEW CODE, TRAINING OR METRICS ARE CLAIMED BY THIS FILE.**
