@@ -69,3 +69,26 @@ def test_training_exposure_reports_fixed_disjoint_groups_and_development_overlap
     del exposure[independent]
     with pytest.raises(ValueError, match="exposure annotations"):
         merge_verified(expected, [all_cases], cap=8, exposure=exposure)
+
+
+def test_public_worker_validation_binds_one_batch_without_shrinking_registered_population(monkeypatch, capsys):
+    import json
+    import sys
+
+    from scripts import pr117_public_batches as public
+
+    panel = {"targets": [{"cohort": "linear", "target_id": str(i)} for i in range(5)]}
+    full = {"targets": 5, "per_target_arm_request_cap": 64}
+    plan = {"target_indexes": [[0, 2, 4], [1, 3]]}
+    monkeypatch.setattr(public, "bind_batches", lambda args: ({}, panel, {}, full, plan))
+    monkeypatch.setattr(sys, "argv", [
+        "pr117_public_batches", "validate", "--runtime-contract", "contract.json",
+        "--panel", "panel.json", "--public-registration", "registration.json", "--public-registration-sha256", "p",
+        "--batch-plan", "plan.json", "--batch-plan-sha256", "plan", "--batch-index", "2",
+    ])
+    public.main()
+    proof = json.loads(capsys.readouterr().out)
+    assert proof["binding"]["public_batch_index"] == 1
+    assert proof["binding"]["targets"] == 2
+    assert proof["binding"]["full_population_targets"] == 5
+    assert proof["binding"]["total_request_ceiling"] == 128

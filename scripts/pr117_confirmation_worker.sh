@@ -40,13 +40,39 @@ if [[ -f "$cbyd_policy" ]]; then
     runner=("$python" -S -u -m scripts.pr117_cbyd "${frozen[@]}" --workers 6
             --cbyd-policy "$cbyd_policy" --cbyd-policy-sha256 "$policy_sha")
 fi
+public=()
+result_dir="$launch/results"
+public_registration="$launch/inputs/public_registration.json"
+if [[ -f "$public_registration" ]]; then
+    [[ ${#trained[@]} == 0 && ! -f "$cbyd_policy" ]]
+    for name in public_registration.json batch_plan.json public_batch_index.txt public_results_root.path; do
+        digest="$(sha256sum "$launch/inputs/$name" | cut -d ' ' -f 1)"
+        grep -Fxq -- "$digest  inputs/$name" "$launch/inputs.sha256"
+    done
+    results_root="$(cat "$launch/inputs/public_results_root.path")"
+    batch="$(cat "$launch/inputs/public_batch_index.txt")"
+    [[ "$batch" =~ ^[1-9][0-9]*$ && "$results_root" == /aaa/fionafyang/buddy1/* ]]
+    result_dir="$results_root/$(printf 'batch-%02d' "$batch")"
+    public=(--runtime-contract "$contract" --panel "$panel" --public-registration "$public_registration"
+            --public-registration-sha256 "$(sha256sum "$public_registration" | cut -d ' ' -f 1)"
+            --batch-plan "$launch/inputs/batch_plan.json"
+            --batch-plan-sha256 "$(sha256sum "$launch/inputs/batch_plan.json" | cut -d ' ' -f 1)"
+            --batch-index "$batch")
+fi
 case "${1:-}" in
     --validate)
         [[ $# == 1 ]]
+        if (( ${#public[@]} )); then
+            exec "$python" -S -u -m scripts.pr117_public_batches validate "${public[@]}"
+        fi
         exec "${runner[@]}" --validate
         ;;
     --finalize)
         [[ $# == 1 ]]
+        if (( ${#public[@]} )); then
+            printf '%s\n' 'Use scripts.pr117_public_batches merge with the registered results root.' >&2
+            exit 2
+        fi
         if [[ -f "$cbyd_policy" ]]; then
             printf '%s\n' 'Use scripts.pr117_cbyd_score with the separate literature evaluator inputs.' >&2
             exit 2
@@ -72,7 +98,7 @@ case "${1:-}" in
     *) printf 'Usage: %s [--validate|--finalize]\n' "$0" >&2; exit 2 ;;
 esac
 
-test ! -e "$launch/results"
+test ! -e "$result_dir"
 "$python" -S - "$launch" <<'PY'
 import json
 import os
@@ -116,4 +142,8 @@ if (allocation.get("task_flag") != deployment["task_flag"] or not allocation.get
         or any(allocation.get(key) != ready[key] for key in ("hostname", "gpu_uuid"))):
     raise SystemExit("Allocation receipt and registered worker identity disagree")
 PY
+if (( ${#public[@]} )); then
+    exec "$python" -S -u -m scripts.pr117_public_batches run "${public[@]}" --results-root "$results_root" \
+        --allocation-receipt "$launch/allocation_receipt.json"
+fi
 exec "${runner[@]}" --allocation-receipt "$launch/allocation_receipt.json" --output "$launch/results"

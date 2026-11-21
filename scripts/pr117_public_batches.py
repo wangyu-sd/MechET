@@ -156,6 +156,10 @@ def main():
     args = parser.parse_args()
     cfg, panel, stocks, full, plan = bind_batches(args)
     if args.mode == "validate":
+        if args.batch_index is not None:
+            _, proof = selected_batch(panel, full, plan, args.batch_plan_sha256, args.batch_index-1)
+            print(json.dumps(dict(binding=proof)))
+            return
         batches = [selected_batch(panel, full, plan, args.batch_plan_sha256, i)[0]["targets"]
                    for i in range(len(plan["target_indexes"]))]
         print(json.dumps(dict(binding=full, batch_sizes=[len(x) for x in batches],
