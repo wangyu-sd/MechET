@@ -22,3 +22,20 @@ def test_ancestor_and_zero_step_do_not_count_as_closed():
             dict(occurrence="0", product="A", precursors=["B", "S"]),
             dict(occurrence="0.0", product="B", precursors=["A"]),
         ]))
+
+
+def test_hf_dispatch_preserves_request_order_and_receipts():
+    from scripts.pr117_actor_backend import BatchDispatch
+    seen = []
+
+    def generate(requests):
+        seen.extend(requests)
+        return [x * 2 for x in requests]
+
+    worker = BatchDispatch(generate, width=2)
+    try:
+        futures = [worker.submit(x) for x in range(6)]
+        assert [f.result(timeout=5) for f in futures] == [0, 2, 4, 6, 8, 10]
+        assert seen == list(range(6))
+    finally:
+        worker.close()

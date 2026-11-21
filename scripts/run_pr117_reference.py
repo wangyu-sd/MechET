@@ -13,6 +13,7 @@ import sys
 import time
 
 from scripts import pr117_controllers as controllers
+from scripts.pr117_actor_backend import loaded_actor
 
 CEPH = Path("/aaa/fionafyang/buddy1")
 
@@ -122,12 +123,10 @@ def admit_gpu(receipt_file):
 
 
 def run_live(args, cfg, panel, stocks, verification):
-    from transformers import AutoTokenizer
     from mechet.route_action_feedback import semantic_action
     from mechet.route_policy_episode import NativeChemistry
     from mechet.route_policy_sampling import read_owned_journal
     from mechet.route_refit import RefitRouteEpisode, grounded_action_key
-    from mechet.route_vllm_backend import VllmRouteSampler, bind_rollout_adapter, start_vllm_process
 
     def action(raw):
         parsed = semantic_action(raw)
@@ -148,7 +147,8 @@ def run_live(args, cfg, panel, stocks, verification):
     allocation = admit_gpu(args.allocation_receipt)
     output.mkdir(exist_ok=False)
     write_new(output / "admission.json", dict(verification, allocation=allocation,
-              chemistry_teacher="off for all paired arms", analysis="exploratory selection panel"))
+              chemistry_teacher="off for all paired arms", inference_backend=args.backend,
+              analysis="exploratory selection panel"))
     (output / "targets").mkdir()
     cfg = dict(cfg, output_dir=str(output), _sha=verification["panel_sha256"])
     cfg["vllm_runtime"] = dict(cfg["vllm_runtime"], cache_root=str(output / "engine-caches"))
@@ -160,54 +160,46 @@ def run_live(args, cfg, panel, stocks, verification):
     cfg["seed"] = panel["seed"]
     version = "validation000000:" + verification["actor_sha256"]
     cfg["behavior_version"] = version
-    tokenizer = AutoTokenizer.from_pretrained(cfg["base_path"], local_files_only=True)
     route_context_episode = controllers.contextual_episode_type(RefitRouteEpisode)
     began = time.monotonic()
-    process = start_vllm_process(cfg)
-    journal_path = output / "native_generation.jsonl"
-    try:
-        adapter = bind_rollout_adapter(cfg, version)
-        write_new(output / "adapter_load.json", adapter)
-        sampler = VllmRouteSampler(process, tokenizer, cfg, journal_path)
-        try:
-            def solve_target(row):
-                answers = []
-                arms = panel["arms"]
-                order = row["seed"] % len(arms)
-                for arm in arms[order:] + arms[:order]:
-                    target = row["target"]
-                    stock = stocks[row["stock"]]
-                    uid = f"pr117/{row['cohort']}/{row['target_id']}/{row['seed']}/{arm}"
-                    chemistry = CountedChemistry()
-                    episode_type = RefitRouteEpisode if arm == controllers.C0 else route_context_episode
-                    episode = episode_type(cfg, target, stock, uid, row["seed"], chemistry=chemistry)
-                    start = time.monotonic()
-                    result = controllers.solve(
-                        arm, episode, lambda request: sampler.submit(request).result(),
-                        cap=panel["request_ceiling_per_target_arm"], action=action, grounded_key=grounded_action_key)
-                    # The controller owns budget censoring; the Executor owns chemistry.
-                    solved = result["status"] == "stock_solved" and verify_closure(target, stock, result["report"])
-                    tokens = result["generated_tokens"]
-                    value = dict(target_id=row["target_id"], target=target, cohort=row["cohort"],
-                                 stock=row["stock"], arm=arm, uid=uid, solved=solved, status=result["status"],
-                                 request_attempts=result["requests"], generated_tokens=tokens,
-                                 executor_calls=chemistry.executor_calls, seconds=time.monotonic()-start)
-                    write_new(output / "targets" / f"{row['cohort']}-{row['target_id']}-{arm}.json",
-                              dict(value, result=result))
-                    answers.append(value)
-                return answers
+    with loaded_actor(args.backend, cfg, output, version) as (sampler, journal_path, dispatched_event):
+        def solve_target(row):
+            answers = []
+            arms = panel["arms"]
+            order = row["seed"] % len(arms)
+            for arm in arms[order:] + arms[:order]:
+                target = row["target"]
+                stock = stocks[row["stock"]]
+                uid = f"pr117/{row['cohort']}/{row['target_id']}/{row['seed']}/{arm}"
+                chemistry = CountedChemistry()
+                episode_type = RefitRouteEpisode if arm == controllers.C0 else route_context_episode
+                episode = episode_type(cfg, target, stock, uid, row["seed"], chemistry=chemistry)
+                start = time.monotonic()
+                result = controllers.solve(
+                    arm, episode, lambda request: sampler.submit(request).result(),
+                    cap=panel["request_ceiling_per_target_arm"], action=action, grounded_key=grounded_action_key)
+                # The controller owns budget censoring; the Executor owns chemistry.
+                solved = result["status"] == "stock_solved" and verify_closure(target, stock, result["report"])
+                tokens = result["generated_tokens"]
+                value = dict(target_id=row["target_id"], target=target, cohort=row["cohort"],
+                             stock=row["stock"], arm=arm, uid=uid, solved=solved, status=result["status"],
+                             request_attempts=result["requests"], generated_tokens=tokens,
+                             executor_calls=chemistry.executor_calls, seconds=time.monotonic()-start)
+                write_new(output / "targets" / f"{row['cohort']}-{row['target_id']}-{arm}.json",
+                          dict(value, result=result))
+                answers.append(value)
+            return answers
 
-            with ThreadPoolExecutor(max_workers=args.workers) as workers:
-                rows = [row for result in workers.map(solve_target, panel["targets"]) for row in result]
-        finally:
-            sampler.close()
-    finally:
-        process.close()
+        with ThreadPoolExecutor(max_workers=args.workers) as workers:
+            rows = [row for result in workers.map(solve_target, panel["targets"]) for row in result]
     duration = time.monotonic()-began
     native = Counter()
     for event in read_owned_journal(journal_path):
-        request_id = event["request"]["request_id"]
-        if event["event"] == "vllm-submitted":
+        if event["event"] != dispatched_event:
+            continue
+        requests = event["requests"] if args.backend == "hf" else [event["request"]]
+        for request in requests:
+            request_id = request["request_id"]
             native[request_id.split("/r0/a",1)[0].split("/pr117-",1)[0]] += 1
     assert len(rows) == verification["targets"] * len(verification["arms"])
     assert sum(native.values()) <= sum(row["request_attempts"] for row in rows) <= verification["total_request_ceiling"]
@@ -230,6 +222,7 @@ def main():
     parser.add_argument("--allocation-receipt", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--workers", type=int, default=6)
+    parser.add_argument("--backend", choices=("vllm", "hf"), default="vllm")
     args = parser.parse_args()
     cfg, panel, stocks, verification = bind_runtime(args)
     if args.validate:
