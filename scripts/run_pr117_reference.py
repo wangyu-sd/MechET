@@ -65,20 +65,34 @@ def bind_runtime(args):
     from mechet.external_route_actor import verify_stage2_actor
     from mechet.route_training_contract import chemical_identity
     actor = verify_stage2_actor(cfg["parent"])
-    lock_file = Path(__file__).resolve().parents[1] / "docs/goals/PR117_INITIAL_REFERENCE_PANEL_LOCK.json"
-    lock = json.loads(lock_file.read_bytes())
+    reg_path = getattr(args, "confirmation_registration", None)
+    reg_sha = getattr(args, "confirmation_registration_sha256", None)
+    if (reg_path is None) != (reg_sha is None):
+        raise ValueError("Confirmation requires both the registration and its SHA256")
+    if reg_path is None:
+        lock_file = Path(__file__).resolve().parents[1] / "docs/goals/PR117_INITIAL_REFERENCE_PANEL_LOCK.json"
+        lock = json.loads(lock_file.read_bytes())
+    else:
+        from scripts.pr117_confirmation import read_pinned
+        lock = json.loads(read_pinned({"path": reg_path, "sha256": reg_sha}))
     payload = args.panel.read_bytes()
     if sha(payload) != lock["panel_sha256"]:
         raise ValueError("Reference panel changed after preregistration")
     panel = json.loads(payload)
     if actor["adapter_sha256"] != lock["actor_sha256"] or actor["adapter_sha256"] != panel["actor"]["adapter_sha256"]:
         raise ValueError("Wrong frozen actor")
-    arms = (controllers.C0, controllers.C1, controllers.C2, controllers.C4)
-    if tuple(panel["arms"]) != arms or len(panel["targets"]) != lock["targets"]:
-        raise ValueError("Panel arm or population mismatch")
     cap = panel["request_ceiling_per_target_arm"]
-    if len(arms) * len(panel["targets"]) * cap != lock["total_primary_screen_cap"]:
-        raise ValueError("Panel request ceiling mismatch")
+    if reg_path is None:
+        arms = (controllers.C0, controllers.C1, controllers.C2, controllers.C4)
+        if tuple(panel["arms"]) != arms or len(panel["targets"]) != lock["targets"]:
+            raise ValueError("Panel arm or population mismatch")
+        if len(arms) * len(panel["targets"]) * cap != lock["total_primary_screen_cap"]:
+            raise ValueError("Panel request ceiling mismatch")
+        scope = dict(targets=len(panel["targets"]), arms=list(arms), total_request_ceiling=lock["total_primary_screen_cap"])
+    else:
+        from scripts.pr117_confirmation import validate_registration
+        scope = validate_registration(lock, panel, sha(cfg_raw))
+        scope["confirmation_registration_sha256"] = reg_sha
     stocks = {}
     for name, info in panel["stocks"].items():
         raw = Path(info["source_path"]).read_bytes()
@@ -91,9 +105,8 @@ def bind_runtime(args):
         if row["target"] in stocks[row["stock"]]:
             raise ValueError("Frozen evaluation target must require synthesis")
     verification = dict(panel_sha256=sha(payload), runtime_contract_sha256=sha(cfg_raw),
-                        actor_sha256=actor["adapter_sha256"], targets=len(panel["targets"]),
-                        arms=list(arms), total_request_ceiling=lock["total_primary_screen_cap"],
-                        per_target_arm_request_cap=cap, stocks={n: len(s) for n,s in stocks.items()})
+                        actor_sha256=actor["adapter_sha256"], per_target_arm_request_cap=cap,
+                        stocks={n: len(s) for n,s in stocks.items()}, **scope)
     return cfg, panel, stocks, verification
 
 
@@ -146,9 +159,10 @@ def run_live(args, cfg, panel, stocks, verification):
         raise ValueError("PR117 output must reside on shared storage")
     allocation = admit_gpu(args.allocation_receipt)
     output.mkdir(exist_ok=False)
+    analysis_scope = verification.get("scope", "exploratory preregistered screen")
     write_new(output / "admission.json", dict(verification, allocation=allocation,
               chemistry_teacher="off for all paired arms", inference_backend=args.backend,
-              analysis="exploratory selection panel"))
+              analysis=analysis_scope))
     (output / "targets").mkdir()
     cfg = dict(cfg, output_dir=str(output), _sha=verification["panel_sha256"])
     cfg["vllm_runtime"] = dict(cfg["vllm_runtime"], cache_root=str(output / "engine-caches"))
@@ -212,16 +226,19 @@ def run_live(args, cfg, panel, stocks, verification):
     totals = {arm: sum(r["solved"] for r in rows if r["arm"] == arm) for arm in verification["arms"]}
     write_new(output / "screen_result.json", dict(verification, solved=totals, rows=rows,
               actual_native_generation_requests=sum(native.values()), single_gpu_wall_seconds=duration,
-              gpu_hours=duration/3600, scope="exploratory preregistered screen"))
+              gpu_hours=duration/3600, scope=analysis_scope))
     print(json.dumps(dict(denominator=verification["targets"], solved=totals,
                           actual_native_generation_requests=sum(native.values()), gpu_hours=duration/3600)))
-    print(f"METRIC solved_targets={totals[controllers.C2]}")
+    primary = verification.get("primary_arm", controllers.C2)
+    print(f"METRIC solved_targets={totals[primary]}")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime-contract", required=True, type=Path)
     parser.add_argument("--panel", required=True, type=Path)
+    parser.add_argument("--confirmation-registration", type=Path)
+    parser.add_argument("--confirmation-registration-sha256")
     parser.add_argument("--validate", action="store_true", help="verify inputs without loading the model or GPU")
     parser.add_argument("--allocation-receipt", type=Path)
     parser.add_argument("--output", type=Path)
