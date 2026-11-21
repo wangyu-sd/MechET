@@ -1,6 +1,7 @@
 """Try a different native FLOW at a replay-authenticated downstream failure."""
 
 from dataclasses import asdict
+import json
 
 from scripts.pr117_controllers import RequestBudget, terminal_report
 
@@ -12,7 +13,28 @@ def conditioning(request):
     return {key: value for key, value in asdict(request).items() if key not in ("request_id", "episode_id")}
 
 
-def recover(snapshot, failure, sample, *, cap, action, grounded_key):
+def with_executor_feedback(messages, error):
+    if not messages or messages[0].get("role") != "system" or not error:
+        raise ValueError("Expected an original system message and a native executor error")
+    text = json.dumps(error, ensure_ascii=False).replace("<", r"\u003c").replace(">", r"\u003e")
+    added = "\n\nEXECUTOR FEEDBACK\nThe previous proposal was rejected. No state change was committed.\n" + text
+    return [dict(messages[0], content=messages[0]["content"] + added), *messages[1:]]
+
+
+def condition_retry(episode, error):
+    prefix_records = len(episode.records)
+
+    class FeedbackEpisode(type(episode)):
+        def _messages(self):
+            messages = super()._messages()
+            if len(self.records) == prefix_records:
+                return with_executor_feedback(messages, error)
+            return messages
+
+    episode.__class__ = FeedbackEpisode
+
+
+def recover(snapshot, failure, sample, *, cap, action, grounded_key, executor_error=None):
     original = snapshot.next_decision()
     occurrence = snapshot.current["occurrence"]
     product = snapshot.current["product"]
@@ -24,20 +46,31 @@ def recover(snapshot, failure, sample, *, cap, action, grounded_key):
     observed_actions = {grounded_key(state, failure["raw"])}
     tried = []
     active = None
+    expected = conditioning(original)
+    if executor_error is not None:
+        expected["messages"] = with_executor_feedback(expected["messages"], executor_error)
+    conditioned_tokens = None
     for index in range(1, 3):
         if budget.exhausted:
             break
         candidate = snapshot.fork(f"{original.episode_id}/pr117-recovery-{index}")
+        if executor_error is not None:
+            condition_retry(candidate, executor_error)
         request = candidate.next_decision()
-        if (conditioning(request) != conditioning(original)
+        if (conditioning(request) != expected
                 or request.request_id == original.request_id or candidate.node.state != state):
-            raise ValueError("A retry must preserve the original electronic state and policy input")
+            raise ValueError("A retry must preserve the electronic state and registered policy input")
         receipt = budget.sample(request)
         if (receipt["request_id"] != request.request_id
                 or receipt["behavior_version"] != original.behavior_version):
             raise ValueError("Retry receipt has a different request or policy identity")
-        if receipt["prompt_token_ids"] != failure["prompt_token_ids"]:
+        tokens = receipt["prompt_token_ids"]
+        if executor_error is None and tokens != failure["prompt_token_ids"]:
             raise ValueError("Retry must use the original prompt tokens")
+        if executor_error is not None:
+            if tokens == failure["prompt_token_ids"] or (conditioned_tokens is not None and tokens != conditioned_tokens):
+                raise ValueError("Each retry must use the registered feedback-conditioned token prefix")
+            conditioned_tokens = tokens
         trial = dict(request_id=receipt["request_id"], outcome="not_a_complete_flow")
         tried.append(trial)
         if receipt.get("truncated") or receipt.get("resource_error") or action(receipt["raw"]) != FLOW:

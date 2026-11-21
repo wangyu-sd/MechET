@@ -32,7 +32,10 @@ class Episode:
     def next_decision(self):
         if self.status:
             return None
-        return Request(f"{self.uid}/{len(self.records)}", self.uid, [self.node.state])
+        return Request(f"{self.uid}/{len(self.records)}", self.uid, self._messages())
+
+    def _messages(self):
+        return [dict(role="system", content=self.node.state)]
 
     def accept(self, receipt):
         action = receipt["raw"]
@@ -50,7 +53,7 @@ class Episode:
         return dict(status=self.status, error=self.error, reactions=self.reactions, records=self.records)
 
 
-def run(episode, answers, cap):
+def run(episode, answers, cap, **options):
     seen = []
     slate = iter(answers)
 
@@ -64,7 +67,7 @@ def run(episode, answers, cap):
                     prompt_token_ids=[11], generated_token_ids=[1])
     result = recover(episode, original, native_sample, cap=cap,
                      action=lambda raw: "finish_trace" if raw == "finish" else "apply_electron_flow",
-                     grounded_key=lambda state, raw: (state, raw))
+                     grounded_key=lambda state, raw: (state, raw), **options)
     return result, seen
 
 
@@ -73,7 +76,7 @@ def test_duplicate_counts_against_budget_and_preserves_same_input_for_retry():
     result, seen = run(ep, [("bad", [11]), ("alternative", [11]), ("finish", [22])], 3)
     assert result["status"] == "stock_solved"
     assert result["recovered_reaction"] and result["requests"] == 3
-    assert [x.messages for x in seen] == [["s"], ["s"], ["next"]]
+    assert [x.messages[0]["content"] for x in seen] == ["s", "s", "next"]
     assert len({x.request_id for x in seen}) == 3
     assert ep.records == [] and ep.node.state == "s"
 
@@ -87,3 +90,19 @@ def test_two_identical_draws_stop_without_reexecuting_the_failure():
 def test_a_retry_prompt_change_is_a_protocol_failure():
     with pytest.raises(ValueError, match="original prompt tokens"):
         run(Episode(), [("alternative", [99])], 3)
+
+
+def test_real_error_is_visible_only_on_the_two_same_state_retries():
+    error = "ValueError:destination bond is absent: A1,A2"
+    ep = Episode()
+    result, seen = run(ep, [("bad", [19]), ("alternative", [19]), ("finish", [22])], 3,
+                       executor_error=error)
+    messages = [r.messages[0]["content"] for r in seen]
+    assert messages[0] == messages[1] and messages[0].startswith("s") and error in messages[0]
+    assert messages[2] == "next" and ep._messages()[0]["content"] == "s"
+    assert result["recovered_reaction"]
+
+
+def test_feedback_retries_must_have_their_real_conditioning_tokens():
+    with pytest.raises(ValueError, match="conditioned token prefix"):
+        run(Episode(), [("bad", [19]), ("alternative", [18])], 3, executor_error="ValueError: absent bond")
