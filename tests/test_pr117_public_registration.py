@@ -54,6 +54,20 @@ def test_partial_confirmation_cannot_register_public_evaluation(tmp_path):
         public.build_execution(source, method, audit, runtime, cap=30)
 
 
+def test_public_fallback_keeps_the_three_condition_confirmation_contract(tmp_path):
+    source, method, audit, runtime = inputs(tmp_path)
+    value = json.loads(Path(audit["path"]).read_bytes())
+    value["binding"]["primary_arm"] = controllers.C0
+    audit = write_ref(Path(audit["path"]), value)
+    _, registration = public.build_execution(source, method, audit, runtime, cap=30)
+    assert registration["arms"] == [controllers.C0]
+    value["binding"]["arms"] = [controllers.C0, controllers.C4]
+    value["audited"] = value["expected"] = 192
+    audit = write_ref(Path(audit["path"]), value)
+    with pytest.raises(ValueError, match="completed independent confirmation"):
+        public.build_execution(source, method, audit, runtime, cap=30)
+
+
 def test_truncated_or_substituted_public_panel_is_rejected(tmp_path):
     source, method, audit, runtime = inputs(tmp_path)
     payload, registration = public.build_execution(source, method, audit, runtime, cap=30)

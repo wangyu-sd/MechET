@@ -83,6 +83,18 @@ def test_execution_builder_binds_an_explicit_method_to_a_registered_prefix(tmp_p
     assert generated["total_request_ceiling"] == 24 * 3 * 64
 
 
+def test_fallback_primary_retains_electronic_and_reaction_controls(tmp_path):
+    _, original = registered_fixture(tmp_path)
+    runtime = pinned_file(tmp_path / "runtime.json", {"actor_lineage": {"adapter_sha256": "actor"}, "seed": 17})
+    payload, registration = confirmation.build_execution(
+        original["target_lock"], original["inventory"], original["method_spec"], runtime,
+        targets=24, selected_arm=controllers.C0, cap=64)
+    actual = json.loads(payload)
+    assert actual["arms"] == [controllers.C0, controllers.C2, controllers.C4]
+    assert registration["selected_arm"] == controllers.C0
+    assert registration["total_request_ceiling"] == 24 * 3 * 64
+
+
 def test_confirmation_cap_must_stay_within_protocol(tmp_path):
     panel, reg = registered_fixture(tmp_path)
     panel["request_ceiling_per_target_arm"] = reg["per_target_arm_request_cap"] = 129

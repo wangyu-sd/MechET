@@ -24,6 +24,11 @@ def runner_source_hashes():
     return {name: digest((source / name).read_bytes()) for name in RUNNER_SOURCES}
 
 
+def comparison_conditions(primary):
+    """Retain the planned mechanism comparison when a control is primary."""
+    return list(dict.fromkeys((controllers.C0, controllers.C2, controllers.C4, primary)))
+
+
 def read_pinned(ref):
     path = Path(ref["path"])
     raw = path.read_bytes()
@@ -75,8 +80,8 @@ def validate_registration(registration, panel, runtime_sha):
     primary = registration["selected_arm"]
     known = {controllers.C0, controllers.C1, controllers.C2, controllers.C4}
     if (arms != panel["arms"] or len(arms) != len(set(arms)) or set(arms) - known
-            or set(arms) != {primary, controllers.C0, controllers.C4}):
-        raise ValueError("Confirmation needs the selected, independent and reaction-first conditions")
+            or set(arms) != set(comparison_conditions(primary))):
+        raise ValueError("Confirmation needs the selected, independent, early-electron and reaction-first conditions")
     cap = registration["per_target_arm_request_cap"]
     if (type(cap) is not int or not 1 <= cap <= 128
             or panel["request_ceiling_per_target_arm"] != cap
@@ -93,7 +98,7 @@ def build_execution(target_lock, inventory, method_spec, runtime_ref, *, targets
     lock, ordered = read_target_lock(target_lock, inventory)
     runtime = json.loads(read_pinned(runtime_ref))
     actor = runtime["actor_lineage"]["adapter_sha256"]
-    arms = list(dict.fromkeys((controllers.C0, selected_arm, controllers.C4)))
+    arms = comparison_conditions(selected_arm)
     panel = dict(seed=runtime["seed"], targets=ordered[:targets], stocks=lock["stocks"],
                  actor=dict(adapter_sha256=actor), arms=arms, request_ceiling_per_target_arm=cap)
     payload = (json.dumps(panel, indent=2) + "\n").encode()

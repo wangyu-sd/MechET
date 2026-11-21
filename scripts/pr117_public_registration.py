@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from scripts import pr117_controllers as controllers
-from scripts.pr117_confirmation import digest, read_pinned, runner_source_hashes
+from scripts.pr117_confirmation import comparison_conditions, digest, read_pinned, runner_source_hashes
 from scripts.pr117_reference_source import PUBLIC_COHORTS
 
 
@@ -38,7 +38,7 @@ def selected_method(method, confirmation):
     binding = verified["binding"]
     arm = binding.get("primary_arm")
     known = {controllers.C0, controllers.C1, controllers.C2, controllers.C4}
-    expected = {arm, controllers.C0, controllers.C4}
+    expected = set(comparison_conditions(arm))
     count = binding["targets"]
     if (verified["fully_audited"] is not True or verified["final_summary_verified"] is not True
             or verified["fully_paired_targets"] != count
