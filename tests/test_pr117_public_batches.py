@@ -20,11 +20,15 @@ def test_partial_archive_retains_incomplete_denominator_and_rejects_duplicate_ca
     partial = merge_verified(expected, [first], cap=8)
     assert partial["status"] == "PARTIAL_REFERENCE_EVIDENCE"
     assert partial["evaluated_targets"] == 1 and partial["registered_targets"] == 2
-    assert partial["actual_calls_in_verified_batches"] == 3 and "solved_by_budget" not in partial
+    assert partial["actual_calls_in_replayed_targets"] == 3 and "solved_by_budget" not in partial
     full = merge_verified(expected, [first, second], cap=8)
     assert full["status"] == "COMPLETE_REFERENCE_EVIDENCE"
     assert full["solved_by_budget"]["8"] == {"closed":1,"targets":2}
-    assert full["actual_calls_in_verified_batches"] == 8
+    assert full["actual_calls_in_replayed_targets"] == 8
+    awaiting_final_summary = merge_verified(expected, [first, second], cap=8, all_workers_verified=False)
+    assert awaiting_final_summary["evaluated_targets"] == 2
+    assert awaiting_final_summary["status"] == "PARTIAL_REFERENCE_EVIDENCE"
+    assert "solved_by_budget" not in awaiting_final_summary
     with pytest.raises(ValueError, match="duplicate"):
         merge_verified(expected, [first, first, second], cap=8)
 

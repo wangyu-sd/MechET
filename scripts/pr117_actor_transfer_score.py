@@ -28,34 +28,50 @@ def native_endpoints(raw, replay):
                 first_prompt_sha256=sha(json.dumps(first["prompt_token_ids"]).encode()) if first else None)
 
 
-def replay_arm(results, cfg, panel, stocks, binding, arm, *, measure=native_endpoints):
+def published_bytes(path):
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError:
+        return None
+    return raw if raw.endswith(b"\n") else None
+
+
+def replay_arm(results, cfg, panel, stocks, binding, arm, *, measure=native_endpoints, allow_partial=False):
     from audit_reference_receipts import audit_arm, journal_index
 
     admission = json.loads((results / "admission.json").read_bytes())
-    raw_summary = (results / "screen_result.json").read_bytes()
-    summary = json.loads(raw_summary)
-    if (admission["inference_backend"] != "hf"
-            or any(doc.get(k) != v for doc in (admission, summary) for k, v in binding.items())):
+    raw_summary = published_bytes(results / "screen_result.json")
+    if raw_summary is None and not allow_partial:
+        raise ValueError("Actor replay requires a completed worker summary")
+    summary = json.loads(raw_summary) if raw_summary is not None else None
+    if admission["inference_backend"] != "hf" or any(admission.get(k) != v for k, v in binding.items()):
         raise ValueError("Actor run does not match its frozen inference binding")
     target_rows = {(row["cohort"], row["target_id"]): row for row in panel["targets"]}
-    actual = {(r["cohort"], r["target_id"], r["arm"]): r for r in summary["rows"]}
-    if (len(actual) != len(summary["rows"])
-            or set(actual) != {(*key, condition) for key in target_rows for condition in panel["arms"]}):
-        raise ValueError("Actor run lacks the full declared target-condition population")
+    actual = {}
+    if summary is not None:
+        actual = {(r["cohort"], r["target_id"], r["arm"]): r for r in summary["rows"]}
+        if any(summary.get(k) != v for k, v in binding.items()):
+            raise ValueError("Final summary differs from the admitted actor and panel")
+        if (len(actual) != len(summary["rows"])
+                or set(actual) != {(*key, condition) for key in target_rows for condition in panel["arms"]}):
+            raise ValueError("Actor run lacks the full declared target-condition population")
 
     requests, raw_rows = set(), {}
     for (cohort, target), case in target_rows.items():
         result_path = results / "targets" / f"{cohort}-{target}-{arm}.json"
-        payload = result_path.read_bytes()
-        if not payload.endswith(b"\n"):
-            raise ValueError("Actor run contained a partially published target")
+        payload = published_bytes(result_path)
+        if payload is None:
+            if summary is None:
+                continue
+            raise ValueError("Completed actor run lacks a fully published target")
         raw = json.loads(payload)
-        worker = actual[cohort, target, arm]
-        tabular = {k: v for k, v in worker.items() if k != "native_generation_requests"}
-        if ({k: v for k, v in raw.items() if k != "result"} != tabular
-                or (raw["cohort"], raw["target_id"], raw["arm"], raw["target"], raw["stock"], raw["uid"])
+        if ((raw["cohort"], raw["target_id"], raw["arm"], raw["target"], raw["stock"], raw["uid"])
                 != (cohort, target, arm, case["target"], case["stock"], f"pr117/{cohort}/{target}/{case['seed']}/{arm}")):
-            raise ValueError("Worker target does not match its preregistered identity and summary")
+            raise ValueError("Worker target does not match its preregistered identity")
+        if summary is not None:
+            tabular = {k: v for k, v in actual[cohort, target, arm].items() if k != "native_generation_requests"}
+            if {k: v for k, v in raw.items() if k != "result"} != tabular:
+                raise ValueError("Worker target differs from its final summary row")
         raw_rows[cohort, target] = dict(raw, source_sha256=sha(payload))
         ids = [r["request_id"] for r in raw["result"]["decision_receipts"]]
         if len(ids) != len(set(ids)) or requests.intersection(ids):
@@ -68,19 +84,26 @@ def replay_arm(results, cfg, panel, stocks, binding, arm, *, measure=native_endp
     outcomes = {}
     for key, raw in raw_rows.items():
         replay = audit_arm(raw, target_rows[key], cfg, stocks[raw["stock"]], cap, (req, ret, rec))
-        if replay["gpu_requests"] != actual[(*key, arm)]["native_generation_requests"]:
+        if summary is not None and replay["gpu_requests"] != actual[(*key, arm)]["native_generation_requests"]:
             raise ValueError("Physical actor calls disagree with the worker result")
         outcomes[key] = measure(raw, replay)
 
     arm_calls = sum(row["native_calls"] for row in outcomes.values())
-    total = summary["actual_native_generation_requests"]
-    if (arm_calls != journal["gpu_requests_by_arm"].get(arm, 0)
-            or any(total != journal.get(k, 0) for k in ("gpu_requests", "gpu_returns", "behavior_receipts"))
-            or sum(row["stock_closed"] for row in outcomes.values()) != summary["solved"][arm]):
-        raise ValueError("Actor physical journal or full-cohort closure count disagrees with replay")
-    return outcomes, dict(summary_sha256=sha(raw_summary), binding=binding,
+    observed = journal.get("gpu_requests", 0)
+    selected_arm_calls = journal["gpu_requests_by_arm"].get(arm, 0)
+    if arm_calls > selected_arm_calls or observed > binding["total_request_ceiling"]:
+        raise ValueError("Independent replay or observed dispatches exceeded the registered work")
+    if summary is not None:
+        total = summary["actual_native_generation_requests"]
+        if (arm_calls != selected_arm_calls
+                or any(total != journal.get(k, 0) for k in ("gpu_requests", "gpu_returns", "behavior_receipts"))
+                or sum(row["stock_closed"] for row in outcomes.values()) != summary["solved"][arm]):
+            raise ValueError("Actor physical journal or full-cohort closure count disagrees with replay")
+    return outcomes, dict(summary_sha256=sha(raw_summary) if raw_summary is not None else None, binding=binding,
                           gpu_model=admission["allocation"]["gpu_model"], inference_backend="hf",
-                          worker_wall_seconds=summary["single_gpu_wall_seconds"], gpu_hours=summary["gpu_hours"])
+                          final_summary_verified=summary is not None, observed_dispatches=observed,
+                          worker_wall_seconds=summary["single_gpu_wall_seconds"] if summary is not None else None,
+                          gpu_hours=summary["gpu_hours"] if summary is not None else None)
 
 
 def evaluate(args):

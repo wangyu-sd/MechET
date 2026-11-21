@@ -4,7 +4,7 @@ from collections import Counter
 import json
 from pathlib import Path
 
-from scripts.pr117_actor_transfer_score import replay_arm
+from scripts.pr117_actor_transfer_score import published_bytes, replay_arm
 from scripts.pr117_confirmation import read_pinned
 from scripts.pr117_matched_work import solution_cost
 from scripts.pr117_public_registration import target_lock
@@ -55,7 +55,7 @@ def budget_counts(rows, cap):
             and r["first_solution"]["native_calls"] <= limit for r in rows)) for limit in limits}
 
 
-def merge_verified(expected, batch_outcomes, cap):
+def merge_verified(expected, batch_outcomes, cap, *, all_workers_verified=True):
     outcomes = {}
     for batch in batch_outcomes:
         if set(outcomes).intersection(batch):
@@ -65,10 +65,10 @@ def merge_verified(expected, batch_outcomes, cap):
         if any(row["stock_closed"] != (row["first_solution"] is not None) for row in batch.values()):
             raise ValueError("Recorded closure lacks its corresponding physical first-solution evidence")
         outcomes.update(batch)
-    complete = set(outcomes) == expected
+    complete = set(outcomes) == expected and all_workers_verified
     merged = dict(status="COMPLETE_REFERENCE_EVIDENCE" if complete else "PARTIAL_REFERENCE_EVIDENCE",
                   evaluated_targets=len(outcomes), registered_targets=len(expected),
-                  actual_calls_in_verified_batches=sum(r["native_calls"] for r in outcomes.values()))
+                  actual_calls_in_replayed_targets=sum(r["native_calls"] for r in outcomes.values()))
     if complete:
         merged["solved_by_budget"] = budget_counts(list(outcomes.values()), cap)
         merged["solved_by_cohort_and_budget"] = {
@@ -86,15 +86,10 @@ def public_case(raw, replay):
 
 
 def fully_published(path):
-    try:
-        return path.read_bytes().endswith(b"\n")
-    except FileNotFoundError:
-        return False
+    return published_bytes(path) is not None
 
 
 def merge_batches(args, cfg, panel, stocks, full, plan):
-    from audit_reference_receipts import journal_index
-
     batches, scopes = [], []
     arm, = panel["arms"]
     for index in range(len(plan["target_indexes"])):
@@ -102,25 +97,17 @@ def merge_batches(args, cfg, panel, stocks, full, plan):
         path = args.results_root / f"batch-{index+1:02d}"
         if not path.exists():
             scopes.append(dict(batch=index+1, status="UNSTARTED", targets=proof["targets"], observed_dispatches=0))
-        elif not fully_published(path / "screen_result.json"):
-            journal = path / "native_generation.jsonl"
-            issued = None
-            if journal.is_file():
-                admission = json.loads((path / "admission.json").read_bytes())
-                if admission.get("inference_backend") != "hf" or any(admission.get(k) != v for k, v in proof.items()):
-                    raise ValueError("Interrupted batch does not match its frozen allocation and input binding")
-                _, _, _, counts = journal_index(journal, set(), "hf")
-                issued = counts.get("gpu_requests", 0)
-                if issued > proof["total_request_ceiling"]:
-                    raise ValueError("Interrupted batch exceeded its original call allowance")
-            scopes.append(dict(batch=index+1, status="INCOMPLETE", targets=proof["targets"], observed_dispatches=issued))
+        elif not (path / "native_generation.jsonl").is_file() and not fully_published(path / "screen_result.json"):
+            scopes.append(dict(batch=index+1, status="INCOMPLETE", targets=proof["targets"], observed_dispatches=None))
         else:
-            outcomes, evidence = replay_arm(path, cfg, branch, stocks, proof, arm, measure=public_case)
+            outcomes, evidence = replay_arm(path, cfg, branch, stocks, proof, arm, measure=public_case, allow_partial=True)
             batches.append(outcomes)
-            scopes.append(dict(batch=index+1, status="REPLAY_VERIFIED", targets=len(outcomes),
-                               observed_dispatches=sum(row["native_calls"] for row in outcomes.values()), **evidence))
+            status = "REPLAY_VERIFIED" if evidence["final_summary_verified"] else "INCOMPLETE_RECEIPTS_VERIFIED"
+            scopes.append(dict(batch=index+1, status=status, targets=proof["targets"],
+                               evaluated_targets=len(outcomes), **evidence))
     expected = {(row["cohort"], row["target_id"]) for row in panel["targets"]}
-    merged = merge_verified(expected, batches, full["per_target_arm_request_cap"])
+    merged = merge_verified(expected, batches, full["per_target_arm_request_cap"],
+                            all_workers_verified=all(s["status"] == "REPLAY_VERIFIED" for s in scopes))
     lock = json.loads(read_pinned({"path": args.public_registration, "sha256": args.public_registration_sha256}))
     annotations = target_lock(lock["target_lock"])["target_annotations"]
     rows = [dict(cohort=k[0], target_id=k[1], training_exposure=annotations[k[0]][k[1]], **v)
@@ -128,10 +115,12 @@ def merge_batches(args, cfg, panel, stocks, full, plan):
     issued = sum(s["observed_dispatches"] or 0 for s in scopes)
     if issued > full["total_request_ceiling"]:
         raise ValueError("Native calls exceeded the full public registration")
+    confirmed = [s for s in scopes if s["status"] == "REPLAY_VERIFIED"]
     return dict(merged, bound_to=full, batch_plan_sha256=args.batch_plan_sha256, batches=scopes, rows=rows,
                 observed_native_dispatches_lower_bound=issued,
                 dispatch_counts_known_for_started_batches=all(s["observed_dispatches"] is not None for s in scopes),
-                gpu_hours_of_verified_workers=sum(s.get("gpu_hours", 0) for s in scopes))
+                actual_calls_in_verified_batches=sum(s["observed_dispatches"] for s in confirmed),
+                gpu_hours_of_verified_workers=sum(s["gpu_hours"] for s in confirmed))
 
 
 def main():
