@@ -55,7 +55,9 @@ def budget_counts(rows, cap):
             and r["first_solution"]["native_calls"] <= limit for r in rows)) for limit in limits}
 
 
-def merge_verified(expected, batch_outcomes, cap, *, all_workers_verified=True):
+def merge_verified(expected, batch_outcomes, cap, *, all_workers_verified=True, exposure=None):
+    if exposure is not None and set(exposure) != expected:
+        raise ValueError("Training exposure annotations must cover the full registered target population")
     outcomes = {}
     for batch in batch_outcomes:
         if set(outcomes).intersection(batch):
@@ -74,6 +76,22 @@ def merge_verified(expected, batch_outcomes, cap, *, all_workers_verified=True):
         merged["solved_by_cohort_and_budget"] = {
             cohort: budget_counts([r for (c, _), r in outcomes.items() if c == cohort], cap)
             for cohort in sorted({c for c, _ in outcomes})}
+        if exposure is not None:
+            groups = dict(exact_train=[], train_connectivity_only=[], no_train_connectivity=[])
+            independent = []
+            for key, row in outcomes.items():
+                annotation = exposure[key]
+                if annotation["exact_train_sources"]:
+                    groups["exact_train"].append(row)
+                elif annotation["connectivity_train_sources"]:
+                    groups["train_connectivity_only"].append(row)
+                else:
+                    groups["no_train_connectivity"].append(row)
+                    if not annotation["reused_development"]:
+                        independent.append(row)
+            merged["solved_by_training_exposure_and_budget"] = {
+                group: budget_counts(rows, cap) for group, rows in groups.items()}
+            merged["solved_on_independent_targets_by_budget"] = budget_counts(independent, cap)
     return merged
 
 
@@ -106,11 +124,12 @@ def merge_batches(args, cfg, panel, stocks, full, plan):
             scopes.append(dict(batch=index+1, status=status, targets=proof["targets"],
                                evaluated_targets=len(outcomes), **evidence))
     expected = {(row["cohort"], row["target_id"]) for row in panel["targets"]}
-    merged = merge_verified(expected, batches, full["per_target_arm_request_cap"],
-                            all_workers_verified=all(s["status"] == "REPLAY_VERIFIED" for s in scopes))
     lock = json.loads(read_pinned({"path": args.public_registration, "sha256": args.public_registration_sha256}))
     annotations = target_lock(lock["target_lock"])["target_annotations"]
-    rows = [dict(cohort=k[0], target_id=k[1], training_exposure=annotations[k[0]][k[1]], **v)
+    exposure = {(cohort, key): facts for cohort, targets in annotations.items() for key, facts in targets.items()}
+    merged = merge_verified(expected, batches, full["per_target_arm_request_cap"], exposure=exposure,
+                            all_workers_verified=all(s["status"] == "REPLAY_VERIFIED" for s in scopes))
+    rows = [dict(cohort=k[0], target_id=k[1], training_exposure=exposure[k], **v)
             for part in batches for k, v in part.items()]
     issued = sum(s["observed_dispatches"] or 0 for s in scopes)
     if issued > full["total_request_ceiling"]:

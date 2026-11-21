@@ -40,3 +40,32 @@ def test_live_partial_worker_summary_does_not_count_as_a_finished_batch(tmp_path
     assert not fully_published(path)
     path.write_text('{"targets": 1}\n')
     assert fully_published(path)
+
+
+def test_training_exposure_reports_fixed_disjoint_groups_and_development_overlap():
+    exact, stereo_only, reused, independent = [("linear", target) for target in ("a", "b", "c", "d")]
+    expected = {exact, stereo_only, reused, independent}
+    exposure = {
+        exact: dict(exact_train_sources=["stage2"], connectivity_train_sources=["stage2"], reused_development=False),
+        stereo_only: dict(exact_train_sources=[], connectivity_train_sources=["d3"], reused_development=False),
+        reused: dict(exact_train_sources=[], connectivity_train_sources=[], reused_development=True),
+        independent: dict(exact_train_sources=[], connectivity_train_sources=[], reused_development=False),
+    }
+    solved = dict(native_calls=3, stock_closed=True, first_solution={"native_calls": 2})
+    unsolved = dict(native_calls=8, stock_closed=False, first_solution=None)
+    all_cases = {exact: solved, stereo_only: unsolved, reused: solved, independent: unsolved}
+
+    full = merge_verified(expected, [all_cases], cap=8, exposure=exposure)
+    assert full["solved_by_budget"]["8"] == {"closed": 2, "targets": 4}
+    groups = full["solved_by_training_exposure_and_budget"]
+    assert groups["exact_train"]["8"] == {"closed": 1, "targets": 1}
+    assert groups["train_connectivity_only"]["8"] == {"closed": 0, "targets": 1}
+    assert groups["no_train_connectivity"]["8"] == {"closed": 1, "targets": 2}
+    assert full["solved_on_independent_targets_by_budget"]["8"] == {"closed": 0, "targets": 1}
+
+    partial = merge_verified(expected, [{exact: solved}], cap=8, exposure=exposure)
+    assert "solved_by_training_exposure_and_budget" not in partial
+    assert "solved_on_independent_targets_by_budget" not in partial
+    del exposure[independent]
+    with pytest.raises(ValueError, match="exposure annotations"):
+        merge_verified(expected, [all_cases], cap=8, exposure=exposure)
