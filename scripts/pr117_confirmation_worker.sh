@@ -26,6 +26,12 @@ frozen=(--runtime-contract "$contract" --panel "$panel"
         --confirmation-registration "$registration"
         --confirmation-registration-sha256 "$registration_sha")
 runner=("$python" -S -u -m scripts.run_pr117_reference "${frozen[@]}" --workers 6 --backend hf)
+trained=()
+if [[ -f "$launch/inputs/trained_checkpoint.path" ]]; then
+    trained=(--trained-checkpoint "$(cat "$launch/inputs/trained_checkpoint.path")"
+             --trained-checkpoint-sha256 "$(cat "$launch/inputs/trained_checkpoint.sha256")")
+    runner=("$python" -S -u -m scripts.pr117_actor_transfer "${frozen[@]}" "${trained[@]}")
+fi
 case "${1:-}" in
     --validate)
         [[ $# == 1 ]]
@@ -33,6 +39,21 @@ case "${1:-}" in
         ;;
     --finalize)
         [[ $# == 1 ]]
+        if (( ${#trained[@]} )); then
+            parent_results="$(cat "$launch/inputs/parent_results.path")"
+            if [[ ! -s "$parent_results/screen_result.json" || ! -s "$launch/results/screen_result.json" ]]; then
+                printf '%s\n' 'Paired scoring requires the completed parent and trained results.' >&2
+                exit 1
+            fi
+            test ! -e "$launch/paired_actor_results.json"
+            staging="$(mktemp -d -- "$launch/.paired-actor-XXXXXXXX")"
+            trap 'rm -rf -- "$staging"' EXIT
+            "$python" -S -m scripts.pr117_actor_transfer_score "${frozen[@]}" "${trained[@]}" \
+                --parent-results "$parent_results" --trained-results "$launch/results" \
+                --output "$staging/paired_actor_results.json"
+            ln -T -- "$staging/paired_actor_results.json" "$launch/paired_actor_results.json"
+            exit 0
+        fi
         exec "$python" -S -m scripts.pr117_confirmation_finalize "$launch" --analysis-code "$launch/code" "${frozen[@]}"
         ;;
     '') [[ $# == 0 ]] ;;

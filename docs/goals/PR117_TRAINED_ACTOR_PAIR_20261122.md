@@ -16,3 +16,9 @@ All 96 initial decision inputs were rendered with the same native executor and p
 Report paired discordant target counts and intervals across the full 96-target denominator. The comparison estimates the effect of replacing parent weights with the trained adapter under this controller. A genuinely trained control with a matched treatment supplies attribution to a particular objective component if that control becomes available. Runtime is descriptive when the jobs have different batch composition or GPU allocations.
 
 Run `python -m scripts.pr117_actor_transfer --help` for admission or execution and `python -m scripts.pr117_actor_transfer_score --help` for replay. The scorer uses the existing archived native receipt audit and paired estimator on `PYTHONPATH`. Use the shared `reference_trained_actor_update26_prepared_20261122/prepared.json` for the CPU preparation receipt. The existing 96-target confirmation registration remains unchanged.
+
+## Scheduled execution
+
+Invoke `python -m scripts.pr117_actor_transfer_package` with `--parent-launch`, `--trained-checkpoint`, `--trained-checkpoint-sha256` and `--output` to seal a launch bundle. Use the original durable `complete.json` and its published digest. The package copies the parent's verified panel and runner and changes only the actor condition to run on one separately allocated A100. It pins the original parent result location and validates the complete 96-pair scope on CPU before publication.
+
+The Taiji command is recorded in `inputs/deployment.json`. `bash worker.sh --validate` checks the sealed bundle without model generation. The worker uses the same allocation receipt handoff as the parent. Once both runs have completed, `bash worker.sh --finalize` replays their physical receipts and publishes `paired_actor_results.json` atomically. The parent and trained raw outputs remain separately reproducible.
