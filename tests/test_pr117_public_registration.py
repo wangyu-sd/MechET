@@ -127,3 +127,60 @@ def test_finalized_comparison_handoff_requires_registered_rows_and_receipts(tmp_
     snapshot["artifact_sha256"]["receipt_audit.json"] = changed["sha256"]
     with pytest.raises(ValueError, match="registered target arms"):
         public.finalized_confirmation_audit(launch, write_ref(out / "evidence.json", snapshot))
+
+
+def test_trained_public_activation_uses_the_exact_paired_checkpoint(tmp_path):
+    source, method, audit, runtime = inputs(tmp_path)
+    confirmation = json.loads(Path(audit["path"]).read_bytes())
+    confirmation["binding"].update(primary_arm=controllers.C0, actor_sha256="parent", panel_sha256="panel",
+                                   runtime_contract_sha256=runtime["sha256"], per_target_arm_request_cap=64,
+                                   confirmation_target_lock_sha256="paired-targets", stocks={"stock": 1})
+    cohort = "linear"
+    confirmation["rows"] = [dict(cohort=cohort, target_id=str(i), arm=arm)
+                            for i in range(96) for arm in confirmation["binding"]["arms"]]
+    audit = write_ref(Path(audit["path"]), confirmation)
+
+    checkpoint = tmp_path / "checkpoints" / "round-000019"
+    checkpoint.mkdir(parents=True)
+    adapter = write_ref(checkpoint / "adapter_model.safetensors", b"trained")
+    cfg = write_ref(checkpoint / "adapter_config.json", b"configuration")
+    complete = write_ref(checkpoint / "complete.json", dict(
+        optimizer_step=19, contract_sha256=runtime["sha256"],
+        payload_sha256={"adapter_model.safetensors": adapter["sha256"], "adapter_config.json": cfg["sha256"]},
+        round_metrics=[{"optimizer_updated": True}]))
+    payload, registration = public.build_execution(source, method, audit, runtime, cap=64, checkpoint=complete)
+    panel = json.loads(payload)
+    registration["confirmation_finalizer"] = {"sha256": "sealed-finalizer"}
+    with pytest.raises(ValueError, match="completed paired actor evaluation"):
+        public.validate_registration(registration, panel, runtime["sha256"])
+
+    matched = confirmation["binding"]
+    learned = dict(
+        primary_arm=controllers.C0, arms=[controllers.C0], targets=96, per_target_arm_request_cap=64,
+        runtime_contract_sha256=runtime["sha256"], method_spec_sha256=method["sha256"],
+        parent_actor_sha256=matched["actor_sha256"], parent_panel_sha256=matched["panel_sha256"],
+        parent_confirmation_registration_sha256=matched["confirmation_registration_sha256"],
+        confirmation_target_lock_sha256=matched["confirmation_target_lock_sha256"], stocks={"stock": 1},
+        actor_sha256=adapter["sha256"], trained_checkpoint_complete_sha256=complete["sha256"], optimizer_step=19,
+    )
+    paired = dict(parent=dict(binding=matched, final_summary_verified=True),
+                  trained=dict(binding=learned, final_summary_verified=True),
+                  target_pairs=96, same_initial_native_input_pairs=96, rows=[])
+    for i in range(96):
+        first = dict(first_request_id=f"r{i}", first_prompt_sha256=f"p{i}")
+        paired["rows"].append(dict(cohort=cohort, target_id=str(i), parent=first, trained=dict(first)))
+    ref = write_ref(tmp_path / "paired.json", paired)
+    registration["paired_actor_evidence"] = ref
+    admitted = public.validate_registration(registration, panel, runtime["sha256"])
+    assert admitted["paired_actor_evidence_sha256"] == ref["sha256"]
+
+    learned["trained_checkpoint_complete_sha256"] = "other-complete"
+    registration["paired_actor_evidence"] = write_ref(tmp_path / "other-paired.json", paired)
+    with pytest.raises(ValueError, match="checkpoint"):
+        public.validate_registration(registration, panel, runtime["sha256"])
+
+    learned["trained_checkpoint_complete_sha256"] = complete["sha256"]
+    paired["rows"][-1]["trained"]["first_prompt_sha256"] = "different"
+    registration["paired_actor_evidence"] = write_ref(tmp_path / "other-input.json", paired)
+    with pytest.raises(ValueError, match="matched native inputs"):
+        public.validate_registration(registration, panel, runtime["sha256"])

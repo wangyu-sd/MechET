@@ -101,6 +101,39 @@ def trained_actor(ref, runtime_sha, output_root, learner=0):
                 adapter_sha256=adapter_files["adapter_model.safetensors"], adapter_files=adapter_files)
 
 
+def paired_checkpoint(evidence, confirmation, checkpoint, actor_sha):
+    pair = json.loads(read_pinned(evidence))
+    baseline = json.loads(read_pinned(confirmation))
+    expected = baseline["binding"]
+    parent, trained = (pair[condition] for condition in ("parent", "trained"))
+    parent_binding, trained_binding = parent["binding"], trained["binding"]
+    count, arm = expected["targets"], expected["primary_arm"]
+    if (parent["final_summary_verified"] is not True or trained["final_summary_verified"] is not True
+            or pair["target_pairs"] != count or pair["same_initial_native_input_pairs"] != count
+            or parent_binding != expected):
+        raise ValueError("Public activation requires a completed paired actor evaluation on this confirmation")
+    common = ("primary_arm", "targets", "runtime_contract_sha256", "method_spec_sha256",
+              "confirmation_target_lock_sha256", "per_target_arm_request_cap", "stocks")
+    if (any(trained_binding[key] != expected[key] for key in common)
+            or trained_binding["arms"] != [arm]
+            or trained_binding["parent_actor_sha256"] != expected["actor_sha256"]
+            or trained_binding["parent_panel_sha256"] != expected["panel_sha256"]
+            or trained_binding["parent_confirmation_registration_sha256"] != expected["confirmation_registration_sha256"]):
+        raise ValueError("Paired actor evidence belongs to a different confirmed protocol")
+    complete = json.loads(read_pinned(checkpoint))
+    if (trained_binding["actor_sha256"] != actor_sha
+            or trained_binding["trained_checkpoint_complete_sha256"] != checkpoint["sha256"]
+            or trained_binding["optimizer_step"] != complete["optimizer_step"]):
+        raise ValueError("Public activation checkpoint differs from the paired trained actor")
+    locked = {(r["cohort"], r["target_id"]) for r in baseline["rows"] if r["arm"] == arm}
+    reported = {(r["cohort"], r["target_id"]) for r in pair["rows"]}
+    input_fields = ("first_request_id", "first_prompt_sha256")
+    if (len(locked) != count or len(pair["rows"]) != count or reported != locked
+            or any(not r["parent"][field] or r["parent"][field] != r["trained"][field]
+                   for r in pair["rows"] for field in input_fields)):
+        raise ValueError("Paired actor evaluation must cover all registered targets and matched native inputs")
+
+
 def validate_registration(registration, panel, runtime_sha):
     if (registration["phase"] != "reference_full_public"
             or registration["runtime_contract_sha256"] != runtime_sha
@@ -120,14 +153,24 @@ def validate_registration(registration, panel, runtime_sha):
         raise ValueError("Public evaluation request budget changed")
     if registration["actor_sha256"] != panel["actor"]["adapter_sha256"]:
         raise ValueError("Public evaluation actor changed")
+    checkpoint = registration["trained_checkpoint"]
+    paired = registration.get("paired_actor_evidence")
+    if checkpoint is not None and registration.get("confirmation_finalizer") and paired is None:
+        raise ValueError("Public activation of trained weights requires a completed paired actor evaluation")
+    provenance = {}
+    if paired is not None:
+        if checkpoint is None:
+            raise ValueError("Paired actor evidence requires the selected trained checkpoint")
+        paired_checkpoint(paired, registration["confirmation_audit"], checkpoint, registration["actor_sha256"])
+        provenance["paired_actor_evidence_sha256"] = paired["sha256"]
     return dict(scope="full official public Reference benchmark", targets=len(lock["targets"]), arms=[arm],
                 primary_arm=arm, total_request_ceiling=total, public_target_lock_sha256=registration["target_lock"]["sha256"],
                 method_spec_sha256=registration["method_spec"]["sha256"],
                 confirmation_audit_sha256=registration["confirmation_audit"]["sha256"],
-                runner_source_sha256=registration["runner_source_sha256"])
+                runner_source_sha256=registration["runner_source_sha256"], **provenance)
 
 
-def build_execution(source, method, confirmation, runtime_ref, *, cap, checkpoint=None):
+def build_execution(source, method, confirmation, runtime_ref, *, cap, checkpoint=None, paired=None):
     lock = target_lock(source)
     runtime = json.loads(read_pinned(runtime_ref))
     arm = selected_method(method, confirmation)
@@ -144,6 +187,8 @@ def build_execution(source, method, confirmation, runtime_ref, *, cap, checkpoin
                         runner_source_sha256=source_hashes(), panel_sha256=digest(payload), actor_sha256=adapter_sha,
                         trained_checkpoint=checkpoint, targets=lock["total_targets"], arms=[arm],
                         per_target_arm_request_cap=cap, total_request_ceiling=lock["total_targets"] * cap)
+    if paired is not None:
+        registration["paired_actor_evidence"] = paired
     validate_registration(registration, panel, runtime_ref["sha256"])
     return payload, registration
 
@@ -160,12 +205,17 @@ def main():
     parser.add_argument("--confirmation-audit-sha256")
     parser.add_argument("--confirmation-evidence-sha256")
     parser.add_argument("--confirmation-launch", type=Path)
+    parser.add_argument("--paired-actor-evidence", type=Path)
+    parser.add_argument("--paired-actor-evidence-sha256")
     parser.add_argument("--runtime-contract", type=Path, required=True)
     parser.add_argument("--request-cap", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if (args.trained_checkpoint is None) != (args.trained_checkpoint_sha256 is None):
         parser.error("Provide both the trained complete receipt and its SHA256.")
+    if (bool(args.paired_actor_evidence) != bool(args.paired_actor_evidence_sha256)
+            or bool(args.trained_checkpoint) != bool(args.paired_actor_evidence)):
+        parser.error("Trained weights require the completed paired actor evidence and its SHA256.")
     if (bool(args.confirmation_audit) != bool(args.confirmation_audit_sha256)
             or bool(args.confirmation_evidence) != bool(args.confirmation_evidence_sha256)
             or bool(args.confirmation_evidence) != bool(args.confirmation_launch)):
@@ -184,7 +234,8 @@ def main():
     panel, registration = build_execution(
         ref(args.target_lock, args.target_lock_sha256), ref(args.method_spec, args.method_spec_sha256), audit,
         ref(runtime_path, digest(runtime_path.read_bytes())), cap=args.request_cap,
-        checkpoint=ref(args.trained_checkpoint, args.trained_checkpoint_sha256) if args.trained_checkpoint else None)
+        checkpoint=ref(args.trained_checkpoint, args.trained_checkpoint_sha256) if args.trained_checkpoint else None,
+        paired=ref(args.paired_actor_evidence, args.paired_actor_evidence_sha256) if args.paired_actor_evidence else None)
     if finalized is not None:
         registration["confirmation_finalizer"] = finalized
     output.mkdir(exist_ok=False)
