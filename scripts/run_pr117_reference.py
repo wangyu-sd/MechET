@@ -1,4 +1,4 @@
-"""Run PR117's preregistered Reference screen using one frozen native actor."""
+"""Run one registered PR117 Reference evaluation with a verified native actor."""
 import argparse
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -67,22 +67,34 @@ def bind_runtime(args):
     actor = verify_stage2_actor(cfg["parent"])
     reg_path = getattr(args, "confirmation_registration", None)
     reg_sha = getattr(args, "confirmation_registration_sha256", None)
+    public_path = getattr(args, "public_registration", None)
+    public_sha = getattr(args, "public_registration_sha256", None)
     if (reg_path is None) != (reg_sha is None):
         raise ValueError("Confirmation requires both the registration and its SHA256")
-    if reg_path is None:
+    if (public_path is None) != (public_sha is None) or (reg_path is not None and public_path is not None):
+        raise ValueError("Choose one registration and provide its SHA256")
+    if reg_path is None and public_path is None:
         lock_file = Path(__file__).resolve().parents[1] / "docs/goals/PR117_INITIAL_REFERENCE_PANEL_LOCK.json"
         lock = json.loads(lock_file.read_bytes())
     else:
         from scripts.pr117_confirmation import read_pinned
-        lock = json.loads(read_pinned({"path": reg_path, "sha256": reg_sha}))
+        lock = json.loads(read_pinned({"path": reg_path or public_path, "sha256": reg_sha or public_sha}))
     payload = args.panel.read_bytes()
     if sha(payload) != lock["panel_sha256"]:
         raise ValueError("Reference panel changed after preregistration")
     panel = json.loads(payload)
-    if actor["adapter_sha256"] != lock["actor_sha256"] or actor["adapter_sha256"] != panel["actor"]["adapter_sha256"]:
-        raise ValueError("Wrong frozen actor")
     cap = panel["request_ceiling_per_target_arm"]
-    if reg_path is None:
+    if public_path is not None:
+        from scripts.pr117_public_registration import trained_actor, validate_registration
+        scope = validate_registration(lock, panel, sha(cfg_raw))
+        scope["public_registration_sha256"] = public_sha
+        if lock["trained_checkpoint"] is not None:
+            actor = trained_actor(lock["trained_checkpoint"], sha(cfg_raw), cfg["output_dir"],
+                                  cfg["role_partition"]["learner"])
+            cfg = dict(cfg, parent=actor["checkpoint"], parent_sha256=actor["adapter_sha256"])
+            scope["trained_checkpoint_complete_sha256"] = lock["trained_checkpoint"]["sha256"]
+            scope["trained_optimizer_step"] = actor["optimizer_step"]
+    elif reg_path is None:
         arms = (controllers.C0, controllers.C1, controllers.C2, controllers.C4)
         if tuple(panel["arms"]) != arms or len(panel["targets"]) != lock["targets"]:
             raise ValueError("Panel arm or population mismatch")
@@ -93,6 +105,8 @@ def bind_runtime(args):
         from scripts.pr117_confirmation import validate_registration
         scope = validate_registration(lock, panel, sha(cfg_raw))
         scope["confirmation_registration_sha256"] = reg_sha
+    if actor["adapter_sha256"] != lock["actor_sha256"] or actor["adapter_sha256"] != panel["actor"]["adapter_sha256"]:
+        raise ValueError("Wrong frozen actor")
     stocks = {}
     for name, info in panel["stocks"].items():
         raw = Path(info["source_path"]).read_bytes()
@@ -239,6 +253,8 @@ def main():
     parser.add_argument("--panel", required=True, type=Path)
     parser.add_argument("--confirmation-registration", type=Path)
     parser.add_argument("--confirmation-registration-sha256")
+    parser.add_argument("--public-registration", type=Path)
+    parser.add_argument("--public-registration-sha256")
     parser.add_argument("--validate", action="store_true", help="verify inputs without loading the model or GPU")
     parser.add_argument("--allocation-receipt", type=Path)
     parser.add_argument("--output", type=Path)
