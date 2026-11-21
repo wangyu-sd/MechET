@@ -27,10 +27,18 @@ frozen=(--runtime-contract "$contract" --panel "$panel"
         --confirmation-registration-sha256 "$registration_sha")
 runner=("$python" -S -u -m scripts.run_pr117_reference "${frozen[@]}" --workers 6 --backend hf)
 trained=()
+cbyd_policy="$launch/inputs/cbyd_policy.json"
 if [[ -f "$launch/inputs/trained_checkpoint.path" ]]; then
     trained=(--trained-checkpoint "$(cat "$launch/inputs/trained_checkpoint.path")"
              --trained-checkpoint-sha256 "$(cat "$launch/inputs/trained_checkpoint.sha256")")
     runner=("$python" -S -u -m scripts.pr117_actor_transfer "${frozen[@]}" "${trained[@]}")
+fi
+if [[ -f "$cbyd_policy" ]]; then
+    [[ ${#trained[@]} == 0 ]]
+    policy_sha="$(sha256sum "$cbyd_policy" | cut -d ' ' -f 1)"
+    awk -v digest="$policy_sha" '$1 == digest && $2 == "inputs/cbyd_policy.json" { found=1 } END { exit !found }' "$launch/inputs.sha256"
+    runner=("$python" -S -u -m scripts.pr117_cbyd "${frozen[@]}" --workers 6
+            --cbyd-policy "$cbyd_policy" --cbyd-policy-sha256 "$policy_sha")
 fi
 case "${1:-}" in
     --validate)
@@ -39,6 +47,10 @@ case "${1:-}" in
         ;;
     --finalize)
         [[ $# == 1 ]]
+        if [[ -f "$cbyd_policy" ]]; then
+            printf '%s\n' 'Use scripts.pr117_cbyd_score with the separate literature evaluator inputs.' >&2
+            exit 2
+        fi
         if (( ${#trained[@]} )); then
             parent_results="$(cat "$launch/inputs/parent_results.path")"
             if [[ ! -s "$parent_results/screen_result.json" || ! -s "$launch/results/screen_result.json" ]]; then

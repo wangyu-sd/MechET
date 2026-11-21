@@ -19,6 +19,7 @@ Use the optional scorer argument `--source-trees` to report a stereochemistry di
 
 ## Reproduction inputs
 
+- `python -m scripts.pr117_cbyd_package` builds the two scheduler bundles from the frozen Reference launch package and the prepared CbyD split. Use `--parent-launch`, `--cbyd-plan`, `--cbyd-plan-sha256` and `--output`. Each bundle has its own task flag, target-only payload and one-A100 execution command. `bash worker.sh --validate` verifies the isolated policy admission. During the registered window use the existing `scripts.pr117_admit_allocation` command for the assigned worker.
 - Run `python -m scripts.pr117_cbyd --help` in the verified native runtime. `--validate` binds the existing Reference registration, the CbyD target-only file and its SHA-256. Live execution requires a separate, legitimate GPU allocation receipt.
 - Run `python -m scripts.pr117_cbyd_score --help` using the same benchmark binding and the two evaluator-only digests. The scorer independently replays the accepted worker's full physical journal and refuses partial or mismatched results. Supply the existing `audit_reference_receipts.py` and `cbyd_first_disconnection.py` modules on `PYTHONPATH` from the archived PR117 run.
 - The shared run's `cbyd_native_evaluation_prepared_20261122/prepared.json` records all three source views, policy admission and separate evaluator identifiers. The cumulative view verifies the full denominator. Use the initial and additional views to avoid repeated model calls.
