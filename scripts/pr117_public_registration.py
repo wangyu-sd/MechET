@@ -51,6 +51,35 @@ def selected_method(method, confirmation):
     return arm
 
 
+def finalized_confirmation_audit(launch, evidence):
+    """Use the completed finalizer output for the exact sealed Phase B comparison."""
+    prepared = json.loads((launch / "prepared.json").read_bytes())
+    registration_sha = prepared["confirmation_registration_sha256"]
+    registration = json.loads(read_pinned(dict(path=launch / "inputs/confirmation_registration.json", sha256=registration_sha)))
+    panel = json.loads(read_pinned(dict(path=launch / "inputs/panel.json", sha256=registration["panel_sha256"])))
+    finalized = json.loads(read_pinned(evidence))
+    expected_binding = {key: registration[key] for key in
+                        ("targets", "arms", "actor_sha256", "panel_sha256", "per_target_arm_request_cap")}
+    expected_binding.update(confirmation_registration_sha256=registration_sha,
+                            method_spec_sha256=registration["method_spec"]["sha256"])
+    count = registration["targets"] * len(registration["arms"])
+    if (finalized["status"] != "COMPLETE_REPLAY_VERIFIED" or finalized["expected_arms"] != count
+            or finalized["completed_arms"] != count or finalized["fully_paired_targets"] != registration["targets"]
+            or any(finalized["binding"].get(k) != v for k, v in expected_binding.items())):
+        raise ValueError("Public activation requires the finalized registered independent comparison")
+    path = (Path(evidence["path"]).resolve().parent / "receipt_audit.json")
+    ref = dict(path=str(path), sha256=finalized["artifact_sha256"]["receipt_audit.json"])
+    audit = json.loads(read_pinned(ref))
+    expected = {(r["cohort"], r["target_id"], arm) for r in panel["targets"] for arm in registration["arms"]}
+    recorded = {(r["cohort"], r["target_id"], r["arm"]) for r in audit["rows"]}
+    calls = [r["gpu_requests"] for r in audit["rows"]]
+    if (audit["binding"] != finalized["binding"] or len(expected) != count or len(calls) != count or recorded != expected
+            or any(not 0 <= n <= registration["per_target_arm_request_cap"] for n in calls)
+            or any(finalized[k] != sum(calls) for k in ("issued_native_calls", "returned_native_calls", "audited_native_calls"))):
+        raise ValueError("Finalized receipt audit must cover the registered target arms and physical calls")
+    return ref
+
+
 def trained_actor(ref, runtime_sha, output_root, learner=0):
     checkpoint = Path(ref["path"]).resolve().parent
     if (Path(ref["path"]).name != "complete.json"
@@ -121,16 +150,26 @@ def build_execution(source, method, confirmation, runtime_ref, *, cap, checkpoin
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("target-lock", "method-spec", "confirmation-audit", "trained-checkpoint"):
+    for name in ("target-lock", "method-spec", "trained-checkpoint"):
         required = name != "trained-checkpoint"
         parser.add_argument("--" + name, type=Path, required=required)
         parser.add_argument("--" + name + "-sha256", required=required)
+    confirmation_input = parser.add_mutually_exclusive_group(required=True)
+    confirmation_input.add_argument("--confirmation-audit", type=Path)
+    confirmation_input.add_argument("--confirmation-evidence", type=Path)
+    parser.add_argument("--confirmation-audit-sha256")
+    parser.add_argument("--confirmation-evidence-sha256")
+    parser.add_argument("--confirmation-launch", type=Path)
     parser.add_argument("--runtime-contract", type=Path, required=True)
     parser.add_argument("--request-cap", type=int, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if (args.trained_checkpoint is None) != (args.trained_checkpoint_sha256 is None):
         parser.error("Provide both the trained complete receipt and its SHA256.")
+    if (bool(args.confirmation_audit) != bool(args.confirmation_audit_sha256)
+            or bool(args.confirmation_evidence) != bool(args.confirmation_evidence_sha256)
+            or bool(args.confirmation_evidence) != bool(args.confirmation_launch)):
+        parser.error("Supply the matching confirmation digest and the sealed launch for finalized evidence.")
     output = args.output.resolve()
     if not output.is_relative_to("/aaa/fionafyang/buddy1"):
         parser.error("Write the public registration on shared storage.")
@@ -139,11 +178,15 @@ def main():
         return dict(path=str(path.resolve()), sha256=sha)
 
     runtime_path = args.runtime_contract
+    finalized = ref(args.confirmation_evidence, args.confirmation_evidence_sha256) if args.confirmation_evidence else None
+    audit = (finalized_confirmation_audit(args.confirmation_launch, finalized) if finalized else
+             ref(args.confirmation_audit, args.confirmation_audit_sha256))
     panel, registration = build_execution(
-        ref(args.target_lock, args.target_lock_sha256), ref(args.method_spec, args.method_spec_sha256),
-        ref(args.confirmation_audit, args.confirmation_audit_sha256),
+        ref(args.target_lock, args.target_lock_sha256), ref(args.method_spec, args.method_spec_sha256), audit,
         ref(runtime_path, digest(runtime_path.read_bytes())), cap=args.request_cap,
         checkpoint=ref(args.trained_checkpoint, args.trained_checkpoint_sha256) if args.trained_checkpoint else None)
+    if finalized is not None:
+        registration["confirmation_finalizer"] = finalized
     output.mkdir(exist_ok=False)
     with (output / "panel.json").open("xb") as stream:
         stream.write(panel)

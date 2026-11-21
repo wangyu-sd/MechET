@@ -97,3 +97,33 @@ def test_trained_actor_requires_a_completed_original_bound_update(tmp_path):
     Path(weight["path"]).write_bytes(b"changed")
     with pytest.raises(ValueError, match="digest changed"):
         public.trained_actor(complete, runtime["sha256"], tmp_path)
+
+
+def test_finalized_comparison_handoff_requires_registered_rows_and_receipts(tmp_path):
+    launch = tmp_path / "launch"
+    inputs_folder = launch / "inputs"
+    inputs_folder.mkdir(parents=True)
+    frozen_rows = [dict(cohort="linear", target_id="one"), dict(cohort="long", target_id="two")]
+    panel = write_ref(inputs_folder / "panel.json", {"targets": frozen_rows})
+    arm = controllers.C0
+    registration = write_ref(inputs_folder / "confirmation_registration.json", dict(
+        targets=2, arms=[arm], actor_sha256="parent", panel_sha256=panel["sha256"],
+        per_target_arm_request_cap=64, method_spec={"sha256": "method"}))
+    write_ref(launch / "prepared.json", {"confirmation_registration_sha256": registration["sha256"]})
+    binding = dict(targets=2, arms=[arm], actor_sha256="parent", panel_sha256=panel["sha256"],
+                   confirmation_registration_sha256=registration["sha256"], method_spec_sha256="method",
+                   per_target_arm_request_cap=64)
+    out = tmp_path / "evidence"
+    out.mkdir()
+    rows = [dict(row, arm=arm, gpu_requests=3) for row in frozen_rows]
+    audit = write_ref(out / "receipt_audit.json", dict(binding=binding, rows=rows))
+    snapshot = dict(status="COMPLETE_REPLAY_VERIFIED", binding=binding, expected_arms=2, completed_arms=2,
+                    fully_paired_targets=2, issued_native_calls=6, returned_native_calls=6, audited_native_calls=6,
+                    artifact_sha256={"receipt_audit.json": audit["sha256"]})
+    record = write_ref(out / "evidence.json", snapshot)
+    assert public.finalized_confirmation_audit(launch, record) == audit
+    fake_rows = [rows[0], rows[0]]
+    changed = write_ref(out / "receipt_audit.json", dict(binding=binding, rows=fake_rows))
+    snapshot["artifact_sha256"]["receipt_audit.json"] = changed["sha256"]
+    with pytest.raises(ValueError, match="registered target arms"):
+        public.finalized_confirmation_audit(launch, write_ref(out / "evidence.json", snapshot))
