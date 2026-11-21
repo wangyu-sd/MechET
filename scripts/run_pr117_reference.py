@@ -153,6 +153,10 @@ def run_live(args, cfg, panel, stocks, verification):
     cfg = dict(cfg, output_dir=str(output), _sha=verification["panel_sha256"])
     cfg["vllm_runtime"] = dict(cfg["vllm_runtime"], cache_root=str(output / "engine-caches"))
     cfg["vllm_runtime"].pop("shared_triton_cache_root", None)
+    # The one-device inference pilot has fewer active requests than the
+    # original H20 training role. Keep its cache and concurrency isolated.
+    cfg["vllm_runtime"]["kv_cache_memory_bytes"] = min(cfg["vllm_runtime"]["kv_cache_memory_bytes"], 4 << 30)
+    cfg["generation_batch_size"] = args.workers
     cfg["seed"] = panel["seed"]
     version = "validation000000:" + verification["actor_sha256"]
     cfg["behavior_version"] = version
