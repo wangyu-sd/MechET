@@ -1,0 +1,38 @@
+import pytest
+
+from scripts.pr117_public_batches import fully_published, merge_verified, partition_indexes
+
+
+def test_partitions_preserve_each_target_seed_and_balance_the_registered_cohorts():
+    rows = [dict(cohort=c, target_id=f"{c}-{i}", seed=i) for c in ("linear", "long") for i in range(5)]
+    partitions = partition_indexes(rows, 3)
+    assert partitions == [[0, 3, 6, 9], [1, 4, 7], [2, 5, 8]]
+    assert sorted(index for batch in partitions for index in batch) == list(range(10))
+    with pytest.raises(ValueError, match="identities"):
+        partition_indexes([*rows, rows[0]], 3)
+
+
+def test_partial_archive_retains_incomplete_denominator_and_rejects_duplicate_cases():
+    expected = {("linear", "a"), ("long", "b")}
+    first = {("linear", "a"): dict(native_calls=3, stock_closed=True,
+                                   first_solution={"native_calls":2})}
+    second = {("long", "b"): dict(native_calls=5,stock_closed=False,first_solution=None)}
+    partial = merge_verified(expected, [first], cap=8)
+    assert partial["status"] == "PARTIAL_REFERENCE_EVIDENCE"
+    assert partial["evaluated_targets"] == 1 and partial["registered_targets"] == 2
+    assert partial["actual_calls_in_verified_batches"] == 3 and "solved_by_budget" not in partial
+    full = merge_verified(expected, [first, second], cap=8)
+    assert full["status"] == "COMPLETE_REFERENCE_EVIDENCE"
+    assert full["solved_by_budget"]["8"] == {"closed":1,"targets":2}
+    assert full["actual_calls_in_verified_batches"] == 8
+    with pytest.raises(ValueError, match="duplicate"):
+        merge_verified(expected, [first, first, second], cap=8)
+
+
+def test_live_partial_worker_summary_does_not_count_as_a_finished_batch(tmp_path):
+    path = tmp_path / "screen_result.json"
+    assert not fully_published(path)
+    path.write_text('{"targets": ')
+    assert not fully_published(path)
+    path.write_text('{"targets": 1}\n')
+    assert fully_published(path)

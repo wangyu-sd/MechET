@@ -28,7 +28,7 @@ def native_endpoints(raw, replay):
                 first_prompt_sha256=sha(json.dumps(first["prompt_token_ids"]).encode()) if first else None)
 
 
-def replay_arm(results, cfg, panel, stocks, binding, arm):
+def replay_arm(results, cfg, panel, stocks, binding, arm, *, measure=native_endpoints):
     from audit_reference_receipts import audit_arm, journal_index
 
     admission = json.loads((results / "admission.json").read_bytes())
@@ -70,7 +70,7 @@ def replay_arm(results, cfg, panel, stocks, binding, arm):
         replay = audit_arm(raw, target_rows[key], cfg, stocks[raw["stock"]], cap, (req, ret, rec))
         if replay["gpu_requests"] != actual[(*key, arm)]["native_generation_requests"]:
             raise ValueError("Physical actor calls disagree with the worker result")
-        outcomes[key] = native_endpoints(raw, replay)
+        outcomes[key] = measure(raw, replay)
 
     arm_calls = sum(row["native_calls"] for row in outcomes.values())
     total = summary["actual_native_generation_requests"]
@@ -79,7 +79,8 @@ def replay_arm(results, cfg, panel, stocks, binding, arm):
             or sum(row["stock_closed"] for row in outcomes.values()) != summary["solved"][arm]):
         raise ValueError("Actor physical journal or full-cohort closure count disagrees with replay")
     return outcomes, dict(summary_sha256=sha(raw_summary), binding=binding,
-                          gpu_model=admission["allocation"]["gpu_model"], inference_backend="hf")
+                          gpu_model=admission["allocation"]["gpu_model"], inference_backend="hf",
+                          worker_wall_seconds=summary["single_gpu_wall_seconds"], gpu_hours=summary["gpu_hours"])
 
 
 def evaluate(args):
