@@ -156,6 +156,10 @@ def run_live(args, cfg, panel, stocks, verification):
     # The one-device inference pilot has fewer active requests than the
     # original H20 training role. Keep its cache and concurrency isolated.
     cfg["vllm_runtime"]["kv_cache_memory_bytes"] = min(cfg["vllm_runtime"]["kv_cache_memory_bytes"], 4 << 30)
+    if args.vllm_native_driver:
+        from scripts.pr117_native_cuda import bind_native_driver
+        cfg["vllm_runtime"], driver = bind_native_driver(cfg["vllm_runtime"], output, allocation["gpu_uuid"])
+        write_new(output / "native_driver_receipt.json", driver)
     cfg["generation_batch_size"] = args.workers
     cfg["seed"] = panel["seed"]
     version = "validation000000:" + verification["actor_sha256"]
@@ -223,7 +227,11 @@ def main():
     parser.add_argument("--output", type=Path)
     parser.add_argument("--workers", type=int, default=6)
     parser.add_argument("--backend", choices=("vllm", "hf"), default="vllm")
+    parser.add_argument("--vllm-native-driver", action="store_true",
+                        help="bind the allocated R580+ host driver to the fixed vLLM CUDA 12.9 runtime")
     args = parser.parse_args()
+    if args.vllm_native_driver and args.backend != "vllm":
+        parser.error("--vllm-native-driver requires --backend vllm")
     cfg, panel, stocks, verification = bind_runtime(args)
     if args.validate:
         print(json.dumps(verification))
