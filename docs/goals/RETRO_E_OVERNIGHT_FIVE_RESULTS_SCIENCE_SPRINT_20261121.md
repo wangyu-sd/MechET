@@ -1,3 +1,13 @@
+# SUPERSEDED — PR117 scientific goal has been revised (2026-11-21 CST)
+
+**DO NOT execute this earlier five-result-first checklist as the primary instruction.** The user's new goal is convergence to ONE strong electron-flow-granularity retrosynthesis method with bounded Codex Autoresearch and an evidence-driven redesign of NMI Results. Read the NEW authoritative goal first:
+
+[PR117 Autoresearch Method Convergence and NMI Results](PR117_AUTORESEARCH_METHOD_CONVERGENCE_AND_NMI_RESULTS_20261121.md)
+
+The previous overnight checklist is preserved below for historical provenance and optional compatible evidence-task detail. Where the two documents differ, **the new Autoresearch goal takes precedence**, including model limits, method selection, finite loops, scientific falsification, and permission to revise Results. Do not assume a PR commit or GitHub comment launches Codex/GPU work.
+
+---
+
 # Retro-E Overnight Scientific Sprint — Five Results, One Electron Actor
 **Author-approved goal: 2026-11-21. CODEX: EXECUTE, not another planning cycle.**
 
