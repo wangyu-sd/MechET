@@ -50,3 +50,30 @@ def test_root_stereo_diagnostic_preserves_connectivity_and_counts_the_correct_ca
     outcome = pr117_cbyd_score.root_stereo_diagnostic(reference, commits, ["first", "later"], 2, exact)
     assert outcome == dict(first_root_structure="same_connectivity_different_stereochemistry",
                            first_connectivity_match_call=1)
+
+
+def test_cbyd_merge_keeps_original_counts_and_rejects_mixed_actors_or_duplicate_roots():
+    binding = dict(actor_sha256="actor", stock_source_sha256="stock", per_target_arm_request_cap=64,
+                   panel_sha256="full", cbyd_policy_sha256="full-policy", targets=2, total_request_ceiling=128)
+
+    def part(target, calls, solved):
+        row = dict(target_id=target, source_target_id="source-" + target, actual_native_calls=calls,
+                   has_productive_root_commit=solved, exact_first_commit=solved,
+                   any_exact_match=solved, stock_closed=solved)
+        return dict(binding=dict(binding, panel_sha256=target, cbyd_policy_sha256="policy-" + target,
+                                 targets=1, total_request_ceiling=64),
+                    evaluator_sha256="evaluator", mapping_sha256="mapping", native_summary_sha256=target,
+                    actual_native_calls=calls, totals=summarize_scores([row]), rows=[row])
+
+    stages = {"initial": part("a", 5, False), "additional": part("b", 9, True)}
+    sources = {"a": "source-a", "b": "source-b"}
+    result = pr117_cbyd_score.merge_cbyd_scores(stages, binding, sources)
+    assert result["totals"]["targets"] == 2 and result["totals"]["full_inventory_closed"] == 1
+    assert result["actual_native_calls"] == 14
+    assert result["stages"]["initial"]["actual_native_calls"] == 5
+    assert [r["target_id"] for r in result["rows"]] == ["a", "b"]
+    with pytest.raises(ValueError, match="Duplicate"):
+        pr117_cbyd_score.merge_cbyd_scores(dict(stages, additional=stages["initial"]), binding, sources)
+    conflicting = dict(stages["additional"], binding=dict(stages["additional"]["binding"], actor_sha256="other"))
+    with pytest.raises(ValueError, match="frozen evaluation"):
+        pr117_cbyd_score.merge_cbyd_scores(dict(stages, additional=conflicting), binding, sources)

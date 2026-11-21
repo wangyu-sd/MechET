@@ -165,6 +165,81 @@ def score(args):
     return output
 
 
+def merge_cbyd_scores(parts, cumulative, source_by_policy):
+    if set(parts) != {"initial", "additional"} or len(source_by_policy) != cumulative["targets"]:
+        raise ValueError("Expected both CbyD cohorts and their full cumulative identity binding")
+    view_fields = {"panel_sha256", "cbyd_policy_sha256", "targets", "total_request_ceiling"}
+    common = {k: v for k, v in cumulative.items() if k not in view_fields}
+    provenance = {key: parts["initial"].get(key) for key in
+                  ("evaluator_sha256", "mapping_sha256", "source_tree_sha256")}
+    rows, stages = {}, {}
+    cap = cumulative["per_target_arm_request_cap"]
+    for name, part in parts.items():
+        binding = part["binding"]
+        if ({k: v for k, v in binding.items() if k not in view_fields} != common
+                or any(part.get(key) != value for key, value in provenance.items())):
+            raise ValueError("The CbyD cohorts must share one frozen evaluation")
+        cases = part["rows"]
+        calls = sum(row["actual_native_calls"] for row in cases)
+        if (len(cases) != binding["targets"] or calls != part["actual_native_calls"]
+                or any(not 0 <= row["actual_native_calls"] <= cap for row in cases)
+                or binding["total_request_ceiling"] != len(cases) * cap):
+            raise ValueError("CbyD cohort counts do not match its physical work and ceiling")
+        for row in cases:
+            target_id = row["target_id"]
+            if target_id in rows:
+                raise ValueError("Duplicate CbyD outcome across the two cohorts")
+            if source_by_policy.get(target_id) != row["source_target_id"]:
+                raise ValueError("CbyD outcome differs from the cumulative source identity")
+            rows[target_id] = dict(row, cohort_stage=name)
+        stages[name] = dict(binding=binding, native_summary_sha256=part["native_summary_sha256"],
+                            actual_native_calls=calls, totals=summarize_scores(cases))
+    if rows.keys() != source_by_policy.keys():
+        raise ValueError("CbyD outcomes must cover the full registered cumulative cohort")
+    ordered = [rows[target_id] for target_id in source_by_policy]
+    return dict(binding=cumulative, **{k: v for k, v in provenance.items() if v is not None}, stages=stages,
+                actual_native_calls=sum(row["actual_native_calls"] for row in ordered),
+                totals=summarize_scores(ordered), rows=ordered)
+
+
+def prepare_cbyd_merge(args):
+    plan = json.loads(read_pinned(dict(path=args.merge_prepared, sha256=args.merge_prepared_sha256)))
+    views = plan["views"]
+    if (views["initial"]["policy_sha256"] != args.cbyd_policy_sha256
+            or plan["reference_confirmation_registration_sha256"] != args.confirmation_registration_sha256
+            or plan["separate_private_evaluator_sha256"] != args.evaluator_sha256
+            or plan["separate_evaluator_id_mapping_sha256"] != args.mapping_sha256):
+        raise ValueError("CbyD reporting inputs differ from the registered split")
+    root = args.merge_prepared.parent
+    policies = dict(initial=args.cbyd_policy, additional=root / views["additional"]["policy"],
+                    cumulative=args.cumulative_policy)
+    rows, seeds = {}, set()
+    for name, path in policies.items():
+        view = json.loads(read_pinned(dict(path=path, sha256=views[name]["policy_sha256"])))
+        seeds.add(view["seed"])
+        rows[name] = {row["target_id"]: row for row in view["targets"]}
+        if len(rows[name]) != len(view["targets"]) or len(rows[name]) != views[name]["targets"]:
+            raise ValueError("Unexpected identity or denominator in the registered CbyD split")
+    if (len(seeds) != 1 or rows["initial"].keys() & rows["additional"].keys()
+            or (rows["initial"] | rows["additional"]) != rows["cumulative"]):
+        raise ValueError("CbyD policy views must retain the original identities, molecules and seeds")
+    cumulative_args = argparse.Namespace(**vars(args))
+    cumulative_args.cbyd_policy = policies["cumulative"]
+    cumulative_args.cbyd_policy_sha256 = views["cumulative"]["policy_sha256"]
+    _, panel, _, binding = bind_cbyd(cumulative_args)
+    if any(len(part) * binding["per_target_arm_request_cap"] != views[name]["calls_ceiling"] for name, part in rows.items()):
+        raise ValueError("CbyD cohort call budgets changed after registration")
+    evaluator = json.loads(read_pinned(dict(path=args.evaluator, sha256=args.evaluator_sha256)))
+    mapping = json.loads(read_pinned(dict(path=args.mapping, sha256=args.mapping_sha256)))
+    references = references_for(panel, evaluator, mapping, evaluator_sha=args.evaluator_sha256,
+                                source_lock_sha=binding["cbyd_source_target_lock_sha256"])
+    additional_args = argparse.Namespace(**vars(args))
+    additional_args.cbyd_policy = policies["additional"]
+    additional_args.cbyd_policy_sha256 = views["additional"]["policy_sha256"]
+    additional_args.results = args.additional_results
+    return additional_args, binding, {key: ref["target_id"] for key, ref in references.items()}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_inputs(parser)
@@ -173,11 +248,24 @@ def main():
     for name in ("evaluator-sha256", "mapping-sha256"):
         parser.add_argument(f"--{name}", required=True)
     parser.add_argument("--source-trees", type=Path, help="Pinned evaluator-only trees for the stereochemistry diagnostic")
+    for name in ("merge-prepared", "additional-results", "cumulative-policy"):
+        parser.add_argument(f"--{name}", type=Path)
+    parser.add_argument("--merge-prepared-sha256")
     args = parser.parse_args()
     output = args.output.resolve()
-    if not output.is_relative_to(CEPH) or output.is_relative_to(args.results.resolve()):
+    merge_inputs = (args.merge_prepared, args.merge_prepared_sha256, args.additional_results, args.cumulative_policy)
+    if any(merge_inputs) and not all(merge_inputs):
+        parser.error("A cumulative report requires the registered split, its hash, the cumulative policy and both results")
+    raw_dirs = [path.resolve() for path in (args.results, args.additional_results) if path is not None]
+    if not output.is_relative_to(CEPH) or any(output.is_relative_to(path) for path in raw_dirs):
         parser.error("Write evaluator results to shared storage outside the raw policy outputs")
-    result = score(args)
+    if args.merge_prepared is None:
+        result = score(args)
+    else:
+        additional, binding, identities = prepare_cbyd_merge(args)
+        parts = {"initial": score(args), "additional": score(additional)}
+        result = merge_cbyd_scores(parts, binding, identities)
+        result["split_plan_sha256"] = args.merge_prepared_sha256
     write_new(output, result)
     print(json.dumps(result["totals"]))
 
