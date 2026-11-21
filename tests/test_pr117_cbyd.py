@@ -2,6 +2,7 @@ import pytest
 
 from scripts.pr117_cbyd import policy_panel, split_policy_views
 from scripts.pr117_cbyd_score import summarize_scores
+from scripts import pr117_cbyd_score
 from scripts.pr117_controllers import C0
 
 
@@ -35,3 +36,17 @@ def test_source_disconnection_and_stock_closure_are_different_full_denominator_m
     ]
     assert summarize_scores(rows) == dict(targets=3, productive_first_reaction=2, exact_first_disconnection=1,
                                           exact_disconnection_found=2, full_inventory_closed=1)
+
+
+def test_root_stereo_diagnostic_preserves_connectivity_and_counts_the_correct_call():
+    reference = pr117_cbyd_score.stereo_free_precursors(["C[C@H](O)F", "CO"])
+    assert reference == pr117_cbyd_score.stereo_free_precursors(["CO", "C[C@@H](O)F"])
+    assert reference != pr117_cbyd_score.stereo_free_precursors(["[13CH3][C@H](O)F", "CO"])
+    assert reference != pr117_cbyd_score.stereo_free_precursors(["C[C@H]([O-])F", "CO"])
+    assert reference != pr117_cbyd_score.stereo_free_precursors(["C[C@H](O)F", "CO", "CO"])
+    commits = [dict(occurrence="0", receipt="first", precursors=["C[C@@H](O)F", "CO"]),
+               dict(occurrence="0", receipt="later", precursors=["C[C@H](O)F", "CO"])]
+    exact = dict(first_exact_match_call=2, first_root_commit_call=1, exact_first_commit=False)
+    outcome = pr117_cbyd_score.root_stereo_diagnostic(reference, commits, ["first", "later"], 2, exact)
+    assert outcome == dict(first_root_structure="same_connectivity_different_stereochemistry",
+                           first_connectivity_match_call=1)

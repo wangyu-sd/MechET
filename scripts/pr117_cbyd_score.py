@@ -1,5 +1,6 @@
 """Evaluate genuine CbyD receipts against separate literature and stock endpoints."""
 import argparse
+from collections import Counter
 import json
 from pathlib import Path
 
@@ -9,10 +10,70 @@ from scripts.run_pr117_reference import CEPH, sha, write_new
 
 
 def summarize_scores(rows):
-    return dict(targets=len(rows), productive_first_reaction=sum(r["has_productive_root_commit"] for r in rows),
-                exact_first_disconnection=sum(r["exact_first_commit"] for r in rows),
-                exact_disconnection_found=sum(r["any_exact_match"] for r in rows),
-                full_inventory_closed=sum(r["stock_closed"] for r in rows))
+    summary = dict(targets=len(rows), productive_first_reaction=sum(r["has_productive_root_commit"] for r in rows),
+                   exact_first_disconnection=sum(r["exact_first_commit"] for r in rows),
+                   exact_disconnection_found=sum(r["any_exact_match"] for r in rows),
+                   full_inventory_closed=sum(r["stock_closed"] for r in rows))
+    if any("first_root_structure" in row for row in rows):
+        summary["first_root_structure_counts"] = dict(Counter(row["first_root_structure"] for row in rows))
+        summary["root_connectivity_found"] = sum(row["first_connectivity_match_call"] is not None for row in rows)
+    return summary
+
+
+def stereo_free_precursors(precursors):
+    from rdkit import Chem
+
+    identities = []
+    for smiles in precursors:
+        molecule = Chem.MolFromSmiles(smiles)
+        if molecule is None:
+            raise ValueError("Cannot resolve an executor precursor for stereochemistry diagnosis")
+        Chem.RemoveStereochemistry(molecule)
+        identities.append(Chem.MolToSmiles(molecule, isomericSmiles=True))
+    return sorted(identities)
+
+
+def source_connectivity(evaluator, tree_path):
+    from cbyd_first_disconnection import precursor_signature
+    from mechet.route_training_contract import chemical_identity
+
+    trees = read_pinned(dict(path=tree_path, sha256=evaluator["source_tree_sha256"]))
+    refs = {row["target_id"]: row for row in evaluator["references"]}
+    results = {}
+    for line in trees.splitlines():
+        tree = json.loads(line)
+        uid = tree["id"]
+        if uid not in refs:
+            continue
+        edge, = tree["children"]
+        precursors = [chemical_identity(child["smiles"]) for child in edge["children"]]
+        reference = refs[uid]
+        if (uid in results or chemical_identity(tree["target"]) != reference["target"]
+                or precursor_signature(precursors) != reference["precursor_signature"]):
+            raise ValueError("Stereo analysis requires the exact preregistered source root structures")
+        results[uid] = stereo_free_precursors(precursors)
+    if results.keys() != refs.keys():
+        raise ValueError("Incomplete stereo reference extraction")
+    return results
+
+
+def root_stereo_diagnostic(reference, commits, request_ids, cap, exact):
+    positions = {uid: index for index, uid in enumerate(request_ids, 1)}
+    matching = [positions[c["receipt"]] for c in commits if c["occurrence"] == "0" and positions[c["receipt"]] <= cap
+                and stereo_free_precursors(c["precursors"]) == reference]
+    first_match = min(matching, default=None)
+    first_commit = exact["first_root_commit_call"]
+    if first_commit is None:
+        status = "no_productive_root"
+    elif exact["exact_first_commit"]:
+        status = "exact"
+    elif first_commit == first_match:
+        status = "same_connectivity_different_stereochemistry"
+    else:
+        status = "different_connectivity"
+    if exact["first_exact_match_call"] is not None and exact["first_exact_match_call"] not in matching:
+        raise ValueError("An exact literature match must also match source connectivity")
+    return dict(first_root_structure=status, first_connectivity_match_call=first_match)
 
 
 def references_for(panel, evaluator, mapping, *, evaluator_sha, source_lock_sha):
@@ -39,6 +100,8 @@ def score(args):
     mapping = json.loads(read_pinned({"path": args.mapping, "sha256": args.mapping_sha256}))
     refs = references_for(panel, evaluator, mapping, evaluator_sha=args.evaluator_sha256,
                           source_lock_sha=binding["cbyd_source_target_lock_sha256"])
+    tree_path = getattr(args, "source_trees", None)
+    stereo_refs = source_connectivity(evaluator, tree_path) if tree_path is not None else None
     results = args.results.resolve()
     admission = json.loads((results / "admission.json").read_bytes())
     summary_raw = (results / "screen_result.json").read_bytes()
@@ -83,6 +146,8 @@ def score(args):
         if len(physical_ids) != audited["gpu_requests"] or len(physical_ids) != worker_rows[uid]["native_generation_requests"]:
             raise ValueError("Physical CbyD call accounting disagrees with native replay")
         scored = score_root_commits(refs[uid], audited["commits"], physical_ids, cap)
+        if stereo_refs is not None:
+            scored.update(root_stereo_diagnostic(stereo_refs[refs[uid]["target_id"]], audited["commits"], physical_ids, cap, scored))
         rows.append(dict(target_id=uid, source_target_id=refs[uid]["target_id"], status=audited["status"],
                          stock_closed=audited["solved"], actual_native_calls=len(physical_ids),
                          generated_tokens=audited["generated_tokens"], source_sha256=row["source_sha256"], **scored))
@@ -92,9 +157,12 @@ def score(args):
             or any(physical != journal.get(k, 0) for k in ("gpu_requests", "gpu_returns", "behavior_receipts"))
             or {arm: sum(row["stock_closed"] for row in rows)} != summary["solved"]):
         raise ValueError("Final CbyD native journal does not cover the frozen evaluation exactly")
-    return dict(binding=binding, evaluator_sha256=args.evaluator_sha256, mapping_sha256=args.mapping_sha256,
-                native_summary_sha256=sha(summary_raw), actual_native_calls=physical,
-                totals=summarize_scores(rows), rows=rows)
+    output = dict(binding=binding, evaluator_sha256=args.evaluator_sha256, mapping_sha256=args.mapping_sha256,
+                  native_summary_sha256=sha(summary_raw), actual_native_calls=physical,
+                  totals=summarize_scores(rows), rows=rows)
+    if stereo_refs is not None:
+        output["source_tree_sha256"] = evaluator["source_tree_sha256"]
+    return output
 
 
 def main():
@@ -104,6 +172,7 @@ def main():
         parser.add_argument(f"--{name}", type=Path, required=True)
     for name in ("evaluator-sha256", "mapping-sha256"):
         parser.add_argument(f"--{name}", required=True)
+    parser.add_argument("--source-trees", type=Path, help="Pinned evaluator-only trees for the stereochemistry diagnostic")
     args = parser.parse_args()
     output = args.output.resolve()
     if not output.is_relative_to(CEPH) or output.is_relative_to(args.results.resolve()):

@@ -15,6 +15,8 @@ The policy input file contains the canonical target structure, an opaque ID and 
 
 Retain alternative committed structures, incomplete outcomes and execution rejections in the denominator. The root-level literature endpoint measures a known disconnection. The inventory endpoint measures full routes, including valid alternatives. Report structural coverage with the exact source audit, including the nine constituent source steps that lack complete mapped target-heavy-atom coverage. The published literature tree is reference evidence outside the policy. [CbyD Methods and Appendix S1.7](https://arxiv.org/pdf/2611.24996)
 
+Use the optional scorer argument `--source-trees` to report a stereochemistry diagnostic from the pinned literature tree. It distinguishes an exact first commitment, matching precursor connectivity with different stereochemistry, different connectivity, and absence of a productive root commitment. The comparison preserves precursor multiplicity, formal charge and isotopes. Record the first connectivity match at the same physical call prefix and retain the exact stereochemical match as the main literature metric.
+
 ## Reproduction inputs
 
 - Run `python -m scripts.pr117_cbyd --help` in the verified native runtime. `--validate` binds the existing Reference registration, the CbyD target-only file and its SHA-256. Live execution requires a separate, legitimate GPU allocation receipt.
