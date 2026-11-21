@@ -73,14 +73,24 @@ def terminal_report(episode, budget):
                 records=episode.records)
 
 
-def policy_path(episode, budget):
+def independent_paths(root, budget):
+    """Sample fresh whole routes until a solution or the same target-level cap."""
+    if root.next_decision() is None:
+        report = root.finish_report()
+        return dict(status=report["status"], report=report, independent_attempts=[])
+    attempts = []
     while not budget.exhausted:
-        request = episode.next_decision()
-        if request is None:
+        episode = root.fork(f"{root.uid}/pr117-independent-{len(attempts) + 1}")
+        while not budget.exhausted:
+            request = episode.next_decision()
+            if request is None:
+                break
+            episode.accept(budget.sample(request))
+        report = terminal_report(episode, budget)
+        attempts.append(report)
+        if report["status"] == "stock_solved":
             break
-        episode.accept(budget.sample(request))
-    report = terminal_report(episode, budget)
-    return dict(status=report["status"], report=report)
+    return dict(status=report["status"], report=report, independent_attempts=attempts)
 
 
 @dataclass
@@ -192,7 +202,7 @@ def solve(arm, episode, backend, *, cap, action=None, grounded_key=None):
     elif arm == C2:
         result = electron_frontier(episode, budget, action=action, grounded_key=grounded_key)
     elif arm in (C0, C1):
-        result = policy_path(episode, budget)
+        result = independent_paths(episode, budget)
     else:
         raise ValueError(f"unknown arm: {arm}")
     return dict(result, requests=budget.requests, generated_tokens=budget.tokens,

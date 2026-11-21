@@ -204,7 +204,7 @@ def run_live(args, cfg, panel, stocks, verification):
     for event in read_owned_journal(journal_path):
         request_id = event["request"]["request_id"]
         if event["event"] == "vllm-submitted":
-            native[request_id.split("/r0/a",1)[0].split("/pr117-c",1)[0]] += 1
+            native[request_id.split("/r0/a",1)[0].split("/pr117-",1)[0]] += 1
     assert len(rows) == verification["targets"] * len(verification["arms"])
     assert sum(native.values()) <= sum(row["request_attempts"] for row in rows) <= verification["total_request_ceiling"]
     for row in rows:

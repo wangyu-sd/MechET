@@ -97,3 +97,17 @@ def test_compact_context_uses_actual_route_relationships_only():
     assert memory["pending"] == [{"product": "X", "occurrence": "0.2"}]
     assert memory["completed"] == [{"product": "A", "precursors": ["B", "S"], "occurrence": "0"}]
     assert memory["stock_leaves"] == ["S"]
+
+
+def test_independent_policy_uses_remaining_budget_at_original_target():
+    requests = []
+    answers = iter(("finish_cycle", "flow_good", "finish_stock"))
+
+    def backend(request):
+        requests.append(request)
+        return dict(raw=next(answers), generated_token_ids=[1], request_id=str(len(requests)))
+
+    result = controllers.solve(controllers.C0, Episode(), backend, cap=3)
+    assert result["status"] == "stock_solved"
+    assert requests == [("0", "a0"), ("0", "a0"), ("0", "flow_good")]
+    assert len(result["independent_attempts"]) == 2
