@@ -62,6 +62,11 @@ def loaded_actor(backend, cfg, output, version):
     from mechet.qwen35_protocol import OFFICIAL_REVISION
     from mechet.route_transformers_import import import_transformers_indexed
 
+    if backend == "hf":
+        from mechet.route_runtime_efficiency import configure_profile
+        cfg["acceleration"] = dict(cfg["acceleration"], sampling_kernel="private_pinned_argmax_v1",
+                                   hf_length_bucketing=True)
+        configure_profile(cfg, cfg["code_root"])
     import_transformers_indexed(cfg)
     from transformers import AutoTokenizer
 
