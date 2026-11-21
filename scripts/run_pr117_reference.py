@@ -1,0 +1,240 @@
+"""Run PR117's preregistered Reference screen using one frozen native actor."""
+import argparse
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+import gzip
+import hashlib
+import json
+import os
+from pathlib import Path
+import socket
+import subprocess
+import sys
+import time
+
+from scripts import pr117_controllers as controllers
+
+CEPH = Path("/aaa/fionafyang/buddy1")
+
+
+def sha(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+
+def write_new(path, data):
+    with path.open("x") as stream:
+        stream.write(json.dumps(data, ensure_ascii=False, indent=2) + "\n")
+
+
+def verify_closure(target, stock, report):
+    """Independently traverse committed occurrences and check their exact leaves."""
+    if report["status"] != "stock_solved":
+        return False
+    if not report["reactions"] or target in stock:
+        raise ValueError("a zero-step route cannot be counted")
+    open_nodes = {"0": (target, ())}
+    for reaction in report["reactions"]:
+        occurrence = reaction["occurrence"]
+        product, ancestors = open_nodes.pop(occurrence)
+        if product != reaction["product"] or product in stock or not reaction["precursors"]:
+            raise ValueError("invalid committed reaction")
+        for i, child in enumerate(reaction["precursors"]):
+            if child in (*ancestors, product):
+                raise ValueError("committed ancestor cycle")
+            open_nodes[f"{occurrence}.{i}"] = (child, (*ancestors, product))
+    leaves = [product for product, _ in open_nodes.values()]
+    if not leaves or any(leaf not in stock for leaf in leaves) or Counter(leaves) != Counter(report["stock_leaves"]):
+        raise ValueError("stock obligations disagree with executor report")
+    return True
+
+
+def bind_runtime(args):
+    cfg_raw = args.runtime_contract.read_bytes()
+    cfg = json.loads(cfg_raw)
+    runtime = Path(cfg["code_root"]).resolve()
+    pins = cfg["code_files_sha256"]
+    for name in ("route_policy_episode", "route_refit", "route_native_observation",
+                 "route_vllm_backend", "route_vllm_protocol", "external_route_actor"):
+        rel = f"src/mechet/{name}.py"
+        if sha((runtime / rel).read_bytes()) != pins[rel]:
+            raise ValueError(f"Runtime source differs: {rel}")
+    sys.path.insert(0, str(runtime / "src"))
+    sys.path.append(str(runtime))
+
+    from mechet.external_route_actor import verify_stage2_actor
+    from mechet.route_training_contract import chemical_identity
+    actor = verify_stage2_actor(cfg["parent"])
+    lock_file = Path(__file__).resolve().parents[1] / "docs/goals/PR117_INITIAL_REFERENCE_PANEL_LOCK.json"
+    lock = json.loads(lock_file.read_bytes())
+    payload = args.panel.read_bytes()
+    if sha(payload) != lock["panel_sha256"]:
+        raise ValueError("Reference panel changed after preregistration")
+    panel = json.loads(payload)
+    if actor["adapter_sha256"] != lock["actor_sha256"] or actor["adapter_sha256"] != panel["actor"]["adapter_sha256"]:
+        raise ValueError("Wrong frozen actor")
+    arms = (controllers.C0, controllers.C1, controllers.C2, controllers.C4)
+    if tuple(panel["arms"]) != arms or len(panel["targets"]) != lock["targets"]:
+        raise ValueError("Panel arm or population mismatch")
+    cap = panel["request_ceiling_per_target_arm"]
+    if len(arms) * len(panel["targets"]) * cap != lock["total_primary_screen_cap"]:
+        raise ValueError("Panel request ceiling mismatch")
+    stocks = {}
+    for name, info in panel["stocks"].items():
+        raw = Path(info["source_path"]).read_bytes()
+        if sha(raw) != info["source_sha256"]:
+            raise ValueError(f"Official stock changed: {name}")
+        stocks[name] = {chemical_identity(s) for s in gzip.decompress(raw).decode().splitlines() if s}
+        if len(stocks[name]) != info["size_after_executor_identity"]:
+            raise ValueError(f"Stock identity projection changed: {name}")
+    for row in panel["targets"]:
+        if row["target"] in stocks[row["stock"]]:
+            raise ValueError("Frozen evaluation target must require synthesis")
+    verification = dict(panel_sha256=sha(payload), runtime_contract_sha256=sha(cfg_raw),
+                        actor_sha256=actor["adapter_sha256"], targets=len(panel["targets"]),
+                        arms=list(arms), total_request_ceiling=lock["total_primary_screen_cap"],
+                        per_target_arm_request_cap=cap, stocks={n: len(s) for n,s in stocks.items()})
+    return cfg, panel, stocks, verification
+
+
+def admit_gpu(receipt_file):
+    """Use a separately allocated GPU recorded by the platform."""
+    if receipt_file is None:
+        raise ValueError("A scheduler allocation receipt is required for live inference")
+    receipt = json.loads(receipt_file.read_bytes())
+    if (not receipt["task_flag"].startswith("meteor_mechet_pr117_")
+            or not receipt["instance_id"] or receipt["hostname"] != socket.gethostname()):
+        raise ValueError("Allocation is not bound to the PR117 worker")
+    uuid = receipt["gpu_uuid"]
+    if not uuid.startswith("GPU-"):
+        raise ValueError("Expected an explicit allocated GPU UUID")
+    command = ["nvidia-smi", "-i", uuid]
+    actual = subprocess.check_output(
+        command + ["--query-gpu=uuid,name", "--format=csv,noheader"], text=True).strip()
+    gpu_uuid, model = map(str.strip, actual.split(",", 1))
+    if gpu_uuid != uuid or not any(device in model for device in ("H20", "A100")):
+        raise ValueError("A separate H20/A100 allocation is required by PR117")
+    process_report = subprocess.check_output(
+        command + ["--query-compute-apps=pid", "--format=csv,noheader"], text=True).strip()
+    if process_report:
+        raise ValueError("The allocated GPU already has active compute processes")
+    os.environ["CUDA_VISIBLE_DEVICES"] = uuid
+    return dict(receipt, gpu_model=model, scheduler_receipt_sha256=sha(receipt_file.read_bytes()))
+
+
+def run_live(args, cfg, panel, stocks, verification):
+    from transformers import AutoTokenizer
+    from mechet.route_action_feedback import semantic_action
+    from mechet.route_policy_episode import NativeChemistry
+    from mechet.route_policy_sampling import read_owned_journal
+    from mechet.route_refit import RefitRouteEpisode, grounded_action_key
+    from mechet.route_vllm_backend import VllmRouteSampler, bind_rollout_adapter, start_vllm_process
+
+    def action(raw):
+        parsed = semantic_action(raw)
+        return parsed[1]["name"] if parsed else None
+
+    class CountedChemistry(NativeChemistry):
+        def __init__(self):
+            super().__init__()
+            self.executor_calls = 0
+
+        def step(self, node, receipt):
+            self.executor_calls += 1
+            return super().step(node, receipt)
+
+    output = args.output.resolve()
+    if not output.is_relative_to(CEPH):
+        raise ValueError("PR117 output must reside on shared storage")
+    allocation = admit_gpu(args.allocation_receipt)
+    output.mkdir(exist_ok=False)
+    write_new(output / "admission.json", dict(verification, allocation=allocation,
+              chemistry_teacher="off for all paired arms", analysis="exploratory selection panel"))
+    (output / "targets").mkdir()
+    cfg = dict(cfg, output_dir=str(output), _sha=verification["panel_sha256"])
+    cfg["vllm_runtime"] = dict(cfg["vllm_runtime"], cache_root=str(output / "engine-caches"))
+    cfg["vllm_runtime"].pop("shared_triton_cache_root", None)
+    cfg["seed"] = panel["seed"]
+    version = "validation000000:" + verification["actor_sha256"]
+    cfg["behavior_version"] = version
+    tokenizer = AutoTokenizer.from_pretrained(cfg["base_path"], local_files_only=True)
+    route_context_episode = controllers.contextual_episode_type(RefitRouteEpisode)
+    began = time.monotonic()
+    process = start_vllm_process(cfg)
+    journal_path = output / "native_generation.jsonl"
+    try:
+        adapter = bind_rollout_adapter(cfg, version)
+        write_new(output / "adapter_load.json", adapter)
+        sampler = VllmRouteSampler(process, tokenizer, cfg, journal_path)
+        try:
+            def solve_target(row):
+                answers = []
+                arms = panel["arms"]
+                order = row["seed"] % len(arms)
+                for arm in arms[order:] + arms[:order]:
+                    target = row["target"]
+                    stock = stocks[row["stock"]]
+                    uid = f"pr117/{row['cohort']}/{row['target_id']}/{row['seed']}/{arm}"
+                    chemistry = CountedChemistry()
+                    episode_type = RefitRouteEpisode if arm == controllers.C0 else route_context_episode
+                    episode = episode_type(cfg, target, stock, uid, row["seed"], chemistry=chemistry)
+                    start = time.monotonic()
+                    result = controllers.solve(
+                        arm, episode, lambda request: sampler.submit(request).result(),
+                        cap=panel["request_ceiling_per_target_arm"], action=action, grounded_key=grounded_action_key)
+                    # The controller owns budget censoring; the Executor owns chemistry.
+                    solved = result["status"] == "stock_solved" and verify_closure(target, stock, result["report"])
+                    tokens = result["generated_tokens"]
+                    value = dict(target_id=row["target_id"], target=target, cohort=row["cohort"],
+                                 stock=row["stock"], arm=arm, uid=uid, solved=solved, status=result["status"],
+                                 request_attempts=result["requests"], generated_tokens=tokens,
+                                 executor_calls=chemistry.executor_calls, seconds=time.monotonic()-start)
+                    write_new(output / "targets" / f"{row['cohort']}-{row['target_id']}-{arm}.json",
+                              dict(value, result=result))
+                    answers.append(value)
+                return answers
+
+            with ThreadPoolExecutor(max_workers=args.workers) as workers:
+                rows = [row for result in workers.map(solve_target, panel["targets"]) for row in result]
+        finally:
+            sampler.close()
+    finally:
+        process.close()
+    duration = time.monotonic()-began
+    native = Counter()
+    for event in read_owned_journal(journal_path):
+        request_id = event["request"]["request_id"]
+        if event["event"] == "vllm-submitted":
+            native[request_id.split("/r0/a",1)[0].split("/pr117-c",1)[0]] += 1
+    assert len(rows) == verification["targets"] * len(verification["arms"])
+    assert sum(native.values()) <= sum(row["request_attempts"] for row in rows) <= verification["total_request_ceiling"]
+    for row in rows:
+        row["native_generation_requests"] = native[row["uid"]]
+    totals = {arm: sum(r["solved"] for r in rows if r["arm"] == arm) for arm in verification["arms"]}
+    write_new(output / "screen_result.json", dict(verification, solved=totals, rows=rows,
+              actual_native_generation_requests=sum(native.values()), single_gpu_wall_seconds=duration,
+              gpu_hours=duration/3600, scope="exploratory preregistered screen"))
+    print(json.dumps(dict(denominator=verification["targets"], solved=totals,
+                          actual_native_generation_requests=sum(native.values()), gpu_hours=duration/3600)))
+    print(f"METRIC solved_targets={totals[controllers.C2]}")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--runtime-contract", required=True, type=Path)
+    parser.add_argument("--panel", required=True, type=Path)
+    parser.add_argument("--validate", action="store_true", help="verify inputs without loading the model or GPU")
+    parser.add_argument("--allocation-receipt", type=Path)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--workers", type=int, default=6)
+    args = parser.parse_args()
+    cfg, panel, stocks, verification = bind_runtime(args)
+    if args.validate:
+        print(json.dumps(verification))
+        return
+    if args.output is None or not 1 <= args.workers <= 16:
+        parser.error("live inference needs --output and 1–16 executor workers")
+    run_live(args, cfg, panel, stocks, verification)
+
+
+if __name__ == "__main__":
+    main()
