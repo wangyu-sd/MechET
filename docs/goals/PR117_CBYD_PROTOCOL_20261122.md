@@ -19,6 +19,20 @@ Use the optional scorer argument `--source-trees` to report a stereochemistry di
 
 ## Reproduction inputs
 
+The two scheduled workers live under `cbyd_launch_bundles_1a100_20261122/` in
+the shared PR117 run. The November 23 preflight reproduces both workers' CPU
+admission receipts and binds the combined evaluator input for all 27 targets.
+The verified deployment records are in `phase_c_d_execution_inputs_20261123/`.
+
+For the paper report use
+`cbyd_downstream_literature_replay_20261122/downstream.py score` from the same
+run. Its README gives the full invocation. The combined report replays each
+worker once and records first disconnections, assigned stereochemistry,
+downstream reference reactions, the longest connected matching prefix, and
+inventory closure. Both final worker summaries are required for the combined
+score. The source-only calibration covers all 27 literature trees and 475
+downstream occurrences.
+
 - `python -m scripts.pr117_cbyd_package` builds the two scheduler bundles from the frozen Reference launch package and the prepared CbyD split. Use `--parent-launch`, `--cbyd-plan`, `--cbyd-plan-sha256` and `--output`. Each bundle has its own task flag, target-only payload and one-A100 execution command. `bash worker.sh --validate` verifies the isolated policy admission. During the registered window use the existing `scripts.pr117_admit_allocation` command for the assigned worker.
 - Run `python -m scripts.pr117_cbyd --help` in the verified native runtime. `--validate` binds the existing Reference registration, the CbyD target-only file and its SHA-256. Live execution requires a separate, legitimate GPU allocation receipt.
 - Run `python -m scripts.pr117_cbyd_score --help` using the same benchmark binding and the two evaluator-only digests. The scorer independently replays the accepted worker's full physical journal and refuses partial or mismatched results. Supply the existing `audit_reference_receipts.py` and `cbyd_first_disconnection.py` modules on `PYTHONPATH` from the archived PR117 run.
