@@ -20,3 +20,13 @@ commits the precursor with a methyl ester. Call 94 attempts to return to
 the immediate parent carboxylic acid and the executor rejects it. The final
 slate's other output repeats the same FINISH. Five leaf occurrences match
 stock and one precursor remains open. [Open the two-page replay](figures/pr117_eleven_reaction_ancestor_cycle.pdf).
+
+## One native electronic action changes the fourth reaction
+
+On a 32-heavy-atom target, the controller first selects a fragment import
+from a four-proposal group. The import lineage makes three commits, then
+runs into a missing source bond or an electronic state cycle. Restoring the
+saved FLOW moves a hydrogen from carbon to oxygen in the original electronic
+state. The resulting fourth reaction yields two exact-stock precursors.
+Both diagrams preserve the original call numbers and the second page lists
+all 70 physical calls. [Open the chemical fork and trace](figures/pr117_update107_import_or_flow.pdf).
