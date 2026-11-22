@@ -73,3 +73,14 @@ the two inventory precursors. The history term gives the closing action
 +0.333, gives each observed failure −0.167, and gives the unexplored
 continuation zero. The figure shows the exact organic component of each
 successor. This is a replayed one-reaction training example.
+
+## Nine committed reactions and three untouched precursor obligations
+
+[Open the full nine-reaction figure](figures/pr117_update111_nine_reaction_cutoff.pdf).
+The final target of update 111 has 34 heavy atoms. It reaches the decision
+limit after 112 model calls and nine reaction commits. Five terminal
+occurrences match the frozen inventory. The three unresolved precursors
+arise from reactions 7, 8 and 9 and receive zero model calls. In reaction
+7, call 89 disconnects the carbon and chlorine that were already part of
+the substrate. The carbon acquires formal charge −2 and the executor
+records the fragment as a structural precursor at call 97.
