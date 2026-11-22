@@ -58,3 +58,7 @@ and returns four exact inventory matches, including hydroxide listed
 in the pinned inventory. The second page shows the retained reaction
 structures and the third lists every original call.
 [Source trace](https://github.com/wangyu-sd/MechET/pull/117#issuecomment-7087055615)
+
+[Download the 74-call decision table](figures/pr117_update108_decisions.tsv).
+It records each action's original arguments, duplicate or executor outcome,
+mapped states where executed, and submitted precursor sets.
