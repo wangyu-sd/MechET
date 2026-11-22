@@ -20,6 +20,23 @@ Run `python -m scripts.pr117_actor_transfer --help` for admission or execution a
 
 ## Scheduled execution
 
+The November 26–29 comparison uses the original parent bundle
+`reference_confirmation_launch_1a100_20261122`. If the protected validation
+selection still gives update 64 at launch, pair it with
+`reference_trained_actor_launch_1a100_20261123_update64_physical_prefix`.
+The two update-64 preparation directories have the same Taiji task flag. The
+physical-prefix directory includes the finalizer for the 10-, 20-, 30- and
+64-call comparison. Its sealed commands point to its own worker and results.
+The November 23 readback checks the parent and trained workers against their
+existing admission receipts on the same 96 targets. [Readback and deployment record](https://github.com/wangyu-sd/MechET/pull/117#issuecomment-7084676060)
+
+The shared run directory contains
+`reference_phase_b_launch_preflight_20261123/render.py`. It checks the deployment's
+manifest, worker command and authorized Taiji template before rendering the
+one-A100 configuration. It prints a configuration with credentials omitted
+by default, or writes a private shared-storage file with `--output`. The
+planned window and actual separate GPU admission govern both submissions.
+
 Invoke `python -m scripts.pr117_actor_transfer_package` with `--parent-launch`, `--trained-checkpoint`, `--trained-checkpoint-sha256` and `--output` to seal a launch bundle. Use the original durable `complete.json` and its published digest. The package copies the parent's verified panel and runner and changes only the actor condition to run on one separately allocated A100. It pins the original parent result location and validates the complete 96-pair scope on CPU before publication.
 
 The Taiji command is recorded in `inputs/deployment.json`. `bash worker.sh --validate` checks the sealed bundle without model generation. The worker uses the same allocation receipt handoff as the parent. Once both runs have completed, `bash worker.sh --finalize` replays their physical receipts and publishes `paired_actor_results.json` atomically. The parent and trained raw outputs remain separately reproducible.
