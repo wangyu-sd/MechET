@@ -62,3 +62,14 @@ structures and the third lists every original call.
 [Download the 74-call decision table](figures/pr117_update108_decisions.tsv).
 It records each action's original arguments, duplicate or executor outcome,
 mapped states where executed, and submitted precursor sets.
+
+## Observed credit across four electronic actions
+
+[Open the same-state electron-flow comparison](figures/pr117_update111_electron_flow_credit.pdf).
+At update 111, four actions produced different executable structures from
+the same mapped input. One continuation was unexplored. Both failed
+continuations had higher local coefficients than the action that reached
+the two inventory precursors. The history term gives the closing action
++0.333, gives each observed failure −0.167, and gives the unexplored
+continuation zero. The figure shows the exact organic component of each
+successor. This is a replayed one-reaction training example.
