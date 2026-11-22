@@ -33,6 +33,10 @@ def solution_cost(source, audit):
                 terminal_seconds=seconds)
 
 
+def native_call_cutoffs(cap):
+    return sorted({cap, *(cut for cut in (10, 20, 30) if cut < cap)})
+
+
 def paired_prefix_counts(rows, arms, cutoffs):
     outcomes = {(False, False): "neither", (True, False): "left_only",
                 (False, True): "right_only", (True, True): "both"}
@@ -103,7 +107,7 @@ def matched_work(panel_path, audit_path, results):
     cap = panel["request_ceiling_per_target_arm"]
     if any(row["native_calls"] > cap for row in target_rows):
         raise ValueError("A target arm exceeded the frozen physical call ceiling")
-    cutoffs = {"native_calls": sorted({cap, *(cut for cut in (10, 20, 30) if cut < cap)}),
+    cutoffs = {"native_calls": native_call_cutoffs(cap),
                "generated_tokens": (1500, 3000, 4500, 9000, 18000),
                "terminal_seconds": (120, 240, 480, 900)}
     return dict(panel_sha256=panel_sha, replay_audit_sha256=hashlib.sha256(audit_raw).hexdigest(),

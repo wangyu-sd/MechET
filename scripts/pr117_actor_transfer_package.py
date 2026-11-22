@@ -43,7 +43,7 @@ def prepare(args):
         (inputs / "parent_results.path").write_text(str(parent / "results") + "\n")
         (stage / "worker.sh").write_bytes((source / "pr117_confirmation_worker.sh").read_bytes())
         for module in ("pr117_actor_transfer", "pr117_actor_transfer_score", "pr117_public_registration",
-                       "pr117_reference_source"):
+                       "pr117_reference_source", "pr117_matched_work"):
             name = module + ".py"
             (stage / "code/scripts" / name).write_bytes((source / name).read_bytes())
 

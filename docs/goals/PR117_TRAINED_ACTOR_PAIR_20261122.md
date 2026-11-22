@@ -11,6 +11,7 @@ All 96 initial decision inputs were rendered with the same native executor and p
 | First native action accepted | Executor replay accepted the first physical model response. |
 | Productive root reaction | At least one root reaction committed within 10, 30 or 64 actual model calls, including the calls spent on rejected or repeated proposals. |
 | Full inventory closure | The independent executor discharged every precursor occurrence under the official stock within the common call ceiling. |
+| Full inventory closure by call limit | First verified stock closure within 10, 20, 30 or 64 physical model calls. Report paired transitions and intervals on all 96 targets at each limit. |
 | Work through first closure | Physical decision calls and generated tokens through the first verified route. Record terminal elapsed time per arm and the observed device alongside them. |
 
 Report paired discordant target counts and intervals across the full 96-target denominator. The comparison estimates the effect of replacing parent weights with the trained adapter under this controller. A genuinely trained control with a matched treatment supplies attribution to a particular objective component if that control becomes available. Runtime is descriptive when the jobs have different batch composition or GPU allocations.

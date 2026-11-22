@@ -1,5 +1,10 @@
+import sys
+from collections import Counter
+from types import SimpleNamespace
+
 import pytest
 
+from scripts import pr117_actor_transfer_score as scorer
 from scripts.pr117_actor_transfer import matched_actor_panel, normalized_adapter_config
 from scripts.pr117_actor_transfer_score import native_endpoints
 from scripts.pr117_controllers import C0, C2, C4
@@ -42,3 +47,40 @@ def test_actor_endpoints_read_first_native_action_and_charge_only_physical_root_
     assert outcome["first_root_reaction_call"] == 2
     assert outcome["first_solution"] is None
     assert outcome["native_calls"] == 2
+
+
+def test_actor_comparison_counts_complete_proofs_at_common_native_call_limits(monkeypatch):
+    def outcome(first_solution_calls):
+        first_solution = None
+        if first_solution_calls is not None:
+            first_solution = dict(native_calls=first_solution_calls, generated_tokens=1000, terminal_seconds=12.5)
+        return dict(cohort="long", stock_closed=first_solution is not None, first_solution=first_solution,
+                    first_action_accepted=True, first_root_reaction_call=4,
+                    first_request_id="first", first_prompt_sha256="same-prompt")
+
+    raw_outcomes = {
+        "parent-results": {("long", "earlier"): outcome(11), ("long", "boundary"): outcome(20),
+                           ("long", "last"): outcome(64)},
+        "trained-results": {("long", "earlier"): outcome(10), ("long", "boundary"): outcome(31),
+                            ("long", "last"): outcome(None)},
+    }
+    proof = dict(primary_arm=C0, targets=3, per_target_arm_request_cap=64)
+    version = (None, None, None, proof)
+    monkeypatch.setattr(scorer, "bind_runtime", lambda args: version)
+    monkeypatch.setattr(scorer, "bind_trained_comparison", lambda args: version)
+    monkeypatch.setattr(scorer, "replay_arm",
+                        lambda results, *args: (raw_outcomes[results], {"final_summary_verified": True}))
+
+    def measure_transitions(pairs, trained, parent, success):
+        return dict(Counter(f"{int(success(row[parent]))}->{int(success(row[trained]))}" for row in pairs))
+
+    # This fixture isolates the archive-replay and statistics boundaries. The scorer
+    # still builds its paired population and chooses the success criterion for every cap.
+    monkeypatch.setitem(sys.modules, "analyze_paired_reference", SimpleNamespace(estimate=measure_transitions))
+    results = scorer.evaluate(SimpleNamespace(parent_results="parent-results", trained_results="trained-results"))
+    effects = results["effects"]
+    assert effects["inventory_closed_by_10_calls"] == {"0->1": 1, "0->0": 2}
+    assert effects["inventory_closed_by_20_calls"] == {"1->1": 1, "1->0": 1, "0->0": 1}
+    assert effects["inventory_closed_by_30_calls"] == {"1->1": 1, "1->0": 1, "0->0": 1}
+    assert effects["inventory_closed_by_64_calls"] == effects["full_inventory_closed"] == {"1->1": 2, "1->0": 1}
+    assert effects["productive_root_by_10_calls"] == {"1->1": 3}

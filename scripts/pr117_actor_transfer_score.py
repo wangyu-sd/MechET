@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from scripts.pr117_actor_transfer import bind_trained_comparison
-from scripts.pr117_matched_work import solution_cost
+from scripts.pr117_matched_work import native_call_cutoffs, solution_cost
 from scripts.run_pr117_reference import CEPH, bind_runtime, sha, write_new
 
 
@@ -122,7 +122,12 @@ def evaluate(args):
         "full_inventory_closed": estimate(pairs, "trained", "parent", lambda r: r["stock_closed"]),
         "first_native_action_accepted": estimate(pairs, "trained", "parent", lambda r: r["first_action_accepted"]),
     }
-    for cap in (10, 30, learned_proof["per_target_arm_request_cap"]):
+    request_cap = learned_proof["per_target_arm_request_cap"]
+    for limit in native_call_cutoffs(request_cap):
+        endpoints[f"inventory_closed_by_{limit}_calls"] = estimate(
+            pairs, "trained", "parent", lambda row, cutoff=limit: row["first_solution"] is not None
+            and row["first_solution"]["native_calls"] <= cutoff)
+    for cap in (10, 30, request_cap):
         endpoints[f"productive_root_by_{cap}_calls"] = estimate(
             pairs, "trained", "parent", lambda r: r["first_root_reaction_call"] is not None
             and r["first_root_reaction_call"] <= cap)
