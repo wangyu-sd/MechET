@@ -84,3 +84,13 @@ arise from reactions 7, 8 and 9 and receive zero model calls. In reaction
 7, call 89 disconnects the carbon and chlorine that were already part of
 the substrate. The carbon acquires formal charge −2 and the executor
 records the fragment as a structural precursor at call 97.
+
+## Ten discarded commits followed by a root-state cycle
+
+[Open the branch ancestry and exact proton-transfer reversal](figures/pr117_update112_discarded_reaction_branches.pdf).
+The final target of update 112 has 35 heavy atoms. Of its 102 physical
+model calls, ten committed a reaction during exploration. Calls 11 and
+40 independently produced the same first precursor. Four backtracks left
+the returned route with zero retained reaction commits. At the root,
+call 101 moved proton H37 from N25 to N10. Call 102 was rejected because
+it would restore the exact mapped state reached by call 5.
