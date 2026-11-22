@@ -45,3 +45,16 @@ followed by a missing source or destination bond (64) and a finish that
 produces no usable precursor change (36). The final candidate group contains
 a duplicate in 175 of the 195 rejected routes. This statistic covers the
 last group of rejected routes, with original candidate identities preserved.
+
+## Three fragment imports from the same model input
+
+[Open the three-page replay and full call timeline](figures/pr117_update108_three_same_input_samples.pdf).
+On the 32-heavy-atom training target in update 108, calls 19, 41 and 57
+start at the same atom-mapped state and receive identical model input. All
+three generate usable imports and later commit the same precursor for
+reaction 3. The first two continuations stop on absent bonds during
+reaction 4. The continuation from call 57 supplies the fourth reaction
+and returns four exact inventory matches, including hydroxide listed
+in the pinned inventory. The second page shows the retained reaction
+structures and the third lists every original call.
+[Source trace](https://github.com/wangyu-sd/MechET/pull/117#issuecomment-7087055615)
