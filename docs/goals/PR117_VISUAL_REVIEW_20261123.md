@@ -30,3 +30,18 @@ saved FLOW moves a hydrogen from carbon to oxygen in the original electronic
 state. The resulting fourth reaction yields two exact-stock precursors.
 Both diagrams preserve the original call numbers and the second page lists
 all 70 physical calls. [Open the chemical fork and trace](figures/pr117_update107_import_or_flow.pdf).
+
+## Training closure through update 110
+
+[Open the updated inventory closure curve](figures/pr117_training_closure_through110.pdf).
+In updates 101–110, 44 of 250 full-route targets requiring synthesis reached
+inventory, compared with 45 of 247 in updates 91–100. Different targets enter
+each window. Across all 110 updates, 465 of 2,707 such targets reached
+inventory.
+
+The 101–110 window contains 195 executor rejections and 11 budget stops.
+The most common terminal rejection is a return to a route ancestor (75),
+followed by a missing source or destination bond (64) and a finish that
+produces no usable precursor change (36). The final candidate group contains
+a duplicate in 175 of the 195 rejected routes. This statistic covers the
+last group of rejected routes, with original candidate identities preserved.
