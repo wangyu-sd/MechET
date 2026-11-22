@@ -94,3 +94,16 @@ model calls, ten committed a reaction during exploration. Calls 11 and
 the returned route with zero retained reaction commits. At the root,
 call 101 moved proton H37 from N25 to N10. Call 102 was rejected because
 it would restore the exact mapped state reached by call 5.
+
+## All six inventory closures from update 113
+
+[Open the six complete route drawings and 123 original model calls](figures/pr117_update113_six_stock_closures.pdf).
+The six training examples contain 15 committed reactions and 18 exact
+inventory leaf occurrences. Three targets have at least 30 heavy atoms.
+On the 30-heavy-atom reference-verified case, the generated route matches
+the first two reactions of the stored reference exactly. Its second
+reaction reaches a precursor already in inventory. Applying the same
+inventory stopping rule to the stored three-reaction reference yields the
+same two-reaction tree and terminal multiset. One other route reproduces
+its reference's first disconnection. The 17-heavy-atom example retains
+the R configuration at the mapped carbon in the alcohol precursor.
