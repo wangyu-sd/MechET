@@ -175,3 +175,21 @@ exception, the two executed samples flip from −0.294 to +0.206. The margin
 over all four identical-in-pairs samples improves from −0.587 to −0.087.
 Each marker shows the closing action minus the failed action. The margins
 precede policy ratios, clipping and the other loss terms.
+
+## Training runtime and native inference batch size
+
+[Open the timing and batch size figure](figures/pr117_training_runtime_breakdown_111_119.pdf)
+and [download the nine per-update rows](figures/pr117_training_runtime_breakdown_111_119.csv).
+
+Across updates 111–119, collection accounts for 70.7% of checkpoint
+wall time and weight updates account for 28.2%. The last four target
+publications span a median 4.5 minutes, or 35.3% of collection when
+measured as a median within updates. Whole-route targets make up 20.1%
+of the targets and use 44.1% of the 19,952 physical calls.
+
+The last target's collection includes a median lower bound of 9.1
+minutes from dependent sampling waves. Each wave contributes the
+longest model request in that wave. Other targets can run concurrently.
+The original scheduler and engine queues average 5.62 ms and 0.30 ms
+per call. The six inference ranks average 3.36 requests per native
+decoder iteration. The native batch measurements describe engine work.
