@@ -65,6 +65,14 @@ Applying the same material projection to saved electronic states in updates 105â
 
 The shared directory `training_route_cycle_census105_122_20261123.GJGCKu` contains both reproductions, the plotting code and hashes linking the results to the original journals. SHA-256 values are `5deb51ae6b7f4783c5e15f6319ecc5d3834d4be98c4ea476e7f800fecbfbd8d3` for `lineages.json`, `04c332df639231072c24dfcf5269ea7eef46e44526f5ecb35fad072823e27d6e` for `prompt_inputs.json`, and `76529323c17bfdec13ced18d7def3900c2a2a0f797b752eaf39e81a0293fb2cf` for `shadow_projection.json`.
 
+### Availability of a saved branch when the cycle occurs
+
+The original controller replay covers all 150 cycle-containing targets in updates 105â€“122 and authenticates 7,323 original model calls. Of 186 cycle-containing decision groups, 123 end the route. At each of those 123 groups the controller has exhausted the earlier saved candidates and has no executable alternative in the current group. All 63 cycle-containing groups that continue have at least one unused saved candidate in an earlier decision frame. Two also have an executable candidate in the same decision group. The other 61 groups resume an earlier sampled candidate, across 44 distinct targets. The resumed action stays on the route that closes in update 117. That controller restores an option sampled in decision group 5 after the failure in group 18.
+
+The 10 cases where the eventual terminal ancestor appears in an earlier retained state have zero usable saved alternatives at that first observed conflict. They do generate an accepted continuation at that state. Across replayed branches, another 68 decision groups begin from a state with a strict ancestor already present and contain no rejected cycle FINISH in that group. Twenty-two of those groups have an unused earlier candidate inside the backtracking budget. These observations separate the opportunity to flag a state early from the options actually available to resume.
+
+Both complete runs agree byte for byte with each other and with each original outcome, route, decision group and selection. The shared directory `training_route_cycle_saved_alternatives105_122_20261123.waHrkT` contains `measured.json` (SHA-256 `aead419d50c00286d636c5626bca4bca0caae23ca8f0ed9063acfd086ce33f52`) and the independent join of saved to resumed requests, `selected.json` (SHA-256 `9f8d17ba964bf9d429516c2a357196248472a57a170dfadce93f1870ba04239e`).
+
 ## Eleven-reaction route stopped by an ancestor cycle
 
 The first page shows all 11 committed reactions. The second identifies the
