@@ -43,6 +43,14 @@ The Taiji command is recorded in `inputs/deployment.json`. `bash worker.sh --val
 
 Run `python -m scripts.pr117_admit_allocation <bundle>` from the isolated worktree to verify the sealed one-A100 deployment. During the scheduled window, pass `--instance-id` after the submitted worker publishes `worker_ready.json`. The command checks that exact running Taiji instance, verifies the hostname and physical A100 with an independent device query, and publishes the allocation receipt used by the waiting worker.
 
+### Checkpoint readiness after optimizer update 123
+
+The complete internal validation reports cover the parent and update 64. Update 64 remains the fallback trained adapter. The update-123 adapter passes the same CPU binding against the locked 96 targets, official stocks and 64-call controller. It has the same 372 tensor names, shapes and data types as the parent. The next eligible selection point is the completed update-256 internal comparison.
+
+The last 12 durable checkpoint intervals give a median 19.38 minutes per update. Anchored at 10:50:50 CST on November 23, this projects the update-256 checkpoint to November 25 at 05:48 and both 512-target internal validation runs to finish at 08:08. The faster and slower interval quartile scenarios put validation completion between 05:26 and 09:38 that day. These projections budget the measured 2 hours 21 minutes from the previous two-arm validation. The forecast leaves approximately 14–19 hours before the November 26 calendar boundary under those scenarios. Re-read the complete validation selection at launch.
+
+The shared run directory contains the current readback at `reference_phase_b_checkpoint_readback_20261123.u2bYNE`. The checkpoint and validation projection is `measured/evidence.json` (SHA-256 `776ca0bf3d399a6f5e977c3e698ca1f97ab6205851409c0d140de25379cd5291`). The sealed parent and update-64 checks and the separate update-123 compatibility receipt are indexed by `bundle_checks.json` (SHA-256 `4497a95d9749b23c8a44f9d1f72fc847d4315eda829907783ab0ee3834585759`).
+
 ## Reading back completed work after an interruption
 
 Preserve the stopped worker's target files, allocation receipt and native
