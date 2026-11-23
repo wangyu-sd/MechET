@@ -285,6 +285,44 @@ The closing-minus-failed margin on the two executed samples moves from −0.3333
 
 The replay covers the sole new comparison group in update 125. The shared run contains the repeated source-bound computation at `training_history_credit_update125_20261123.6KpdIr/measured.json` (SHA-256 `333a911a403618458f1a760ffcf3130845cd9358f2e41d29d6a27b52bcd7357d`).
 
+## What the history term recovers across 48 observed contrasts
+
+Through update 125, 47 of 244,168 learner groups contain an observed
+same-input comparison between executed closing and failing continuations. One
+group supplies two pairs. The table uses the sum of centered local and weighted
+history coefficients across every sampled completion of each grounded action.
+Its margin is the closing score minus the failed score.
+
+| Compared actions | Pairs | Local preference favors failure | History reverses those preferences | Median margin with history |
+| --- | ---: | ---: | ---: | ---: |
+| FLOW producing different mapped successors | 35 | 23 | 22 | +0.462728 |
+| Different FLOW actions producing the same mapped successor | 3 | 3 | 3 | +0.266195 |
+| FLOW versus a fragment import | 10 | 7 | 7 | +0.007921 |
+| All observed comparisons | 48 | 33 | 32 | +0.396879 |
+
+On the two executed samples alone, history reverses 34 of 34 adverse local
+preferences. On grouped actions, 47 of 48 margins are positive by exact sign.
+Restricting to full-route targets gives 36 of 37. These are nominal training
+coefficients before policy ratios, clipping, KL and the common route term.
+
+The mixed pairs have equal teacher and history weights of 0.5. The import
+has no teacher score and contributes zero to the local teacher term.
+Centering cancels in each grouped margin. With the observed weighted history
+gap of +0.5 and the FLOW teacher score (`s`), the resulting margin is
+`0.5 × (1 + s)` when FLOW closes and `0.5 × (1 − s)` when the import closes.
+The seven closing FLOWs have a median margin of +0.000127 (range
++0.000000638 to +0.017338). The three closing imports have a median margin of
++0.956367 (range +0.778190 to +0.963705). A FLOW score near −1 can therefore
+almost entirely offset credit from an observed inventory closure.
+
+[All 10 mixed-action margins and teacher scores](figures/pr117_mixed_action_reward_margins.csv).
+The pair census and formula replay reproduce byte-for-byte on Ceph under
+`training_grouped_credit_all_pairs_through125_20261123.GTSxcY/`. SHA-256
+`3d37f5c4a772a4bee42774a96031f0cc93690a8614c576b896890b97c8d8cb81`
+binds the pair census. SHA-256
+`5d395fb63059be6875a9652c11d9fb2d574cafa7be4b271b6c53dabaf98eed75`
+binds the formula replay.
+
 ## Training runtime and native inference batch size
 
 [Open the timing and batch size figure](figures/pr117_training_runtime_breakdown_111_119.pdf)
