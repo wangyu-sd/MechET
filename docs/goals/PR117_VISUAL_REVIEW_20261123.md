@@ -174,6 +174,20 @@ the returned route with zero retained reaction commits. At the root,
 call 101 moved proton H37 from N25 to N10. Call 102 was rejected because
 it would restore the exact mapped state reached by call 5.
 
+## Three different first disconnections and nine discarded reactions
+
+[Open all three pages](figures/pr117_update124_discarded_routes.pdf) · [All 97 original calls](figures/pr117_update124_discarded_routes.csv)
+
+![Three actual first-reaction alternatives for the same 24-heavy-atom target](figures/pr117_update124_root_alternatives.png)
+
+The last target in update 124 makes 97 calls. FINISH calls 22, 43 and 92 commit three different precursor sets for the same 24-heavy-atom target. The second branch commits six reactions. All nine executor-accepted reaction edges across the three branches are eventually discarded. Call 97 would regenerate the exact mapped state recorded after call 4. The third page shows all original calls, including 12 within-group duplicates and five executor rejections.
+
+The wider census includes 615 full-route training targets from updates 101–124 and all 22,674 calls. The executor committed 2,050 reactions across the explored branches. The returned routes retain 1,632 of them and discard 418 (20.4%). Exact reaction identity within each target gives 329 distinct edges seen only on discarded branches, 60 seen on discarded and retained branches, and 1,572 seen only on retained branches. Only 29 of the 418 discarded events repeat a signature previously committed on that target. The census observes three stock closures after selecting a saved sibling following an explicit failure.
+
+Four of 418 discarded commits receive positive FINISH credit, accounting for 0.40 of 24.50 direct FINISH reward units. With all other learner inputs held fixed, the additive contribution from those four commits turns 43 decision-group returns positive across four original targets. Thirteen of these groups include a retained choice as well as the discarded continuation. This measures the actual coefficient before policy ratios, clipping, gradient aggregation and optimization. The four commits contribute no direct receipt-level reward to retained actions.
+
+The shared run contains both original-trajectory reproductions. The case replay is `training_update124_discarded_branches_20261123.jgwmkF/measured.json` (SHA-256 `cfd9f4a98e7abffaf5693e2715626fec9278b5d9f617ae3264b6904c71d1ac0f`). The broader census and learner calculation are `training_commit_and_branch_work101_124_20261123.tiUboh/measured.json` (SHA-256 `135134faa473e2749de2b2e8cfc48ca71e9684406e6faa87c03d7ac975567dc0`) and `credit.json` (SHA-256 `78241aa1d35a0ceee9436df809d0ade6d022bd4a036353c2653a693cdd6fb1ae`).
+
 ## All six inventory closures from update 113
 
 [Open the six complete route drawings and 123 original model calls](figures/pr117_update113_six_stock_closures.pdf).
