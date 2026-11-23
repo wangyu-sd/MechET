@@ -137,3 +137,16 @@ imports a fragment on the 12-heavy-atom precursor created at reaction 11.
 Atom maps show that every open component shares heavy atoms with its
 producing substrate. The 21- and 12-heavy-atom precursors are entirely
 composed of those substrate heavy atoms.
+
+## Exact reference overlap across 484 completed training routes
+
+[Open the comparison figure](figures/pr117_training_reference_overlap_through116.pdf)
+and [download the counts by depth and target size](figures/pr117_training_reference_overlap_through116.csv).
+
+The census includes every full-route inventory closure through update 116.
+Comparing with the full stored tree gives 30 exact matches. Applying the
+same inventory stop to both trees gives 99 exact matches. These 99 agree
+case by case with the training verifier. Across the same 484 targets,
+149 share the exact first disconnection and 162 share at least one exact
+reaction. The stored tree itself reaches inventory on 331 of the 484
+targets under the same stopping rule. These are training-archive counts.
