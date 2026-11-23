@@ -21,6 +21,22 @@ The closest comparison is between two actions on the same unfinished reaction. T
 
 **Inference-level prevalence.** In the four-condition development panel, all 24 targets finished with all four outcomes, and no arm reached full inventory closure. Root electronic branching produced two distinct executable successors for 3/24 targets and executed zero root backjumps. These outcomes locate a practical bottleneck in obtaining new executable proposals. Independent sampling, whole-reaction branching and root electronic branching will be evaluated on the locked 96 targets with a common ceiling of 64 native calls. The first-proof comparisons count every preceding native dispatch, including rejected and repeated outputs. Token and per-arm wall-time prefixes supplement the frozen call ceiling. Terminal wall time includes batching, executor work and route verification, and starts after model initialization. The code and work-accounting sidecar consume the independent receipt audit. [Development result and confirmation registration](https://github.com/wangyu-sd/MechET/pull/117#issuecomment-7065688545)
 
+### Comparison at the same observed calls per target
+
+Replay the registered independent-sampling, early-electronic and completed-reaction controllers. For each target, take the smallest physical call count among the three. Count each controller's executed chemistry and independently verified full stock closure through that point. A zero-call target stays in the denominator. Executed chemistry includes abandoned branches, and closure requires every structural precursor to reach the pinned stock.
+
+The 24-target development archive has shared prefixes of 4 to 30 calls per target, totaling 462 per controller. Every count sums distinct work within each target.
+
+| Controller | Distinct mapped FLOW transitions | Distinct committed reactions | Distinct root precursor sets | Full stock closures |
+| --- | ---: | ---: | ---: | ---: |
+| Independent sampling with the original policy | 242 | 44 | 21 | 0/24 |
+| Early electronic branching and backtracking | 221 | 45 | 20 | 0/24 |
+| Branching after a complete reaction | 209 | 38 | 28 | 0/24 |
+
+Early electronic search committed more distinct reactions than completed-reaction search on 7 of 24 targets, fewer on 1, and tied on 16. Independent sampling recorded the most distinct electronic transitions in aggregate. Completed-reaction search recorded the most root precursor alternatives. This shows where the controllers spent the same realized work. The prespecified 96-target result at the 64-call ceiling remains the primary test because controllers can stop at different times.
+
+[Postprocessing code](../../scripts/pr117_common_consumption.py) checks the independently verified receipts and native call counts. The shared run contains the twice-reproduced target-level JSON at `reference_common_consumption_20261123.YWviSK/measured.json` (SHA-256 `81e906ab08d5f188b220ceeff6d5d073adf809c7e1941fc0bdf006a284a317e8`). The development panel hash is `d636556eb0c77870aa9fadac9cc3381902f198a216c3017845a47c56a6165798`. For the sealed confirmation bundle, pass the frozen panel, the original finalizer receipt audit, the chemistry audit that includes every native call prefix, and the native worker results directory.
+
 **Training attribution.** The matched trained-actor comparison should ask whether the same controller and resource ceiling yield more distinct executable successors, more productive reaction commits and more full inventory proofs with the learned weights. The parent and a durable ReFIT checkpoint must each generate their own receipts on the same held-out target IDs and inventory. The replayed training forks already specify where to look for action-credit differences. The prospective actor comparison supplies the population denominator and separates those differences from search-controller effects.
 
 **Chemical validation.** The preregistered CbyD panel has 27 target structures spanning 30–134 heavy atoms and published route depths of 6–38. All 27 evaluator root precursor multisets have been verified against the released source. The tightest reported test will bind predicted committed precursors to the evaluator by exact, stereochemistry-preserving structural identities. Exact stock closure is reported as a separate endpoint. The reference structures provide the chemistry test and remain outside the policy input. [CbyD dataset](https://github.com/chemistry-by-design/cbyd)
