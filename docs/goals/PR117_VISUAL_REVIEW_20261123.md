@@ -264,6 +264,21 @@ Across updates 111–123, 28,439 calls complete for 1,664 training targets. Coll
 
 Both reports reproduce byte for byte on the shared run. The latest-target trace is `training_update123_bottleneck_case_20261123.sMKuw6/measured/evidence.json` (SHA-256 `38f6c9357bd34f01a3e76d0e3bb94b2b3b327ab40494f5d331d91e47de8e3aaa`). The 13-update receipt audit is `training_actor_runtime_breakdown111_123_20261123.Nnjodn/measured.json` (SHA-256 `ff7e8875ed4da02765c779a5f5fc77a3552038f50a399069f3fa4d19a5a2e777`).
 
+## The update-125 mixed-action comparison nearly cancels after grouping repeats
+
+The complete original replay uses 61 model calls on a 32-heavy-atom target with four rings. The model first follows the fragment import from call 9. Its continuation stops at an ancestor cycle at call 30. Restoring the FLOW from call 6 leads to a five-reaction route and four exact inventory leaves. Both proposals were executed from the same mapped electronic state with identical model input.
+
+| Call | Proposal | Observed outcome | Centered local coefficient | Weighted route-history coefficient |
+| --- | --- | --- | ---: | ---: |
+| 6 | Electron flow | Stock-closed continuation | −0.0833325 | +0.25 |
+| 7 | Repeat of call 6 | Unselected repeat | −0.0833325 | 0 |
+| 8 | Repeat of call 6 | Unselected repeat | −0.0833325 | 0 |
+| 9 | Fragment import | Ancestor-cycle failure | +0.2499975 | −0.25 |
+
+The closing-minus-failed margin on the two executed samples moves from −0.3333300 to +0.1666700. Summing all completions by grounded action changes the margin from −0.4999950 to +0.0000050, effectively a tie. The import has no teacher score. The FLOW teacher score is −0.99999. These are nominal coefficients before optimization, and the archived outcome applies only to the explored continuations.
+
+The replay covers the sole new comparison group in update 125. The shared run contains the repeated source-bound computation at `training_history_credit_update125_20261123.6KpdIr/measured.json` (SHA-256 `333a911a403618458f1a760ffcf3130845cd9358f2e41d29d6a27b52bcd7357d`).
+
 ## Training runtime and native inference batch size
 
 [Open the timing and batch size figure](figures/pr117_training_runtime_breakdown_111_119.pdf)
