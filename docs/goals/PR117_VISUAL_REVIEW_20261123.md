@@ -12,6 +12,23 @@
 
 The prospective Reference and CbyD evaluations use their registered protocols. These figures document archived development and training evidence.
 
+## Electron-action ranking across 114 training updates
+
+[Open the paired margin plot](figures/pr117_electron_history_credit_through114.pdf)
+and [download the 34 paired measurements](figures/pr117_electron_history_credit_through114.csv).
+
+Each line compares two executed FLOW actions from the same mapped input.
+One branch failed, and the other closed in inventory. The 34 pairs
+produce different mapped successors. The empty marker shows the centered
+local coefficient of the closing action minus that of the failed action.
+The filled marker includes the weighted outcome history, before PPO clipping.
+
+The local term favors the eventual failed branch in 23 of 34 pairs,
+including 16 of 25 full-route pairs. The history term reverses all
+23 preferences. The complete training census contains 45 comparison
+groups among 223,256 candidate groups. The registered independent evaluation
+measures the route-level effect. [Complete original-receipt audit](https://github.com/wangyu-sd/MechET/pull/117#issuecomment-7088124445).
+
 ## Eleven-reaction route stopped by an ancestor cycle
 
 The first page shows all 11 committed reactions. The second identifies the
