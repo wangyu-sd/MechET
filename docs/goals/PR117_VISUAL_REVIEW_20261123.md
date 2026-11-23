@@ -80,6 +80,14 @@ Updates 111–120 close 37 of 249 full-route targets that require synthesis (14.
 
 Among the 249 targets in updates 111–120, 196 have a terminal executor rejection and 16 reach a resource limit. The most frequent rejection categories are absent source or destination bonds (78), a return to a route ancestor (58), FINISH with no useful structural change (36) and electronic state cycles (17). Results are from the original checkpoint-bound full-route records. The shared output directory `train_full_route_closure_through121_20261123.wdhpYu` contains the counting and plotting scripts, their input hashes, and both reproduced figures.
 
+### Same-batch duplicates and exact revisits through update 121
+
+On all 282 full-route targets in updates 111–121, the original outputs contain 10,615 model calls. Within individual candidate batches, 1,281 calls repeat a grounded action already sampled in that batch (12.1%). At the final batch of the 216 executor-rejected targets, 512 of 775 calls repeat a grounded action (66.1%). The terminal batch contains a duplicate on 183 targets. Only five rejection points occur in a batch that revisits the exact ordered model input from an earlier batch. The two rates measure different events.
+
+Across all batches that revisit the exact input, 115 of 208 calls repeat an earlier grounded action and 93 draw a different one. Of the different actions, 84 execute and 57 remain on the returned path. Those 57 appear on 29 routes, all of which eventually reach a rejection or budget limit in this window. The preceding archived window contains one route closure with a retained action from an exact-input revisit. The terminal duplicate counts support targeting repeated actions within a batch, while the exact-input census shows why a repeat prompt can still contribute an alternative.
+
+The shared run contains the twice-reproduced census and per-call evidence at `training_exact_prompts_updates111_121_20261123.11NRZj/measured/evidence.json` (SHA-256 `144ccdc375b9bcbcada95394be8e8c6b199e8c26f2b40d552b3ca44c9d99e6fa`).
+
 ## Training closure through update 110
 
 [Open the updated inventory closure curve](figures/pr117_training_closure_through110.pdf).
