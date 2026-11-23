@@ -39,6 +39,23 @@ The difference is concentrated below the first reaction. Hash-checking all 72 na
 
 [Postprocessing code](../../scripts/pr117_common_consumption.py) checks the independently verified receipts and native call counts. The shared run contains the twice-reproduced target-level JSON at `reference_common_consumption_20261123.YWviSK/measured.json` (SHA-256 `81e906ab08d5f188b220ceeff6d5d073adf809c7e1941fc0bdf006a284a317e8`). The development panel hash is `d636556eb0c77870aa9fadac9cc3381902f198a216c3017845a47c56a6165798`. For the sealed confirmation bundle, pass the frozen panel, the original finalizer receipt audit, the chemistry audit that includes every native call prefix, and the native worker results directory.
 
+### Paired closure estimates at physical call limits
+
+The independent finalizer reports paired closure differences and bootstrap intervals at attempted-request limits. Use the [physical-prefix companion](../../scripts/pr117_native_closure_effects.py) for the corresponding results at 10, 20, 30 and 64 model dispatches. A request stopped by the context preflight makes no native dispatch. The companion reads each original source output, binds it to the independently replayed audit, and recovers the verified first-solution dispatch. In each comparison, resampling keeps the paired target together and preserves the numbers of linear, convergent and long targets. Endpoints with no discordant targets have an exact McNemar value of null. A zero-width empirical bootstrap interval at such an endpoint reflects the observed ties.
+
+Run after the independent finalizer with the sealed 96-target launch directory as `launch`, the finalizer directory as `evidence` and an unused file path on shared storage as `output`.
+
+```bash
+source /aaa/fionafyang/buddy1/whaleywang/MechET/configs/runtime/shared_host_storage.env
+PYTHONPATH="$launch/code" /root/miniconda3/envs/meteor/bin/python -BS \
+  -m scripts.pr117_native_closure_effects \
+  --panel "$launch/inputs/panel.json" --audit "$evidence/receipt_audit.json" \
+  --results "$launch/results" --output "$output" \
+  --estimator-sha256 ec0133b1d6425ff0cc19a7857843efba964e18fc99f5e3500675b81199bdaf4e
+```
+
+The complete 24-target development replay reproduces byte for byte at 10, 20 and 30 calls. No target closes in any of the three controller comparisons at those limits. The shared run contains the report at `reference_native_closure_effects_20261123.b6gWCC/measured.json` (SHA-256 `b6f39e0b959f45600996ef82efd682a575deb3e0c39ecf674dae11c5aa2ef784`).
+
 **Training attribution.** The matched trained-actor comparison should ask whether the same controller and resource ceiling yield more distinct executable successors, more productive reaction commits and more full inventory proofs with the learned weights. The parent and a durable ReFIT checkpoint must each generate their own receipts on the same held-out target IDs and inventory. The replayed training forks already specify where to look for action-credit differences. The prospective actor comparison supplies the population denominator and separates those differences from search-controller effects.
 
 **Chemical validation.** The preregistered CbyD panel has 27 target structures spanning 30–134 heavy atoms and published route depths of 6–38. All 27 evaluator root precursor multisets have been verified against the released source. The tightest reported test will bind predicted committed precursors to the evaluator by exact, stereochemistry-preserving structural identities. Exact stock closure is reported as a separate endpoint. The reference structures provide the chemistry test and remain outside the policy input. [CbyD dataset](https://github.com/chemistry-by-design/cbyd)
