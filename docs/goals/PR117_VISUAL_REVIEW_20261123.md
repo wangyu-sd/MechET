@@ -161,3 +161,17 @@ so the shared stopping rule ends that branch at the amine and leaves
 the 26-heavy-atom acid open. The original model run starts expanding
 the acid at call 13. It commits five further reactions and returns
 six exact inventory leaves. This case is from the TRAIN archive.
+
+## Duplicate samples change the grounded-action credit margin
+
+[Open the grouped-credit figure](figures/pr117_grounded_action_credit_through117.pdf)
+and [download all 35 pair margins](figures/pr117_grounded_action_credit_through117.csv).
+
+For each same-input FLOW pair, sum the nominal local and weighted history
+coefficients across all completions with the same grounded action key in the
+original candidate group. Adding route history reverses 22 of the 23
+grouped local preferences for the failed continuation. In the update-117
+exception, the two executed samples flip from −0.294 to +0.206. The margin
+over all four identical-in-pairs samples improves from −0.587 to −0.087.
+Each marker shows the closing action minus the failed action. The margins
+precede policy ratios, clipping and the other loss terms.
