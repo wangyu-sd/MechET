@@ -266,6 +266,12 @@ Both reports reproduce byte for byte on the shared run. The latest-target trace 
 
 ## The update-125 mixed-action comparison nearly cancels after grouping repeats
 
+[Open the three-page chemical replay](figures/pr117_update125_mixed_action_case.pdf) · [All 61 model calls](figures/pr117_update125_mixed_action_calls.csv)
+
+![The exact call-9 import and saved call-6 electron-flow successors](figures/pr117_update125_mixed_action_fork.png)
+
+The first reaction commits at call 5. At the next reaction, call 6 cleaves the mapped carbon–bromine bond C15–Br16 to a radical pair. Call 9 instead adds a separate bicarbonate fragment. The diagrams align the mapped substrate across both proposals and preserve the same structure scale. The second page shows every committed reaction and the exact inventory annotations. The third page shows the original order of all 61 dispatched samples.
+
 The complete original replay uses 61 model calls on a 32-heavy-atom target with four rings. The model first follows the fragment import from call 9. Its continuation stops at an ancestor cycle at call 30. Restoring the FLOW from call 6 leads to a five-reaction route and four exact inventory leaves. Both proposals were executed from the same mapped electronic state with identical model input.
 
 | Call | Proposal | Observed outcome | Centered local coefficient | Weighted route-history coefficient |
