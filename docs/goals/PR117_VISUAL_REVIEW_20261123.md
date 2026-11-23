@@ -150,3 +150,14 @@ case by case with the training verifier. Across the same 484 targets,
 149 share the exact first disconnection and 162 share at least one exact
 reaction. The stored tree itself reaches inventory on 331 of the 484
 targets under the same stopping rule. These are training-archive counts.
+
+## A 39-heavy-atom target shares the first disconnection and closes an extra branch
+
+[Open the side-by-side reference comparison, all six model reactions and all 44 calls](figures/pr117_39_atom_shared_disconnection.pdf).
+The first model FINISH reproduces the stored amide disconnection and exact
+precursor multiset. The amine is in stock and the aryl carboxylic acid is
+outside stock. The second stored reaction is below the stocked amine,
+so the shared stopping rule ends that branch at the amine and leaves
+the 26-heavy-atom acid open. The original model run starts expanding
+the acid at call 13. It commits five further reactions and returns
+six exact inventory leaves. This case is from the TRAIN archive.
