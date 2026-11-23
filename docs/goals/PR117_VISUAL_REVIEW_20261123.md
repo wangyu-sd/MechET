@@ -124,3 +124,16 @@ inventory stopping rule to the stored three-reaction reference yields the
 same two-reaction tree and terminal multiset. One other route reproduces
 its reference's first disconnection. The 17-heavy-atom example retains
 the R configuration at the mapped carbon in the alcohol precursor.
+
+## Twelve committed reactions with four unresolved precursors
+
+[Open all 12 reaction drawings and the 103-call decision timeline](figures/pr117_update115_twelve_reaction_frontier.pdf).
+This 30-heavy-atom, five-ring training target reaches the decision limit.
+The returned route has 12 committed reactions along one dependency path.
+Seven leaf occurrences match exact inventory and four remain open.
+The earlier open precursors appear at reactions 8 and 10, and the model
+makes zero calls on either before the end of reaction 12. The final call
+imports a fragment on the 12-heavy-atom precursor created at reaction 11.
+Atom maps show that every open component shares heavy atoms with its
+producing substrate. The 21- and 12-heavy-atom precursors are entirely
+composed of those substrate heavy atoms.
