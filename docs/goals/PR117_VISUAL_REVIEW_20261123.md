@@ -70,6 +70,16 @@ state. The resulting fourth reaction yields two exact-stock precursors.
 Both diagrams preserve the original call numbers and the second page lists
 all 70 physical calls. [Open the chemical fork and trace](figures/pr117_update107_import_or_flow.pdf).
 
+## Training closure through update 121
+
+[Open the vector PDF](figures/pr117_training_closure_through121.pdf) · [Download window counts](figures/pr117_training_closure_through121.csv)
+
+![Full-route stock-closure and terminal outcomes through 121 training updates](figures/pr117_training_closure_through121.png)
+
+Updates 111–120 close 37 of 249 full-route targets that require synthesis (14.9%), compared with 44 of 250 in updates 101–110 (17.6%). The last shaded point covers only update 121, with 4 of 25 closures. The pooled training result is 506 of 2,981 (17.0%). These windows contain different training targets.
+
+Among the 249 targets in updates 111–120, 196 have a terminal executor rejection and 16 reach a resource limit. The most frequent rejection categories are absent source or destination bonds (78), a return to a route ancestor (58), FINISH with no useful structural change (36) and electronic state cycles (17). Results are from the original checkpoint-bound full-route records. The shared output directory `train_full_route_closure_through121_20261123.wdhpYu` contains the counting and plotting scripts, their input hashes, and both reproduced figures.
+
 ## Training closure through update 110
 
 [Open the updated inventory closure curve](figures/pr117_training_closure_through110.pdf).
