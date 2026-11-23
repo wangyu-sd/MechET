@@ -238,6 +238,18 @@ over all four identical-in-pairs samples improves from −0.587 to −0.087.
 Each marker shows the closing action minus the failed action. The margins
 precede policy ratios, clipping and the other loss terms.
 
+## One route accounts for the last nine minutes of collection
+
+[Open the update-123 vector PDF](figures/pr117_update123_collection_tail.pdf) · [All 112 model calls](figures/pr117_update123_collection_tail.csv)
+
+![Training target completion times and where the last target spends its model calls](figures/pr117_update123_collection_tail.png)
+
+Update 123 publishes its 128th target 9.1 minutes after its 127th. The last target uses 112 physical calls in 96 decision groups. Eighty-eight groups issue a single candidate. The original per-request durations imply at least 11.45 minutes of serial model waves over the target's lifetime, and its scheduler queue waits sum to 0.33 seconds. The target returns two committed reactions after four backtracks. Two of three remaining precursor occurrences received zero calls. Among the 112 original model responses, 28 belong to the returned decision path, of which 15 are at the first precursor position. That position receives 64 calls across explored branches.
+
+Across updates 111–123, 28,439 calls complete for 1,664 training targets. Collection takes 70.7% of combined checkpoint wall time and the learner takes 27.9%. Full-route examples constitute 20.0% of targets and consume 43.1% of calls. The median final target needs at least 9.5 minutes of dependency-ordered model waves, and 93.0% of the final targets' decision groups issue only one candidate. The mean native decoder batch is 3.37 requests per iteration. Across these updates, the broker queue averages 5.63 ms per call and the native engine queue averages 0.29 ms.
+
+Both reports reproduce byte for byte on the shared run. The latest-target trace is `training_update123_bottleneck_case_20261123.sMKuw6/measured/evidence.json` (SHA-256 `38f6c9357bd34f01a3e76d0e3bb94b2b3b327ab40494f5d331d91e47de8e3aaa`). The 13-update receipt audit is `training_actor_runtime_breakdown111_123_20261123.Nnjodn/measured.json` (SHA-256 `ff7e8875ed4da02765c779a5f5fc77a3552038f50a399069f3fa4d19a5a2e777`).
+
 ## Training runtime and native inference batch size
 
 [Open the timing and batch size figure](figures/pr117_training_runtime_breakdown_111_119.pdf)
