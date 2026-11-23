@@ -42,3 +42,21 @@ Invoke `python -m scripts.pr117_actor_transfer_package` with `--parent-launch`, 
 The Taiji command is recorded in `inputs/deployment.json`. `bash worker.sh --validate` checks the sealed bundle without model generation. The worker uses the same allocation receipt handoff as the parent. Once both runs have completed, `bash worker.sh --finalize` replays their physical receipts and publishes `paired_actor_results.json` atomically. The parent and trained raw outputs remain separately reproducible.
 
 Run `python -m scripts.pr117_admit_allocation <bundle>` from the isolated worktree to verify the sealed one-A100 deployment. During the scheduled window, pass `--instance-id` after the submitted worker publishes `worker_ready.json`. The command checks that exact running Taiji instance, verifies the hostname and physical A100 with an independent device query, and publishes the allocation receipt used by the waiting worker.
+
+## Reading back completed work after an interruption
+
+Preserve the stopped worker's target files, allocation receipt and native
+journal. The shared execution directory contains the readback command in
+`reference_actor_interruption_readback_20261123/README.md`. Use the actor
+and panel registered in the sealed bundle for that worker. The readback
+replays published C0 targets and counts issued calls, returned calls and
+persisted behavior receipts separately. Charge any issued call to the
+recorded physical work, including a call still waiting for a return.
+
+In the archived development replay, the prefix with six published targets
+has 180 calls attributed to those targets. Taking the original journal
+through the next C0 dispatch records 181 issued and 180 returned, with
+the same six targets. Both prefixes reproduce exactly. The complete
+original archive replays all 24 C0 targets and 720 calls. Use the
+registered paired finalizer once both formal runs have their completed
+summaries. The readback is an analysis step for preserved outputs.
