@@ -2,6 +2,28 @@
 
 [Open the ten-page PDF](figures/pr117_visual_review.pdf).
 
+## Figure previews
+
+### Same target, two search trees
+
+The electronic-state and completed-reaction searches use the same model and inventory on a 37-heavy-atom target. Each makes 30 calls. The figure labels the returned branches and the precursor obligations that remain open.
+
+![Side-by-side ReFIT and reaction-level AND/OR search trees](figures/pr117_refit_and_or_same_target.png)
+
+### The first electronic fork and every model call
+
+The top panel shows the observed proton-transfer alternatives from one mapped state. The lower panel records all 30 model calls per controller in order.
+
+![Atom-mapped electronic fork and both original 30-call timelines](figures/pr117_electronic_fork_and_call_timeline.png)
+
+### Inventory closure on a 43-heavy-atom polycycle
+
+The two-reaction route reaches three inventory leaves. The drawing shows all 17 model calls below the reaction tree.
+
+![Two reactions close a seven-ring target in the training archive](figures/pr117_polycyclic_stock_closure.png)
+
+## PDF page guide
+
 | Pages | Figure | Evidence |
 | --- | --- | --- |
 | 1–2 | ReFIT electronic-state search and reaction-level AND/OR search | Both searched the same 37-heavy-atom development target with the same actor and stock, at 30 model calls each. The returned routes retain four and one reactions, respectively. Both frontiers remain open. [Trace audit](https://github.com/wangyu-sd/MechET/pull/117#issuecomment-7078015398) |
