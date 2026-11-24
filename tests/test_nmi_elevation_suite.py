@@ -2,7 +2,12 @@
 import json
 from pathlib import Path
 
-from scripts.analyze_emergent_strategy import compute_test_time_scaling, decode_emergent_strategies
+from scripts.analyze_emergent_strategy import (
+    attribute_mechanistic_failures,
+    compute_test_time_scaling,
+    decode_emergent_strategies,
+)
+from scripts.build_sar40_panel import freeze_sar40_panel
 from scripts.export_retroe_to_ursa import convert_report_to_ursa_route, export_groups_dir
 from scripts.freeze_elevation_panels import freeze_cbyd_stratified, freeze_steerable_sar_panel
 
@@ -91,3 +96,24 @@ def test_freeze_cbyd_and_sar_panels(tmp_path: Path):
     smeta = freeze_steerable_sar_panel([sar_src], tmp_path / "frozen", num_series=1, max_per_series=3)
     assert smeta["total_molecules"] == 3
     assert smeta["num_series"] == 1
+
+
+def test_mechanistic_failure_attribution_and_sar40(tmp_path: Path):
+    reps = [
+        _sample_report("t1", calls=10, min_pr18=-0.6, convergent=True),
+        {
+            "task_id": "t2",
+            "root": "c1ccccc1",
+            "status": "rejected_action",
+            "reactions": [],
+            "stepwise": {"backtracks": 2, "slates": [{"candidates": [{"accepted": False, "error": "ROUTE_CYCLE"}]}]},
+        },
+    ]
+    attr = attribute_mechanistic_failures(reps, "Retro-E-Plan")
+    assert attr["failure_attribution_counts"]["LOW_PR18_BOTTLENECK"] == 1
+    assert attr["failure_attribution_counts"]["ROUTE_CYCLE"] == 1
+
+    sar_meta = freeze_sar40_panel(tmp_path / "sar40")
+    assert sar_meta["total_molecules"] == 40
+    assert sar_meta["num_series"] == 5
+

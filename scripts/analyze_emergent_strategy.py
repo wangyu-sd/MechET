@@ -184,6 +184,73 @@ def decode_emergent_strategies(reports, label: str):
     }
 
 
+def attribute_mechanistic_failures(reports, label: str, mech_threshold: float = -0.25):
+    """2027 Frontier Analysis: Step-level mechanistic failure attribution and backtrack repair diagnostics."""
+    need_synth = [r for r in reports if r.get("status") != "already_stock"]
+    counts = {
+        "ROUTE_CYCLE": 0,
+        "LOW_PR18_BOTTLENECK": 0,
+        "SPECTATOR_STEREO_LOSS": 0,
+        "REJECTED_ELECTRON_STEP": 0,
+        "REPAIRED_BY_ELECTRON_BACKTRACK": 0,
+    }
+    bottleneck_examples = []
+    for r in need_synth:
+        sw = r.get("stepwise") or {}
+        rxns = r.get("reactions") or []
+        ev = r.get("reward_evidence") or {}
+        is_closed = (r.get("status") == "stock_solved" or bool(ev.get("structural_stock_closed"))) and len(rxns) > 0
+        backtracks = int(sw.get("backtracks", 0) or 0)
+
+        has_cycle = False
+        has_reject = False
+        worst_score = None
+        worst_req = None
+        for sl in sw.get("slates") or []:
+            for c in sl.get("candidates") or []:
+                err = str(c.get("error") or "")
+                if "ROUTE_CYCLE" in err:
+                    has_cycle = True
+                elif not c.get("accepted", True) and err:
+                    has_reject = True
+                ts = c.get("teacher_score")
+                if ts is not None and (worst_score is None or float(ts) < worst_score):
+                    worst_score = float(ts)
+                    worst_req = c.get("request_id")
+
+        if has_cycle:
+            counts["ROUTE_CYCLE"] += 1
+        if has_reject:
+            counts["REJECTED_ELECTRON_STEP"] += 1
+        if is_closed and backtracks > 0:
+            counts["REPAIRED_BY_ELECTRON_BACKTRACK"] += 1
+        if is_closed:
+            min_sel = _selected_min_pr18(sw)
+            if min_sel < mech_threshold:
+                counts["LOW_PR18_BOTTLENECK"] += 1
+                if len(bottleneck_examples) < 20:
+                    bottleneck_examples.append({
+                        "task_id": r.get("task_id", ""),
+                        "root": r.get("root", ""),
+                        "min_selected_pr18": round(min_sel, 4),
+                        "worst_request_id": worst_req,
+                        "num_reactions": len(rxns),
+                    })
+            for rxn in rxns:
+                prod = str(rxn.get("product") or "")
+                precs = [str(p) for p in (rxn.get("precursors") or [])]
+                if "@" in prod and not any("@" in p for p in precs):
+                    counts["SPECTATOR_STEREO_LOSS"] += 1
+                    break
+
+    return {
+        "label": label,
+        "synthesis_needed": len(need_synth),
+        "failure_attribution_counts": counts,
+        "bottleneck_examples": bottleneck_examples,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", action="append", required=True, help="label=/path/to/groups")
@@ -196,6 +263,7 @@ def main():
 
     scaling_rows = []
     strategy_rows = []
+    attribution_rows = []
     for spec in args.arm:
         label, path_str = spec.split("=", 1)
         subdirs = sorted([d for d in Path(path_str).iterdir() if d.is_dir()])
@@ -203,16 +271,18 @@ def main():
             reports = [r for r in pool.map(_load_report, subdirs) if r is not None]
         scaling_rows.extend(compute_test_time_scaling(reports, label, budgets=budgets))
         strategy_rows.append(decode_emergent_strategies(reports, label))
+        attribution_rows.append(attribute_mechanistic_failures(reports, label))
 
     (args.out_dir / "test_time_scaling.json").write_text(json.dumps(scaling_rows, indent=2) + "\n")
     (args.out_dir / "emergent_strategy.json").write_text(json.dumps(strategy_rows, indent=2) + "\n")
+    (args.out_dir / "failure_attribution.json").write_text(json.dumps(attribution_rows, indent=2) + "\n")
     for fname, rows in (("test_time_scaling.csv", scaling_rows), ("emergent_strategy.csv", strategy_rows)):
         if rows:
             with (args.out_dir / fname).open("w", newline="") as f:
                 w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
                 w.writeheader()
                 w.writerows(rows)
-    print(json.dumps({"scaling": scaling_rows, "strategy": strategy_rows}, indent=2))
+    print(json.dumps({"scaling": scaling_rows, "strategy": strategy_rows, "attribution": attribution_rows}, indent=2))
 
 
 if __name__ == "__main__":
