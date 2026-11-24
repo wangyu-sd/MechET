@@ -1,6 +1,7 @@
 """Unit tests for NMI Day 3-4 six-dimensional evaluator and panel freezer."""
 import json
 from pathlib import Path
+import pytest
 
 from scripts.prepare_nmi_day34_eval_suite import freeze_panels, score_six_dimensions
 
@@ -44,7 +45,11 @@ def test_six_dim_scoring_and_panel_freeze(tmp_path):
     assert metrics["backtrack_closed"] == 1
     assert metrics["cycle_failed_targets"] == 1
 
-    manifest = freeze_panels(reports, tmp_path / "out")
+    with pytest.raises(ValueError, match="Refusing to freeze"):
+        freeze_panels(reports, tmp_path / "bad_out", split_role="internal_valid")
+
+    manifest = freeze_panels(reports, tmp_path / "out", split_role="public_test")
+    assert manifest["split_role"] == "public_test"
     assert manifest["failure_recovery_count"] == 1
-    assert manifest["failure_recovery_cycle_count"] == 1
     assert manifest["supply_disruption_count"] == 1
+    assert manifest["competing_forks_count"] == 0

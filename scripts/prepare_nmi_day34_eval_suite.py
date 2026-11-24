@@ -134,33 +134,36 @@ def score_six_dimensions(groups_dir: Path, label: str, mech_threshold: float = -
     ), reports
 
 
-def freeze_panels(reports, out_dir: Path):
+def freeze_panels(reports, out_dir: Path, *, split_role: str = "public_test"):
+    if split_role != "public_test":
+        raise ValueError(
+            f"Refusing to freeze main-paper stress/fork panels from split_role={split_role!r}; "
+            "must use an independent public test archive (e.g. Reference 1084 / URSA 200)."
+        )
     out_dir.mkdir(parents=True, exist_ok=True)
-    # 1. Failure recovery 100 panel (prioritize ROUTE_CYCLE then rejected_action)
-    cycle_rows, other_fail_rows = [], []
+    # 1. Full failure recovery panel (all ROUTE_CYCLE failures on the public test set, no arbitrary truncation)
+    cycle_rows = []
     for r in reports:
         if r.get("status") != "rejected_action":
             continue
         sw = r.get("stepwise") or {}
         err_list = [str(c.get("error") or "") for sl in (sw.get("slates") or [])
                     for c in (sl.get("candidates") or []) if not c.get("accepted") and c.get("error")]
-        is_cycle = any("ROUTE_CYCLE" in e for e in err_list)
-        entry = dict(
+        if not any("ROUTE_CYCLE" in e for e in err_list):
+            continue
+        cycle_rows.append(dict(
             task_id=r.get("task_id", ""),
             root=r.get("root", ""),
             status=r.get("status", ""),
-            failure_kind="ROUTE_CYCLE" if is_cycle else "REJECTED_ACTION",
+            failure_kind="ROUTE_CYCLE",
             last_error=err_list[-1] if err_list else "",
             committed_reactions=len(r.get("reactions") or []),
-        )
-        (cycle_rows if is_cycle else other_fail_rows).append(entry)
+        ))
     cycle_rows.sort(key=lambda x: x["task_id"])
-    other_fail_rows.sort(key=lambda x: x["task_id"])
-    failure_100 = (cycle_rows + other_fail_rows)[:100]
-    fail_path = out_dir / "failure_recovery_100.jsonl"
-    fail_path.write_text("\n".join(json.dumps(x, sort_keys=True) for x in failure_100) + ("\n" if failure_100 else ""))
+    fail_path = out_dir / "public_cycle_recovery_full.jsonl"
+    fail_path.write_text("\n".join(json.dumps(x, sort_keys=True) for x in cycle_rows) + ("\n" if cycle_rows else ""))
 
-    # 2. Supply disruption panel (all nonzero stock-closed targets with a nontrivial leaf blocked)
+    # 2. Full supply disruption panel (all nonzero stock-closed targets with a nontrivial leaf blocked)
     disrupt_rows = []
     for r in reports:
         ev = r.get("reward_evidence") or {}
@@ -178,15 +181,36 @@ def freeze_panels(reports, out_dir: Path):
             blocked_stock_smiles=blocked,
         ))
     disrupt_rows.sort(key=lambda x: x["task_id"])
-    disrupt_path = out_dir / "supply_disruption_panel.jsonl"
+    disrupt_path = out_dir / "public_supply_disruption_full.jsonl"
     disrupt_path.write_text("\n".join(json.dumps(x, sort_keys=True) for x in disrupt_rows) + ("\n" if disrupt_rows else ""))
 
+    # 3. Full competing electronic forks observed on the public test set (for Fig 3d probability shift)
+    fork_rows = []
+    for r in reports:
+        sw = r.get("stepwise") or {}
+        for idx, sl in enumerate(sw.get("slates") or []):
+            outs = sl.get("outcomes") or {}
+            vals = set(outs.values())
+            if "closed" in vals and "failed" in vals:
+                fork_rows.append(dict(
+                    task_id=r.get("task_id", ""),
+                    root=r.get("root", ""),
+                    slate_index=idx,
+                    slate_key=sl.get("key", ""),
+                    candidate_count=len(sl.get("candidates") or []),
+                ))
+    fork_rows.sort(key=lambda x: (x["task_id"], x["slate_index"]))
+    fork_path = out_dir / "public_competing_forks_full.jsonl"
+    fork_path.write_text("\n".join(json.dumps(x, sort_keys=True) for x in fork_rows) + ("\n" if fork_rows else ""))
+
     manifest = dict(
-        failure_recovery_count=len(failure_100),
-        failure_recovery_cycle_count=sum(1 for x in failure_100 if x["failure_kind"] == "ROUTE_CYCLE"),
+        split_role=split_role,
+        failure_recovery_count=len(cycle_rows),
         failure_recovery_sha256=hashlib.sha256(fail_path.read_bytes()).hexdigest(),
         supply_disruption_count=len(disrupt_rows),
         supply_disruption_sha256=hashlib.sha256(disrupt_path.read_bytes()).hexdigest(),
+        competing_forks_count=len(fork_rows),
+        competing_forks_sha256=hashlib.sha256(fork_path.read_bytes()).hexdigest(),
     )
     (out_dir / "panel_manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
     return manifest
@@ -196,7 +220,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arm", action="append", required=True, help="label=/path/to/groups")
     parser.add_argument("--out-dir", type=Path, required=True)
-    parser.add_argument("--freeze-from", default="", help="arm label to freeze failure/disruption panels from")
+    parser.add_argument("--split-role", choices=("public_test", "internal_valid"), default="public_test")
+    parser.add_argument("--freeze-from", default="", help="arm label to freeze public failure/disruption/fork panels from")
     args = parser.parse_args()
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
@@ -205,19 +230,21 @@ def main():
     for spec in args.arm:
         label, path_str = spec.split("=", 1)
         metrics, reports = score_six_dimensions(Path(path_str), label)
+        metrics["split_role"] = args.split_role
         rows.append(metrics)
         if label == args.freeze_from:
             freeze_reports = reports
 
-    (args.out_dir / "baseline_six_dim_metrics.json").write_text(json.dumps(rows, indent=2) + "\n")
+    out_name = "public_six_dim_metrics" if args.split_role == "public_test" else "internal_valid_selection_log"
+    (args.out_dir / f"{out_name}.json").write_text(json.dumps(rows, indent=2) + "\n")
     if rows:
-        with (args.out_dir / "baseline_six_dim_metrics.csv").open("w", newline="") as f:
+        with (args.out_dir / f"{out_name}.csv").open("w", newline="") as f:
             w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
             w.writeheader()
             w.writerows(rows)
 
-    manifest = freeze_panels(freeze_reports, args.out_dir) if freeze_reports is not None else None
-    print(json.dumps(dict(metrics=rows, panels=manifest), indent=2))
+    manifest = freeze_panels(freeze_reports, args.out_dir, split_role=args.split_role) if freeze_reports is not None else None
+    print(json.dumps(dict(split_role=args.split_role, metrics=rows, panels=manifest), indent=2))
 
 
 if __name__ == "__main__":

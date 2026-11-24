@@ -73,57 +73,58 @@ $$R(\tau) = \underbrace{\mathbb{I}[\text{all-stock closed}] \cdot G_{\text{mech}
 
 ## 4. 3–4 天 8×H20 全量实战排期（纯机时 ~58 小时 ≈ 2.5 天）
 
-严格区分三层数据隔离：**512 clean VALID** 仅作内部选点；**PR117 96 锁定目标 + Reference 1,084 + URSA 200** 为独立公开测试集（严禁调参）；**CbyD 100** 为分布外复杂天然产物全合成独立验证。
+**严格数据隔离铁律（主文 100% 纯公开独立测试集，零内部集污染）**：
+- **仅放 Supplementary / Extended Data（内部选点）**：`512 clean VALID` 仅作训练过程监控与 checkpoint 选择，**不进入正文任何主图/主表**。
+- **正文 Figure 2–6（100% 公开独立测试集）**：**RetroCast Reference 1,084**（全量）、**URSA Expert 100 + Drugs 100**（全量）、**PR117 预注册 96 分层配对集**（Reference 1,084 子集，未用于训练/选点）、**CbyD 100**（按 LLS 分层预注册，排除开发 27 根）。所有失败恢复、库存断供、同状态分叉概率迁移与稀有组合频率分层均**直接全量派生自 Reference 1,084 + URSA 200 公开独立测试集**，零内部验证集混入、零任意小切片。
 
 | 日程 | 核心任务 | 8×H20 耗时 | 交付里程碑 |
 |---|---|---:|---|
-| **Day 1** | • 扫描全量存档并导出 Stage 1 高纯度数据（CPU 并行）<br>• 跑 `round-000204` 512 内部验证（钉死短步对照）<br>• 跑 Stage 1 冷启动（RFT + 反事实 DPO）+ 512 验证 | ~8h | `step 0 → 64 → 204 → Stage-1` 验证曲线；`ckpt-stage1` |
-| **Day 2** | • 跑 Stage 2（100% 完整路线、深度 2–5、机理门控奖励、`temp=0.80`、`lr=1e-5` 长程 ReFIT-PO，64–96 步）<br>• 跑最终 512 验证锁定主模型 | ~18h | 主模型 `Retro-E-Plan`；四阶完整消融表 |
-| **Day 3** | • **96 独立锁定目标**（64 calls/target）：权重对比 + 三套控制器对比（`C0` vs `C4` vs `C2`）<br>• **RetroCast Reference 1,084 全量**（8 个冻结 batch：`SFT` vs `Retro-E-Plan`） | ~20h | **Fig 2**（1,084 主表）、**Fig 4**（电子态 vs 反应级因果对比） |
-| **Day 4** | • **URSA Expert 100 + Drugs 100**（`Solv-0/1/2` & `MV-Solv`）<br>• **CbyD 100 分层天然产物** + **FlowER 500 稀有/未见切片**<br>• **100 失败态恢复 + 100 库存断供扰动重规划**<br>• 汇总 bootstrap CI、高清 RDKit 图、同步 `MechET-paper` | ~14h | **Fig 2/3/5/6** 全部真实数据与可送审 NMI 证据包 |
+| **Day 1–2** | • 跑 96 步长程多步规划 RL（从 `round-000204` 热启动，100% 深度 ≥ 2 完整路线、机理/手性/LLS 门控、主动 K2 分叉、`lr=1e-5`）<br>• 自动在 step `0/32/64/96` 跑 512 clean VALID（仅作内部选点日志，放 Supplementary） | ~15h | 主模型 `Retro-E-Plan`；内部选点日志（Supplementary） |
+| **Day 3** | • **RetroCast Reference 1,084 全量**（8 个冻结 batch：`SFT` vs `短步 204` vs `Retro-E-Plan` 四阶/三阶消融，直接产出公开独立消融表、全量竞争分叉点与全量多步步骤频率分层）<br>• **PR117 96 独立锁定目标**（64 calls/target：`C0` vs `C4` vs `C2` 三套控制器同预算配对） | ~22h | **Fig 2a/b/e**、**Fig 3c/d/e**、**Fig 4a/b/c**、**Fig 5a** 完整公开独立数据 |
+| **Day 4** | • **URSA Expert 100 + Drugs 100**（官方 ChemCensor 得 `Solv-0/1/2` + `MV-Solv`，对标已发表官方文献值）<br>• **CbyD 100 分层复杂天然产物**（可选补 1 个轻量开源 DMS Explorer XL 参考线）<br>• **公开集全量压力测试**：Reference 1,084 真实 `ROUTE_CYCLE` 失败态全量恢复 + Reference 1,084 / URSA 200 闭合路线全量库存断供重规划<br>• 汇总配对 bootstrap CI、高清 RDKit 图、同步 `MechET-paper` | ~18h | **Fig 2c/d**、**Fig 4d/e**、**Fig 5b/c/d**、**Fig 6a/b/c/d** 全部真实数据与可送审 NMI 证据包 |
 
-*（注：主动砍掉原 PR117 中超纲耗时的 RetroBench 5,838、CbyD 500、AI 512 与 80 人工盲评；蒸馏作为 Day 4 条件加餐，不强绑主线。）*
+*（注：主动砍掉超纲耗时的 RetroBench 5,838、CbyD 500、AI 512、80 人工盲评与任意 FlowER 500 切片；蒸馏作为 Day 4 条件加餐，不强绑主线。）*
 
 ---
 
-## 5. 正文 6 张高密度多 Panel 主图设计（共 28 Panels）
+## 5. 正文 6 张高密度多 Panel 主图设计（共 28 Panels，100% 公开独立测试集）
 
 ### Figure 1｜Retro-E 框架总览：亚反应级可执行电子流与长程机理规划（5 Panels）
 - **a. 范式对比**：反应级黑盒（SMILES/模板）vs 亚反应级可执行电子流（`IMPORT → FLOW₁..k → FINISH` + AND/OR 树）。
 - **b. 在线双向微观护栏（PR18）**：`S_before → 临时执行 → S_after` 同步评估逆向分 `s_inv` 与经化学回放验证的正向逆算子分 `s_fwd`。
 - **c. 亚反应级分叉与冲突回跳**：真实分子在未完成反应态分出 A/B 两条合法电子流，A 下游触发 `ROUTE_CYCLE` 后精准回跳至 B 并闭合库存。
 - **d. 现实约束机理门控奖励**：$G_{\text{mech}} \times G_{\text{stereo}} \times \phi_{\text{LLS}}$ 过滤撞库幻觉 + 保守电子流归因流图。
-- **e. 两阶段多步规划后训练闭环**：`SFT → Stage 1 (高纯度多步 RFT + 反事实 DPO) → Stage 2 (100% 完整路线长程 ReFIT-PO)`。
+- **e. 长程多步规划后训练闭环**：`Stage-II SFT → 短步局部适应 (round-204) → 100% 完整深度 ≥ 2 长程机理门控 ReFIT-PO (Retro-E-Plan)`。
 
 ### Figure 2｜标准多步基准性能与化学可信度留存（5 Panels）
-- **a. Reference 1,084 `Solved@Budget` 主曲线**：`SFT → 短步(204) → Stage-1 → Retro-E-Plan` 四阶跃升（带 95% bootstrap CI）。
+- **a. Reference 1,084 `Solved@Budget` 主曲线**：`SFT → 短步(204) → Retro-E-Plan` 公开全量独立跃升（带 95% bootstrap CI，附 RetroCast 官方文献参考线）。
 - **b. Reference 1,084 拓扑分层柱状图**：Linear (600) / Convergent (400) / Long (84) 分层对比，突出长链与汇聚增益。
-- **c. URSA Expert (100) + Drugs (100) 阶梯衰减对比**：`Solv-0 → Solv-1 → Solv-2 → MV-Solv`，对比已发表黑盒强基线（RetroChimera / AiZynthFinder / DMS-Wide）的断崖衰减与 Retro-E 的高留存率。
+- **c. URSA Expert (100) + Drugs (100) 阶梯衰减对比**：`Solv-0 → Solv-1 → Solv-2 → MV-Solv`，对标已发表官方文献值（RetroChimera-MCTS / AiZynthFinder / Retro* / DMS-Wide）的断崖衰减与 Retro-E 的高留存率。
 - **d. 化学可信度留存率散点/气泡图**：`Solv-2 / Solv-0` 留存率 vs 逐电子可回放率。
 - **e. 真实完整多步汇聚路线案例（RDKit 高清图）**：1 条 4–5 步同时通过 `Solv-2` 与 `MV-Solv` 的完整电子流合成树。
 
 ### Figure 3｜长程电子流信用反纠偏：为什么短步适应不够？（5 Panels）
-- **a. 同状态电子流反事实化学案例**：同一中间电子态下，局部 PR18 更偏好的支路 A 下游成环失败，支路 B 5 步闭合到库存（附电子箭头图）。
+- **a. 同状态电子流反事实化学案例**：同一中间电子态下，局部 PR18 更偏好的支路 A 下游成环失败，支路 B 5 步闭合到库存（附电子箭头图，明确标注训练归档机理见证）。
 - **b. Local–Global 错位与反纠偏统计**：同状态成败对比组中局部打分器偏好失败分支的比例 vs 加入 ReFIT-PO 长程信用后的逆转率。
-- **c. 512 Clean VALID 四阶消融轨迹**：`step 0 → 64 → 204(短步) → Stage-1 → Stage-2` 的 `depth ≥ 2` 闭合率与机理门控闭合率，实证短步停滞、长程陡升。
-- **d. 独立竞争分叉点策略概率迁移**：120–240 个独立同状态分叉点上 $\Delta \log \pi(a_{\text{win}}) - \Delta \log \pi(a_{\text{lose}})$ 配对分布。
-- **e. 木桶机理门控防 Reward Hacking 消融**：无门控 vs 有 $G_{\text{mech}}$ 门控的 `min_pr18 < 0` 撞库占比与 `Solv-2` 对比。
+- **c. 公开独立集（Reference 1,084 + URSA 200）多步消融对比**：对比 `SFT → 短步(204) → Retro-E-Plan` 的 `depth ≥ 2` 闭合率与木桶机理门控闭合率，实证短步停滞、长程跃升（`512 clean VALID` 选点轨迹移至 Supplementary）。
+- **d. 公开测试集竞争分叉点策略概率迁移**：在 **Reference 1,084** 全部真实观测到的同电子态竞争分叉点上，对比 SFT / 短步(204) / `Retro-E-Plan` 的 $\Delta \log \pi(a_{\text{win}}) - \Delta \log \pi(a_{\text{lose}})$ 配对分布。
+- **e. 木桶机理门控防 Reward Hacking 消融**：在 Reference 1,084 / URSA 200 上对比无机理门控（`round-204`）vs 有 $G_{\text{mech}}$ 门控（`Retro-E-Plan`）的低质撞库占比与 `Solv-2` 留存率。
 
 ### Figure 4｜亚反应级电子态分叉 vs 反应级规划与失败恢复（5 Panels）
 - **a. 96 独立锁定目标同预算配对曲线**：固定 `Retro-E-Plan` 权重，16 / 32 / 64 calls 下对比 `C0 原生独立` vs `C4 反应级分叉` vs `C2 亚反应电子态分叉+冲突回跳`。
 - **b. 96 目标配对胜负矩阵（B=64）**：`Electron-only` vs `Reaction-only` 净胜与 McNemar 检验（按线性/汇聚/长链拆分）。
-- **c. 探索多样性激活对比**：SFT（20/24 重复）vs `Retro-E-Plan` 的同状态不同合法电子后继数与策略熵对比。
-- **d. 100 个真实失败/成环态恢复率**：`Retry` vs `Reaction Rewind` vs `Electron Backjump` 在 SFT（0/11 基线）与 `Retro-E-Plan` 下的完整恢复率。
+- **c. 探索多样性激活对比**：在 96 独立集上对比 SFT（20/24 重复）vs `Retro-E-Plan` 的同状态不同合法电子后继数与策略熵。
+- **d. 公开测试集真实成环失败态全量恢复率**：在 **Reference 1,084** 上全部真实发生的 `ROUTE_CYCLE` 失败态上，对比 `Retry` vs `Reaction Rewind` vs `Electron Backjump` 的完整恢复率。
 - **e. 冲突导向回跳时序图（Call Timeline）**：30+ 重原子分子从成环触发到精准回跳并全树闭合的逐调用轨迹图。
 
-### Figure 5｜复杂天然产物全合成（CbyD）与稀有/未见组合泛化（4 Panels）
-- **a. 稀有/未见电子组合分层泛化（FlowER 500 切片）**：Frequent / Rare / Unseen 组合的电子流可执行率与准确度对比。
+### Figure 5｜复杂天然产物全合成（CbyD）与多步稀有断键泛化（4 Panels）
+- **a. 公开多步路线全量频率分层泛化**：对 **Reference 1,084 + CbyD 100** 全部真实多步预测反应步骤，按训练库先例频率全量分层（`Frequent / Rare / Novel Electron Disconnections`），报告电子流可执行率与双向可逆一致率（零任意小切片，不与单步论文重叠）。
 - **b. CbyD 100 复杂天然产物按 LLS 分层表现**：5–9 / 10–14 / ≥15 步的文献首步战略断键 `SDR@1`、连续两步匹配、完整闭合与旁观手性保持率。
 - **c. 天然产物案例 1（汇聚 + 非单调预备步，RDKit 大图）**：展示主动执行的官能团互变/保护 → 关键骨架汇聚断键与电子推动机理。
 - **d. 天然产物案例 2（竞争断键对比 + 化学证据分层）**：新颖电子守恒路线 vs 文献路线对照 + CbyD 100 全部预测步骤的证据分层（精确先例 / 类似物先例 / 双向可逆新颖可行）。
 
 ### Figure 6｜面向真实应用的综合合成实用性、鲁棒性与效率账本（4 Panels）
-- **a. 六维现实合成实用性雷达图**：综合对比 `SFT`、`短步(204)`、`Retro-E-Plan`、`Retro-E-Plan + 电子态搜索` 在 **闭合率、可信度留存 (`Solv-2/Solv-0`)、手性保持、步骤经济性 (LLS)、断供恢复、路线多样性** 六大维度的全面领先。
-- **b. 步骤经济性与汇聚度分布**：LLS 与总反应步数箱线图，验证 $\phi_{\text{LLS}}$ 抑制冗长直链与无意义绕圈。
-- **c. 100 目标库存断供扰动重规划**：屏蔽关键原料后的绕路重闭合率与 Top-K 不同关键断键策略数（附 1 个断供切换骨架断键的微型结构图）。
+- **a. 六维现实合成实用性雷达图**：在公开测试集（Reference 1,084 + URSA 200）上综合对比 `SFT`、`短步(204)`、`Retro-E-Plan`、`Retro-E-Plan + 电子态搜索` 在 **闭合率、可信度留存 (`Solv-2/Solv-0`)、手性保持、步骤经济性 (LLS)、断供恢复、路线多样性** 六大维度的全面领先。
+- **b. 步骤经济性与汇聚度分布**：Reference 1,084 所解路线的 LLS 与总反应步数箱线图，验证 $\phi_{\text{LLS}}$ 抑制冗长直链与无意义绕圈。
+- **c. 公开测试集全量库存断供扰动重规划**：对 **Reference 1,084 + URSA 200** 全部闭合路线屏蔽关键非平凡砌块后的绕路重闭合率与 Top-K 不同关键断键策略数（附 1 个断供切换骨架断键的微型结构图）。
 - **d. 真实计算成本与帕累托前沿**：Qwen tokens / 在线双向 PR18 / CPU Executor 耗时占比，以及 `GPU-sec / Solved Route` 效率前沿（若 Day 4 补做轻量搜索蒸馏，叠加为 Pareto 红点）。
