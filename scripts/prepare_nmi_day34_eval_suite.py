@@ -7,6 +7,77 @@ import json
 from pathlib import Path
 import statistics
 
+try:
+    from rdkit import Chem
+    from rdkit.Chem import Descriptors
+except Exception:  # pragma: no cover
+    Chem = None
+    Descriptors = None
+
+HAZARDOUS_SUBSTRUCTS = ("[Cr]", "[Os]", "[Sn]", "[Pb]", "[Hg]", "[N-]=[N+]=[N-]")
+
+
+def _mol_mw_and_heavy(smiles: str):
+    smiles = str(smiles or "").strip()
+    if not smiles:
+        return 0.0, 0
+    if Chem is None:
+        return float(len(smiles) * 12), len(smiles)
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return 0.0, 0
+    return float(Descriptors.MolWt(mol)), int(mol.GetNumHeavyAtoms())
+
+
+def _route_multi_objective(report: dict):
+    """Compute Exact Route Atom Economy, Green Reagent Compliance, and Starting-Material Simplicity."""
+    target_mw, target_heavy = _mol_mw_and_heavy(report.get("root", ""))
+    leaves = [str(s) for s in (report.get("stock_leaves") or []) if s]
+    if not leaves:
+        for r in report.get("reactions") or []:
+            leaves.extend(str(p) for p in (r.get("precursors") or []) if p)
+    leaf_stats = [_mol_mw_and_heavy(s) for s in leaves]
+    total_leaf_mw = sum(mw for mw, _ in leaf_stats)
+    atom_economy = min(1.0, target_mw / total_leaf_mw) if total_leaf_mw > 0 and target_mw > 0 else 0.0
+    max_leaf_heavy = max((h for _, h in leaf_stats), default=0)
+    # Simplicity: 1 - (heaviest_leaf / target_heavy), higher means genuine multi-step disassembly from simple BBs
+    leaf_simplicity = max(0.0, 1.0 - (max_leaf_heavy / max(target_heavy, 1))) if target_heavy > 0 else 0.0
+
+    # Green compliance: check no hazardous heavy-metal or azide species in precursors/leaves
+    green_ok = True
+    if Chem is not None:
+        patterns = [Chem.MolFromSmarts(s) for s in HAZARDOUS_SUBSTRUCTS]
+        all_smi = list(leaves)
+        for r in report.get("reactions") or []:
+            all_smi.extend(str(p) for p in (r.get("precursors") or []) if p)
+        for smi in set(all_smi):
+            mol = Chem.MolFromSmiles(smi)
+            if mol is None:
+                continue
+            if any(pat is not None and mol.HasSubstructMatch(pat) for pat in patterns):
+                green_ok = False
+                break
+    return round(atom_economy, 4), round(leaf_simplicity, 4), green_ok
+
+
+def pareto_preference_score(
+    *,
+    min_pr18: float,
+    lls: int,
+    atom_economy: float,
+    leaf_simplicity: float,
+    green_ok: bool,
+    mode: str = "medchem",
+) -> float:
+    """Inference-time multi-objective Pareto router (no retraining required): MedChem vs Process mode."""
+    mech_norm = max(0.0, min(1.0, (min_pr18 + 0.5) / 0.8))
+    lls_norm = max(0.0, 1.0 - max(0, lls - 1) / 8.0)
+    green_val = 1.0 if green_ok else 0.0
+    if mode == "process":
+        return round(0.40 * mech_norm + 0.25 * atom_economy + 0.20 * green_val + 0.15 * leaf_simplicity, 4)
+    # Default: MedChem (fast LLS + high mechanistic reliability + simple starting materials)
+    return round(0.35 * mech_norm + 0.40 * lls_norm + 0.15 * leaf_simplicity + 0.10 * atom_economy, 4)
+
 
 def _load_group_report(sub: Path):
     f = sub / "scored_group.json"
@@ -78,6 +149,11 @@ def score_six_dimensions(groups_dir: Path, label: str, mech_threshold: float = -
     mech_closed = []
     stereo_ok = 0
     lls_vals = []
+    ae_vals = []
+    simplicity_vals = []
+    green_ok_count = 0
+    medchem_scores = []
+    process_scores = []
     convergent = 0
     backtrack_closed = 0
     first_disconnections = set()
@@ -100,6 +176,21 @@ def score_six_dimensions(groups_dir: Path, label: str, mech_threshold: float = -
                 stereo_ok += 1
             lls = _route_lls(rxns)
             lls_vals.append(lls)
+            ae, simp, g_ok = _route_multi_objective(r)
+            ae_vals.append(ae)
+            simplicity_vals.append(simp)
+            if g_ok:
+                green_ok_count += 1
+            medchem_scores.append(
+                pareto_preference_score(
+                    min_pr18=min_s, lls=lls, atom_economy=ae, leaf_simplicity=simp, green_ok=g_ok, mode="medchem"
+                )
+            )
+            process_scores.append(
+                pareto_preference_score(
+                    min_pr18=min_s, lls=lls, atom_economy=ae, leaf_simplicity=simp, green_ok=g_ok, mode="process"
+                )
+            )
             if len(rxns) > lls:
                 convergent += 1
             if int(sw.get("backtracks", 0) or 0) > 0:
@@ -126,6 +217,11 @@ def score_six_dimensions(groups_dir: Path, label: str, mech_threshold: float = -
         mech_retention_ratio=round(n_mech / max(n_closed, 1), 4),
         stereo_preservation_rate=round(stereo_ok / max(n_closed, 1), 4),
         mean_lls=round(statistics.mean(lls_vals), 3) if lls_vals else None,
+        mean_atom_economy=round(statistics.mean(ae_vals), 4) if ae_vals else None,
+        mean_leaf_simplicity=round(statistics.mean(simplicity_vals), 4) if simplicity_vals else None,
+        green_compliance_rate=round(green_ok_count / max(n_closed, 1), 4),
+        mean_pareto_medchem=round(statistics.mean(medchem_scores), 4) if medchem_scores else None,
+        mean_pareto_process=round(statistics.mean(process_scores), 4) if process_scores else None,
         convergent_closed=convergent,
         convergent_fraction=round(convergent / max(n_closed, 1), 4),
         backtrack_closed=backtrack_closed,
