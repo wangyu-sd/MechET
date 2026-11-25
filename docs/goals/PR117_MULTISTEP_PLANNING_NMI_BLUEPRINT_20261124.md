@@ -1,6 +1,12 @@
 # Retro-E · 多步逆合成规划后训练与 NMI 正文 6 图实战蓝图（升级定稿版）
 
-**版本：2026-11-24 CST (v2.0 · 含全量 Reference 1,084 控制器配对 + CbyD 200–300 + 五大升华实验)**  
+**版本：2026-11-25 CST (v3.0 · 2027 范式定稿版：Proof-Carrying 电子流定理证明 + 电子分叉相变 + 串联折叠 + 分子可合成性修复 + 多目标 Pareto 路由)**  
+**核心科学立意（Paradigm Shift）**：从「反应级模式检索（Reaction-Level Pattern Retrieval）」迈向 **「可验证、可调试、可组合、可修复的可执行机理规划（Proof-Carrying Executable Mechanistic Planning）」**——把有机电子流状态机升维为有机化学的形式化编译器（Chemical Lean），在物理守恒汇编语言上实现：
+1. **Proof-Carrying Synthesis**：每条合成路线均为机器逐行校验、附带双向机理证人（PR18 + 独立 FlowER 正向 + 官方 ChemCensor）的可执行物理证明；
+2. **Critical Electronic Bifurcation Landscape（电子分叉相变景观）**：在精确相同的瞬态中间电子态上，量化仅差 1 对电子流向引发的全局合成树命运相变（Fig 3 & Fig 4）；
+3. **Reaction-Boundary Dissolution（涌现式一锅法串联/多米诺折叠）**：打破离散“人名反应”边界，用连续电子流折叠文献多步级联转化（Fig 5）；
+4. **Mechanistic Synthesizability Surgeon（机理级分子可合成性外科修复）**：面对 AI 从头生成的难合成“暗空间”分子，精准定位卡死电子步并给出最小原子微调修复建议，打通“逆合成 ↔ 生成式药物设计”闭环（Fig 6d）；
+5. **Inference-Time Multi-Objective Pareto Steering**：基于严格守恒带来的精确整树原子经济性、绿色合规与起始原料简化度，免重训切换 **MedChem 模式** 与 **Process 模式**（Fig 6a/e）。
 **状态：用户确认定型方案（进入 3–4 天 8×H20 集中执行阶段）**  
 **核心原则**：完全自主（不依赖难以复现的 RetroChimera 专有权重）、所有主表数据均在 3–4 天预算内真实跑完、严格区分内部验证与独立测试、绝不将未实测的模拟目标写入正式结果。
 
@@ -87,33 +93,33 @@ $$R(\tau) = \underbrace{\mathbb{I}[\text{all-stock closed}] \cdot G_{\text{mech}
 - **d. 升华③ 独立第三方双重正向交叉验证（Zero Self-Judging）**：在 URSA 200 + Reference 1,084 新颖 `MV-Solv` 路线上，对比**冻结 FlowER (*Nature 2025*) 正向预测 Top-1/Top-3 命中率**与**官方 ChemCensor 通过率**，并展示 `Solv-2 / Solv-0` 留存率气泡图。
 - **e. 真实完整多步汇聚路线案例（RDKit 高清图）**：1 条 4–5 步同时通过 `Solv-2`、FlowER 独立正向校验与 `MV-Solv` 的完整电子流合成树。
 
-### Figure 3｜长程电子流信用反纠偏与涌现合成策略解码（5 Panels）
-- **a. 同状态电子流反事实化学案例**：同一中间电子态下，局部 PR18 更偏好的支路 A 下游成环失败，支路 B 5 步闭合到库存（附电子箭头图）。
+### Figure 3｜电子分叉相变景观（Electronic Bifurcation Landscape）、长程信用反纠偏与涌现策略（5 Panels）
+- **a. 临界电子分叉相变案例（Critical Electronic Bifurcation）**：在精确相同的瞬态中间电子态上，仅差 1 对电子流向（1 个 `FLOW` 动作），支路 A 下游成环失败，支路 B 5 步高汇聚闭合到库存（附电子箭头相变全景图）。
 - **b. Local–Global 错位与反纠偏统计**：同状态成败对比组中局部打分器偏好失败分支的比例 vs 加入 ReFIT-PO 长程信用后的逆转率。
 - **c. 公开独立集（Reference 1,084 + URSA 200）多步消融对比**：对比 `SFT → 短步(204) → Retro-E-Plan` 的 `depth ≥ 2` 闭合率与木桶机理门控闭合率（`512 clean VALID` 选点轨迹移至 Supplementary）。
 - **d. 公开测试集竞争分叉点策略概率迁移**：在 **Reference 1,084** 全部真实观测到的同电子态竞争分叉点上，对比 SFT / 短步(204) / `Retro-E-Plan` 的 $\Delta \log \pi(a_{\text{win}}) - \Delta \log \pi(a_{\text{lose}})$ 配对分布。
 - **e. 升华② 涌现合成策略定量解码**：对比 `SFT → 204 → Retro-E-Plan` 在 Reference 1,084 + CbyD 上的四类高层合成策略涌现——**非单调预备步（BertzCT/重原子数先升后降）占比、汇聚度指数、战略成环断开占比、高阶电子推动基序分布迁移**。
 
-### Figure 4｜亚反应级电子态分叉、Test-Time Compute Scaling 与冲突回跳（5 Panels，全量 1,084 升级）
+### Figure 4｜亚反应级电子态调试：Test-Time Compute Scaling 与冲突精准回跳（5 Panels，全量 1,084 升级）
 - **a. 升华① 全量 Reference 1,084 Test-Time Compute Scaling Law**：固定 `Retro-E-Plan` 权重，在完整搜索预算 `B = 8 → 16 → 32 → 64 → 128 → 256`（对数坐标）上对比 `C0 原生独立` vs `C4 反应级分叉` vs `C2 亚反应电子态分叉+冲突回跳` 的 `Solv-0 / MV-Solv` 缩放斜率。
 - **b. 全量 Reference 1,084 配对胜负矩阵**：`Electron-only (C2)` vs `Reaction-only (C4)` 净胜与 McNemar 检验（按 Linear 600 / Convergent 400 / Long 84 拆分）。
 - **c. 探索多样性与有效分支率对比**：全量 1,084 上对比 `SFT` vs `Retro-E-Plan` 的同状态不同合法电子后继数、策略熵与随预算扩展的去重路线增益。
 - **d. 公开测试集真实成环失败态全量恢复率**：在 **Reference 1,084** 全部真实发生的 `ROUTE_CYCLE` 失败态上，对比 `Retry` vs `Reaction Rewind` vs `Electron Backjump` 的完整恢复率。
-- **e. 冲突导向回跳时序图（Call Timeline）**：30+ 重原子分子从成环触发到精准回跳并全树闭合的逐调用轨迹图。
+- **e. 冲突导向回跳时序图（Debugger Call Timeline）**：30+ 重原子分子从成环触发到精准回跳责任电子步并全树闭合的逐调用轨迹图。
 
-### Figure 5｜复杂天然产物全合成（CbyD 200–300）与多步稀有断键泛化（5 Panels）
-- **a. 公开多步路线全量频率分层泛化**：对 **Reference 1,084 + CbyD 200–300** 全部真实多步预测反应步骤，按训练库先例频率全量分层（`Frequent / Rare / Novel Electron Disconnections`），报告电子流可执行率、双向可逆一致率与独立 FlowER 正向校验率。
-- **b. CbyD 200–300 复杂天然产物按 LLS 分层表现**：5–9 / 10–14 / ≥15 步的文献首步战略断键 `SDR@1`、连续两步匹配、完整闭合与旁观手性保持率。
-- **c. 天然产物案例 1（汇聚 + 非单调预备步，RDKit 大图）**：展示主动执行的官能团互变/保护 → 关键骨架汇聚断键与电子推动机理。
-- **d. 天然产物案例 2（竞争断键对比 + 化学证据分层）**：新颖电子守恒路线 vs 文献路线对照 + CbyD 200–300 全部预测步骤的证据分层（精确先例 / 类似物先例 / FlowER+PR18 双重验证新颖可行）。
-- **e. 复杂多环骨架的旁观手性守恒与步骤经济性剖析**：CbyD 200–300 上按手性中心数（0 / 1–2 / 3–5 / ≥6）分层的旁观手性保持率与 LLS 压缩比。
+### Figure 5｜复杂天然产物全合成（CbyD 240）、串联折叠与多步稀有断键泛化（5 Panels）
+- **a. 公开多步路线全量频率分层泛化**：对 **Reference 1,084 + CbyD 240** 全部真实多步预测反应步骤，按训练库先例频率全量分层（`Frequent / Rare / Novel Electron Disconnections`），报告电子流可执行率、双向可逆一致率与独立 FlowER 正向校验率。
+- **b. CbyD 240 复杂天然产物按 LLS 分层表现**：5–9 / 10–14 / ≥15 步的文献首步战略断键 `SDR@1`、连续两步匹配、完整闭合与旁观手性保持率。
+- **c. 范式高光 · 涌现式一锅法串联折叠（Reaction-Boundary Dissolution，RDKit 大图）**：展示 Retro-E 打破“人名反应”离散边界，用连续电子流一步折叠文献多步级联/汇聚转化（含非单调预备步）的电子推动机理。
+- **d. 天然产物案例 2（竞争断键对比 + 化学证据分层）**：新颖电子守恒路线 vs 文献路线对照 + CbyD 240 全部预测步骤的证据分层（精确先例 / 类似物先例 / FlowER+PR18 双重验证新颖可行）。
+- **e. 复杂多环骨架的旁观手性守恒与步骤经济性剖析**：CbyD 240 上按手性中心数（0 / 1–2 / 3–5 / ≥6）分层的旁观手性保持率与 LLS 压缩比。
 
-### Figure 6｜真实药物化学落地：可控规划、SAR 发散、AI 合成暗空间与效率账本（5 Panels）
-- **a. 六维现实合成实用性雷达图**：在公开测试集（Reference 1,084 + URSA 200）上综合对比 `SFT`、`短步(204)`、`Retro-E-Plan`、`Retro-E-Plan + 电子态搜索` 在 **闭合率、可信度留存 (`Solv-2/Solv-0`)、手性保持、步骤经济性 (LLS)、断供恢复、路线多样性** 六大维度的全面领先。
+### Figure 6｜真实药物化学闭环：多目标 Pareto、SAR 发散与「机理级分子可合成性修复」（5 Panels）
+- **a. 多维现实合成实用性雷达图（含精确原子经济性与绿色合规）**：在公开测试集（Reference 1,084 + URSA 200）上综合对比 `SFT`、`短步(204)`、`Retro-E-Plan`、`Retro-E-Plan + C2` 在 **闭合率、可信度留存 (`Solv-2/Solv-0`)、手性保持、步骤经济性 (LLS)、精确原子经济性 (Exact AE)、绿色合规与起始原料简化度** 全维度的领先。
 - **b. 公开测试集全量库存断供扰动重规划**：对 **Reference 1,084 + URSA 200** 全部闭合路线屏蔽关键非平凡砌块后的绕路重闭合率与 Top-K 不同关键断键策略数。
-- **c. 升华④ 可控约束规划与 SAR 共同关键中间体发散**：3–5 个药物/URSA 骨架系列（~40 分子）上的**禁断键/禁用试剂规避成功率**，以及将整个 SAR 系列收敛至**同一晚期共同中间体**后的总合成步数节约（附 1 个 4 分子共享核心中间体发散树图）。
-- **d. 升华⑤ AI 从头生成分子“合成暗空间”评测**：在 200–300 个公开 AI 生成药物候选分子上，对比 `Solv-0` vs `Solv-2 / MV-Solv`（揭示传统反应级规划在 AI 陌生骨架上的虚高闭合与 Retro-E 的机理可信优势），并按 SA-score / 环系新颖度分层。
-- **e. 真实计算成本与帕累托前沿**：Qwen tokens / 在线双向 PR18 / CPU Executor 耗时占比，以及 `GPU-sec / Solved Route` 效率前沿。
+- **c. 升华④ 可控约束规划与 SAR-40 共同关键中间体发散**：5 个经典临床药物骨架系列（40 分子）上的**禁断键/禁用试剂规避成功率**，以及将整个 SAR 系列收敛至**同一晚期共同中间体**后的总合成步数节约（附 4 分子共享核心中间体发散树图）。
+- **d. 升华⑤ AI 合成暗空间评测 + 「机理级分子可合成性外科修复（Synthesizability Surgeon）」**：在 250 个公开 AI 生成药物候选分子上对比 `Solv-0` vs `Solv-2 / MV-Solv`；并挑选 2–3 个被电子流精准归因出卡死电子步的失败 AI 分子，展示**最小原子微调后瞬间从不可合成变为 3 步高 `Solv-2` 闭合**的反事实修复案例。
+- **e. 免重训多目标 Pareto 切换（MedChem vs Process）与真实算力前沿**：展示同一模型仅切换偏好权重即可在 **MedChem（最短 LLS）** 与 **Process（最高机理稳健 + 精确原子经济性 + 零重金属）** 间平滑移动，并附 `GPU-sec / Solved Route` 效率账本。
 
 ---
 
