@@ -1,0 +1,6 @@
+cohort,targets,Exact tree under shared stock rule,Same first disconnection,Shared later reaction,No exact shared reaction
+All complete routes,484,99,50,13,322
+Depth 1,211,85,0,0,126
+Depth 2–4,238,14,37,12,175
+Depth ≥5,35,0,13,1,21
+Target ≥30 heavy atoms,76,11,22,2,41

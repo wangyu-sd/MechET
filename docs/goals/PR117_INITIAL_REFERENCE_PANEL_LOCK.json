@@ -1,0 +1,36 @@
+{
+  "phase": "reference_panel_preregistered",
+  "decision": "CONTINUE",
+  "panel_sha256": "d636556eb0c77870aa9fadac9cc3381902f198a216c3017845a47c56a6165798",
+  "targets": 24,
+  "arms": [
+    "C0_original",
+    "C1_compact_route_context",
+    "C2_early_FLOW_and_backjump",
+    "C4_completed_reaction_first"
+  ],
+  "per_target_arm_request_cap": 30,
+  "total_primary_screen_cap": 2880,
+  "stock_source_by_cohort": {
+    "ref-lin-600": "n5-stock",
+    "ref-cnv-400": "n5-stock",
+    "ref-lng-84": "n1-n5-stock"
+  },
+  "actor_sha256": "2c98a9bff3afeaffbf2ee2733885cccc68e936f9310fd9f46ba4ee2211e5f453",
+  "checked_exact_product_exposure": [
+    "actual Stage-II SFT train",
+    "all D3 train roots"
+  ],
+  "retained_in_denominator": "All frozen targets including budget-censored targets",
+  "matched_cost_fields": [
+    "actual requests incl. duplicates and rejects",
+    "total generated tokens",
+    "wall seconds",
+    "GPU hours",
+    "executor calls"
+  ],
+  "primary_metric": "paired count of nonzero-step acyclic all-AND-stock closed targets",
+  "new_qwen_requests": 0,
+  "new_generated_tokens": 0,
+  "new_gpu_hours": 0
+}
